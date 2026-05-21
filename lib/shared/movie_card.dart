@@ -53,7 +53,7 @@ class MovieCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.7),
+                        color: Colors.black.withValues(alpha: 0.7),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Text(
@@ -70,7 +70,7 @@ class MovieCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: progress.clamp(0.0, 1.0),
                       minHeight: 3,
-                      backgroundColor: Colors.black.withOpacity(0.3),
+                      backgroundColor: Colors.black.withValues(alpha: 0.3),
                     ),
                   ),
               ],

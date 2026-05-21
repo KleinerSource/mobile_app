@@ -28,9 +28,9 @@ void main() {
     await tester.pumpWidget(
       wrap(
         TargetPlatform.iOS,
-        AppTabsShell(tabs: [
-          AppTabItem(icon: CupertinoIcons.film, label: 'A', body: const SizedBox.shrink()),
-          AppTabItem(icon: CupertinoIcons.star, label: 'B', body: const SizedBox.shrink()),
+        const AppTabsShell(tabs: [
+          AppTabItem(icon: CupertinoIcons.film, label: 'A', body: SizedBox.shrink()),
+          AppTabItem(icon: CupertinoIcons.star, label: 'B', body: SizedBox.shrink()),
         ]),
       ),
     );
@@ -41,9 +41,9 @@ void main() {
     await tester.pumpWidget(
       wrap(
         TargetPlatform.android,
-        AppTabsShell(tabs: [
-          AppTabItem(icon: Icons.movie, label: 'A', body: const SizedBox.shrink()),
-          AppTabItem(icon: Icons.star, label: 'B', body: const SizedBox.shrink()),
+        const AppTabsShell(tabs: [
+          AppTabItem(icon: Icons.movie, label: 'A', body: SizedBox.shrink()),
+          AppTabItem(icon: Icons.star, label: 'B', body: SizedBox.shrink()),
         ]),
       ),
     );

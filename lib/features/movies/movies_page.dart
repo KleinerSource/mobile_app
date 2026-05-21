@@ -68,7 +68,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     return AppScaffold(
       body: CustomScrollView(
         slivers: [
-          AppLargeNavBar(title: '影片'),
+          const AppLargeNavBar(title: '影片'),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
