@@ -2,13 +2,7 @@ name: iOS Build (unsigned)
 
 on:
   push:
-    paths:
-      - 'mobile_app/**'
-      - '.github/workflows/ios-build.yml'
   pull_request:
-    paths:
-      - 'mobile_app/**'
-      - '.github/workflows/ios-build.yml'
   workflow_dispatch:
 
 concurrency:
@@ -19,9 +13,6 @@ jobs:
   build:
     runs-on: macos-26
     timeout-minutes: 45
-    defaults:
-      run:
-        working-directory: mobile_app
     steps:
       - uses: actions/checkout@v4
 
@@ -83,5 +74,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: md_center-ipa-unsigned
-          path: mobile_app/build/ios/iphoneos/md_center.ipa
+          path: build/ios/iphoneos/md_center.ipa
           retention-days: 14
