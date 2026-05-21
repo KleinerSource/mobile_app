@@ -1,0 +1,87 @@
+name: iOS Build (unsigned)
+
+on:
+  push:
+    paths:
+      - 'mobile_app/**'
+      - '.github/workflows/ios-build.yml'
+  pull_request:
+    paths:
+      - 'mobile_app/**'
+      - '.github/workflows/ios-build.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile_app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.x'
+          channel: stable
+          cache: true
+
+      - name: Flutter doctor
+        run: flutter doctor -v
+
+      # Bootstrap：本地无 SDK，没法跑 flutter create；首跑由 CI 补齐 ios/
+      - name: Bootstrap ios/ if missing
+        run: |
+          if [ ! -d ios ]; then
+            echo "ios/ not found, scaffolding via flutter create"
+            flutter create . \
+              --platforms=ios \
+              --org com.kleinersource.mdcenter \
+              --project-name md_center \
+              --description "md_center 移动端"
+            # iOS deployment target 16.0
+            sed -i '' "s/# platform :ios, '12.0'/platform :ios, '16.0'/" ios/Podfile || true
+            sed -i '' "s/platform :ios, '12.0'/platform :ios, '16.0'/" ios/Podfile || true
+            sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/IPHONEOS_DEPLOYMENT_TARGET = 16.0;/g" ios/Runner.xcodeproj/project.pbxproj || true
+            sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/IPHONEOS_DEPLOYMENT_TARGET = 16.0;/g" ios/Runner.xcodeproj/project.pbxproj || true
+          else
+            echo "ios/ exists, skipping bootstrap"
+          fi
+
+      - name: pub get
+        run: flutter pub get
+
+      - name: build_runner
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: analyze
+        run: flutter analyze
+
+      - name: test
+        run: flutter test
+
+      - name: Pod install
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: build ios (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: 打包 unsigned .ipa
+        run: |
+          cd build/ios/iphoneos
+          mkdir Payload
+          cp -r Runner.app Payload/
+          zip -qr md_center.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: md_center-ipa-unsigned
+          path: mobile_app/build/ios/iphoneos/md_center.ipa
+          retention-days: 14
