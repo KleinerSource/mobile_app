@@ -43,6 +43,8 @@ jobs:
           else
             echo "ios/ exists, skipping bootstrap"
           fi
+          # 删除 flutter create 生成的 counter 模板测试，避免 analyze 失败
+          rm -f test/widget_test.dart
 
       - name: pub get
         run: flutter pub get
