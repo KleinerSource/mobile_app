@@ -4,7 +4,13 @@ import 'package:md_center/core/models/movie.dart';
 import 'package:md_center/shared/movie_card.dart';
 
 void main() {
-  Widget wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+  Widget wrap(Widget child) => MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(width: 120, child: child),
+          ),
+        ),
+      );
 
   testWidgets('显示标题', (tester) async {
     await tester.pumpWidget(wrap(MovieCard(
