@@ -63,4 +63,10 @@ class _StubMoviesApi implements MoviesApi {
   @override
   Future<dynamic> getWatchRecord(int id) async =>
       {'success': true, 'message': 'ok', 'data': null};
+
+  @override
+  Future<dynamic> getExtraFanarts(int id) async => <String>[];
+
+  @override
+  Future<dynamic> getMediaInfo(int id) async => <String, dynamic>{};
 }

@@ -4,6 +4,7 @@ import '../config/server_config.dart';
 import 'dio_factory.dart';
 import 'services/actors_api.dart';
 import 'services/directories_api.dart';
+import 'services/favorites_api.dart';
 import 'services/genres_api.dart';
 import 'services/movies_api.dart';
 import 'services/series_api.dart';
@@ -14,6 +15,7 @@ class ApiClient {
   ApiClient(this.dio)
       : system = SystemApi(dio),
         movies = MoviesApi(dio),
+        favorites = FavoritesApi(dio),
         tags = TagsApi(dio),
         genres = GenresApi(dio),
         series = SeriesApi(dio),
@@ -25,6 +27,7 @@ class ApiClient {
   final Dio dio;
   final SystemApi system;
   final MoviesApi movies;
+  final FavoritesApi favorites;
   final TagsApi tags;
   final GenresApi genres;
   final SeriesApi series;
