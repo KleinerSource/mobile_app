@@ -11,7 +11,6 @@ import '../../shared/filter_chip.dart';
 import '../../shared/poster.dart';
 import '../favorites/favorites_providers.dart';
 import '../movies/movies_providers.dart';
-import 'movie_detail_providers.dart';
 
 class MovieDetailPage extends ConsumerWidget {
   const MovieDetailPage({super.key, required this.movieId});

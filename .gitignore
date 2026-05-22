@@ -32,3 +32,6 @@ android/app/debug/
 
 # Generated
 .fvm/
+
+# Superpowers brainstorming session
+.superpowers/

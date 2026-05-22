@@ -16,24 +16,24 @@ class ApiClient {
   ApiClient(this.dio)
       : system = SystemApi(dio),
         movies = MoviesApi(dio),
+        favorites = FavoritesApi(dio),
+        libraries = LibrariesApi(dio),
         tags = TagsApi(dio),
         genres = GenresApi(dio),
         series = SeriesApi(dio),
         actors = ActorsApi(dio),
-        directories = DirectoriesApi(dio),
-        favorites = FavoritesApi(dio),
-        libraries = LibrariesApi(dio);
+        directories = DirectoriesApi(dio);
 
   factory ApiClient.fromConfig(ServerConfig config) => ApiClient(buildDio(config));
 
   final Dio dio;
   final SystemApi system;
   final MoviesApi movies;
+  final FavoritesApi favorites;
+  final LibrariesApi libraries;
   final TagsApi tags;
   final GenresApi genres;
   final SeriesApi series;
   final ActorsApi actors;
   final DirectoriesApi directories;
-  final FavoritesApi favorites;
-  final LibrariesApi libraries;
 }

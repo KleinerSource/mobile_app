@@ -2,13 +2,7 @@ name: Android Build
 
 on:
   push:
-    paths:
-      - 'mobile_app/**'
-      - '.github/workflows/android-build.yml'
   pull_request:
-    paths:
-      - 'mobile_app/**'
-      - '.github/workflows/android-build.yml'
   workflow_dispatch:
 
 concurrency:
@@ -19,9 +13,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: mobile_app
     steps:
       - uses: actions/checkout@v4
 
@@ -56,6 +47,8 @@ jobs:
           else
             echo "android/ exists, skipping bootstrap"
           fi
+          # 删除 flutter create 生成的 counter 模板测试，避免 analyze 失败
+          rm -f test/widget_test.dart
 
       - name: pub get
         run: flutter pub get
@@ -75,5 +68,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: md_center-apk
-          path: mobile_app/build/app/outputs/flutter-apk/app-*-release.apk
+          path: build/app/outputs/flutter-apk/app-*-release.apk
           retention-days: 14
