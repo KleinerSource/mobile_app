@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:md_center/core/api/services/favorites_api.dart';
 import 'package:md_center/core/api/services/movies_api.dart';
 import 'package:md_center/features/movies/movie_filter.dart';
 import 'package:md_center/features/movies/movies_repository.dart';
@@ -17,7 +18,7 @@ void main() {
         'offset': 0,
       }
     });
-    final repo = MoviesRepository(api);
+    final repo = MoviesRepository(api, _StubFavoritesApi());
     final paged = await repo.list(const MovieFilter(), limit: 50, offset: 0);
     expect(paged.items.first.id, 7);
     expect(paged.items.first.title, 'A');
@@ -33,7 +34,7 @@ void main() {
       'message': 'ok',
       'data': {'id': 9, 'title': 'D'}
     });
-    final repo = MoviesRepository(api);
+    final repo = MoviesRepository(api, _StubFavoritesApi());
     final d = await repo.detail(9);
     expect(d.id, 9);
     expect(d.title, 'D');
@@ -69,4 +70,15 @@ class _StubMoviesApi implements MoviesApi {
 
   @override
   Future<dynamic> getMediaInfo(int id) async => <String, dynamic>{};
+}
+
+class _StubFavoritesApi implements FavoritesApi {
+  bool nextIsFavorited = true;
+
+  @override
+  Future<dynamic> toggle(int movieId) async => {
+        'success': true,
+        'message': 'ok',
+        'data': {'movie_id': movieId, 'is_favorited': nextIsFavorited},
+      };
 }

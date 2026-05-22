@@ -9,7 +9,7 @@ final movieFilterProvider = StateProvider<MovieFilter>((_) => const MovieFilter(
 
 final moviesRepositoryProvider = Provider<MoviesRepository>((ref) {
   final client = ref.watch(requiredApiClientProvider);
-  return MoviesRepository(client.movies);
+  return MoviesRepository(client.movies, client.favorites);
 });
 
 /// 海报/图片 URL 构造器。
