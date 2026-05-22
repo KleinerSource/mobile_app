@@ -1,11 +1,12 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
-import '../../core/platform/platform.dart';
+import '../../core/ui/app_scaffold.dart';
+import '../../core/ui/app_search_field.dart';
+import '../../core/ui/tokens.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
 import '../../shared/movie_card.dart';
@@ -41,7 +42,8 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   Future<void> _fetch(int offset) async {
     try {
       final repo = ref.read(moviesRepositoryProvider);
-      final page = await repo.list(_currentFilter, limit: _pageSize, offset: offset);
+      final page = await repo.list(_currentFilter,
+          limit: _pageSize, offset: offset);
       final nextOffset = offset + page.items.length;
       if (nextOffset >= page.totalCount || page.items.isEmpty) {
         _controller.appendLastPage(page.items);
@@ -53,43 +55,44 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     }
   }
 
-  void _onFilterChanged(MovieFilter newFilter) {
-    if (newFilter == _currentFilter) return;
-    setState(() => _currentFilter = newFilter);
-    ref.read(movieFilterProvider.notifier).state = newFilter;
+  void _onSubmitted(String v) {
+    final next = _currentFilter.copyWith(search: v);
+    if (next == _currentFilter) return;
+    setState(() => _currentFilter = next);
+    ref.read(movieFilterProvider.notifier).state = next;
     _controller.refresh();
   }
 
   @override
   Widget build(BuildContext context) {
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
-    final crossAxisCount = MediaQuery.of(context).size.width > 600 ? 4 : 2;
+    final c = Theme.of(context).extension<AppColors>()!;
 
     return AppScaffold(
-      body: CustomScrollView(
+      body: AppPage(
+        title: '影片库',
         slivers: [
-          const AppLargeNavBar(title: '影片'),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.l, 0, AppSpacing.l, AppSpacing.m,
+              ),
               child: AppSearchField(
                 controller: _searchController,
-                placeholder: '搜索影片',
-                onSubmitted: (v) {
-                  _onFilterChanged(_currentFilter.copyWith(search: v));
-                },
+                placeholder: '搜索片名 / 演员 / 标签',
+                onSubmitted: _onSubmitted,
               ),
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m),
             sliver: PagedSliverGrid<int, MovieListItem>(
               pagingController: _controller,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
                 childAspectRatio: 0.55,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
+                mainAxisSpacing: AppSpacing.s,
+                crossAxisSpacing: AppSpacing.s,
               ),
               builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
                 itemBuilder: (ctx, item, idx) => MovieCard(
@@ -101,16 +104,20 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                   onRetry: () => _controller.refresh(),
                 ),
                 newPageErrorIndicatorBuilder: (_) => Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.l),
                   child: TextButton(
                     onPressed: () => _controller.retryLastFailedRequest(),
-                    child: Text('加载失败，点击重试：${_controller.error}'),
+                    child: Text(
+                      '加载失败，点击重试：${_controller.error}',
+                      style: TextStyle(color: c.brand),
+                    ),
                   ),
                 ),
                 noItemsFoundIndicatorBuilder: (_) =>
                     const EmptyView(message: '没有找到符合条件的影片'),
-                firstPageProgressIndicatorBuilder: (_) =>
-                    const Center(child: CupertinoActivityIndicator()),
+                firstPageProgressIndicatorBuilder: (_) => Center(
+                  child: CircularProgressIndicator(color: c.brand),
+                ),
               ),
             ),
           ),
