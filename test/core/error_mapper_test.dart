@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/api_exception.dart';
 import 'package:md_center/core/api/error_mapper.dart';
 
 void main() {

@@ -53,7 +53,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       await ref
           .read(serverConfigProvider.notifier)
           .save(ServerConfig(baseUrl: normalized));
-      if (mounted) Navigator.of(context).maybePop();
+      if (mounted) await Navigator.of(context).maybePop();
     } catch (e) {
       setState(() => _error = toApiException(e).message);
     } finally {

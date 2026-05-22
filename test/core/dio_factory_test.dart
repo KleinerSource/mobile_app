@@ -26,7 +26,7 @@ void main() {
   });
 }
 
-class _StubAdapter extends HttpClientAdapter {
+class _StubAdapter implements HttpClientAdapter {
   _StubAdapter(this.body);
   final Map<String, dynamic> body;
 
