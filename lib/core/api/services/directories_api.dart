@@ -8,5 +8,5 @@ abstract class DirectoriesApi {
   factory DirectoriesApi(Dio dio, {String baseUrl}) = _DirectoriesApi;
 
   @GET('/directories')
-  Future<Map<String, dynamic>> list(@Queries() Map<String, dynamic> q);
+  Future<dynamic> list(@Queries() Map<String, dynamic> q);
 }

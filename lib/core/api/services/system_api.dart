@@ -8,11 +8,11 @@ abstract class SystemApi {
   factory SystemApi(Dio dio, {String baseUrl}) = _SystemApi;
 
   @GET('/health')
-  Future<Map<String, dynamic>> health();
+  Future<dynamic> health();
 
   @GET('/version')
-  Future<Map<String, dynamic>> version();
+  Future<dynamic> version();
 
   @GET('/database/stats')
-  Future<Map<String, dynamic>> stats();
+  Future<dynamic> stats();
 }

@@ -8,5 +8,5 @@ abstract class SeriesApi {
   factory SeriesApi(Dio dio, {String baseUrl}) = _SeriesApi;
 
   @GET('/series')
-  Future<Map<String, dynamic>> list(@Queries() Map<String, dynamic> q);
+  Future<dynamic> list(@Queries() Map<String, dynamic> q);
 }

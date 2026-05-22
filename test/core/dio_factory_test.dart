@@ -19,9 +19,15 @@ void main() {
       'data': null,
     });
     dio.httpClientAdapter = adapter;
-    expect(
-      () => dio.get<dynamic>('/x'),
-      throwsA(isA<ApiException>().having((e) => e.message, 'message', '业务失败')),
+    await expectLater(
+      dio.get<dynamic>('/x'),
+      throwsA(
+        isA<DioException>().having(
+          (e) => e.error,
+          'error',
+          isA<ApiException>().having((e) => e.message, 'message', '业务失败'),
+        ),
+      ),
     );
   });
 }

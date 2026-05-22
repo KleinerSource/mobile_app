@@ -48,19 +48,19 @@ class _StubMoviesApi implements MoviesApi {
   Map<String, dynamic>? lastQuery;
 
   @override
-  Future<Map<String, dynamic>> getMovies(Map<String, dynamic> q) async {
+  Future<dynamic> getMovies(Map<String, dynamic> q) async {
     lastQuery = q;
     return listResp;
   }
 
   @override
-  Future<Map<String, dynamic>> getMovieDetail(int id) async => detail!;
+  Future<dynamic> getMovieDetail(int id) async => detail!;
 
   @override
-  Future<Map<String, dynamic>> upsertWatchRecord(int id, Map<String, dynamic> body) async =>
+  Future<dynamic> upsertWatchRecord(int id, Map<String, dynamic> body) async =>
       {'success': true, 'message': 'ok', 'data': null};
 
   @override
-  Future<Map<String, dynamic>> getWatchRecord(int id) async =>
+  Future<dynamic> getWatchRecord(int id) async =>
       {'success': true, 'message': 'ok', 'data': null};
 }
