@@ -1,6 +1,8 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'actor.dart';
+import 'related_file.dart';
+import 'related_movie.dart';
 import 'resource.dart';
 
 part 'movie.freezed.dart';
@@ -57,6 +59,9 @@ class MovieDetail with _$MovieDetail {
     String? country,
     String? trailer,
     @JsonKey(name: 'file_path') String? filePath,
+    @JsonKey(name: 'file_size') int? fileSize,
+    @JsonKey(name: 'last_downloaded_at') String? lastDownloadedAt,
+    @JsonKey(name: 'movie_part') String? moviePart,
     @JsonKey(name: 'poster_uuid') String? posterUuid,
     @JsonKey(name: 'fanart_uuid') String? fanartUuid,
     @JsonKey(name: 'has_external_subtitle') @Default(false) bool hasExternalSubtitle,
@@ -66,6 +71,12 @@ class MovieDetail with _$MovieDetail {
     @Default(<ActorItem>[]) List<ActorItem> actors,
     ResourceItem? series,
     @JsonKey(name: 'watch_record') WatchRecordSummary? watchRecord,
+    @JsonKey(name: 'part_movies')
+    @Default(<RelatedMovie>[]) List<RelatedMovie> partMovies,
+    @JsonKey(name: 'actor_related_movies')
+    @Default(<RelatedMovie>[]) List<RelatedMovie> actorRelatedMovies,
+    @JsonKey(name: 'related_files')
+    @Default(<RelatedFile>[]) List<RelatedFile> relatedFiles,
   }) = _MovieDetail;
 
   factory MovieDetail.fromJson(Map<String, dynamic> json) =>
