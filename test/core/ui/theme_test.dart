@@ -23,5 +23,6 @@ void main() {
     expect(l.badgeUpdated, d.badgeUpdated);
     expect(l.badgeFavorited, d.badgeFavorited);
     expect(l.badgeCompleted, d.badgeCompleted);
+    expect(l.badgeSubtitle, d.badgeSubtitle);
   });
 }
