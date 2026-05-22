@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>md_center · v8 · First Launch · Server Setup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; -webkit-font-smoothing: antialiased; }
+  body {
+    padding: 56px 32px; min-height: 100vh; color: #fff;
+    background:
+      radial-gradient(ellipse at 10% 10%, #4d3d5e 0%, transparent 40%),
+      radial-gradient(ellipse at 90% 90%, #3d4d5e 0%, transparent 40%),
+      #0d0d12;
+  }
+  .hdr { max-width: 1800px; margin: 0 auto 48px; }
+  .hdr h1 { font-weight: 800; font-size: 30px; letter-spacing: -0.03em; margin: 0 0 10px; }
+  .hdr .tag { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; font-weight: 700; }
+  .hdr .desc { font-size: 14px; color: #c5c5d0; margin-top: 12px; max-width: 800px; line-height: 1.6; }
+  .canvas { max-width: 1800px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 40px; }
+  .col { display: flex; flex-direction: column; align-items: center; }
+  .lbl { margin-bottom: 18px; text-align: left; width: 100%; max-width: 420px; }
+  .lbl .pill { display: inline-block; padding: 4px 10px; border-radius: 100px; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  .lbl .pill.dark { background: #1a1a22; color: #fff; border: 1px solid #2a2a35; }
+  .lbl .pill.light { background: #fff; color: #000; }
+  .lbl .name { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
+  .lbl .desc { font-size: 11.5px; color: #b8b3c0; margin-top: 6px; line-height: 1.45; }
+  .scroll-hide::-webkit-scrollbar { display: none; }
+  .scroll-hide { scrollbar-width: none; }
+  @media (max-width: 1600px) { .canvas { grid-template-columns: repeat(2, 1fr); gap: 56px; } }
+  @media (max-width: 900px) { .canvas { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="tag">md_center · iOS · v8 · First-Launch Server Setup (HTTPS only)</div>
+  <h1>首次打开 · 服务器配置流程 · 4 个状态</h1>
+  <div class="desc">
+    用户首次打开 App 看到的屏。4 个交互状态横向展示完整流程:
+    (1) Empty - 空输入引导态 · (2) Typing - 输入中带 https 校验 · (3) Error - 非 HTTPS 拦截 · (4) Success - 连接成功跳 Library。
+    仅暗版,因首屏需要建立信任和聚焦,暗底更稳重。HTTPS 校验是核心:不允许 http,不允许 IP 裸连。
+  </div>
+</div>
+
+<div class="canvas" id="root"></div>
+
+<script type="text/babel" data-presets="react">
+
+// =============== IosFrame ===============
+const ifs = {
+  wrap: { display: 'inline-block', padding: 11, background: '#111', borderRadius: 56, boxShadow: '0 0 0 2px #2a2a35, 0 30px 80px rgba(0,0,0,0.6)', position: 'relative' },
+  scr: { position: 'relative', borderRadius: 45, overflow: 'hidden' },
+  sb: { position: 'absolute', top: 0, left: 0, right: 0, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', fontSize: 16, fontWeight: 600, fontFamily: '-apple-system, sans-serif', zIndex: 50, pointerEvents: 'none' },
+  di: { position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', width: 124, height: 36, background: '#000', borderRadius: 999, zIndex: 60 },
+  si: { display: 'flex', alignItems: 'center', gap: 6 },
+  bar: { width: 3, background: 'currentColor', borderRadius: 1 },
+  bat: { width: 26, height: 12, border: '1.5px solid currentColor', borderRadius: 3, padding: 1, position: 'relative', opacity: 0.85 },
+  cap: { position: 'absolute', top: 3, right: -3, width: 2, height: 6, background: 'currentColor', borderRadius: '0 1px 1px 0' },
+  ct: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'auto' },
+  hi: { position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: 140, height: 5, borderRadius: 999, zIndex: 40 },
+};
+function IosFrame({ children, bg = '#0F0E14' }) {
+  return (
+    <div style={ifs.wrap}>
+      <div style={{ ...ifs.scr, width: 393, height: 852, background: bg }}>
+        <div style={{ ...ifs.sb, color: '#fff' }}>
+          <span>9:41</span>
+          <div style={ifs.si}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 12 }}>
+              <div style={{ ...ifs.bar, height: 4 }}/><div style={{ ...ifs.bar, height: 6 }}/>
+              <div style={{ ...ifs.bar, height: 9 }}/><div style={{ ...ifs.bar, height: 11 }}/>
+            </div>
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+              <path d="M8 11.5a1 1 0 100-2 1 1 0 000 2z" fill="currentColor"/>
+              <path d="M3 7.5a7 7 0 0110 0" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round"/>
+              <path d="M1 4.5a11 11 0 0114 0" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round" opacity="0.7"/>
+            </svg>
+            <div style={ifs.bat}>
+              <div style={{ width: '82%', height: '100%', background: 'currentColor', borderRadius: 1 }}/>
+              <div style={ifs.cap}/>
+            </div>
+          </div>
+        </div>
+        <div style={ifs.di}/>
+        <div style={ifs.ct}>{children}</div>
+        <div style={{ ...ifs.hi, background: 'rgba(255,255,255,0.55)' }}/>
+      </div>
+    </div>
+  );
+}
+
+const COLORS = {
+  bg: '#0F0E14',
+  text: '#fff',
+  text2: '#d8d4e0',
+  muted: '#9a96a8',
+  muted2: '#6e6a7a',
+  accent: '#B888FF',
+  ok: '#34D399',
+  err: '#FB7185',
+  cardBg: 'rgba(255,255,255,0.04)',
+  cardBorder: '1px solid rgba(255,255,255,0.06)',
+  inputBg: 'rgba(255,255,255,0.06)',
+  divider: 'rgba(255,255,255,0.06)',
+};
+
+// 装饰光晕 + 大 wordmark
+function Backdrop({ state }) {
+  const glowColor = state === 'success' ? '#34D399' : state === 'error' ? '#FB7185' : '#7C4DFF';
+  const glow2Color = state === 'success' ? '#10B981' : state === 'error' ? '#F472B6' : '#FF6B9D';
+  return (
+    <>
+      <div style={{
+        position: 'absolute', top: -150, left: -100, width: 480, height: 480, borderRadius: '50%',
+        background: `radial-gradient(circle, ${glowColor}, transparent 70%)`,
+        filter: 'blur(100px)', opacity: 0.28, pointerEvents: 'none',
+        transition: 'all 0.6s',
+      }}/>
+      <div style={{
+        position: 'absolute', top: 280, right: -120, width: 340, height: 340, borderRadius: '50%',
+        background: `radial-gradient(circle, ${glow2Color}, transparent 70%)`,
+        filter: 'blur(80px)', opacity: 0.22, pointerEvents: 'none',
+        transition: 'all 0.6s',
+      }}/>
+    </>
+  );
+}
+
+function Wordmark() {
+  return (
+    <div style={{ textAlign: 'center', marginBottom: 28 }}>
+      <div style={{
+        fontFamily: 'Inter', fontWeight: 900, fontSize: 28, letterSpacing: '-0.04em',
+        display: 'inline-flex', alignItems: 'baseline',
+      }}>
+        md<span style={{ color: '#B888FF' }}>_</span>center
+      </div>
+      <div style={{
+        marginTop: 8, fontSize: 11.5, color: COLORS.muted, fontWeight: 700,
+        letterSpacing: '0.25em', textTransform: 'uppercase',
+      }}>Your private film library</div>
+    </div>
+  );
+}
+
+// ==========================================
+// 共用屏壳
+// ==========================================
+function SetupShell({ state, inputValue, hint, hintColor, button, footer, extra }) {
+  return (
+    <div style={{ minHeight: '100%', background: COLORS.bg, color: COLORS.text, position: 'relative', overflow: 'hidden' }}>
+      <Backdrop state={state}/>
+      <div style={{ paddingTop: 90, paddingBottom: 32, position: 'relative', zIndex: 2 }}>
+        <Wordmark/>
+
+        {/* Hero / Status visual */}
+        <div style={{ padding: '0 28px 22px' }}>
+          {state === 'empty' && <EmptyHero/>}
+          {state === 'typing' && <InputHero state="typing" value={inputValue} hint={hint} hintColor={hintColor}/>}
+          {state === 'error' && <InputHero state="error" value={inputValue} hint={hint} hintColor={hintColor}/>}
+          {state === 'success' && <SuccessHero/>}
+        </div>
+
+        {extra}
+
+        {/* Bottom action */}
+        <div style={{ padding: '0 28px', position: 'absolute', bottom: 80, left: 0, right: 0 }}>
+          {button}
+          {footer && <div style={{
+            marginTop: 18, textAlign: 'center', fontSize: 11.5, color: COLORS.muted2, fontWeight: 500, lineHeight: 1.5,
+          }}>{footer}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 状态 1 · Empty
+// ==========================================
+function EmptyHero() {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      {/* Lock + cloud illustration (pure CSS) */}
+      <div style={{ marginBottom: 28, position: 'relative', display: 'inline-block' }}>
+        <div style={{
+          width: 96, height: 96, borderRadius: 24,
+          background: 'linear-gradient(135deg, rgba(124,77,255,0.25), rgba(255,107,157,0.18))',
+          border: '1px solid rgba(184,136,255,0.3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 12px 36px rgba(124,77,255,0.25)',
+        }}>
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <rect x="9" y="18" width="22" height="16" rx="2.5" stroke="#fff" strokeWidth="2" fill="none"/>
+            <path d="M14 18 V12 a6 6 0 0 1 12 0 V18" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round"/>
+            <circle cx="20" cy="25" r="2" fill="#B888FF"/>
+            <line x1="20" y1="27" x2="20" y2="30" stroke="#B888FF" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </div>
+        {/* HTTPS badge */}
+        <div style={{
+          position: 'absolute', bottom: -6, right: -8,
+          padding: '4px 8px', background: COLORS.ok,
+          borderRadius: 100, fontSize: 9, fontWeight: 800, color: '#0a0a0c',
+          letterSpacing: '0.1em', fontFamily: 'ui-monospace',
+          boxShadow: '0 4px 12px rgba(52, 211, 153, 0.4)',
+        }}>HTTPS</div>
+      </div>
+
+      <div style={{
+        fontWeight: 800, fontSize: 26, letterSpacing: '-0.025em', lineHeight: 1.15, marginBottom: 10,
+      }}>Connect to your<br/>media server</div>
+      <div style={{
+        fontSize: 14, color: COLORS.muted, fontWeight: 500, lineHeight: 1.55, padding: '0 12px',
+      }}>
+        Enter the secure address of your self-hosted library. We require HTTPS to keep your data safe in transit.
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 状态 2/3 · Typing / Error
+// ==========================================
+function InputHero({ state, value, hint, hintColor }) {
+  const isErr = state === 'error';
+  const borderColor = isErr ? COLORS.err : COLORS.accent;
+  return (
+    <div>
+      <div style={{
+        fontWeight: 800, fontSize: 24, letterSpacing: '-0.025em', lineHeight: 1.15, marginBottom: 10, textAlign: 'center',
+      }}>Server address</div>
+      <div style={{
+        fontSize: 13, color: COLORS.muted, fontWeight: 500, lineHeight: 1.5, padding: '0 12px', marginBottom: 28, textAlign: 'center',
+      }}>
+        Use the full URL including <span style={{ fontFamily: 'ui-monospace', color: COLORS.text2, fontWeight: 600 }}>https://</span>
+      </div>
+
+      <div style={{
+        background: COLORS.inputBg,
+        border: `2px solid ${borderColor}`,
+        borderRadius: 14, padding: '14px 16px',
+        boxShadow: `0 0 0 4px ${borderColor}1f, 0 8px 24px rgba(0,0,0,0.35)`,
+        transition: 'all 0.2s',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <PrefixIcon state={state}/>
+          <div style={{
+            flex: 1, fontSize: 15, fontWeight: 600, color: COLORS.text,
+            fontFamily: 'ui-monospace, SF Mono, monospace', letterSpacing: '-0.01em',
+            display: 'flex', alignItems: 'center',
+          }}>
+            {value}
+            {state === 'typing' && <div style={{
+              width: 2, height: 18, background: COLORS.accent, marginLeft: 2,
+              animation: 'blink 1s steps(2) infinite',
+            }}/>}
+          </div>
+          {state === 'typing' && value && (
+            <div style={{
+              width: 22, height: 22, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="9" height="9" viewBox="0 0 9 9"><line x1="2" y1="2" x2="7" y2="7" stroke={COLORS.muted} strokeWidth="1.4"/><line x1="7" y1="2" x2="2" y2="7" stroke={COLORS.muted} strokeWidth="1.4"/></svg>
+            </div>
+          )}
+          {isErr && <ErrorIcon/>}
+        </div>
+      </div>
+
+      {/* Hint */}
+      <div style={{
+        marginTop: 12, padding: '0 4px', fontSize: 12.5, fontWeight: 600, color: hintColor,
+        display: 'flex', alignItems: 'flex-start', gap: 8,
+      }}>
+        {hint && <div style={{
+          width: 16, height: 16, borderRadius: '50%',
+          background: isErr ? `${COLORS.err}30` : `${COLORS.accent}30`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1,
+        }}>
+          {isErr ? (
+            <svg width="9" height="9" viewBox="0 0 9 9"><line x1="2" y1="2" x2="7" y2="7" stroke={COLORS.err} strokeWidth="1.6" strokeLinecap="round"/><line x1="7" y1="2" x2="2" y2="7" stroke={COLORS.err} strokeWidth="1.6" strokeLinecap="round"/></svg>
+          ) : (
+            <svg width="9" height="9" viewBox="0 0 9 9"><circle cx="4.5" cy="4.5" r="3.5" stroke={COLORS.accent} strokeWidth="1.4" fill="none"/><line x1="4.5" y1="3" x2="4.5" y2="5" stroke={COLORS.accent} strokeWidth="1.5" strokeLinecap="round"/><circle cx="4.5" cy="6.5" r="0.6" fill={COLORS.accent}/></svg>
+          )}
+        </div>}
+        <div style={{ flex: 1, lineHeight: 1.45 }}>{hint}</div>
+      </div>
+    </div>
+  );
+}
+
+function PrefixIcon({ state }) {
+  const c = state === 'error' ? COLORS.err : state === 'success' ? COLORS.ok : COLORS.accent;
+  return (
+    <div style={{
+      width: 28, height: 28, borderRadius: 7,
+      background: `${c}20`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    }}>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <rect x="3" y="6.5" width="8" height="5.5" rx="1" stroke={c} strokeWidth="1.5" fill="none"/>
+        <path d="M4.5 6.5 V4.5 a2.5 2.5 0 0 1 5 0 V6.5" stroke={c} strokeWidth="1.5" fill="none"/>
+      </svg>
+    </div>
+  );
+}
+
+function ErrorIcon() {
+  return (
+    <div style={{
+      width: 22, height: 22, borderRadius: '50%', background: COLORS.err,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <svg width="10" height="10" viewBox="0 0 10 10">
+        <line x1="2.5" y1="2.5" x2="7.5" y2="7.5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round"/>
+        <line x1="7.5" y1="2.5" x2="2.5" y2="7.5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round"/>
+      </svg>
+    </div>
+  );
+}
+
+// ==========================================
+// 状态 4 · Success
+// ==========================================
+function SuccessHero() {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{
+        marginBottom: 28, display: 'inline-block', position: 'relative',
+      }}>
+        <div style={{
+          width: 100, height: 100, borderRadius: '50%',
+          background: 'linear-gradient(135deg, rgba(52,211,153,0.3), rgba(16,185,129,0.18))',
+          border: `2px solid ${COLORS.ok}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 12px 40px ${COLORS.ok}50`,
+        }}>
+          <svg width="50" height="50" viewBox="0 0 50 50" fill="none">
+            <path d="M14 25 L22 33 L37 18" stroke={COLORS.ok} strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        {/* Pulse rings */}
+        <div style={{
+          position: 'absolute', inset: -6, borderRadius: '50%',
+          border: `1px solid ${COLORS.ok}`, opacity: 0.35,
+        }}/>
+        <div style={{
+          position: 'absolute', inset: -14, borderRadius: '50%',
+          border: `1px solid ${COLORS.ok}`, opacity: 0.18,
+        }}/>
+      </div>
+
+      <div style={{
+        fontWeight: 800, fontSize: 24, letterSpacing: '-0.025em', lineHeight: 1.15, marginBottom: 10,
+      }}>Connected</div>
+      <div style={{
+        fontSize: 14, color: COLORS.muted, fontWeight: 500, lineHeight: 1.55, padding: '0 12px', marginBottom: 28,
+      }}>
+        Your library is ready.<br/>
+        <span style={{
+          fontFamily: 'ui-monospace', fontSize: 12.5, color: COLORS.text2, fontWeight: 600,
+          marginTop: 6, display: 'inline-block',
+        }}>home.kleinsource.net</span>
+      </div>
+
+      {/* Stats preview */}
+      <div style={{
+        margin: '0 12px', padding: '16px 18px',
+        background: COLORS.cardBg, border: COLORS.cardBorder, borderRadius: 16,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
+        {[
+          { k: 'Movies', v: '1,943' },
+          { k: 'Series', v: '904' },
+          { k: 'Size', v: '12.4 TB' },
+        ].map((s, i) => (
+          <div key={i} style={{
+            flex: 1, textAlign: 'center',
+            borderRight: i < 2 ? `1px solid ${COLORS.divider}` : 'none',
+          }}>
+            <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em' }}>{s.v}</div>
+            <div style={{ fontSize: 10.5, color: COLORS.muted, fontWeight: 700, marginTop: 3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{s.k}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 主按钮
+// ==========================================
+function MainButton({ children, disabled, variant = 'primary', loading }) {
+  if (variant === 'success') {
+    return (
+      <button style={{
+        width: '100%', background: COLORS.ok, color: '#0a0a0c',
+        border: 'none', padding: '15px 0', borderRadius: 14,
+        fontWeight: 800, fontSize: 15, letterSpacing: '-0.01em',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        boxShadow: `0 8px 24px ${COLORS.ok}50`, cursor: 'pointer',
+      }}>
+        {children}
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7 H11 M7 3 L11 7 L7 11" stroke="#0a0a0c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </button>
+    );
+  }
+  return (
+    <button style={{
+      width: '100%', background: disabled ? 'rgba(255,255,255,0.08)' : '#fff',
+      color: disabled ? COLORS.muted : '#0a0a0c',
+      border: 'none', padding: '15px 0', borderRadius: 14,
+      fontWeight: 800, fontSize: 15, letterSpacing: '-0.01em',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+      opacity: disabled ? 0.5 : 1,
+    }}>
+      {loading && <div style={{
+        width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(10,10,12,0.25)',
+        borderTopColor: '#0a0a0c', animation: 'spin 0.8s linear infinite',
+      }}/>}
+      {children}
+    </button>
+  );
+}
+
+// ==========================================
+// 4 个状态屏
+// ==========================================
+function EmptyState() {
+  return (
+    <SetupShell
+      state="empty"
+      button={<MainButton disabled>Continue</MainButton>}
+      footer={
+        <>By continuing you agree to keep credentials on this device only.<br/>
+        <span style={{ color: COLORS.accent, fontWeight: 700 }}>Learn how md_center handles data</span></>
+      }
+      extra={
+        <div style={{ padding: '8px 28px 0' }}>
+          {/* Example formats */}
+          <div style={{
+            background: COLORS.cardBg, border: COLORS.cardBorder, borderRadius: 14, padding: 14,
+          }}>
+            <div style={{ fontSize: 10.5, fontWeight: 800, color: COLORS.muted, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>Example formats</div>
+            {[
+              { ok: true, addr: 'https://media.example.com' },
+              { ok: true, addr: 'https://192.168.1.20:8443' },
+              { ok: false, addr: 'http://10.0.0.5' },
+              { ok: false, addr: '192.168.1.20' },
+            ].map((e, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0',
+                fontSize: 12.5, fontFamily: 'ui-monospace, SF Mono, monospace', fontWeight: 500,
+              }}>
+                {e.ok ? (
+                  <div style={{ width: 14, height: 14, borderRadius: '50%', background: `${COLORS.ok}30`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="8" height="8" viewBox="0 0 8 8"><path d="M2 4.5 L3.5 6 L6 2.5" stroke={COLORS.ok} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </div>
+                ) : (
+                  <div style={{ width: 14, height: 14, borderRadius: '50%', background: `${COLORS.err}30`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="7" height="7" viewBox="0 0 7 7"><line x1="1.5" y1="1.5" x2="5.5" y2="5.5" stroke={COLORS.err} strokeWidth="1.4" strokeLinecap="round"/><line x1="5.5" y1="1.5" x2="1.5" y2="5.5" stroke={COLORS.err} strokeWidth="1.4" strokeLinecap="round"/></svg>
+                  </div>
+                )}
+                <span style={{ color: e.ok ? COLORS.text2 : COLORS.muted, textDecoration: e.ok ? 'none' : 'line-through' }}>{e.addr}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      }
+    />
+  );
+}
+
+function TypingState() {
+  return (
+    <SetupShell
+      state="typing"
+      inputValue="https://media.exa"
+      hint="Looking good. Make sure the certificate is valid - we won't connect to self-signed by default."
+      hintColor={COLORS.accent}
+      button={<MainButton disabled>Continue</MainButton>}
+      footer={<><span style={{ color: COLORS.muted2 }}>Tip: paste the full URL from your server admin page.</span></>}
+    />
+  );
+}
+
+function ErrorState() {
+  return (
+    <SetupShell
+      state="error"
+      inputValue="http://10.0.0.5:8080"
+      hint="HTTPS is required. Plain http:// connections are not allowed - your library traffic must be encrypted."
+      hintColor={COLORS.err}
+      button={
+        <button style={{
+          width: '100%', background: 'rgba(251,113,133,0.15)', color: COLORS.err,
+          border: `1.5px solid ${COLORS.err}50`,
+          padding: '15px 0', borderRadius: 14, fontWeight: 800, fontSize: 15, letterSpacing: '-0.01em',
+        }}>Fix to continue</button>
+      }
+      footer={<>Self-hosting without a domain? <span style={{ color: COLORS.accent, fontWeight: 700 }}>Get a free SSL cert with Caddy</span></>}
+    />
+  );
+}
+
+function SuccessState() {
+  return (
+    <SetupShell
+      state="success"
+      button={<MainButton variant="success">Enter library</MainButton>}
+      footer={<>Server fingerprint <span style={{ fontFamily: 'ui-monospace', color: COLORS.text2 }}>SHA-256 · A1:B2:C3...</span> pinned.</>}
+    />
+  );
+}
+
+// ==========================================
+// Root
+// ==========================================
+function App() {
+  return (
+    <>
+      <div className="col">
+        <div className="lbl">
+          <div className="pill dark">STATE 1 · EMPTY</div>
+          <div className="name">空输入引导态</div>
+          <div className="desc">首次开 App 看到。锁图标 + HTTPS 角标 + 4 个格式示例 (✓ 域名 / ✓ IP+端口 / ✗ http / ✗ 裸 IP)。Continue 按钮 disabled。</div>
+        </div>
+        <IosFrame><EmptyState/></IosFrame>
+      </div>
+      <div className="col">
+        <div className="lbl">
+          <div className="pill dark">STATE 2 · TYPING</div>
+          <div className="name">输入中 · 紫边激活</div>
+          <div className="desc">紫色 active 边框 + 闪烁光标 + clear 按钮 + mono 字体输入。Hint 紫色提示 "证书需有效"。</div>
+        </div>
+        <IosFrame><TypingState/></IosFrame>
+      </div>
+      <div className="col">
+        <div className="lbl">
+          <div className="pill dark">STATE 3 · ERROR · HTTP 拦截</div>
+          <div className="name">非 HTTPS 拒绝</div>
+          <div className="desc">红色边 + 红色 X 图标 + 红色 hint "HTTPS is required"。按钮变 "Fix to continue" 红色描边。底部链接到 Caddy SSL 教程。</div>
+        </div>
+        <IosFrame><ErrorState/></IosFrame>
+      </div>
+      <div className="col">
+        <div className="lbl">
+          <div className="pill dark">STATE 4 · SUCCESS</div>
+          <div className="name">连接成功 · 跳 Library</div>
+          <div className="desc">绿色对勾 + 脉冲环 + 服务器地址 mono + 1,943 Movies / 904 Series / 12.4 TB 统计预览 + "Enter library" 绿色 CTA + SHA fingerprint 角标</div>
+        </div>
+        <IosFrame><SuccessState/></IosFrame>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+<style>
+  @keyframes blink { 50% { opacity: 0; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</body>
+</html>

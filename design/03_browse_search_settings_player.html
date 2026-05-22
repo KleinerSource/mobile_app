@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>md_center · v7 · Browse + Settings + Search + Player</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; -webkit-font-smoothing: antialiased; }
+  body {
+    padding: 56px 32px; min-height: 100vh; color: #fff;
+    background:
+      radial-gradient(ellipse at 10% 10%, #4d3d5e 0%, transparent 40%),
+      radial-gradient(ellipse at 90% 90%, #3d4d5e 0%, transparent 40%),
+      #0d0d12;
+  }
+  .hdr { max-width: 1800px; margin: 0 auto 48px; }
+  .hdr h1 { font-weight: 800; font-size: 30px; letter-spacing: -0.03em; margin: 0 0 10px; }
+  .hdr .tag { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: #aaa; font-weight: 700; }
+  .hdr .desc { font-size: 14px; color: #c5c5d0; margin-top: 12px; max-width: 800px; line-height: 1.6; }
+  .canvas { max-width: 1800px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 40px; }
+  .col { display: flex; flex-direction: column; align-items: center; }
+  .lbl { margin-bottom: 18px; text-align: left; width: 100%; max-width: 420px; }
+  .lbl .pill { display: inline-block; padding: 4px 10px; border-radius: 100px; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+  .lbl .pill.dark { background: #1a1a22; color: #fff; border: 1px solid #2a2a35; }
+  .lbl .name { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
+  .lbl .desc { font-size: 11.5px; color: #b8b3c0; margin-top: 6px; line-height: 1.45; }
+  .scroll-hide::-webkit-scrollbar { display: none; }
+  .scroll-hide { scrollbar-width: none; }
+  @media (max-width: 1600px) { .canvas { grid-template-columns: repeat(2, 1fr); gap: 56px; } }
+  @media (max-width: 900px) { .canvas { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="tag">md_center · iOS · v7 · 4 屏完整覆盖</div>
+  <h1>Browse Hub · Settings · Search · Player</h1>
+  <div class="desc">
+    最终一批: Browse 策展入口 (按 Genre/Tag/Year/People 维度) · Settings 含服务器配置/PIN/隐身模式 · Search 全局搜索带最近+建议 · Player 视频播放界面 chrome。
+    统一暗色 (Dark) 版本演示,因之前 4 屏已确认双版本可行,这批用暗版聚焦信息架构和交互。
+  </div>
+</div>
+
+<div class="canvas" id="root"></div>
+
+<script type="text/babel" data-presets="react">
+
+// =============== IosFrame ===============
+const ifs = {
+  wrap: { display: 'inline-block', padding: 11, background: '#111', borderRadius: 56, boxShadow: '0 0 0 2px #2a2a35, 0 30px 80px rgba(0,0,0,0.6)', position: 'relative' },
+  scr: { position: 'relative', borderRadius: 45, overflow: 'hidden' },
+  sb: { position: 'absolute', top: 0, left: 0, right: 0, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', fontSize: 16, fontWeight: 600, fontFamily: '-apple-system, sans-serif', zIndex: 50, pointerEvents: 'none' },
+  di: { position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', width: 124, height: 36, background: '#000', borderRadius: 999, zIndex: 60 },
+  si: { display: 'flex', alignItems: 'center', gap: 6 },
+  bar: { width: 3, background: 'currentColor', borderRadius: 1 },
+  bat: { width: 26, height: 12, border: '1.5px solid currentColor', borderRadius: 3, padding: 1, position: 'relative', opacity: 0.85 },
+  cap: { position: 'absolute', top: 3, right: -3, width: 2, height: 6, background: 'currentColor', borderRadius: '0 1px 1px 0' },
+  ct: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'auto' },
+  hi: { position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: 140, height: 5, borderRadius: 999, zIndex: 40 },
+};
+function IosFrame({ children, bg = '#0F0E14', textColor = '#fff' }) {
+  return (
+    <div style={ifs.wrap}>
+      <div style={{ ...ifs.scr, width: 393, height: 852, background: bg }}>
+        <div style={{ ...ifs.sb, color: textColor }}>
+          <span>9:41</span>
+          <div style={ifs.si}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 12 }}>
+              <div style={{ ...ifs.bar, height: 4 }} /><div style={{ ...ifs.bar, height: 6 }} />
+              <div style={{ ...ifs.bar, height: 9 }} /><div style={{ ...ifs.bar, height: 11 }} />
+            </div>
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+              <path d="M8 11.5a1 1 0 100-2 1 1 0 000 2z" fill="currentColor"/>
+              <path d="M3 7.5a7 7 0 0110 0" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round"/>
+              <path d="M1 4.5a11 11 0 0114 0" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinecap="round" opacity="0.7"/>
+            </svg>
+            <div style={ifs.bat}>
+              <div style={{ width: '82%', height: '100%', background: 'currentColor', borderRadius: 1 }}/>
+              <div style={ifs.cap}/>
+            </div>
+          </div>
+        </div>
+        <div style={ifs.di}/>
+        <div style={ifs.ct}>{children}</div>
+        <div style={{ ...ifs.hi, background: 'rgba(255,255,255,0.55)' }}/>
+      </div>
+    </div>
+  );
+}
+
+// =============== Poster ===============
+function Poster({ title, year, hue, w = '100%', aspect = '2/3', radius = 10, restricted = false }) {
+  if (restricted) {
+    return (
+      <div style={{
+        width: w, aspectRatio: aspect, borderRadius: radius, overflow: 'hidden',
+        background: '#0A0807', position: 'relative',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        border: '1px solid rgba(255,255,255,0.06)',
+      }}>
+        <div style={{
+          color: 'rgba(255,255,255,0.4)', fontWeight: 700, fontSize: 13,
+          letterSpacing: '0.3em', fontFamily: 'ui-monospace, SF Mono, monospace',
+        }}>R18</div>
+      </div>
+    );
+  }
+  const h = hue !== undefined ? hue : (((title || '').charCodeAt(0) * 7) % 360);
+  return (
+    <div style={{
+      width: w, aspectRatio: aspect, borderRadius: radius, overflow: 'hidden',
+      background: `linear-gradient(155deg, hsl(${h} 55% 40%) 0%, hsl(${h + 30} 65% 18%) 100%)`,
+      position: 'relative', boxShadow: '0 6px 24px rgba(0,0,0,0.18)',
+    }}>
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: `radial-gradient(circle at 28% 22%, hsla(${h} 80% 70% / 0.35), transparent 55%)`,
+      }}/>
+      <div style={{ position: 'absolute', left: '10%', right: '10%', bottom: '12%' }}>
+        <div style={{ fontWeight: 800, fontSize: 11, color: 'rgba(255,255,255,0.95)', lineHeight: 1.15 }}>{title}</div>
+        {year && <div style={{ fontSize: 9, marginTop: 3, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>{year}</div>}
+      </div>
+    </div>
+  );
+}
+
+const DARK = {
+  bg: '#0F0E14', text: '#fff', text2: '#d8d4e0',
+  muted: '#9a96a8', muted2: '#6e6a7a',
+  accent: '#B888FF',
+  cardBg: 'rgba(255,255,255,0.04)', cardBorder: '1px solid rgba(255,255,255,0.06)',
+  cardShadow: '0 4px 18px rgba(0,0,0,0.3)',
+  iconBg: 'rgba(255,255,255,0.08)', iconBorder: '1px solid rgba(255,255,255,0.1)',
+  divider: 'rgba(255,255,255,0.06)',
+  pillBg: 'rgba(255,255,255,0.08)', pillText: '#d8d4e0',
+  tabBg: 'rgba(20,18,28,0.85)', tabBorder: '1px solid rgba(255,255,255,0.08)',
+  tabShadow: '0 10px 36px rgba(0,0,0,0.5)',
+  tabActiveBg: '#fff', tabActiveText: '#1a1a22',
+};
+const t = DARK;
+
+function BgGlow() {
+  return (
+    <>
+      <div style={{
+        position: 'absolute', top: -120, left: -100, width: 400, height: 400, borderRadius: '50%',
+        background: 'radial-gradient(circle, #7C4DFF, transparent 70%)',
+        filter: 'blur(80px)', opacity: 0.18, pointerEvents: 'none',
+      }}/>
+      <div style={{
+        position: 'absolute', top: 320, right: -100, width: 300, height: 300, borderRadius: '50%',
+        background: 'radial-gradient(circle, #FF6B9D, transparent 70%)',
+        filter: 'blur(80px)', opacity: 0.18, pointerEvents: 'none',
+      }}/>
+    </>
+  );
+}
+
+function TopBar({ title, sub }) {
+  return (
+    <div style={{ padding: '0 22px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60 }}>
+      <div>
+        {sub && <div style={{ fontSize: 11, fontWeight: 700, color: t.muted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>{sub}</div>}
+        <div style={{ fontWeight: 800, fontSize: 28, letterSpacing: '-0.03em', marginTop: 3 }}>{title}</div>
+      </div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ width: 40, height: 40, borderRadius: '50%', background: t.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', border: t.iconBorder }}>
+          <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="7.5" cy="7.5" r="5" stroke={t.text} strokeWidth="1.5"/><line x1="11.2" y1="11.2" x2="14.5" y2="14.5" stroke={t.text} strokeWidth="1.5" strokeLinecap="round"/></svg>
+        </div>
+        <div style={{
+          width: 40, height: 40, borderRadius: '50%',
+          background: 'linear-gradient(135deg, #FF6B9D, #9F6BFF)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 14, fontWeight: 800, color: '#fff',
+        }}>K</div>
+      </div>
+    </div>
+  );
+}
+
+function FloatingTabBar({ active = 'Browse' }) {
+  const tabs = [{ name: 'Home' }, { name: 'Library' }, { name: 'Search' }, { name: 'You' }];
+  return (
+    <div style={{
+      position: 'absolute', bottom: 18, left: 16, right: 16, height: 60,
+      background: t.tabBg, backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)',
+      borderRadius: 100, border: t.tabBorder,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-around',
+      boxShadow: t.tabShadow, zIndex: 20, padding: '0 6px',
+    }}>
+      {tabs.map((tab, i) => (
+        <div key={i} style={{
+          padding: '10px 18px', borderRadius: 100,
+          background: tab.name === active ? t.tabActiveBg : 'transparent',
+          color: tab.name === active ? t.tabActiveText : t.muted,
+          fontWeight: 700, fontSize: 12.5,
+        }}>{tab.name}</div>
+      ))}
+    </div>
+  );
+}
+
+function NavButton({ icon }) {
+  return (
+    <div style={{
+      width: 38, height: 38, borderRadius: '50%',
+      background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(24px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      border: '1px solid rgba(255,255,255,0.1)',
+    }}>{icon}</div>
+  );
+}
+
+// ===========================================
+// 屏 1 · BROWSE HUB
+// ===========================================
+const GENRES = [
+  { name: 'Drama', count: 412, hue1: 270, hue2: 290 },
+  { name: 'Sci-Fi', count: 188, hue1: 200, hue2: 220 },
+  { name: 'Thriller', count: 156, hue1: 0, hue2: 20 },
+  { name: 'Comedy', count: 224, hue1: 50, hue2: 70 },
+  { name: 'Animation', count: 98, hue1: 320, hue2: 340 },
+  { name: 'Documentary', count: 142, hue1: 145, hue2: 165 },
+];
+const TAGS = [
+  { name: 'Slow burn', count: 84 },
+  { name: 'A24', count: 47 },
+  { name: 'Mind-bender', count: 38 },
+  { name: 'One-shot', count: 12 },
+  { name: 'Cannes winner', count: 26 },
+  { name: 'Tarkovsky-style', count: 8 },
+  { name: 'Diaspora', count: 19 },
+  { name: 'Dialogue-heavy', count: 32 },
+];
+const DECADES = [
+  { name: '2020s', count: 412, active: true },
+  { name: '2010s', count: 891 },
+  { name: '2000s', count: 524 },
+  { name: '1990s', count: 318 },
+  { name: 'Pre-1990', count: 702 },
+];
+const TOP_PEOPLE = [
+  { name: 'Hirokazu Kore-eda', role: 'Director · 14 films', hue: 145 },
+  { name: 'Tilda Swinton', role: 'Actress · 38 films', hue: 320 },
+  { name: 'Bong Joon-ho', role: 'Director · 8 films', hue: 8 },
+  { name: 'Cate Blanchett', role: 'Actress · 42 films', hue: 50 },
+];
+
+function BrowseScreen() {
+  return (
+    <div style={{ minHeight: '100%', background: t.bg, color: t.text, paddingBottom: 96, position: 'relative', overflow: 'hidden' }}>
+      <BgGlow/>
+      <TopBar title="Browse" sub="Explore your library"/>
+
+      {/* Search hint */}
+      <div style={{ padding: '0 22px 22px' }}>
+        <div style={{
+          background: t.cardBg, border: t.cardBorder, borderRadius: 14,
+          padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="7" cy="7" r="4.5" stroke={t.muted} strokeWidth="1.4"/>
+            <line x1="10.5" y1="10.5" x2="13.5" y2="13.5" stroke={t.muted} strokeWidth="1.4" strokeLinecap="round"/>
+          </svg>
+          <div style={{ fontSize: 14, color: t.muted, fontWeight: 500, flex: 1 }}>Search titles, people, tags</div>
+        </div>
+      </div>
+
+      {/* Genres - colorful 2x3 */}
+      <div style={{ padding: '0 22px 12px' }}>
+        <div style={{ fontWeight: 800, fontSize: 20, letterSpacing: '-0.025em' }}>Genres</div>
+      </div>
+      <div style={{ padding: '12px 22px 28px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+        {GENRES.map((g, i) => (
+          <div key={i} style={{
+            aspectRatio: '5/3', borderRadius: 16, overflow: 'hidden', position: 'relative',
+            background: `linear-gradient(135deg, hsl(${g.hue1} 70% 55%), hsl(${g.hue2} 75% 35%))`,
+            padding: 14, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+            color: '#fff', boxShadow: '0 6px 22px rgba(0,0,0,0.3)',
+          }}>
+            <div style={{
+              position: 'absolute', top: -30, right: -30, width: 100, height: 100, borderRadius: '50%',
+              background: `hsla(${g.hue1} 90% 70% / 0.4)`, filter: 'blur(8px)',
+            }}/>
+            <div style={{
+              fontSize: 9.5, fontWeight: 800, opacity: 0.85, letterSpacing: '0.12em', position: 'relative',
+            }}>GENRE</div>
+            <div style={{ position: 'relative' }}>
+              <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.025em' }}>{g.name}</div>
+              <div style={{ fontSize: 11.5, fontWeight: 600, opacity: 0.78, marginTop: 2 }}>{g.count} titles</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Decades */}
+      <div style={{ padding: '0 22px 12px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <div style={{ fontWeight: 800, fontSize: 20, letterSpacing: '-0.025em' }}>Decades</div>
+      </div>
+      <div className="scroll-hide" style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '12px 22px 28px' }}>
+        {DECADES.map((d, i) => (
+          <div key={i} style={{
+            flex: '0 0 auto', padding: '14px 18px', borderRadius: 14,
+            background: d.active ? '#fff' : t.cardBg,
+            color: d.active ? '#1a1a22' : t.text,
+            border: d.active ? 'none' : t.cardBorder,
+          }}>
+            <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: '-0.02em' }}>{d.name}</div>
+            <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.7, marginTop: 2 }}>{d.count} titles</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tags cloud */}
+      <div style={{ padding: '0 22px 12px' }}>
+        <div style={{ fontWeight: 800, fontSize: 20, letterSpacing: '-0.025em' }}>Tags</div>
+      </div>
+      <div style={{ padding: '12px 22px 28px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {TAGS.map((tag, i) => (
+          <div key={i} style={{
+            padding: '8px 14px', borderRadius: 100, background: t.cardBg,
+            border: t.cardBorder, color: t.text, fontWeight: 600, fontSize: 12.5,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            {tag.name}
+            <span style={{ fontSize: 10.5, color: t.muted, fontWeight: 600 }}>{tag.count}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Top people */}
+      <div style={{ padding: '0 22px 12px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <div style={{ fontWeight: 800, fontSize: 20, letterSpacing: '-0.025em' }}>People in your library</div>
+        <div style={{ fontSize: 12, color: t.accent, fontWeight: 700 }}>8,251</div>
+      </div>
+      <div style={{ padding: '12px 22px 32px' }}>
+        {TOP_PEOPLE.map((p, i) => (
+          <div key={i} style={{
+            display: 'flex', gap: 12, padding: '10px 0',
+            borderBottom: i < TOP_PEOPLE.length - 1 ? `1px solid ${t.divider}` : 'none',
+            alignItems: 'center',
+          }}>
+            <div style={{
+              flex: '0 0 44px', height: 44, borderRadius: '50%',
+              background: `linear-gradient(135deg, hsl(${p.hue} 65% 50%), hsl(${p.hue + 30} 75% 28%))`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 800, fontSize: 14, color: '#fff',
+            }}>{p.name.split(' ').map(w => w[0]).join('').slice(0, 2)}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name}</div>
+              <div style={{ fontSize: 11, color: t.muted, fontWeight: 600, marginTop: 2 }}>{p.role}</div>
+            </div>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2 L8 6 L4 10" stroke={t.muted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </div>
+        ))}
+      </div>
+
+      <FloatingTabBar active="Search"/>
+    </div>
+  );
+}
+
+// ===========================================
+// 屏 2 · SETTINGS (含 PIN/隐身模式)
+// ===========================================
+function SettingsScreen() {
+  return (
+    <div style={{ minHeight: '100%', background: t.bg, color: t.text, paddingBottom: 96, position: 'relative', overflow: 'hidden' }}>
+      <BgGlow/>
+      <TopBar title="Settings"/>
+
+      {/* User card */}
+      <div style={{ padding: '0 22px 24px' }}>
+        <div style={{
+          background: 'linear-gradient(135deg, hsla(270 70% 55% / 0.18), hsla(290 70% 55% / 0.18))',
+          border: '1px solid hsla(270 70% 60% / 0.25)', borderRadius: 16,
+          padding: 18, display: 'flex', alignItems: 'center', gap: 14,
+        }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: '50%',
+            background: 'linear-gradient(135deg, #FF6B9D, #9F6BFF)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 20, fontWeight: 800, color: '#fff',
+          }}>K</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.02em' }}>Klein</div>
+            <div style={{ fontSize: 12, color: t.muted, fontWeight: 600, marginTop: 2 }}>Local profile · 2,847 titles tracked</div>
+          </div>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2 L8 6 L4 10" stroke={t.muted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </div>
+      </div>
+
+      {/* Server section */}
+      <SettingsSection title="Server">
+        <SettingsRow
+          icon={<ServerIcon/>}
+          label="Connected"
+          value="home.kleinsource.net"
+          accent="#00D9A3"
+          mono
+        />
+        <SettingsRow
+          icon={<MetricIcon/>}
+          label="Library size"
+          value="12.4 TB · last sync 2 min ago"
+        />
+        <SettingsRow
+          icon={<RefreshIcon/>}
+          label="Auto-scan"
+          value="Every 4 hours"
+          chevron
+        />
+      </SettingsSection>
+
+      {/* Privacy / Adult content */}
+      <SettingsSection title="Privacy">
+        <SettingsRow
+          icon={<EyeOffIcon/>}
+          label="Stealth mode"
+          right={<Toggle on/>}
+          desc="Hides restricted titles from Library and counts"
+        />
+        <SettingsRow
+          icon={<LockIcon/>}
+          label="PIN protection"
+          value="Enabled · 4 digits"
+          chevron
+        />
+        <SettingsRow
+          icon={<EyeIcon/>}
+          label="Adult content"
+          right={<Toggle off/>}
+          desc="Show restricted titles after PIN unlock"
+        />
+        <SettingsRow
+          icon={<TimerIcon/>}
+          label="Auto-lock"
+          value="After 5 minutes"
+          chevron
+        />
+      </SettingsSection>
+
+      {/* Playback */}
+      <SettingsSection title="Playback">
+        <SettingsRow
+          icon={<PlayIcon/>}
+          label="External player"
+          value="VLC · Infuse"
+          chevron
+        />
+        <SettingsRow
+          icon={<QualityIcon/>}
+          label="Default quality"
+          value="Source"
+          chevron
+        />
+        <SettingsRow
+          icon={<SubsIcon/>}
+          label="Subtitles"
+          value="Chinese (Simplified) · auto"
+          chevron
+        />
+      </SettingsSection>
+
+      {/* Appearance */}
+      <SettingsSection title="Appearance">
+        <SettingsRow
+          icon={<ThemeIcon/>}
+          label="Theme"
+          value="System · Dark when night"
+          chevron
+        />
+        <SettingsRow
+          icon={<DotsIcon/>}
+          label="Accent color"
+          right={
+            <div style={{ display: 'flex', gap: 6 }}>
+              {['#B888FF', '#FF6B9D', '#00D9A3', '#FFD600'].map((c, i) => (
+                <div key={i} style={{
+                  width: 18, height: 18, borderRadius: '50%', background: c,
+                  border: i === 0 ? '2px solid #fff' : 'none',
+                  boxShadow: i === 0 ? `0 0 0 1.5px ${c}` : 'none',
+                }}/>
+              ))}
+            </div>
+          }
+        />
+      </SettingsSection>
+
+      {/* About */}
+      <SettingsSection title="About">
+        <SettingsRow label="Version" value="md_center 0.1.0+1" mono/>
+        <SettingsRow label="Build" value="2026.05.22 · Flutter 3.27" mono/>
+        <SettingsRow label="Source" value="github.com/.../mobile_app" chevron/>
+      </SettingsSection>
+
+      <FloatingTabBar active="You"/>
+    </div>
+  );
+}
+
+function SettingsSection({ title, children }) {
+  return (
+    <div style={{ padding: '0 22px 24px' }}>
+      <div style={{
+        fontSize: 11, fontWeight: 800, color: t.muted, letterSpacing: '0.12em',
+        textTransform: 'uppercase', marginBottom: 10, paddingLeft: 4,
+      }}>{title}</div>
+      <div style={{
+        background: t.cardBg, border: t.cardBorder, borderRadius: 16,
+        overflow: 'hidden',
+      }}>{children}</div>
+    </div>
+  );
+}
+
+function SettingsRow({ icon, label, value, desc, chevron = false, right, accent, mono }) {
+  return (
+    <div style={{
+      padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12,
+      borderBottom: `1px solid ${t.divider}`,
+    }}>
+      {icon && <div style={{
+        flex: '0 0 32px', height: 32, borderRadius: 8,
+        background: t.pillBg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>{icon}</div>}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, fontSize: 14, color: t.text }}>{label}</div>
+        {value && <div style={{
+          marginTop: 2, fontSize: 12, color: accent || t.muted, fontWeight: 600,
+          fontFamily: mono ? 'ui-monospace, SF Mono, monospace' : 'inherit',
+          letterSpacing: mono ? '0.01em' : 0,
+        }}>{value}</div>}
+        {desc && <div style={{
+          marginTop: 4, fontSize: 11.5, color: t.muted2, fontWeight: 500, lineHeight: 1.4,
+        }}>{desc}</div>}
+      </div>
+      {right || (chevron && <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M3.5 2 L6.5 5 L3.5 8" stroke={t.muted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>)}
+    </div>
+  );
+}
+
+function Toggle({ on }) {
+  return (
+    <div style={{
+      width: 42, height: 24, borderRadius: 100, padding: 2,
+      background: on ? '#34D399' : 'rgba(255,255,255,0.15)',
+      display: 'flex', alignItems: 'center',
+      justifyContent: on ? 'flex-end' : 'flex-start',
+      transition: 'all 0.2s',
+    }}>
+      <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#fff' }}/>
+    </div>
+  );
+}
+
+// Settings icons
+const iconProps = { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none' };
+function ServerIcon() { return <svg {...iconProps}><rect x="2.5" y="3" width="11" height="3.5" rx="1" stroke={t.text2} strokeWidth="1.4"/><rect x="2.5" y="9" width="11" height="3.5" rx="1" stroke={t.text2} strokeWidth="1.4"/><circle cx="5" cy="4.75" r="0.7" fill="#00D9A3"/><circle cx="5" cy="10.75" r="0.7" fill="#00D9A3"/></svg>; }
+function MetricIcon() { return <svg {...iconProps}><path d="M3 12 L6 9 L9 11 L13 5" stroke={t.text2} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>; }
+function RefreshIcon() { return <svg {...iconProps}><path d="M12 5 A 5 5 0 1 0 13 8" stroke={t.text2} strokeWidth="1.4" fill="none" strokeLinecap="round"/><path d="M12 2.5 L12 5 L9.5 5" stroke={t.text2} strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>; }
+function EyeOffIcon() { return <svg {...iconProps}><path d="M2 8 Q 8 3 14 8" stroke={t.text2} strokeWidth="1.4" fill="none"/><circle cx="8" cy="8" r="2" stroke={t.text2} strokeWidth="1.4"/><line x1="2" y1="2.5" x2="14" y2="13.5" stroke={t.text2} strokeWidth="1.4" strokeLinecap="round"/></svg>; }
+function EyeIcon() { return <svg {...iconProps}><path d="M2 8 Q 8 3 14 8 Q 8 13 2 8" stroke={t.text2} strokeWidth="1.4" fill="none"/><circle cx="8" cy="8" r="2" stroke={t.text2} strokeWidth="1.4"/></svg>; }
+function LockIcon() { return <svg {...iconProps}><rect x="3.5" y="7" width="9" height="6.5" rx="1" stroke={t.text2} strokeWidth="1.4" fill="none"/><path d="M5 7 V5 a3 3 0 0 1 6 0 V7" stroke={t.text2} strokeWidth="1.4" fill="none"/></svg>; }
+function TimerIcon() { return <svg {...iconProps}><circle cx="8" cy="8.5" r="5" stroke={t.text2} strokeWidth="1.4"/><line x1="8" y1="8.5" x2="8" y2="5.5" stroke={t.text2} strokeWidth="1.4" strokeLinecap="round"/><line x1="8" y1="8.5" x2="10" y2="9.5" stroke={t.text2} strokeWidth="1.4" strokeLinecap="round"/><line x1="6.5" y1="2" x2="9.5" y2="2" stroke={t.text2} strokeWidth="1.4" strokeLinecap="round"/></svg>; }
+function PlayIcon() { return <svg {...iconProps}><polygon points="4,3 4,13 13,8" stroke={t.text2} strokeWidth="1.4" fill="none" strokeLinejoin="round"/></svg>; }
+function QualityIcon() { return <svg {...iconProps}><text x="2" y="11" fontFamily="Inter" fontSize="9" fontWeight="800" fill={t.text2}>4K</text></svg>; }
+function SubsIcon() { return <svg {...iconProps}><rect x="2" y="4" width="12" height="8" rx="1.5" stroke={t.text2} strokeWidth="1.4" fill="none"/><line x1="4" y1="9.5" x2="7.5" y2="9.5" stroke={t.text2} strokeWidth="1.4" strokeLinecap="round"/><line x1="8.5" y1="9.5" x2="12" y2="9.5" stroke={t.text2} strokeWidth="1.4" strokeLinecap="round"/></svg>; }
+function ThemeIcon() { return <svg {...iconProps}><path d="M8 3 a 5 5 0 0 0 0 10 a 4 4 0 0 1 0 -8 A 5 5 0 0 0 8 3" fill={t.text2}/></svg>; }
+function DotsIcon() { return <svg {...iconProps}><circle cx="4" cy="8" r="1.5" fill={t.text2}/><circle cx="8" cy="8" r="1.5" fill={t.text2}/><circle cx="12" cy="8" r="1.5" fill={t.text2}/></svg>; }
+
+// ===========================================
+// 屏 3 · SEARCH
+// ===========================================
+function SearchScreen() {
+  return (
+    <div style={{ minHeight: '100%', background: t.bg, color: t.text, paddingBottom: 96, position: 'relative', overflow: 'hidden' }}>
+      <BgGlow/>
+      {/* Search header */}
+      <div style={{ padding: '60px 22px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1, position: 'relative' }}>
+          <div style={{
+            background: t.cardBg, border: '1.5px solid ' + t.accent, borderRadius: 14,
+            padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="7" cy="7" r="4.5" stroke={t.accent} strokeWidth="1.5"/>
+              <line x1="10.5" y1="10.5" x2="13.5" y2="13.5" stroke={t.accent} strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <div style={{ fontSize: 14, color: t.text, fontWeight: 500, flex: 1 }}>past lives</div>
+            <div style={{ width: 1.5, height: 16, background: t.accent, animation: 'blink 1s infinite' }}/>
+          </div>
+        </div>
+        <div style={{ color: t.accent, fontWeight: 700, fontSize: 13 }}>Cancel</div>
+      </div>
+
+      {/* Scope tabs */}
+      <div className="scroll-hide" style={{ display: 'flex', gap: 7, overflowX: 'auto', padding: '6px 22px 22px' }}>
+        {[
+          { label: 'All', count: 14, active: true },
+          { label: 'Titles', count: 8 },
+          { label: 'People', count: 4 },
+          { label: 'Tags', count: 2 },
+        ].map((c, i) => (
+          <div key={i} style={{
+            flex: '0 0 auto', padding: '8px 14px', borderRadius: 100,
+            background: c.active ? '#fff' : t.pillBg,
+            color: c.active ? '#1a1a22' : t.pillText,
+            fontWeight: 700, fontSize: 12.5, display: 'flex', gap: 6, alignItems: 'center',
+          }}>
+            {c.label}
+            <span style={{ fontSize: 10.5, opacity: 0.7, fontWeight: 600 }}>{c.count}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Top result */}
+      <div style={{ padding: '0 22px 12px' }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: t.muted, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>Top result</div>
+        <div style={{
+          background: 'linear-gradient(135deg, hsla(8 60% 45% / 0.25), hsla(28 60% 35% / 0.25))',
+          border: '1px solid hsla(8 70% 60% / 0.3)', borderRadius: 16,
+          padding: 14, display: 'flex', gap: 14, alignItems: 'center',
+        }}>
+          <div style={{ flex: '0 0 68px' }}>
+            <Poster title="Past Lives" hue={8} radius={8}/>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: '-0.02em' }}>Past Lives</div>
+            <div style={{ fontSize: 12, color: t.muted, fontWeight: 600, marginTop: 3 }}>2023 · Celine Song · 105 min</div>
+            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+              <div style={{ padding: '3px 8px', background: 'hsla(270 60% 55% / 0.25)', border: '1px solid hsla(270 70% 60% / 0.4)', borderRadius: 100, fontSize: 10, fontWeight: 700, color: 'hsl(270 85% 80%)' }}>Drama</div>
+              <div style={{ padding: '3px 8px', background: 'hsla(320 60% 55% / 0.25)', border: '1px solid hsla(320 70% 60% / 0.4)', borderRadius: 100, fontSize: 10, fontWeight: 700, color: 'hsl(320 85% 80%)' }}>Romance</div>
+            </div>
+          </div>
+          <div style={{
+            width: 36, height: 36, borderRadius: '50%',
+            background: 'linear-gradient(135deg, #FF6B9D, #9F6BFF)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="10" height="12" viewBox="0 0 10 12" fill="white"><polygon points="0,0 0,12 10,6"/></svg>
+          </div>
+        </div>
+      </div>
+
+      {/* Titles */}
+      <div style={{ padding: '20px 22px 12px' }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: t.muted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Titles · 8</div>
+      </div>
+      <div style={{ padding: '4px 22px 16px' }}>
+        {[
+          { title: 'Past Lives', year: 2023, dir: 'Celine Song', hue: 8 },
+          { title: 'Past Imperfect', year: 2024, dir: 'Various', hue: 90 },
+          { title: 'Lives of Others, The', year: 2006, dir: 'Donnersmarck', hue: 220 },
+          { title: 'Three Past Lives', year: 2021, dir: 'A Anonymous', hue: 320 },
+        ].map((it, i) => (
+          <div key={i} style={{
+            display: 'flex', gap: 12, padding: '10px 0',
+            borderBottom: i < 3 ? `1px solid ${t.divider}` : 'none',
+            alignItems: 'center',
+          }}>
+            <div style={{ flex: '0 0 38px' }}>
+              <Poster title={it.title} hue={it.hue} radius={6}/>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 13.5, lineHeight: 1.25 }}>
+                {it.title.split(/(past|lives)/i).map((part, j) =>
+                  /(past|lives)/i.test(part) ?
+                    <span key={j} style={{ background: t.accent + '40', padding: '0 2px', borderRadius: 3, color: t.text }}>{part}</span> :
+                    <span key={j}>{part}</span>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: t.muted, fontWeight: 600, marginTop: 2 }}>{it.year} · {it.dir}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* People */}
+      <div style={{ padding: '8px 22px 12px' }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: t.muted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>People · 4</div>
+      </div>
+      <div className="scroll-hide" style={{ display: 'flex', gap: 14, overflowX: 'auto', padding: '4px 22px 28px' }}>
+        {[
+          { name: 'Greta Lee', sub: 'Past Lives · 1 film', hue: 320 },
+          { name: 'Teo Yoo', sub: 'Past Lives · 1 film', hue: 200 },
+          { name: 'Celine Song', sub: 'Director · 1 film', hue: 280 },
+        ].map((p, i) => (
+          <div key={i} style={{ flex: '0 0 100px', textAlign: 'center' }}>
+            <div style={{
+              width: 80, height: 80, borderRadius: '50%', margin: '0 auto',
+              background: `linear-gradient(135deg, hsl(${p.hue} 65% 50%), hsl(${p.hue + 30} 75% 28%))`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 800, fontSize: 22, color: '#fff',
+            }}>{p.name.split(' ').map(w => w[0]).join('').slice(0, 2)}</div>
+            <div style={{ marginTop: 8, fontWeight: 700, fontSize: 11.5, lineHeight: 1.2 }}>{p.name}</div>
+            <div style={{ marginTop: 2, fontSize: 9.5, color: t.muted, fontWeight: 600 }}>{p.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Recent searches */}
+      <div style={{ padding: '0 22px 12px' }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: t.muted, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Recent searches</div>
+      </div>
+      <div style={{ padding: '4px 22px 32px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {['kore-eda', 'a24', 'before sunrise', 'tarkovsky', '4K HDR'].map((q, i) => (
+          <div key={i} style={{
+            padding: '7px 12px', borderRadius: 100, background: t.pillBg,
+            color: t.pillText, fontWeight: 600, fontSize: 11.5,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+              <circle cx="4.5" cy="4.5" r="4" stroke={t.muted} strokeWidth="1" fill="none"/>
+              <path d="M4.5 2.5 V 4.5 L 6 5.5" stroke={t.muted} strokeWidth="1" fill="none" strokeLinecap="round"/>
+            </svg>
+            {q}
+          </div>
+        ))}
+      </div>
+
+      <FloatingTabBar active="Search"/>
+    </div>
+  );
+}
+
+// ===========================================
+// 屏 4 · PLAYER
+// ===========================================
+function PlayerScreen() {
+  return (
+    <div style={{ minHeight: '100%', background: '#000', color: '#fff', position: 'relative', overflow: 'hidden' }}>
+      {/* Backdrop - 全屏取色 */}
+      <div style={{ position: 'absolute', inset: 0,
+        background: `linear-gradient(155deg, hsl(8 55% 35%) 0%, hsl(28 65% 16%) 100%)` }}/>
+      <div style={{ position: 'absolute', inset: 0,
+        background: `radial-gradient(ellipse at 50% 35%, hsla(8 80% 50% / 0.5), transparent 70%)` }}/>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)' }}/>
+
+      {/* Top - back & info */}
+      <div style={{ position: 'absolute', top: 60, left: 0, right: 0, padding: '0 20px', display: 'flex', justifyContent: 'space-between', zIndex: 5 }}>
+        <NavButton icon={
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M11 7 H3 M6 3 L2 7 L6 11" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        }/>
+        <div style={{ textAlign: 'center', flex: 1, paddingTop: 6 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, opacity: 0.6, letterSpacing: '0.15em', textTransform: 'uppercase' }}>Playing</div>
+          <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2, letterSpacing: '-0.01em' }}>Past Lives</div>
+        </div>
+        <NavButton icon={
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="1.5" y="3" width="11" height="8" rx="1" stroke="#fff" strokeWidth="1.4" fill="none"/>
+            <line x1="6" y1="11" x2="6" y2="13" stroke="#fff" strokeWidth="1.4"/>
+            <line x1="8" y1="11" x2="8" y2="13" stroke="#fff" strokeWidth="1.4"/>
+            <line x1="4" y1="13" x2="10" y2="13" stroke="#fff" strokeWidth="1.4" strokeLinecap="round"/>
+          </svg>
+        }/>
+      </div>
+
+      {/* Center hero */}
+      <div style={{ position: 'absolute', top: 130, left: 0, right: 0, textAlign: 'center', zIndex: 5 }}>
+        <div style={{ width: 200, height: 290, margin: '0 auto' }}>
+          <Poster title="Past Lives" hue={8} radius={16}/>
+        </div>
+        <div style={{ marginTop: 24, padding: '0 32px' }}>
+          <div style={{ fontWeight: 800, fontSize: 28, letterSpacing: '-0.03em' }}>Past Lives</div>
+          <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.7)', fontWeight: 600, marginTop: 6 }}>
+            Celine Song · 2023 · 1080p HDR
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom controls */}
+      <div style={{ position: 'absolute', bottom: 60, left: 0, right: 0, padding: '0 28px', zIndex: 5 }}>
+        {/* Progress */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{
+            height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 100, position: 'relative',
+          }}>
+            <div style={{
+              height: '100%', width: '42%', background: '#fff', borderRadius: 100,
+              boxShadow: '0 0 12px rgba(255,255,255,0.4)',
+            }}/>
+            <div style={{
+              position: 'absolute', left: '42%', top: '50%', transform: 'translate(-50%, -50%)',
+              width: 14, height: 14, borderRadius: '50%', background: '#fff',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+            }}/>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 12, fontWeight: 700, opacity: 0.85, fontFamily: 'ui-monospace, SF Mono, monospace' }}>
+            <span>44:21</span>
+            <span style={{ opacity: 0.5 }}>-01:00:39</span>
+          </div>
+        </div>
+
+        {/* Main controls */}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 28, marginBottom: 24 }}>
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" opacity="0.85">
+            <polygon points="11,4 5,11 11,18" fill="#fff"/>
+            <line x1="3" y1="4" x2="3" y2="18" stroke="#fff" strokeWidth="1.8"/>
+          </svg>
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none" opacity="0.85">
+            <text x="3" y="17" fontFamily="Inter" fontSize="12" fontWeight="900" fill="#fff">-10</text>
+          </svg>
+          <div style={{
+            width: 70, height: 70, borderRadius: '50%', background: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          }}>
+            <div style={{ display: 'flex', gap: 5 }}>
+              <div style={{ width: 6, height: 24, background: '#000', borderRadius: 1 }}/>
+              <div style={{ width: 6, height: 24, background: '#000', borderRadius: 1 }}/>
+            </div>
+          </div>
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none" opacity="0.85">
+            <text x="3" y="17" fontFamily="Inter" fontSize="12" fontWeight="900" fill="#fff">+10</text>
+          </svg>
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none" opacity="0.85">
+            <polygon points="11,4 17,11 11,18" fill="#fff"/>
+            <line x1="19" y1="4" x2="19" y2="18" stroke="#fff" strokeWidth="1.8"/>
+          </svg>
+        </div>
+
+        {/* Secondary controls */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px' }}>
+          <div style={{ textAlign: 'center', opacity: 0.85 }}>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ marginBottom: 4 }}>
+              <rect x="2" y="4" width="14" height="10" rx="1.5" stroke="#fff" strokeWidth="1.3" fill="none"/>
+              <line x1="4" y1="11" x2="8.5" y2="11" stroke="#fff" strokeWidth="1.3" strokeLinecap="round"/>
+              <line x1="9.5" y1="11" x2="14" y2="11" stroke="#fff" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            <div style={{ fontSize: 10, fontWeight: 700 }}>CH-S</div>
+          </div>
+          <div style={{ textAlign: 'center', opacity: 0.85 }}>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ marginBottom: 4 }}>
+              <path d="M3 7 L7 7 L11 4 V14 L7 11 L3 11 Z" fill="#fff"/>
+              <path d="M13 6 Q 15 9 13 12" stroke="#fff" strokeWidth="1.3" fill="none" strokeLinecap="round"/>
+            </svg>
+            <div style={{ fontSize: 10, fontWeight: 700 }}>Audio</div>
+          </div>
+          <div style={{ textAlign: 'center', opacity: 0.85 }}>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ marginBottom: 4 }}>
+              <text x="2" y="13" fontFamily="Inter" fontSize="9" fontWeight="900" fill="#fff">1080</text>
+            </svg>
+            <div style={{ fontSize: 10, fontWeight: 700 }}>Quality</div>
+          </div>
+          <div style={{ textAlign: 'center', opacity: 0.85 }}>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ marginBottom: 4 }}>
+              <rect x="1.5" y="4.5" width="11" height="9" rx="1" stroke="#fff" strokeWidth="1.3" fill="none"/>
+              <rect x="13" y="3" width="3.5" height="12" rx="0.5" fill="#fff"/>
+            </svg>
+            <div style={{ fontSize: 10, fontWeight: 700 }}>AirPlay</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===========================================
+// Root
+// ===========================================
+function App() {
+  return (
+    <>
+      <div className="col">
+        <div className="lbl">
+          <div className="pill dark">BROWSE HUB</div>
+          <div className="name">策展入口 · Genre/Decade/Tag/People</div>
+          <div className="desc">6 个多彩 Genre 卡 + Decades 横向胶囊 + Tags 云 + Top People 列表 (8,251 人物)</div>
+        </div>
+        <IosFrame><BrowseScreen/></IosFrame>
+      </div>
+      <div className="col">
+        <div className="lbl">
+          <div className="pill dark">SETTINGS</div>
+          <div className="name">设置 · 含 PIN/隐身模式</div>
+          <div className="desc">服务器卡 + Privacy 区 (Stealth/PIN/Auto-lock) + Playback (VLC/Infuse) + Appearance 色彩选择器 + About</div>
+        </div>
+        <IosFrame><SettingsScreen/></IosFrame>
+      </div>
+      <div className="col">
+        <div className="lbl">
+          <div className="pill dark">SEARCH</div>
+          <div className="name">全局搜索</div>
+          <div className="desc">紫边输入框 + scope tabs (All/Titles/People/Tags) + Top result 卡 + 关键词高亮 + Recent searches</div>
+        </div>
+        <IosFrame><SearchScreen/></IosFrame>
+      </div>
+      <div className="col">
+        <div className="lbl">
+          <div className="pill dark">PLAYER</div>
+          <div className="name">播放器 chrome</div>
+          <div className="desc">全屏取色 backdrop + 居中海报 + 大白圆 Pause + Mono 时间码 + 字幕/音轨/画质/AirPlay 4 个底部 chip</div>
+        </div>
+        <IosFrame bg="#000"><PlayerScreen/></IosFrame>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

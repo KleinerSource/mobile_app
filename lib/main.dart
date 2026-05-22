@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/config/server_config_provider.dart';
+import 'core/platform/app_theme.dart';
 import 'features/main/main_shell.dart';
 import 'features/settings/server_setup_page.dart';
 
@@ -24,16 +25,8 @@ class MdCenterApp extends ConsumerWidget {
     return MaterialApp(
       title: 'md_center',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.light,
-        colorSchemeSeed: const Color(0xFF1565C0),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorSchemeSeed: const Color(0xFF1565C0),
-      ),
+      theme: buildAppTheme(Brightness.light),
+      darkTheme: buildAppTheme(Brightness.dark),
       home: cfg == null ? const ServerSetupPage() : const MainShell(),
     );
   }

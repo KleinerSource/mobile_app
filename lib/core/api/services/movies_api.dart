@@ -10,15 +10,15 @@ abstract class MoviesApi {
   @GET('/movies')
   Future<Map<String, dynamic>> getMovies(@Queries() Map<String, dynamic> q);
 
-  @GET('/movies/{id}')
+  @GET('/movies/id/{id}')
   Future<Map<String, dynamic>> getMovieDetail(@Path('id') int id);
 
-  @PUT('/movies/{id}/watch-record')
+  @PUT('/movies/id/{id}/watch-record')
   Future<Map<String, dynamic>> upsertWatchRecord(
     @Path('id') int id,
     @Body() Map<String, dynamic> body,
   );
 
-  @GET('/movies/{id}/watch-record')
+  @GET('/movies/id/{id}/watch-record')
   Future<Map<String, dynamic>> getWatchRecord(@Path('id') int id);
 }
