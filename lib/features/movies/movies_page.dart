@@ -10,6 +10,7 @@ import '../../core/ui/tokens.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
 import '../../shared/movie_card.dart';
+import 'detail/movie_detail_page.dart';
 import 'movie_filter.dart';
 import 'movies_providers.dart';
 
@@ -55,11 +56,10 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     }
   }
 
-  void _onSubmitted(String v) {
-    final next = _currentFilter.copyWith(search: v);
+  void _applyFilter(MovieFilter next) {
     if (next == _currentFilter) return;
     setState(() => _currentFilter = next);
-    ref.read(movieFilterProvider.notifier).state = next;
+    _searchController.text = next.search ?? '';
     _controller.refresh();
   }
 
@@ -67,6 +67,10 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   Widget build(BuildContext context) {
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
     final c = Theme.of(context).extension<AppColors>()!;
+
+    ref.listen<MovieFilter>(movieFilterProvider, (prev, next) {
+      _applyFilter(next);
+    });
 
     return AppScaffold(
       body: AppPage(
@@ -80,7 +84,10 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
               child: AppSearchField(
                 controller: _searchController,
                 placeholder: '搜索片名 / 演员 / 标签',
-                onSubmitted: _onSubmitted,
+                onSubmitted: (v) {
+                  ref.read(movieFilterProvider.notifier).state =
+                      _currentFilter.copyWith(search: v);
+                },
               ),
             ),
           ),
@@ -98,6 +105,11 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                 itemBuilder: (ctx, item, idx) => MovieCard(
                   movie: item,
                   posterUrlBuilder: urlBuilder,
+                  onTap: () => Navigator.of(ctx).push(
+                    MaterialPageRoute(
+                      builder: (_) => MovieDetailPage(movieId: item.id),
+                    ),
+                  ),
                 ),
                 firstPageErrorIndicatorBuilder: (_) => ErrorView(
                   message: _controller.error?.toString() ?? '加载失败',
