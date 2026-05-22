@@ -1,35 +1,46 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import '../../core/platform/platform.dart';
+import '../../core/ui/app_bottom_nav.dart';
+import '../../core/ui/app_more_sheet.dart';
+import '../dashboard/dashboard_page.dart';
 import '../favorites/favorites_page.dart';
 import '../movies/movies_page.dart';
 import '../settings/settings_page.dart';
 
-class MainShell extends StatelessWidget {
+class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
   @override
+  State<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends State<MainShell> {
+  int _index = 0;
+
+  static const _pageIndexMap = <int, int>{
+    0: 0, // dashboard
+    1: 1, // movies
+    2: 2, // favorites
+    4: 3, // settings (skip 3 = more)
+  };
+
+  static const _pages = <Widget>[
+    DashboardPage(),
+    MoviesPage(),
+    FavoritesPage(),
+    SettingsPage(),
+  ];
+
+  @override
   Widget build(BuildContext context) {
-    final cupertino = isCupertino(context);
-    return AppTabsShell(
-      tabs: [
-        AppTabItem(
-          icon: cupertino ? CupertinoIcons.film : Icons.movie_outlined,
-          label: '影片',
-          body: const MoviesPage(),
-        ),
-        AppTabItem(
-          icon: cupertino ? CupertinoIcons.star : Icons.star_outline,
-          label: '收藏',
-          body: const FavoritesPage(),
-        ),
-        AppTabItem(
-          icon: cupertino ? CupertinoIcons.settings : Icons.settings_outlined,
-          label: '设置',
-          body: const SettingsPage(),
-        ),
-      ],
+    final pageIdx = _pageIndexMap[_index] ?? 0;
+    return Scaffold(
+      body: IndexedStack(index: pageIdx, children: _pages),
+      bottomNavigationBar: AppBottomNav(
+        currentIndex: _index,
+        onTap: (i) => setState(() => _index = i),
+        onMoreTap: () => showAppMoreSheet(context),
+      ),
     );
   }
 }
