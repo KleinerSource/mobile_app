@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/providers.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/models/media_info.dart';
+import '../../core/models/movie.dart';
 import 'movie_filter.dart';
 import 'movies_repository.dart';
 
@@ -16,4 +18,19 @@ final moviesRepositoryProvider = Provider<MoviesRepository>((ref) {
 final imageUrlBuilderProvider = Provider<String Function(String uuid)>((ref) {
   final cfg = ref.watch(serverConfigProvider);
   return (uuid) => '${cfg?.apiBase ?? ''}/images/$uuid';
+});
+
+final movieDetailProvider = FutureProvider.autoDispose
+    .family<MovieDetail, int>((ref, id) async {
+  return ref.read(moviesRepositoryProvider).detail(id);
+});
+
+final extraFanartsProvider = FutureProvider.autoDispose
+    .family<List<String>, int>((ref, id) async {
+  return ref.read(moviesRepositoryProvider).extraFanarts(id);
+});
+
+final mediaInfoProvider = FutureProvider.autoDispose
+    .family<MediaInfo?, int>((ref, id) async {
+  return ref.read(moviesRepositoryProvider).mediaInfo(id);
 });
