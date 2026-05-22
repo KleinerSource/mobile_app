@@ -1,11 +1,11 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
-import '../../core/platform/platform.dart';
+import '../../core/ui/app_scaffold.dart';
+import '../../core/ui/tokens.dart';
 
 class ServerSetupPage extends ConsumerStatefulWidget {
   const ServerSetupPage({super.key});
@@ -39,7 +39,8 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       return;
     }
     final normalized = ServerConfig.normalize(raw);
-    if (!normalized.startsWith('http://') && !normalized.startsWith('https://')) {
+    if (!normalized.startsWith('http://') &&
+        !normalized.startsWith('https://')) {
       setState(() => _error = '地址必须以 http:// 或 https:// 开头');
       return;
     }
@@ -63,60 +64,64 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
 
   @override
   Widget build(BuildContext context) {
+    final c = Theme.of(context).extension<AppColors>()!;
     return AppScaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(20),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 24),
-            const Text(
+            Text(
               '连接 md_center 后端',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: c.text,
+              ),
             ),
             const SizedBox(height: 8),
-            const Text('请输入服务器地址，包含协议和端口。例：http://192.168.1.10:8001'),
+            Text(
+              '请输入服务器地址，包含协议和端口。例：http://192.168.1.10:8001',
+              style: TextStyle(fontSize: 13, color: c.textMuted),
+            ),
             const SizedBox(height: 24),
-            if (isCupertino(context))
-              CupertinoTextField(
-                controller: _controller,
-                placeholder: 'http://192.168.1.10:8001',
-                keyboardType: TextInputType.url,
-                autocorrect: false,
-              )
-            else
-              TextField(
+            Container(
+              decoration: BoxDecoration(
+                color: c.surface,
+                borderRadius: BorderRadius.circular(AppRadius.card),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: TextField(
                 controller: _controller,
                 keyboardType: TextInputType.url,
                 autocorrect: false,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
+                style: TextStyle(fontSize: 14, color: c.text),
+                cursorColor: c.brand,
+                decoration: InputDecoration(
+                  isCollapsed: true,
                   hintText: 'http://192.168.1.10:8001',
+                  hintStyle: TextStyle(fontSize: 14, color: c.textMuted),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
+            ),
             if (_error != null) ...[
               const SizedBox(height: 12),
-              Text(_error!, style: const TextStyle(color: Color(0xFFD93025))),
+              Text(_error!, style: const TextStyle(color: Color(0xFFEF4444))),
             ],
             const SizedBox(height: 24),
-            if (isCupertino(context))
-              CupertinoButton.filled(
-                onPressed: _busy ? null : _testAndSave,
-                child: _busy
-                    ? const CupertinoActivityIndicator()
-                    : const Text('测试并保存'),
-              )
-            else
-              FilledButton(
-                onPressed: _busy ? null : _testAndSave,
-                child: _busy
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('测试并保存'),
-              ),
+            FilledButton(
+              onPressed: _busy ? null : _testAndSave,
+              child: _busy
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('测试并保存'),
+            ),
           ],
         ),
       ),
