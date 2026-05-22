@@ -134,11 +134,14 @@ MovieDetailPage (ConsumerStatefulWidget)
 | `subtitles` | 没用，MediaInfo 已覆盖。`hasExternalSubtitle` bool 够了 | — |
 | `part_movies` | 分片影片块 | `part_movies` (List of RelatedMovie) |
 | `actor_related_movies` | 演员关联影片块 | `actor_related_movies` (List of RelatedMovie + `matching_actors`) |
-| `extra_fanarts` | Extra Fanart 块 | 通过单独 `/api/movies/:id/extra-fanarts` 接口拿，**不进 MovieDetail 模型** |
-| `media_info` | MediaInfo 面板 | 通过单独 `/api/movies/:id/mediainfo` 接口拿 |
-| `related_files` | 文件路径块 | `related_files` (List of `{type, label, path}`) |
-| `directory` | 可选展示 | `directory` (`{id, name}`) |
+| `extra_fanarts` | Extra Fanart 块 | 通过单独 `GET /api/movies/id/:id/extrafanart` 接口拿（返回 `["url1", ...]` 字符串数组），**不进 MovieDetail 模型** |
+| `media_info` | MediaInfo 面板 | 通过单独 `GET /api/movies/id/:id/media-info` 接口拿 |
+| `related_files` | 文件路径块 | `related_files` — backend 字段实际形态在 Plan Task 0 探查（service 内部用 `buildRelatedFiles`，结构未在 backend response 直接表达） |
 | `movie_part` | 顶部 badge | `movie_part` (string) |
+
+注：spec §4.2 提到的 "directory" 信息块在 backend 详情响应里**不直接存在**（`Movie.Directory` 是关联但响应未导出）—— 取消该子块，文件路径块改用 `file_path` 主路径 + `related_files`。
+
+另外，**`has_external_subtitle` 在详情响应里不存在**（只有 `subtitles` 列表）。`MovieDetail` 模型保留 `hasExternalSubtitle` 字段（兼容现有反序列化），但详情响应解出来永远是 `false`（默认值），不影响功能。详情页不依赖该字段。
 
 加到 `MovieDetail` freezed 类里。
 
@@ -178,35 +181,61 @@ class RelatedFile with _$RelatedFile {
 @freezed
 class MediaInfo with _$MediaInfo {
   const factory MediaInfo({
-    @Default(<MediaInfoTrack>[]) List<MediaInfoTrack> video,
-    @Default(<MediaInfoTrack>[]) List<MediaInfoTrack> audio,
-    @Default(<MediaInfoTrack>[]) List<MediaInfoTrack> subtitle,
-    @Default(<MediaInfoChapter>[]) List<MediaInfoChapter> chapters,
+    String? container,
+    @JsonKey(name: 'video_codec') String? videoCodec,
+    @JsonKey(name: 'video_profile') String? videoProfile,
+    @JsonKey(name: 'video_width') int? videoWidth,
+    @JsonKey(name: 'video_height') int? videoHeight,
+    @JsonKey(name: 'video_pix_fmt') String? videoPixFmt,
+    @JsonKey(name: 'video_bit_rate') int? videoBitRate,
+    @JsonKey(name: 'video_frame_rate') double? videoFrameRate,
+    @JsonKey(name: 'audio_codec') String? audioCodec,
+    @JsonKey(name: 'audio_channels') int? audioChannels,
+    @JsonKey(name: 'audio_bit_rate') int? audioBitRate,
+    @JsonKey(name: 'duration_sec') double? durationSec,
+    @JsonKey(name: 'bit_rate') int? bitRate,
+    @JsonKey(name: 'file_size') int? fileSize,
   }) = _MediaInfo;
 
   factory MediaInfo.fromJson(Map<String, dynamic> json) =>
       _$MediaInfoFromJson(json);
 }
-
-// MediaInfoTrack / MediaInfoChapter 字段以 backend 返回为准（read 后端 model 时确认）
 ```
+
+backend 返回的是**扁平结构**（不是按 video/audio/subtitle 分组）。UI 上按"容器 / 视频 / 音频"3 个 group 展示，每 group 由相关字段拼接。**没有 chapters 和 subtitle tracks**（subtitle 信息在 `MovieDetail.subtitles` 列表，但 Sub 1 不展示该列表 — 仅靠列表页 `hasExternalSubtitle` badge 提示已足够）。
 
 ### 5.3 API 扩展
 
-`MoviesApi` 增加 3 个端点：
+**重要**：当前 [movies_api.dart](lib/core/api/services/movies_api.dart) 的所有 `{id}` 路径写的是 `/movies/{id}` —— 但 backend 实际是 `/movies/id/{id}`（带 `/id/` 段）。详情、watch-record 等都要修，包括已有但路径错的 4 个端点（getMovieDetail / upsertWatchRecord / getWatchRecord）。
+
+`MoviesApi` 修正现有 + 增加 3 端点：
 
 ```dart
-@GET('/movies/{id}/extra-fanarts')
+// 修正现有
+@GET('/movies/id/{id}')
+Future<dynamic> getMovieDetail(@Path('id') int id);
+
+@PUT('/movies/id/{id}/watch-record')
+Future<dynamic> upsertWatchRecord(@Path('id') int id, @Body() Map<String, dynamic> body);
+
+@GET('/movies/id/{id}/watch-record')
+Future<dynamic> getWatchRecord(@Path('id') int id);
+
+// 新增 3 个
+@GET('/movies/id/{id}/extrafanart')
 Future<dynamic> getExtraFanarts(@Path('id') int id);
 
-@GET('/movies/{id}/mediainfo')
+@GET('/movies/id/{id}/media-info')
 Future<dynamic> getMediaInfo(@Path('id') int id);
 
-@POST('/movies/{id}/favorite')
+@PUT('/favorites/{id}/toggle')
 Future<dynamic> toggleFavorite(@Path('id') int id);
 ```
 
-PWA 上 `toggleFavorite` 是 POST `/api/movies/:id/favorite`，需要后端确认（看 [backend/internal/handlers/movies.go](backend/internal/handlers/movies.go) 路由）。`upsertWatchRecord` 已有。
+注意：
+- `extrafanart`（无连字符），返回 `["url1", "url2", ...]` 字符串数组，url 是完整 path 例如 `/api/movies/id/123/extrafanart/foo.jpg` — 直接可拼 baseUrl 用
+- `media-info`（带连字符），返回扁平 object（见 §5.2 重写）
+- favorite endpoint 是 `PUT /api/favorites/{movie_id}/toggle`（独立 group，不在 movies 下），返回 `{is_favorited, message}`
 
 ### 5.4 Repository 层
 
@@ -320,13 +349,16 @@ ApiClient / Repository 的新方法用 stub repository 注入测试（沿用现�
 - 番号 pill 复制的多平台兼容（fallback execCommand）
 - 标记看完时同步上传 `progress_ratio = 1.0`（看完 = `completed: true`，进度保持当前值不变；取消看完 = `completed: false`）
 
-## 11. Backend 依赖确认
+## 11. Backend 已确认（在 brainstorming 阶段完成）
 
-实施前需要验证（spec 写完后由实施 agent 在 Task 0 完成）：
+| Endpoint | 路径 | 返回 |
+|---------|------|------|
+| 详情 | `GET /api/movies/id/{id}` | 上述 `MovieDetail` 形态 |
+| Extra Fanart | `GET /api/movies/id/{id}/extrafanart` | `["/api/movies/id/123/extrafanart/foo.jpg", ...]` 字符串数组（注意不是 uuid） |
+| Media Info | `GET /api/movies/id/{id}/media-info` | 扁平 object，字段见 §5.2 `MediaInfo` |
+| 收藏切换 | `PUT /api/favorites/{movie_id}/toggle` | `{movie_id, is_favorited, message}` |
+| 观看记录 | `PUT /api/movies/id/{id}/watch-record` | 现有，body 含 `completed` / `progress_ratio` |
 
-- `GET /api/movies/:id/extra-fanarts` 返回结构
-- `GET /api/movies/:id/mediainfo` 返回结构
-- `POST /api/movies/:id/favorite` 返回结构（PWA 调用 `api.toggleFavorite`）
-- `MovieDetail` JSON 实际返回的 `part_movies`、`actor_related_movies`、`related_files`、`directory`、`movie_part`、`subtitles` 字段名
+仅 `related_files` 形态需要在 Plan Task 0 探查 backend `buildRelatedFiles` 函数确认 — 该字段若结构复杂，简化为只展示主路径 `file_path` 单行，整个 `related_files` block 取消。
 
-如果某个端点不存在 / 字段名不匹配，**对应 section 降级**（hide 整块或显示"暂不支持"），写在实施 plan 的 Task 0 探查 → 调整 spec 章节里。
+PWA 详情响应里 `subtitles` 字段存在但 mobile_app 详情页不展示（MediaInfo 已覆盖 subtitle 视觉提示）—— 不需要建模。
