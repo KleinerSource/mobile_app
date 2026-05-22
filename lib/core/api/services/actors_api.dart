@@ -8,5 +8,5 @@ abstract class ActorsApi {
   factory ActorsApi(Dio dio, {String baseUrl}) = _ActorsApi;
 
   @GET('/actors')
-  Future<dynamic> list(@Queries() Map<String, dynamic> q);
+  Future<Map<String, dynamic>> list(@Queries() Map<String, dynamic> q);
 }

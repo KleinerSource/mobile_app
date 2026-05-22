@@ -6,6 +6,7 @@ import 'services/actors_api.dart';
 import 'services/directories_api.dart';
 import 'services/favorites_api.dart';
 import 'services/genres_api.dart';
+import 'services/libraries_api.dart';
 import 'services/movies_api.dart';
 import 'services/series_api.dart';
 import 'services/system_api.dart';
@@ -16,6 +17,7 @@ class ApiClient {
       : system = SystemApi(dio),
         movies = MoviesApi(dio),
         favorites = FavoritesApi(dio),
+        libraries = LibrariesApi(dio),
         tags = TagsApi(dio),
         genres = GenresApi(dio),
         series = SeriesApi(dio),
@@ -28,6 +30,7 @@ class ApiClient {
   final SystemApi system;
   final MoviesApi movies;
   final FavoritesApi favorites;
+  final LibrariesApi libraries;
   final TagsApi tags;
   final GenresApi genres;
   final SeriesApi series;

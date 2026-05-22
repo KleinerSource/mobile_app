@@ -1,209 +1,151 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../core/models/movie.dart';
-import '../core/ui/app_badge.dart';
-import '../core/ui/tokens.dart';
+import '../core/platform/app_theme.dart';
+import 'poster.dart';
 
+/// md_center 标准影片卡片 · 海报 + 评分角标 + 进度条 + 标题元数据
 class MovieCard extends StatelessWidget {
   const MovieCard({
     super.key,
     required this.movie,
     required this.posterUrlBuilder,
     this.onTap,
+    this.onLongPress,
+    this.restricted = false,
   });
 
   final MovieListItem movie;
   final String Function(String uuid) posterUrlBuilder;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final bool restricted;
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).extension<AppColors>()!;
     final progress = movie.watchRecord?.progressRatio ?? 0.0;
     final completed = movie.watchRecord?.completed ?? false;
-    final rating = movie.rating;
-    final ratingText = (rating != null && rating > 0)
-        ? rating.toStringAsFixed(1)
-        : null;
+    final c = appColors(context);
+    final hasRating = movie.rating != null && movie.rating! > 0;
 
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
+      borderRadius: BorderRadius.circular(10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AspectRatio(
-            aspectRatio: 2 / 3,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.poster),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: c.surface,
-                      border: Border.all(color: c.posterBorder, width: 1),
-                    ),
-                    child: movie.posterUuid != null
-                        ? CachedNetworkImage(
-                            imageUrl: posterUrlBuilder(movie.posterUuid!),
-                            fit: BoxFit.cover,
-                            placeholder: (_, __) => ColoredBox(color: c.surface),
-                            errorWidget: (_, __, ___) =>
-                                ColoredBox(color: c.surface),
-                          )
-                        : ColoredBox(color: c.surface),
-                  ),
-                  Positioned(top: 5, left: 5, child: _topLeftBadge(c)),
-                  if (completed)
-                    Positioned(
-                      top: 5,
-                      right: 5,
-                      child: AppBadge(
-                        icon: Icons.check_circle_outline,
-                        label: '已看完',
-                        background: c.badgeCompleted,
-                      ),
-                    ),
-                  Positioned(
-                    left: 5,
-                    right: 5,
-                    bottom: 5,
-                    child: _bottomBadgeRow(c, ratingText),
-                  ),
-                  if (progress > 0 && !completed)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: SizedBox(
-                        key: const ValueKey('movie-progress'),
-                        height: 2,
-                        child: LinearProgressIndicator(
-                          value: progress.clamp(0.0, 1.0),
-                          minHeight: 2,
-                          backgroundColor: c.progressTrack,
-                          valueColor: AlwaysStoppedAnimation(c.brand),
-                        ),
-                      ),
-                    ),
-                ],
+          Stack(
+            children: [
+              Poster(
+                url: movie.posterUuid != null
+                    ? posterUrlBuilder(movie.posterUuid!)
+                    : null,
+                title: movie.title,
+                year: movie.year,
+                restricted: restricted,
               ),
-            ),
+              if (!restricted && hasRating)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: RatingBadge(rating: movie.rating!),
+                ),
+              if (restricted)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: c.warning.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'R18',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'monospace',
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ),
+                ),
+              if (!restricted && completed)
+                Positioned(
+                  top: 6,
+                  left: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      '已看',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              if (!restricted && !completed && progress > 0)
+                Positioned(
+                  left: 4,
+                  right: 4,
+                  bottom: 4,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: progress.clamp(0.0, 1.0),
+                      minHeight: 3,
+                      backgroundColor: Colors.black.withValues(alpha: 0.3),
+                      valueColor: AlwaysStoppedAnimation(c.accent),
+                    ),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
-            movie.title,
+            restricted ? 'Restricted' : movie.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: c.text,
-              height: 1.3,
+              color: restricted ? c.muted : c.text,
+              fontFamily: 'Inter',
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              fontStyle: restricted ? FontStyle.italic : FontStyle.normal,
+              height: 1.2,
             ),
           ),
-          const SizedBox(height: 2),
-          _metaRow(c),
+          if (!restricted && (movie.year != null || movie.runtime != null))
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                _meta(movie),
+                style: TextStyle(
+                  color: c.muted,
+                  fontFamily: 'Inter',
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _topLeftBadge(AppColors c) {
-    if (movie.isUpdated) {
-      return AppBadge(
-        icon: Icons.refresh,
-        label: '已更新',
-        background: c.badgeUpdated,
-      );
-    }
-    if (movie.isFavorited) {
-      return AppBadge(
-        icon: Icons.favorite,
-        label: '已收藏',
-        background: c.badgeFavorited,
-      );
-    }
-    return const SizedBox.shrink();
-  }
-
-  Widget _bottomBadgeRow(AppColors c, String? ratingText) {
-    final children = <Widget>[];
-    if (movie.hasExternalSubtitle) {
-      children.add(AppBadge(
-        icon: Icons.closed_caption_outlined,
-        background: c.badgeSubtitle,
-      ));
-    }
-    final sizeText = _formatFileSize(movie.fileSize);
-    if (sizeText != null) {
-      children.add(AppBadge(
-        icon: Icons.storage,
-        label: sizeText,
-        background: c.shade,
-      ));
-    }
-    if (ratingText != null) {
-      children.add(AppBadge(
-        icon: Icons.star,
-        label: ratingText,
-        background: c.shade,
-      ));
-    }
-    if (children.isEmpty) return const SizedBox.shrink();
-    return Wrap(
-      spacing: 3,
-      runSpacing: 3,
-      children: children,
-    );
-  }
-
-  String? _formatFileSize(int? size) {
-    if (size == null || size <= 0) return null;
-    if (size >= 1073741824) return '${(size / 1073741824).toStringAsFixed(1)}G';
-    if (size >= 1048576) return '${(size / 1048576).round()}M';
-    if (size >= 1024) return '${(size / 1024).round()}K';
-    return '${size}B';
-  }
-
-  Widget _metaRow(AppColors c) {
-    final parts = <Widget>[];
-    final num = movie.num;
-    if (num != null && num.isNotEmpty) {
-      parts.add(Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-        decoration: BoxDecoration(
-          color: c.surfaceVariant,
-          borderRadius: BorderRadius.circular(3),
-        ),
-        child: Text(
-          num,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.4,
-            color: c.text,
-            height: 1.1,
-          ),
-        ),
-      ));
-    }
-    if (movie.year != null) {
-      if (parts.isNotEmpty) parts.add(const SizedBox(width: 4));
-      parts.add(Text(
-        '${movie.year}',
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-          color: c.textMuted,
-        ),
-      ));
-    }
-    if (parts.isEmpty) return const SizedBox.shrink();
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: parts,
-    );
+  static String _meta(MovieListItem m) {
+    final parts = <String>[];
+    if (m.year != null) parts.add('${m.year}');
+    if (m.runtime != null && m.runtime! > 0) parts.add('${m.runtime}m');
+    return parts.join(' · ');
   }
 }

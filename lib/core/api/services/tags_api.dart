@@ -8,5 +8,5 @@ abstract class TagsApi {
   factory TagsApi(Dio dio, {String baseUrl}) = _TagsApi;
 
   @GET('/tags')
-  Future<dynamic> list(@Queries() Map<String, dynamic> q);
+  Future<Map<String, dynamic>> list(@Queries() Map<String, dynamic> q);
 }

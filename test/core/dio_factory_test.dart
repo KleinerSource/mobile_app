@@ -19,20 +19,14 @@ void main() {
       'data': null,
     });
     dio.httpClientAdapter = adapter;
-    await expectLater(
-      dio.get<dynamic>('/x'),
-      throwsA(
-        isA<DioException>().having(
-          (e) => e.error,
-          'error',
-          isA<ApiException>().having((e) => e.message, 'message', '业务失败'),
-        ),
-      ),
+    expect(
+      () => dio.get<dynamic>('/x'),
+      throwsA(isA<ApiException>().having((e) => e.message, 'message', '业务失败')),
     );
   });
 }
 
-class _StubAdapter implements HttpClientAdapter {
+class _StubAdapter extends HttpClientAdapter {
   _StubAdapter(this.body);
   final Map<String, dynamic> body;
 
