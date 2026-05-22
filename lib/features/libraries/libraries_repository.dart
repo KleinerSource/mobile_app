@@ -1,4 +1,3 @@
-import '../../core/api/envelope.dart';
 import '../../core/api/services/libraries_api.dart';
 import '../../core/models/library.dart';
 

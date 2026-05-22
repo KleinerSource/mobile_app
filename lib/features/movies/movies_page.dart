@@ -236,7 +236,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         padding: const EdgeInsets.all(16),
         child: TextButton(
           onPressed: () => _controller.retryLastFailedRequest(),
-          child: Text('加载失败，点击重试'),
+          child: const Text('加载失败，点击重试'),
         ),
       ),
       noItemsFoundIndicatorBuilder: (_) =>
@@ -360,7 +360,6 @@ class _ListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = appColors(context);
     return InkWell(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
