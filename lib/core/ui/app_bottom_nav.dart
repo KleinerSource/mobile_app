@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'tokens.dart';
 
-class AppBottomNavItem {
-  const AppBottomNavItem({
+class _AppBottomNavItem {
+  const _AppBottomNavItem({
     required this.iconIdle,
     required this.iconActive,
     required this.label,
@@ -12,28 +12,28 @@ class AppBottomNavItem {
   final String label;
 }
 
-const _items = <AppBottomNavItem>[
-  AppBottomNavItem(
+const _items = <_AppBottomNavItem>[
+  _AppBottomNavItem(
     iconIdle: Icons.dashboard_outlined,
     iconActive: Icons.dashboard,
     label: '仪表板',
   ),
-  AppBottomNavItem(
+  _AppBottomNavItem(
     iconIdle: Icons.movie_outlined,
     iconActive: Icons.movie,
     label: '影片',
   ),
-  AppBottomNavItem(
+  _AppBottomNavItem(
     iconIdle: Icons.favorite_outline,
     iconActive: Icons.favorite,
     label: '收藏',
   ),
-  AppBottomNavItem(
+  _AppBottomNavItem(
     iconIdle: Icons.more_horiz,
     iconActive: Icons.more_horiz,
     label: '更多',
   ),
-  AppBottomNavItem(
+  _AppBottomNavItem(
     iconIdle: Icons.settings_outlined,
     iconActive: Icons.settings,
     label: '设置',
