@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:md_center/core/config/server_config_provider.dart';
 import 'package:md_center/core/models/media_info.dart';
 import 'package:md_center/core/models/movie.dart';
 import 'package:md_center/core/ui/theme.dart';
 import 'package:md_center/features/movies/detail/movie_detail_page.dart';
 import 'package:md_center/features/movies/movies_providers.dart';
 import 'package:md_center/features/movies/movies_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeRepo implements MoviesRepository {
   _FakeRepo(this._detail);
@@ -40,9 +42,18 @@ class _ErrRepo implements MoviesRepository {
 }
 
 void main() {
+  late SharedPreferences prefs;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
+  });
+
   Widget wrap(Widget child, MoviesRepository repo) => ProviderScope(
         overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
           moviesRepositoryProvider.overrideWithValue(repo),
+          imageUrlBuilderProvider.overrideWithValue((uuid) => 'http://x/$uuid'),
         ],
         child: MaterialApp(theme: appTheme(Brightness.light), home: child),
       );
