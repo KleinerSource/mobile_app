@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 @immutable
-class AppColors {
+class AppColors extends ThemeExtension<AppColors> {
   const AppColors({
     required this.bg,
     required this.surface,
@@ -93,6 +93,12 @@ class AppColors {
 
   static AppColors of(Brightness brightness) =>
       brightness == Brightness.dark ? dark : light;
+
+  @override
+  AppColors copyWith() => this;
+
+  @override
+  AppColors lerp(ThemeExtension<AppColors>? other, double t) => this;
 }
 
 class AppRadius {
