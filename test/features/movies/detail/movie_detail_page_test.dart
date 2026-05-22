@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:md_center/core/models/media_info.dart';
 import 'package:md_center/core/models/movie.dart';
 import 'package:md_center/core/ui/theme.dart';
 import 'package:md_center/features/movies/detail/movie_detail_page.dart';
@@ -15,12 +16,25 @@ class _FakeRepo implements MoviesRepository {
   Future<MovieDetail> detail(int id) async => _detail;
 
   @override
+  Future<List<String>> extraFanarts(int id) async => const <String>[];
+
+  @override
+  Future<MediaInfo?> mediaInfo(int id) async => null;
+
+  @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _ErrRepo implements MoviesRepository {
   @override
   Future<MovieDetail> detail(int id) async => throw Exception('boom');
+
+  @override
+  Future<List<String>> extraFanarts(int id) async => const <String>[];
+
+  @override
+  Future<MediaInfo?> mediaInfo(int id) async => null;
+
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
