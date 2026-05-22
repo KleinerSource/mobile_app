@@ -15,6 +15,7 @@ class MovieListItem with _$MovieListItem {
     int? year,
     double? rating,
     int? runtime,
+    @JsonKey(name: 'file_size') int? fileSize,
     @JsonKey(name: 'poster_uuid') String? posterUuid,
     @JsonKey(name: 'fanart_uuid') String? fanartUuid,
     @JsonKey(name: 'thumb_uuid') String? thumbUuid,

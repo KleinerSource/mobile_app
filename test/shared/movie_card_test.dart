@@ -102,4 +102,11 @@ void main() {
     )));
     expect(find.text('2023'), findsOneWidget);
   });
+
+  testWidgets('fileSize 显示文件大小 badge', (tester) async {
+    await tester.pumpWidget(wrap(card(
+      const MovieListItem(id: 1, title: 'A', fileSize: 4500000000),
+    )));
+    expect(find.text('4.2G'), findsOneWidget);
+  });
 }

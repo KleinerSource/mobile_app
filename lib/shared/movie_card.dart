@@ -43,7 +43,6 @@ class MovieCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: c.surface,
                       border: Border.all(color: c.posterBorder, width: 1),
-                      borderRadius: BorderRadius.circular(AppRadius.poster),
                     ),
                     child: movie.posterUuid != null
                         ? CachedNetworkImage(
@@ -137,6 +136,14 @@ class MovieCard extends StatelessWidget {
         background: c.badgeSubtitle,
       ));
     }
+    final sizeText = _formatFileSize(movie.fileSize);
+    if (sizeText != null) {
+      children.add(AppBadge(
+        icon: Icons.storage,
+        label: sizeText,
+        background: c.shade,
+      ));
+    }
     if (ratingText != null) {
       children.add(AppBadge(
         icon: Icons.star,
@@ -150,6 +157,14 @@ class MovieCard extends StatelessWidget {
       runSpacing: 3,
       children: children,
     );
+  }
+
+  String? _formatFileSize(int? size) {
+    if (size == null || size <= 0) return null;
+    if (size >= 1073741824) return '${(size / 1073741824).toStringAsFixed(1)}G';
+    if (size >= 1048576) return '${(size / 1048576).round()}M';
+    if (size >= 1024) return '${(size / 1024).round()}K';
+    return '${size}B';
   }
 
   Widget _metaRow(AppColors c) {
