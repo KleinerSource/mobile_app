@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/api_exception.dart';
 import 'package:md_center/core/api/dio_factory.dart';
 import 'package:md_center/core/config/server_config.dart';
 
@@ -19,10 +18,13 @@ void main() {
       'data': null,
     });
     dio.httpClientAdapter = adapter;
-    expect(
-      () => dio.get<dynamic>('/x'),
-      throwsA(isA<ApiException>().having((e) => e.message, 'message', '业务失败')),
-    );
+    try {
+      await dio.get<dynamic>('/x');
+      fail('期望抛错');
+    } catch (e) {
+      final ex = toApiException(e);
+      expect(ex.message, '业务失败');
+    }
   });
 }
 

@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../core/platform/app_theme.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../favorites/favorites_page.dart';
 import '../home/home_page.dart';
 import '../movies/movies_page.dart';
@@ -21,12 +22,15 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
-  static const _tabs = [
-    _TabSpec(label: 'Home', icon: _TabIcon.home),
-    _TabSpec(label: 'Library', icon: _TabIcon.library),
-    _TabSpec(label: 'Search', icon: _TabIcon.search),
-    _TabSpec(label: 'You', icon: _TabIcon.you),
-  ];
+  List<_TabSpec> _tabsFor(BuildContext context) {
+    final l = AppL10n.of(context);
+    return [
+      _TabSpec(label: l.tabHome, icon: _TabIcon.home),
+      _TabSpec(label: l.tabLibrary, icon: _TabIcon.library),
+      _TabSpec(label: l.tabSearch, icon: _TabIcon.search),
+      _TabSpec(label: l.tabYou, icon: _TabIcon.you),
+    ];
+  }
 
   Widget _bodyFor(int i) {
     switch (i) {
@@ -46,15 +50,16 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final tabs = _tabsFor(context);
     return Scaffold(
       extendBody: true,
       backgroundColor: c.bg,
       body: IndexedStack(
         index: _index,
-        children: List.generate(_tabs.length, _bodyFor),
+        children: List.generate(tabs.length, _bodyFor),
       ),
       bottomNavigationBar: _FloatingTabBar(
-        tabs: _tabs,
+        tabs: tabs,
         active: _index,
         onTap: (i) => setState(() => _index = i),
       ),

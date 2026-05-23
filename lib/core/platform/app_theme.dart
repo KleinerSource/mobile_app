@@ -158,6 +158,13 @@ ThemeData buildAppTheme(Brightness brightness) {
     displayColor: c.text,
   );
 
+  // 浮层 (popup menu / dropdown / dialog / bottom sheet) 必须用不透明色 ——
+  // 用 surface token (半透白) 在透明 scaffold 上看不见。
+  // 用 bg 比真实更亮一档作为浮层底色。
+  final Color overlayBg = brightness == Brightness.dark
+      ? const Color(0xFF1B1A24)
+      : Colors.white;
+
   return base.copyWith(
     brightness: brightness,
     scaffoldBackgroundColor: c.bg,
@@ -191,6 +198,72 @@ ThemeData buildAppTheme(Brightness brightness) {
         fontWeight: FontWeight.w700,
         letterSpacing: -0.02,
       ),
+    ),
+    // 浮层一致使用 overlayBg 不透明色 + 强阴影,告别透明无法辨识
+    popupMenuTheme: PopupMenuThemeData(
+      color: overlayBg,
+      surfaceTintColor: Colors.transparent,
+      elevation: 12,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: c.cardBorder, width: 1),
+      ),
+      textStyle: TextStyle(
+        color: c.text,
+        fontFamily: 'Inter',
+        fontWeight: FontWeight.w600,
+        fontSize: 13.5,
+      ),
+    ),
+    dropdownMenuTheme: DropdownMenuThemeData(
+      menuStyle: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(overlayBg),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(12),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: c.cardBorder, width: 1),
+          ),
+        ),
+      ),
+    ),
+    menuTheme: MenuThemeData(
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(overlayBg),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(12),
+      ),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: overlayBg,
+      surfaceTintColor: Colors.transparent,
+      elevation: 16,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: overlayBg,
+      surfaceTintColor: Colors.transparent,
+      modalBackgroundColor: overlayBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: overlayBg,
+      contentTextStyle: TextStyle(
+        color: c.text,
+        fontFamily: 'Inter',
+        fontWeight: FontWeight.w600,
+        fontSize: 13.5,
+      ),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      actionTextColor: c.accent,
     ),
     visualDensity: VisualDensity.adaptivePlatformDensity,
   );

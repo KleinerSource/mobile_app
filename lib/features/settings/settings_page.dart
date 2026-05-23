@@ -3,7 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_theme.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
+import '../configs/dbo_settings_page.dart';
+import '../configs/video_extensions_page.dart';
+import '../i18n/locale_providers.dart';
+import '../libraries/libraries_page.dart';
+import '../mappings/mapping_rules_page.dart';
+import '../mappings/mappings_repository.dart';
+import '../privacy/privacy_providers.dart';
+import '../resources/resource_list_page.dart';
+import '../resources/resources_repository.dart';
+import '../translation/translation_settings_page.dart';
 import 'server_setup_page.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -13,6 +24,7 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cfg = ref.watch(serverConfigProvider);
     final c = appColors(context);
+    final l = AppL10n.of(context);
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -38,9 +50,9 @@ class SettingsPage extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('SETTINGS', style: AppText.eyebrow(context)),
+                          Text(l.settingsTitle.toUpperCase(), style: AppText.eyebrow(context)),
                           const SizedBox(height: 3),
-                          Text('Preferences', style: AppText.pageTitle(context)),
+                          Text(l.settingsPreferences, style: AppText.pageTitle(context)),
                         ],
                       ),
                     ),
@@ -48,11 +60,11 @@ class SettingsPage extends ConsumerWidget {
                 ),
               ),
               _SettingsGroup(
-                title: 'Server',
+                title: l.settingsGroupServer,
                 items: [
                   _SettingsTile(
-                    title: '服务器地址',
-                    subtitle: cfg?.baseUrl ?? '未配置',
+                    title: l.settingsServerUrl,
+                    subtitle: cfg?.baseUrl ?? l.settingsServerNotConfigured,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const ServerSetupPage()),
                     ),
@@ -60,42 +72,174 @@ class SettingsPage extends ConsumerWidget {
                 ],
               ),
               _SettingsGroup(
-                title: 'Library',
+                title: l.settingsGroupLibrary,
                 items: [
                   _SettingsTile(
-                    title: '安全模式',
-                    subtitle: '关闭后显示成人内容',
-                    trailing: Switch(
-                      value: true,
-                      onChanged: (_) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('安全模式开关尚未实现')),
-                        );
-                      },
+                    title: l.settingsLibraries,
+                    subtitle: l.settingsLibrariesSub,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const LibrariesPage()),
                     ),
                   ),
                   _SettingsTile(
-                    title: 'PIN 码',
-                    subtitle: '未设置',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('PIN 码功能尚未实现')),
-                      );
-                    },
+                    title: l.settingsGenres,
+                    subtitle: 'Genres',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ResourceListPage(
+                          kind: ResourceKind.genre,
+                        ),
+                      ),
+                    ),
+                  ),
+                  _SettingsTile(
+                    title: l.settingsTags,
+                    subtitle: 'Tags',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ResourceListPage(
+                          kind: ResourceKind.tag,
+                        ),
+                      ),
+                    ),
+                  ),
+                  _SettingsTile(
+                    title: l.settingsSeries,
+                    subtitle: 'Series',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ResourceListPage(
+                          kind: ResourceKind.series,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
               _SettingsGroup(
-                title: 'About',
+                title: l.settingsGroupPrivacy,
                 items: [
-                  const _SettingsTile(
-                    title: '版本',
+                  _PrivacyShieldTile(),
+                  const _LanguageTile(),
+                ],
+              ),
+              _SettingsGroup(
+                title: l.settingsGroupSystem,
+                items: [
+                  _SettingsTile(
+                    title: l.settingsTranslation,
+                    subtitle: l.settingsTranslationSub,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const TranslationSettingsPage(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              _SettingsGroup(
+                title: l.settingsGroupMappings,
+                items: [
+                  _SettingsTile(
+                    title: l.settingsMappingTags,
+                    subtitle: l.settingsMappingSub,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const MappingRulesPage(type: MappingType.tag),
+                      ),
+                    ),
+                  ),
+                  _SettingsTile(
+                    title: l.settingsMappingGenres,
+                    subtitle: l.settingsMappingSub,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const MappingRulesPage(type: MappingType.genre),
+                      ),
+                    ),
+                  ),
+                  _SettingsTile(
+                    title: l.settingsMappingSeries,
+                    subtitle: l.settingsMappingSub,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const MappingRulesPage(type: MappingType.series),
+                      ),
+                    ),
+                  ),
+                  _SettingsTile(
+                    title: l.settingsMappingActors,
+                    subtitle: l.settingsMappingSub,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const MappingRulesPage(type: MappingType.actor),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              _SettingsGroup(
+                title: l.settingsGroupTools,
+                items: [
+                  _SettingsTile(
+                    title: l.settingsDbo,
+                    subtitle: l.settingsDboSub,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const DboSettingsPage(),
+                      ),
+                    ),
+                  ),
+                  _SettingsTile(
+                    title: l.settingsExtensions,
+                    subtitle: l.settingsExtensionsSub,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const VideoExtensionsPage(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              _SettingsGroup(
+                title: l.settingsGroupAbout,
+                items: [
+                  _SettingsTile(
+                    title: l.settingsVersion,
                     subtitle: '0.1.0',
                   ),
                   _SettingsTile(
-                    title: '退出登录',
+                    title: l.settingsLogout,
                     destructive: true,
                     onTap: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('确认退出登录'),
+                          content: const Text(
+                              '退出后将断开与当前服务器的连接,下次启动需要重新配置服务器地址。'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('取消'),
+                            ),
+                            FilledButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: c.danger,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('退出登录'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmed != true) return;
+                      if (!context.mounted) return;
                       await ref.read(serverConfigProvider.notifier).clear();
                       if (context.mounted) {
                         Navigator.of(context).popUntil((r) => r.isFirst);
@@ -202,11 +346,105 @@ class _SettingsTile extends StatelessWidget {
             ),
             if (trailing != null)
               trailing!
-            else if (onTap != null)
+            else if (onTap != null && !destructive)
               Icon(Icons.chevron_right, size: 18, color: c.muted),
           ],
         ),
       ),
     );
+  }
+}
+
+/// 隐私遮罩开关 · 监听并写入 SharedPreferences
+class _PrivacyShieldTile extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppL10n.of(context);
+    final enabled = ref.watch(privacyShieldProvider);
+    return _SettingsTile(
+      title: l.settingsPrivacyShield,
+      subtitle: l.settingsPrivacyShieldSub,
+      trailing: Switch(
+        value: enabled,
+        onChanged: (v) =>
+            ref.read(privacyShieldProvider.notifier).setEnabled(v),
+      ),
+    );
+  }
+}
+
+/// 语言选择条目 · 底部 sheet 选 system/zh/en
+class _LanguageTile extends ConsumerWidget {
+  const _LanguageTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppL10n.of(context);
+    final current = ref.watch(localeProvider);
+    return _SettingsTile(
+      title: l.settingsLanguage,
+      subtitle: _labelOf(current, l),
+      onTap: () => _showSheet(context, ref, current),
+    );
+  }
+
+  String _labelOf(AppLocale loc, AppL10n l) {
+    switch (loc) {
+      case AppLocale.system:
+        return l.languageSystem;
+      case AppLocale.zh:
+        return l.languageZh;
+      case AppLocale.en:
+        return l.languageEn;
+    }
+  }
+
+  Future<void> _showSheet(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocale current,
+  ) async {
+    final c = appColors(context);
+    final l = AppL10n.of(context);
+    final picked = await showModalBottomSheet<AppLocale>(
+      context: context,
+      backgroundColor: c.bg,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
+                child: Row(children: [
+                  Text(l.settingsLanguage, style: AppText.sectionTitle(ctx)),
+                ]),
+              ),
+              for (final loc in AppLocale.values)
+                ListTile(
+                  title: Text(
+                    _labelOf(loc, l),
+                    style: TextStyle(
+                      color: c.text,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                  trailing: loc == current
+                      ? Icon(Icons.check, color: c.accent)
+                      : null,
+                  onTap: () => Navigator.pop(ctx, loc),
+                ),
+              const SizedBox(height: 6),
+            ],
+          ),
+        );
+      },
+    );
+    if (picked != null) {
+      await ref.read(localeProvider.notifier).set(picked);
+    }
   }
 }

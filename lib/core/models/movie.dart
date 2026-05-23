@@ -12,7 +12,7 @@ part 'movie.g.dart';
 class MovieListItem with _$MovieListItem {
   const factory MovieListItem({
     required int id,
-    required String title,
+    @JsonKey(defaultValue: '') @Default('') String title,
     String? num,
     int? year,
     double? rating,
@@ -48,7 +48,7 @@ class WatchRecordSummary with _$WatchRecordSummary {
 class MovieDetail with _$MovieDetail {
   const factory MovieDetail({
     required int id,
-    required String title,
+    @JsonKey(defaultValue: '') @Default('') String title,
     String? num,
     @JsonKey(name: 'original_title') String? originalTitle,
     int? year,

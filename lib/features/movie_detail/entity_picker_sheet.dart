@@ -1,0 +1,562 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/api/api_exception.dart';
+import '../../core/api/providers.dart';
+import '../../core/api/envelope.dart';
+import '../../core/models/paged_result.dart';
+import '../../core/models/resource.dart';
+import '../../core/platform/app_theme.dart';
+import '../resources/resources_providers.dart';
+import '../resources/resources_repository.dart';
+
+/// 资源选择器类型 · 比 ResourceKind 多个 actor
+enum EntityPickerKind {
+  genre,
+  tag,
+  series,
+  actor,
+}
+
+extension on EntityPickerKind {
+  String get label {
+    switch (this) {
+      case EntityPickerKind.genre:
+        return '分类';
+      case EntityPickerKind.tag:
+        return '标签';
+      case EntityPickerKind.series:
+        return '系列';
+      case EntityPickerKind.actor:
+        return '演员';
+    }
+  }
+
+  bool get multi => this != EntityPickerKind.series;
+}
+
+/// 实体选择 sheet · multi-select (series 单选)
+///
+/// 接收当前选中 ids,返回新的 ids list (multi) 或单个 int? (series)。
+class EntityPickerSheet extends ConsumerStatefulWidget {
+  const EntityPickerSheet({
+    super.key,
+    required this.kind,
+    required this.initialSelectedIds,
+  });
+
+  final EntityPickerKind kind;
+
+  /// 初始选中 · multi 用 list,series 用 [singleId] 形式
+  final List<int> initialSelectedIds;
+
+  /// 弹出多选 · 返回 `List<int>` (取消则 null)
+  static Future<List<int>?> pickMulti({
+    required BuildContext context,
+    required EntityPickerKind kind,
+    required List<int> selected,
+  }) async {
+    assert(kind.multi, 'series 用 pickSingle');
+    return showModalBottomSheet<List<int>>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (_) => EntityPickerSheet(
+        kind: kind,
+        initialSelectedIds: selected,
+      ),
+    );
+  }
+
+  /// 弹出单选 (series 专用) · 返回 int? (清空则 -1, 取消则 null 注: 用 [] 表示清空)
+  static Future<int?> pickSingle({
+    required BuildContext context,
+    required EntityPickerKind kind,
+    required int? selected,
+  }) async {
+    assert(!kind.multi, 'multi 用 pickMulti');
+    final result = await showModalBottomSheet<List<int>>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (_) => EntityPickerSheet(
+        kind: kind,
+        initialSelectedIds: selected != null ? [selected] : const [],
+      ),
+    );
+    if (result == null) return null;
+    if (result.isEmpty) return -1;
+    return result.first;
+  }
+
+  @override
+  ConsumerState<EntityPickerSheet> createState() => _EntityPickerSheetState();
+}
+
+class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
+  final _searchCtrl = TextEditingController();
+  Timer? _debounce;
+  String? _search;
+  late final Set<int> _selected =
+      widget.initialSelectedIds.toSet();
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String v) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 320), () {
+      if (mounted) {
+        setState(() => _search = v.trim().isEmpty ? null : v.trim());
+      }
+    });
+  }
+
+  void _toggle(int id) {
+    setState(() {
+      if (widget.kind.multi) {
+        if (_selected.contains(id)) {
+          _selected.remove(id);
+        } else {
+          _selected.add(id);
+        }
+      } else {
+        // 单选: 替换
+        _selected.clear();
+        _selected.add(id);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final overlayBg =
+        isDark ? const Color(0xFF1B1A24) : const Color(0xFFFAFAFA);
+
+    final mediaQuery = MediaQuery.of(context);
+    final height = mediaQuery.size.height * 0.85;
+
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: overlayBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(
+          top: BorderSide(
+              color: isDark
+                  ? const Color(0x33FFFFFF)
+                  : const Color(0x1F000000),
+              width: 1),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 10, bottom: 4),
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: c.muted2.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+              ),
+            ),
+            // 头部
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 8, 16, 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.kind.multi ? '选择${widget.kind.label}' : '选择${widget.kind.label}',
+                          style: AppText.sectionTitle(context),
+                        ),
+                        if (widget.kind.multi) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            '${_selected.length} 已选',
+                            style: AppText.meta(context),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.of(context).pop(_selected.toList()),
+                    child: Text(
+                      widget.kind.multi ? '完成' : '使用',
+                      style: TextStyle(
+                        color: c.accent,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 搜索栏
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: c.chipBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 12),
+                    Icon(Icons.search, size: 18, color: c.muted),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchCtrl,
+                        onChanged: _onSearchChanged,
+                        decoration: const InputDecoration(
+                          hintText: '搜索...',
+                          border: InputBorder.none,
+                          isCollapsed: true,
+                          contentPadding:
+                              EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // 列表
+            Expanded(
+              child: widget.kind == EntityPickerKind.actor
+                  ? _ActorList(
+                      search: _search,
+                      selected: _selected,
+                      onToggle: _toggle,
+                    )
+                  : _ResourceList(
+                      kind: _resourceKindOf(widget.kind),
+                      search: _search,
+                      selected: _selected,
+                      onToggle: _toggle,
+                      singleSelect: !widget.kind.multi,
+                    ),
+            ),
+            // 底部清空按钮
+            if (_selected.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
+                child: TextButton(
+                  onPressed: () => setState(_selected.clear),
+                  child: Text(
+                    '清空',
+                    style: TextStyle(
+                      color: c.danger,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+ResourceKind _resourceKindOf(EntityPickerKind k) {
+  switch (k) {
+    case EntityPickerKind.genre:
+      return ResourceKind.genre;
+    case EntityPickerKind.tag:
+      return ResourceKind.tag;
+    case EntityPickerKind.series:
+      return ResourceKind.series;
+    case EntityPickerKind.actor:
+      throw StateError('actor uses _ActorList');
+  }
+}
+
+class _ResourceList extends ConsumerWidget {
+  const _ResourceList({
+    required this.kind,
+    required this.search,
+    required this.selected,
+    required this.onToggle,
+    required this.singleSelect,
+  });
+
+  final ResourceKind kind;
+  final String? search;
+  final Set<int> selected;
+  final ValueChanged<int> onToggle;
+  final bool singleSelect;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(resourceListProvider(ResourceListKey(
+      kind: kind,
+      search: search,
+      sortBy: 'name',
+      sortOrder: 'asc',
+    )));
+
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text('加载失败: $e', style: AppText.meta(context)),
+        ),
+      ),
+      data: (paged) => ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
+        itemCount: paged.items.length,
+        itemBuilder: (ctx, i) {
+          final r = paged.items[i];
+          final isSel = selected.contains(r.id);
+          return _PickerTile(
+            id: r.id,
+            label: r.name,
+            sub: r.movieCount > 0 ? '${r.movieCount} 部' : null,
+            hue: AppHues.all[i % AppHues.all.length],
+            selected: isSel,
+            multiCheckbox: !singleSelect,
+            onTap: () => onToggle(r.id),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// 演员单独走 ActorsApi (因为 ResourcesRepository 没接 actor)
+class _ActorList extends ConsumerStatefulWidget {
+  const _ActorList({
+    required this.search,
+    required this.selected,
+    required this.onToggle,
+  });
+
+  final String? search;
+  final Set<int> selected;
+  final ValueChanged<int> onToggle;
+
+  @override
+  ConsumerState<_ActorList> createState() => _ActorListState();
+}
+
+class _ActorListState extends ConsumerState<_ActorList> {
+  PagedResult<ResourceItem>? _data;
+  Object? _error;
+  bool _loading = false;
+  String? _lastSearch;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ActorList old) {
+    super.didUpdateWidget(old);
+    if (old.search != widget.search) _fetch();
+  }
+
+  Future<void> _fetch() async {
+    if (_lastSearch == widget.search && _data != null) return;
+    _lastSearch = widget.search;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final api = ref.read(requiredApiClientProvider).actors;
+      final raw = await api.list({
+        'limit': 500,
+        'offset': 0,
+        'sort_by': 'movie_count',
+        'sort_order': 'desc',
+        if (widget.search != null) 'search': widget.search,
+      });
+      // 后端返回顶层数组 { success, data: [...] }
+      final paged = unwrapTopLevelList<ResourceItem>(
+        raw,
+        ResourceItem.fromJson,
+      );
+      if (!mounted) return;
+      setState(() => _data = paged);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading && _data == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(
+            '加载失败: ${_error is ApiException ? (_error as ApiException).message : _error}',
+            style: AppText.meta(context),
+          ),
+        ),
+      );
+    }
+    final items = _data?.items ?? const <ResourceItem>[];
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
+      itemCount: items.length,
+      itemBuilder: (ctx, i) {
+        final r = items[i];
+        final isSel = widget.selected.contains(r.id);
+        return _PickerTile(
+          id: r.id,
+          label: r.name,
+          sub: r.movieCount > 0 ? '${r.movieCount} 部' : null,
+          hue: AppHues.all[i % AppHues.all.length],
+          selected: isSel,
+          multiCheckbox: true,
+          onTap: () => widget.onToggle(r.id),
+        );
+      },
+    );
+  }
+}
+
+class _PickerTile extends StatelessWidget {
+  const _PickerTile({
+    required this.id,
+    required this.label,
+    required this.sub,
+    required this.hue,
+    required this.selected,
+    required this.multiCheckbox,
+    required this.onTap,
+  });
+
+  final int id;
+  final String label;
+  final String? sub;
+  final int hue;
+  final bool selected;
+  final bool multiCheckbox;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppHues.top(hue), AppHues.bottom(hue)],
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                label.isNotEmpty ? label.characters.first : '·',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: c.text,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  if (sub != null) ...[
+                    const SizedBox(height: 2),
+                    Text(sub!, style: AppText.meta(context)),
+                  ],
+                ],
+              ),
+            ),
+            // 复选或单选指示器
+            if (multiCheckbox)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? c.accent : Colors.transparent,
+                  border: Border.all(
+                    color: selected ? c.accent : c.muted2,
+                    width: 1.5,
+                  ),
+                ),
+                child: selected
+                    ? const Icon(Icons.check,
+                        color: Colors.white, size: 14)
+                    : null,
+              )
+            else
+              Icon(
+                selected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
+                color: selected ? c.accent : c.muted2,
+                size: 22,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}

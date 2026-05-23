@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../movie_detail/movie_detail_page.dart';
@@ -51,9 +52,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('SEARCH', style: AppText.eyebrow(context)),
+                  Text(AppL10n.of(context).searchTitle.toUpperCase(),
+                      style: AppText.eyebrow(context)),
                   const SizedBox(height: 3),
-                  Text('Find anything', style: AppText.pageTitle(context)),
+                  Text(AppL10n.of(context).searchFind,
+                      style: AppText.pageTitle(context)),
                 ],
               ),
             ),
@@ -75,7 +78,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         controller: _controller,
                         autofocus: true,
                         decoration: InputDecoration(
-                          hintText: 'Search titles, people, tags',
+                          hintText: AppL10n.of(context).searchHintAll,
                           hintStyle:
                               TextStyle(color: c.muted, fontWeight: FontWeight.w500),
                           isCollapsed: true,
@@ -121,11 +124,11 @@ class _EmptyHint extends StatelessWidget {
         children: [
           Icon(Icons.search_off_rounded, size: 36, color: c.muted2),
           const SizedBox(height: 12),
-          Text('输入关键词开始搜索',
+          Text(AppL10n.of(context).searchEmpty,
               style: AppText.body(context)
                   .copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          Text('影片标题 / 演员 / 番号 / 标签',
+          Text(AppL10n.of(context).searchHint2,
               style: AppText.meta(context)),
         ],
       ),
@@ -147,7 +150,8 @@ class _SearchResults extends ConsumerWidget {
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('搜索失败: $e', style: AppText.body(context)),
+          child: Text(AppL10n.of(context).searchFailed(e.toString()),
+              style: AppText.body(context)),
         ),
       ),
       data: (items) {
@@ -156,7 +160,7 @@ class _SearchResults extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                '没有找到相关内容',
+                AppL10n.of(context).searchNoResult,
                 style: AppText.body(context)
                     .copyWith(fontWeight: FontWeight.w700),
               ),

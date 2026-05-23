@@ -14,6 +14,7 @@ class Poster extends StatelessWidget {
     this.aspectRatio = 2 / 3,
     this.radius = 10,
     this.restricted = false,
+    this.imageAlignment = Alignment.center,
   });
 
   final String? url;
@@ -23,6 +24,7 @@ class Poster extends StatelessWidget {
   final double aspectRatio;
   final double radius;
   final bool restricted;
+  final Alignment imageAlignment;
 
   int _resolveHue() {
     if (hue != null) return hue!;
@@ -87,6 +89,7 @@ class Poster extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: url!,
                 fit: BoxFit.cover,
+                alignment: imageAlignment,
                 fadeInDuration: const Duration(milliseconds: 200),
                 placeholder: (_, __) => const SizedBox.shrink(),
                 errorWidget: (_, __, ___) => _PlaceholderLabel(title: title, year: year),

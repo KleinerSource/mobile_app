@@ -9,6 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
   flutter_riverpod: ^2.6.1
   dio: ^5.7.0
   dio_smart_retry: ^7.0.1
@@ -32,3 +35,4 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true

@@ -14,7 +14,18 @@ class FavoritesRepository {
     required int offset,
   }) async {
     final raw = await _api.list(filter.toQuery(limit: limit, offset: offset));
-    return unwrapMovieList<MovieListItem>(raw, MovieListItem.fromJson);
+    // 注意: /favorites 返回的 items 是 [{movie: {...}, favorited_at, ...}], 不是 [movie] 直接。
+    // 解出 item.movie 再 decode 成 MovieListItem。
+    return unwrapMovieList<MovieListItem>(raw, (json) {
+      // 兼容两种 schema:
+      //  · {movie: {id, title, ...}, favorited_at, ...}  → 取 movie
+      //  · {id, title, ...}                              → 直接 decode
+      final movieJson = json['movie'];
+      if (movieJson is Map) {
+        return MovieListItem.fromJson(Map<String, dynamic>.from(movieJson));
+      }
+      return MovieListItem.fromJson(json);
+    });
   }
 
   /// 切换收藏状态，返回切换后的 is_favorited 值。

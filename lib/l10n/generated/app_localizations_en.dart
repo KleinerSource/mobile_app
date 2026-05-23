@@ -1,0 +1,332 @@
+// ignore: unused_import
+import 'package:intl/intl.dart' as intl;
+import 'app_localizations.dart';
+
+// ignore_for_file: type=lint
+
+/// The translations for English (`en`).
+class AppL10nEn extends AppL10n {
+  AppL10nEn([String locale = 'en']) : super(locale);
+
+  @override
+  String get appName => 'md_center';
+
+  @override
+  String get tabHome => 'Home';
+
+  @override
+  String get tabLibrary => 'Library';
+
+  @override
+  String get tabSearch => 'Search';
+
+  @override
+  String get tabYou => 'You';
+
+  @override
+  String get greetingMorning => 'Good morning';
+
+  @override
+  String get greetingAfternoon => 'Good afternoon';
+
+  @override
+  String get greetingEvening => 'Good evening';
+
+  @override
+  String get greetingNight => 'Late night picks';
+
+  @override
+  String get homePickupTitle => 'Pick up where you left off';
+
+  @override
+  String get homeFreshTitle => 'Fresh in your library';
+
+  @override
+  String get homeYourLibraries => 'Your libraries';
+
+  @override
+  String get homeSeeAll => 'See all';
+
+  @override
+  String homeMinutesLeft(int n) {
+    return '${n}m left';
+  }
+
+  @override
+  String get libraryTitle => 'Library';
+
+  @override
+  String libraryCount(int n) {
+    return '$n titles';
+  }
+
+  @override
+  String get libraryCountSuffix => 'titles';
+
+  @override
+  String get filterAll => 'All';
+
+  @override
+  String get filterRecent => 'Recent';
+
+  @override
+  String get filterRating => 'Rating';
+
+  @override
+  String get filterTopRated => 'Top rated';
+
+  @override
+  String get filterUnwatched => 'Unwatched';
+
+  @override
+  String get viewGrid => 'Grid';
+
+  @override
+  String get viewList => 'List';
+
+  @override
+  String get searchHintAll => 'Search titles, people, tags';
+
+  @override
+  String resultsSortedBy(int n, String sort) {
+    return '$n results · sorted by $sort';
+  }
+
+  @override
+  String get loadFailed => 'Load failed';
+
+  @override
+  String get loadFailedRetry => 'Load failed, tap to retry';
+
+  @override
+  String get noResultFound => 'No matching titles';
+
+  @override
+  String get watchedDone => 'Watched';
+
+  @override
+  String get sortByCreatedAt => 'created at';
+
+  @override
+  String get sortByRating => 'rating';
+
+  @override
+  String get sortByTitle => 'title';
+
+  @override
+  String get sortByYear => 'year';
+
+  @override
+  String get sortByReleaseDate => 'release date';
+
+  @override
+  String get searchHint2 => 'Title / cast / code / tag';
+
+  @override
+  String searchFailed(String error) {
+    return 'Search failed: $error';
+  }
+
+  @override
+  String get favoritesTitle => 'Favorites';
+
+  @override
+  String favoritesSubtitle(int n, int l) {
+    return '$n saved · across $l lists';
+  }
+
+  @override
+  String get statSaved => 'Saved';
+
+  @override
+  String get statWatched => 'Watched';
+
+  @override
+  String get statHours => 'Hours';
+
+  @override
+  String get yourLists => 'Your lists';
+
+  @override
+  String get newList => '+ New list';
+
+  @override
+  String get allFavorites => 'All favorites';
+
+  @override
+  String get upNext => 'Up next';
+
+  @override
+  String get watchlist => 'Watchlist';
+
+  @override
+  String selectedN(int n) {
+    return '$n selected';
+  }
+
+  @override
+  String get remove => 'Remove';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get confirm => 'Confirm';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get edit => 'Edit';
+
+  @override
+  String get back => 'Back';
+
+  @override
+  String get searchTitle => 'Search';
+
+  @override
+  String get searchFind => 'Find anything';
+
+  @override
+  String get searchEmpty => 'Type to start searching';
+
+  @override
+  String get searchNoResult => 'No matching content';
+
+  @override
+  String get detailPlay => 'Play';
+
+  @override
+  String get detailAddList => '+ List';
+
+  @override
+  String get detailCast => 'Cast';
+
+  @override
+  String get detailDetails => 'Details';
+
+  @override
+  String get detailFavorited => 'Added to favorites';
+
+  @override
+  String get detailUnfavorited => 'Removed from favorites';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsPreferences => 'Preferences';
+
+  @override
+  String get settingsGroupServer => 'Server';
+
+  @override
+  String get settingsGroupLibrary => 'Library';
+
+  @override
+  String get settingsGroupSystem => 'System';
+
+  @override
+  String get settingsGroupMappings => 'Mappings';
+
+  @override
+  String get settingsGroupTools => 'Tools';
+
+  @override
+  String get settingsGroupPrivacy => 'Privacy';
+
+  @override
+  String get settingsGroupAbout => 'About';
+
+  @override
+  String get settingsServerUrl => 'Server URL';
+
+  @override
+  String get settingsServerNotConfigured => 'Not configured';
+
+  @override
+  String get settingsLibraries => 'Libraries';
+
+  @override
+  String get settingsLibrariesSub => 'Add / edit / scan';
+
+  @override
+  String get settingsGenres => 'Genres';
+
+  @override
+  String get settingsTags => 'Tags';
+
+  @override
+  String get settingsSeries => 'Series';
+
+  @override
+  String get settingsTranslation => 'Translation';
+
+  @override
+  String get settingsTranslationSub =>
+      'ChatGPT API · auto translate titles/plot';
+
+  @override
+  String get settingsMappingTags => 'Tags mapping';
+
+  @override
+  String get settingsMappingGenres => 'Genres mapping';
+
+  @override
+  String get settingsMappingSeries => 'Series mapping';
+
+  @override
+  String get settingsMappingActors => 'Actors mapping';
+
+  @override
+  String get settingsMappingSub => 'Rename / delete rules';
+
+  @override
+  String get settingsDbo => 'DB Online API';
+
+  @override
+  String get settingsDboSub => 'Movie download / actor sync';
+
+  @override
+  String get settingsExtensions => 'Video extensions';
+
+  @override
+  String get settingsExtensionsSub => 'File suffixes recognized by scanner';
+
+  @override
+  String get settingsPrivacyShield => 'Privacy shield';
+
+  @override
+  String get settingsPrivacyShieldSub => 'Mask preview when in background';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsLanguageSub => 'Interface language';
+
+  @override
+  String get settingsVersion => 'Version';
+
+  @override
+  String get settingsLogout => 'Log out';
+
+  @override
+  String get languageSystem => 'System default';
+
+  @override
+  String get languageZh => '简体中文';
+
+  @override
+  String get languageEn => 'English';
+
+  @override
+  String get privacyLockedTitle => 'Locked';
+
+  @override
+  String get privacyMode => 'PRIVACY MODE';
+}

@@ -6,12 +6,15 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/poster.dart';
 import '../movie_detail/movie_detail_page.dart';
+import '../privacy/privacy_mask.dart';
 import 'movie_filter.dart';
 import 'movies_providers.dart';
 
@@ -29,7 +32,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
   final _searchController = TextEditingController();
   MovieFilter _currentFilter = const MovieFilter();
-  String _activeChip = 'All';
+  String _activeChip = '全部';
   _ViewMode _viewMode = _ViewMode.grid;
   int _totalCount = 0;
 
@@ -75,19 +78,14 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
   void _onChipTap(String label) {
     switch (label) {
-      case 'All':
+      case '全部':
         _applyFilter(const MovieFilter(), chipLabel: label);
         break;
-      case 'Unwatched':
-        // 后端尚无 unwatched 字段, 先复用默认排序 + 标记 chip
-        _applyFilter(const MovieFilter(sortBy: 'created_at', sortOrder: 'desc'),
-            chipLabel: label);
-        break;
-      case 'Rating':
+      case '高分':
         _applyFilter(const MovieFilter(sortBy: 'rating', sortOrder: 'desc'),
             chipLabel: label);
         break;
-      case 'Recent':
+      case '最近':
         _applyFilter(const MovieFilter(sortBy: 'created_at', sortOrder: 'desc'),
             chipLabel: label);
         break;
@@ -112,7 +110,8 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('LIBRARY', style: AppText.eyebrow(context)),
+                    Text(AppL10n.of(context).libraryTitle.toUpperCase(),
+                        style: AppText.eyebrow(context)),
                     const SizedBox(height: 3),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -124,7 +123,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'titles',
+                          AppL10n.of(context).libraryCountSuffix,
                           style: TextStyle(
                             color: c.muted,
                             fontFamily: 'Inter',
@@ -153,13 +152,20 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 22),
-                  itemCount: 4,
+                  itemCount: 3,
                   separatorBuilder: (_, __) => const SizedBox(width: 7),
                   itemBuilder: (ctx, i) {
-                    const labels = ['All', 'Recent', 'Rating', 'Unwatched'];
+                    const labels = ['全部', '最近', '高分'];
                     final lab = labels[i];
+                    final l = AppL10n.of(context);
+                    final display = switch (lab) {
+                      '全部' => l.filterAll,
+                      '最近' => l.filterRecent,
+                      '高分' => l.filterTopRated,
+                      _ => lab,
+                    };
                     return FilterChipPill(
-                      label: lab,
+                      label: display,
                       active: _activeChip == lab,
                       onTap: () => _onChipTap(lab),
                     );
@@ -174,7 +180,10 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                   children: [
                     Expanded(
                       child: Text(
-                        '${_totalCount > 0 ? _totalCount : '—'} results · sorted by ${_currentFilter.sortBy.replaceAll('_', ' ')}',
+                        AppL10n.of(context).resultsSortedBy(
+                          _totalCount > 0 ? _totalCount : 0,
+                          _sortLabel(context, _currentFilter.sortBy),
+                        ),
                         style: TextStyle(
                           color: c.muted,
                           fontFamily: 'Inter',
@@ -207,7 +216,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                     )
                   : PagedSliverList<int, MovieListItem>(
                       pagingController: _controller,
-                      builderDelegate: _buildListDelegate(urlBuilder, c),
+                      builderDelegate: _buildListDelegate(urlBuilder),
                     ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
@@ -220,6 +229,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   PagedChildBuilderDelegate<MovieListItem> _buildDelegate(
     String Function(String) urlBuilder,
   ) {
+    final l = AppL10n.of(context);
     return PagedChildBuilderDelegate<MovieListItem>(
       itemBuilder: (ctx, item, idx) => MovieCard(
         movie: item,
@@ -229,18 +239,18 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         ),
       ),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
-        message: _controller.error?.toString() ?? '加载失败',
+        message: _controller.error?.toString() ?? l.loadFailed,
         onRetry: () => _controller.refresh(),
       ),
       newPageErrorIndicatorBuilder: (_) => Padding(
         padding: const EdgeInsets.all(16),
         child: TextButton(
           onPressed: () => _controller.retryLastFailedRequest(),
-          child: const Text('加载失败，点击重试'),
+          child: Text(l.loadFailedRetry),
         ),
       ),
       noItemsFoundIndicatorBuilder: (_) =>
-          const EmptyView(message: '没有找到符合条件的影片'),
+          EmptyView(message: l.noResultFound),
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
     );
@@ -248,22 +258,39 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
   PagedChildBuilderDelegate<MovieListItem> _buildListDelegate(
     String Function(String) urlBuilder,
-    AppColors c,
   ) {
+    final l = AppL10n.of(context);
     return PagedChildBuilderDelegate<MovieListItem>(
       itemBuilder: (ctx, item, idx) => _ListRow(
         movie: item,
         urlBuilder: urlBuilder,
       ),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
-        message: _controller.error?.toString() ?? '加载失败',
+        message: _controller.error?.toString() ?? l.loadFailed,
         onRetry: () => _controller.refresh(),
       ),
       noItemsFoundIndicatorBuilder: (_) =>
-          const EmptyView(message: '没有找到符合条件的影片'),
+          EmptyView(message: l.noResultFound),
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
     );
+  }
+}
+
+String _sortLabel(BuildContext context, String key) {
+  final l = AppL10n.of(context);
+  switch (key) {
+    case 'rating':
+      return l.sortByRating;
+    case 'title':
+      return l.sortByTitle;
+    case 'year':
+      return l.sortByYear;
+    case 'release_date':
+      return l.sortByReleaseDate;
+    case 'created_at':
+    default:
+      return l.sortByCreatedAt;
   }
 }
 
@@ -290,7 +317,7 @@ class _SearchBar extends StatelessWidget {
             child: TextField(
               controller: controller,
               decoration: InputDecoration(
-                hintText: 'Search titles, people, tags',
+                hintText: AppL10n.of(context).searchHintAll,
                 hintStyle: TextStyle(color: c.muted, fontWeight: FontWeight.w500),
                 isCollapsed: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
@@ -316,25 +343,26 @@ class _ViewModeToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    Widget btn(String label, _ViewMode m) {
+    Widget btn(IconData icon, _ViewMode m) {
       final active = mode == m;
       return GestureDetector(
         onTap: () => onChanged(m),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
           decoration: BoxDecoration(
             color: active ? c.surface : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
+            boxShadow: active
+                ? const [
+                    BoxShadow(
+                      color: Color(0x14000000),
+                      blurRadius: 3,
+                      offset: Offset(0, 1),
+                    )
+                  ]
+                : null,
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: active ? c.text : c.muted,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w700,
-              fontSize: 11,
-            ),
-          ),
+          child: Icon(icon, size: 15, color: active ? c.text : c.muted),
         ),
       );
     }
@@ -347,7 +375,10 @@ class _ViewModeToggle extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [btn('Grid', _ViewMode.grid), btn('List', _ViewMode.list)],
+        children: [
+          btn(Icons.grid_view_rounded, _ViewMode.grid),
+          btn(Icons.view_list_rounded, _ViewMode.list),
+        ],
       ),
     );
   }
@@ -360,21 +391,118 @@ class _ListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    final c = appColors(context);
+    final progress = (movie.watchRecord?.progressRatio ?? 0).clamp(0.0, 1.0);
+    final completed = movie.watchRecord?.completed ?? false;
+    final hasRating = movie.rating != null && movie.rating! > 0;
+    final meta = <String>[
+      if (movie.year != null) '${movie.year}',
+      if (movie.runtime != null && movie.runtime! > 0) '${movie.runtime}m',
+      if (hasRating) '★ ${movie.rating!.toStringAsFixed(1)}',
+    ].join(' · ');
+
+    return PrivacyAwareInkWell(
+      movieId: movie.id,
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
       ),
-      child: Padding(
+      child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: c.divider)),
+        ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             SizedBox(
-              width: 52,
-              child: MovieCard(
-                movie: movie,
-                posterUrlBuilder: urlBuilder,
+              width: 56,
+              child: PrivacyMask(
+                movieId: movie.id,
+                radius: 8,
+                child: Poster(
+                  url: movie.posterUuid != null
+                      ? urlBuilder(movie.posterUuid!)
+                      : null,
+                  title: movie.title,
+                  year: movie.year,
+                  radius: 8,
+                ),
               ),
             ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PrivacyText(
+                    movieId: movie.id,
+                    text: movie.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: c.text,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      height: 1.25,
+                    ),
+                  ),
+                  if (meta.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(meta, style: AppText.meta(context)),
+                  ],
+                  if (!completed && progress > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(100),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 3,
+                              backgroundColor: c.chipBg,
+                              valueColor: AlwaysStoppedAnimation(c.accent),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${(progress * 100).round()}%',
+                          style: TextStyle(
+                            color: c.muted,
+                            fontFamily: 'monospace',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (completed)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: c.accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Text(
+                  AppL10n.of(context).watchedDone,
+                  style: TextStyle(
+                    color: c.accent,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10.5,
+                  ),
+                ),
+              )
+            else
+              Icon(Icons.chevron_right, color: c.muted, size: 20),
           ],
         ),
       ),

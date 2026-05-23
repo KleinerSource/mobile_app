@@ -27,3 +27,16 @@ final continueWatchingProvider = FutureProvider<List<MovieListItem>>((ref) async
       .take(5)
       .toList();
 });
+
+/// 推荐轮播 — 取最近添加里 fanart/poster 不为空的前 10 条
+/// 复用 recentlyAddedProvider 数据,客户端筛选,不发额外请求
+final recommendCarouselProvider = FutureProvider<List<MovieListItem>>((ref) async {
+  final result = await ref.watch(recentlyAddedProvider.future);
+  return result.items
+      .where((m) =>
+          (m.fanartUuid != null && m.fanartUuid!.isNotEmpty) ||
+          (m.posterUuid != null && m.posterUuid!.isNotEmpty) ||
+          (m.thumbUuid != null && m.thumbUuid!.isNotEmpty))
+      .take(10)
+      .toList();
+});

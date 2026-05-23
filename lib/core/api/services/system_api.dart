@@ -8,11 +8,21 @@ abstract class SystemApi {
   factory SystemApi(Dio dio, {String baseUrl}) = _SystemApi;
 
   @GET('/health')
-  Future<Map<String, dynamic>> health();
+  Future<dynamic> health();
 
   @GET('/version')
-  Future<Map<String, dynamic>> version();
+  Future<dynamic> version();
 
   @GET('/database/stats')
-  Future<Map<String, dynamic>> stats();
+  Future<dynamic> stats();
+
+  /// 已配置的下载器列表 · 返回 { downloaders: [{name, display_name, ...}] }
+  @GET('/downloaders')
+  Future<dynamic> getDownloaders();
+
+  /// 推送 URL 到下载器 · body: {
+  ///   urls, downloader, save_path, video_info, record_resources, movie_id
+  /// }
+  @POST('/download')
+  Future<dynamic> pushDownload(@Body() Map<String, dynamic> body);
 }

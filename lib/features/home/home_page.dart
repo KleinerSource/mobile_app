@@ -4,30 +4,42 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/library.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/poster.dart';
 import '../libraries/libraries_providers.dart';
+import '../libraries/library_movies_page.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../movies/movies_providers.dart';
+import '../privacy/privacy_mask.dart';
 import 'home_providers.dart';
+import 'recommend_carousel.dart';
 
+/// md_center 首页
+/// 模块顺序 (对齐 frontend_new Dashboard.vue):
+///   1. RecommendCarousel (hero · 最近添加里 fanart 不为空的前 10 条)
+///   2. Continue Watching (有观看进度未完成的)
+///   3. Recently Added (横向卡片)
+///   4. Your libraries (媒体库 · 最底部)
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
-  String _greeting() {
+  String _greeting(AppL10n l) {
     final h = DateTime.now().hour;
-    if (h < 5) return 'Still up?';
-    if (h < 12) return 'Good morning';
-    if (h < 18) return 'Good afternoon';
-    if (h < 22) return 'Good evening';
-    return 'Late night picks';
+    if (h < 5) return l.greetingNight;
+    if (h < 12) return l.greetingMorning;
+    if (h < 18) return l.greetingAfternoon;
+    if (h < 22) return l.greetingEvening;
+    return l.greetingNight;
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final recent = ref.watch(recentlyAddedProvider);
     final continueW = ref.watch(continueWatchingProvider);
+    final carousel = ref.watch(recommendCarouselProvider);
     final libraries = ref.watch(librariesProvider);
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
 
@@ -36,9 +48,10 @@ class HomePage extends ConsumerWidget {
         bottom: false,
         child: CustomScrollView(
           slivers: [
+            // -------- 顶部问候 --------
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 16, 22, 22),
+                padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
                 child: Row(
                   children: [
                     Expanded(
@@ -46,7 +59,7 @@ class HomePage extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _greeting(),
+                            _greeting(l),
                             style: TextStyle(
                               color: c.muted,
                               fontFamily: 'Inter',
@@ -87,7 +100,24 @@ class HomePage extends ConsumerWidget {
               ),
             ),
 
-            // Continue Watching
+            // -------- 1. 推荐轮播 (hero) --------
+            carousel.when(
+              loading: () => const SliverToBoxAdapter(
+                child: SizedBox(height: 248, child: Center(child: CircularProgressIndicator())),
+              ),
+              error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+              data: (items) {
+                if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+                return SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                    child: RecommendCarousel(items: items, urlBuilder: urlBuilder),
+                  ),
+                );
+              },
+            ),
+
+            // -------- 2. Continue Watching --------
             continueW.when(
               loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
               error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
@@ -102,33 +132,21 @@ class HomePage extends ConsumerWidget {
               },
             ),
 
-            // Libraries (Your collections)
-            SliverToBoxAdapter(
-              child: libraries.when(
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
-                data: (libs) {
-                  if (libs.isEmpty) return const SizedBox.shrink();
-                  return _CollectionsSection(libraries: libs);
-                },
-              ),
-            ),
-
-            // Recently Added
+            // -------- 3. Recently Added --------
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(22, 8, 22, 14),
+              padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
               sliver: SliverToBoxAdapter(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
                       child: Text(
-                        'Fresh in your library',
+                        l.homeFreshTitle,
                         style: AppText.sectionTitle(context),
                       ),
                     ),
                     Text(
-                      'See all',
+                      l.homeSeeAll,
                       style: TextStyle(
                         color: c.accent,
                         fontFamily: 'Inter',
@@ -155,6 +173,18 @@ class HomePage extends ConsumerWidget {
               ),
             ),
 
+            // -------- 4. Your libraries (最底部) --------
+            SliverToBoxAdapter(
+              child: libraries.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (libs) {
+                  if (libs.isEmpty) return const SizedBox.shrink();
+                  return _CollectionsSection(libraries: libs);
+                },
+              ),
+            ),
+
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
         ),
@@ -163,6 +193,7 @@ class HomePage extends ConsumerWidget {
   }
 }
 
+// ============ Continue Watching ============
 class _ContinueWatchingSection extends StatelessWidget {
   const _ContinueWatchingSection({required this.items, required this.urlBuilder});
   final List<MovieListItem> items;
@@ -183,79 +214,92 @@ class _ContinueWatchingSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'PICK UP WHERE YOU LEFT OFF',
+            AppL10n.of(context).homePickupTitle.toUpperCase(),
             style: AppText.eyebrow(context),
           ),
           const SizedBox(height: 12),
-          GestureDetector(
+          PrivacyAwareInkWell(
+            movieId: hero.id,
+            borderRadius: 22,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: hero.id)),
             ),
-            child: AspectRatio(
-              aspectRatio: 16 / 10,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(22),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Poster(
-                      url: hero.fanartUuid != null
-                          ? urlBuilder(hero.fanartUuid!)
-                          : (hero.posterUuid != null ? urlBuilder(hero.posterUuid!) : null),
-                      title: hero.title,
-                      year: hero.year,
-                      aspectRatio: 16 / 10,
-                      radius: 0,
-                    ),
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.7),
-                            ],
-                            stops: const [0.4, 1.0],
+            child: FractionallySizedBox(
+              widthFactor: 0.7,
+              alignment: Alignment.centerLeft,
+              child: AspectRatio(
+                aspectRatio: 16 / 10,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      PrivacyMask(
+                        movieId: hero.id,
+                        radius: 0,
+                        child: Poster(
+                          url: hero.fanartUuid != null
+                              ? urlBuilder(hero.fanartUuid!)
+                              : (hero.posterUuid != null
+                                  ? urlBuilder(hero.posterUuid!)
+                                  : null),
+                          title: hero.title,
+                          year: hero.year,
+                          aspectRatio: 16 / 10,
+                          radius: 0,
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.black.withValues(alpha: 0.7),
+                              ],
+                              stops: const [0.4, 1.0],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      left: 22,
-                      right: 22,
-                      bottom: 22,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            (hero.seriesName ?? hero.title).toUpperCase(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xCCFFFFFF),
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 11,
-                              letterSpacing: 1.1,
+                      Positioned(
+                        left: 22,
+                        right: 22,
+                        bottom: 22,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            PrivacyText(
+                              movieId: hero.id,
+                              text: (hero.seriesName ?? hero.title).toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xCCFFFFFF),
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11,
+                                letterSpacing: 1.1,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            hero.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w800,
-                              fontSize: 22,
-                              letterSpacing: -0.4,
-                              height: 1.1,
+                            const SizedBox(height: 6),
+                            PrivacyText(
+                              movieId: hero.id,
+                              text: hero.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w800,
+                                fontSize: 22,
+                                letterSpacing: -0.4,
+                                height: 1.1,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 14),
+                            const SizedBox(height: 14),
                           Row(
                             children: [
                               ElevatedButton(
@@ -300,7 +344,8 @@ class _ContinueWatchingSection extends StatelessWidget {
                               if (minutesLeft != null) ...[
                                 const SizedBox(width: 10),
                                 Text(
-                                  '${minutesLeft}m left',
+                                  AppL10n.of(context)
+                                      .homeMinutesLeft(minutesLeft),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontFamily: 'Inter',
@@ -318,6 +363,7 @@ class _ContinueWatchingSection extends StatelessWidget {
                 ),
               ),
             ),
+            ),
           ),
         ],
       ),
@@ -325,6 +371,108 @@ class _ContinueWatchingSection extends StatelessWidget {
   }
 }
 
+// ============ Recently Added (横向卡片) ============
+class _RecentRow extends StatelessWidget {
+  const _RecentRow({required this.items, required this.urlBuilder});
+  final List<MovieListItem> items;
+  final String Function(String) urlBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return SizedBox(
+      height: 248,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (ctx, i) {
+          final it = items[i];
+          return SizedBox(
+            width: 132,
+            child: PrivacyAwareInkWell(
+              movieId: it.id,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: it.id)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Stack(
+                    children: [
+                      PrivacyMask(
+                        movieId: it.id,
+                        child: Poster(
+                          url: it.posterUuid != null
+                              ? urlBuilder(it.posterUuid!)
+                              : null,
+                          title: it.title,
+                          year: it.year,
+                        ),
+                      ),
+                      if (i == 0)
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: const Text(
+                              'NEW',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w800,
+                                fontSize: 9,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  PrivacyText(
+                    movieId: it.id,
+                    text: it.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: c.text,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                      height: 1.2,
+                    ),
+                  ),
+                  if (it.year != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(
+                        '${it.year}${it.rating != null && it.rating! > 0 ? '  ★ ${it.rating!.toStringAsFixed(1)}' : ''}',
+                        style: TextStyle(
+                          color: c.muted,
+                          fontFamily: 'Inter',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ============ Your libraries (媒体库 · 最底部) ============
 class _CollectionsSection extends StatelessWidget {
   const _CollectionsSection({required this.libraries});
   final List<LibraryItem> libraries;
@@ -333,11 +481,12 @@ class _CollectionsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final all = libraries.take(4).toList();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+      padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Your libraries', style: AppText.sectionTitle(context)),
+          Text(AppL10n.of(context).homeYourLibraries,
+              style: AppText.sectionTitle(context)),
           const SizedBox(height: 14),
           LayoutBuilder(builder: (ctx, cons) {
             const gap = 10.0;
@@ -367,7 +516,12 @@ class _LibraryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => LibraryMoviesPage(library: library)),
+      ),
+      borderRadius: BorderRadius.circular(16),
+      child: ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: AspectRatio(
         aspectRatio: 5 / 3,
@@ -443,98 +597,6 @@ class _LibraryCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _RecentRow extends StatelessWidget {
-  const _RecentRow({required this.items, required this.urlBuilder});
-  final List<MovieListItem> items;
-  final String Function(String) urlBuilder;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return SizedBox(
-      height: 248,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 22),
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (ctx, i) {
-          final it = items[i];
-          return SizedBox(
-            width: 132,
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: it.id)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Stack(
-                    children: [
-                      Poster(
-                        url: it.posterUuid != null ? urlBuilder(it.posterUuid!) : null,
-                        title: it.title,
-                        year: it.year,
-                      ),
-                      if (i == 0)
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: const Text(
-                              'NEW',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w800,
-                                fontSize: 9,
-                                letterSpacing: 0.6,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    it.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13.5,
-                      height: 1.2,
-                    ),
-                  ),
-                  if (it.year != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Text(
-                        '${it.year}${it.rating != null && it.rating! > 0 ? '  ★ ${it.rating!.toStringAsFixed(1)}' : ''}',
-                        style: TextStyle(
-                          color: c.muted,
-                          fontFamily: 'Inter',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
       ),
     );
   }

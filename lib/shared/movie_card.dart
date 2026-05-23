@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/models/movie.dart';
 import '../core/platform/app_theme.dart';
+import '../features/privacy/privacy_mask.dart';
+import '../features/privacy/privacy_providers.dart';
 import 'poster.dart';
 
 /// md_center 标准影片卡片 · 海报 + 评分角标 + 进度条 + 标题元数据
-class MovieCard extends StatelessWidget {
+///
+/// 隐私模式开启时,海报盖 blur 暗罩,标题用方块代替;
+/// 单击卡片揭开当张 (而不进 detail),再次点击才进详情。
+class MovieCard extends ConsumerWidget {
   const MovieCard({
     super.key,
     required this.movie,
@@ -22,36 +28,44 @@ class MovieCard extends StatelessWidget {
   final bool restricted;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final progress = movie.watchRecord?.progressRatio ?? 0.0;
     final completed = movie.watchRecord?.completed ?? false;
     final c = appColors(context);
     final hasRating = movie.rating != null && movie.rating! > 0;
+    final privacyOn = ref.watch(privacyShieldProvider);
+    final revealed = ref.watch(revealedMoviesProvider).contains(movie.id);
+    final masked = privacyOn && !revealed;
 
-    return InkWell(
+    return PrivacyAwareInkWell(
+      movieId: movie.id,
       onTap: onTap,
       onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Stack(
             children: [
-              Poster(
-                url: movie.posterUuid != null
-                    ? posterUrlBuilder(movie.posterUuid!)
-                    : null,
-                title: movie.title,
-                year: movie.year,
-                restricted: restricted,
+              PrivacyMask(
+                movieId: movie.id,
+                radius: 10,
+                child: Poster(
+                  url: movie.posterUuid != null
+                      ? posterUrlBuilder(movie.posterUuid!)
+                      : null,
+                  title: movie.title,
+                  year: movie.year,
+                  restricted: restricted,
+                ),
               ),
-              if (!restricted && hasRating)
+              // 角标在遮罩之上仍可见 (评分/已看), 隐私模式下隐藏避免泄露信号
+              if (!masked && !restricted && hasRating)
                 Positioned(
                   top: 6,
                   right: 6,
                   child: RatingBadge(rating: movie.rating!),
                 ),
-              if (restricted)
+              if (!masked && restricted)
                 Positioned(
                   top: 6,
                   right: 6,
@@ -73,7 +87,7 @@ class MovieCard extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (!restricted && completed)
+              if (!masked && !restricted && completed)
                 Positioned(
                   top: 6,
                   left: 6,
@@ -84,7 +98,7 @@ class MovieCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: const Text(
-                      '已看',
+                      '已看完',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 9,
@@ -93,7 +107,7 @@ class MovieCard extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (!restricted && !completed && progress > 0)
+              if (!masked && !restricted && !completed && progress > 0)
                 Positioned(
                   left: 4,
                   right: 4,
@@ -111,8 +125,10 @@ class MovieCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            restricted ? 'Restricted' : movie.title,
+          // 标题: 隐私模式遮罩
+          PrivacyText(
+            movieId: movie.id,
+            text: restricted ? 'Restricted' : movie.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(

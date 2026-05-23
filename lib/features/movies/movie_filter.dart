@@ -9,6 +9,7 @@ class MovieFilter {
     this.seriesIds = const [],
     this.actorIds = const [],
     this.directoryId,
+    this.libraryId,
     this.sortBy = 'created_at',
     this.sortOrder = 'desc',
   });
@@ -19,6 +20,7 @@ class MovieFilter {
   final List<int> seriesIds;
   final List<int> actorIds;
   final int? directoryId;
+  final int? libraryId;
   final String sortBy;
   final String sortOrder;
 
@@ -37,6 +39,7 @@ class MovieFilter {
     if (seriesIds.isNotEmpty) m['series_ids'] = seriesIds.join(',');
     if (actorIds.isNotEmpty) m['actor_ids'] = actorIds.join(',');
     if (directoryId != null) m['directory_id'] = directoryId;
+    if (libraryId != null) m['library_id'] = libraryId;
     return m;
   }
 
@@ -47,7 +50,9 @@ class MovieFilter {
     List<int>? seriesIds,
     List<int>? actorIds,
     int? directoryId,
+    int? libraryId,
     bool clearDirectory = false,
+    bool clearLibrary = false,
     String? sortBy,
     String? sortOrder,
   }) {
@@ -58,6 +63,7 @@ class MovieFilter {
       seriesIds: seriesIds ?? this.seriesIds,
       actorIds: actorIds ?? this.actorIds,
       directoryId: clearDirectory ? null : (directoryId ?? this.directoryId),
+      libraryId: clearLibrary ? null : (libraryId ?? this.libraryId),
       sortBy: sortBy ?? this.sortBy,
       sortOrder: sortOrder ?? this.sortOrder,
     );
@@ -73,6 +79,7 @@ class MovieFilter {
         listEquals(other.seriesIds, seriesIds) &&
         listEquals(other.actorIds, actorIds) &&
         other.directoryId == directoryId &&
+        other.libraryId == libraryId &&
         other.sortBy == sortBy &&
         other.sortOrder == sortOrder;
   }
@@ -85,6 +92,7 @@ class MovieFilter {
         Object.hashAll(seriesIds),
         Object.hashAll(actorIds),
         directoryId,
+        libraryId,
         sortBy,
         sortOrder,
       );
