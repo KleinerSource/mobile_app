@@ -15,6 +15,7 @@ import '../../shared/movie_card.dart';
 import '../../shared/poster.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../privacy/privacy_mask.dart';
+import 'advanced_filter_sheet.dart';
 import 'movie_filter.dart';
 import 'movies_providers.dart';
 
@@ -89,6 +90,16 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         _applyFilter(const MovieFilter(sortBy: 'created_at', sortOrder: 'desc'),
             chipLabel: label);
         break;
+    }
+  }
+
+  Future<void> _openAdvancedFilter() async {
+    final next = await AdvancedFilterSheet.show(
+      context,
+      initial: _currentFilter,
+    );
+    if (next != null && next != _currentFilter) {
+      _applyFilter(next);
     }
   }
 
@@ -193,6 +204,11 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                         ),
                       ),
                     ),
+                    _FilterButton(
+                      activeCount: _currentFilter.activeAdvancedCount,
+                      onTap: _openAdvancedFilter,
+                    ),
+                    const SizedBox(width: 8),
                     _ViewModeToggle(
                       mode: _viewMode,
                       onChanged: (m) => setState(() => _viewMode = m),
@@ -379,6 +395,53 @@ class _ViewModeToggle extends StatelessWidget {
           btn(Icons.grid_view_rounded, _ViewMode.grid),
           btn(Icons.view_list_rounded, _ViewMode.list),
         ],
+      ),
+    );
+  }
+}
+
+class _FilterButton extends StatelessWidget {
+  const _FilterButton({required this.activeCount, required this.onTap});
+  final int activeCount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final active = activeCount > 0;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? c.accent.withValues(alpha: 0.15) : c.chipBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: active ? c.accent.withValues(alpha: 0.5) : c.cardBorder,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.tune_rounded,
+              size: 15,
+              color: active ? c.accent : c.muted,
+            ),
+            if (active) ...[
+              const SizedBox(width: 5),
+              Text(
+                '$activeCount',
+                style: TextStyle(
+                  color: c.accent,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11.5,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

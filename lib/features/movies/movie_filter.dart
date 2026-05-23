@@ -5,24 +5,66 @@ class MovieFilter {
   const MovieFilter({
     this.search,
     this.tagIds = const [],
+    this.excludeTagIds = const [],
     this.genreIds = const [],
+    this.excludeGenreIds = const [],
     this.seriesIds = const [],
     this.actorIds = const [],
     this.directoryId,
     this.libraryId,
+    this.yearFrom,
+    this.yearTo,
+    this.ratingFrom,
+    this.ratingTo,
+    this.hasExternalSubtitle,
+    this.excludeHasExternalSubtitle,
+    this.fileFilterMode,
     this.sortBy = 'created_at',
     this.sortOrder = 'desc',
   });
 
   final String? search;
   final List<int> tagIds;
+  final List<int> excludeTagIds;
   final List<int> genreIds;
+  final List<int> excludeGenreIds;
   final List<int> seriesIds;
   final List<int> actorIds;
   final int? directoryId;
   final int? libraryId;
+  final int? yearFrom;
+  final int? yearTo;
+
+  /// 1-10 范围, web 用 string 但后端能接 number 也接 string
+  final int? ratingFrom;
+  final int? ratingTo;
+
+  /// 仅包含含外挂字幕
+  final bool? hasExternalSubtitle;
+
+  /// 仅排除含外挂字幕
+  final bool? excludeHasExternalSubtitle;
+
+  /// standard / crack / subtitle / subtitle_crack
+  final String? fileFilterMode;
+
   final String sortBy;
   final String sortOrder;
+
+  /// 用于 UI 显示 "几个筛选项激活"
+  int get activeAdvancedCount {
+    var n = 0;
+    if (tagIds.isNotEmpty) n++;
+    if (excludeTagIds.isNotEmpty) n++;
+    if (genreIds.isNotEmpty) n++;
+    if (excludeGenreIds.isNotEmpty) n++;
+    if (seriesIds.isNotEmpty) n++;
+    if (yearFrom != null || yearTo != null) n++;
+    if (ratingFrom != null || ratingTo != null) n++;
+    if (hasExternalSubtitle == true || excludeHasExternalSubtitle == true) n++;
+    if (fileFilterMode != null && fileFilterMode!.isNotEmpty) n++;
+    return n;
+  }
 
   Map<String, dynamic> toQuery({required int limit, required int offset}) {
     final m = <String, dynamic>{
@@ -35,35 +77,81 @@ class MovieFilter {
       m['search'] = search!.trim();
     }
     if (tagIds.isNotEmpty) m['tag_ids'] = tagIds.join(',');
+    if (excludeTagIds.isNotEmpty) m['exclude_tag_ids'] = excludeTagIds.join(',');
     if (genreIds.isNotEmpty) m['genre_ids'] = genreIds.join(',');
+    if (excludeGenreIds.isNotEmpty) {
+      m['exclude_genre_ids'] = excludeGenreIds.join(',');
+    }
     if (seriesIds.isNotEmpty) m['series_ids'] = seriesIds.join(',');
     if (actorIds.isNotEmpty) m['actor_ids'] = actorIds.join(',');
     if (directoryId != null) m['directory_id'] = directoryId;
     if (libraryId != null) m['library_id'] = libraryId;
+    if (yearFrom != null) m['year_from'] = yearFrom;
+    if (yearTo != null) m['year_to'] = yearTo;
+    if (ratingFrom != null) m['rating_from'] = ratingFrom;
+    if (ratingTo != null) m['rating_to'] = ratingTo;
+    if (hasExternalSubtitle == true) m['has_external_subtitle'] = true;
+    if (excludeHasExternalSubtitle == true) {
+      m['exclude_has_external_subtitle'] = true;
+    }
+    if (fileFilterMode != null && fileFilterMode!.isNotEmpty) {
+      m['file_filter_mode'] = fileFilterMode;
+    }
     return m;
   }
 
   MovieFilter copyWith({
     String? search,
     List<int>? tagIds,
+    List<int>? excludeTagIds,
     List<int>? genreIds,
+    List<int>? excludeGenreIds,
     List<int>? seriesIds,
     List<int>? actorIds,
     int? directoryId,
     int? libraryId,
+    int? yearFrom,
+    int? yearTo,
+    int? ratingFrom,
+    int? ratingTo,
+    bool? hasExternalSubtitle,
+    bool? excludeHasExternalSubtitle,
+    String? fileFilterMode,
     bool clearDirectory = false,
     bool clearLibrary = false,
+    bool clearYearFrom = false,
+    bool clearYearTo = false,
+    bool clearRatingFrom = false,
+    bool clearRatingTo = false,
+    bool clearHasExternalSubtitle = false,
+    bool clearExcludeHasExternalSubtitle = false,
+    bool clearFileFilterMode = false,
     String? sortBy,
     String? sortOrder,
   }) {
     return MovieFilter(
       search: search ?? this.search,
       tagIds: tagIds ?? this.tagIds,
+      excludeTagIds: excludeTagIds ?? this.excludeTagIds,
       genreIds: genreIds ?? this.genreIds,
+      excludeGenreIds: excludeGenreIds ?? this.excludeGenreIds,
       seriesIds: seriesIds ?? this.seriesIds,
       actorIds: actorIds ?? this.actorIds,
       directoryId: clearDirectory ? null : (directoryId ?? this.directoryId),
       libraryId: clearLibrary ? null : (libraryId ?? this.libraryId),
+      yearFrom: clearYearFrom ? null : (yearFrom ?? this.yearFrom),
+      yearTo: clearYearTo ? null : (yearTo ?? this.yearTo),
+      ratingFrom: clearRatingFrom ? null : (ratingFrom ?? this.ratingFrom),
+      ratingTo: clearRatingTo ? null : (ratingTo ?? this.ratingTo),
+      hasExternalSubtitle: clearHasExternalSubtitle
+          ? null
+          : (hasExternalSubtitle ?? this.hasExternalSubtitle),
+      excludeHasExternalSubtitle: clearExcludeHasExternalSubtitle
+          ? null
+          : (excludeHasExternalSubtitle ?? this.excludeHasExternalSubtitle),
+      fileFilterMode: clearFileFilterMode
+          ? null
+          : (fileFilterMode ?? this.fileFilterMode),
       sortBy: sortBy ?? this.sortBy,
       sortOrder: sortOrder ?? this.sortOrder,
     );
@@ -75,25 +163,43 @@ class MovieFilter {
     return other is MovieFilter &&
         other.search == search &&
         listEquals(other.tagIds, tagIds) &&
+        listEquals(other.excludeTagIds, excludeTagIds) &&
         listEquals(other.genreIds, genreIds) &&
+        listEquals(other.excludeGenreIds, excludeGenreIds) &&
         listEquals(other.seriesIds, seriesIds) &&
         listEquals(other.actorIds, actorIds) &&
         other.directoryId == directoryId &&
         other.libraryId == libraryId &&
+        other.yearFrom == yearFrom &&
+        other.yearTo == yearTo &&
+        other.ratingFrom == ratingFrom &&
+        other.ratingTo == ratingTo &&
+        other.hasExternalSubtitle == hasExternalSubtitle &&
+        other.excludeHasExternalSubtitle == excludeHasExternalSubtitle &&
+        other.fileFilterMode == fileFilterMode &&
         other.sortBy == sortBy &&
         other.sortOrder == sortOrder;
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
         search,
         Object.hashAll(tagIds),
+        Object.hashAll(excludeTagIds),
         Object.hashAll(genreIds),
+        Object.hashAll(excludeGenreIds),
         Object.hashAll(seriesIds),
         Object.hashAll(actorIds),
         directoryId,
         libraryId,
+        yearFrom,
+        yearTo,
+        ratingFrom,
+        ratingTo,
+        hasExternalSubtitle,
+        excludeHasExternalSubtitle,
+        fileFilterMode,
         sortBy,
         sortOrder,
-      );
+      ]);
 }
