@@ -28,6 +28,7 @@ class MovieListItem with _$MovieListItem {
     @JsonKey(name: 'has_internal_subtitle') @Default(false) bool hasInternalSubtitle,
     @JsonKey(name: 'video_width') int? videoWidth,
     @JsonKey(name: 'video_height') int? videoHeight,
+    @JsonKey(name: 'file_path') String? filePath,
     @Default(<ActorRef>[]) List<ActorRef> actors,
     @JsonKey(name: 'watch_record') WatchRecordSummary? watchRecord,
   }) = _MovieListItem;
@@ -40,15 +41,65 @@ class MovieListItem with _$MovieListItem {
 enum ResolutionTier { sd, hd, fhd, uhd, none }
 
 extension MovieListItemX on MovieListItem {
-  ResolutionTier get resolutionTier {
-    final w = videoWidth ?? 0;
+  /// 文件名 (无扩展名, 小写) · 用于按番号后缀识别 字幕/破解/分辨率
+  String get _fileNameStem {
+    final raw = (filePath ?? '').trim();
+    if (raw.isEmpty) return '';
+    final name = raw.split(RegExp(r'[\\/]')).last;
+    return name.replaceFirst(RegExp(r'\.[^.]+$'), '').toLowerCase();
+  }
+
+  /// 内嵌字幕: 番号后缀 -C / -CH / -CHS / -CHT / -ZH / -SUB / -SUBS / -UC
+  bool get hasEmbeddedSubtitle {
+    if (hasInternalSubtitle) return true;
+    final stem = _fileNameStem;
+    if (stem.isEmpty) return false;
+    return RegExp(
+      r'(?:^|[-_. ])(c|ch|chs|cht|zh|sub|subs|uc)(?=$|[-_. ])',
+    ).hasMatch(stem);
+  }
+
+  /// 破解 / 无码: -U / -UC / -UNCEN / -UNCENSORED / -LEAK / -LEAKED / UMR / UMR-C
+  bool get hasCracked {
+    final stem = _fileNameStem;
+    if (stem.isEmpty) return false;
+    if (RegExp(r'(?:^|[-_. ])umr(?:-c)?(?=$|[-_. ])').hasMatch(stem)) {
+      return true;
+    }
+    return RegExp(
+      r'(?:^|[-_. ])(u|uc|uncen|uncensored|leak|leaked)(?=$|[-_. ])',
+    ).hasMatch(stem);
+  }
+
+  /// UHD: 视频高度 ≥ 2160, 或文件名含 2160p / 4k / uhd
+  bool get _hasUhdFlag {
     final h = videoHeight ?? 0;
-    final m = w > h ? w : h; // 长边
-    if (m <= 0) return ResolutionTier.none;
-    if (m >= 3000) return ResolutionTier.uhd; // 4K
-    if (m >= 1900) return ResolutionTier.fhd; // 1080p
-    if (m >= 1200) return ResolutionTier.hd; // 720p
-    return ResolutionTier.sd;
+    if (h >= 2160) return true;
+    final stem = _fileNameStem;
+    if (stem.isEmpty) return false;
+    return RegExp(r'(?:^|[-_. ])(2160p|4k|uhd)(?=$|[-_. ])').hasMatch(stem);
+  }
+
+  /// HD: 高度 [720, 2160) 或文件名含 720p/1080p/1440p/hd/fhd/qhd (与 UHD 互斥)
+  bool get _hasHdFlag {
+    if (_hasUhdFlag) return false;
+    final h = videoHeight ?? 0;
+    if (h >= 720 && h < 2160) return true;
+    final stem = _fileNameStem;
+    if (stem.isEmpty) return false;
+    return RegExp(
+      r'(?:^|[-_. ])(720p|1080p|1440p|hd|fhd|qhd)(?=$|[-_. ])',
+    ).hasMatch(stem);
+  }
+
+  ResolutionTier get resolutionTier {
+    if (_hasUhdFlag) return ResolutionTier.uhd;
+    if (_hasHdFlag) {
+      final h = videoHeight ?? 0;
+      if (h >= 1080) return ResolutionTier.fhd;
+      return ResolutionTier.hd;
+    }
+    return ResolutionTier.none;
   }
 }
 

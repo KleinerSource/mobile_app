@@ -541,6 +541,60 @@ abstract class AppL10n {
   /// **'关于'**
   String get settingsGroupAbout;
 
+  /// No description provided for @settingsServerSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器设置'**
+  String get settingsServerSettings;
+
+  /// No description provided for @settingsServerSettingsSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'媒体库 / 映射 / 翻译 / 接口'**
+  String get settingsServerSettingsSub;
+
+  /// No description provided for @settingsAppSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用设置'**
+  String get settingsAppSettings;
+
+  /// No description provided for @settingsAppSettingsSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'语言 / 隐私 / 显示偏好'**
+  String get settingsAppSettingsSub;
+
+  /// No description provided for @settingsTheme.
+  ///
+  /// In zh, this message translates to:
+  /// **'主题'**
+  String get settingsTheme;
+
+  /// No description provided for @settingsThemeSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'界面亮色 / 暗色风格'**
+  String get settingsThemeSub;
+
+  /// No description provided for @themeSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随系统'**
+  String get themeSystem;
+
+  /// No description provided for @themeLight.
+  ///
+  /// In zh, this message translates to:
+  /// **'亮色'**
+  String get themeLight;
+
+  /// No description provided for @themeDark.
+  ///
+  /// In zh, this message translates to:
+  /// **'暗色'**
+  String get themeDark;
+
   /// No description provided for @settingsServerUrl.
   ///
   /// In zh, this message translates to:

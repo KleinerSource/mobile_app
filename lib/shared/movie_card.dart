@@ -208,7 +208,7 @@ class MovieCard extends ConsumerWidget {
   }
 }
 
-/// 海报底部 badge 行 · 字幕(外挂橙/内嵌黄) + 分辨率
+/// 海报底部 badge 行 · 字幕(外挂橙/内嵌黄) + 破解 + 分辨率
 class _PosterBadgeRow extends StatelessWidget {
   const _PosterBadgeRow({required this.movie});
   final MovieListItem movie;
@@ -217,31 +217,42 @@ class _PosterBadgeRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final tier = movie.resolutionTier;
     final hasExt = movie.hasExternalSubtitle;
-    final hasInt = movie.hasInternalSubtitle;
-    final showTier = tier != ResolutionTier.none && tier != ResolutionTier.sd;
-    if (!hasExt && !hasInt && !showTier) return const SizedBox.shrink();
+    final hasEmbed = movie.hasEmbeddedSubtitle;
+    final hasCrack = movie.hasCracked;
+    final showTier = tier != ResolutionTier.none;
+    if (!hasExt && !hasEmbed && !hasCrack && !showTier) {
+      return const SizedBox.shrink();
+    }
+
+    final children = <Widget>[];
+    void add(Widget w) {
+      if (children.isNotEmpty) children.add(const SizedBox(width: 4));
+      children.add(w);
+    }
+
+    if (hasExt) {
+      add(const _SubtitleBadge(
+        color: Color(0xFFFF9F1C),
+        tooltip: '外挂字幕',
+      ));
+    }
+    if (hasEmbed) {
+      add(const _SubtitleBadge(
+        color: Color(0xFFFFD60A),
+        tooltip: '内嵌字幕',
+      ));
+    }
+    if (hasCrack) {
+      add(const _CrackBadge());
+    }
+    if (showTier) {
+      add(_ResolutionBadge(tier: tier));
+    }
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      children: [
-        // 外挂字幕 - 橙色
-        if (hasExt)
-          const _SubtitleBadge(
-            color: Color(0xFFFF9F1C),
-            tooltip: '外挂字幕',
-          ),
-        if (hasExt && (hasInt || showTier)) const SizedBox(width: 4),
-        // 内嵌字幕 - 黄色
-        if (hasInt)
-          const _SubtitleBadge(
-            color: Color(0xFFFFD60A),
-            tooltip: '内嵌字幕',
-          ),
-        if (hasInt && showTier) const SizedBox(width: 4),
-        // 分辨率
-        if (showTier) _ResolutionBadge(tier: tier),
-      ],
+      children: children,
     );
   }
 }
@@ -272,6 +283,31 @@ class _SubtitleBadge extends StatelessWidget {
   }
 }
 
+class _CrackBadge extends StatelessWidget {
+  const _CrackBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFFFF3D7F);
+    return Tooltip(
+      message: '破解 / 无码',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color.withValues(alpha: 0.7), width: 0.8),
+        ),
+        child: const Icon(
+          Icons.lock_open_rounded,
+          color: color,
+          size: 12,
+        ),
+      ),
+    );
+  }
+}
+
 class _ResolutionBadge extends StatelessWidget {
   const _ResolutionBadge({required this.tier});
   final ResolutionTier tier;
@@ -279,7 +315,7 @@ class _ResolutionBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (tier) {
-      ResolutionTier.uhd => ('4K', const Color(0xFF4A9EFF)),
+      ResolutionTier.uhd => ('UHD', const Color(0xFF4A9EFF)),
       ResolutionTier.fhd => ('FHD', const Color(0xFF00F3FF)),
       ResolutionTier.hd => ('HD', const Color(0xFF34F5A5)),
       _ => ('', Colors.white),

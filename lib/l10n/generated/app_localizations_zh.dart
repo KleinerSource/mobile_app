@@ -243,6 +243,33 @@ class AppL10nZh extends AppL10n {
   String get settingsGroupAbout => '关于';
 
   @override
+  String get settingsServerSettings => '服务器设置';
+
+  @override
+  String get settingsServerSettingsSub => '媒体库 / 映射 / 翻译 / 接口';
+
+  @override
+  String get settingsAppSettings => '应用设置';
+
+  @override
+  String get settingsAppSettingsSub => '语言 / 隐私 / 显示偏好';
+
+  @override
+  String get settingsTheme => '主题';
+
+  @override
+  String get settingsThemeSub => '界面亮色 / 暗色风格';
+
+  @override
+  String get themeSystem => '跟随系统';
+
+  @override
+  String get themeLight => '亮色';
+
+  @override
+  String get themeDark => '暗色';
+
+  @override
   String get settingsServerUrl => '服务器地址';
 
   @override

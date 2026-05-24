@@ -243,6 +243,35 @@ class AppL10nEn extends AppL10n {
   String get settingsGroupAbout => 'About';
 
   @override
+  String get settingsServerSettings => 'Server settings';
+
+  @override
+  String get settingsServerSettingsSub =>
+      'Library / mappings / translation / API';
+
+  @override
+  String get settingsAppSettings => 'App settings';
+
+  @override
+  String get settingsAppSettingsSub =>
+      'Language / privacy / display preferences';
+
+  @override
+  String get settingsTheme => 'Theme';
+
+  @override
+  String get settingsThemeSub => 'Light / dark appearance';
+
+  @override
+  String get themeSystem => 'Follow system';
+
+  @override
+  String get themeLight => 'Light';
+
+  @override
+  String get themeDark => 'Dark';
+
+  @override
   String get settingsServerUrl => 'Server URL';
 
   @override
