@@ -7,7 +7,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import 'libraries_providers.dart';
 import 'library_editor_page.dart';
-import 'scan_progress_sheet.dart';
+import 'scan_tasks_provider.dart';
 
 /// 媒体库管理列表页
 /// - 卡片列表 (名称 + 启用状态 + 文件数 + 目录数 + 多彩 hue)
@@ -389,21 +389,17 @@ class _LibraryCard extends ConsumerWidget {
       final taskId = await ref
           .read(librariesRepositoryProvider)
           .scan(lib.id, incremental: incremental);
+      if (!context.mounted) return;
+      // 注册到常驻 dock, 不再弹模态 sheet
+      ref.read(scanTasksProvider.notifier).register(
+            libraryId: lib.id,
+            libraryName: lib.name,
+            taskId: taskId,
+          );
       messenger.showSnackBar(SnackBar(
-        content: Text('${incremental ? '增量' : '全量'}扫描已启动'),
-        duration: const Duration(seconds: 1),
+        content: Text('${incremental ? '增量' : '全量'}扫描已启动 · 进度见底部'),
+        duration: const Duration(seconds: 2),
       ));
-      if (context.mounted) {
-        await ScanProgressSheet.show(
-          context,
-          libraryId: lib.id,
-          libraryName: lib.name,
-          taskId: taskId, // 空字符串时 sheet 内部会用 activeScans 解析
-        );
-      }
-      // 扫描完成后刷新列表 (文件数会变)
-      // ignore: unused_result
-      ref.refresh(librariesAllProvider);
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('扫描失败: ${toApiException(e).message}')),

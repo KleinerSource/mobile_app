@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lpinyin/lpinyin.dart';
 
 import '../../core/models/resource.dart';
 import '../../core/platform/app_theme.dart';
@@ -733,22 +734,37 @@ class _PickerSheet extends StatefulWidget {
 class _PickerSheetState extends State<_PickerSheet> {
   late Set<int> _selected;
   String _q = '';
+  late final Map<int, ({String pinyin, String firstLetters})> _pinyinIndex;
 
   @override
   void initState() {
     super.initState();
     _selected = Set.of(widget.selected);
+    _pinyinIndex = {
+      for (final r in widget.all)
+        r.id: (
+          pinyin:
+              PinyinHelper.getPinyinE(r.name, separator: '', defPinyin: '?')
+                  .toLowerCase(),
+          firstLetters: PinyinHelper.getShortPinyin(r.name).toLowerCase(),
+        ),
+    };
+  }
+
+  bool _matches(ResourceItem r) {
+    if (_q.isEmpty) return true;
+    final q = _q.toLowerCase();
+    if (r.name.toLowerCase().contains(q)) return true;
+    final idx = _pinyinIndex[r.id];
+    if (idx == null) return false;
+    return idx.pinyin.contains(q) || idx.firstLetters.contains(q);
   }
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
     final mq = MediaQuery.of(context);
-    final filtered = _q.isEmpty
-        ? widget.all
-        : widget.all
-            .where((r) => r.name.toLowerCase().contains(_q.toLowerCase()))
-            .toList();
+    final filtered = widget.all.where(_matches).toList();
     return SizedBox(
       height: mq.size.height * 0.75,
       child: SafeArea(
@@ -777,8 +793,8 @@ class _PickerSheetState extends State<_PickerSheet> {
               child: TextField(
                 onChanged: (v) => setState(() => _q = v.trim()),
                 decoration: InputDecoration(
-                  hintText: '搜索${widget.title}...',
-                  hintStyle: TextStyle(color: c.muted),
+                  hintText: '搜索${widget.title} (支持拼音首字母, 如 jl)',
+                  hintStyle: TextStyle(color: c.muted, fontSize: 13),
                   prefixIcon: Icon(Icons.search, size: 18, color: c.muted),
                   isDense: true,
                   border: OutlineInputBorder(

@@ -108,52 +108,108 @@ class _PlaceholderLabel extends StatelessWidget {
   final String title;
   final int? year;
 
+  /// 取标题首字符 (中文 1 字 / 英文 2 字母)
+  String get _initials {
+    final t = title.trim();
+    if (t.isEmpty) return '?';
+    // 含 CJK 字符 → 取首个
+    final cjk = RegExp(r'[一-龥぀-ヿ가-힯]');
+    if (cjk.hasMatch(t)) {
+      return t.characters.first.toString();
+    }
+    // 英文 → 取前 2 个非空字母大写
+    final letters = t.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+    if (letters.isEmpty) return t.characters.first.toString().toUpperCase();
+    return letters.characters.take(2).toString().toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
-      child: Align(
-        alignment: Alignment.bottomLeft,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Flexible(
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 居中大首字
+        Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                title,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xF2FFFFFF),
+                _initials,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.92),
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                  height: 1.15,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 64,
+                  height: 1,
+                  letterSpacing: -2,
                   shadows: [
                     Shadow(
-                      offset: Offset(0, 1),
-                      blurRadius: 4,
-                      color: Color(0x66000000),
+                      offset: const Offset(0, 2),
+                      blurRadius: 12,
+                      color: Colors.black.withValues(alpha: 0.35),
                     ),
                   ],
                 ),
               ),
             ),
-            if (year != null) ...[
-              const SizedBox(height: 3),
+          ),
+        ),
+        // 顶部右上角的小图标
+        Positioned(
+          top: 10,
+          right: 10,
+          child: Icon(
+            Icons.movie_creation_outlined,
+            size: 16,
+            color: Colors.white.withValues(alpha: 0.45),
+          ),
+        ),
+        // 底部 title + year 小字
+        Positioned(
+          left: 10,
+          right: 10,
+          bottom: 10,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                '$year',
-                style: const TextStyle(
-                  color: Color(0xA6FFFFFF),
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
                   fontFamily: 'Inter',
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10.5,
+                  height: 1.25,
+                  shadows: [
+                    Shadow(
+                      offset: const Offset(0, 1),
+                      blurRadius: 4,
+                      color: Colors.black.withValues(alpha: 0.4),
+                    ),
+                  ],
                 ),
               ),
+              if (year != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  '$year',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontFamily: 'monospace',
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

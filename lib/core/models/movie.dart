@@ -25,12 +25,31 @@ class MovieListItem with _$MovieListItem {
     @JsonKey(name: 'is_favorited') @Default(false) bool isFavorited,
     @JsonKey(name: 'is_updated') @Default(false) bool isUpdated,
     @JsonKey(name: 'has_external_subtitle') @Default(false) bool hasExternalSubtitle,
+    @JsonKey(name: 'has_internal_subtitle') @Default(false) bool hasInternalSubtitle,
+    @JsonKey(name: 'video_width') int? videoWidth,
+    @JsonKey(name: 'video_height') int? videoHeight,
     @Default(<ActorRef>[]) List<ActorRef> actors,
     @JsonKey(name: 'watch_record') WatchRecordSummary? watchRecord,
   }) = _MovieListItem;
 
   factory MovieListItem.fromJson(Map<String, dynamic> json) =>
       _$MovieListItemFromJson(json);
+}
+
+/// 分辨率级别 · 用于卡片角标
+enum ResolutionTier { sd, hd, fhd, uhd, none }
+
+extension MovieListItemX on MovieListItem {
+  ResolutionTier get resolutionTier {
+    final w = videoWidth ?? 0;
+    final h = videoHeight ?? 0;
+    final m = w > h ? w : h; // 长边
+    if (m <= 0) return ResolutionTier.none;
+    if (m >= 3000) return ResolutionTier.uhd; // 4K
+    if (m >= 1900) return ResolutionTier.fhd; // 1080p
+    if (m >= 1200) return ResolutionTier.hd; // 720p
+    return ResolutionTier.sd;
+  }
 }
 
 @freezed

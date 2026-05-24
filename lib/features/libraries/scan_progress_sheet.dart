@@ -31,8 +31,8 @@ class ScanProgressSheet extends ConsumerStatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: appColors(context).bg,
-      isDismissible: false,
-      enableDrag: false,
+      isDismissible: true,
+      enableDrag: true,
       showDragHandle: true,
       builder: (_) => ScanProgressSheet(
         libraryId: libraryId,
@@ -76,7 +76,15 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
       if (_effectiveTaskId.isEmpty) {
         final active = await repo.activeScans(widget.libraryId);
         if (active.isNotEmpty) {
+          // 直接用 active 返回的 task 数据, 避免再多一次 progress 请求
           _resolvedTaskId = active.first.taskId;
+          if (!mounted) return;
+          setState(() {
+            _task = active.first;
+            _error = null;
+          });
+          if (!active.first.isActive) _timer?.cancel();
+          return;
         } else {
           // 还没启动到, 下次再试
           return;
@@ -294,9 +302,27 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
-                    flex: 2,
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_downward_rounded, size: 18),
+                      label: const Text('后台',
+                          style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: c.text,
+                        side: BorderSide(color: c.cardBorder),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
                     child: ElevatedButton.icon(
                       onPressed: _busy
                           ? null

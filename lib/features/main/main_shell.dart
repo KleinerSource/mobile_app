@@ -6,6 +6,7 @@ import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../favorites/favorites_page.dart';
 import '../home/home_page.dart';
+import '../libraries/scan_progress_dock.dart';
 import '../movies/movies_page.dart';
 import '../search/search_page.dart';
 
@@ -54,9 +55,23 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       extendBody: true,
       backgroundColor: c.bg,
-      body: IndexedStack(
-        index: _index,
-        children: List.generate(tabs.length, _bodyFor),
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _index,
+            children: List.generate(tabs.length, _bodyFor),
+          ),
+          // 常驻扫描进度面板 (浮于 tab bar 上方, 无任务时自动隐藏)
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 84 + MediaQuery.of(context).padding.bottom * 0.4,
+            child: const SafeArea(
+              top: false,
+              child: ScanProgressDock(),
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: _FloatingTabBar(
         tabs: tabs,

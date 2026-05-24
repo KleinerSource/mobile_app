@@ -19,6 +19,8 @@ class MovieFilter {
     this.hasExternalSubtitle,
     this.excludeHasExternalSubtitle,
     this.fileFilterMode,
+    this.isUpdated,
+    this.duplicateNum = false,
     this.sortBy = 'created_at',
     this.sortOrder = 'desc',
   });
@@ -48,6 +50,12 @@ class MovieFilter {
   /// standard / crack / subtitle / subtitle_crack
   final String? fileFilterMode;
 
+  /// 已更新筛选: true=已更新 / false=未更新 / null=不限
+  final bool? isUpdated;
+
+  /// 仅显示重复番号 (true / false)
+  final bool duplicateNum;
+
   final String sortBy;
   final String sortOrder;
 
@@ -63,6 +71,8 @@ class MovieFilter {
     if (ratingFrom != null || ratingTo != null) n++;
     if (hasExternalSubtitle == true || excludeHasExternalSubtitle == true) n++;
     if (fileFilterMode != null && fileFilterMode!.isNotEmpty) n++;
+    if (isUpdated != null) n++;
+    if (duplicateNum) n++;
     return n;
   }
 
@@ -97,6 +107,8 @@ class MovieFilter {
     if (fileFilterMode != null && fileFilterMode!.isNotEmpty) {
       m['file_filter_mode'] = fileFilterMode;
     }
+    if (isUpdated != null) m['is_updated'] = isUpdated;
+    if (duplicateNum) m['duplicate_num'] = true;
     return m;
   }
 
@@ -117,6 +129,8 @@ class MovieFilter {
     bool? hasExternalSubtitle,
     bool? excludeHasExternalSubtitle,
     String? fileFilterMode,
+    bool? isUpdated,
+    bool? duplicateNum,
     bool clearDirectory = false,
     bool clearLibrary = false,
     bool clearYearFrom = false,
@@ -126,6 +140,7 @@ class MovieFilter {
     bool clearHasExternalSubtitle = false,
     bool clearExcludeHasExternalSubtitle = false,
     bool clearFileFilterMode = false,
+    bool clearIsUpdated = false,
     String? sortBy,
     String? sortOrder,
   }) {
@@ -152,6 +167,8 @@ class MovieFilter {
       fileFilterMode: clearFileFilterMode
           ? null
           : (fileFilterMode ?? this.fileFilterMode),
+      isUpdated: clearIsUpdated ? null : (isUpdated ?? this.isUpdated),
+      duplicateNum: duplicateNum ?? this.duplicateNum,
       sortBy: sortBy ?? this.sortBy,
       sortOrder: sortOrder ?? this.sortOrder,
     );
@@ -177,6 +194,8 @@ class MovieFilter {
         other.hasExternalSubtitle == hasExternalSubtitle &&
         other.excludeHasExternalSubtitle == excludeHasExternalSubtitle &&
         other.fileFilterMode == fileFilterMode &&
+        other.isUpdated == isUpdated &&
+        other.duplicateNum == duplicateNum &&
         other.sortBy == sortBy &&
         other.sortOrder == sortOrder;
   }
@@ -199,6 +218,8 @@ class MovieFilter {
         hasExternalSubtitle,
         excludeHasExternalSubtitle,
         fileFilterMode,
+        isUpdated,
+        duplicateNum,
         sortBy,
         sortOrder,
       ]);

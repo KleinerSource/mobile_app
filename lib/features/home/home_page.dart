@@ -6,6 +6,7 @@ import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/movie_card.dart';
 import '../../shared/poster.dart';
 import '../libraries/libraries_providers.dart';
 import '../libraries/library_movies_page.dart';
@@ -379,9 +380,8 @@ class _RecentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = appColors(context);
     return SizedBox(
-      height: 248,
+      height: 268,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -391,79 +391,40 @@ class _RecentRow extends StatelessWidget {
           final it = items[i];
           return SizedBox(
             width: 132,
-            child: PrivacyAwareInkWell(
-              movieId: it.id,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: it.id)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Stack(
-                    children: [
-                      PrivacyMask(
-                        movieId: it.id,
-                        child: Poster(
-                          url: it.posterUuid != null
-                              ? urlBuilder(it.posterUuid!)
-                              : null,
-                          title: it.title,
-                          year: it.year,
-                        ),
+            child: Stack(
+              children: [
+                MovieCard(
+                  movie: it,
+                  posterUrlBuilder: urlBuilder,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => MovieDetailPage(movieId: it.id)),
+                  ),
+                ),
+                if (i == 0)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(5),
                       ),
-                      if (i == 0)
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: const Text(
-                              'NEW',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w800,
-                                fontSize: 9,
-                                letterSpacing: 0.6,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  PrivacyText(
-                    movieId: it.id,
-                    text: it.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13.5,
-                      height: 1.2,
-                    ),
-                  ),
-                  if (it.year != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Text(
-                        '${it.year}${it.rating != null && it.rating! > 0 ? '  ★ ${it.rating!.toStringAsFixed(1)}' : ''}',
+                      child: const Text(
+                        'NEW',
                         style: TextStyle(
-                          color: c.muted,
+                          color: Colors.black,
                           fontFamily: 'Inter',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 9,
+                          letterSpacing: 0.6,
                         ),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           );
         },

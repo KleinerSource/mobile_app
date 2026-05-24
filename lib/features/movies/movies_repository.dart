@@ -291,6 +291,123 @@ class MoviesRepository {
     return (message: msg, lastDownloadedAt: lastDownloadedAt);
   }
 
+  // ===== 批量操作 =====
+
+  /// 批量添加 tag/genre/series 关联
+  Future<void> batchAddAssociations({
+    required List<int> movieIds,
+    List<int> tagIds = const [],
+    List<int> genreIds = const [],
+    int? seriesId,
+  }) async {
+    final body = <String, dynamic>{'movie_ids': movieIds};
+    if (tagIds.isNotEmpty) body['tag_ids'] = tagIds;
+    if (genreIds.isNotEmpty) body['genre_ids'] = genreIds;
+    if (seriesId != null) body['series_id'] = seriesId;
+    final raw = await _api.batchAddAssociations(body);
+    if (raw is Map && raw['success'] == false) {
+      throw ApiException((raw['message'] as String?) ?? '批量编辑失败');
+    }
+  }
+
+  /// 批量移除 tag/genre/series 关联
+  Future<void> batchRemoveAssociations({
+    required List<int> movieIds,
+    List<int> tagIds = const [],
+    List<int> genreIds = const [],
+    int? seriesId,
+  }) async {
+    final body = <String, dynamic>{'movie_ids': movieIds};
+    if (tagIds.isNotEmpty) body['tag_ids'] = tagIds;
+    if (genreIds.isNotEmpty) body['genre_ids'] = genreIds;
+    if (seriesId != null) body['series_id'] = seriesId;
+    final raw = await _api.batchRemoveAssociations(body);
+    if (raw is Map && raw['success'] == false) {
+      throw ApiException((raw['message'] as String?) ?? '批量编辑失败');
+    }
+  }
+
+  /// 批量裁剪 + 水印 · 返回 (success, failed)
+  Future<({int successCount, int failedCount})> batchWatermark({
+    required List<int> movieIds,
+    bool subtitle = false,
+    bool exsub = false,
+    bool crack = false,
+    bool uhd = false,
+  }) async {
+    final body = <String, dynamic>{
+      'movie_ids': movieIds,
+      'subtitle': subtitle,
+      'exsub': exsub,
+      'crack': crack,
+      'uhd': uhd,
+    };
+    final raw = await _api.batchWatermark(body);
+    if (raw is Map && raw['success'] == false) {
+      throw ApiException((raw['message'] as String?) ?? '海报裁剪失败');
+    }
+    if (raw is Map && raw['data'] is Map) {
+      final d = Map<String, dynamic>.from(raw['data']);
+      return (
+        successCount: (d['success_count'] as num?)?.toInt() ?? 0,
+        failedCount: (d['failed_count'] as num?)?.toInt() ?? 0,
+      );
+    }
+    return (successCount: 0, failedCount: 0);
+  }
+
+  /// 合并重复番号 · 返回 taskId (可选)
+  Future<String?> mergeDuplicateFiles({
+    required List<int> movieIds,
+    required int targetMovieId,
+  }) async {
+    final raw = await _api.mergeDuplicateFiles({
+      'movie_ids': movieIds,
+      'target_movie_id': targetMovieId,
+    });
+    if (raw is Map && raw['success'] == false) {
+      throw ApiException((raw['message'] as String?) ?? '合并失败');
+    }
+    if (raw is Map && raw['data'] is Map) {
+      return (raw['data'] as Map)['task_id']?.toString();
+    }
+    return null;
+  }
+
+  /// 比较重复番号 NFO · 返回 raw map (含 movies, scalar_fields, num)
+  Future<Map<String, dynamic>> compareDuplicateNfo(List<int> movieIds) async {
+    final raw = await _api.compareDuplicateNfo({'movie_ids': movieIds});
+    return unwrapStd<Map<String, dynamic>>(raw, (d) {
+      if (d is Map) return Map<String, dynamic>.from(d);
+      return <String, dynamic>{};
+    });
+  }
+
+  /// 应用 NFO 选择
+  Future<void> applyDuplicateNfo(Map<String, dynamic> payload) async {
+    final raw = await _api.applyDuplicateNfo(payload);
+    if (raw is Map && raw['success'] == false) {
+      throw ApiException((raw['message'] as String?) ?? '应用失败');
+    }
+  }
+
+  /// 提交批量下载请求 · 返回 message
+  Future<String> requestDownload({
+    required List<int> movieIds,
+    required Map<String, dynamic> requirements,
+  }) async {
+    final raw = await _api.requestDownload({
+      'movie_ids': movieIds,
+      'requirements': requirements,
+    });
+    if (raw is Map && raw['success'] == false) {
+      throw ApiException((raw['message'] as String?) ?? '下载请求失败');
+    }
+    return raw is Map
+        ? (raw['message']?.toString() ?? '下载请求已提交')
+        : '下载请求已提交';
+  }
+
   // ===== 海报裁剪 + 水印 =====
 
   /// 应用裁剪 + 水印

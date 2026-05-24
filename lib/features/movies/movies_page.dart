@@ -9,13 +9,16 @@ import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
-import '../../shared/filter_chip.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/poster.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../privacy/privacy_mask.dart';
 import 'advanced_filter_sheet.dart';
+import 'batch_download_sheet.dart';
+import 'batch_duplicate_nfo_sheet.dart';
+import 'batch_edit_sheet.dart';
+import 'batch_merge_sheet.dart';
 import 'movie_filter.dart';
 import 'movies_providers.dart';
 
@@ -33,9 +36,12 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
   final _searchController = TextEditingController();
   MovieFilter _currentFilter = const MovieFilter();
-  String _activeChip = '全部';
   _ViewMode _viewMode = _ViewMode.grid;
   int _totalCount = 0;
+
+  // 选择模式状态
+  bool _selectionMode = false;
+  final Set<int> _selectedIds = {};
 
   @override
   void initState() {
@@ -67,30 +73,11 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     }
   }
 
-  void _applyFilter(MovieFilter newFilter, {String? chipLabel}) {
-    if (chipLabel != null) {
-      setState(() => _activeChip = chipLabel);
-    }
+  void _applyFilter(MovieFilter newFilter) {
     if (newFilter == _currentFilter) return;
     setState(() => _currentFilter = newFilter);
     ref.read(movieFilterProvider.notifier).state = newFilter;
     _controller.refresh();
-  }
-
-  void _onChipTap(String label) {
-    switch (label) {
-      case '全部':
-        _applyFilter(const MovieFilter(), chipLabel: label);
-        break;
-      case '高分':
-        _applyFilter(const MovieFilter(sortBy: 'rating', sortOrder: 'desc'),
-            chipLabel: label);
-        break;
-      case '最近':
-        _applyFilter(const MovieFilter(sortBy: 'created_at', sortOrder: 'desc'),
-            chipLabel: label);
-        break;
-    }
   }
 
   Future<void> _openAdvancedFilter() async {
@@ -110,10 +97,17 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     final w = MediaQuery.of(context).size.width;
     final crossAxisCount = w > 600 ? 4 : 3;
 
-    return GlowBackground(
-      child: SafeArea(
-        bottom: false,
-        child: CustomScrollView(
+    return PopScope(
+      canPop: !_selectionMode,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _selectionMode) _exitSelection();
+      },
+      child: GlowBackground(
+        child: SafeArea(
+          bottom: false,
+        child: Stack(
+          children: [
+            CustomScrollView(
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
@@ -160,27 +154,31 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
             SliverToBoxAdapter(
               child: SizedBox(
                 height: 36,
-                child: ListView.separated(
+                child: ListView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 22),
-                  itemCount: 3,
-                  separatorBuilder: (_, __) => const SizedBox(width: 7),
-                  itemBuilder: (ctx, i) {
-                    const labels = ['全部', '最近', '高分'];
-                    final lab = labels[i];
-                    final l = AppL10n.of(context);
-                    final display = switch (lab) {
-                      '全部' => l.filterAll,
-                      '最近' => l.filterRecent,
-                      '高分' => l.filterTopRated,
-                      _ => lab,
-                    };
-                    return FilterChipPill(
-                      label: display,
-                      active: _activeChip == lab,
-                      onTap: () => _onChipTap(lab),
-                    );
-                  },
+                  children: [
+                    _UpdatedDropdownChip(
+                      value: _currentFilter.isUpdated,
+                      onChanged: (v) => _applyFilter(
+                        _currentFilter.copyWith(
+                          isUpdated: v,
+                          clearIsUpdated: v == null,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    _QuickChip(
+                      label: '重复番号',
+                      icon: Icons.copy_all_outlined,
+                      active: _currentFilter.duplicateNum,
+                      onTap: () => _applyFilter(
+                        _currentFilter.copyWith(
+                          duplicateNum: !_currentFilter.duplicateNum,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -204,6 +202,17 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                         ),
                       ),
                     ),
+                    _SortButton(
+                      sortBy: _currentFilter.sortBy,
+                      sortOrder: _currentFilter.sortOrder,
+                      onChanged: (sortBy, sortOrder) => _applyFilter(
+                        _currentFilter.copyWith(
+                          sortBy: sortBy,
+                          sortOrder: sortOrder,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     _FilterButton(
                       activeCount: _currentFilter.activeAdvancedCount,
                       onTap: _openAdvancedFilter,
@@ -224,7 +233,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                       pagingController: _controller,
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: crossAxisCount,
-                        childAspectRatio: 0.55,
+                        childAspectRatio: 0.5,
                         mainAxisSpacing: 14,
                         crossAxisSpacing: 10,
                       ),
@@ -238,6 +247,26 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
         ),
+        if (_selectionMode)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _BatchActionBar(
+              selectedCount: _selectedIds.length,
+              canMergeOrCompare: _canMergeOrCompare,
+              onSelectAll: _selectAllLoaded,
+              onClear: () => setState(() => _selectedIds.clear()),
+              onClose: _exitSelection,
+              onEdit: _onBatchEdit,
+              onDownload: _onBatchDownload,
+              onCompare: _onBatchCompareNfo,
+              onMerge: _onBatchMerge,
+            ),
+          ),
+          ],
+        ),
+        ),
       ),
     );
   }
@@ -250,9 +279,19 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       itemBuilder: (ctx, item, idx) => MovieCard(
         movie: item,
         posterUrlBuilder: urlBuilder,
-        onTap: () => Navigator.of(ctx).push(
-          MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: item.id)),
-        ),
+        selectionMode: _selectionMode,
+        selected: _selectedIds.contains(item.id),
+        onTap: () {
+          if (_selectionMode) {
+            _toggleSelect(item.id);
+          } else {
+            Navigator.of(ctx).push(
+              MaterialPageRoute(
+                  builder: (_) => MovieDetailPage(movieId: item.id)),
+            );
+          }
+        },
+        onLongPress: () => _enterSelectionWith(item.id),
       ),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
         message: _controller.error?.toString() ?? l.loadFailed,
@@ -265,8 +304,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
           child: Text(l.loadFailedRetry),
         ),
       ),
-      noItemsFoundIndicatorBuilder: (_) =>
-          EmptyView(message: l.noResultFound),
+      noItemsFoundIndicatorBuilder: (_) => EmptyView(message: l.noResultFound),
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
     );
@@ -280,35 +318,147 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       itemBuilder: (ctx, item, idx) => _ListRow(
         movie: item,
         urlBuilder: urlBuilder,
+        selectionMode: _selectionMode,
+        selected: _selectedIds.contains(item.id),
+        onSelectionTap: () => _toggleSelect(item.id),
+        onLongPress: () => _enterSelectionWith(item.id),
       ),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
         message: _controller.error?.toString() ?? l.loadFailed,
         onRetry: () => _controller.refresh(),
       ),
-      noItemsFoundIndicatorBuilder: (_) =>
-          EmptyView(message: l.noResultFound),
+      noItemsFoundIndicatorBuilder: (_) => EmptyView(message: l.noResultFound),
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
     );
   }
+
+  // ===== 选择模式 =====
+
+  void _enterSelectionWith(int id) {
+    setState(() {
+      _selectionMode = true;
+      _selectedIds.add(id);
+    });
+  }
+
+  void _toggleSelect(int id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+        if (_selectedIds.isEmpty) _selectionMode = false;
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  void _selectAllLoaded() {
+    final loaded = _controller.itemList ?? const <MovieListItem>[];
+    setState(() {
+      _selectedIds
+        ..clear()
+        ..addAll(loaded.map((m) => m.id));
+    });
+  }
+
+  /// 选中影片的番号集合
+  Set<String> _selectedNums() {
+    final loaded = _controller.itemList ?? const <MovieListItem>[];
+    return loaded
+        .where((m) => _selectedIds.contains(m.id))
+        .map((m) => (m.num ?? '').trim().toUpperCase())
+        .where((n) => n.isNotEmpty)
+        .toSet();
+  }
+
+  bool get _canMergeOrCompare {
+    if (_selectedIds.length < 2) return false;
+    final nums = _selectedNums();
+    return nums.length == 1;
+  }
+
+  Future<void> _onBatchEdit() async {
+    final ok = await BatchEditSheet.show(context, _selectedIds.toList());
+    if (ok == true) {
+      _exitSelection();
+      _controller.refresh();
+    }
+  }
+
+  Future<void> _onBatchDownload() async {
+    final ok = await BatchDownloadSheet.show(context, _selectedIds.toList());
+    if (ok == true) _exitSelection();
+  }
+
+  Future<void> _onBatchMerge() async {
+    if (!_canMergeOrCompare) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('需选择 2 部以上相同番号影片')),
+      );
+      return;
+    }
+    final ok = await BatchMergeSheet.show(context, _selectedIds.toList());
+    if (ok == true) {
+      _exitSelection();
+      _controller.refresh();
+    }
+  }
+
+  Future<void> _onBatchCompareNfo() async {
+    if (!_canMergeOrCompare) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('需选择 2 部以上相同番号影片')),
+      );
+      return;
+    }
+    final ok = await BatchDuplicateNfoCompareSheet.show(
+        context, _selectedIds.toList());
+    if (ok == true) {
+      _exitSelection();
+      _controller.refresh();
+    }
+  }
 }
 
 String _sortLabel(BuildContext context, String key) {
-  final l = AppL10n.of(context);
   switch (key) {
     case 'rating':
-      return l.sortByRating;
+      return '评分';
     case 'title':
-      return l.sortByTitle;
+      return '标题';
     case 'year':
-      return l.sortByYear;
+      return '年份';
     case 'release_date':
-      return l.sortByReleaseDate;
+      return '上映日期';
+    case 'updated_at':
+      return '更新';
+    case 'last_downloaded_at':
+      return '下载日期';
+    case 'file_size':
+      return '文件大小';
     case 'created_at':
     default:
-      return l.sortByCreatedAt;
+      return '创建';
   }
 }
+
+const _kSortOptions = <({String value, String label})>[
+  (value: 'title', label: '标题'),
+  (value: 'year', label: '年份'),
+  (value: 'rating', label: '评分'),
+  (value: 'file_size', label: '文件大小'),
+  (value: 'created_at', label: '创建'),
+  (value: 'updated_at', label: '更新'),
+  (value: 'last_downloaded_at', label: '下载日期'),
+];
 
 class _SearchBar extends StatelessWidget {
   const _SearchBar({required this.controller, required this.onSubmitted});
@@ -447,10 +597,272 @@ class _FilterButton extends StatelessWidget {
   }
 }
 
+class _SortButton extends StatelessWidget {
+  const _SortButton({
+    required this.sortBy,
+    required this.sortOrder,
+    required this.onChanged,
+  });
+  final String sortBy;
+  final String sortOrder;
+  final void Function(String sortBy, String sortOrder) onChanged;
+
+  Future<void> _openMenu(BuildContext context) async {
+    final c = appColors(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: c.bg,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text('排序', style: AppText.sectionTitle(ctx)),
+                  ),
+                  // 升降序 toggle
+                  GestureDetector(
+                    onTap: () {
+                      final next = sortOrder == 'asc' ? 'desc' : 'asc';
+                      Navigator.pop(ctx);
+                      onChanged(sortBy, next);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: c.chipBg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: c.cardBorder),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            sortOrder == 'asc'
+                                ? Icons.arrow_upward_rounded
+                                : Icons.arrow_downward_rounded,
+                            size: 14,
+                            color: c.accent,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            sortOrder == 'asc' ? '升序' : '降序',
+                            style: TextStyle(
+                              color: c.accent,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            for (final opt in _kSortOptions)
+              ListTile(
+                dense: true,
+                title: Text(opt.label),
+                trailing: opt.value == sortBy
+                    ? Icon(Icons.check_rounded, color: c.accent, size: 18)
+                    : null,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onChanged(opt.value, sortOrder);
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return GestureDetector(
+      onTap: () => _openMenu(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: c.chipBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: c.cardBorder),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.sort_rounded, size: 15, color: c.muted),
+            const SizedBox(width: 5),
+            Icon(
+              sortOrder == 'asc'
+                  ? Icons.arrow_upward_rounded
+                  : Icons.arrow_downward_rounded,
+              size: 12,
+              color: c.muted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickChip extends StatelessWidget {
+  const _QuickChip({
+    required this.label,
+    required this.icon,
+    required this.active,
+    required this.onTap,
+  });
+  final String label;
+  final IconData icon;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? c.accent.withValues(alpha: 0.15) : c.chipBg,
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: active ? c.accent.withValues(alpha: 0.5) : c.cardBorder,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: active ? c.accent : c.muted),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: active ? c.accent : c.text,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 更新状态下拉 (不限 / 已更新 / 未更新)
+class _UpdatedDropdownChip extends StatelessWidget {
+  const _UpdatedDropdownChip({required this.value, required this.onChanged});
+  final bool? value;
+  final ValueChanged<bool?> onChanged;
+
+  String get _label => switch (value) {
+        true => '已更新',
+        false => '未更新',
+        _ => '更新状态',
+      };
+
+  Future<void> _openMenu(BuildContext context) async {
+    final c = appColors(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: c.bg,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final opt in const <({bool? v, String label})>[
+              (v: null, label: '不限'),
+              (v: true, label: '已更新'),
+              (v: false, label: '未更新'),
+            ])
+              ListTile(
+                dense: true,
+                title: Text(opt.label),
+                trailing: value == opt.v
+                    ? Icon(Icons.check_rounded, color: c.accent, size: 18)
+                    : null,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onChanged(opt.v);
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final active = value != null;
+    return GestureDetector(
+      onTap: () => _openMenu(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? c.accent.withValues(alpha: 0.15) : c.chipBg,
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: active ? c.accent.withValues(alpha: 0.5) : c.cardBorder,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _label,
+              style: TextStyle(
+                color: active ? c.accent : c.text,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(width: 3),
+            Icon(Icons.expand_more,
+                size: 14, color: active ? c.accent : c.muted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ListRow extends StatelessWidget {
-  const _ListRow({required this.movie, required this.urlBuilder});
+  const _ListRow({
+    required this.movie,
+    required this.urlBuilder,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onSelectionTap,
+    this.onLongPress,
+  });
   final MovieListItem movie;
   final String Function(String) urlBuilder;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback? onSelectionTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -466,9 +878,13 @@ class _ListRow extends StatelessWidget {
 
     return PrivacyAwareInkWell(
       movieId: movie.id,
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
-      ),
+      onTap: selectionMode
+          ? onSelectionTap
+          : () => Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => MovieDetailPage(movieId: movie.id)),
+              ),
+      onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
@@ -477,6 +893,16 @@ class _ListRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            if (selectionMode) ...[
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked,
+                color: selected ? c.accent : c.muted,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+            ],
             SizedBox(
               width: 56,
               child: PrivacyMask(
@@ -566,6 +992,197 @@ class _ListRow extends StatelessWidget {
               )
             else
               Icon(Icons.chevron_right, color: c.muted, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 浮动底部批量操作工具栏 · 编辑/下载/比较/合并
+class _BatchActionBar extends StatelessWidget {
+  const _BatchActionBar({
+    required this.selectedCount,
+    required this.canMergeOrCompare,
+    required this.onSelectAll,
+    required this.onClear,
+    required this.onClose,
+    required this.onEdit,
+    required this.onDownload,
+    required this.onCompare,
+    required this.onMerge,
+  });
+
+  final int selectedCount;
+  final bool canMergeOrCompare;
+  final VoidCallback onSelectAll;
+  final VoidCallback onClear;
+  final VoidCallback onClose;
+  final VoidCallback onEdit;
+  final VoidCallback onDownload;
+  final VoidCallback onCompare;
+  final VoidCallback onMerge;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          decoration: BoxDecoration(
+            color: c.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: c.cardBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    '$selectedCount 已选',
+                    style: TextStyle(
+                      color: c.text,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  TextButton(
+                    onPressed: onSelectAll,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('全选'),
+                  ),
+                  TextButton(
+                    onPressed: onClear,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      foregroundColor: c.danger,
+                    ),
+                    child: const Text('清空'),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: onClose,
+                    icon: Icon(Icons.close, size: 18, color: c.muted),
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              SizedBox(
+                height: 38,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _BatchActionButton(
+                        icon: Icons.edit_outlined,
+                        label: '编辑',
+                        onTap: selectedCount > 0 ? onEdit : null,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _BatchActionButton(
+                        icon: Icons.cloud_download_outlined,
+                        label: '下载',
+                        color: const Color(0xFF34F5A5),
+                        onTap: selectedCount > 0 ? onDownload : null,
+                      ),
+                    ),
+                    if (canMergeOrCompare) ...[
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _BatchActionButton(
+                          icon: Icons.compare_arrows_rounded,
+                          label: '比较',
+                          onTap: onCompare,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _BatchActionButton(
+                          icon: Icons.merge_rounded,
+                          label: '合并',
+                          color: c.warning,
+                          onTap: onMerge,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BatchActionButton extends StatelessWidget {
+  const _BatchActionButton({
+    required this.icon,
+    required this.label,
+    this.color,
+    this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final Color? color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final enabled = onTap != null;
+    final fg = enabled ? (color ?? c.accent) : c.muted;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: enabled ? fg.withValues(alpha: 0.12) : c.chipBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: enabled ? fg.withValues(alpha: 0.4) : c.cardBorder,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: fg),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: fg,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
           ],
         ),
       ),

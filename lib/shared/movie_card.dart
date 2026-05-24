@@ -19,6 +19,8 @@ class MovieCard extends ConsumerWidget {
     this.onTap,
     this.onLongPress,
     this.restricted = false,
+    this.selectionMode = false,
+    this.selected = false,
   });
 
   final MovieListItem movie;
@@ -26,6 +28,8 @@ class MovieCard extends ConsumerWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final bool restricted;
+  final bool selectionMode;
+  final bool selected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -43,6 +47,7 @@ class MovieCard extends ConsumerWidget {
       onLongPress: onLongPress,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Stack(
             children: [
@@ -58,8 +63,37 @@ class MovieCard extends ConsumerWidget {
                   restricted: restricted,
                 ),
               ),
+              // 选择模式遮罩 + 对勾
+              if (selectionMode)
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      color: selected
+                          ? c.accent.withValues(alpha: 0.35)
+                          : Colors.black.withValues(alpha: 0.15),
+                    ),
+                  ),
+                ),
+              if (selectionMode)
+                Positioned(
+                  top: 6,
+                  left: 6,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: selected ? c.accent : Colors.black54,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: selected
+                        ? const Icon(Icons.check, color: Colors.white, size: 14)
+                        : null,
+                  ),
+                ),
               // 角标在遮罩之上仍可见 (评分/已看), 隐私模式下隐藏避免泄露信号
-              if (!masked && !restricted && hasRating)
+              if (!masked && !selectionMode && !restricted && hasRating)
                 Positioned(
                   top: 6,
                   right: 6,
@@ -122,10 +156,18 @@ class MovieCard extends ConsumerWidget {
                     ),
                   ),
                 ),
+              // 底部 badge 行: 字幕 / 分辨率
+              if (!masked && !restricted)
+                Positioned(
+                  left: 6,
+                  right: 6,
+                  bottom: (!completed && progress > 0) ? 12 : 6,
+                  child: _PosterBadgeRow(movie: movie),
+                ),
             ],
           ),
           const SizedBox(height: 8),
-          // 标题: 隐私模式遮罩
+          // 标题: 隐私模式遮罩 · 固定 2 行高度避免溢出
           PrivacyText(
             movieId: movie.id,
             text: restricted ? 'Restricted' : movie.title,
@@ -163,5 +205,104 @@ class MovieCard extends ConsumerWidget {
     if (m.year != null) parts.add('${m.year}');
     if (m.runtime != null && m.runtime! > 0) parts.add('${m.runtime}m');
     return parts.join(' · ');
+  }
+}
+
+/// 海报底部 badge 行 · 字幕(外挂橙/内嵌黄) + 分辨率
+class _PosterBadgeRow extends StatelessWidget {
+  const _PosterBadgeRow({required this.movie});
+  final MovieListItem movie;
+
+  @override
+  Widget build(BuildContext context) {
+    final tier = movie.resolutionTier;
+    final hasExt = movie.hasExternalSubtitle;
+    final hasInt = movie.hasInternalSubtitle;
+    final showTier = tier != ResolutionTier.none && tier != ResolutionTier.sd;
+    if (!hasExt && !hasInt && !showTier) return const SizedBox.shrink();
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 外挂字幕 - 橙色
+        if (hasExt)
+          const _SubtitleBadge(
+            color: Color(0xFFFF9F1C),
+            tooltip: '外挂字幕',
+          ),
+        if (hasExt && (hasInt || showTier)) const SizedBox(width: 4),
+        // 内嵌字幕 - 黄色
+        if (hasInt)
+          const _SubtitleBadge(
+            color: Color(0xFFFFD60A),
+            tooltip: '内嵌字幕',
+          ),
+        if (hasInt && showTier) const SizedBox(width: 4),
+        // 分辨率
+        if (showTier) _ResolutionBadge(tier: tier),
+      ],
+    );
+  }
+}
+
+class _SubtitleBadge extends StatelessWidget {
+  const _SubtitleBadge({required this.color, required this.tooltip});
+  final Color color;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color.withValues(alpha: 0.7), width: 0.8),
+        ),
+        child: Icon(
+          Icons.closed_caption_rounded,
+          color: color,
+          size: 12,
+        ),
+      ),
+    );
+  }
+}
+
+class _ResolutionBadge extends StatelessWidget {
+  const _ResolutionBadge({required this.tier});
+  final ResolutionTier tier;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (tier) {
+      ResolutionTier.uhd => ('4K', const Color(0xFF4A9EFF)),
+      ResolutionTier.fhd => ('FHD', const Color(0xFF00F3FF)),
+      ResolutionTier.hd => ('HD', const Color(0xFF34F5A5)),
+      _ => ('', Colors.white),
+    };
+    if (label.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.7), width: 0.8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontFamily: 'monospace',
+          fontWeight: FontWeight.w800,
+          fontSize: 9,
+          letterSpacing: 0.4,
+          height: 1,
+        ),
+      ),
+    );
   }
 }

@@ -88,6 +88,36 @@ abstract class MoviesApi {
   @GET('/movies/id/{id}/download-history')
   Future<dynamic> getDownloadHistory(@Path('id') int id);
 
+  // ===== 批量操作 =====
+
+  /// 批量添加关联 · body: { movie_ids, tag_ids?, genre_ids?, series_id? }
+  @POST('/movies/batch/associations/add')
+  Future<dynamic> batchAddAssociations(@Body() Map<String, dynamic> body);
+
+  /// 批量移除关联 · body: { movie_ids, tag_ids?, genre_ids?, series_id? }
+  @POST('/movies/batch/associations/remove')
+  Future<dynamic> batchRemoveAssociations(@Body() Map<String, dynamic> body);
+
+  /// 批量海报水印/裁剪 · body: { movie_ids, subtitle, exsub, crack, uhd }
+  @POST('/movies/batch/watermark')
+  Future<dynamic> batchWatermark(@Body() Map<String, dynamic> body);
+
+  /// 批量合并重复番号 · body: { movie_ids, target_movie_id }
+  @POST('/movies/batch/merge-duplicate-files')
+  Future<dynamic> mergeDuplicateFiles(@Body() Map<String, dynamic> body);
+
+  /// 比较重复番号 NFO · body: { movie_ids }
+  @POST('/movies/batch/duplicate-nfo/compare')
+  Future<dynamic> compareDuplicateNfo(@Body() Map<String, dynamic> body);
+
+  /// 应用 NFO 同步选择 · body: scalar_selections + ...
+  @POST('/movies/batch/duplicate-nfo/apply')
+  Future<dynamic> applyDuplicateNfo(@Body() Map<String, dynamic> body);
+
+  /// 提交下载请求 · body: { movie_ids, requirements: {...} }
+  @POST('/movies/download')
+  Future<dynamic> requestDownload(@Body() Map<String, dynamic> body);
+
   // ===== 海报裁剪 + 水印 =====
 
   /// 应用裁剪 + 水印 · body: { subtitle, exsub, crack, uhd, crop_offset }

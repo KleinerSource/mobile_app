@@ -73,11 +73,13 @@ class LibrariesRepository {
   Future<String> scan(int id, {bool incremental = true}) async {
     final raw = await _api.scan(id, {'incremental': incremental});
     return unwrapStd<String>(raw, (d) {
+      if (d == null) return '';
       if (d is Map) {
-        final tid = d['task_id'] ?? d['id'];
+        final tid = d['task_id'] ?? d['id'] ?? d['taskId'];
         return tid?.toString() ?? '';
       }
-      return '';
+      // data 直接是字符串 / 数字
+      return d.toString();
     });
   }
 

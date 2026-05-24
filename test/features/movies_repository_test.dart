@@ -131,6 +131,34 @@ class _StubMoviesApi implements MoviesApi {
   @override
   Future<dynamic> getDownloadHistory(int id) async =>
       {'success': true, 'message': 'ok', 'data': {'magnets': {}, 'ed2ks': {}}};
+
+  @override
+  Future<dynamic> batchAddAssociations(Map<String, dynamic> body) async =>
+      {'success': true, 'message': 'ok', 'data': null};
+
+  @override
+  Future<dynamic> batchRemoveAssociations(Map<String, dynamic> body) async =>
+      {'success': true, 'message': 'ok', 'data': null};
+
+  @override
+  Future<dynamic> batchWatermark(Map<String, dynamic> body) async =>
+      {'success': true, 'message': 'ok', 'data': null};
+
+  @override
+  Future<dynamic> mergeDuplicateFiles(Map<String, dynamic> body) async =>
+      {'success': true, 'message': 'ok', 'data': null};
+
+  @override
+  Future<dynamic> compareDuplicateNfo(Map<String, dynamic> body) async =>
+      {'success': true, 'message': 'ok', 'data': null};
+
+  @override
+  Future<dynamic> applyDuplicateNfo(Map<String, dynamic> body) async =>
+      {'success': true, 'message': 'ok', 'data': null};
+
+  @override
+  Future<dynamic> requestDownload(Map<String, dynamic> body) async =>
+      {'success': true, 'message': 'ok', 'data': null};
 }
 
 class _StubSystemApi implements SystemApi {
