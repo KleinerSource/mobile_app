@@ -253,6 +253,12 @@ abstract class AppL10n {
   /// **'{n} 个结果 · 按 {sort} 排序'**
   String resultsSortedBy(int n, String sort);
 
+  /// No description provided for @sortedByOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'按 {sort} 排序'**
+  String sortedByOnly(String sort);
+
   /// No description provided for @loadFailed.
   ///
   /// In zh, this message translates to:

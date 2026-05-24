@@ -531,16 +531,38 @@ class _ResourceTile extends StatelessWidget {
     final isDownloaded = downloadedAt != null && downloadedAt!.isNotEmpty;
     final tile = ListTile(
       contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      title: Text(
-        title,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: c.text,
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w600,
-          fontSize: 13.5,
-        ),
+      title: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: c.text,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w600,
+                fontSize: 13.5,
+              ),
+            ),
+          ),
+          if (date.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                date,
+                style: TextStyle(
+                  color: c.muted,
+                  fontFamily: 'monospace',
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 4),
@@ -553,8 +575,6 @@ class _ResourceTile extends StatelessWidget {
               children: [
                 if (size.isNotEmpty)
                   Text(size, style: AppText.meta(context)),
-                if (date.isNotEmpty)
-                  Text(date, style: AppText.meta(context)),
                 if (source.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.symmetric(

@@ -93,6 +93,11 @@ class AppL10nZh extends AppL10n {
   }
 
   @override
+  String sortedByOnly(String sort) {
+    return '按 $sort 排序';
+  }
+
+  @override
   String get loadFailed => '加载失败';
 
   @override

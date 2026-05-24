@@ -46,6 +46,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       child: SafeArea(
         bottom: false,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),

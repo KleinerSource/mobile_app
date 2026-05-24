@@ -34,6 +34,8 @@
   "searchHintAll": "搜索片名 / 演员 / 标签",
   "resultsSortedBy": "{n} 个结果 · 按 {sort} 排序",
   "@resultsSortedBy": { "placeholders": { "n": {"type":"int"}, "sort": {"type":"String"} } },
+  "sortedByOnly": "按 {sort} 排序",
+  "@sortedByOnly": { "placeholders": { "sort": {"type":"String"} } },
   "loadFailed": "加载失败",
   "loadFailedRetry": "加载失败，点击重试",
   "noResultFound": "没有找到符合条件的影片",

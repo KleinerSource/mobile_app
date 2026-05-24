@@ -34,6 +34,8 @@
   "searchHintAll": "Search titles, people, tags",
   "resultsSortedBy": "{n} results · sorted by {sort}",
   "@resultsSortedBy": { "placeholders": { "n": {"type":"int"}, "sort": {"type":"String"} } },
+  "sortedByOnly": "Sorted by {sort}",
+  "@sortedByOnly": { "placeholders": { "sort": {"type":"String"} } },
   "loadFailed": "Load failed",
   "loadFailedRetry": "Load failed, tap to retry",
   "noResultFound": "No matching titles",

@@ -93,6 +93,11 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
+  String sortedByOnly(String sort) {
+    return 'Sorted by $sort';
+  }
+
+  @override
   String get loadFailed => 'Load failed';
 
   @override

@@ -189,8 +189,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                   children: [
                     Expanded(
                       child: Text(
-                        AppL10n.of(context).resultsSortedBy(
-                          _totalCount > 0 ? _totalCount : 0,
+                        AppL10n.of(context).sortedByOnly(
                           _sortLabel(context, _currentFilter.sortBy),
                         ),
                         style: TextStyle(
