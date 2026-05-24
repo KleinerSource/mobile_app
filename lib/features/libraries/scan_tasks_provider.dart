@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../../core/config/server_config_provider.dart';
 import '../../core/models/library.dart';
 import 'libraries_providers.dart';
 
@@ -16,7 +19,6 @@ class TrackedScan {
     this.task,
   });
 
-  /// 后端 task_id, 可能为空 (启动后立即注册 + active scans 解析)
   final String taskId;
   final int libraryId;
   final String libraryName;
@@ -32,21 +34,42 @@ class TrackedScan {
   bool get isActive => task?.isActive ?? true;
 }
 
+/// 后端 ws 推送的实时状态: 用 progress 数据补完 ScanTask
+class _WsState {
+  _WsState({
+    required this.isRunning,
+    required this.total,
+    required this.completed,
+    required this.percent,
+    required this.message,
+  });
+  final bool isRunning;
+  final int total;
+  final int completed;
+  final double percent;
+  final String message;
+}
+
+/// 全局扫描任务管理 · 实时通过 /ws/scheduler/status 监听任务进度
 class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
   ScanTasksNotifier(this._ref) : super(const []) {
-    _timer = Timer.periodic(const Duration(seconds: 2), (_) => _pollAll());
+    _connectWs();
   }
 
   final Ref _ref;
-  Timer? _timer;
+  WebSocketChannel? _channel;
+  StreamSubscription<dynamic>? _sub;
+  Timer? _reconnectTimer;
+  Timer? _pingTimer;
+  int _reconnectAttempts = 0;
+  bool _disposed = false;
 
-  /// 启动扫描后注册;  taskId 可能为空, 由轮询从 active scans 解析
+  /// 启动扫描后注册 · taskId 可能为空, 之后 ws 推送会自动补充
   void register({
     required int libraryId,
     required String libraryName,
     required String taskId,
   }) {
-    // 同一个 lib 只保留一个任务
     final filtered = state.where((s) => s.libraryId != libraryId).toList();
     state = [
       ...filtered,
@@ -56,48 +79,178 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
         taskId: taskId,
       ),
     ];
-    // 立即拉一次, 让 UI 快点出现进度
-    _pollAll();
+    // 主动拉一次, 让 dock 立即出现 (即使 ws 还没消息)
+    _refreshOnceFallback(libraryId);
   }
 
   void remove(int libraryId) {
     state = state.where((s) => s.libraryId != libraryId).toList();
   }
 
-  Future<void> _pollAll() async {
-    if (state.isEmpty) return;
-    final repo = _ref.read(librariesRepositoryProvider);
-    final next = <TrackedScan>[];
-    for (final s in state) {
-      try {
-        var taskId = s.taskId;
-        if (taskId.isEmpty) {
-          final active = await repo.activeScans(s.libraryId);
-          if (active.isEmpty) {
-            // 还没起来, 保留等下次
-            next.add(s);
-            continue;
-          }
-          taskId = active.first.taskId;
-          next.add(s.copyWith(taskId: taskId, task: active.first));
-          continue;
-        }
-        final t = await repo.scanProgress(s.libraryId, taskId);
-        if (t.isActive) {
-          next.add(s.copyWith(task: t));
-        }
-        // 已完成 / 取消 / 失败: 移除 (任何状态都不再保留)
-      } catch (_) {
-        // 短暂错误: 保留一次, 下次再试
-        next.add(s);
-      }
+  /// 启动后只拉一次, 让 dock 在 ws 还没收到推送前就有数据
+  Future<void> _refreshOnceFallback(int libraryId) async {
+    try {
+      final repo = _ref.read(librariesRepositoryProvider);
+      final active = await repo.activeScans(libraryId);
+      if (active.isEmpty || !mounted) return;
+      final t = active.first;
+      state = [
+        for (final s in state)
+          if (s.libraryId == libraryId)
+            s.copyWith(
+                taskId: s.taskId.isEmpty ? t.taskId : s.taskId, task: t)
+          else
+            s,
+      ];
+    } catch (_) {}
+  }
+
+  void _connectWs() {
+    if (_disposed) return;
+    final cfg = _ref.read(serverConfigProvider);
+    if (cfg == null) {
+      _scheduleReconnect();
+      return;
     }
-    if (mounted) state = next;
+    final base = cfg.baseUrl.trim();
+    if (base.isEmpty) {
+      _scheduleReconnect();
+      return;
+    }
+    final wsUrl = _toWsUrl(base);
+    try {
+      _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
+      _sub = _channel!.stream.listen(
+        _onMessage,
+        onError: (_) => _onDisconnect(),
+        onDone: _onDisconnect,
+        cancelOnError: false,
+      );
+      _reconnectAttempts = 0;
+      // 心跳
+      _pingTimer?.cancel();
+      _pingTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+        try {
+          _channel?.sink.add('{"type":"ping"}');
+        } catch (_) {}
+      });
+    } catch (_) {
+      _scheduleReconnect();
+    }
+  }
+
+  String _toWsUrl(String base) {
+    var u = base;
+    if (u.endsWith('/')) u = u.substring(0, u.length - 1);
+    if (u.startsWith('https://')) {
+      u = 'wss://${u.substring(8)}';
+    } else if (u.startsWith('http://')) {
+      u = 'ws://${u.substring(7)}';
+    } else {
+      u = 'ws://$u';
+    }
+    return '$u/ws/scheduler/status';
+  }
+
+  void _onMessage(dynamic raw) {
+    try {
+      final s = raw is String ? raw : raw.toString();
+      final m = jsonDecode(s);
+      if (m is! Map) return;
+      if (m['type'] == 'pong') return;
+      if (m['type'] != 'scheduler_status') return;
+      // 仅处理扫描类: taskName 不是 NFO/演员
+      final taskName = (m['taskName'] ?? '').toString();
+      if (taskName == 'NFO 同步' || taskName == '演员关联同步') return;
+
+      final taskId = (m['taskId'] ?? '').toString();
+      if (taskId.isEmpty) return;
+      final isRunning = m['isRunning'] == true;
+      final prog = m['progress'];
+      final total = (prog is Map ? prog['total'] : 0) as int? ?? 0;
+      final completed =
+          (prog is Map ? prog['completed'] : 0) as int? ?? 0;
+      final percent = ((prog is Map ? prog['percent'] : 0) as num?)
+              ?.toDouble() ??
+          0.0;
+      final message = (m['message'] ?? '').toString();
+
+      _applyWsUpdate(
+        taskId: taskId,
+        ws: _WsState(
+          isRunning: isRunning,
+          total: total,
+          completed: completed,
+          percent: percent,
+          message: message,
+        ),
+      );
+    } catch (_) {}
+  }
+
+  void _applyWsUpdate({required String taskId, required _WsState ws}) {
+    // 找到对应的 TrackedScan: 用 taskId 或者占位的 (taskId 为空) 第一个
+    final list = [...state];
+    var idx = list.indexWhere((s) => s.taskId == taskId);
+    if (idx < 0) {
+      idx = list.indexWhere((s) => s.taskId.isEmpty);
+    }
+    if (idx < 0) return; // 这是别人触发的扫描, 我们没注册
+
+    final cur = list[idx];
+    if (!ws.isRunning) {
+      // 任务完成 / 取消, 直接移除
+      list.removeAt(idx);
+      state = list;
+      return;
+    }
+
+    // 合并到 ScanTask · 字段映射保持与 ScanTask 一致
+    final existing = cur.task;
+    final updated = ScanTask(
+      taskId: taskId,
+      libraryId: cur.libraryId,
+      status: 'running',
+      totalFiles: ws.total,
+      processedFiles: ws.completed,
+      currentFile: ws.message,
+      addedFiles: existing?.addedFiles ?? 0,
+      updatedFiles: existing?.updatedFiles ?? 0,
+      removedFiles: existing?.removedFiles ?? 0,
+    );
+    list[idx] = cur.copyWith(taskId: taskId, task: updated);
+    state = list;
+  }
+
+  void _onDisconnect() {
+    _sub?.cancel();
+    _sub = null;
+    try {
+      _channel?.sink.close();
+    } catch (_) {}
+    _channel = null;
+    _pingTimer?.cancel();
+    _scheduleReconnect();
+  }
+
+  void _scheduleReconnect() {
+    if (_disposed) return;
+    _reconnectTimer?.cancel();
+    final delay =
+        Duration(seconds: (3 * (1 << _reconnectAttempts.clamp(0, 4))).clamp(3, 30));
+    _reconnectAttempts++;
+    _reconnectTimer = Timer(delay, _connectWs);
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _disposed = true;
+    _reconnectTimer?.cancel();
+    _pingTimer?.cancel();
+    _sub?.cancel();
+    try {
+      _channel?.sink.close();
+    } catch (_) {}
     super.dispose();
   }
 }

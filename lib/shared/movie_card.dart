@@ -267,16 +267,24 @@ class _SubtitleBadge extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        width: 18,
+        height: 18,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withValues(alpha: 0.7), width: 0.8),
-        ),
-        child: Icon(
-          Icons.closed_caption_rounded,
           color: color,
-          size: 12,
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.closed_caption_rounded,
+          color: Colors.white,
+          size: 13,
         ),
       ),
     );
@@ -288,19 +296,27 @@ class _CrackBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const color = Color(0xFFFF3D7F);
+    const color = Color(0xFFE91E63);
     return Tooltip(
       message: '破解 / 无码',
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        width: 18,
+        height: 18,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.6),
+          color: color,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withValues(alpha: 0.7), width: 0.8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: const Icon(
           Icons.lock_open_rounded,
-          color: color,
+          color: Colors.white,
           size: 12,
         ),
       ),
@@ -315,26 +331,34 @@ class _ResolutionBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (tier) {
-      ResolutionTier.uhd => ('UHD', const Color(0xFF4A9EFF)),
-      ResolutionTier.fhd => ('FHD', const Color(0xFF00F3FF)),
-      ResolutionTier.hd => ('HD', const Color(0xFF34F5A5)),
+      ResolutionTier.uhd => ('UHD', const Color(0xFF2D6CDF)),
+      ResolutionTier.fhd => ('FHD', const Color(0xFF0EA5E9)),
+      ResolutionTier.hd => ('HD', const Color(0xFF10B981)),
       _ => ('', Colors.white),
     };
     if (label.isEmpty) return const SizedBox.shrink();
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      height: 18,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.65),
+        color: color,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.7), width: 0.8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Text(
         label,
-        style: TextStyle(
-          color: color,
-          fontFamily: 'monospace',
+        style: const TextStyle(
+          color: Colors.white,
+          fontFamily: 'Inter',
           fontWeight: FontWeight.w800,
-          fontSize: 9,
+          fontSize: 10,
           letterSpacing: 0.4,
           height: 1,
         ),

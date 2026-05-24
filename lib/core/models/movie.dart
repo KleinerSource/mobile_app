@@ -28,7 +28,7 @@ class MovieListItem with _$MovieListItem {
     @JsonKey(name: 'has_internal_subtitle') @Default(false) bool hasInternalSubtitle,
     @JsonKey(name: 'video_width') int? videoWidth,
     @JsonKey(name: 'video_height') int? videoHeight,
-    @JsonKey(name: 'file_path') String? filePath,
+    @JsonKey(name: 'file_name') String? fileName,
     @Default(<ActorRef>[]) List<ActorRef> actors,
     @JsonKey(name: 'watch_record') WatchRecordSummary? watchRecord,
   }) = _MovieListItem;
@@ -40,35 +40,60 @@ class MovieListItem with _$MovieListItem {
 /// 分辨率级别 · 用于卡片角标
 enum ResolutionTier { sd, hd, fhd, uhd, none }
 
+// 番号后缀识别 · 规则参考 frontend_new PlyrPlayer
+//
+// 后缀 → badge 映射
+//   -c    / -chs / -ch / -cht / -zh / -sub / -subs   →  内嵌字幕
+//   -u    / -umr                                      →  破解
+//   -uc   / -umr-c                                    →  破解 + 内嵌字幕
+//   -uncen / -uncensored / -leak / -leaked            →  破解
+//
+// 前后必须是单词边界 (^ / $ / - / _ / . / 空格)
+
+// 内嵌字幕标识 (单独后缀, 例: -c, -chs)
+final _kEmbeddedSubtitleRegex = RegExp(
+  r'(?:^|[-_. ])(c|ch|chs|cht|zh|sub|subs)(?=$|[-_. ])',
+);
+
+// 破解标识 (UMR 系列, 例: -umr, -umr-c)
+final _kUmrCrackRegex = RegExp(r'(?:^|[-_. ])umr(?:-c)?(?=$|[-_. ])');
+
+// 破解标识 (单字符 / 长形, 例: -u, -uc, -uncen)
+final _kCrackRegex = RegExp(
+  r'(?:^|[-_. ])(u|uc|uncen|uncensored|leak|leaked)(?=$|[-_. ])',
+);
+
+// "uc" / "umr-c" 同时含字幕标识 (规则 -uc / -umr-c → 破解+内嵌字幕)
+final _kCrackWithSubRegex = RegExp(
+  r'(?:^|[-_. ])(uc|umr-c)(?=$|[-_. ])',
+);
+
+final _kUhdRegex = RegExp(r'(?:^|[-_. ])(2160p|4k|uhd)(?=$|[-_. ])');
+final _kHdRegex =
+    RegExp(r'(?:^|[-_. ])(720p|1080p|1440p|hd|fhd|qhd)(?=$|[-_. ])');
+
 extension MovieListItemX on MovieListItem {
   /// 文件名 (无扩展名, 小写) · 用于按番号后缀识别 字幕/破解/分辨率
   String get _fileNameStem {
-    final raw = (filePath ?? '').trim();
+    final raw = (fileName ?? '').trim();
     if (raw.isEmpty) return '';
-    final name = raw.split(RegExp(r'[\\/]')).last;
-    return name.replaceFirst(RegExp(r'\.[^.]+$'), '').toLowerCase();
+    return raw.replaceFirst(RegExp(r'\.[^.]+$'), '').toLowerCase();
   }
 
-  /// 内嵌字幕: 番号后缀 -C / -CH / -CHS / -CHT / -ZH / -SUB / -SUBS / -UC
+  /// 内嵌字幕: -c / -chs / -ch / -cht / -zh / -sub / -subs / -uc / -umr-c
   bool get hasEmbeddedSubtitle {
     if (hasInternalSubtitle) return true;
     final stem = _fileNameStem;
     if (stem.isEmpty) return false;
-    return RegExp(
-      r'(?:^|[-_. ])(c|ch|chs|cht|zh|sub|subs|uc)(?=$|[-_. ])',
-    ).hasMatch(stem);
+    return _kEmbeddedSubtitleRegex.hasMatch(stem) ||
+        _kCrackWithSubRegex.hasMatch(stem);
   }
 
-  /// 破解 / 无码: -U / -UC / -UNCEN / -UNCENSORED / -LEAK / -LEAKED / UMR / UMR-C
+  /// 破解: -u / -uc / -umr / -umr-c / -uncen / -uncensored / -leak / -leaked
   bool get hasCracked {
     final stem = _fileNameStem;
     if (stem.isEmpty) return false;
-    if (RegExp(r'(?:^|[-_. ])umr(?:-c)?(?=$|[-_. ])').hasMatch(stem)) {
-      return true;
-    }
-    return RegExp(
-      r'(?:^|[-_. ])(u|uc|uncen|uncensored|leak|leaked)(?=$|[-_. ])',
-    ).hasMatch(stem);
+    return _kUmrCrackRegex.hasMatch(stem) || _kCrackRegex.hasMatch(stem);
   }
 
   /// UHD: 视频高度 ≥ 2160, 或文件名含 2160p / 4k / uhd
@@ -77,19 +102,17 @@ extension MovieListItemX on MovieListItem {
     if (h >= 2160) return true;
     final stem = _fileNameStem;
     if (stem.isEmpty) return false;
-    return RegExp(r'(?:^|[-_. ])(2160p|4k|uhd)(?=$|[-_. ])').hasMatch(stem);
+    return _kUhdRegex.hasMatch(stem);
   }
 
-  /// HD: 高度 [720, 2160) 或文件名含 720p/1080p/1440p/hd/fhd/qhd (与 UHD 互斥)
+  /// HD: 高度 [720, 2160) 或文件名含 720p/1080p/1440p/hd/fhd/qhd
   bool get _hasHdFlag {
     if (_hasUhdFlag) return false;
     final h = videoHeight ?? 0;
     if (h >= 720 && h < 2160) return true;
     final stem = _fileNameStem;
     if (stem.isEmpty) return false;
-    return RegExp(
-      r'(?:^|[-_. ])(720p|1080p|1440p|hd|fhd|qhd)(?=$|[-_. ])',
-    ).hasMatch(stem);
+    return _kHdRegex.hasMatch(stem);
   }
 
   ResolutionTier get resolutionTier {

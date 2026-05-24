@@ -7,6 +7,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import 'libraries_providers.dart';
 import 'library_editor_page.dart';
+import 'scan_progress_sheet.dart';
 import 'scan_tasks_provider.dart';
 
 /// 媒体库管理列表页
@@ -158,18 +159,35 @@ class _LibraryCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
+    // 当前库是否在扫描中
+    final tracked = ref.watch(scanTasksProvider).where(
+          (t) => t.libraryId == library.id,
+        );
+    final scan = tracked.isEmpty ? null : tracked.first;
+    final isScanning = scan != null;
+
     return InkWell(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => LibraryEditorPage(library: library),
-        ),
-      ),
+      onTap: isScanning
+          ? () => ScanProgressSheet.show(
+                context,
+                libraryId: library.id,
+                libraryName: library.name,
+                taskId: scan.taskId,
+              )
+          : () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => LibraryEditorPage(library: library),
+                ),
+              ),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: c.surface,
-          border: Border.all(color: c.cardBorder),
+          border: Border.all(
+            color: isScanning ? c.accent.withValues(alpha: 0.55) : c.cardBorder,
+            width: isScanning ? 1.5 : 1,
+          ),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -178,25 +196,28 @@ class _LibraryCard extends ConsumerWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // hue 方形 icon
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppHues.top(hue), AppHues.bottom(hue)],
+                // 扫描中显示圆形进度 / 否则 hue 图标
+                if (isScanning)
+                  _ScanProgressIcon(scan: scan)
+                else
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppHues.top(hue), AppHues.bottom(hue)],
+                      ),
                     ),
+                    alignment: Alignment.center,
+                    child: const Text('◆',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18)),
                   ),
-                  alignment: Alignment.center,
-                  child: const Text('◆',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 18)),
-                ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -466,5 +487,55 @@ class _LibraryCard extends ConsumerWidget {
         SnackBar(content: Text('删除失败: ${toApiException(e).message}')),
       );
     }
+  }
+}
+
+/// 扫描中的库卡片左侧图标 · 圆形进度 + 百分比
+class _ScanProgressIcon extends StatelessWidget {
+  const _ScanProgressIcon({required this.scan});
+  final TrackedScan scan;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final t = scan.task;
+    final ratio = (t?.progressRatio ?? 0).clamp(0.0, 1.0).toDouble();
+    final total = t?.totalFiles ?? 0;
+    final percent = total > 0 ? (ratio * 100).round() : null;
+    final indeterminate = total <= 0;
+
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: CircularProgressIndicator(
+              value: indeterminate ? null : ratio,
+              strokeWidth: 3,
+              backgroundColor: c.chipBg,
+              valueColor: AlwaysStoppedAnimation(c.accent),
+            ),
+          ),
+          if (indeterminate)
+            Icon(Icons.sync_rounded, size: 16, color: c.accent)
+          else
+            Text(
+              '$percent%',
+              style: TextStyle(
+                color: c.accent,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w800,
+                fontSize: 11,
+                letterSpacing: -0.2,
+                height: 1,
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
