@@ -531,15 +531,20 @@ class _SubtitlePreviewPage extends StatelessWidget {
       ),
       body: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          child: SelectableText(
-            content,
-            style: TextStyle(
-              color: c.text2,
-              fontFamily: 'monospace',
-              fontSize: 12,
-              height: 1.55,
+        child: Scrollbar(
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              child: SelectableText(
+                content,
+                style: TextStyle(
+                  color: c.text2,
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  height: 1.55,
+                ),
+              ),
             ),
           ),
         ),

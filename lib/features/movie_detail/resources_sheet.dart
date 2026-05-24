@@ -544,32 +544,38 @@ class _ResourceTile extends StatelessWidget {
       ),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 4),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 4,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (size.isNotEmpty)
-              Text(size, style: AppText.meta(context)),
-            if (date.isNotEmpty)
-              Text(date, style: AppText.meta(context)),
-            if (source.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: c.chipBg,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  source,
-                  style: TextStyle(
-                    color: c.muted,
-                    fontFamily: 'monospace',
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                if (size.isNotEmpty)
+                  Text(size, style: AppText.meta(context)),
+                if (date.isNotEmpty)
+                  Text(date, style: AppText.meta(context)),
+                if (source.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: c.chipBg,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      source,
+                      style: TextStyle(
+                        color: c.muted,
+                        fontFamily: 'monospace',
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                ),
-              ),
+              ],
+            ),
+            _ResourceTagBadges(item: item),
           ],
         ),
       ),
@@ -625,5 +631,132 @@ class _ResourceTile extends StatelessWidget {
       );
     }
     return content;
+  }
+}
+
+/// 在线资源 tag badge 行 · UHD/HD · 字幕 · 破解/LADA
+class _ResourceTagBadges extends StatelessWidget {
+  const _ResourceTagBadges({required this.item});
+  final Map<String, dynamic> item;
+
+  List<String> get _tagsLower {
+    final raw = item['tags'];
+    if (raw is! List) return const [];
+    return raw
+        .map((t) => t.toString().toLowerCase())
+        .where((t) => t.isNotEmpty)
+        .toList();
+  }
+
+  bool get _hasUHD {
+    return _tagsLower.any(
+        (t) => t == '4k' || t.contains('uhd') || t.contains('4k'));
+  }
+
+  bool get _hasHD {
+    if (_hasUHD) return false;
+    return _tagsLower.any(
+        (t) => t == 'hd' || t.contains('hd') || t.contains('高清'));
+  }
+
+  bool get _hasSub =>
+      _tagsLower.any((t) => t.contains('字幕') || t.contains('sub'));
+
+  bool get _hasCrack =>
+      _tagsLower.any((t) => t.contains('破解') || t.contains('无码'));
+
+  bool get _hasLADA => _tagsLower.any((t) => t == 'lada');
+
+  @override
+  Widget build(BuildContext context) {
+    final hasUHD = _hasUHD;
+    final hasHD = _hasHD;
+    final hasSub = _hasSub;
+    final hasCrack = _hasCrack;
+    final hasLADA = _hasLADA;
+
+    if (!hasUHD && !hasHD && !hasSub && !hasCrack && !hasLADA) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          if (hasUHD)
+            const _ResBadge(
+              label: 'UHD',
+              icon: Icons.monitor_rounded,
+              color: Color(0xFF2D6CDF),
+            )
+          else if (hasHD)
+            const _ResBadge(
+              label: 'HD',
+              icon: Icons.monitor_rounded,
+              color: Color(0xFF10B981),
+            ),
+          if (hasSub)
+            const _ResBadge(
+              label: '字幕',
+              icon: Icons.closed_caption_rounded,
+              color: Color(0xFFFF9F1C),
+            ),
+          if (hasLADA)
+            const _ResBadge(
+              label: 'LADA',
+              icon: Icons.auto_awesome_rounded,
+              color: Color(0xFFA855F7),
+            )
+          else if (hasCrack)
+            const _ResBadge(
+              label: '破解',
+              icon: Icons.lock_open_rounded,
+              color: Color(0xFFE91E63),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResBadge extends StatelessWidget {
+  const _ResBadge({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 10),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w800,
+              fontSize: 9.5,
+              height: 1,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
