@@ -55,16 +55,9 @@ class FavoriteList {
 
   static List<FavoriteList> defaults() => [
         FavoriteList(
-            id: 'watchlist', name: '待看', hue: AppHues.lavender, builtin: true),
-        FavoriteList(
             id: 'all_time_best',
             name: '最爱',
             hue: AppHues.coral,
-            builtin: true),
-        FavoriteList(
-            id: 'weekend_picks',
-            name: '周末精选',
-            hue: AppHues.mint,
             builtin: true),
         FavoriteList(
             id: 'after_hours',

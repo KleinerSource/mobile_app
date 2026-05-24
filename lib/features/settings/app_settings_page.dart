@@ -7,6 +7,7 @@ import '../../shared/glow_background.dart';
 import '../i18n/locale_providers.dart';
 import '../i18n/theme_provider.dart';
 import '../privacy/privacy_providers.dart';
+import 'badge_position_page.dart';
 import 'settings_common.dart';
 
 /// 应用设置子页 · 仅本地客户端偏好
@@ -38,6 +39,20 @@ class AppSettingsPage extends ConsumerWidget {
                 items: const [
                   _LanguageTile(),
                   _ThemeTile(),
+                ],
+              ),
+              SettingsGroup(
+                title: l.settingsBadgePositions,
+                items: [
+                  SettingsTile(
+                    title: l.settingsBadgePositions,
+                    subtitle: l.settingsBadgePositionsSub,
+                    leadingIcon: Icons.grid_view_rounded,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                          builder: (_) => const BadgePositionPage()),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 80),

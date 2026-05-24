@@ -272,6 +272,52 @@ class AppL10nEn extends AppL10n {
   String get themeDark => 'Dark';
 
   @override
+  String get settingsBadgePositions => 'Cover badge positions';
+
+  @override
+  String get settingsBadgePositionsSub =>
+      'Rating / subtitle / crack / resolution';
+
+  @override
+  String get badgeRating => 'Rating';
+
+  @override
+  String get badgeSubtitle => 'Subtitle';
+
+  @override
+  String get badgeCrack => 'Crack';
+
+  @override
+  String get badgeResolution => 'Resolution';
+
+  @override
+  String get badgeHidden => 'Hidden';
+
+  @override
+  String get previewTitle => 'Preview';
+
+  @override
+  String get badgeOffsetTitle => 'Fine tuning';
+
+  @override
+  String get badgeOffsetHorizontal => 'Horizontal';
+
+  @override
+  String get badgeOffsetVertical => 'Vertical';
+
+  @override
+  String get cornerTopLeft => 'Top left';
+
+  @override
+  String get cornerTopRight => 'Top right';
+
+  @override
+  String get cornerBottomLeft => 'Bottom left';
+
+  @override
+  String get cornerBottomRight => 'Bottom right';
+
+  @override
   String get settingsServerUrl => 'Server URL';
 
   @override

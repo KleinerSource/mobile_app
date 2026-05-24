@@ -595,6 +595,96 @@ abstract class AppL10n {
   /// **'暗色'**
   String get themeDark;
 
+  /// No description provided for @settingsBadgePositions.
+  ///
+  /// In zh, this message translates to:
+  /// **'封面角标位置'**
+  String get settingsBadgePositions;
+
+  /// No description provided for @settingsBadgePositionsSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'评分 / 字幕 / 破解 / 清晰度'**
+  String get settingsBadgePositionsSub;
+
+  /// No description provided for @badgeRating.
+  ///
+  /// In zh, this message translates to:
+  /// **'评分'**
+  String get badgeRating;
+
+  /// No description provided for @badgeSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'字幕'**
+  String get badgeSubtitle;
+
+  /// No description provided for @badgeCrack.
+  ///
+  /// In zh, this message translates to:
+  /// **'破解'**
+  String get badgeCrack;
+
+  /// No description provided for @badgeResolution.
+  ///
+  /// In zh, this message translates to:
+  /// **'清晰度'**
+  String get badgeResolution;
+
+  /// No description provided for @badgeHidden.
+  ///
+  /// In zh, this message translates to:
+  /// **'已隐藏'**
+  String get badgeHidden;
+
+  /// No description provided for @previewTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览'**
+  String get previewTitle;
+
+  /// No description provided for @badgeOffsetTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'位置微调'**
+  String get badgeOffsetTitle;
+
+  /// No description provided for @badgeOffsetHorizontal.
+  ///
+  /// In zh, this message translates to:
+  /// **'左右'**
+  String get badgeOffsetHorizontal;
+
+  /// No description provided for @badgeOffsetVertical.
+  ///
+  /// In zh, this message translates to:
+  /// **'上下'**
+  String get badgeOffsetVertical;
+
+  /// No description provided for @cornerTopLeft.
+  ///
+  /// In zh, this message translates to:
+  /// **'左上'**
+  String get cornerTopLeft;
+
+  /// No description provided for @cornerTopRight.
+  ///
+  /// In zh, this message translates to:
+  /// **'右上'**
+  String get cornerTopRight;
+
+  /// No description provided for @cornerBottomLeft.
+  ///
+  /// In zh, this message translates to:
+  /// **'左下'**
+  String get cornerBottomLeft;
+
+  /// No description provided for @cornerBottomRight.
+  ///
+  /// In zh, this message translates to:
+  /// **'右下'**
+  String get cornerBottomRight;
+
   /// No description provided for @settingsServerUrl.
   ///
   /// In zh, this message translates to:

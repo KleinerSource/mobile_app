@@ -7,18 +7,35 @@ class ListsRepository {
   ListsRepository(this._prefs);
 
   static const _key = 'favorite_lists.v1';
+  static const _migrationKey = 'favorite_lists.removed_builtin_v1';
+  static const _removedBuiltinIds = {'watchlist', 'weekend_picks'};
 
   final SharedPreferences _prefs;
 
-  /// 读取全部 lists; 首次启动写入默认 4 个内置 list
+  /// 读取全部 lists; 首次启动写入默认内置 list
   List<FavoriteList> loadAll() {
     final raw = _prefs.getString(_key);
     if (raw == null || raw.isEmpty) {
       final defaults = FavoriteList.defaults();
       _persist(defaults);
+      _prefs.setBool(_migrationKey, true);
       return defaults;
     }
-    return FavoriteList.decodeAll(raw);
+    var lists = FavoriteList.decodeAll(raw);
+    // 一次性迁移: 清掉已废弃的内置 list (待看 / 周末精选)
+    if (_prefs.getBool(_migrationKey) != true) {
+      final removed = lists
+          .where((l) => l.builtin && _removedBuiltinIds.contains(l.id))
+          .toList();
+      if (removed.isNotEmpty) {
+        lists = lists
+            .where((l) => !(l.builtin && _removedBuiltinIds.contains(l.id)))
+            .toList();
+        _persist(lists);
+      }
+      _prefs.setBool(_migrationKey, true);
+    }
+    return lists;
   }
 
   Future<void> _persist(List<FavoriteList> lists) async {

@@ -270,6 +270,51 @@ class AppL10nZh extends AppL10n {
   String get themeDark => '暗色';
 
   @override
+  String get settingsBadgePositions => '封面角标位置';
+
+  @override
+  String get settingsBadgePositionsSub => '评分 / 字幕 / 破解 / 清晰度';
+
+  @override
+  String get badgeRating => '评分';
+
+  @override
+  String get badgeSubtitle => '字幕';
+
+  @override
+  String get badgeCrack => '破解';
+
+  @override
+  String get badgeResolution => '清晰度';
+
+  @override
+  String get badgeHidden => '已隐藏';
+
+  @override
+  String get previewTitle => '预览';
+
+  @override
+  String get badgeOffsetTitle => '位置微调';
+
+  @override
+  String get badgeOffsetHorizontal => '左右';
+
+  @override
+  String get badgeOffsetVertical => '上下';
+
+  @override
+  String get cornerTopLeft => '左上';
+
+  @override
+  String get cornerTopRight => '右上';
+
+  @override
+  String get cornerBottomLeft => '左下';
+
+  @override
+  String get cornerBottomRight => '右下';
+
+  @override
   String get settingsServerUrl => '服务器地址';
 
   @override

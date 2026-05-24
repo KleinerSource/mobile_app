@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/models/movie.dart';
 import '../core/platform/app_theme.dart';
+import '../features/i18n/badge_position_provider.dart';
 import '../features/privacy/privacy_mask.dart';
 import '../features/privacy/privacy_providers.dart';
 import 'poster.dart';
@@ -40,6 +41,39 @@ class MovieCard extends ConsumerWidget {
     final privacyOn = ref.watch(privacyShieldProvider);
     final revealed = ref.watch(revealedMoviesProvider).contains(movie.id);
     final masked = privacyOn && !revealed;
+    final positions = ref.watch(badgePositionsProvider);
+
+    // 按角分组收集 badge widgets
+    final byCorner = <BadgeCorner, List<Widget>>{
+      for (final corner in BadgeCorner.values) corner: <Widget>[],
+    };
+
+    if (!masked && !selectionMode && !restricted) {
+      if (hasRating && positions.ratingEnabled) {
+        byCorner[positions.rating]!.add(RatingBadge(rating: movie.rating!));
+      }
+      if (positions.subtitleEnabled) {
+        if (movie.hasExternalSubtitle) {
+          byCorner[positions.subtitle]!.add(
+            const _SubtitleBadge(color: Color(0xFFFF9F1C), tooltip: '外挂字幕'),
+          );
+        }
+        if (movie.hasEmbeddedSubtitle) {
+          byCorner[positions.subtitle]!.add(
+            const _SubtitleBadge(color: Color(0xFFFFD60A), tooltip: '内嵌字幕'),
+          );
+        }
+      }
+      if (positions.crackEnabled && movie.hasCracked) {
+        byCorner[positions.crack]!.add(const _CrackBadge());
+      }
+      if (positions.resolutionEnabled) {
+        final tier = movie.resolutionTier;
+        if (tier != ResolutionTier.none) {
+          byCorner[positions.resolution]!.add(_ResolutionBadge(tier: tier));
+        }
+      }
+    }
 
     return PrivacyAwareInkWell(
       movieId: movie.id,
@@ -92,19 +126,14 @@ class MovieCard extends ConsumerWidget {
                         : null,
                   ),
                 ),
-              // 角标在遮罩之上仍可见 (评分/已看), 隐私模式下隐藏避免泄露信号
-              if (!masked && !selectionMode && !restricted && hasRating)
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: RatingBadge(rating: movie.rating!),
-                ),
+              // R18 角标 (固定右上)
               if (!masked && restricted)
                 Positioned(
                   top: 6,
                   right: 6,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: c.warning.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(4),
@@ -121,12 +150,14 @@ class MovieCard extends ConsumerWidget {
                     ),
                   ),
                 ),
-              if (!masked && !restricted && completed)
+              // 已看完 (固定左上, 与选择模式 / 配置 badge 错开)
+              if (!masked && !selectionMode && !restricted && completed)
                 Positioned(
                   top: 6,
                   left: 6,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(4),
@@ -141,29 +172,37 @@ class MovieCard extends ConsumerWidget {
                     ),
                   ),
                 ),
+              // 进度条 (固定贴底部边缘, 不占独立空间, badge 位置不受影响)
               if (!masked && !restricted && !completed && progress > 0)
                 Positioned(
-                  left: 4,
-                  right: 4,
-                  bottom: 4,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(10),
+                      bottomRight: Radius.circular(10),
+                    ),
                     child: LinearProgressIndicator(
                       value: progress.clamp(0.0, 1.0),
                       minHeight: 3,
-                      backgroundColor: Colors.black.withValues(alpha: 0.3),
+                      backgroundColor: Colors.black.withValues(alpha: 0.45),
                       valueColor: AlwaysStoppedAnimation(c.accent),
                     ),
                   ),
                 ),
-              // 底部 badge 行: 字幕 / 分辨率
-              if (!masked && !restricted)
-                Positioned(
-                  left: 6,
-                  right: 6,
-                  bottom: (!completed && progress > 0) ? 12 : 6,
-                  child: _PosterBadgeRow(movie: movie),
-                ),
+              // 4 个角的 badge 集合
+              for (final corner in BadgeCorner.values)
+                if (byCorner[corner]!.isNotEmpty)
+                  _CornerBadges(
+                    corner: corner,
+                    completed: completed,
+                    // 进度条已贴底, badge 不再让位, 位置保持一致
+                    skipTopLeftForSelection: selectionMode,
+                    horizontalOffset: positions.horizontalOffset,
+                    verticalOffset: positions.verticalOffset,
+                    children: byCorner[corner]!,
+                  ),
             ],
           ),
           const SizedBox(height: 8),
@@ -208,54 +247,62 @@ class MovieCard extends ConsumerWidget {
   }
 }
 
-/// 海报底部 badge 行 · 字幕(外挂橙/内嵌黄) + 破解 + 分辨率
-class _PosterBadgeRow extends StatelessWidget {
-  const _PosterBadgeRow({required this.movie});
-  final MovieListItem movie;
+/// 4 个角的 badge 位置 · 同一 corner 横向堆叠
+class _CornerBadges extends StatelessWidget {
+  const _CornerBadges({
+    required this.corner,
+    required this.completed,
+    required this.skipTopLeftForSelection,
+    required this.horizontalOffset,
+    required this.verticalOffset,
+    required this.children,
+  });
+  final BadgeCorner corner;
+  final bool completed;
+  final bool skipTopLeftForSelection;
+  final int horizontalOffset;
+  final int verticalOffset;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    final tier = movie.resolutionTier;
-    final hasExt = movie.hasExternalSubtitle;
-    final hasEmbed = movie.hasEmbeddedSubtitle;
-    final hasCrack = movie.hasCracked;
-    final showTier = tier != ResolutionTier.none;
-    if (!hasExt && !hasEmbed && !hasCrack && !showTier) {
+    if (skipTopLeftForSelection && corner == BadgeCorner.topLeft) {
       return const SizedBox.shrink();
     }
+    final top = corner == BadgeCorner.topLeft || corner == BadgeCorner.topRight;
+    final left =
+        corner == BadgeCorner.topLeft || corner == BadgeCorner.bottomLeft;
 
-    final children = <Widget>[];
-    void add(Widget w) {
-      if (children.isNotEmpty) children.add(const SizedBox(width: 4));
-      children.add(w);
-    }
+    final baseInset = 6.0;
+    final hInset = (baseInset + horizontalOffset).clamp(0, 32).toDouble();
+    final vInset = (baseInset + verticalOffset).clamp(0, 32).toDouble();
 
-    if (hasExt) {
-      add(const _SubtitleBadge(
-        color: Color(0xFFFF9F1C),
-        tooltip: '外挂字幕',
-      ));
-    }
-    if (hasEmbed) {
-      add(const _SubtitleBadge(
-        color: Color(0xFFFFD60A),
-        tooltip: '内嵌字幕',
-      ));
-    }
-    if (hasCrack) {
-      add(const _CrackBadge());
-    }
-    if (showTier) {
-      add(_ResolutionBadge(tier: tier));
-    }
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.start,
+    final row = Row(
       mainAxisSize: MainAxisSize.min,
-      children: children,
+      children: [
+        for (var i = 0; i < children.length; i++) ...[
+          if (i > 0) const SizedBox(width: 4),
+          children[i],
+        ],
+      ],
+    );
+
+    final shifted = (corner == BadgeCorner.topLeft && completed)
+        ? Padding(padding: const EdgeInsets.only(left: 52), child: row)
+        : row;
+
+    return Positioned(
+      top: top ? vInset : null,
+      bottom: top ? null : vInset,
+      left: left ? hInset : null,
+      right: !left ? hInset : null,
+      child: shifted,
     );
   }
 }
+
+/// 评分 · 沿用 poster.dart 的 RatingBadge (黑玻璃 + 黄星)
+/// 这里不再单独定义, 直接复用
 
 class _SubtitleBadge extends StatelessWidget {
   const _SubtitleBadge({required this.color, required this.tooltip});

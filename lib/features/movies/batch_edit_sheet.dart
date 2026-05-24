@@ -40,6 +40,48 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
   int? _setSeriesId;
   bool _saving = false;
 
+  // 选中影片共有的 tag/genre id (供 "移除" picker 限制范围)
+  Set<int>? _commonTagIds;
+  Set<int>? _commonGenreIds;
+  bool _loadingCommon = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCommonAssociations();
+  }
+
+  Future<void> _loadCommonAssociations() async {
+    try {
+      final repo = ref.read(moviesRepositoryProvider);
+      final details = await Future.wait(
+        widget.movieIds.map((id) => repo.detail(id)),
+      );
+      if (!mounted) return;
+
+      Set<int>? commonTags;
+      Set<int>? commonGenres;
+      for (final d in details) {
+        final t = d.tags.map((r) => r.id).toSet();
+        final g = d.genres.map((r) => r.id).toSet();
+        commonTags = commonTags == null ? t : commonTags.intersection(t);
+        commonGenres = commonGenres == null ? g : commonGenres.intersection(g);
+      }
+      setState(() {
+        _commonTagIds = commonTags ?? <int>{};
+        _commonGenreIds = commonGenres ?? <int>{};
+        _loadingCommon = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _commonTagIds = <int>{};
+        _commonGenreIds = <int>{};
+        _loadingCommon = false;
+      });
+    }
+  }
+
   void _onQuickSubtitle(bool? v) {
     setState(() {
       _quickSubtitle = v ?? false;
@@ -189,39 +231,34 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                         Row(
                           children: [
                             Expanded(
-                              child: CheckboxListTile(
+                              child: _QuickFlagChip(
+                                label: '字幕',
                                 value: _quickSubtitle,
-                                dense: true,
-                                title: const Text('字幕'),
-                                onChanged: _onQuickSubtitle,
+                                onChanged: (v) => _onQuickSubtitle(v),
                               ),
                             ),
+                            const SizedBox(width: 6),
                             Expanded(
-                              child: CheckboxListTile(
+                              child: _QuickFlagChip(
+                                label: '外挂字幕',
                                 value: _quickExsub,
-                                dense: true,
-                                title: const Text('外挂字幕'),
-                                onChanged: _onQuickExsub,
+                                onChanged: (v) => _onQuickExsub(v),
                               ),
                             ),
-                          ],
-                        ),
-                        Row(
-                          children: [
+                            const SizedBox(width: 6),
                             Expanded(
-                              child: CheckboxListTile(
+                              child: _QuickFlagChip(
+                                label: '破解',
                                 value: _quickCrack,
-                                dense: true,
-                                title: const Text('破解'),
                                 onChanged: (v) =>
                                     setState(() => _quickCrack = v ?? false),
                               ),
                             ),
+                            const SizedBox(width: 6),
                             Expanded(
-                              child: CheckboxListTile(
+                              child: _QuickFlagChip(
+                                label: 'UHD',
                                 value: _quickUHD,
-                                dense: true,
-                                title: const Text('UHD'),
                                 onChanged: (v) =>
                                     setState(() => _quickUHD = v ?? false),
                               ),
@@ -256,9 +293,11 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                         ),
                         const SizedBox(height: 8),
                         _PickerField(
-                          label: '移除标签',
+                          label: '移除标签 (仅共有)',
                           kind: ResourceKind.tag,
                           selected: _removeTagIds,
+                          restrictToIds: _commonTagIds ?? const <int>{},
+                          restrictLoading: _loadingCommon,
                           onChanged: (s) => setState(() => _removeTagIds = s),
                         ),
                       ],
@@ -277,9 +316,11 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                         ),
                         const SizedBox(height: 8),
                         _PickerField(
-                          label: '移除分类',
+                          label: '移除分类 (仅共有)',
                           kind: ResourceKind.genre,
                           selected: _removeGenreIds,
+                          restrictToIds: _commonGenreIds ?? const <int>{},
+                          restrictLoading: _loadingCommon,
                           onChanged: (s) =>
                               setState(() => _removeGenreIds = s),
                         ),
@@ -384,11 +425,17 @@ class _PickerField extends ConsumerStatefulWidget {
     required this.kind,
     required this.selected,
     required this.onChanged,
+    this.restrictToIds,
+    this.restrictLoading = false,
   });
   final String label;
   final ResourceKind kind;
   final Set<int> selected;
   final ValueChanged<Set<int>> onChanged;
+
+  /// 若提供, 仅显示这些 id; null = 不限制 (用于 "添加" 场景)
+  final Set<int>? restrictToIds;
+  final bool restrictLoading;
 
   @override
   ConsumerState<_PickerField> createState() => _PickerFieldState();
@@ -420,6 +467,12 @@ class _PickerFieldState extends ConsumerState<_PickerField> {
     }
   }
 
+  List<ResourceItem> get _visibleAll {
+    final restrict = widget.restrictToIds;
+    if (restrict == null) return _all;
+    return _all.where((r) => restrict.contains(r.id)).toList();
+  }
+
   Future<void> _open() async {
     final c = appColors(context);
     final mq = MediaQuery.of(context);
@@ -432,9 +485,10 @@ class _PickerFieldState extends ConsumerState<_PickerField> {
       builder: (ctx) {
         final selected = Set.of(widget.selected);
         return StatefulBuilder(builder: (ctx, setS) {
+          final source = _visibleAll;
           final filtered = q.isEmpty
-              ? _all
-              : _all
+              ? source
+              : source
                   .where((r) => r.name.toLowerCase().contains(q.toLowerCase()))
                   .toList();
           return SizedBox(
@@ -519,13 +573,29 @@ class _PickerFieldState extends ConsumerState<_PickerField> {
     final c = appColors(context);
     final selectedItems =
         _all.where((r) => widget.selected.contains(r.id)).toList();
+    final restrict = widget.restrictToIds;
+    final restricted = restrict != null;
+    final restrictEmpty = restricted && restrict.isEmpty;
+    final disabled = _loading ||
+        widget.restrictLoading ||
+        (restricted && restrict.isEmpty);
+
+    String placeholder;
+    if (_loading || widget.restrictLoading) {
+      placeholder = '加载中...';
+    } else if (restrictEmpty) {
+      placeholder = '无共有${widget.kind.label}';
+    } else {
+      placeholder = '选择${widget.kind.label}...';
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(widget.label, style: AppText.meta(context)),
         const SizedBox(height: 6),
         GestureDetector(
-          onTap: _loading ? null : _open,
+          onTap: disabled ? null : _open,
           child: Container(
             padding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -538,7 +608,7 @@ class _PickerFieldState extends ConsumerState<_PickerField> {
               children: [
                 Expanded(
                   child: selectedItems.isEmpty
-                      ? Text(_loading ? '加载中...' : '选择${widget.kind.label}...',
+                      ? Text(placeholder,
                           style: TextStyle(color: c.muted))
                       : Wrap(
                           spacing: 6,
@@ -732,6 +802,64 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
               ),
             ),
             Icon(Icons.expand_more, color: c.muted, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickFlagChip extends StatelessWidget {
+  const _QuickFlagChip({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+  final String label;
+  final bool value;
+  final ValueChanged<bool?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+        decoration: BoxDecoration(
+          color: value ? c.accent.withValues(alpha: 0.15) : c.chipBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: value
+                ? c.accent.withValues(alpha: 0.55)
+                : c.cardBorder,
+            width: value ? 1.2 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              value
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked,
+              size: 14,
+              color: value ? c.accent : c.muted,
+            ),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: value ? c.accent : c.text,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
           ],
         ),
       ),

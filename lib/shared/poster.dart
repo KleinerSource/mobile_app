@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../core/platform/app_theme.dart';
 
-/// md_center 海报组件 · 真图优先,失败回退到 hue 渐变标题占位。
+/// md_center 海报组件 · 真图优先, 失败回退到极简占位符 (深色块 + 图标 + 番号/标题)。
 class Poster extends StatelessWidget {
   const Poster({
     super.key,
@@ -20,17 +20,13 @@ class Poster extends StatelessWidget {
   final String? url;
   final String title;
   final int? year;
+
+  /// 兼容旧调用 · 不再用于占位符配色
   final int? hue;
   final double aspectRatio;
   final double radius;
   final bool restricted;
   final Alignment imageAlignment;
-
-  int _resolveHue() {
-    if (hue != null) return hue!;
-    if (title.isEmpty) return 220;
-    return (title.codeUnits.fold(0, (a, b) => a + b) * 7) % 360;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +51,6 @@ class Poster extends StatelessWidget {
       );
     }
 
-    final h = _resolveHue();
     return AspectRatio(
       aspectRatio: aspectRatio,
       child: ClipRRect(
@@ -63,28 +58,7 @@ class Poster extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppHues.top(h), AppHues.bottom(h)],
-                ),
-              ),
-            ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(-0.4, -0.5),
-                  radius: 0.85,
-                  colors: [
-                    AppHues.highlight(h),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.6],
-                ),
-              ),
-            ),
+            const _PlaceholderBase(),
             if (url != null && url!.isNotEmpty)
               CachedNetworkImage(
                 imageUrl: url!,
@@ -92,7 +66,8 @@ class Poster extends StatelessWidget {
                 alignment: imageAlignment,
                 fadeInDuration: const Duration(milliseconds: 200),
                 placeholder: (_, __) => const SizedBox.shrink(),
-                errorWidget: (_, __, ___) => _PlaceholderLabel(title: title, year: year),
+                errorWidget: (_, __, ___) =>
+                    _PlaceholderLabel(title: title, year: year),
               )
             else
               _PlaceholderLabel(title: title, year: year),
@@ -103,113 +78,83 @@ class Poster extends StatelessWidget {
   }
 }
 
+/// 占位符底色 · 一个素净的深灰色块, 跟 app 主题协调
+class _PlaceholderBase extends StatelessWidget {
+  const _PlaceholderBase();
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: dark ? const Color(0xFF1B1D24) : const Color(0xFFE8EAEF),
+      ),
+    );
+  }
+}
+
 class _PlaceholderLabel extends StatelessWidget {
   const _PlaceholderLabel({required this.title, this.year});
   final String title;
   final int? year;
 
-  /// 取标题首字符 (中文 1 字 / 英文 2 字母)
-  String get _initials {
-    final t = title.trim();
-    if (t.isEmpty) return '?';
-    // 含 CJK 字符 → 取首个
-    final cjk = RegExp(r'[一-龥぀-ヿ가-힯]');
-    if (cjk.hasMatch(t)) {
-      return t.characters.first.toString();
-    }
-    // 英文 → 取前 2 个非空字母大写
-    final letters = t.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
-    if (letters.isEmpty) return t.characters.first.toString().toUpperCase();
-    return letters.characters.take(2).toString().toUpperCase();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // 居中大首字
-        Center(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                _initials,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.92),
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w900,
-                  fontSize: 64,
-                  height: 1,
-                  letterSpacing: -2,
-                  shadows: [
-                    Shadow(
-                      offset: const Offset(0, 2),
-                      blurRadius: 12,
-                      color: Colors.black.withValues(alpha: 0.35),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        // 顶部右上角的小图标
-        Positioned(
-          top: 10,
-          right: 10,
-          child: Icon(
-            Icons.movie_creation_outlined,
-            size: 16,
-            color: Colors.white.withValues(alpha: 0.45),
-          ),
-        ),
-        // 底部 title + year 小字
-        Positioned(
-          left: 10,
-          right: 10,
-          bottom: 10,
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final fg = dark
+        ? Colors.white.withValues(alpha: 0.30)
+        : Colors.black.withValues(alpha: 0.32);
+    final fgStrong = dark
+        ? Colors.white.withValues(alpha: 0.55)
+        : Colors.black.withValues(alpha: 0.55);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final iconSize = (constraints.maxWidth * 0.32).clamp(28.0, 80.0);
+        return Padding(
+          padding: const EdgeInsets.all(12),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              const Spacer(),
+              Icon(
+                Icons.movie_outlined,
+                size: iconSize,
+                color: fg,
+              ),
+              const SizedBox(height: 10),
               Text(
-                title,
+                title.trim().isEmpty ? '—' : title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.85),
+                  color: fgStrong,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10.5,
-                  height: 1.25,
-                  shadows: [
-                    Shadow(
-                      offset: const Offset(0, 1),
-                      blurRadius: 4,
-                      color: Colors.black.withValues(alpha: 0.4),
-                    ),
-                  ],
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                  height: 1.3,
                 ),
               ),
               if (year != null) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   '$year',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.55),
+                    color: fg,
                     fontFamily: 'monospace',
-                    fontSize: 9.5,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1,
                   ),
                 ),
               ],
+              const Spacer(),
             ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
