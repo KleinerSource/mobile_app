@@ -732,10 +732,14 @@ class _QuickChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final fg = active ? c.accent : c.text;
+    final iconColor = active ? c.accent : c.muted;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active ? c.accent.withValues(alpha: 0.15) : c.chipBg,
           borderRadius: BorderRadius.circular(100),
@@ -746,12 +750,17 @@ class _QuickChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: active ? c.accent : c.muted),
+            Icon(icon, size: 14, color: iconColor),
             const SizedBox(width: 5),
             Text(
               label,
+              strutStyle: const StrutStyle(
+                fontSize: 12,
+                height: 1.0,
+                forceStrutHeight: true,
+              ),
               style: TextStyle(
-                color: active ? c.accent : c.text,
+                color: fg,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
@@ -814,10 +823,14 @@ class _UpdatedDropdownChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final active = value != null;
+    final fg = active ? c.accent : c.text;
+    final iconColor = active ? c.accent : c.muted;
     return GestureDetector(
       onTap: () => _openMenu(context),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active ? c.accent.withValues(alpha: 0.15) : c.chipBg,
           borderRadius: BorderRadius.circular(100),
@@ -830,16 +843,20 @@ class _UpdatedDropdownChip extends StatelessWidget {
           children: [
             Text(
               _label,
+              strutStyle: const StrutStyle(
+                fontSize: 12,
+                height: 1.0,
+                forceStrutHeight: true,
+              ),
               style: TextStyle(
-                color: active ? c.accent : c.text,
+                color: fg,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
               ),
             ),
             const SizedBox(width: 3),
-            Icon(Icons.expand_more,
-                size: 14, color: active ? c.accent : c.muted),
+            Icon(Icons.expand_more, size: 14, color: iconColor),
           ],
         ),
       ),

@@ -529,105 +529,118 @@ class _ResourceTile extends StatelessWidget {
         item['date']?.toString() ?? item['publish_date']?.toString() ?? '';
     final source = item['source']?.toString() ?? '';
     final isDownloaded = downloadedAt != null && downloadedAt!.isNotEmpty;
-    final tile = ListTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      title: Row(
+    final tile = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: c.text,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w600,
-                fontSize: 13.5,
-              ),
-            ),
-          ),
-          if (date.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                date,
-                style: TextStyle(
-                  color: c.muted,
-                  fontFamily: 'monospace',
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                if (size.isNotEmpty)
-                  Text(size, style: AppText.meta(context)),
-                if (source.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 5, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: c.chipBg,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      source,
-                      style: TextStyle(
-                        color: c.muted,
-                        fontFamily: 'monospace',
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: c.text,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
                   ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    if (size.isNotEmpty)
+                      Text(size, style: AppText.meta(context)),
+                    if (source.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: c.chipBg,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          source,
+                          style: TextStyle(
+                            color: c.muted,
+                            fontFamily: 'monospace',
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                _ResourceTagBadges(item: item),
               ],
             ),
-            _ResourceTagBadges(item: item),
-          ],
-        ),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: '复制',
-            icon: Icon(Icons.copy, size: 18, color: c.accent),
-            onPressed: url.isEmpty
-                ? null
-                : () async {
-                    await Clipboard.setData(ClipboardData(text: url));
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('已复制'),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
-                  },
           ),
-          IconButton(
-            tooltip: pushing ? '推送中' : '推送下载',
-            icon: pushing
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(Icons.send, size: 18, color: c.warning),
-            onPressed: pushDisabled ? null : onPush,
+          const SizedBox(width: 8),
+          // 右侧: 上方日期, 下方按钮
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (date.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6, bottom: 2),
+                  child: Text(
+                    date,
+                    style: TextStyle(
+                      color: c.muted,
+                      fontFamily: 'monospace',
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: '复制',
+                    icon: Icon(Icons.copy, size: 18, color: c.accent),
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.all(6),
+                    constraints:
+                        const BoxConstraints(minWidth: 36, minHeight: 36),
+                    onPressed: url.isEmpty
+                        ? null
+                        : () async {
+                            await Clipboard.setData(ClipboardData(text: url));
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('已复制'),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                  ),
+                  IconButton(
+                    tooltip: pushing ? '推送中' : '推送下载',
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.all(6),
+                    constraints:
+                        const BoxConstraints(minWidth: 36, minHeight: 36),
+                    icon: pushing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(Icons.send, size: 18, color: c.warning),
+                    onPressed: pushDisabled ? null : onPush,
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),

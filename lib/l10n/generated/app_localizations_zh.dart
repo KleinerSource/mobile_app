@@ -362,6 +362,12 @@ class AppL10nZh extends AppL10n {
   String get settingsMappingSub => '重命名 / 删除规则';
 
   @override
+  String get settingsActorAssociations => '演员关联';
+
+  @override
+  String get settingsActorAssociationsSub => '标准名 + 别名维护, 支持外部接口同步';
+
+  @override
   String get settingsDbo => 'DB Online 接口';
 
   @override

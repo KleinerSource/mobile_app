@@ -6,6 +6,7 @@ import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/filter_chip.dart';
 import '../movies/movies_providers.dart';
+import '../translation/translation_providers.dart';
 import 'entity_picker_sheet.dart';
 import 'poster_crop_controller.dart';
 
@@ -60,6 +61,10 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
 
   bool _saving = false;
   String? _error;
+
+  // 翻译中字段: title/country/plot
+  final Set<String> _translating = {};
+  bool _batchTranslating = false;
 
   @override
   void initState() {
@@ -299,7 +304,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                   ],
 
                   // ===== 文本字段 =====
-                  _label('标题'),
+                  _label('标题', trailing: _translateBtn('title')),
                   _input(_title),
                   const SizedBox(height: 14),
                   _label('原标题'),
@@ -319,7 +324,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                           child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                            _label('国家'),
+                            _label('国家', trailing: _translateBtn('country')),
                             _input(_country),
                           ])),
                     ],
@@ -353,8 +358,32 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  _label('简介'),
+                  _label('简介', trailing: _translateBtn('plot')),
                   _input(_plot, maxLines: 6),
+                  const SizedBox(height: 10),
+                  // 批量翻译按钮
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton.icon(
+                      onPressed: (_batchTranslating || _translating.isNotEmpty)
+                          ? null
+                          : _translateAll,
+                      icon: _batchTranslating
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.translate_rounded, size: 16),
+                      label: Text(_batchTranslating ? '批量翻译中' : '批量翻译'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: c.accent,
+                        side: BorderSide(color: c.accent.withValues(alpha: 0.4)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 18),
 
                   // ===== 选择器 =====
@@ -466,10 +495,163 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     );
   }
 
-  Widget _label(String label) {
+  Widget _label(String label, {Widget? trailing}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(label.toUpperCase(), style: AppText.eyebrow(context)),
+      child: Row(
+        children: [
+          Expanded(
+              child: Text(label.toUpperCase(),
+                  style: AppText.eyebrow(context))),
+          if (trailing != null) trailing,
+        ],
+      ),
+    );
+  }
+
+  // 字段映射: key → 后端 field_name
+  static const _fieldTypeMap = {
+    'title': 'movie_title',
+    'country': 'movie_country',
+    'plot': 'movie_plot',
+  };
+
+  TextEditingController _ctlOf(String key) {
+    switch (key) {
+      case 'title':
+        return _title;
+      case 'country':
+        return _country;
+      case 'plot':
+        return _plot;
+      default:
+        throw StateError('unknown translate field: $key');
+    }
+  }
+
+  Future<void> _translateField(String key, String label) async {
+    if (_translating.contains(key) || _batchTranslating) return;
+    final ctl = _ctlOf(key);
+    final text = ctl.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$label 内容为空, 无需翻译')),
+      );
+      return;
+    }
+    setState(() => _translating.add(key));
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final repo = ref.read(translationRepositoryProvider);
+      final translated = await repo.translateText(text,
+          fieldName: _fieldTypeMap[key] ?? key);
+      if (!mounted) return;
+      if (translated.isEmpty) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('$label 翻译为空')),
+        );
+      } else {
+        ctl.text = translated;
+        messenger.showSnackBar(
+          SnackBar(content: Text('$label 翻译成功')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('$label 翻译失败: ${toApiException(e).message}')),
+      );
+    } finally {
+      if (mounted) setState(() => _translating.remove(key));
+    }
+  }
+
+  Future<void> _translateAll() async {
+    if (_batchTranslating || _translating.isNotEmpty) return;
+    final fields = <String, String>{};
+    for (final entry in _fieldTypeMap.entries) {
+      final txt = _ctlOf(entry.key).text.trim();
+      if (txt.isNotEmpty) fields[entry.value] = txt;
+    }
+    if (fields.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('没有可翻译的内容')),
+      );
+      return;
+    }
+    setState(() => _batchTranslating = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final repo = ref.read(translationRepositoryProvider);
+      final result = await repo.translateBatch(fields);
+      if (!mounted) return;
+      final inverse = {
+        for (final e in _fieldTypeMap.entries) e.value: e.key,
+      };
+      var ok = 0;
+      result.forEach((apiKey, translated) {
+        final formKey = inverse[apiKey];
+        if (formKey != null && translated.isNotEmpty) {
+          _ctlOf(formKey).text = translated;
+          ok++;
+        }
+      });
+      setState(() {});
+      messenger.showSnackBar(SnackBar(
+        content:
+            Text(ok > 0 ? '批量翻译: 成功 $ok / ${fields.length}' : '批量翻译未返回结果'),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('批量翻译失败: ${toApiException(e).message}')),
+      );
+    } finally {
+      if (mounted) setState(() => _batchTranslating = false);
+    }
+  }
+
+  /// 单字段翻译按钮
+  Widget _translateBtn(String key) {
+    final c = appColors(context);
+    final loading = _translating.contains(key);
+    final disabled = loading || _batchTranslating;
+    final label = switch (key) {
+      'title' => '标题',
+      'country' => '国家',
+      'plot' => '简介',
+      _ => key,
+    };
+    return InkWell(
+      onTap: disabled ? null : () => _translateField(key, label),
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (loading)
+              const SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              Icon(Icons.translate_rounded, size: 13, color: c.accent),
+            const SizedBox(width: 4),
+            Text(
+              loading ? '翻译中' : '翻译',
+              style: TextStyle(
+                color: disabled ? c.muted : c.accent,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

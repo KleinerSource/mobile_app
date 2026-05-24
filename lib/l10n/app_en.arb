@@ -130,6 +130,8 @@
   "settingsMappingSeries": "Series mapping",
   "settingsMappingActors": "Actors mapping",
   "settingsMappingSub": "Rename / delete rules",
+  "settingsActorAssociations": "Actor associations",
+  "settingsActorAssociationsSub": "Canonical name + aliases, with external sync",
   "settingsDbo": "DB Online API",
   "settingsDboSub": "Movie download / actor sync",
   "settingsExtensions": "Video extensions",

@@ -5,6 +5,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
+import '../actor_associations/actor_associations_page.dart';
 import '../configs/dbo_settings_page.dart';
 import '../configs/video_extensions_page.dart';
 import '../libraries/libraries_page.dart';
@@ -160,6 +161,16 @@ class ServerSettingsPage extends ConsumerWidget {
                       MaterialPageRoute(
                         builder: (_) =>
                             const MappingRulesPage(type: MappingType.actor),
+                      ),
+                    ),
+                  ),
+                  SettingsTile(
+                    title: l.settingsActorAssociations,
+                    subtitle: l.settingsActorAssociationsSub,
+                    leadingIcon: Icons.account_tree_outlined,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ActorAssociationsPage(),
                       ),
                     ),
                   ),

@@ -242,137 +242,161 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
         width: frameW,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            children: [
-              // ---------- fanart 满铺 ----------
-              Positioned.fill(
-                child: CachedNetworkImage(
-                  imageUrl: widget.fanartUrl,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                  placeholder: (_, __) => ColoredBox(color: c.surfaceAlt),
-                  errorWidget: (_, __, ___) => ColoredBox(color: c.surfaceAlt),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            // 全画面接收水平拖动: 避免手指甩出窗口时脱手
+            onHorizontalDragUpdate: (d) {
+              if (maxLeft <= 0) return;
+              final next =
+                  (winLeft + d.delta.dx).clamp(0.0, maxLeft.toDouble());
+              final ratio = next / maxLeft;
+              if (ratio != widget.cropOffset) {
+                widget.onChanged(ratio);
+              }
+            },
+            // 支持点击直接定位: 把窗口中心移到点击点
+            onTapDown: (t) {
+              if (maxLeft <= 0) return;
+              final targetLeft =
+                  (t.localPosition.dx - winW / 2).clamp(0.0, maxLeft.toDouble());
+              final ratio = targetLeft / maxLeft;
+              if (ratio != widget.cropOffset) {
+                widget.onChanged(ratio);
+              }
+            },
+            child: Stack(
+              children: [
+                // ---------- fanart 满铺 ----------
+                Positioned.fill(
+                  child: CachedNetworkImage(
+                    imageUrl: widget.fanartUrl,
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    placeholder: (_, __) => ColoredBox(color: c.surfaceAlt),
+                    errorWidget: (_, __, ___) =>
+                        ColoredBox(color: c.surfaceAlt),
+                  ),
                 ),
-              ),
-              // ---------- 左右蒙版 ----------
-              if (winLeft > 0)
-                Positioned(
-                  top: 0,
-                  bottom: 0,
-                  left: 0,
-                  width: winLeft,
-                  child: ColoredBox(
-                      color: Colors.black.withValues(alpha: 0.55)),
-                ),
-              if (winLeft + winW < frameW)
-                Positioned(
-                  top: 0,
-                  bottom: 0,
-                  left: winLeft + winW,
-                  right: 0,
-                  child: ColoredBox(
-                      color: Colors.black.withValues(alpha: 0.55)),
-                ),
-              // ---------- 窗口 (预览 + 边框 + 拖手) ----------
-              Positioned(
-                left: winLeft,
-                top: 0,
-                bottom: 0,
-                width: winW,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onHorizontalDragUpdate: (d) {
-                    final next = (winLeft + d.delta.dx)
-                        .clamp(0.0, maxLeft.toDouble());
-                    final ratio = maxLeft == 0 ? 0.0 : next / maxLeft;
-                    widget.onChanged(ratio);
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: c.accent, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: c.accent.withValues(alpha: 0.4),
-                          blurRadius: 12,
-                        ),
-                      ],
+                // ---------- 左右蒙版 ----------
+                if (winLeft > 0)
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    width: winLeft,
+                    child: IgnorePointer(
+                      child: ColoredBox(
+                          color: Colors.black.withValues(alpha: 0.55)),
                     ),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        // preview image 覆盖窗口内
-                        if (_previewBytes != null && !_previewLoading)
-                          Image.memory(
-                            _previewBytes!,
-                            fit: BoxFit.cover,
-                            gaplessPlayback: true,
+                  ),
+                if (winLeft + winW < frameW)
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    left: winLeft + winW,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: ColoredBox(
+                          color: Colors.black.withValues(alpha: 0.55)),
+                    ),
+                  ),
+                // ---------- 窗口 (预览 + 边框) · 仅展示, 不再独占手势 ----------
+                Positioned(
+                  left: winLeft,
+                  top: 0,
+                  bottom: 0,
+                  width: winW,
+                  child: IgnorePointer(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: c.accent, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: c.accent.withValues(alpha: 0.4),
+                            blurRadius: 12,
                           ),
-                        // loading overlay
-                        if (_previewLoading)
-                          Container(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            alignment: Alignment.center,
-                            child: const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+                        ],
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // preview image 覆盖窗口内
+                          if (_previewBytes != null && !_previewLoading)
+                            Image.memory(
+                              _previewBytes!,
+                              fit: BoxFit.cover,
+                              gaplessPlayback: true,
+                            ),
+                          // loading overlay
+                          if (_previewLoading)
+                            Container(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              alignment: Alignment.center,
+                              child: const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
+                          // 左右拖手装饰
+                          Positioned(
+                            top: 0,
+                            bottom: 0,
+                            left: 0,
+                            width: 4,
+                            child: ColoredBox(color: c.accent),
                           ),
-                        // 左右拖手装饰
-                        Positioned(
-                          top: 0,
-                          bottom: 0,
-                          left: 0,
-                          width: 4,
-                          child: ColoredBox(color: c.accent),
-                        ),
-                        Positioned(
-                          top: 0,
-                          bottom: 0,
-                          right: 0,
-                          width: 4,
-                          child: ColoredBox(color: c.accent),
-                        ),
-                      ],
+                          Positioned(
+                            top: 0,
+                            bottom: 0,
+                            right: 0,
+                            width: 4,
+                            child: ColoredBox(color: c.accent),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              // ---------- 提示 ----------
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 8,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.55),
-                      borderRadius: BorderRadius.circular(100),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.swap_horiz,
-                            color: Colors.white, size: 14),
-                        SizedBox(width: 4),
-                        Text(
-                          '左右拖动框选裁剪范围',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
+                // ---------- 提示 ----------
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 8,
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(100),
                         ),
-                      ],
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.swap_horiz,
+                                color: Colors.white, size: 14),
+                            SizedBox(width: 4),
+                            Text(
+                              '左右拖动或点击定位裁剪范围',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );

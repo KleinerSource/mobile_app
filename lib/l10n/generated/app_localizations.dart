@@ -775,6 +775,18 @@ abstract class AppL10n {
   /// **'重命名 / 删除规则'**
   String get settingsMappingSub;
 
+  /// No description provided for @settingsActorAssociations.
+  ///
+  /// In zh, this message translates to:
+  /// **'演员关联'**
+  String get settingsActorAssociations;
+
+  /// No description provided for @settingsActorAssociationsSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'标准名 + 别名维护, 支持外部接口同步'**
+  String get settingsActorAssociationsSub;
+
   /// No description provided for @settingsDbo.
   ///
   /// In zh, this message translates to:

@@ -1,3 +1,4 @@
+import '../../core/api/api_exception.dart';
 import '../../core/api/envelope.dart';
 import '../../core/api/services/translation_api.dart';
 import '../../core/models/translation_config.dart';
@@ -58,5 +59,41 @@ class TranslationRepository {
       }
       return d?.toString() ?? '';
     });
+  }
+
+  /// 翻译单个字段
+  /// fieldName 例: movie_title / movie_country / movie_outline / movie_plot
+  Future<String> translateText(String text, {required String fieldName}) async {
+    final raw = await _api.translate({
+      'text': text,
+      'field_name': fieldName,
+    });
+    return unwrapStd<String>(raw, (d) {
+      if (d is Map) {
+        return d['translated_text']?.toString() ?? '';
+      }
+      return d?.toString() ?? '';
+    });
+  }
+
+  /// 批量翻译 · 输入 { field_name: text }, 返回 { field_name: translated }
+  /// 失败的字段不会出现在返回中
+  Future<Map<String, String>> translateBatch(
+      Map<String, String> fields) async {
+    final raw = await _api.translateBatch({'fields': fields});
+    if (raw is! Map || raw['success'] != true) {
+      throw ApiException((raw is Map ? raw['message'] as String? : null) ??
+          '批量翻译失败');
+    }
+    final results = (raw['data'] as Map?)?['results'];
+    if (results is! Map) return const {};
+    final out = <String, String>{};
+    results.forEach((k, v) {
+      if (v is Map && v['success'] == true) {
+        final t = v['translated_text']?.toString();
+        if (t != null && t.isNotEmpty) out[k.toString()] = t;
+      }
+    });
+    return out;
   }
 }

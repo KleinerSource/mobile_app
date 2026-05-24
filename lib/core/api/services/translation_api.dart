@@ -24,7 +24,11 @@ abstract class TranslationApi {
   @POST('/translation/models')
   Future<dynamic> fetchModels(@Body() Map<String, dynamic> body);
 
-  /// 直接调用翻译 (非主用,做样例 + 测试时备用)
+  /// 直接调用翻译 · body: { text, field_name }
   @POST('/translation/translate')
   Future<dynamic> translate(@Body() Map<String, dynamic> body);
+
+  /// 批量翻译 · body: { fields: { field_name: text, ... } }
+  @POST('/translation/translate/batch')
+  Future<dynamic> translateBatch(@Body() Map<String, dynamic> body);
 }

@@ -366,6 +366,13 @@ class AppL10nEn extends AppL10n {
   String get settingsMappingSub => 'Rename / delete rules';
 
   @override
+  String get settingsActorAssociations => 'Actor associations';
+
+  @override
+  String get settingsActorAssociationsSub =>
+      'Canonical name + aliases, with external sync';
+
+  @override
   String get settingsDbo => 'DB Online API';
 
   @override

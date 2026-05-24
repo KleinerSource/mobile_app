@@ -130,6 +130,8 @@
   "settingsMappingSeries": "系列映射",
   "settingsMappingActors": "演员映射",
   "settingsMappingSub": "重命名 / 删除规则",
+  "settingsActorAssociations": "演员关联",
+  "settingsActorAssociationsSub": "标准名 + 别名维护, 支持外部接口同步",
   "settingsDbo": "DB Online 接口",
   "settingsDboSub": "影片下载 / 演员关联同步",
   "settingsExtensions": "视频扩展名",
