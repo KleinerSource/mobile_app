@@ -36,3 +36,8 @@ android/app/debug/
 # Superpowers brainstorming session
 .superpowers/
 web/
+ios/
+android/
+windows/
+macos/
+linux/

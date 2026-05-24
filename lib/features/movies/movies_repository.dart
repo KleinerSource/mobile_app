@@ -72,6 +72,21 @@ class MoviesRepository {
     await _api.upsertWatchRecord(id, {'completed': completed});
   }
 
+  /// 更新观看进度 · positionSec / durationSec 由播放器上报
+  Future<void> upsertWatchRecord(
+    int id, {
+    required int positionSec,
+    required int durationSec,
+    bool? completed,
+  }) async {
+    final body = <String, dynamic>{
+      'position_sec': positionSec,
+      'duration_sec': durationSec,
+    };
+    if (completed != null) body['completed'] = completed;
+    await _api.upsertWatchRecord(id, body);
+  }
+
   // ===== 详情页操作 =====
 
   /// 编辑影片字段 · 字段可包含 title/plot/year/rating/num/...

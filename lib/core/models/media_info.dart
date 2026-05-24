@@ -20,6 +20,8 @@ class MediaInfo with _$MediaInfo {
     @JsonKey(name: 'duration_sec') double? durationSec,
     @JsonKey(name: 'bit_rate') int? bitRate,
     @JsonKey(name: 'file_size') int? fileSize,
+    @JsonKey(name: 'browser_compatible') bool? browserCompatible,
+    @JsonKey(name: 'incompat_reason') String? incompatReason,
   }) = _MediaInfo;
 
   factory MediaInfo.fromJson(Map<String, dynamic> json) =>

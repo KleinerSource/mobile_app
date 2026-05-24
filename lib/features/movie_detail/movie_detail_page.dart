@@ -12,6 +12,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../favorites/favorites_providers.dart';
 import '../lists/add_to_list_sheet.dart';
 import '../movies/movies_providers.dart';
+import '../player/player_page.dart';
 import '../resources/resource_movies_page.dart';
 import 'actor_movies_page.dart';
 import 'dbo_diff_sheet.dart';
@@ -141,7 +142,7 @@ class _DetailBody extends ConsumerWidget {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-            child: _ActionRow(movieId: movie.id, title: movie.title),
+            child: _ActionRow(movie: movie),
           ),
         ),
         if (movie.plot != null && movie.plot!.isNotEmpty)
@@ -343,10 +344,18 @@ class _TitleBlock extends StatelessWidget {
 }
 
 class _ActionRow extends StatelessWidget {
-  const _ActionRow({required this.movieId, required this.title});
+  const _ActionRow({required this.movie});
 
-  final int movieId;
-  final String title;
+  final MovieDetail movie;
+
+  int get _startPositionSec {
+    final wr = movie.watchRecord;
+    if (wr == null || wr.completed) return 0;
+    final r = wr.progressRatio.clamp(0.0, 1.0);
+    final runtimeMin = movie.runtime ?? 0;
+    if (runtimeMin <= 0 || r <= 0) return 0;
+    return (runtimeMin * 60 * r).round();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -356,15 +365,17 @@ class _ActionRow extends StatelessWidget {
         Expanded(
           flex: 2,
           child: ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('播放功能尚未对接')),
-              );
-            },
+            onPressed: () => PlayerPage.open(
+              context,
+              movieId: movie.id,
+              title: movie.title,
+              startPositionSec: _startPositionSec,
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: c.text,
               foregroundColor: c.bg,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
             child: Row(
@@ -386,8 +397,8 @@ class _ActionRow extends StatelessWidget {
           child: OutlinedButton(
             onPressed: () => AddToListSheet.show(
               context,
-              movieId: movieId,
-              movieTitle: title,
+              movieId: movie.id,
+              movieTitle: movie.title,
             ),
             style: OutlinedButton.styleFrom(
               foregroundColor: c.text,
