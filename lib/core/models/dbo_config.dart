@@ -6,6 +6,7 @@ part 'dbo_config.g.dart';
 @freezed
 class DboConfig with _$DboConfig {
   const factory DboConfig({
+    @JsonKey(name: 'enabled') @Default(false) bool enabled,
     @JsonKey(name: 'base_url') @Default('') String baseUrl,
     @JsonKey(name: 'api_key') @Default('') String apiKey,
     @JsonKey(name: 'max_age_months') @Default(0) int maxAgeMonths,

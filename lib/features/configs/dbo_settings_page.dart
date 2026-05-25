@@ -26,6 +26,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
   final _baseUrl = TextEditingController();
   final _apiKey = TextEditingController();
   int _maxAge = 0;
+  bool _enabled = false;
   bool _showKey = false;
   bool _saving = false;
   bool _hasKey = false;
@@ -42,6 +43,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
   void _hydrate(DboConfig cfg) {
     if (_loaded) return;
     _loaded = true;
+    _enabled = cfg.enabled;
     _baseUrl.text = cfg.baseUrl;
     _maxAge = cfg.maxAgeMonths;
     _hasKey = cfg.hasApiKey;
@@ -55,6 +57,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final cfg = DboConfig(
+        enabled: _enabled,
         baseUrl: _baseUrl.text.trim(),
         apiKey: _apiKey.text.trim(),
         maxAgeMonths: _maxAge,
@@ -136,6 +139,35 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
             children: [
+              _label('启用', _enabled ? '已启用 · 所有 DBO 功能可用' : '已停用 · 所有 DBO 功能将被屏蔽'),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                decoration: BoxDecoration(
+                  color: c.surface,
+                  border: Border.all(color: c.cardBorder),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '启用 DB Online',
+                        style: TextStyle(
+                          color: c.text,
+                          fontFamily: 'Inter',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: _enabled,
+                      onChanged: (v) => setState(() => _enabled = v),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
               _label('Base URL', '例: http://10.0.0.50:9090'),
               _input(_baseUrl, hint: 'http://...'),
               const SizedBox(height: 18),
