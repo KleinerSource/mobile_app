@@ -78,14 +78,14 @@ abstract class MoviesApi {
   Future<dynamic> getDbonlineMetadata(@Path('id') int id);
 
   /// 获取磁力/ed2k 资源 · source = 'magnet' / 'ed2k' 等
-  @GET('/movies/id/{id}/resources/{source}')
+  @GET('/movies/id/{id}/dbonline/resources/{source}')
   Future<dynamic> getResources(
     @Path('id') int id,
     @Path('source') String source,
   );
 
   /// 影片下载历史 · 返回 { magnets: {hash: time}, ed2ks: {hash: time} }
-  @GET('/movies/id/{id}/download-history')
+  @GET('/movies/id/{id}/dbonline/download-history')
   Future<dynamic> getDownloadHistory(@Path('id') int id);
 
   // ===== 批量操作 =====
