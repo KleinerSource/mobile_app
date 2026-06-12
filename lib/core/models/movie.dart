@@ -69,8 +69,10 @@ final _kCrackWithSubRegex = RegExp(
 );
 
 final _kUhdRegex = RegExp(r'(?:^|[-_. ])(2160p|4k|uhd)(?=$|[-_. ])');
+final _kProb4Regex = RegExp(r'(?:^|[-_. ])prob[-_. ]?4(?=$|[-_. ])');
 final _kHdRegex =
     RegExp(r'(?:^|[-_. ])(720p|1080p|1440p|hd|fhd|qhd)(?=$|[-_. ])');
+const _kUhdSizeThreshold = 15 * 1024 * 1024 * 1024;
 
 extension MovieListItemX on MovieListItem {
   /// 文件名 (无扩展名, 小写) · 用于按番号后缀识别 字幕/破解/分辨率
@@ -96,13 +98,15 @@ extension MovieListItemX on MovieListItem {
     return _kUmrCrackRegex.hasMatch(stem) || _kCrackRegex.hasMatch(stem);
   }
 
-  /// UHD: 视频高度 ≥ 2160, 或文件名含 2160p / 4k / uhd
+  /// UHD: 视频高度 ≥ 2160, 文件名含 2160p / 4k / uhd, 或 prob4 且文件大于 15GiB
   bool get _hasUhdFlag {
     final h = videoHeight ?? 0;
     if (h >= 2160) return true;
     final stem = _fileNameStem;
     if (stem.isEmpty) return false;
-    return _kUhdRegex.hasMatch(stem);
+    if (_kUhdRegex.hasMatch(stem)) return true;
+    final size = fileSize ?? 0;
+    return size > _kUhdSizeThreshold && _kProb4Regex.hasMatch(stem);
   }
 
   /// HD: 高度 [720, 2160) 或文件名含 720p/1080p/1440p/hd/fhd/qhd

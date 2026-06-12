@@ -9,6 +9,10 @@ concurrency:
   group: ios-build-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CI: "true"
+  COCOAPODS_DISABLE_STATS: "true"
+
 jobs:
   build:
     runs-on: macos-26
@@ -17,20 +21,25 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: subosito/flutter-action@v2
+        timeout-minutes: 10
         with:
           flutter-version: '3.44.x'
           channel: stable
           cache: true
 
       - name: Flutter doctor
+        timeout-minutes: 3
         run: flutter doctor -v
 
       # Bootstrap：本地无 SDK，没法跑 flutter create；首跑由 CI 补齐 ios/
       - name: Bootstrap ios/ if missing
+        timeout-minutes: 5
         run: |
+          set -euo pipefail
           if [ ! -d ios ]; then
             echo "ios/ not found, scaffolding via flutter create"
             flutter create . \
+              --no-pub \
               --platforms=ios \
               --org com.kleinersource.mdcenter \
               --project-name md_center \
@@ -47,27 +56,29 @@ jobs:
           rm -f test/widget_test.dart
 
       - name: pub get
+        timeout-minutes: 5
         run: flutter pub get
 
       - name: build_runner
+        timeout-minutes: 10
         run: dart run build_runner build --delete-conflicting-outputs
 
       - name: analyze
+        timeout-minutes: 8
         run: flutter analyze
 
       - name: test
+        timeout-minutes: 10
         run: flutter test
 
-      - name: Pod install
-        run: |
-          cd ios
-          pod install --repo-update
-
       - name: build ios (no codesign)
-        run: flutter build ios --release --no-codesign
+        timeout-minutes: 25
+        run: flutter build ios --release --no-codesign --no-pub
 
       - name: 打包 unsigned .ipa
+        timeout-minutes: 3
         run: |
+          set -euo pipefail
           cd build/ios/iphoneos
           mkdir Payload
           cp -r Runner.app Payload/
