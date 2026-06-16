@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import 'platform.dart';
+import 'platform_utils.dart';
 
 class AppScaffold extends StatelessWidget {
   const AppScaffold({super.key, required this.body, this.backgroundColor});

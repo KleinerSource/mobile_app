@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import 'platform.dart';
+import 'platform_utils.dart';
 
 class AppActionSheetAction<T> {
   const AppActionSheetAction({

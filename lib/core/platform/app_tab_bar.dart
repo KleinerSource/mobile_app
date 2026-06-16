@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import 'platform.dart';
+import 'platform_utils.dart';
 
 class AppTabItem {
   const AppTabItem({required this.icon, required this.label, required this.body});

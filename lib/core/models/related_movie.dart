@@ -6,7 +6,7 @@ part 'related_movie.freezed.dart';
 part 'related_movie.g.dart';
 
 @freezed
-class RelatedMovie with _$RelatedMovie {
+abstract class RelatedMovie with _$RelatedMovie {
   const factory RelatedMovie({
     required int id,
     required String title,

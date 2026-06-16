@@ -4,7 +4,7 @@ part 'dbo_config.freezed.dart';
 part 'dbo_config.g.dart';
 
 @freezed
-class DboConfig with _$DboConfig {
+abstract class DboConfig with _$DboConfig {
   const factory DboConfig({
     @JsonKey(name: 'enabled') @Default(false) bool enabled,
     @JsonKey(name: 'base_url') @Default('') String baseUrl,

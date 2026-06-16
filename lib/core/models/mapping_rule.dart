@@ -7,7 +7,7 @@ part 'mapping_rule.g.dart';
 ///   original_values: ["原值1", "原值2"]
 ///   mapped_value: "目标值" · 为空表示「删除规则」(扫描时直接丢弃)
 @freezed
-class MappingRule with _$MappingRule {
+abstract class MappingRule with _$MappingRule {
   const factory MappingRule({
     required int id,
     @JsonKey(name: 'original_values')

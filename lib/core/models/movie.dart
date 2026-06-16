@@ -9,7 +9,7 @@ part 'movie.freezed.dart';
 part 'movie.g.dart';
 
 @freezed
-class MovieListItem with _$MovieListItem {
+abstract class MovieListItem with _$MovieListItem {
   const factory MovieListItem({
     required int id,
     @JsonKey(defaultValue: '') @Default('') String title,
@@ -131,7 +131,7 @@ extension MovieListItemX on MovieListItem {
 }
 
 @freezed
-class WatchRecordSummary with _$WatchRecordSummary {
+abstract class WatchRecordSummary with _$WatchRecordSummary {
   const factory WatchRecordSummary({
     @JsonKey(name: 'progress_ratio') @Default(0.0) double progressRatio,
     @Default(false) bool completed,
@@ -142,7 +142,7 @@ class WatchRecordSummary with _$WatchRecordSummary {
 }
 
 @freezed
-class MovieDetail with _$MovieDetail {
+abstract class MovieDetail with _$MovieDetail {
   const factory MovieDetail({
     required int id,
     @JsonKey(defaultValue: '') @Default('') String title,

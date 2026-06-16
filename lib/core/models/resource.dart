@@ -4,7 +4,7 @@ part 'resource.freezed.dart';
 part 'resource.g.dart';
 
 @freezed
-class ResourceItem with _$ResourceItem {
+abstract class ResourceItem with _$ResourceItem {
   const factory ResourceItem({
     required int id,
     required String name,

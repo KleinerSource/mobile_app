@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import 'platform.dart';
+import 'platform_utils.dart';
 
 /// 用法：
 ///   CustomScrollView(slivers: [AppLargeNavBar(title: '影片'), ...])

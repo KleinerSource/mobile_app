@@ -4,7 +4,7 @@ part 'related_file.freezed.dart';
 part 'related_file.g.dart';
 
 @freezed
-class RelatedFile with _$RelatedFile {
+abstract class RelatedFile with _$RelatedFile {
   const factory RelatedFile({
     String? type,
     String? label,

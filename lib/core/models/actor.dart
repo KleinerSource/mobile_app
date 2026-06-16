@@ -4,7 +4,7 @@ part 'actor.freezed.dart';
 part 'actor.g.dart';
 
 @freezed
-class ActorRef with _$ActorRef {
+abstract class ActorRef with _$ActorRef {
   const factory ActorRef({
     required int id,
     required String name,
@@ -15,7 +15,7 @@ class ActorRef with _$ActorRef {
 }
 
 @freezed
-class ActorItem with _$ActorItem {
+abstract class ActorItem with _$ActorItem {
   const factory ActorItem({
     required int id,
     required String name,

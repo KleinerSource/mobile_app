@@ -4,7 +4,7 @@ part 'translation_config.freezed.dart';
 part 'translation_config.g.dart';
 
 @freezed
-class TranslationConfig with _$TranslationConfig {
+abstract class TranslationConfig with _$TranslationConfig {
   const factory TranslationConfig({
     @Default(false) bool enabled,
     @JsonKey(name: 'api_url') @Default('') String apiUrl,
@@ -25,7 +25,7 @@ extension TranslationConfigX on TranslationConfig {
 }
 
 @freezed
-class TranslationModel with _$TranslationModel {
+abstract class TranslationModel with _$TranslationModel {
   const factory TranslationModel({
     required String id,
     String? name,

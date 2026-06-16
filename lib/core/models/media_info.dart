@@ -4,7 +4,7 @@ part 'media_info.freezed.dart';
 part 'media_info.g.dart';
 
 @freezed
-class MediaInfo with _$MediaInfo {
+abstract class MediaInfo with _$MediaInfo {
   const factory MediaInfo({
     String? container,
     @JsonKey(name: 'video_codec') String? videoCodec,

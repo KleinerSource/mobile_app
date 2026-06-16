@@ -4,7 +4,7 @@ part 'subtitle_search.freezed.dart';
 part 'subtitle_search.g.dart';
 
 @freezed
-class SubtitleSearchItem with _$SubtitleSearchItem {
+abstract class SubtitleSearchItem with _$SubtitleSearchItem {
   const factory SubtitleSearchItem({
     required String name,
     required String url,

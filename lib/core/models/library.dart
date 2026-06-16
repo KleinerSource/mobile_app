@@ -4,7 +4,7 @@ part 'library.freezed.dart';
 part 'library.g.dart';
 
 @freezed
-class LibraryItem with _$LibraryItem {
+abstract class LibraryItem with _$LibraryItem {
   const factory LibraryItem({
     required int id,
     required String name,
@@ -20,7 +20,7 @@ class LibraryItem with _$LibraryItem {
 }
 
 @freezed
-class DirectoryItem with _$DirectoryItem {
+abstract class DirectoryItem with _$DirectoryItem {
   const factory DirectoryItem({
     required int id,
     String? name,
@@ -35,7 +35,7 @@ class DirectoryItem with _$DirectoryItem {
 }
 
 @freezed
-class ScanTask with _$ScanTask {
+abstract class ScanTask with _$ScanTask {
   const factory ScanTask({
     @JsonKey(name: 'task_id') required String taskId,
     @JsonKey(name: 'library_id') int? libraryId,
