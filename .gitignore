@@ -5,7 +5,6 @@
 build/
 .pub-cache/
 .pub/
-pubspec.lock
 *.g.dart
 *.freezed.dart
 
