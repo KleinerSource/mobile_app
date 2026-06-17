@@ -17,6 +17,8 @@ jobs:
   build:
     runs-on: macos-26
     timeout-minutes: 45
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -59,6 +61,37 @@ jobs:
         timeout-minutes: 5
         run: flutter pub get
 
+      # media_kit_libs_ios_video 仅 CocoaPods (无 SPM)，Flutter 3.44 自动回退生成
+      # fallback Podfile。该 Podfile 在 pub get 阶段才生成，bootstrap 的 sed 对它无效，
+      # 这里补修部署目标，再显式 pod install 兜底。
+      # Plan B: 若 SPM/Pods 混合在 CI 报错，在 bootstrap 后加
+      #   `flutter config --no-enable-swift-package-manager` 强制纯 CocoaPods。
+      - name: 修正 fallback Podfile 部署目标
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          if [ -f ios/Podfile ]; then
+            sed -i '' "s/# platform :ios.*/platform :ios, '16.0'/" ios/Podfile || true
+            sed -i '' "s/platform :ios, '[0-9.]*'/platform :ios, '16.0'/" ios/Podfile || true
+            if ! grep -q "platform :ios" ios/Podfile; then
+              printf "platform :ios, '16.0'\n%s\n" "$(cat ios/Podfile)" > ios/Podfile
+            fi
+            echo "---- ios/Podfile ----"; cat ios/Podfile
+          else
+            echo "No Podfile (all-SPM); skip"
+          fi
+
+      - name: pod install (CocoaPods fallback for media_kit)
+        timeout-minutes: 12
+        working-directory: ios
+        run: |
+          set -euo pipefail
+          if [ -f Podfile ]; then
+            pod install --repo-update
+          else
+            echo "No Podfile (all-SPM); skip"
+          fi
+
       # analyzer 崩溃排查：记录解析出的 analyzer 版本与 SDK 版本
       - name: 诊断 analyzer 版本
         timeout-minutes: 2
@@ -93,8 +126,22 @@ jobs:
           cp -r Runner.app Payload/
           zip -qr md_center.ipa Payload
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: md_center-ipa-unsigned
-          path: build/ios/iphoneos/md_center.ipa
-          retention-days: 14
+      # 仅 master 分支 push 时滚动发布 latest 预发布
+      - name: 发布到 GitHub Release (latest)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          notes="未签名 iOS 构建产物（自动滚动更新）
+
+          - commit: ${GITHUB_SHA}
+          - run: ${GITHUB_RUN_NUMBER}"
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest build/ios/iphoneos/md_center.ipa \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "Latest unsigned iOS build" \
+            --notes "$notes"
+
