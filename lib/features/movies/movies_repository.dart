@@ -1,6 +1,6 @@
 import '../../core/api/api_exception.dart';
+import '../../core/api/dio_factory.dart';
 import '../../core/api/envelope.dart';
-import '../../core/api/error_mapper.dart';
 import '../../core/api/services/favorites_api.dart';
 import '../../core/api/services/movies_api.dart';
 import '../../core/api/services/system_api.dart';
