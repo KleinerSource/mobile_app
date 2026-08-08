@@ -3,6 +3,7 @@ import 'package:media_kit/media_kit.dart';
 
 import '../../core/models/playback.dart' as playback_models;
 import 'player_overlay_indicators.dart' show formatDuration;
+import 'player_haptics.dart';
 
 /// 播放器控制层 · 顶栏标题 + 底栏 (播放/暂停 · 进度条 · 时间 · 清晰度)
 ///
@@ -20,6 +21,7 @@ class PlayerControls extends StatefulWidget {
     required this.audioTracks,
     required this.onAudioChanged,
     required this.hardwareLabel,
+    required this.hapticProgressBar,
     required this.onExternalPlayer,
     required this.isLandscape,
     required this.onOrientationToggle,
@@ -38,6 +40,7 @@ class PlayerControls extends StatefulWidget {
   final List<playback_models.AudioTrack> audioTracks;
   final ValueChanged<playback_models.AudioTrack> onAudioChanged;
   final String? hardwareLabel;
+  final bool hapticProgressBar;
   final VoidCallback onExternalPlayer;
   final bool isLandscape;
   final VoidCallback onOrientationToggle;
@@ -53,8 +56,11 @@ class PlayerControls extends StatefulWidget {
 }
 
 class _PlayerControlsState extends State<PlayerControls> {
+  static const int _sliderHapticStepMs = 5000;
+
   /// 拖动进度条时的本地预览值 (null = 未拖动)
   double? _dragValue;
+  int? _lastSliderHapticBucket;
 
   @override
   Widget build(BuildContext context) {
@@ -224,17 +230,35 @@ class _PlayerControlsState extends State<PlayerControls> {
             min: 0,
             max: max,
             value: value.clamp(0, max),
+            onChangeStart: dur <= 0
+                ? null
+                : (v) {
+                    _lastSliderHapticBucket =
+                        (v / _sliderHapticStepMs).floor();
+                    if (widget.hapticProgressBar) {
+                      PlayerHaptics.selection();
+                    }
+                    widget.onInteraction();
+                  },
             onChanged: dur <= 0
                 ? null
                 : (v) {
+                    final bucket = (v / _sliderHapticStepMs).floor();
+                    if (widget.hapticProgressBar &&
+                        bucket != _lastSliderHapticBucket) {
+                      _lastSliderHapticBucket = bucket;
+                      PlayerHaptics.selection();
+                    }
                     setState(() => _dragValue = v);
                     widget.onInteraction();
                   },
             onChangeEnd: dur <= 0
                 ? null
                 : (v) {
+                    if (widget.hapticProgressBar) PlayerHaptics.medium();
                     widget.onSeek(Duration(milliseconds: v.round()));
                     setState(() => _dragValue = null);
+                    _lastSliderHapticBucket = null;
                     widget.onInteraction();
                   },
           ),

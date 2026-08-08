@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'player_haptics.dart';
+
+enum _DoubleTapZone { center, left, right }
+
 /// 播放器手势层 · 单个 GestureDetector 区分四类手势
 ///
 /// - 单击: 显隐控制条
@@ -18,6 +22,13 @@ class PlayerGestureLayer extends StatefulWidget {
     required this.positionGetter,
     required this.durationGetter,
     required this.onTap,
+    required this.doubleTapCenterEnabled,
+    required this.doubleTapEdgesEnabled,
+    required this.onDoubleTapCenter,
+    required this.onDoubleTapSeek,
+    required this.hapticLongPress,
+    required this.hapticSeek,
+    required this.hapticRate,
     required this.onRateBoost,
     required this.onRateBoostEnd,
     required this.onSeekPreview,
@@ -31,6 +42,13 @@ class PlayerGestureLayer extends StatefulWidget {
   final Duration Function() durationGetter;
 
   final VoidCallback onTap;
+  final bool doubleTapCenterEnabled;
+  final bool doubleTapEdgesEnabled;
+  final VoidCallback onDoubleTapCenter;
+  final ValueChanged<int> onDoubleTapSeek;
+  final bool hapticLongPress;
+  final bool hapticSeek;
+  final bool hapticRate;
 
   /// 长按加速 · [rate] 当前倍速 (起始 2.0, 长按中上/下滑变化)
   final void Function(double rate) onRateBoost;
@@ -61,6 +79,7 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
 
   /// 长按调速 · 每多少逻辑像素跨一档 (8px×档配 0.1x 刻度 → 上滑 160px 到 4x, 手感不变)
   static const double _rateStepPx = 8;
+  static const int _seekHapticStepMs = 5000;
   static const double _baseRate = 2.0;
   static const double _minRate = 0.5;
   static const double _maxRate = 4.0;
@@ -71,6 +90,8 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
   bool _isLeft = true;
   bool _isBoosting = false;
   double _boostRate = _baseRate;
+  int _lastSeekHapticBucket = 0;
+  _DoubleTapZone? _doubleTapZone;
 
   @override
   Widget build(BuildContext context) {
@@ -83,9 +104,43 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
+          onDoubleTapDown: (details) {
+            final x = details.localPosition.dx;
+            _doubleTapZone = x < width / 3
+                ? _DoubleTapZone.left
+                : x > width * 2 / 3
+                    ? _DoubleTapZone.right
+                    : _DoubleTapZone.center;
+          },
+          onDoubleTap: () {
+            final zone = _doubleTapZone;
+            _doubleTapZone = null;
+            switch (zone) {
+              case _DoubleTapZone.center:
+                if (widget.doubleTapCenterEnabled) {
+                  widget.onDoubleTapCenter();
+                }
+                break;
+              case _DoubleTapZone.left:
+                if (widget.doubleTapEdgesEnabled) {
+                  if (widget.hapticSeek) PlayerHaptics.medium();
+                  widget.onDoubleTapSeek(-10);
+                }
+                break;
+              case _DoubleTapZone.right:
+                if (widget.doubleTapEdgesEnabled) {
+                  if (widget.hapticSeek) PlayerHaptics.medium();
+                  widget.onDoubleTapSeek(10);
+                }
+                break;
+              case null:
+                break;
+            }
+          },
           onLongPressStart: (_) {
             _isBoosting = true;
             _boostRate = _baseRate;
+            if (widget.hapticLongPress) PlayerHaptics.medium();
             widget.onRateBoost(_boostRate);
           },
           onLongPressMoveUpdate: (d) {
@@ -96,6 +151,7 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
             final rate = tenths / 10;
             if (rate != _boostRate) {
               _boostRate = rate;
+              if (widget.hapticRate) PlayerHaptics.selection();
               widget.onRateBoost(rate);
             }
           },
@@ -105,14 +161,29 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
             _baseMs = widget.positionGetter().inMilliseconds;
             _totalMs = widget.durationGetter().inMilliseconds;
             _accumMs = 0;
+            _lastSeekHapticBucket = _baseMs ~/ _seekHapticStepMs;
+            if (widget.hapticSeek) PlayerHaptics.selection();
           },
           onHorizontalDragUpdate: (d) {
             _accumMs += (d.delta.dx * msPerPx).round();
             final target = _clampTarget();
+            final bucket = target.inMilliseconds ~/ _seekHapticStepMs;
+            if (widget.hapticSeek && bucket != _lastSeekHapticBucket) {
+              _lastSeekHapticBucket = bucket;
+              PlayerHaptics.selection();
+            }
             widget.onSeekPreview(target, target.inMilliseconds - _baseMs);
           },
-          onHorizontalDragEnd: (_) => widget.onSeekCommit(_clampTarget()),
-          onVerticalDragStart: (d) => _isLeft = d.localPosition.dx < width / 2,
+          onHorizontalDragEnd: (_) {
+            if (widget.hapticSeek) PlayerHaptics.medium();
+            widget.onSeekCommit(_clampTarget());
+          },
+          onHorizontalDragCancel: () {
+            if (widget.hapticSeek) PlayerHaptics.light();
+          },
+          onVerticalDragStart: (d) {
+            _isLeft = d.localPosition.dx < width / 2;
+          },
           onVerticalDragUpdate: (d) {
             final delta = -d.delta.dy / height;
             if (_isLeft) {
@@ -121,7 +192,12 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
               widget.onVolumeDelta(delta);
             }
           },
-          onVerticalDragEnd: (_) => widget.onAxisDragEnd(),
+          onVerticalDragEnd: (_) {
+            widget.onAxisDragEnd();
+          },
+          onVerticalDragCancel: () {
+            widget.onAxisDragEnd();
+          },
           child: const SizedBox.expand(),
         );
       },
@@ -131,6 +207,7 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
   void _endRateBoost() {
     if (!_isBoosting) return;
     _isBoosting = false;
+    if (widget.hapticLongPress) PlayerHaptics.light();
     widget.onRateBoostEnd();
   }
 

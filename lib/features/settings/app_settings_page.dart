@@ -8,6 +8,7 @@ import '../i18n/locale_providers.dart';
 import '../i18n/theme_provider.dart';
 import '../privacy/privacy_providers.dart';
 import 'badge_position_page.dart';
+import 'player_settings_page.dart';
 import 'settings_common.dart';
 
 /// 应用设置子页 · 仅本地客户端偏好
@@ -39,6 +40,21 @@ class AppSettingsPage extends ConsumerWidget {
                 items: const [
                   _LanguageTile(),
                   _ThemeTile(),
+                ],
+              ),
+              SettingsGroup(
+                title: '播放器设置',
+                items: [
+                  SettingsTile(
+                    title: '播放器设置',
+                    subtitle: '播放进度 / 屏幕方向 / 播放手势 / 震动反馈',
+                    leadingIcon: Icons.play_circle_outline,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const PlayerSettingsPage(),
+                      ),
+                    ),
+                  ),
                 ],
               ),
               SettingsGroup(

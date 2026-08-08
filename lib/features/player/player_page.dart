@@ -24,6 +24,7 @@ import 'player_controller_host.dart';
 import 'player_controls.dart';
 import 'player_gesture_layer.dart';
 import 'player_overlay_indicators.dart';
+import 'player_settings.dart';
 
 /// 全屏视频播放页。播放源由后端协商，页面只负责编排回退、进度和用户控制。
 class PlayerPage extends ConsumerStatefulWidget {
@@ -61,10 +62,6 @@ class PlayerPage extends ConsumerStatefulWidget {
 
 class _PlayerPageState extends ConsumerState<PlayerPage>
     with WidgetsBindingObserver {
-  static const List<DeviceOrientation> _landscapeOrientations = [
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ];
   static const List<DeviceOrientation> _portraitOrientations = [
     DeviceOrientation.portraitUp,
   ];
@@ -104,18 +101,51 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _isRateBoosting = false;
   bool _isLeaving = false;
   Future<void>? _stopPlayerFuture;
+  bool _orientationInitialized = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    unawaited(SystemChrome.setPreferredOrientations(_landscapeOrientations));
+    unawaited(_applyEntryOrientation(ref.read(playerSettingsProvider)));
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     FlutterVolumeController.updateShowSystemUI(false);
     // ignore: discarded_futures
     WakelockPlus.enable();
     _initLevels();
     _load();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_orientationInitialized) return;
+    final settings = ref.read(playerSettingsProvider);
+    _isLandscape = switch (settings.entryOrientation) {
+      PlayerEntryOrientation.forceLandscape => true,
+      PlayerEntryOrientation.forcePortrait => false,
+      PlayerEntryOrientation.unchanged =>
+        MediaQuery.of(context).orientation == Orientation.landscape,
+    };
+    _orientationInitialized = true;
+  }
+
+  Future<void> _applyEntryOrientation(PlayerSettings settings) async {
+    final orientations = switch (settings.entryOrientation) {
+      PlayerEntryOrientation.unchanged => null,
+      PlayerEntryOrientation.forceLandscape => [
+          _landscapeOrientation(settings.landscapeSide),
+        ],
+      PlayerEntryOrientation.forcePortrait => _portraitOrientations,
+    };
+    if (orientations == null) return;
+    await SystemChrome.setPreferredOrientations(orientations);
+  }
+
+  DeviceOrientation _landscapeOrientation(PlayerLandscapeSide side) {
+    return side == PlayerLandscapeSide.cameraLeft
+        ? DeviceOrientation.landscapeLeft
+        : DeviceOrientation.landscapeRight;
   }
 
   Future<void> _initLevels() async {
@@ -252,8 +282,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         _serverHardwareLabel = '硬解 ${decision.hwAccel}';
       }
 
+      final resumeFromLastPosition =
+          ref.read(playerSettingsProvider).resumeFromLastPosition;
       final startAt = resume ??
-          (widget.startPositionSec > 0
+          (resumeFromLastPosition && widget.startPositionSec > 0
               ? Duration(seconds: widget.startPositionSec)
               : null);
       final direct = !forceHls &&
@@ -614,12 +646,40 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _hideIndicator();
   }
 
+  void _onDoubleTapCenter() {
+    if (_isLeaving) return;
+    _togglePlay();
+  }
+
+  void _onDoubleTapSeek(int deltaSeconds) {
+    if (_isLeaving) return;
+    final base = _host.position;
+    final total = _host.duration;
+    var targetMs = base.inMilliseconds + deltaSeconds * 1000;
+    if (targetMs < 0) targetMs = 0;
+    if (total > Duration.zero && targetMs > total.inMilliseconds) {
+      targetMs = total.inMilliseconds;
+    }
+    final target = Duration(milliseconds: targetMs);
+    unawaited(_host.seek(target));
+    _showIndicator(
+      PlayerIndicator.seek(
+        target: target,
+        total: total,
+        deltaMs: target.inMilliseconds - base.inMilliseconds,
+      ),
+    );
+  }
+
   Future<void> _toggleOrientation() async {
     final nextIsLandscape = !_isLandscape;
     setState(() => _isLandscape = nextIsLandscape);
     try {
+      final side = ref.read(playerSettingsProvider).landscapeSide;
       await SystemChrome.setPreferredOrientations(
-        nextIsLandscape ? _landscapeOrientations : _portraitOrientations,
+        nextIsLandscape
+            ? [_landscapeOrientation(side)]
+            : _portraitOrientations,
       );
     } catch (_) {
       if (mounted) setState(() => _isLandscape = !nextIsLandscape);
@@ -740,6 +800,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Widget _body() {
+    final settings = ref.watch(playerSettingsProvider);
     if (_loading) {
       return const Center(child: CircularProgressIndicator(color: Colors.white));
     }
@@ -766,6 +827,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             positionGetter: () => _host.position,
             durationGetter: () => _host.duration,
             onTap: _toggleControls,
+            doubleTapCenterEnabled: settings.doubleTapCenter,
+            doubleTapEdgesEnabled: settings.doubleTapEdges,
+            onDoubleTapCenter: _onDoubleTapCenter,
+            onDoubleTapSeek: _onDoubleTapSeek,
+            hapticLongPress: settings.hapticLongPress,
+            hapticSeek: settings.hapticSeek,
+            hapticRate: settings.hapticRate,
             onRateBoost: _onRateBoost,
             onRateBoostEnd: _onRateBoostEnd,
             onSeekPreview: _onSeekPreview,
@@ -802,6 +870,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                   _host.setAudioTrackById(track.index.toString());
                 },
                 hardwareLabel: hardwareLabel,
+                hapticProgressBar: settings.hapticProgressBar,
                 onExternalPlayer: _openExternalPlayer,
                 isLandscape: _isLandscape,
                 onOrientationToggle: () => unawaited(_toggleOrientation()),
