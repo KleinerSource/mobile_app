@@ -8,6 +8,7 @@ T unwrapStd<T>(Object? raw, T Function(Object?) decode) {
   if (raw['success'] != true) {
     throw ApiException(
       (raw['message'] as String?) ?? '操作失败',
+      data: raw['data'],
     );
   }
   return decode(raw['data']);
@@ -21,7 +22,10 @@ PagedResult<T> unwrapMovieList<T>(
     throw ApiException('响应格式异常');
   }
   if (raw['success'] != true) {
-    throw ApiException((raw['message'] as String?) ?? '操作失败');
+    throw ApiException(
+      (raw['message'] as String?) ?? '操作失败',
+      data: raw['data'],
+    );
   }
   final data = raw['data'];
   if (data is! Map) {
@@ -50,7 +54,10 @@ PagedResult<T> unwrapTopLevelList<T>(
     throw ApiException('响应格式异常');
   }
   if (raw['success'] != true) {
-    throw ApiException((raw['message'] as String?) ?? '操作失败');
+    throw ApiException(
+      (raw['message'] as String?) ?? '操作失败',
+      data: raw['data'],
+    );
   }
   final dataRaw = raw['data'];
   final items = (dataRaw is List)

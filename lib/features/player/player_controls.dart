@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 
+import '../../core/models/playback.dart' as playback_models;
 import 'player_overlay_indicators.dart' show formatDuration;
 
 /// 播放器控制层 · 顶栏标题 + 底栏 (播放/暂停 · 进度条 · 时间 · 清晰度)
@@ -12,22 +13,33 @@ class PlayerControls extends StatefulWidget {
     super.key,
     required this.player,
     required this.title,
-    required this.saveData,
+    required this.quality,
+    required this.onQualityChanged,
+    required this.subtitleTracks,
+    required this.onSubtitleChanged,
+    required this.audioTracks,
+    required this.onAudioChanged,
+    required this.hardwareLabel,
+    required this.onExternalPlayer,
     required this.onTogglePlay,
     required this.onSeek,
-    required this.onToggleSaveData,
     required this.onInteraction,
   });
 
   final Player player;
   final String title;
 
-  /// 当前是否省流量 (HLS) 档
-  final bool saveData;
+  final String quality;
+  final ValueChanged<String> onQualityChanged;
+  final List<playback_models.SubtitleTrack> subtitleTracks;
+  final ValueChanged<playback_models.SubtitleTrack?> onSubtitleChanged;
+  final List<playback_models.AudioTrack> audioTracks;
+  final ValueChanged<playback_models.AudioTrack> onAudioChanged;
+  final String? hardwareLabel;
+  final VoidCallback onExternalPlayer;
 
   final VoidCallback onTogglePlay;
   final void Function(Duration) onSeek;
-  final VoidCallback onToggleSaveData;
 
   /// 任意控制交互 · 父级据此重置自动隐藏定时器
   final VoidCallback onInteraction;
@@ -79,6 +91,19 @@ class _PlayerControlsState extends State<PlayerControls> {
               ),
             ),
           ),
+          if (widget.hardwareLabel != null)
+            Text(
+              widget.hardwareLabel!,
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+            ),
+          IconButton(
+            tooltip: '外部播放器',
+            icon: const Icon(Icons.open_in_new, color: Colors.white, size: 20),
+            onPressed: () {
+              widget.onExternalPlayer();
+              widget.onInteraction();
+            },
+          ),
         ],
       ),
     );
@@ -97,7 +122,9 @@ class _PlayerControlsState extends State<PlayerControls> {
           const SizedBox(width: 8),
           _durationText(),
           const SizedBox(width: 4),
-          _saveDataButton(),
+          _qualityButton(),
+          if (widget.subtitleTracks.isNotEmpty) _subtitleButton(),
+          if (widget.audioTracks.length > 1) _audioButton(),
         ],
       ),
     );
@@ -198,22 +225,87 @@ class _PlayerControlsState extends State<PlayerControls> {
     );
   }
 
-  Widget _saveDataButton() {
-    return TextButton(
-      onPressed: () {
-        widget.onToggleSaveData();
+  Widget _qualityButton() {
+    const qualities = <String, String>{
+      'original': '自动',
+      '2160p': '2160p',
+      '1080p': '1080p',
+      '720p': '720p',
+      '480p': '480p',
+      '360p': '360p',
+    };
+    return PopupMenuButton<String>(
+      tooltip: '选择画质',
+      initialValue: widget.quality,
+      onSelected: (quality) {
+        widget.onQualityChanged(quality);
         widget.onInteraction();
       },
-      style: TextButton.styleFrom(
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
+      itemBuilder: (context) => [
+        for (final entry in qualities.entries)
+          PopupMenuItem(value: entry.key, child: Text(entry.value)),
+      ],
       child: Text(
-        widget.saveData ? '省流量' : '原画',
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        qualities[widget.quality] ?? widget.quality,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
       ),
+    );
+  }
+
+  Widget _subtitleButton() {
+    return PopupMenuButton<playback_models.SubtitleTrack>(
+      tooltip: '选择字幕',
+      onSelected: (track) {
+        widget.onSubtitleChanged(track.index < 0 ? null : track);
+        widget.onInteraction();
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem<playback_models.SubtitleTrack>(
+          value: playback_models.SubtitleTrack(
+            index: -1,
+            source: 'none',
+            language: '',
+            title: '',
+            codec: '',
+            url: '',
+            isDefault: false,
+          ),
+          child: Text('关闭字幕'),
+        ),
+        for (final track in widget.subtitleTracks)
+          PopupMenuItem<playback_models.SubtitleTrack?>(
+            value: track,
+            enabled: track.url.isNotEmpty || track.source == 'embedded',
+            child: Text(track.title.isNotEmpty
+                ? track.title
+                : (track.language.isNotEmpty ? track.language : '字幕')),
+          ),
+      ],
+      child: const Icon(Icons.subtitles_outlined, color: Colors.white, size: 21),
+    );
+  }
+
+  Widget _audioButton() {
+    return PopupMenuButton<playback_models.AudioTrack>(
+      tooltip: '选择音轨',
+      onSelected: (track) {
+        widget.onAudioChanged(track);
+        widget.onInteraction();
+      },
+      itemBuilder: (context) => [
+        for (final track in widget.audioTracks)
+          PopupMenuItem(
+            value: track,
+            child: Text(track.title.isNotEmpty
+                ? track.title
+                : (track.language.isNotEmpty ? track.language : track.codec)),
+          ),
+      ],
+      child: const Icon(Icons.audiotrack_outlined, color: Colors.white, size: 21),
     );
   }
 }

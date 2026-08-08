@@ -5,6 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../../core/api/url_resolver.dart';
+import '../../core/auth/auth_session_provider.dart';
+import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/library.dart';
 import 'libraries_providers.dart';
@@ -106,6 +109,10 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
   }
 
   void _connectWs() {
+    _connectWsAsync();
+  }
+
+  Future<void> _connectWsAsync() async {
     if (_disposed) return;
     final cfg = _ref.read(serverConfigProvider);
     if (cfg == null) {
@@ -117,7 +124,9 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
       _scheduleReconnect();
       return;
     }
-    final wsUrl = _toWsUrl(base);
+    final token = await _ref.read(authSessionRepositoryProvider).accessToken();
+    if (_disposed) return;
+    final wsUrl = _toWsUrl(cfg, token);
     try {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
       _sub = _channel!.stream.listen(
@@ -139,17 +148,13 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
     }
   }
 
-  String _toWsUrl(String base) {
-    var u = base;
-    if (u.endsWith('/')) u = u.substring(0, u.length - 1);
-    if (u.startsWith('https://')) {
-      u = 'wss://${u.substring(8)}';
-    } else if (u.startsWith('http://')) {
-      u = 'ws://${u.substring(7)}';
-    } else {
-      u = 'ws://$u';
-    }
-    return '$u/ws/scheduler/status';
+  String _toWsUrl(ServerConfig cfg, String? token) {
+    final resolved = resolveServerUrl(cfg, '/ws/scheduler/status');
+    final uri = Uri.parse(resolved);
+    final wsUri = uri.replace(
+      scheme: uri.scheme == 'https' ? 'wss' : 'ws',
+    );
+    return appendQueryToken(wsUri.toString(), token);
   }
 
   void _onMessage(dynamic raw) {
@@ -167,12 +172,15 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
       if (taskId.isEmpty) return;
       final isRunning = m['isRunning'] == true;
       final prog = m['progress'];
-      final total = (prog is Map ? prog['total'] : 0) as int? ?? 0;
-      final completed =
-          (prog is Map ? prog['completed'] : 0) as int? ?? 0;
-      final percent = ((prog is Map ? prog['percent'] : 0) as num?)
-              ?.toDouble() ??
-          0.0;
+      final total = prog is Map && prog['total'] is num
+          ? (prog['total'] as num).toInt()
+          : 0;
+      final completed = prog is Map && prog['completed'] is num
+          ? (prog['completed'] as num).toInt()
+          : 0;
+      final percent = prog is Map && prog['percent'] is num
+          ? (prog['percent'] as num).toDouble()
+          : 0.0;
       final message = (m['message'] ?? '').toString();
 
       _applyWsUpdate(

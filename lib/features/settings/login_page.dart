@@ -1,0 +1,171 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/api/dio_factory.dart';
+import '../../core/auth/auth_provider.dart';
+import '../../core/auth/auth_session.dart';
+import '../../core/platform/app_theme.dart';
+import '../../shared/glow_background.dart';
+
+class LoginPage extends ConsumerStatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  ConsumerState<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends ConsumerState<LoginPage> {
+  final _passwordController = TextEditingController();
+  final _totpController = TextEditingController();
+  bool _totpRequired = false;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    _totpController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _login() async {
+    final password = _passwordController.text;
+    if (password.isEmpty) {
+      setState(() => _error = '请输入密码');
+      return;
+    }
+    if (_totpRequired && _totpController.text.trim().isEmpty) {
+      setState(() => _error = '请输入 TOTP 验证码');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final authenticated = await ref.read(authControllerProvider.notifier).login(
+            password: password,
+            totpCode: _totpRequired ? _totpController.text : null,
+          );
+      if (mounted && !authenticated) {
+        setState(() {
+          _totpRequired = true;
+          _error = '请输入 TOTP 验证码';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final ex = toApiException(e);
+      final status = ref.read(authControllerProvider).valueOrNull?.status;
+      if (status?.passwordLoginDisabled == true) {
+        setState(() => _error = '服务器已禁用密码登录，当前版本暂不支持 Passkey');
+      } else {
+        setState(() => _error = ex.message);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final auth = ref.watch(authControllerProvider).valueOrNull;
+    final status = auth?.status;
+    final requiresTotp = _totpRequired || auth?.phase == AuthPhase.totpRequired;
+
+    return Scaffold(
+      backgroundColor: c.bg,
+      body: GlowBackground(
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(28, 36, 28, 36),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('AUTHENTICATE', style: AppText.eyebrow(context)),
+                    const SizedBox(height: 6),
+                    Text('登录 md_center', style: AppText.pageTitle(context)),
+                    const SizedBox(height: 12),
+                    Text(
+                      status?.totpConfigured == true
+                          ? '此服务器需要密码和 TOTP 验证码。'
+                          : '请输入服务器密码继续。',
+                      style: AppText.body(context),
+                    ),
+                    const SizedBox(height: 28),
+                    _input(
+                      context,
+                      controller: _passwordController,
+                      label: '密码',
+                      obscureText: true,
+                      onSubmitted: (_) => _login(),
+                    ),
+                    if (requiresTotp) ...[
+                      const SizedBox(height: 14),
+                      _input(
+                        context,
+                        controller: _totpController,
+                        label: 'TOTP 验证码',
+                        keyboardType: TextInputType.number,
+                        onSubmitted: (_) => _login(),
+                      ),
+                    ],
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(_error!, style: TextStyle(color: c.danger)),
+                    ],
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _busy ? null : _login,
+                        icon: _busy
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.login),
+                        label: Text(_busy ? '登录中...' : '登录'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _input(
+    BuildContext context, {
+    required TextEditingController controller,
+    required String label,
+    bool obscureText = false,
+    TextInputType? keyboardType,
+    ValueChanged<String>? onSubmitted,
+  }) {
+    final c = appColors(context);
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      onSubmitted: onSubmitted,
+      decoration: InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: c.surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: c.cardBorder),
+        ),
+      ),
+    );
+  }
+}

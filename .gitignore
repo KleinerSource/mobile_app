@@ -37,6 +37,20 @@ android/app/debug/
 web/
 ios/
 android/
+
+# Keep the iOS network policy in source control.
+!ios/
+ios/*
+!ios/Runner/
+ios/Runner/*
+!ios/Runner/Info.plist
+
+# Keep the Android minimum SDK required by flutter_secure_storage in source control.
+!android/
+android/*
+!android/app/
+android/app/*
+!android/app/build.gradle.kts
 windows/
 macos/
 linux/

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/config/server_config_provider.dart';
+import '../../core/auth/auth_provider.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
@@ -95,7 +95,7 @@ class SettingsPage extends ConsumerWidget {
                         builder: (ctx) => AlertDialog(
                           title: const Text('确认退出登录'),
                           content: const Text(
-                              '退出后将断开与当前服务器的连接,下次启动需要重新配置服务器地址。'),
+                              '退出后将清理当前会话,下次启动需要重新登录;服务器地址会保留。'),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(ctx, false),
@@ -114,7 +114,7 @@ class SettingsPage extends ConsumerWidget {
                       );
                       if (confirmed != true) return;
                       if (!context.mounted) return;
-                      await ref.read(serverConfigProvider.notifier).clear();
+                      await ref.read(authControllerProvider.notifier).logout();
                       if (context.mounted) {
                         Navigator.of(context).popUntil((r) => r.isFirst);
                       }

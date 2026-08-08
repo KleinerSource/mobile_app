@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../auth/auth_session_provider.dart';
 import '../config/server_config_provider.dart';
 import 'api_client.dart';
 
@@ -7,7 +8,11 @@ import 'api_client.dart';
 final apiClientProvider = Provider<ApiClient?>((ref) {
   final cfg = ref.watch(serverConfigProvider);
   if (cfg == null) return null;
-  return ApiClient.fromConfig(cfg);
+  return ApiClient.fromConfig(
+    cfg,
+    sessionRepository: ref.read(authSessionRepositoryProvider),
+    onSessionExpired: () => ref.read(authExpiryProvider.notifier).state++,
+  );
 });
 
 /// 强制要求已配置；未配置时抛错。

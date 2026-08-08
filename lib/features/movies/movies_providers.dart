@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/providers.dart';
+import '../../core/api/url_resolver.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/media_info.dart';
 import '../../core/models/movie.dart';
@@ -17,7 +18,7 @@ final moviesRepositoryProvider = Provider<MoviesRepository>((ref) {
 /// 海报/图片 URL 构造器。
 final imageUrlBuilderProvider = Provider<String Function(String uuid)>((ref) {
   final cfg = ref.watch(serverConfigProvider);
-  return (uuid) => '${cfg?.apiBase ?? ''}/images/$uuid';
+  return (uuid) => cfg == null ? '' : resolveApiUrl(cfg, '/images/$uuid');
 });
 
 final movieDetailProvider = FutureProvider.autoDispose

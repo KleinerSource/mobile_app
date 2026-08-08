@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:md_center/core/api/api_exception.dart';
 import 'package:md_center/core/api/error_mapper.dart';
 
 void main() {
@@ -52,9 +55,35 @@ void main() {
       expect(ex.message, '已存在');
     });
 
+    test('二进制 JSON 错误仍解析业务 message 和 data', () {
+      final ex = mapDioError(
+        _resp(
+          401,
+          utf8.encode(jsonEncode({
+            'success': false,
+            'message': '令牌过期',
+            'data': {'reason': 'expired'},
+          })),
+        ),
+      );
+      expect(ex.message, '令牌过期');
+      expect(ex.data, {'reason': 'expired'});
+    });
+
     test('完全无字段 → 用 HTTP 状态', () {
       final ex = mapDioError(_resp(500, {}, statusText: 'Internal'));
       expect(ex.message, 'HTTP 500: Internal');
+    });
+
+    test('异常文本不会暴露 query token 或 Bearer token', () {
+      final ex = ApiException(
+        'open https://media.example/stream.m3u8?token=access-secret '
+        'Authorization: Bearer header-secret',
+      );
+      expect(ex.message, isNot(contains('access-secret')));
+      expect(ex.message, isNot(contains('header-secret')));
+      expect(ex.message, contains('token=***'));
+      expect(ex.message, contains('Bearer ***'));
     });
   });
 }

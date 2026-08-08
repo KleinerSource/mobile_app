@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
 import 'api_exception.dart';
@@ -15,11 +17,16 @@ ApiException mapDioError(DioException e) {
   }
 
   final status = e.response?.statusCode;
-  final data = e.response?.data;
+  final data = _decodeJsonBody(e.response?.data);
   if (data is Map) {
     final detail = data['detail'];
     if (detail is String) {
-      return ApiException(detail, status: status, requestId: reqId);
+      return ApiException(
+        detail,
+        status: status,
+        requestId: reqId,
+        data: data['data'],
+      );
     }
     if (detail is List) {
       final parts = detail.map((item) {
@@ -29,15 +36,29 @@ ApiException mapDioError(DioException e) {
         }
         return '验证错误';
       }).toList();
-      return ApiException(parts.join('; '), status: status, requestId: reqId);
+      return ApiException(
+        parts.join('; '),
+        status: status,
+        requestId: reqId,
+        data: data['data'],
+      );
     }
     if (detail is Map && detail['message'] != null) {
-      return ApiException(detail['message'].toString(),
-          status: status, requestId: reqId);
+      return ApiException(
+        detail['message'].toString(),
+        status: status,
+        requestId: reqId,
+        data: data['data'],
+      );
     }
     final msg = data['message'];
     if (msg is String && msg.isNotEmpty) {
-      return ApiException(msg, status: status, requestId: reqId);
+      return ApiException(
+        msg,
+        status: status,
+        requestId: reqId,
+        data: data['data'],
+      );
     }
   }
 
@@ -45,5 +66,17 @@ ApiException mapDioError(DioException e) {
     'HTTP $status: ${e.response?.statusMessage ?? ''}'.trim(),
     status: status,
     requestId: reqId,
+    data: data is Map ? data['data'] : null,
   );
+}
+
+Object? _decodeJsonBody(Object? body) {
+  if (body is List<int>) {
+    try {
+      return jsonDecode(utf8.decode(body));
+    } catch (_) {
+      return body;
+    }
+  }
+  return body;
 }
