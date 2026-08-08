@@ -136,7 +136,7 @@ class _ActorAssociationSyncSheetState
                       style: AppText.meta(context)),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<ActorDataSource>(
-                    value: _source,
+                    initialValue: _source,
                     decoration: const InputDecoration(
                       labelText: '数据源',
                       prefixIcon: Icon(Icons.cloud_outlined),
