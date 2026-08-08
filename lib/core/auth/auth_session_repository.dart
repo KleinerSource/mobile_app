@@ -12,9 +12,7 @@ class SecureAuthTokenStore implements AuthTokenStore {
   SecureAuthTokenStore([FlutterSecureStorage? storage])
       : _storage = storage ?? const FlutterSecureStorage();
 
-  static const _androidOptions = AndroidOptions(
-    encryptedSharedPreferences: true,
-  );
+  static const _androidOptions = AndroidOptions();
 
   final FlutterSecureStorage _storage;
 

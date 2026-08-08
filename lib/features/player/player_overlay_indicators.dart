@@ -17,7 +17,7 @@ enum _Kind { brightness, volume, speed, seek }
 @immutable
 class PlayerIndicator {
   const PlayerIndicator._(
-    this.kind, {
+    this._kind, {
     this.value = 0,
     this.rate = 1,
     this.seekTarget = Duration.zero,
@@ -50,7 +50,7 @@ class PlayerIndicator {
         seekDeltaMs: deltaMs,
       );
 
-  final _Kind kind;
+  final _Kind _kind;
   final double value;
   final double rate;
   final Duration seekTarget;
@@ -83,7 +83,7 @@ class PlayerOverlayIndicators extends StatelessWidget {
   }
 
   Widget _card(BuildContext context, PlayerIndicator ind) {
-    switch (ind.kind) {
+    switch (ind._kind) {
       case _Kind.brightness:
         return _BarCard(icon: Icons.brightness_6, value: ind.value);
       case _Kind.volume:

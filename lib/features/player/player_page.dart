@@ -344,8 +344,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     if (!mounted || _loading || _handlingPlaybackError) return;
     _handlingPlaybackError = true;
     final resume = _host.position;
-    // ignore: discarded_futures
-    _recoverFromPlayerError(message, resume);
+    unawaited(_recoverFromPlayerError(message, resume));
   }
 
   Future<void> _recoverFromPlayerError(String message, Duration resume) async {

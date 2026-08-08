@@ -3,7 +3,7 @@ import 'package:md_center/core/models/playback.dart';
 
 void main() {
   test('播放决策解析模式、音轨和字幕轨', () {
-    final decision = PlaybackDecision.fromJson({
+    final decision = PlaybackDecision.fromJson(const {
       'mode': 'transcode',
       'stream_url': '/api/movies/id/1/stream.m3u8?quality=1080p',
       'mime_type': 'application/vnd.apple.mpegurl',
@@ -43,7 +43,7 @@ void main() {
   });
 
   test('硬解失败状态可识别软解回退', () {
-    final status = TranscodeStatus.fromJson({
+    final status = TranscodeStatus.fromJson(const {
       'active': true,
       'quality': '1080p',
       'hw_accel': 'videotoolbox',

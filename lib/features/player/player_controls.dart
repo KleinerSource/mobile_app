@@ -277,7 +277,7 @@ class _PlayerControlsState extends State<PlayerControls> {
           child: Text('关闭字幕'),
         ),
         for (final track in widget.subtitleTracks)
-          PopupMenuItem<playback_models.SubtitleTrack?>(
+          PopupMenuItem<playback_models.SubtitleTrack>(
             value: track,
             enabled: track.url.isNotEmpty || track.source == 'embedded',
             child: Text(track.title.isNotEmpty
