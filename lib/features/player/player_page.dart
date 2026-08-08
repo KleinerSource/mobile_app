@@ -440,7 +440,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _stopTranscodeSession() async {
-    _eventsSub?.cancel();
+    await _eventsSub?.cancel();
     _eventsSub = null;
     _transcodePollTimer?.cancel();
     _transcodePollTimer = null;
