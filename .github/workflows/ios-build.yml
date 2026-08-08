@@ -104,7 +104,7 @@ jobs:
 
       - name: build_runner
         timeout-minutes: 10
-        run: dart run build_runner build --delete-conflicting-outputs
+        run: dart run build_runner build
 
       - name: analyze
         timeout-minutes: 8

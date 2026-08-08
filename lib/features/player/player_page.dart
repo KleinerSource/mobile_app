@@ -497,9 +497,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<void> _selectSubtitle(
     ServerConfig cfg,
     String? token,
-    playback_models.SubtitleTrack? track,
-    {bool showError = true},
-  ) async {
+    playback_models.SubtitleTrack? track, {
+    bool showError = true,
+  }) async {
     try {
       if (track == null) {
         await _host.clearSubtitle();

@@ -12,7 +12,7 @@
 ```bash
 cd D:\Projects\MyProject\ghs\md_center\mobile_app\.claude\worktrees\mystifying-euclid-302347
 flutter pub get
-dart run build_runner build --delete-conflicting-outputs
+dart run build_runner build
 ```
 
 预期生成的新文件:

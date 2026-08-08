@@ -145,8 +145,8 @@ class PlayerSettingsPage extends ConsumerWidget {
                   ),
                   _PlayerSwitchTile(
                     title: '设备网速',
-                    subtitle: '显示设备当前下载和上传速度',
-                    icon: Icons.network_check,
+                    subtitle: '显示设备当前下载速度',
+                    icon: Icons.download,
                     value: settings.showNetworkSpeed,
                     onChanged: (value) => update(
                       settings.copyWith(showNetworkSpeed: value),
