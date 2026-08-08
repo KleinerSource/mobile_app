@@ -14,7 +14,9 @@ import UIKit
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
 
-    let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MdCenterPlayer")
+    guard let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MdCenterPlayer") else {
+      return
+    }
     let statsChannel = FlutterMethodChannel(
       name: "md_center/player_stats",
       binaryMessenger: registrar.messenger()
