@@ -43,6 +43,27 @@ void main() {
     expect(d.title, 'D');
   });
 
+  test('读取观看记录并保留服务端最后播放位置', () async {
+    final api = _StubMoviesApi(
+      {},
+      watchRecordResponse: {
+        'success': true,
+        'message': 'ok',
+        'data': {
+          'last_position_sec': 123.4,
+          'duration_sec': 600,
+          'completed': false,
+        },
+      },
+    );
+    final repo = MoviesRepository(api, _StubFavoritesApi(), _StubSystemApi());
+
+    final record = await repo.watchRecord(9);
+
+    expect(record?.resumePositionSec, 123);
+    expect(record?.durationSec, 600);
+  });
+
   test('upsertWatchRecord 使用后端观看记录字段', () async {
     final api = _StubMoviesApi({});
     final repo = MoviesRepository(api, _StubFavoritesApi(), _StubSystemApi());
@@ -72,10 +93,11 @@ void main() {
 }
 
 class _StubMoviesApi implements MoviesApi {
-  _StubMoviesApi(this.listResp, {this.detail});
+  _StubMoviesApi(this.listResp, {this.detail, this.watchRecordResponse});
 
   final Map<String, dynamic> listResp;
   Map<String, dynamic>? detail;
+  Map<String, dynamic>? watchRecordResponse;
   Map<String, dynamic>? lastQuery;
   Map<String, dynamic>? lastWatchRecordBody;
 
@@ -96,6 +118,7 @@ class _StubMoviesApi implements MoviesApi {
 
   @override
   Future<dynamic> getWatchRecord(int id) async =>
+      watchRecordResponse ??
       {'success': true, 'message': 'ok', 'data': null};
 
   @override

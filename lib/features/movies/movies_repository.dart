@@ -1,5 +1,6 @@
 import '../../core/api/api_exception.dart';
 import '../../core/api/envelope.dart';
+import '../../core/api/error_mapper.dart';
 import '../../core/api/services/favorites_api.dart';
 import '../../core/api/services/movies_api.dart';
 import '../../core/api/services/system_api.dart';
@@ -7,6 +8,7 @@ import '../../core/models/media_info.dart';
 import '../../core/models/movie.dart';
 import '../../core/models/paged_result.dart';
 import '../../core/models/subtitle_search.dart';
+import '../../core/models/watch_record.dart';
 import 'movie_filter.dart';
 
 class MoviesRepository {
@@ -70,6 +72,19 @@ class MoviesRepository {
 
   Future<void> markWatched(int id, bool completed) async {
     await _api.upsertWatchRecord(id, {'ended': completed});
+  }
+
+  Future<WatchRecord?> watchRecord(int id) async {
+    try {
+      final raw = await _api.getWatchRecord(id);
+      return unwrapStd<WatchRecord?>(raw, (data) {
+        if (data is! Map) return null;
+        return WatchRecord.fromJson(Map<String, dynamic>.from(data));
+      });
+    } catch (error) {
+      if (toApiException(error).status == 404) return null;
+      rethrow;
+    }
   }
 
   /// 更新观看进度 · positionSec / durationSec 由播放器上报

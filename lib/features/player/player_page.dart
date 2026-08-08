@@ -17,6 +17,7 @@ import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/playback.dart' as playback_models;
+import '../../core/models/watch_record.dart';
 import '../../core/platform/app_theme.dart';
 import '../home/home_providers.dart';
 import '../movies/movies_providers.dart';
@@ -29,6 +30,7 @@ import 'player_overlay_indicators.dart';
 import 'player_platform.dart';
 import 'player_queue.dart';
 import 'playback_decision.dart';
+import 'player_resume.dart';
 import 'player_settings.dart';
 import 'player_status_overlay.dart';
 
@@ -377,10 +379,26 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
       final resumeFromLastPosition =
           ref.read(playerSettingsProvider).resumeFromLastPosition;
+      WatchRecord? savedRecord;
+      if (quality == null &&
+          resume == null &&
+          resumeFromLastPosition &&
+          widget.startPositionSec <= 0) {
+        try {
+          savedRecord = await ref
+              .read(moviesRepositoryProvider)
+              .watchRecord(widget.movieId);
+        } catch (_) {
+          // 观看记录是续播增强能力，读取失败不能阻塞首次播放。
+        }
+      }
+      final resumePositionSec = resolveResumePosition(
+        enabled: resumeFromLastPosition,
+        explicitPositionSec: widget.startPositionSec,
+        record: savedRecord,
+      );
       final startAt = resume ??
-          (resumeFromLastPosition && widget.startPositionSec > 0
-              ? Duration(seconds: widget.startPositionSec)
-              : null);
+          (resumePositionSec > 0 ? Duration(seconds: resumePositionSec) : null);
       final direct = !useServerRoute;
       if (direct) {
         final directUrl = _directUrl(cfg);
