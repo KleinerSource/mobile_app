@@ -1,7 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:md_center/core/models/media_info.dart';
 import 'package:md_center/core/models/playback.dart';
-import 'package:md_center/features/player/playback_decision.dart';
+import 'package:md_center/features/player/playback_decision.dart'
+    as player_decision;
 
 void main() {
   test('移动端能力声明允许原画 H.264/HEVC 直传', () {
@@ -23,7 +24,7 @@ void main() {
 
   test('H.264/HEVC 不因平台自动切换到服务端 HLS', () {
     for (final codec in <String>['h264', 'hevc', 'h265']) {
-      final source = PlaybackDecision.decide(
+      final source = player_decision.PlaybackDecision.decide(
         streamUrl: '/stream',
         hlsUrl: '/stream.m3u8',
         mediaInfo: MediaInfo(
@@ -33,19 +34,20 @@ void main() {
         ),
       );
 
-      expect(source.type, PlaybackSourceType.direct, reason: codec);
+      expect(source.type, player_decision.PlaybackSourceType.direct,
+          reason: codec);
       expect(source.url, '/stream', reason: codec);
     }
   });
 
   test('手动选择分辨率仍然强制使用服务端 HLS', () {
-    final source = PlaybackDecision.decide(
+    final source = player_decision.PlaybackDecision.decide(
       streamUrl: '/stream',
       hlsUrl: '/stream.m3u8?quality=720p',
       forceHls: true,
     );
 
-    expect(source.type, PlaybackSourceType.hls);
+    expect(source.type, player_decision.PlaybackSourceType.hls);
     expect(source.url, contains('quality=720p'));
   });
 }
