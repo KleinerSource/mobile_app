@@ -29,7 +29,6 @@ class PlayerControls extends StatefulWidget {
     required this.showOrientationButton,
     required this.showMediaSwitchButton,
     required this.playbackRate,
-    required this.onExternalPlayer,
     required this.onPictureInPicture,
     required this.onPreviousMedia,
     required this.onNextMedia,
@@ -61,7 +60,6 @@ class PlayerControls extends StatefulWidget {
   final bool showOrientationButton;
   final bool showMediaSwitchButton;
   final double playbackRate;
-  final VoidCallback onExternalPlayer;
   final VoidCallback onPictureInPicture;
   final VoidCallback? onPreviousMedia;
   final VoidCallback? onNextMedia;
@@ -173,14 +171,6 @@ class _PlayerControlsState extends State<PlayerControls> {
                 widget.onInteraction();
               },
             ),
-          IconButton(
-            tooltip: '外部播放器',
-            icon: const Icon(Icons.open_in_new, color: Colors.white, size: 20),
-            onPressed: () {
-              widget.onExternalPlayer();
-              widget.onInteraction();
-            },
-          ),
         ],
       ),
     );
@@ -476,14 +466,19 @@ class _PlayerControlsState extends State<PlayerControls> {
         for (final track in widget.subtitleTracks)
           PopupMenuItem<playback_models.SubtitleTrack>(
             value: track,
-            enabled: track.url.isNotEmpty || track.source == 'embedded',
-            child: Text(track.title.isNotEmpty
-                ? track.title
-                : (track.language.isNotEmpty ? track.language : '字幕')),
+            enabled: track.canLoad,
+            child: Text(_subtitleLabel(track)),
           ),
       ],
       child: const Icon(Icons.subtitles_outlined, color: Colors.white, size: 21),
     );
+  }
+
+  String _subtitleLabel(playback_models.SubtitleTrack track) {
+    final label = track.title.isNotEmpty
+        ? track.title
+        : (track.language.isNotEmpty ? track.language : '字幕');
+    return track.isExternal ? '$label · 外挂' : label;
   }
 
   Widget _audioButton() {

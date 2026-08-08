@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness/screen_brightness.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/api/dio_factory.dart';
@@ -400,7 +399,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       }
     }
     if (defaultSubtitle != null) {
-      await _selectSubtitle(cfg, token, defaultSubtitle);
+      await _selectSubtitle(cfg, token, defaultSubtitle, showError: false);
     }
     playback_models.AudioTrack? defaultAudio;
     for (final track in decision.audioTracks) {
@@ -499,36 +498,27 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     ServerConfig cfg,
     String? token,
     playback_models.SubtitleTrack? track,
+    {bool showError = true},
   ) async {
-    if (track == null) {
-      await _host.clearSubtitle();
-      return;
-    }
-    if (track.source == 'embedded') {
-      await _host.setSubtitleTrackById(track.index.toString());
-      return;
-    }
-    if (track.url.isEmpty) return;
-    await _host.setSubtitleUrl(_protectedUrl(cfg, track.url, token));
-  }
-
-  Future<void> _openExternalPlayer() async {
     try {
-      final cfg = ref.read(serverConfigProvider);
-      if (cfg == null) throw StateError('未配置服务器');
-      final client = ref.read(requiredApiClientProvider);
-      final token = await ref.read(authSessionRepositoryProvider).accessToken();
-      final raw = await client.playback.streamUrl(widget.movieId);
-      final url = _protectedUrl(cfg, raw, token);
-      final launched = await launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
-      );
-      if (!launched && mounted) {
-        _showError('系统没有可用的外部播放器');
+      if (track == null) {
+        await _host.clearSubtitle();
+        return;
       }
+      if (track.isEmbedded) {
+        await _host.setSubtitleTrackById(track.index.toString());
+        return;
+      }
+      if (!track.canLoad || track.url.trim().isEmpty) return;
+      await _host.setSubtitleUrl(
+        _protectedUrl(cfg, track.url, token),
+        title: track.title.isEmpty ? null : track.title,
+        language: track.language.isEmpty ? null : track.language,
+      );
     } catch (error) {
-      if (mounted) _showError(toApiException(error).message);
+      if (showError && mounted) {
+        _showError('字幕加载失败: ${toApiException(error).message}');
+      }
     }
   }
 
@@ -730,7 +720,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       final entered =
           await PlayerPlatformCapabilities.enterPictureInPicture();
       if (!entered && mounted) {
-        await _openExternalPlayer();
+        _showError('当前设备或播放内核不支持画中画');
       }
     } finally {
       _pictureInPictureRequesting = false;
@@ -984,7 +974,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 showOrientationButton: settings.showOrientationButton,
                 showMediaSwitchButton: settings.showMediaSwitchButton,
                 playbackRate: _playbackRate,
-                onExternalPlayer: _openExternalPlayer,
                 onPictureInPicture: () =>
                     unawaited(_enterPictureInPicture()),
                 onPreviousMedia: widget.queueIndex > 0

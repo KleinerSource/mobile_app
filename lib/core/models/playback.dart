@@ -116,6 +116,12 @@ class SubtitleTrack {
   final String url;
   final bool isDefault;
 
+  bool get isEmbedded => source.trim().toLowerCase() == 'embedded';
+
+  bool get isExternal => source.trim().toLowerCase() == 'external';
+
+  bool get canLoad => isEmbedded || url.trim().isNotEmpty;
+
   factory SubtitleTrack.fromJson(Map<String, dynamic> json) => SubtitleTrack(
         index: _asInt(json['index']),
         source: _asString(json['source']),

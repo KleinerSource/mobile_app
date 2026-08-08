@@ -39,6 +39,8 @@ void main() {
     expect(decision.isTranscode, isTrue);
     expect(decision.audioTracks.single.language, 'jpn');
     expect(decision.subtitleTracks.single.url, contains('format=vtt'));
+    expect(decision.subtitleTracks.single.isExternal, isTrue);
+    expect(decision.subtitleTracks.single.canLoad, isTrue);
     expect(decision.targetHeight, 1080);
   });
 

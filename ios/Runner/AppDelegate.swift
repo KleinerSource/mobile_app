@@ -39,7 +39,7 @@ import UIKit
       switch call.method {
       case "enterPictureInPicture":
         // media_kit uses libmpv on iOS, so the app-level AVPictureInPictureController
-        // cannot be attached to its video surface. Dart falls back to the external player.
+        // cannot be attached to its video surface. Dart reports that PiP is unavailable.
         result(false)
       default:
         result(FlutterMethodNotImplemented)

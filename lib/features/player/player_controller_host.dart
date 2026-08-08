@@ -36,8 +36,15 @@ class PlayerControllerHost {
     );
   }
 
-  Future<void> setSubtitleUrl(String url) =>
-      player.setSubtitleTrack(SubtitleTrack.uri(url));
+  Future<void> setSubtitleUrl(
+    String url, {
+    String? title,
+    String? language,
+  }) {
+    return player.setSubtitleTrack(
+      SubtitleTrack.uri(url, title: title, language: language),
+    );
+  }
 
   Future<void> clearSubtitle() => player.setSubtitleTrack(SubtitleTrack.no());
 
