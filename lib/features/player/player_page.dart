@@ -18,6 +18,7 @@ import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/playback.dart' as playback_models;
 import '../../core/platform/app_theme.dart';
+import '../home/home_providers.dart';
 import '../movies/movies_providers.dart';
 import 'player_controller_host.dart';
 import 'player_controls.dart';
@@ -100,6 +101,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   StreamSubscription<playback_models.TranscodeStatus>? _eventsSub;
   Timer? _transcodePollTimer;
   Timer? _deviceStatsTimer;
+  Timer? _progressReportTimer;
+  Future<void> _progressReportChain = Future<void>.value();
   PlayerDeviceStats _deviceStats = const PlayerDeviceStats();
 
   bool _controlsVisible = true;
@@ -206,6 +209,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _onRateBoostEnd();
       _wasPlayingBeforePause = _host.player.state.playing;
       _backgroundPosition = _host.position;
+      unawaited(_reportProgress());
       // ignore: discarded_futures
       _host.player.pause();
       if (_transcodeSessionActive) {
@@ -236,6 +240,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _eventsSub?.cancel();
     _transcodePollTimer?.cancel();
     _deviceStatsTimer?.cancel();
+    _progressReportTimer?.cancel();
     _hideTimer?.cancel();
     _onRateBoostEnd();
     _indicatorTimer?.cancel();
@@ -249,7 +254,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       // ignore: discarded_futures
       ScreenBrightness.instance.resetApplicationScreenBrightness();
     }
-    _reportProgress();
+    unawaited(_reportProgress());
     if (_transcodeSessionActive) {
       _transcodeSessionActive = false;
       try {
@@ -266,15 +271,29 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     super.dispose();
   }
 
-  void _reportProgress() {
-    if (_lastDurationSec <= 0 || _lastPositionSec <= 0) return;
-    // ignore: discarded_futures
-    ref.read(moviesRepositoryProvider).upsertWatchRecord(
-          widget.movieId,
-          positionSec: _lastPositionSec,
-          durationSec: _lastDurationSec,
-          completed: _lastPositionSec >= (_lastDurationSec * 0.95),
-        );
+  Future<void> _reportProgress() {
+    final next = _progressReportChain.then<void>((_) async {
+      final position = _host.position.inSeconds;
+      final duration = _host.duration.inSeconds;
+      final positionSec = position > 0 ? position : _lastPositionSec;
+      final durationSec = duration > 0 ? duration : _lastDurationSec;
+      _lastPositionSec = positionSec;
+      _lastDurationSec = durationSec;
+      if (durationSec <= 0 || positionSec <= 0) return;
+
+      try {
+        await ref.read(moviesRepositoryProvider).upsertWatchRecord(
+              widget.movieId,
+              positionSec: positionSec,
+              durationSec: durationSec,
+              completed: positionSec >= (durationSec * 0.95),
+            );
+      } catch (_) {
+        // 播放器退出时网络可能已经断开，不能影响退出流程。
+      }
+    });
+    _progressReportChain = next;
+    return next;
   }
 
   Future<void> _load({
@@ -418,6 +437,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _durSub?.cancel();
     _completedSub?.cancel();
     _errorSub?.cancel();
+    _progressReportTimer?.cancel();
+    _lastPositionSec = _host.position.inSeconds;
+    _lastDurationSec = _host.duration.inSeconds;
     _posSub = _host.positionStream.listen((position) {
       _lastPositionSec = position.inSeconds;
     });
@@ -425,14 +447,22 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _lastDurationSec = duration.inSeconds;
     });
     _completedSub = _host.completedStream.listen((completed) {
-      if (!_isLeaving && completed && _lastDurationSec > 0) {
-        _lastPositionSec = _lastDurationSec;
-        _reportProgress();
+      if (!_isLeaving && completed) {
+        final duration = _host.duration.inSeconds;
+        if (duration > 0) _lastDurationSec = duration;
+        if (_lastDurationSec > 0) _lastPositionSec = _lastDurationSec;
+        unawaited(_reportProgress());
         // ignore: discarded_futures
         _stopTranscodeSession();
       }
     });
     _errorSub = _host.errorStream.listen(_onPlayerError);
+    _progressReportTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) {
+        if (!_isLeaving) unawaited(_reportProgress());
+      },
+    );
   }
 
   void _onPlayerError(String message) {
@@ -734,12 +764,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _loadGeneration++;
     _hideTimer?.cancel();
     _onRateBoostEnd();
-    _reportProgress();
+    await _reportProgress();
     try {
       await _stopPlayer();
       await _stopTranscodeSession();
     } finally {
       if (mounted) {
+        _invalidateHomeMovieLists();
         await Navigator.of(context).pushReplacement<void, void>(
           MaterialPageRoute(
             builder: (_) => PlayerPage(
@@ -843,13 +874,22 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _loadGeneration++;
     _hideTimer?.cancel();
     _onRateBoostEnd();
-    _reportProgress();
+    await _reportProgress();
     try {
       await _stopPlayer();
       await _stopTranscodeSession();
     } finally {
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        _invalidateHomeMovieLists();
+        Navigator.of(context).pop();
+      }
     }
+  }
+
+  void _invalidateHomeMovieLists() {
+    ref.invalidate(continueWatchingProvider);
+    ref.invalidate(recentlyAddedProvider);
+    ref.invalidate(recommendCarouselProvider);
   }
 
   @override

@@ -42,6 +42,33 @@ void main() {
     expect(d.id, 9);
     expect(d.title, 'D');
   });
+
+  test('upsertWatchRecord 使用后端观看记录字段', () async {
+    final api = _StubMoviesApi({});
+    final repo = MoviesRepository(api, _StubFavoritesApi(), _StubSystemApi());
+
+    await repo.upsertWatchRecord(
+      9,
+      positionSec: 123,
+      durationSec: 600,
+      completed: false,
+    );
+
+    expect(api.lastWatchRecordBody, {
+      'last_position_sec': 123,
+      'duration_sec': 600,
+      'ended': false,
+    });
+  });
+
+  test('markWatched 使用 ended 字段', () async {
+    final api = _StubMoviesApi({});
+    final repo = MoviesRepository(api, _StubFavoritesApi(), _StubSystemApi());
+
+    await repo.markWatched(9, true);
+
+    expect(api.lastWatchRecordBody, {'ended': true});
+  });
 }
 
 class _StubMoviesApi implements MoviesApi {
@@ -50,6 +77,7 @@ class _StubMoviesApi implements MoviesApi {
   final Map<String, dynamic> listResp;
   Map<String, dynamic>? detail;
   Map<String, dynamic>? lastQuery;
+  Map<String, dynamic>? lastWatchRecordBody;
 
   @override
   Future<dynamic> getMovies(Map<String, dynamic> q) async {
@@ -61,8 +89,10 @@ class _StubMoviesApi implements MoviesApi {
   Future<dynamic> getMovieDetail(int id) async => detail!;
 
   @override
-  Future<dynamic> upsertWatchRecord(int id, Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> upsertWatchRecord(int id, Map<String, dynamic> body) async {
+    lastWatchRecordBody = body;
+    return {'success': true, 'message': 'ok', 'data': null};
+  }
 
   @override
   Future<dynamic> getWatchRecord(int id) async =>

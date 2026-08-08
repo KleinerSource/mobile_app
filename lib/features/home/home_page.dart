@@ -202,12 +202,8 @@ class _ContinueWatchingSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hero = items.first;
-    final c = appColors(context);
-    final progress = (hero.watchRecord?.progressRatio ?? 0).clamp(0.0, 1.0);
-    final minutesLeft = hero.runtime != null
-        ? ((hero.runtime! * (1 - progress)).round())
-        : null;
+    final cardWidth =
+        (MediaQuery.sizeOf(context).width * 0.7).clamp(260.0, 520.0).toDouble();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
@@ -219,154 +215,183 @@ class _ContinueWatchingSection extends StatelessWidget {
             style: AppText.eyebrow(context),
           ),
           const SizedBox(height: 12),
-          PrivacyAwareInkWell(
-            movieId: hero.id,
-            borderRadius: 22,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: hero.id)),
-            ),
-            child: FractionallySizedBox(
-              widthFactor: 0.7,
-              alignment: Alignment.centerLeft,
-              child: AspectRatio(
-                aspectRatio: 16 / 10,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(22),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      PrivacyMask(
-                        movieId: hero.id,
-                        radius: 0,
-                        child: Poster(
-                          url: hero.fanartUuid != null
-                              ? urlBuilder(hero.fanartUuid!)
-                              : (hero.posterUuid != null
-                                  ? urlBuilder(hero.posterUuid!)
-                                  : null),
-                          title: hero.title,
-                          year: hero.year,
-                          aspectRatio: 16 / 10,
-                          radius: 0,
-                        ),
-                      ),
-                      Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withValues(alpha: 0.7),
-                              ],
-                              stops: const [0.4, 1.0],
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: 22,
-                        right: 22,
-                        bottom: 22,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            PrivacyText(
-                              movieId: hero.id,
-                              text: (hero.seriesName ?? hero.title).toUpperCase(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xCCFFFFFF),
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w700,
-                                fontSize: 11,
-                                letterSpacing: 1.1,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            PrivacyText(
-                              movieId: hero.id,
-                              text: hero.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w800,
-                                fontSize: 22,
-                                letterSpacing: -0.4,
-                                height: 1.1,
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              ElevatedButton(
-                                onPressed: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => MovieDetailPage(movieId: hero.id),
-                                  ),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: Colors.black,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(100),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.play_arrow, size: 18),
-                                    SizedBox(width: 4),
-                                    Text('Resume',
-                                        style: TextStyle(
-                                            fontFamily: 'Inter',
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13)),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(100),
-                                  child: LinearProgressIndicator(
-                                    value: progress,
-                                    minHeight: 4,
-                                    backgroundColor: Colors.white.withValues(alpha: 0.18),
-                                    valueColor: AlwaysStoppedAnimation(c.accent),
-                                  ),
-                                ),
-                              ),
-                              if (minutesLeft != null) ...[
-                                const SizedBox(width: 10),
-                                Text(
-                                  AppL10n.of(context)
-                                      .homeMinutesLeft(minutesLeft),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+          SizedBox(
+            height: cardWidth / (16 / 10),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (_, index) => SizedBox(
+                width: cardWidth,
+                child: _ContinueWatchingCard(
+                  movie: items[index],
+                  urlBuilder: urlBuilder,
                 ),
               ),
             ),
-            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ContinueWatchingCard extends StatelessWidget {
+  const _ContinueWatchingCard({required this.movie, required this.urlBuilder});
+
+  final MovieListItem movie;
+  final String Function(String) urlBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final progress = (movie.watchRecord?.progressRatio ?? 0).clamp(0.0, 1.0);
+    final minutesLeft = movie.runtime != null
+        ? (movie.runtime! * (1 - progress)).round()
+        : null;
+
+    return PrivacyAwareInkWell(
+      movieId: movie.id,
+      borderRadius: 22,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            PrivacyMask(
+              movieId: movie.id,
+              radius: 0,
+              child: Poster(
+                url: movie.fanartUuid != null
+                    ? urlBuilder(movie.fanartUuid!)
+                    : (movie.posterUuid != null
+                        ? urlBuilder(movie.posterUuid!)
+                        : null),
+                title: movie.title,
+                year: movie.year,
+                aspectRatio: 16 / 10,
+                radius: 0,
+              ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.7),
+                    ],
+                    stops: const [0.4, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 22,
+              right: 22,
+              bottom: 22,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  PrivacyText(
+                    movieId: movie.id,
+                    text: (movie.seriesName ?? movie.title).toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xCCFFFFFF),
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  PrivacyText(
+                    movieId: movie.id,
+                    text: movie.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 22,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => MovieDetailPage(movieId: movie.id),
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.play_arrow, size: 18),
+                            SizedBox(width: 4),
+                            Text(
+                              'Resume',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(100),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 4,
+                            backgroundColor: Colors.white.withValues(alpha: 0.18),
+                            valueColor: AlwaysStoppedAnimation(c.accent),
+                          ),
+                        ),
+                      ),
+                      if (minutesLeft != null) ...[
+                        const SizedBox(width: 10),
+                        Text(
+                          AppL10n.of(context).homeMinutesLeft(minutesLeft),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

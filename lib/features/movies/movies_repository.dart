@@ -69,7 +69,7 @@ class MoviesRepository {
   }
 
   Future<void> markWatched(int id, bool completed) async {
-    await _api.upsertWatchRecord(id, {'completed': completed});
+    await _api.upsertWatchRecord(id, {'ended': completed});
   }
 
   /// 更新观看进度 · positionSec / durationSec 由播放器上报
@@ -80,10 +80,10 @@ class MoviesRepository {
     bool? completed,
   }) async {
     final body = <String, dynamic>{
-      'position_sec': positionSec,
+      'last_position_sec': positionSec,
       'duration_sec': durationSec,
     };
-    if (completed != null) body['completed'] = completed;
+    if (completed != null) body['ended'] = completed;
     await _api.upsertWatchRecord(id, body);
   }
 

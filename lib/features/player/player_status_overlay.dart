@@ -66,7 +66,7 @@ class _PlayerStatusOverlayState extends State<PlayerStatusOverlay> {
       if (widget.showNetworkSpeed)
         _chip(
           Icons.download,
-          '↓ ${formatPlayerNetworkRate(widget.stats.downloadBytesPerSecond)}',
+          formatPlayerNetworkRate(widget.stats.downloadBytesPerSecond),
         ),
       if (widget.showCpuUsage)
         _chip(

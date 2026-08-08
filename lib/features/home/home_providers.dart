@@ -15,17 +15,34 @@ final recentlyAddedProvider = FutureProvider<PagedResult<MovieListItem>>((ref) a
   );
 });
 
-/// Continue Watching — 取最近有 watch_record 且未完成的(在客户端筛)
+/// Continue Watching — 跨影片分页查找有 watch_record 且未完成的影片。
+bool isContinueWatchingMovie(MovieListItem movie) {
+  final record = movie.watchRecord;
+  if (record == null) return false;
+  return !record.completed &&
+      record.progressRatio > 0.01 &&
+      record.progressRatio < 0.97;
+}
+
 final continueWatchingProvider = FutureProvider<List<MovieListItem>>((ref) async {
-  final result = await ref.watch(recentlyAddedProvider.future);
-  return result.items
-      .where((m) {
-        final r = m.watchRecord;
-        if (r == null) return false;
-        return !r.completed && r.progressRatio > 0.01 && r.progressRatio < 0.97;
-      })
-      .take(5)
-      .toList();
+  final repo = ref.watch(moviesRepositoryProvider);
+  const pageSize = 50;
+  const resultLimit = 5;
+  final result = <MovieListItem>[];
+  var offset = 0;
+
+  while (result.length < resultLimit) {
+    final page = await repo.list(
+      const MovieFilter(sortBy: 'created_at', sortOrder: 'desc'),
+      limit: pageSize,
+      offset: offset,
+    );
+    result.addAll(page.items.where(isContinueWatchingMovie));
+    if (!page.hasMore || page.items.isEmpty) break;
+    offset += page.items.length;
+  }
+
+  return result.take(resultLimit).toList();
 });
 
 /// 推荐轮播 — 取最近添加里 fanart/poster 不为空的前 10 条
