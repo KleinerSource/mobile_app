@@ -297,7 +297,6 @@ class _PlayerControlsState extends State<PlayerControls> {
       tooltip: '播放速度 ${widget.playbackRate.toStringAsFixed(1)}x',
       initialValue: widget.playbackRate,
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints.tightFor(width: 46, height: 46),
       onSelected: (rate) {
         widget.onRateChanged(rate);
         widget.onInteraction();
@@ -309,7 +308,11 @@ class _PlayerControlsState extends State<PlayerControls> {
             child: Text('${rate.toStringAsFixed(rate % 1 == 0 ? 1 : 2)}x'),
           ),
       ],
-      child: const Icon(Icons.speed, color: Colors.white, size: 25),
+      child: const SizedBox(
+        width: 46,
+        height: 46,
+        child: Center(child: Icon(Icons.speed, color: Colors.white, size: 25)),
+      ),
     );
   }
 
@@ -468,7 +471,6 @@ class _PlayerControlsState extends State<PlayerControls> {
     return PopupMenuButton<playback_models.SubtitleTrack>(
       tooltip: '选择字幕',
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints.tightFor(width: 42, height: 42),
       onSelected: (track) {
         widget.onSubtitleChanged(track.index < 0 ? null : track);
         widget.onInteraction();
@@ -493,7 +495,11 @@ class _PlayerControlsState extends State<PlayerControls> {
             child: Text(_subtitleLabel(track)),
           ),
       ],
-      child: _roundIcon(Icons.subtitles_outlined),
+      child: SizedBox(
+        width: 42,
+        height: 42,
+        child: Center(child: _roundIcon(Icons.subtitles_outlined)),
+      ),
     );
   }
 
@@ -508,7 +514,6 @@ class _PlayerControlsState extends State<PlayerControls> {
     return PopupMenuButton<playback_models.AudioTrack>(
       tooltip: '选择音轨',
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints.tightFor(width: 42, height: 42),
       onSelected: (track) {
         widget.onAudioChanged(track);
         widget.onInteraction();
@@ -522,7 +527,11 @@ class _PlayerControlsState extends State<PlayerControls> {
                 : (track.language.isNotEmpty ? track.language : track.codec)),
           ),
       ],
-      child: _roundIcon(Icons.audiotrack_outlined),
+      child: SizedBox(
+        width: 42,
+        height: 42,
+        child: Center(child: _roundIcon(Icons.audiotrack_outlined)),
+      ),
     );
   }
 
