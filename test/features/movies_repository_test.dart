@@ -97,7 +97,7 @@ class _StubMoviesApi implements MoviesApi {
 
   final Map<String, dynamic> listResp;
   Map<String, dynamic>? detail;
-  Map<String, dynamic>? watchRecordResponse;
+  final Map<String, dynamic>? watchRecordResponse;
   Map<String, dynamic>? lastQuery;
   Map<String, dynamic>? lastWatchRecordBody;
 

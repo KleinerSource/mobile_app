@@ -41,7 +41,7 @@ void main() {
       0,
     );
     expect(
-      WatchRecord(
+      const WatchRecord(
         lastPositionSec: 580,
         durationSec: 600,
         completed: true,
