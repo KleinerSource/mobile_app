@@ -4,7 +4,7 @@ import 'package:md_center/features/player/player_device_stats.dart';
 
 void main() {
   test('设备状态可以从原生通道数据解析', () {
-    final stats = PlayerDeviceStats.fromMap(<Object?, Object?>{
+    final stats = PlayerDeviceStats.fromMap(const <Object?, Object?>{
       'cpu_percent': 42.5,
       'battery_percent': 87,
       'download_bps': 1536,

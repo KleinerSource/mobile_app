@@ -60,7 +60,7 @@ class PlayerDeviceStatsReader {
 
 String formatPlayerNetworkRate(int? bytesPerSecond) {
   if (bytesPerSecond == null) return '--';
-  if (bytesPerSecond < 1024) return '${bytesPerSecond} B/s';
+  if (bytesPerSecond < 1024) return '$bytesPerSecond B/s';
   final kb = bytesPerSecond / 1024;
   if (kb < 1024) return '${kb.toStringAsFixed(0)} KB/s';
   final mb = kb / 1024;

@@ -749,18 +749,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       await _stopPlayer();
       await _stopTranscodeSession();
     } finally {
-      if (!mounted) return;
-      await Navigator.of(context).pushReplacement<void, void>(
-        MaterialPageRoute(
-          builder: (_) => PlayerPage(
-            movieId: item.movieId,
-            title: item.title,
-            startPositionSec: item.startPositionSec,
-            queue: widget.queue,
-            queueIndex: index,
+      if (mounted) {
+        await Navigator.of(context).pushReplacement<void, void>(
+          MaterialPageRoute(
+            builder: (_) => PlayerPage(
+              movieId: item.movieId,
+              title: item.title,
+              startPositionSec: item.startPositionSec,
+              queue: widget.queue,
+              queueIndex: index,
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
   }
 
