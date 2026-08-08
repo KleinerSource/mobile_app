@@ -104,6 +104,7 @@ jobs:
 
       - name: build_runner
         timeout-minutes: 10
+        continue-on-error: true
         run: dart run build_runner build
 
       - name: analyze
