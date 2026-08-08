@@ -45,6 +45,15 @@ class PlayerDecodeStatus {
 
   bool get isHardware => mode == PlayerDecodeMode.hardware;
 
+  static List<PlayerDecodeStatus> primary({
+    required bool usingHls,
+    required bool localHardware,
+    PlayerDecodeStatus? serverStatus,
+  }) {
+    if (usingHls && serverStatus != null) return [serverStatus];
+    return [PlayerDecodeStatus.local(hardware: localHardware)];
+  }
+
   String get shortLabel {
     if (location == PlayerDecodeLocation.local) {
       return isHardware ? '本地硬解' : '本地软解';

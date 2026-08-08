@@ -28,4 +28,30 @@ void main() {
     expect(status.shortLabel, '服务端软解回退');
     expect(status.isFallback, isTrue);
   });
+
+  test('服务端转码时只显示服务端主状态', () {
+    final server = PlayerDecodeStatus.server(engine: 'videotoolbox');
+    final statuses = PlayerDecodeStatus.primary(
+      usingHls: true,
+      localHardware: true,
+      serverStatus: server,
+    );
+
+    expect(statuses, hasLength(1));
+    expect(statuses.single, same(server));
+    expect(statuses.single.location, PlayerDecodeLocation.server);
+  });
+
+  test('直传时显示本地主状态', () {
+    final server = PlayerDecodeStatus.server(engine: 'videotoolbox');
+    final statuses = PlayerDecodeStatus.primary(
+      usingHls: false,
+      localHardware: true,
+      serverStatus: server,
+    );
+
+    expect(statuses, hasLength(1));
+    expect(statuses.single.location, PlayerDecodeLocation.local);
+    expect(statuses.single.shortLabel, '本地硬解');
+  });
 }

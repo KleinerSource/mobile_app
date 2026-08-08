@@ -618,10 +618,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     });
   }
 
-  List<PlayerDecodeStatus> get _decodeStatuses => [
-        PlayerDecodeStatus.local(hardware: _clientHardwareAcceleration),
-        if (_usingHls && _serverDecodeStatus != null) _serverDecodeStatus!,
-      ];
+  List<PlayerDecodeStatus> get _decodeStatuses =>
+      PlayerDecodeStatus.primary(
+        usingHls: _usingHls,
+        localHardware: _clientHardwareAcceleration,
+        serverStatus: _serverDecodeStatus,
+      );
 
   Map<String, String>? _authorizationHeaders(String? token) {
     final value = token?.trim() ?? '';
