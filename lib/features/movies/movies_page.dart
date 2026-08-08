@@ -1042,6 +1042,9 @@ class _BatchActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final toolbarBackground = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF1B1A24)
+        : Colors.white;
     return SafeArea(
       top: false,
       child: Padding(
@@ -1049,7 +1052,7 @@ class _BatchActionBar extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           decoration: BoxDecoration(
-            color: c.surface,
+            color: toolbarBackground,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: c.cardBorder),
             boxShadow: [

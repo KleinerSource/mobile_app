@@ -47,17 +47,17 @@ abstract class MappingsApi {
   @POST('/mappings/actors/sync')
   Future<dynamic> syncActors();
 
-  // ===== 演员关联外部同步 =====
+  // ===== 演员关联数据源同步 =====
 
-  /// 预览外部接口返回的别名 · body: { actor_name }
+  /// 预览数据源返回的别名 · body: { actor_name, source? }
   @POST('/mappings/actors/external-sync/preview')
   Future<dynamic> actorExternalSyncPreview(@Body() Map<String, dynamic> body);
 
-  /// 应用外部同步结果 · body: { mapped_value, original_values }
+  /// 应用数据源同步结果 · body: { mapped_value, original_values }
   @POST('/mappings/actors/external-sync/apply')
   Future<dynamic> actorExternalSyncApply(@Body() Map<String, dynamic> body);
 
-  /// 批量外部同步 · body: { actor_names } → { task_id, total_count }
+  /// 批量数据源同步 · body: { actor_names, source? } → { task_id, total_count }
   @POST('/mappings/actors/external-sync/batch')
   Future<dynamic> actorExternalSyncBatch(@Body() Map<String, dynamic> body);
 

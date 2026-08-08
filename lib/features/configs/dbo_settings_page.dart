@@ -126,10 +126,10 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
             children: [
               Text('TOOLS', style: AppText.eyebrow(context)),
               const SizedBox(height: 3),
-              Text('DB Online 接口', style: AppText.pageTitle(context)),
+              Text('DB Online 数据源', style: AppText.pageTitle(context)),
               const SizedBox(height: 6),
               Text(
-                'Base URL + API Key,用于影片下载请求和演员关联同步',
+                'Base URL + API Key,用于影片信息、资源和演员关联同步',
                 style: AppText.meta(context),
               ),
             ],

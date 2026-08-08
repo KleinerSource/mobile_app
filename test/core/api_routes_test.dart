@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:md_center/core/api/services/configs_extended_api.dart';
 import 'package:md_center/core/api/services/mappings_api.dart';
 import 'package:md_center/core/api/services/playback_api.dart';
 import 'package:md_center/core/models/playback.dart';
@@ -14,6 +15,30 @@ void main() {
 
     expect(adapter.paths.single, '/api/mappings/type/tags');
     expect(adapter.queries.single['limit'], '20');
+  });
+
+  test('演员数据源同步会传递所选渠道', () async {
+    final adapter = _RouteAdapter();
+    await MappingsApi(_dio(adapter)).actorExternalSyncPreview({
+      'actor_name': '演员 A',
+      'source': 'avdb',
+    });
+
+    expect(
+      adapter.paths.single,
+      '/api/mappings/actors/external-sync/preview',
+    );
+    expect(adapter.requestBodies.single['source'], 'avdb');
+  });
+
+  test('数据源和 FFmpeg 配置接口使用后端路径', () async {
+    final adapter = _RouteAdapter();
+    final api = ConfigsExtendedApi(_dio(adapter));
+
+    await api.avdb();
+    await api.ffmpeg();
+
+    expect(adapter.paths, <String>['/api/configs/avdb', '/api/configs/ffmpeg']);
   });
 
   test('播放接口覆盖决策、串流地址、状态、SSE 和停止会话', () async {
@@ -53,6 +78,7 @@ Dio _dio(_RouteAdapter adapter) {
 class _RouteAdapter implements HttpClientAdapter {
   final paths = <String>[];
   final queries = <Map<String, String>>[];
+  final requestBodies = <Map<String, dynamic>>[];
 
   @override
   void close({bool force = false}) {}
@@ -65,6 +91,9 @@ class _RouteAdapter implements HttpClientAdapter {
   ) async {
     paths.add(options.uri.path);
     queries.add(options.uri.queryParameters);
+    if (options.data is Map) {
+      requestBodies.add(Map<String, dynamic>.from(options.data as Map));
+    }
     final path = options.uri.path;
     if (path.endsWith('/transcode-events')) {
       return ResponseBody.fromString(

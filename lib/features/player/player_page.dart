@@ -61,6 +61,14 @@ class PlayerPage extends ConsumerStatefulWidget {
 
 class _PlayerPageState extends ConsumerState<PlayerPage>
     with WidgetsBindingObserver {
+  static const List<DeviceOrientation> _landscapeOrientations = [
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ];
+  static const List<DeviceOrientation> _portraitOrientations = [
+    DeviceOrientation.portraitUp,
+  ];
+
   final PlayerControllerHost _host = PlayerControllerHost();
 
   bool _loading = true;
@@ -92,15 +100,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _wasPlayingBeforePause = false;
   Duration _backgroundPosition = Duration.zero;
   bool _handlingPlaybackError = false;
+  bool _isLandscape = true;
+  bool _isRateBoosting = false;
+  bool _isLeaving = false;
+  Future<void>? _stopPlayerFuture;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    unawaited(SystemChrome.setPreferredOrientations(_landscapeOrientations));
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     FlutterVolumeController.updateShowSystemUI(false);
     // ignore: discarded_futures
@@ -121,8 +130,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_isLeaving) return;
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
+      _onRateBoostEnd();
       _wasPlayingBeforePause = _host.player.state.playing;
       _backgroundPosition = _host.position;
       // ignore: discarded_futures
@@ -145,6 +156,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   @override
   void dispose() {
+    _isLeaving = true;
+    _loadGeneration++;
     WidgetsBinding.instance.removeObserver(this);
     _posSub?.cancel();
     _durSub?.cancel();
@@ -153,8 +166,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _eventsSub?.cancel();
     _transcodePollTimer?.cancel();
     _hideTimer?.cancel();
+    _onRateBoostEnd();
     _indicatorTimer?.cancel();
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    unawaited(SystemChrome.setPreferredOrientations(DeviceOrientation.values));
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.edgeToEdge,
       overlays: SystemUiOverlay.values,
@@ -166,15 +180,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     }
     _reportProgress();
     if (_transcodeSessionActive) {
+      _transcodeSessionActive = false;
       try {
-        // ignore: discarded_futures
-        ref.read(requiredApiClientProvider).playback.stop(widget.movieId);
+        final stopFuture = ref
+            .read(requiredApiClientProvider)
+            .playback
+            .stop(widget.movieId);
+        unawaited(stopFuture);
       } catch (_) {}
     }
     // ignore: discarded_futures
     WakelockPlus.disable();
-    // ignore: discarded_futures
-    _host.dispose();
+    unawaited(_disposePlayer());
     super.dispose();
   }
 
@@ -195,8 +212,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     bool forceHls = false,
     bool forceSoftware = false,
   }) async {
+    if (_isLeaving) return;
     final generation = ++_loadGeneration;
     final selectedQuality = quality ?? _quality;
+    _onRateBoostEnd();
     await _stopTranscodeSession();
     if (!mounted) return;
     setState(() {
@@ -330,7 +349,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _lastDurationSec = duration.inSeconds;
     });
     _completedSub = _host.completedStream.listen((completed) {
-      if (completed && _lastDurationSec > 0) {
+      if (!_isLeaving && completed && _lastDurationSec > 0) {
         _lastPositionSec = _lastDurationSec;
         _reportProgress();
         // ignore: discarded_futures
@@ -341,7 +360,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _onPlayerError(String message) {
-    if (!mounted || _loading || _handlingPlaybackError) return;
+    if (!mounted || _isLeaving || _loading || _handlingPlaybackError) return;
     _handlingPlaybackError = true;
     final resume = _host.position;
     unawaited(_recoverFromPlayerError(message, resume));
@@ -374,6 +393,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _togglePlay() {
+    if (_isLeaving) return;
     if (_host.player.state.playing) {
       _backgroundPosition = _host.position;
       // HLS 会话不能在暂停期间继续占用服务端转码资源。
@@ -475,7 +495,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _pollTranscodeStatus(String quality) async {
-    if (!mounted || !_transcodeSessionActive) return;
+    if (!mounted || _isLeaving || !_transcodeSessionActive) return;
     try {
       final status = await ref
           .read(requiredApiClientProvider)
@@ -486,7 +506,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _applyTranscodeStatus(playback_models.TranscodeStatus status) {
-    if (!mounted) return;
+    if (!mounted || _isLeaving) return;
     setState(() {
       _serverHardwareLabel = !status.active || status.hwAccel.isEmpty
           ? null
@@ -581,18 +601,33 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _onRateBoost(double rate) {
-    // ignore: discarded_futures
-    _host.setRate(rate);
+    if (_isLeaving) return;
+    _isRateBoosting = true;
+    unawaited(_host.setRate(rate));
     _showIndicator(PlayerIndicator.speed(rate), autoHide: false);
   }
 
   void _onRateBoostEnd() {
-    // ignore: discarded_futures
-    _host.setRate(1.0);
+    if (!_isRateBoosting) return;
+    _isRateBoosting = false;
+    unawaited(_host.setRate(1.0));
     _hideIndicator();
   }
 
+  Future<void> _toggleOrientation() async {
+    final nextIsLandscape = !_isLandscape;
+    setState(() => _isLandscape = nextIsLandscape);
+    try {
+      await SystemChrome.setPreferredOrientations(
+        nextIsLandscape ? _landscapeOrientations : _portraitOrientations,
+      );
+    } catch (_) {
+      if (mounted) setState(() => _isLandscape = !nextIsLandscape);
+    }
+  }
+
   void _onSeekPreview(Duration target, int deltaMs) {
+    if (_isLeaving) return;
     _showIndicator(
       PlayerIndicator.seek(
         target: target,
@@ -604,6 +639,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _onSeekCommit(Duration target) {
+    if (_isLeaving) return;
     // ignore: discarded_futures
     _host.seek(target);
     _hideIndicator();
@@ -640,24 +676,64 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     });
   }
 
+  Future<void> _stopPlayer() {
+    return _stopPlayerFuture ??= _stopPlayerInternal();
+  }
+
+  Future<void> _stopPlayerInternal() async {
+    try {
+      await _host.stop();
+    } catch (_) {}
+  }
+
+  Future<void> _disposePlayer() async {
+    await _stopPlayer();
+    try {
+      await _host.dispose();
+    } catch (_) {}
+  }
+
+  Future<void> _exitPlayer() async {
+    if (_isLeaving) return;
+    _isLeaving = true;
+    _loadGeneration++;
+    _hideTimer?.cancel();
+    _onRateBoostEnd();
+    _reportProgress();
+    try {
+      await _stopPlayer();
+      await _stopTranscodeSession();
+    } finally {
+      if (mounted) Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Positioned.fill(child: _body()),
-            Positioned(
-              top: 6,
-              left: 6,
-              child: IconButton(
-                tooltip: '返回',
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.of(context).maybePop(),
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(_exitPlayer());
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Positioned.fill(child: _body()),
+              Positioned(
+                top: 6,
+                left: 6,
+                child: IconButton(
+                  tooltip: '返回',
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: _isLeaving
+                      ? null
+                      : () => unawaited(_exitPlayer()),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -727,6 +803,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 },
                 hardwareLabel: hardwareLabel,
                 onExternalPlayer: _openExternalPlayer,
+                isLandscape: _isLandscape,
+                onOrientationToggle: () => unawaited(_toggleOrientation()),
                 onTogglePlay: _togglePlay,
                 onSeek: _host.seek,
                 onInteraction: _restartHideTimer,

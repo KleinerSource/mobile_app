@@ -3,7 +3,24 @@ import '../../core/api/envelope.dart';
 import '../../core/api/services/mappings_api.dart';
 import '../../core/models/mapping_rule.dart';
 
-/// 外部接口预览结果
+enum ActorDataSource {
+  dbonline,
+  avdb,
+}
+
+extension ActorDataSourceX on ActorDataSource {
+  String get value => switch (this) {
+        ActorDataSource.dbonline => 'dbonline',
+        ActorDataSource.avdb => 'avdb',
+      };
+
+  String get label => switch (this) {
+        ActorDataSource.dbonline => 'DB Online',
+        ActorDataSource.avdb => 'AVDB',
+      };
+}
+
+/// 数据源预览结果
 class ActorAssocPreview {
   const ActorAssocPreview({
     required this.found,
@@ -156,11 +173,16 @@ class ActorAssociationsRepository {
     unwrapStd<void>(raw, (_) {});
   }
 
-  // ===== 外部同步 =====
+  // ===== 数据源同步 =====
 
-  Future<ActorAssocPreview> previewExternal(String actorName) async {
-    final raw =
-        await _api.actorExternalSyncPreview({'actor_name': actorName});
+  Future<ActorAssocPreview> previewSource(
+    String actorName, {
+    ActorDataSource source = ActorDataSource.dbonline,
+  }) async {
+    final raw = await _api.actorExternalSyncPreview({
+      'actor_name': actorName,
+      'source': source.value,
+    });
     return unwrapStd<ActorAssocPreview>(raw, (d) {
       if (d is Map) {
         return ActorAssocPreview.fromJson(Map<String, dynamic>.from(d));
@@ -176,8 +198,8 @@ class ActorAssociationsRepository {
     });
   }
 
-  /// 应用外部同步结果 (mapped_value + 合并后的所有别名)
-  Future<MappingRule> applyExternal({
+  /// 应用数据源同步结果 (mapped_value + 合并后的所有别名)
+  Future<MappingRule> applySource({
     required String mappedValue,
     required List<String> originalValues,
   }) async {

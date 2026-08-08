@@ -60,7 +60,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (status?.passwordLoginDisabled == true) {
         setState(() => _error = '服务器已禁用密码登录，当前版本暂不支持 Passkey');
       } else {
-        setState(() => _error = ex.message);
+        final message = ex.message.trim();
+        setState(() {
+          _error = message.isEmpty ? '登录失败，请检查密码或服务器连接' : message;
+        });
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -73,6 +76,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final auth = ref.watch(authControllerProvider).valueOrNull;
     final status = auth?.status;
     final requiresTotp = _totpRequired || auth?.phase == AuthPhase.totpRequired;
+    final localError = _error?.trim();
+    final authError = auth?.message?.trim();
+    final visibleError = localError?.isNotEmpty == true
+        ? localError
+        : authError?.isNotEmpty == true
+            ? authError
+            : null;
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -114,9 +124,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         onSubmitted: (_) => _login(),
                       ),
                     ],
-                    if (_error != null) ...[
+                    if (visibleError != null) ...[
                       const SizedBox(height: 12),
-                      Text(_error!, style: TextStyle(color: c.danger)),
+                      Text(visibleError, style: TextStyle(color: c.danger)),
                     ],
                     const SizedBox(height: 24),
                     SizedBox(

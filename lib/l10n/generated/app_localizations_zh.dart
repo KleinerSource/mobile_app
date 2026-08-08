@@ -251,7 +251,7 @@ class AppL10nZh extends AppL10n {
   String get settingsServerSettings => '服务器设置';
 
   @override
-  String get settingsServerSettingsSub => '媒体库 / 映射 / 翻译 / 接口';
+  String get settingsServerSettingsSub => '媒体库 / 映射 / 翻译 / 数据源';
 
   @override
   String get settingsAppSettings => '应用设置';
@@ -365,10 +365,10 @@ class AppL10nZh extends AppL10n {
   String get settingsActorAssociations => '演员关联';
 
   @override
-  String get settingsActorAssociationsSub => '标准名 + 别名维护, 支持外部接口同步';
+  String get settingsActorAssociationsSub => '标准名 + 别名维护, 支持数据源同步';
 
   @override
-  String get settingsDbo => 'DB Online 接口';
+  String get settingsDbo => 'DB Online 数据源';
 
   @override
   String get settingsDboSub => '影片下载 / 演员关联同步';

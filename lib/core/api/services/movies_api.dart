@@ -73,7 +73,7 @@ abstract class MoviesApi {
 
   // ===== DBO 接口元数据/资源 =====
 
-  /// 从 DB Online 接口刷新影片元数据 (需要 DBO 配置)
+  /// 从 DB Online 数据源刷新影片元数据 (需要 DB Online 配置)
   @GET('/movies/id/{id}/dbonline/metadata')
   Future<dynamic> getDbonlineMetadata(@Path('id') int id);
 

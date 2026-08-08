@@ -17,5 +17,5 @@ abstract class DboConfig with _$DboConfig {
 }
 
 extension DboConfigX on DboConfig {
-  bool get hasApiKey => apiKey.contains('*');
+  bool get hasApiKey => apiKey.trim().isNotEmpty;
 }

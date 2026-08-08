@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,7 +9,7 @@ import '../../../core/platform/app_theme.dart';
 import '../actor_associations_providers.dart';
 import '../actor_associations_repository.dart';
 
-/// 演员关联外部同步 sheet · 拉外部 API 预览, 用户确认后 apply
+/// 演员关联数据源同步 sheet · 选择数据源预览, 用户确认后应用
 class ActorAssociationSyncSheet extends ConsumerStatefulWidget {
   const ActorAssociationSyncSheet({super.key, required this.actor});
   final MappingRule actor;
@@ -32,6 +34,7 @@ class _ActorAssociationSyncSheetState
   bool _loading = true;
   String? _error;
   ActorAssocPreview? _preview;
+  ActorDataSource _source = ActorDataSource.dbonline;
   bool _applying = false;
 
   String get _actorName =>
@@ -44,24 +47,25 @@ class _ActorAssociationSyncSheetState
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
-  Future<void> _load() async {
+  Future<void> _load({ActorDataSource? source}) async {
+    final selectedSource = source ?? _source;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       final repo = ref.read(actorAssociationsRepositoryProvider);
-      final p = await repo.previewExternal(_actorName);
-      if (!mounted) return;
+      final p = await repo.previewSource(_actorName, source: selectedSource);
+      if (!mounted || selectedSource != _source) return;
       setState(() {
         _preview = p;
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || selectedSource != _source) return;
       setState(() {
         _error = toApiException(e).message;
         _loading = false;
@@ -84,7 +88,7 @@ class _ActorAssociationSyncSheetState
             ? preview.mappedValue
             : widget.actor.mappedValue ?? '',
       );
-      await ref.read(actorAssociationsRepositoryProvider).applyExternal(
+      await ref.read(actorAssociationsRepositoryProvider).applySource(
             mappedValue: preview.mappedValue.isNotEmpty
                 ? preview.mappedValue
                 : widget.actor.mappedValue ?? '',
@@ -125,11 +129,38 @@ class _ActorAssociationSyncSheetState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('外部同步: $_actorName',
+                  Text('数据源同步: $_actorName',
                       style: AppText.sectionTitle(context)),
                   const SizedBox(height: 2),
-                  Text('从 DB Online 拉取外部别名预览',
+                  Text('从选定数据源拉取演员别名预览',
                       style: AppText.meta(context)),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<ActorDataSource>(
+                    value: _source,
+                    decoration: const InputDecoration(
+                      labelText: '数据源',
+                      prefixIcon: Icon(Icons.cloud_outlined),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: [
+                      for (final source in ActorDataSource.values)
+                        DropdownMenuItem(
+                          value: source,
+                          child: Text(source.label),
+                        ),
+                    ],
+                    onChanged: _loading || _applying
+                        ? null
+                        : (source) {
+                            if (source == null || source == _source) return;
+                            setState(() {
+                              _source = source;
+                              _preview = null;
+                            });
+                            unawaited(_load(source: source));
+                          },
+                  ),
                 ],
               ),
             ),
@@ -380,7 +411,7 @@ class _EmptyView extends StatelessWidget {
           children: [
             Icon(Icons.search_off_rounded, color: c.muted, size: 36),
             const SizedBox(height: 8),
-            Text('外部接口没有找到匹配演员: $actorName',
+            Text('数据源没有找到匹配演员: $actorName',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: c.muted)),
           ],

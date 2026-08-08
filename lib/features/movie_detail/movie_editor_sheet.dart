@@ -235,6 +235,19 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 22),
             child: Row(
               children: [
+                IconButton(
+                  tooltip: '返回',
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: _saving
+                      ? null
+                      : () => Navigator.of(context).maybePop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text('编辑影片',
                       style: AppText.sectionTitle(context)),

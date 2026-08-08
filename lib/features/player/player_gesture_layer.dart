@@ -69,6 +69,7 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
   int _accumMs = 0;
   int _totalMs = 0;
   bool _isLeft = true;
+  bool _isBoosting = false;
   double _boostRate = _baseRate;
 
   @override
@@ -83,6 +84,7 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
           behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
           onLongPressStart: (_) {
+            _isBoosting = true;
             _boostRate = _baseRate;
             widget.onRateBoost(_boostRate);
           },
@@ -97,7 +99,8 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
               widget.onRateBoost(rate);
             }
           },
-          onLongPressEnd: (_) => widget.onRateBoostEnd(),
+          onLongPressEnd: (_) => _endRateBoost(),
+          onLongPressCancel: _endRateBoost,
           onHorizontalDragStart: (_) {
             _baseMs = widget.positionGetter().inMilliseconds;
             _totalMs = widget.durationGetter().inMilliseconds;
@@ -123,6 +126,12 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
         );
       },
     );
+  }
+
+  void _endRateBoost() {
+    if (!_isBoosting) return;
+    _isBoosting = false;
+    widget.onRateBoostEnd();
   }
 
   Duration _clampTarget() {

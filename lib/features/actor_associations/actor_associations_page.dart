@@ -384,7 +384,7 @@ class _AssocCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               _ActionBtn(
-                tooltip: '外部同步',
+                tooltip: '数据源同步',
                 icon: Icons.cloud_download_outlined,
                 color: c.accent,
                 onTap: onSync,

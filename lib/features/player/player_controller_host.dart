@@ -68,6 +68,9 @@ class PlayerControllerHost {
 
   Future<void> seek(Duration position) => player.seek(position);
 
+  /// 停止当前媒体但保留播放器实例, 用于退出播放页前的同步停播。
+  Future<void> stop() => player.stop();
+
   Future<void> setRate(double rate) => player.setRate(rate);
 
   Future<void> playOrPause() => player.playOrPause();

@@ -6,7 +6,9 @@ import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../actor_associations/actor_associations_page.dart';
+import '../configs/avdb_settings_page.dart';
 import '../configs/dbo_settings_page.dart';
+import '../configs/ffmpeg_settings_page.dart';
 import '../configs/video_extensions_page.dart';
 import '../libraries/libraries_page.dart';
 import '../mappings/mapping_rules_page.dart';
@@ -180,12 +182,32 @@ class ServerSettingsPage extends ConsumerWidget {
                 title: l.settingsGroupTools,
                 items: [
                   SettingsTile(
-                    title: l.settingsDbo,
-                    subtitle: l.settingsDboSub,
+                    title: 'DB Online 数据源',
+                    subtitle: '影片信息、资源和演员关联',
                     leadingIcon: Icons.api_outlined,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => const DboSettingsPage(),
+                      ),
+                    ),
+                  ),
+                  SettingsTile(
+                    title: 'AVDB 数据源',
+                    subtitle: '演员关联同步',
+                    leadingIcon: Icons.cloud_outlined,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const AvdbSettingsPage(),
+                      ),
+                    ),
+                  ),
+                  SettingsTile(
+                    title: 'FFmpeg 与硬解',
+                    subtitle: '硬件解码、后端选择和失败回退',
+                    leadingIcon: Icons.memory_outlined,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const FfmpegSettingsPage(),
                       ),
                     ),
                   ),

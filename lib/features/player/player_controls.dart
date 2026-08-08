@@ -21,6 +21,8 @@ class PlayerControls extends StatefulWidget {
     required this.onAudioChanged,
     required this.hardwareLabel,
     required this.onExternalPlayer,
+    required this.isLandscape,
+    required this.onOrientationToggle,
     required this.onTogglePlay,
     required this.onSeek,
     required this.onInteraction,
@@ -37,6 +39,8 @@ class PlayerControls extends StatefulWidget {
   final ValueChanged<playback_models.AudioTrack> onAudioChanged;
   final String? hardwareLabel;
   final VoidCallback onExternalPlayer;
+  final bool isLandscape;
+  final VoidCallback onOrientationToggle;
 
   final VoidCallback onTogglePlay;
   final void Function(Duration) onSeek;
@@ -96,6 +100,20 @@ class _PlayerControlsState extends State<PlayerControls> {
               widget.hardwareLabel!,
               style: const TextStyle(color: Colors.white70, fontSize: 11),
             ),
+          IconButton(
+            tooltip: widget.isLandscape ? '切换竖屏' : '切换横屏',
+            icon: Icon(
+              widget.isLandscape
+                  ? Icons.stay_current_portrait
+                  : Icons.stay_current_landscape,
+              color: Colors.white,
+              size: 20,
+            ),
+            onPressed: () {
+              widget.onOrientationToggle();
+              widget.onInteraction();
+            },
+          ),
           IconButton(
             tooltip: '外部播放器',
             icon: const Icon(Icons.open_in_new, color: Colors.white, size: 20),
