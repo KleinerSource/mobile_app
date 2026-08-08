@@ -111,21 +111,57 @@ jobs:
         timeout-minutes: 8
         id: analyze
         continue-on-error: true
-        run: flutter analyze --machine > analyze.machine.json
+        run: |
+          set +e
+          flutter analyze --machine > analyze.machine.json 2>&1
+          exit $?
 
       - name: 输出分析错误
         if: always()
         timeout-minutes: 2
         run: |
-          set -euo pipefail
-          if [ ! -s analyze.machine.json ]; then
-            echo "flutter analyze 未生成机器可读输出"
-            exit 1
-          fi
-          jq -r 'select(.type == "issue" and .severity == "error") | "::error file=\(.location.file),line=\(.location.range.start.line),col=\(.location.range.start.column)::\(.message)"' analyze.machine.json
-          if jq -e 'select(.type == "issue" and .severity == "error")' analyze.machine.json >/dev/null; then
-            exit 1
-          fi
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('analyze.machine.json')
+          if not path.exists() or not path.read_text().strip():
+              print('::error file=.github/workflows/ios-build.yml,line=119::flutter analyze 未生成输出')
+              raise SystemExit(1)
+
+          raw = path.read_text()
+          objects = []
+          try:
+              decoded = json.loads(raw)
+              objects = decoded if isinstance(decoded, list) else [decoded]
+          except json.JSONDecodeError:
+              for line in raw.splitlines():
+                  try:
+                      objects.append(json.loads(line))
+                  except json.JSONDecodeError:
+                      if line.strip():
+                          print(f'::error file=.github/workflows/ios-build.yml,line=119::analyzer: {line}')
+
+          issue_count = 0
+          for item in objects:
+              if not isinstance(item, dict) or item.get('type') != 'issue':
+                  continue
+              issue_count += 1
+              location = item.get('location') or {}
+              range_info = location.get('range') or {}
+              start = range_info.get('start') or {}
+              severity = str(item.get('severity', 'error')).lower()
+              command = 'warning' if severity in {'info', 'warning'} else 'error'
+              file_name = location.get('file', '.github/workflows/ios-build.yml')
+              line_number = start.get('line', 1)
+              column_number = start.get('column', 1)
+              message = item.get('message', '未知分析问题').replace('\n', ' ')
+              print(f'::{command} file={file_name},line={line_number},col={column_number}::{severity}: {message}')
+
+          if issue_count == 0:
+              print('::error file=.github/workflows/ios-build.yml,line=119::未解析到 Dart 分析诊断，请查看 analyze.machine.json 输出')
+          raise SystemExit(1)
+          PY
 
       - name: test
         timeout-minutes: 10
