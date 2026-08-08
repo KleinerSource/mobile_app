@@ -109,7 +109,23 @@ jobs:
 
       - name: analyze
         timeout-minutes: 8
-        run: flutter analyze
+        id: analyze
+        continue-on-error: true
+        run: flutter analyze --machine > analyze.machine.json
+
+      - name: 输出分析错误
+        if: always()
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          if [ ! -s analyze.machine.json ]; then
+            echo "flutter analyze 未生成机器可读输出"
+            exit 1
+          fi
+          jq -r 'select(.type == "issue" and .severity == "error") | "::error file=\(.location.file),line=\(.location.range.start.line),col=\(.location.range.start.column)::\(.message)"' analyze.machine.json
+          if jq -e 'select(.type == "issue" and .severity == "error")' analyze.machine.json >/dev/null; then
+            exit 1
+          fi
 
       - name: test
         timeout-minutes: 10
