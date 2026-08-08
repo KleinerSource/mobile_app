@@ -50,4 +50,22 @@ void main() {
     expect(source.type, player_decision.PlaybackSourceType.hls);
     expect(source.url, contains('quality=720p'));
   });
+
+  test('自动画质固定使用客户端播放链路', () {
+    expect(
+      player_decision.playbackRouteForQuality('original'),
+      player_decision.PlaybackRoute.direct,
+    );
+    expect(
+      player_decision.playbackRouteForQuality('auto'),
+      player_decision.PlaybackRoute.direct,
+    );
+  });
+
+  test('固定画质才使用服务端播放链路', () {
+    expect(
+      player_decision.playbackRouteForQuality('1080p'),
+      player_decision.PlaybackRoute.hls,
+    );
+  });
 }

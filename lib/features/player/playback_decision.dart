@@ -2,6 +2,16 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/models/media_info.dart';
 
+/// 移动端播放链路。自动画质始终交给客户端解码，固定画质才启动服务端转码。
+enum PlaybackRoute { direct, hls }
+
+PlaybackRoute playbackRouteForQuality(String quality) {
+  final normalized = quality.trim().toLowerCase();
+  return normalized.isEmpty || normalized == 'original' || normalized == 'auto'
+      ? PlaybackRoute.direct
+      : PlaybackRoute.hls;
+}
+
 /// 播放源类型
 enum PlaybackSourceType { direct, hls }
 

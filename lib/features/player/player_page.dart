@@ -28,6 +28,7 @@ import 'player_gesture_layer.dart';
 import 'player_overlay_indicators.dart';
 import 'player_platform.dart';
 import 'player_queue.dart';
+import 'playback_decision.dart';
 import 'player_settings.dart';
 import 'player_status_overlay.dart';
 
@@ -73,8 +74,6 @@ class PlayerPage extends ConsumerStatefulWidget {
   ConsumerState<PlayerPage> createState() => _PlayerPageState();
 }
 
-enum _PlaybackRoute { direct, hls }
-
 class _PlayerPageState extends ConsumerState<PlayerPage>
     with WidgetsBindingObserver {
   static const List<DeviceOrientation> _portraitOrientations = [
@@ -93,7 +92,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _clientHardwareAcceleration = true;
   bool _transcodeSessionActive = false;
   PlayerDecodeStatus? _serverDecodeStatus;
-  _PlaybackRoute? _sessionRoute;
   int _loadGeneration = 0;
 
   int _lastPositionSec = 0;
@@ -119,6 +117,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _wasPlayingBeforePause = false;
   Duration _backgroundPosition = Duration.zero;
   bool _handlingPlaybackError = false;
+  String? _pendingPlaybackError;
+  Timer? _rateChangeGraceTimer;
   bool _isLandscape = true;
   bool _isRateBoosting = false;
   double _playbackRate = 1.0;
@@ -248,6 +248,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _deviceStatsTimer?.cancel();
     _progressReportTimer?.cancel();
     _hideTimer?.cancel();
+    _rateChangeGraceTimer?.cancel();
     _onRateBoostEnd();
     _indicatorTimer?.cancel();
     unawaited(SystemChrome.setPreferredOrientations(DeviceOrientation.values));
@@ -305,18 +306,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<void> _load({
     String? quality,
     Duration? resume,
-    bool forceHls = false,
     bool forceSoftware = false,
   }) {
     final generation = ++_loadGeneration;
-    if (quality != null) _sessionRoute = null;
 
     final next = _loadQueue.then<void>(
       (_) => _loadInternal(
         generation: generation,
         quality: quality,
         resume: resume,
-        forceHls: forceHls,
         forceSoftware: forceSoftware,
       ),
     );
@@ -328,14 +326,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     required int generation,
     String? quality,
     Duration? resume,
-    bool forceHls = false,
     bool forceSoftware = false,
   }) async {
     if (_isLeaving || generation != _loadGeneration) return;
     final selectedQuality = quality ?? _quality;
     final cachedDecision = quality == null ? _decision : null;
-    final shouldForceHls =
-        forceHls || _sessionRoute == _PlaybackRoute.hls;
+    final route = playbackRouteForQuality(selectedQuality);
     _onRateBoostEnd();
     await _stopTranscodeSession();
     if (!mounted || generation != _loadGeneration) return;
@@ -359,7 +355,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           await _host.recreate(enableHardwareAcceleration: false);
         }
         _clientHardwareAcceleration = false;
-      } else if (!_clientHardwareAcceleration) {
+      } else if (!_clientHardwareAcceleration && quality != null) {
         await _host.recreate(enableHardwareAcceleration: true);
         _clientHardwareAcceleration = true;
       }
@@ -372,12 +368,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           );
       if (!mounted || generation != _loadGeneration) return;
       _decision = decision;
-      if (shouldForceHls || decision.isTranscode) {
-        _sessionRoute = _PlaybackRoute.hls;
-      } else {
-        _sessionRoute ??= _PlaybackRoute.direct;
-      }
-      _serverDecodeStatus = decision.isTranscode
+      // 自动画质不采纳后端的服务端转码建议，始终把原始媒体交给
+      // media_kit/libmpv；只有用户明确选择固定画质时才使用 HLS。
+      final useServerRoute = route == PlaybackRoute.hls;
+      _serverDecodeStatus = useServerRoute
           ? PlayerDecodeStatus.server(engine: decision.hwAccel)
           : null;
 
@@ -387,29 +381,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           (resumeFromLastPosition && widget.startPositionSec > 0
               ? Duration(seconds: widget.startPositionSec)
               : null);
-      final direct = !shouldForceHls &&
-          !decision.isTranscode &&
-          !decision.mimeType.contains('mpegurl');
+      final direct = !useServerRoute;
       if (direct) {
-        final directUrl = resolveServerUrl(cfg, decision.streamUrl);
-        try {
-          await _host.open(
-            directUrl,
-            startAt: startAt,
-            headers: _authorizationHeaders(token),
-          );
-          _usingHls = false;
-        } catch (_) {
-          // 直传失败时切换到服务端 HLS，再考虑关闭客户端硬解。
-          _sessionRoute = _PlaybackRoute.hls;
-          final hlsUrl = _fallbackHlsUrl(cfg, token, selectedQuality);
-          await _openHlsWithClientFallback(hlsUrl, startAt);
-        }
+        final directUrl = _directUrl(cfg);
+        await _openDirectWithClientFallback(
+          directUrl,
+          startAt,
+          token,
+        );
       } else {
-        _sessionRoute = _PlaybackRoute.hls;
-        final hlsUrl = decision.isTranscode
-            ? _protectedUrl(cfg, decision.streamUrl, token)
-            : _fallbackHlsUrl(cfg, token, selectedQuality);
+        final hlsUrl = _fallbackHlsUrl(cfg, token, selectedQuality);
         await _openHlsWithClientFallback(hlsUrl, startAt);
       }
       if (!mounted || generation != _loadGeneration) {
@@ -423,9 +404,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (!mounted || generation != _loadGeneration) return;
       _bindProgress();
       await _applyDefaultTracks(cfg, token, decision);
-      if (decision.isTranscode || _usingHls) {
+      if (useServerRoute) {
         _transcodeSessionActive = true;
-        _startTranscodeMonitoring(selectedQuality == 'original' ? 'auto' : selectedQuality);
+        _startTranscodeMonitoring(selectedQuality);
       }
       setState(() => _loading = false);
       _restartHideTimer();
@@ -436,6 +417,30 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         _loading = false;
       });
     }
+  }
+
+  Future<void> _openDirectWithClientFallback(
+    String url,
+    Duration? startAt,
+    String? token,
+  ) async {
+    try {
+      await _host.open(
+        url,
+        startAt: startAt,
+        headers: _authorizationHeaders(token),
+      );
+    } catch (_) {
+      if (!_clientHardwareAcceleration) rethrow;
+      await _host.recreate(enableHardwareAcceleration: false);
+      _clientHardwareAcceleration = false;
+      await _host.open(
+        url,
+        startAt: startAt,
+        headers: _authorizationHeaders(token),
+      );
+    }
+    _usingHls = false;
   }
 
   Future<void> _openHlsWithClientFallback(String url, Duration? startAt) async {
@@ -512,6 +517,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   void _onPlayerError(String message) {
     if (!mounted || _isLeaving || _loading || _handlingPlaybackError) return;
+    if (_rateChangeGraceTimer != null) {
+      _pendingPlaybackError = message;
+      return;
+    }
+    _beginPlaybackErrorRecovery(message);
+  }
+
+  void _beginPlaybackErrorRecovery(String message) {
+    if (!mounted || _isLeaving || _loading || _handlingPlaybackError) return;
     _handlingPlaybackError = true;
     final resume = _host.position;
     unawaited(_recoverFromPlayerError(message, resume));
@@ -522,11 +536,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (_usingHls && _clientHardwareAcceleration) {
         await _load(
           resume: resume,
-          forceHls: true,
           forceSoftware: true,
         );
       } else if (!_usingHls) {
-        await _load(resume: resume, forceHls: true);
+        // 自动画质下只重开当前直传源，不能把播放器错误升级成服务端转码。
+        await _load(resume: resume);
       } else if (mounted) {
         setState(() {
           _error = toApiException(message).message;
@@ -674,6 +688,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     return {'Authorization': 'Bearer $value'};
   }
 
+  String _directUrl(ServerConfig cfg) {
+    final path = '/api/movies/id/${widget.movieId}/stream?mode=direct';
+    return resolveServerUrl(cfg, path);
+  }
+
   String _fallbackHlsUrl(
     ServerConfig cfg,
     String? token,
@@ -717,22 +736,42 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   void _onRateBoost(double rate) {
     if (_isLeaving) return;
     _isRateBoosting = true;
-    unawaited(_host.setRate(rate));
+    _setPlaybackRate(rate);
     _showIndicator(PlayerIndicator.speed(rate), autoHide: false);
   }
 
   void _onRateBoostEnd() {
     if (!_isRateBoosting) return;
     _isRateBoosting = false;
-    unawaited(_host.setRate(_playbackRate));
+    if (_isLeaving) return;
+    _setPlaybackRate(_playbackRate);
     _hideIndicator();
   }
 
   void _onRateChanged(double rate) {
     if (_isLeaving) return;
     _playbackRate = rate;
-    unawaited(_host.setRate(rate));
+    _setPlaybackRate(rate);
     _showIndicator(PlayerIndicator.speed(rate));
+  }
+
+  void _setPlaybackRate(double rate) {
+    _rateChangeGraceTimer?.cancel();
+    _rateChangeGraceTimer = Timer(const Duration(milliseconds: 1200), () {
+      _rateChangeGraceTimer = null;
+      final pending = _pendingPlaybackError;
+      _pendingPlaybackError = null;
+      if (pending != null) _beginPlaybackErrorRecovery(pending);
+    });
+    unawaited(_setPlaybackRateInternal(rate));
+  }
+
+  Future<void> _setPlaybackRateInternal(double rate) async {
+    try {
+      await _host.setRate(rate);
+    } catch (_) {
+      // 播放器内核对倍速命令的短暂失败不应触发播放源切换。
+    }
   }
 
   void _onDoubleTapCenter() {
