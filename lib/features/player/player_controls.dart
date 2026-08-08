@@ -2,18 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 
 import '../../core/models/playback.dart' as playback_models;
-import 'player_overlay_indicators.dart' show formatDuration;
 import 'player_haptics.dart';
+import 'player_overlay_indicators.dart' show formatDuration;
 
-/// 播放器控制层 · 顶栏标题 + 底栏 (播放/暂停 · 进度条 · 时间 · 清晰度)
+/// 播放器控制层 · 顶部页面操作 + 底部媒体信息、进度和主播放控制。
 ///
-/// 时间 / 进度 / 播放图标用 StreamBuilder 局部订阅, 避免整页每秒重建。
-/// 渐变背景不参与命中测试, 控制栏中间留给手势层。
+/// 控制层只覆盖顶部和底部，中央区域始终留给手势层。
 class PlayerControls extends StatefulWidget {
   const PlayerControls({
     super.key,
     required this.player,
-    required this.title,
     required this.quality,
     required this.onQualityChanged,
     required this.subtitleTracks,
@@ -40,11 +38,10 @@ class PlayerControls extends StatefulWidget {
     required this.onRateChanged,
     required this.onSeek,
     required this.onInteraction,
+    required this.onExit,
   });
 
   final Player player;
-  final String title;
-
   final String quality;
   final ValueChanged<String> onQualityChanged;
   final List<playback_models.SubtitleTrack> subtitleTracks;
@@ -72,8 +69,9 @@ class PlayerControls extends StatefulWidget {
   final ValueChanged<double> onRateChanged;
   final void Function(Duration) onSeek;
 
-  /// 任意控制交互 · 父级据此重置自动隐藏定时器
+  /// 任意控制交互 · 父级据此重置自动隐藏定时器。
   final VoidCallback onInteraction;
+  final VoidCallback onExit;
 
   @override
   State<PlayerControls> createState() => _PlayerControlsState();
@@ -82,7 +80,7 @@ class PlayerControls extends StatefulWidget {
 class _PlayerControlsState extends State<PlayerControls> {
   static const int _sliderHapticStepMs = 5000;
 
-  /// 拖动进度条时的本地预览值 (null = 未拖动)
+  /// 拖动进度条时的本地预览值 (null = 未拖动)。
   double? _dragValue;
   int? _lastSliderHapticBucket;
 
@@ -105,7 +103,7 @@ class _PlayerControlsState extends State<PlayerControls> {
           ),
         ),
         Positioned(
-          top: 0,
+          top: 36,
           left: 0,
           right: 0,
           child: _topBar(),
@@ -121,84 +119,111 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   Widget _topBar() {
-    // 顶栏左侧留出常驻返回键的空间 (父级 Stack 顶层放返回键)
     return Padding(
-      padding: const EdgeInsets.fromLTRB(52, 10, 16, 10),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              widget.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          _topActionButton(
+            icon: Icons.close,
+            tooltip: '退出播放',
+            onPressed: widget.onExit,
           ),
-          if (widget.hardwareLabel != null)
-            Text(
-              widget.hardwareLabel!,
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
-            ),
+          const Spacer(),
           if (widget.showPipButton)
-            IconButton(
+            _topActionButton(
+              icon: Icons.picture_in_picture_alt,
               tooltip: '画中画',
-              icon: const Icon(
-                Icons.picture_in_picture_alt,
-                color: Colors.white,
-                size: 20,
-              ),
               onPressed: () {
                 widget.onPictureInPicture();
                 widget.onInteraction();
               },
             ),
           if (widget.showOrientationButton)
-            IconButton(
+            _topActionButton(
+              icon: Icons.screen_rotation,
               tooltip: widget.isLandscape ? '切换竖屏' : '切换横屏',
-              icon: Icon(
-                widget.isLandscape
-                    ? Icons.stay_current_portrait
-                    : Icons.stay_current_landscape,
-                color: Colors.white,
-                size: 20,
-              ),
               onPressed: () {
                 widget.onOrientationToggle();
                 widget.onInteraction();
               },
             ),
+          if (widget.showSpeedButton) _speedButton(),
         ],
       ),
     );
   }
 
+  Widget _topActionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      tooltip: tooltip,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.standard,
+      constraints: const BoxConstraints.tightFor(width: 46, height: 46),
+      icon: Icon(icon, color: Colors.white, size: 25),
+      onPressed: onPressed,
+    );
+  }
+
   Widget _bottomBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          _metadataRow(),
+          const SizedBox(height: 6),
+          _progressRow(),
+          const SizedBox(height: 8),
           _actionBar(),
-          const SizedBox(height: 2),
-          Row(
-            children: [
-              _positionText(),
-              const SizedBox(width: 8),
-              Expanded(child: _progressSlider()),
-              const SizedBox(width: 8),
-              _durationText(),
-              const SizedBox(width: 4),
-              _qualityButton(),
-              if (widget.subtitleTracks.isNotEmpty) _subtitleButton(),
-              if (widget.audioTracks.length > 1) _audioButton(),
-            ],
-          ),
         ],
       ),
+    );
+  }
+
+  Widget _metadataRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              _qualityButton(),
+              if (widget.hardwareLabel != null) ...[
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    widget.hardwareLabel!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (widget.subtitleTracks.isNotEmpty) _subtitleButton(),
+        if (widget.audioTracks.length > 1) _audioButton(),
+      ],
+    );
+  }
+
+  Widget _progressRow() {
+    return Row(
+      children: [
+        _positionText(),
+        const SizedBox(width: 8),
+        Expanded(child: _progressSlider()),
+        const SizedBox(width: 8),
+        _durationText(),
+      ],
     );
   }
 
@@ -229,14 +254,13 @@ class _PlayerControlsState extends State<PlayerControls> {
           tooltip: '下一部',
           onPressed: widget.onNextMedia,
         ),
-      if (widget.showSpeedButton) _speedButton(),
     ];
-    if (actions.isEmpty) return const SizedBox(height: 2);
+    if (actions.isEmpty) return const SizedBox(height: 56);
     return Align(
       alignment: Alignment.center,
       child: Wrap(
         alignment: WrapAlignment.center,
-        spacing: 2,
+        spacing: 12,
         children: actions,
       ),
     );
@@ -251,12 +275,12 @@ class _PlayerControlsState extends State<PlayerControls> {
     return IconButton(
       tooltip: tooltip,
       padding: EdgeInsets.zero,
-      visualDensity: VisualDensity.compact,
-      constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+      visualDensity: VisualDensity.standard,
+      constraints: const BoxConstraints.tightFor(width: 48, height: 48),
       icon: Icon(
         icon,
         color: action == null ? Colors.white30 : Colors.white,
-        size: 22,
+        size: 27,
       ),
       onPressed: action == null
           ? null
@@ -270,9 +294,10 @@ class _PlayerControlsState extends State<PlayerControls> {
   Widget _speedButton() {
     const rates = <double>[0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
     return PopupMenuButton<double>(
-      tooltip: '播放速度',
+      tooltip: '播放速度 ${widget.playbackRate.toStringAsFixed(1)}x',
       initialValue: widget.playbackRate,
       padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 46, height: 46),
       onSelected: (rate) {
         widget.onRateChanged(rate);
         widget.onInteraction();
@@ -284,18 +309,7 @@ class _PlayerControlsState extends State<PlayerControls> {
             child: Text('${rate.toStringAsFixed(rate % 1 == 0 ? 1 : 2)}x'),
           ),
       ],
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
-        child: Text(
-          '${widget.playbackRate.toStringAsFixed(1)}x',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            fontFeatures: [FontFeature.tabularFigures()],
-          ),
-        ),
-      ),
+      child: const Icon(Icons.speed, color: Colors.white, size: 25),
     );
   }
 
@@ -306,8 +320,14 @@ class _PlayerControlsState extends State<PlayerControls> {
       builder: (context, snap) {
         final playing = snap.data ?? false;
         return IconButton(
-          icon: Icon(playing ? Icons.pause : Icons.play_arrow,
-              color: Colors.white, size: 30),
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.standard,
+          constraints: const BoxConstraints.tightFor(width: 56, height: 56),
+          icon: Icon(
+            playing ? Icons.pause : Icons.play_arrow,
+            color: Colors.white,
+            size: 36,
+          ),
           onPressed: () {
             widget.onTogglePlay();
             widget.onInteraction();
@@ -364,7 +384,7 @@ class _PlayerControlsState extends State<PlayerControls> {
         return SliderTheme(
           data: SliderTheme.of(context).copyWith(
             trackHeight: 3,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
             activeTrackColor: Colors.white,
             inactiveTrackColor: Colors.white30,
@@ -424,6 +444,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     return PopupMenuButton<String>(
       tooltip: '选择画质',
       initialValue: widget.quality,
+      padding: EdgeInsets.zero,
       onSelected: (quality) {
         widget.onQualityChanged(quality);
         widget.onInteraction();
@@ -433,11 +454,11 @@ class _PlayerControlsState extends State<PlayerControls> {
           PopupMenuItem(value: entry.key, child: Text(entry.value)),
       ],
       child: Text(
-        qualities[widget.quality] ?? widget.quality,
+        (qualities[widget.quality] ?? widget.quality).toUpperCase(),
         style: const TextStyle(
           color: Colors.white,
           fontSize: 13,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -446,6 +467,8 @@ class _PlayerControlsState extends State<PlayerControls> {
   Widget _subtitleButton() {
     return PopupMenuButton<playback_models.SubtitleTrack>(
       tooltip: '选择字幕',
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 42, height: 42),
       onSelected: (track) {
         widget.onSubtitleChanged(track.index < 0 ? null : track);
         widget.onInteraction();
@@ -470,7 +493,7 @@ class _PlayerControlsState extends State<PlayerControls> {
             child: Text(_subtitleLabel(track)),
           ),
       ],
-      child: const Icon(Icons.subtitles_outlined, color: Colors.white, size: 21),
+      child: _roundIcon(Icons.subtitles_outlined),
     );
   }
 
@@ -484,6 +507,8 @@ class _PlayerControlsState extends State<PlayerControls> {
   Widget _audioButton() {
     return PopupMenuButton<playback_models.AudioTrack>(
       tooltip: '选择音轨',
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 42, height: 42),
       onSelected: (track) {
         widget.onAudioChanged(track);
         widget.onInteraction();
@@ -497,7 +522,20 @@ class _PlayerControlsState extends State<PlayerControls> {
                 : (track.language.isNotEmpty ? track.language : track.codec)),
           ),
       ],
-      child: const Icon(Icons.audiotrack_outlined, color: Colors.white, size: 21),
+      child: _roundIcon(Icons.audiotrack_outlined),
+    );
+  }
+
+  Widget _roundIcon(IconData icon) {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white70, width: 1.2),
+      ),
+      alignment: Alignment.center,
+      child: Icon(icon, color: Colors.white, size: 19),
     );
   }
 }

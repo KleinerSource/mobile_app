@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 
 import 'player_device_stats.dart';
 
-/// 播放器右上角 OSD · 与控制栏分离, 不参与手势命中测试。
+/// 播放器顶部状态 OSD · 与控制栏分离, 不参与手势命中测试。
 class PlayerStatusOverlay extends StatefulWidget {
   const PlayerStatusOverlay({
     super.key,
+    required this.title,
     required this.stats,
     required this.showSystemTime,
     required this.showNetworkSpeed,
@@ -15,6 +16,7 @@ class PlayerStatusOverlay extends StatefulWidget {
     required this.showBattery,
   });
 
+  final String title;
   final PlayerDeviceStats stats;
   final bool showSystemTime;
   final bool showNetworkSpeed;
@@ -60,62 +62,67 @@ class _PlayerStatusOverlayState extends State<PlayerStatusOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final chips = <Widget>[
-      if (widget.showSystemTime)
-        _chip(Icons.access_time, _formatClock(_now)),
-      if (widget.showNetworkSpeed)
-        _chip(
-          Icons.download,
-          formatPlayerNetworkRate(widget.stats.downloadBytesPerSecond),
-        ),
-      if (widget.showCpuUsage)
-        _chip(
-          Icons.memory,
-          widget.stats.cpuPercent == null
-              ? 'CPU --'
-              : 'CPU ${widget.stats.cpuPercent!.clamp(0, 100).toStringAsFixed(0)}%',
-        ),
-      if (widget.showBattery)
-        _chip(_batteryIcon(widget.stats.batteryPercent), _batteryLabel()),
-    ];
-    if (chips.isEmpty) return const SizedBox.shrink();
-
     return IgnorePointer(
-      child: Align(
-        alignment: Alignment.topRight,
-        child: Wrap(
-          alignment: WrapAlignment.end,
-          spacing: 6,
-          runSpacing: 6,
-          children: chips,
+      child: SizedBox(
+        height: 30,
+        child: Row(
+          children: [
+            if (widget.showSystemTime)
+              _item(null, _formatClock(_now)),
+            if (widget.showNetworkSpeed)
+              _item(
+                Icons.wifi,
+                formatPlayerNetworkRate(widget.stats.downloadBytesPerSecond),
+              ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text(
+                  widget.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            if (widget.showCpuUsage)
+              _item(
+                Icons.memory,
+                widget.stats.cpuPercent == null
+                    ? 'CPU --'
+                    : 'CPU ${widget.stats.cpuPercent!.clamp(0, 100).toStringAsFixed(0)}%',
+              ),
+            if (widget.showBattery)
+              _item(_batteryIcon(widget.stats.batteryPercent), _batteryLabel()),
+          ],
         ),
       ),
     );
   }
 
-  Widget _chip(IconData icon, String label) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.58),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.white70, size: 13),
+  Widget _item(IconData? icon, String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, color: Colors.white, size: 15),
             const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                fontFeatures: [FontFeature.tabularFigures()],
-              ),
-            ),
           ],
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
         ),
       ),
     );

@@ -905,17 +905,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           child: Stack(
             children: [
               Positioned.fill(child: _body()),
-              Positioned(
-                top: 6,
-                left: 6,
-                child: IconButton(
-                  tooltip: '返回',
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: _isLeaving
-                      ? null
-                      : () => unawaited(_exitPlayer()),
-                ),
-              ),
             ],
           ),
         ),
@@ -969,10 +958,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         ),
         Positioned.fill(child: PlayerOverlayIndicators(indicator: _indicator)),
         Positioned(
-          top: 58,
-          left: 16,
-          right: 16,
+          top: 8,
+          left: 20,
+          right: 20,
           child: PlayerStatusOverlay(
+            title: widget.title,
             stats: _deviceStats,
             showSystemTime: settings.showSystemTime,
             showNetworkSpeed: settings.showNetworkSpeed,
@@ -988,7 +978,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
               duration: const Duration(milliseconds: 200),
               child: PlayerControls(
                 player: _host.player,
-                title: widget.title,
                 quality: _quality,
                 onQualityChanged: _onQualityChanged,
                 subtitleTracks: decision.subtitleTracks,
@@ -1030,6 +1019,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 onRateChanged: _onRateChanged,
                 onSeek: _host.seek,
                 onInteraction: _restartHideTimer,
+                onExit: () => unawaited(_exitPlayer()),
               ),
             ),
           ),
