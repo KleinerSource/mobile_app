@@ -53,6 +53,73 @@ class PlaybackClientCaps {
   final String qualityPreset;
   final String? userAgent;
 
+  /// 移动端使用 media_kit/libmpv 播放，并默认启用系统硬解。
+  ///
+  /// H.264/HEVC 的级别由设备解码器处理；这里不能把缺少级别上限的
+  /// HEVC 声明发送给后端，否则后端会按“不支持 HEVC”强制创建转码会话。
+  /// 具体画质限制仍通过 [qualityPreset] 交给后端决定。
+  factory PlaybackClientCaps.mobile({
+    required String qualityPreset,
+    String? userAgent,
+  }) {
+    return PlaybackClientCaps(
+      containers: const [
+        'mp4',
+        'mov',
+        'm4v',
+        'matroska',
+        'mkv',
+        'webm',
+        'mpegts',
+      ],
+      videoCodecs: _mobileVideoCodecs,
+      audioCodecs: _mobileAudioCodecs,
+      qualityPreset: qualityPreset,
+      userAgent: userAgent,
+    );
+  }
+
+  static const _mobilePixelFormats = <String>[
+    'yuv420p',
+    'yuvj420p',
+    'yuv420p10le',
+  ];
+
+  static const _mobileVideoCodecs = <String, VideoCodecCapability>{
+    'h264': VideoCodecCapability(
+      maxLevel: 999,
+      pixFormats: _mobilePixelFormats,
+    ),
+    'avc1': VideoCodecCapability(
+      maxLevel: 999,
+      pixFormats: _mobilePixelFormats,
+    ),
+    'hevc': VideoCodecCapability(
+      maxLevel: 999,
+      pixFormats: _mobilePixelFormats,
+    ),
+    'h265': VideoCodecCapability(
+      maxLevel: 999,
+      pixFormats: _mobilePixelFormats,
+    ),
+    'vp9': VideoCodecCapability(
+      pixFormats: ['yuv420p', 'yuv420p10le'],
+    ),
+    'av1': VideoCodecCapability(
+      pixFormats: ['yuv420p', 'yuv420p10le'],
+    ),
+  };
+
+  static const _mobileAudioCodecs = <String, AudioCodecCapability>{
+    'aac': AudioCodecCapability(maxChannels: 8),
+    'ac3': AudioCodecCapability(maxChannels: 8),
+    'eac3': AudioCodecCapability(maxChannels: 8),
+    'mp3': AudioCodecCapability(maxChannels: 2),
+    'opus': AudioCodecCapability(maxChannels: 8),
+    'vorbis': AudioCodecCapability(maxChannels: 8),
+    'flac': AudioCodecCapability(maxChannels: 8),
+  };
+
   Map<String, dynamic> toJson() => {
         'containers': containers,
         'video_codecs': {

@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/foundation.dart';
 
 import '../../core/models/media_info.dart';
@@ -55,7 +53,18 @@ class PlaybackDecision {
     final codec = (mediaInfo.videoCodec ?? '').toLowerCase();
     final pixFmt = (mediaInfo.videoPixFmt ?? '').toLowerCase();
 
-    // 10-bit / 422 等高色深 → HLS 转码
+    // 移动端 media_kit/libmpv 默认启用系统硬解。H.264/HEVC 先交给客户端，
+    // 不因编码名称或 Android 平台差异强制创建服务端转码会话。
+    if (codec == 'h264' || codec == 'avc1' || codec == 'avc' ||
+        codec == 'hevc' || codec == 'h265' || codec == 'hvc1') {
+      return PlaybackSource(
+        url: streamUrl,
+        type: PlaybackSourceType.direct,
+        reason: 'mobile hardware codec direct',
+      );
+    }
+
+    // 10-bit / 422 等其他编码的高色深 → HLS 转码
     if (pixFmt.contains('10') || pixFmt.contains('p10') ||
         pixFmt.contains('422') || pixFmt.contains('444')) {
       return PlaybackSource(
@@ -73,34 +82,6 @@ class PlaybackDecision {
         type: PlaybackSourceType.hls,
         reason: 'container=$container not in whitelist',
       );
-    }
-
-    // codec 判断 (按平台区分)
-    final isIOS = !kIsWeb && Platform.isIOS;
-    final isAndroid = !kIsWeb && Platform.isAndroid;
-    if (codec == 'h264' || codec == 'avc1' || codec == 'avc') {
-      return PlaybackSource(
-        url: streamUrl,
-        type: PlaybackSourceType.direct,
-        reason: 'h264 universal direct',
-      );
-    }
-    if (codec == 'hevc' || codec == 'h265' || codec == 'hvc1') {
-      if (isIOS) {
-        return PlaybackSource(
-          url: streamUrl,
-          type: PlaybackSourceType.direct,
-          reason: 'hevc on iOS direct',
-        );
-      }
-      if (isAndroid) {
-        // Android HEVC 硬解支持参差, 保守走 HLS
-        return PlaybackSource(
-          url: hlsUrl,
-          type: PlaybackSourceType.hls,
-          reason: 'hevc on Android → HLS for compatibility',
-        );
-      }
     }
 
     // 后端已经判定不兼容

@@ -636,45 +636,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   playback_models.PlaybackClientCaps _clientCaps(String quality) {
     final os = kIsWeb ? 'flutter-web' : Platform.operatingSystem;
-    return playback_models.PlaybackClientCaps(
-      containers: const [
-        'mp4',
-        'mov',
-        'm4v',
-        'matroska',
-        'mkv',
-        'webm',
-        'mpegts',
-      ],
-      videoCodecs: const {
-        'h264': playback_models.VideoCodecCapability(
-          pixFormats: ['yuv420p', 'yuvj420p'],
-        ),
-        'avc1': playback_models.VideoCodecCapability(
-          pixFormats: ['yuv420p', 'yuvj420p'],
-        ),
-        'hevc': playback_models.VideoCodecCapability(
-          pixFormats: ['yuv420p', 'yuv420p10le'],
-        ),
-        'h265': playback_models.VideoCodecCapability(
-          pixFormats: ['yuv420p', 'yuv420p10le'],
-        ),
-        'vp9': playback_models.VideoCodecCapability(
-          pixFormats: ['yuv420p', 'yuv420p10le'],
-        ),
-        'av1': playback_models.VideoCodecCapability(
-          pixFormats: ['yuv420p', 'yuv420p10le'],
-        ),
-      },
-      audioCodecs: const {
-        'aac': playback_models.AudioCodecCapability(maxChannels: 8),
-        'ac3': playback_models.AudioCodecCapability(maxChannels: 8),
-        'eac3': playback_models.AudioCodecCapability(maxChannels: 8),
-        'mp3': playback_models.AudioCodecCapability(maxChannels: 2),
-        'opus': playback_models.AudioCodecCapability(maxChannels: 8),
-        'vorbis': playback_models.AudioCodecCapability(maxChannels: 8),
-        'flac': playback_models.AudioCodecCapability(maxChannels: 8),
-      },
+    return playback_models.PlaybackClientCaps.mobile(
       qualityPreset: quality,
       userAgent: 'md_center/$os',
     );
