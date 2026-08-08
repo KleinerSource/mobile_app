@@ -10,24 +10,23 @@ String resolveServerUrl(ServerConfig config, String value) {
   }
 
   final base = Uri.parse(config.baseUrl);
-  final target = Uri.parse(raw.startsWith('/') ? raw : '/$raw');
-  final basePath = base.path.replaceFirst(RegExp(r'/+$'), '');
-  final targetPath = target.path.replaceFirst(RegExp(r'^/+'), '');
-  final path = '$basePath/$targetPath'.replaceFirst(RegExp(r'^([^/])'), r'/$1');
-  return base
-      .replace(
-        path: path,
-        query: target.query,
-        fragment: target.fragment,
-      )
-      .toString();
+  final basePath = base.path.endsWith('/') ? base.path : '${base.path}/';
+  final relative = raw.startsWith('/') ? raw.substring(1) : raw;
+  final baseWithPath = base.replace(
+    path: basePath,
+    query: null,
+    fragment: null,
+  );
+  return baseWithPath.resolveUri(Uri.parse(relative)).toString();
 }
 
 String resolveApiUrl(ServerConfig config, String value) {
-  final path = value.startsWith('/') ? value : '/$value';
+  final raw = value.trim();
+  final path = raw.startsWith('/') ? raw : '/$raw';
+  final hasApiPrefix = path == '/api' || path.startsWith('/api/');
   return resolveServerUrl(
     config,
-    path.startsWith('/api/') ? path : '/api$path',
+    hasApiPrefix ? path : '/api$path',
   );
 }
 
