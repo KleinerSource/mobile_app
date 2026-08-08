@@ -131,6 +131,101 @@ class PlayerSettingsPage extends ConsumerWidget {
                   ),
                 ],
               ),
+              SettingsGroup(
+                title: 'OSD 信息',
+                items: [
+                  _PlayerSwitchTile(
+                    title: '系统时间',
+                    subtitle: '在播放器上显示当前时间',
+                    icon: Icons.access_time,
+                    value: settings.showSystemTime,
+                    onChanged: (value) => update(
+                      settings.copyWith(showSystemTime: value),
+                    ),
+                  ),
+                  _PlayerSwitchTile(
+                    title: '设备网速',
+                    subtitle: '显示设备当前下载和上传速度',
+                    icon: Icons.network_check,
+                    value: settings.showNetworkSpeed,
+                    onChanged: (value) => update(
+                      settings.copyWith(showNetworkSpeed: value),
+                    ),
+                  ),
+                  _PlayerSwitchTile(
+                    title: 'CPU 占用率',
+                    subtitle: '显示设备实时 CPU 使用率',
+                    icon: Icons.memory,
+                    value: settings.showCpuUsage,
+                    onChanged: (value) => update(
+                      settings.copyWith(showCpuUsage: value),
+                    ),
+                  ),
+                  _PlayerSwitchTile(
+                    title: '设备电量',
+                    subtitle: '显示当前电池电量',
+                    icon: Icons.battery_full,
+                    value: settings.showBattery,
+                    onChanged: (value) => update(
+                      settings.copyWith(showBattery: value),
+                    ),
+                  ),
+                ],
+              ),
+              SettingsGroup(
+                title: '播放按钮',
+                items: [
+                  _PlayerSwitchTile(
+                    title: '播放 / 暂停按钮',
+                    icon: Icons.play_circle_outline,
+                    value: settings.showPlayPauseButton,
+                    onChanged: (value) => update(
+                      settings.copyWith(showPlayPauseButton: value),
+                    ),
+                  ),
+                  _PlayerSwitchTile(
+                    title: '快进 / 快退按钮',
+                    icon: Icons.fast_forward,
+                    value: settings.showSeekButtons,
+                    onChanged: (value) => update(
+                      settings.copyWith(showSeekButtons: value),
+                    ),
+                  ),
+                  _PlayerSwitchTile(
+                    title: '速度调节按钮',
+                    icon: Icons.speed,
+                    value: settings.showSpeedButton,
+                    onChanged: (value) => update(
+                      settings.copyWith(showSpeedButton: value),
+                    ),
+                  ),
+                  _PlayerSwitchTile(
+                    title: '画中画按钮',
+                    icon: Icons.picture_in_picture_alt,
+                    value: settings.showPipButton,
+                    onChanged: (value) => update(
+                      settings.copyWith(showPipButton: value),
+                    ),
+                  ),
+                  _PlayerSwitchTile(
+                    title: '旋屏按钮',
+                    icon: Icons.screen_rotation,
+                    value: settings.showOrientationButton,
+                    onChanged: (value) => update(
+                      settings.copyWith(showOrientationButton: value),
+                    ),
+                  ),
+                  _PlayerSwitchTile(
+                    title: '切换媒体按钮',
+                    subtitle: '上一部 / 下一部',
+                    icon: Icons.skip_next,
+                    value: settings.showMediaSwitchButton,
+                    onChanged: (value) => update(
+                      settings.copyWith(showMediaSwitchButton: value),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 80),
             ],
           ),

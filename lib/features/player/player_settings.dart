@@ -51,6 +51,16 @@ class PlayerSettings {
     this.hapticSeek = true,
     this.hapticRate = true,
     this.hapticProgressBar = true,
+    this.showSystemTime = true,
+    this.showNetworkSpeed = true,
+    this.showCpuUsage = true,
+    this.showBattery = true,
+    this.showPlayPauseButton = true,
+    this.showSeekButtons = true,
+    this.showSpeedButton = true,
+    this.showPipButton = true,
+    this.showOrientationButton = true,
+    this.showMediaSwitchButton = true,
   });
 
   final bool resumeFromLastPosition;
@@ -62,6 +72,16 @@ class PlayerSettings {
   final bool hapticSeek;
   final bool hapticRate;
   final bool hapticProgressBar;
+  final bool showSystemTime;
+  final bool showNetworkSpeed;
+  final bool showCpuUsage;
+  final bool showBattery;
+  final bool showPlayPauseButton;
+  final bool showSeekButtons;
+  final bool showSpeedButton;
+  final bool showPipButton;
+  final bool showOrientationButton;
+  final bool showMediaSwitchButton;
 
   PlayerSettings copyWith({
     bool? resumeFromLastPosition,
@@ -73,6 +93,16 @@ class PlayerSettings {
     bool? hapticSeek,
     bool? hapticRate,
     bool? hapticProgressBar,
+    bool? showSystemTime,
+    bool? showNetworkSpeed,
+    bool? showCpuUsage,
+    bool? showBattery,
+    bool? showPlayPauseButton,
+    bool? showSeekButtons,
+    bool? showSpeedButton,
+    bool? showPipButton,
+    bool? showOrientationButton,
+    bool? showMediaSwitchButton,
   }) {
     return PlayerSettings(
       resumeFromLastPosition:
@@ -85,6 +115,18 @@ class PlayerSettings {
       hapticSeek: hapticSeek ?? this.hapticSeek,
       hapticRate: hapticRate ?? this.hapticRate,
       hapticProgressBar: hapticProgressBar ?? this.hapticProgressBar,
+      showSystemTime: showSystemTime ?? this.showSystemTime,
+      showNetworkSpeed: showNetworkSpeed ?? this.showNetworkSpeed,
+      showCpuUsage: showCpuUsage ?? this.showCpuUsage,
+      showBattery: showBattery ?? this.showBattery,
+      showPlayPauseButton: showPlayPauseButton ?? this.showPlayPauseButton,
+      showSeekButtons: showSeekButtons ?? this.showSeekButtons,
+      showSpeedButton: showSpeedButton ?? this.showSpeedButton,
+      showPipButton: showPipButton ?? this.showPipButton,
+      showOrientationButton:
+          showOrientationButton ?? this.showOrientationButton,
+      showMediaSwitchButton:
+          showMediaSwitchButton ?? this.showMediaSwitchButton,
     );
   }
 }
@@ -101,6 +143,17 @@ class PlayerSettingsRepository {
   static const _hapticSeekKey = 'player.haptic_seek';
   static const _hapticRateKey = 'player.haptic_rate';
   static const _hapticProgressBarKey = 'player.haptic_progress_bar';
+  static const _showSystemTimeKey = 'player.show_system_time';
+  static const _showNetworkSpeedKey = 'player.show_network_speed';
+  static const _showCpuUsageKey = 'player.show_cpu_usage';
+  static const _showBatteryKey = 'player.show_battery';
+  static const _showPlayPauseButtonKey = 'player.show_play_pause_button';
+  static const _showSeekButtonsKey = 'player.show_seek_buttons';
+  static const _showSpeedButtonKey = 'player.show_speed_button';
+  static const _showPipButtonKey = 'player.show_pip_button';
+  static const _showOrientationButtonKey = 'player.show_orientation_button';
+  static const _showMediaSwitchButtonKey =
+      'player.show_media_switch_button';
 
   final SharedPreferences _prefs;
 
@@ -119,6 +172,19 @@ class PlayerSettingsRepository {
       hapticSeek: _prefs.getBool(_hapticSeekKey) ?? true,
       hapticRate: _prefs.getBool(_hapticRateKey) ?? true,
       hapticProgressBar: _prefs.getBool(_hapticProgressBarKey) ?? true,
+      showSystemTime: _prefs.getBool(_showSystemTimeKey) ?? true,
+      showNetworkSpeed: _prefs.getBool(_showNetworkSpeedKey) ?? true,
+      showCpuUsage: _prefs.getBool(_showCpuUsageKey) ?? true,
+      showBattery: _prefs.getBool(_showBatteryKey) ?? true,
+      showPlayPauseButton:
+          _prefs.getBool(_showPlayPauseButtonKey) ?? true,
+      showSeekButtons: _prefs.getBool(_showSeekButtonsKey) ?? true,
+      showSpeedButton: _prefs.getBool(_showSpeedButtonKey) ?? true,
+      showPipButton: _prefs.getBool(_showPipButtonKey) ?? true,
+      showOrientationButton:
+          _prefs.getBool(_showOrientationButtonKey) ?? true,
+      showMediaSwitchButton:
+          _prefs.getBool(_showMediaSwitchButtonKey) ?? true,
     );
   }
 
@@ -136,6 +202,25 @@ class PlayerSettingsRepository {
       _prefs.setBool(_hapticSeekKey, settings.hapticSeek),
       _prefs.setBool(_hapticRateKey, settings.hapticRate),
       _prefs.setBool(_hapticProgressBarKey, settings.hapticProgressBar),
+      _prefs.setBool(_showSystemTimeKey, settings.showSystemTime),
+      _prefs.setBool(_showNetworkSpeedKey, settings.showNetworkSpeed),
+      _prefs.setBool(_showCpuUsageKey, settings.showCpuUsage),
+      _prefs.setBool(_showBatteryKey, settings.showBattery),
+      _prefs.setBool(
+        _showPlayPauseButtonKey,
+        settings.showPlayPauseButton,
+      ),
+      _prefs.setBool(_showSeekButtonsKey, settings.showSeekButtons),
+      _prefs.setBool(_showSpeedButtonKey, settings.showSpeedButton),
+      _prefs.setBool(_showPipButtonKey, settings.showPipButton),
+      _prefs.setBool(
+        _showOrientationButtonKey,
+        settings.showOrientationButton,
+      ),
+      _prefs.setBool(
+        _showMediaSwitchButtonKey,
+        settings.showMediaSwitchButton,
+      ),
     ]);
   }
 }

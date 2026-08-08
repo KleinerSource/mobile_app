@@ -44,6 +44,7 @@ ios/*
 !ios/Runner/
 ios/Runner/*
 !ios/Runner/Info.plist
+!ios/Runner/AppDelegate.swift
 
 # Keep the Android minimum SDK required by flutter_secure_storage in source control.
 !android/
@@ -51,6 +52,17 @@ android/*
 !android/app/
 android/app/*
 !android/app/build.gradle.kts
+!android/app/src/
+!android/app/src/main/
+!android/app/src/main/AndroidManifest.xml
+!android/app/src/main/kotlin/
+!android/app/src/main/kotlin/com/
+!android/app/src/main/kotlin/com/example/
+!android/app/src/main/kotlin/com/example/md_center/
+!android/app/src/main/kotlin/com/example/md_center/MainActivity.kt
+android/app/src/debug/
+android/app/src/profile/
+android/app/src/main/res/
 windows/
 macos/
 linux/

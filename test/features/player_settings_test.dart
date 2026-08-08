@@ -17,6 +17,16 @@ void main() {
     expect(settings.hapticSeek, isTrue);
     expect(settings.hapticRate, isTrue);
     expect(settings.hapticProgressBar, isTrue);
+    expect(settings.showSystemTime, isTrue);
+    expect(settings.showNetworkSpeed, isTrue);
+    expect(settings.showCpuUsage, isTrue);
+    expect(settings.showBattery, isTrue);
+    expect(settings.showPlayPauseButton, isTrue);
+    expect(settings.showSeekButtons, isTrue);
+    expect(settings.showSpeedButton, isTrue);
+    expect(settings.showPipButton, isTrue);
+    expect(settings.showOrientationButton, isTrue);
+    expect(settings.showMediaSwitchButton, isTrue);
   });
 
   test('播放器设置可以持久化并恢复', () async {
@@ -33,6 +43,16 @@ void main() {
       hapticSeek: false,
       hapticRate: true,
       hapticProgressBar: false,
+      showSystemTime: false,
+      showNetworkSpeed: false,
+      showCpuUsage: true,
+      showBattery: false,
+      showPlayPauseButton: false,
+      showSeekButtons: false,
+      showSpeedButton: true,
+      showPipButton: false,
+      showOrientationButton: false,
+      showMediaSwitchButton: true,
     );
 
     await repository.save(expected);
@@ -47,5 +67,15 @@ void main() {
     expect(actual.hapticSeek, isFalse);
     expect(actual.hapticRate, isTrue);
     expect(actual.hapticProgressBar, isFalse);
+    expect(actual.showSystemTime, isFalse);
+    expect(actual.showNetworkSpeed, isFalse);
+    expect(actual.showCpuUsage, isTrue);
+    expect(actual.showBattery, isFalse);
+    expect(actual.showPlayPauseButton, isFalse);
+    expect(actual.showSeekButtons, isFalse);
+    expect(actual.showSpeedButton, isTrue);
+    expect(actual.showPipButton, isFalse);
+    expect(actual.showOrientationButton, isFalse);
+    expect(actual.showMediaSwitchButton, isTrue);
   });
 }

@@ -47,7 +47,7 @@ class AppSettingsPage extends ConsumerWidget {
                 items: [
                   SettingsTile(
                     title: '播放器设置',
-                    subtitle: '播放进度 / 屏幕方向 / 播放手势 / 震动反馈',
+                    subtitle: '播放进度 / 屏幕方向 / OSD / 播放按钮 / 手势反馈',
                     leadingIcon: Icons.play_circle_outline,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(

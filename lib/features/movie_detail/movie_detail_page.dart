@@ -13,6 +13,7 @@ import '../favorites/favorites_providers.dart';
 import '../lists/add_to_list_sheet.dart';
 import '../movies/movies_providers.dart';
 import '../player/player_page.dart';
+import '../player/player_queue.dart';
 import '../resources/resource_movies_page.dart';
 import 'actor_movies_page.dart';
 import 'dbo_diff_sheet.dart';
@@ -357,9 +358,46 @@ class _ActionRow extends StatelessWidget {
     return (runtimeMin * 60 * r).round();
   }
 
+  List<PlayerQueueItem> get _playerQueue {
+    final items = <PlayerQueueItem>[
+      PlayerQueueItem(
+        movieId: movie.id,
+        title: movie.title,
+        startPositionSec: _startPositionSec,
+        part: movie.moviePart,
+      ),
+      for (final related in movie.partMovies)
+        if (related.id != movie.id)
+          PlayerQueueItem(
+            movieId: related.id,
+            title: related.title,
+            part: related.moviePart,
+          ),
+    ];
+    if (items.every((item) => item.part?.isNotEmpty == true)) {
+      items.sort(_comparePlayerQueueItems);
+    }
+    return items;
+  }
+
+  int _comparePlayerQueueItems(PlayerQueueItem a, PlayerQueueItem b) {
+    final aPart = _partNumber(a.part);
+    final bPart = _partNumber(b.part);
+    if (aPart == null || bPart == null) return 0;
+    return aPart.compareTo(bPart);
+  }
+
+  int? _partNumber(String? part) {
+    final match = RegExp(r'(\d+)').firstMatch(part ?? '');
+    return int.tryParse(match?.group(1) ?? '');
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final playerQueue = _playerQueue;
+    final playerQueueIndex =
+        playerQueue.indexWhere((item) => item.movieId == movie.id);
     return Row(
       children: [
         Expanded(
@@ -370,6 +408,8 @@ class _ActionRow extends StatelessWidget {
               movieId: movie.id,
               title: movie.title,
               startPositionSec: _startPositionSec,
+              queue: playerQueue,
+              queueIndex: playerQueueIndex < 0 ? 0 : playerQueueIndex,
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: c.text,

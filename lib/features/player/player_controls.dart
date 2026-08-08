@@ -8,7 +8,7 @@ import 'player_haptics.dart';
 /// 播放器控制层 · 顶栏标题 + 底栏 (播放/暂停 · 进度条 · 时间 · 清晰度)
 ///
 /// 时间 / 进度 / 播放图标用 StreamBuilder 局部订阅, 避免整页每秒重建。
-/// 隐藏时由父级用 IgnorePointer 让手势穿透到手势层。
+/// 渐变背景不参与命中测试, 控制栏中间留给手势层。
 class PlayerControls extends StatefulWidget {
   const PlayerControls({
     super.key,
@@ -22,10 +22,23 @@ class PlayerControls extends StatefulWidget {
     required this.onAudioChanged,
     required this.hardwareLabel,
     required this.hapticProgressBar,
+    required this.showPlayPauseButton,
+    required this.showSeekButtons,
+    required this.showSpeedButton,
+    required this.showPipButton,
+    required this.showOrientationButton,
+    required this.showMediaSwitchButton,
+    required this.playbackRate,
     required this.onExternalPlayer,
+    required this.onPictureInPicture,
+    required this.onPreviousMedia,
+    required this.onNextMedia,
     required this.isLandscape,
     required this.onOrientationToggle,
     required this.onTogglePlay,
+    required this.onSeekBackward,
+    required this.onSeekForward,
+    required this.onRateChanged,
     required this.onSeek,
     required this.onInteraction,
   });
@@ -41,11 +54,24 @@ class PlayerControls extends StatefulWidget {
   final ValueChanged<playback_models.AudioTrack> onAudioChanged;
   final String? hardwareLabel;
   final bool hapticProgressBar;
+  final bool showPlayPauseButton;
+  final bool showSeekButtons;
+  final bool showSpeedButton;
+  final bool showPipButton;
+  final bool showOrientationButton;
+  final bool showMediaSwitchButton;
+  final double playbackRate;
   final VoidCallback onExternalPlayer;
+  final VoidCallback onPictureInPicture;
+  final VoidCallback? onPreviousMedia;
+  final VoidCallback? onNextMedia;
   final bool isLandscape;
   final VoidCallback onOrientationToggle;
 
   final VoidCallback onTogglePlay;
+  final VoidCallback onSeekBackward;
+  final VoidCallback onSeekForward;
+  final ValueChanged<double> onRateChanged;
   final void Function(Duration) onSeek;
 
   /// 任意控制交互 · 父级据此重置自动隐藏定时器
@@ -64,22 +90,35 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.black54, Colors.transparent, Colors.black54],
-          stops: [0, 0.4, 1],
+    return Stack(
+      children: [
+        const Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black54, Colors.transparent, Colors.black54],
+                  stops: [0, 0.4, 1],
+                ),
+              ),
+            ),
+          ),
         ),
-      ),
-      child: Column(
-        children: [
-          _topBar(),
-          const Spacer(),
-          _bottomBar(),
-        ],
-      ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: _topBar(),
+        ),
+        Positioned(
+          right: 0,
+          bottom: 0,
+          left: 0,
+          child: _bottomBar(),
+        ),
+      ],
     );
   }
 
@@ -106,20 +145,34 @@ class _PlayerControlsState extends State<PlayerControls> {
               widget.hardwareLabel!,
               style: const TextStyle(color: Colors.white70, fontSize: 11),
             ),
-          IconButton(
-            tooltip: widget.isLandscape ? '切换竖屏' : '切换横屏',
-            icon: Icon(
-              widget.isLandscape
-                  ? Icons.stay_current_portrait
-                  : Icons.stay_current_landscape,
-              color: Colors.white,
-              size: 20,
+          if (widget.showPipButton)
+            IconButton(
+              tooltip: '画中画',
+              icon: const Icon(
+                Icons.picture_in_picture_alt,
+                color: Colors.white,
+                size: 20,
+              ),
+              onPressed: () {
+                widget.onPictureInPicture();
+                widget.onInteraction();
+              },
             ),
-            onPressed: () {
-              widget.onOrientationToggle();
-              widget.onInteraction();
-            },
-          ),
+          if (widget.showOrientationButton)
+            IconButton(
+              tooltip: widget.isLandscape ? '切换竖屏' : '切换横屏',
+              icon: Icon(
+                widget.isLandscape
+                    ? Icons.stay_current_portrait
+                    : Icons.stay_current_landscape,
+                color: Colors.white,
+                size: 20,
+              ),
+              onPressed: () {
+                widget.onOrientationToggle();
+                widget.onInteraction();
+              },
+            ),
           IconButton(
             tooltip: '外部播放器',
             icon: const Icon(Icons.open_in_new, color: Colors.white, size: 20),
@@ -136,20 +189,122 @@ class _PlayerControlsState extends State<PlayerControls> {
   Widget _bottomBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _playPauseButton(),
-          const SizedBox(width: 8),
-          _positionText(),
-          const SizedBox(width: 8),
-          Expanded(child: _progressSlider()),
-          const SizedBox(width: 8),
-          _durationText(),
-          const SizedBox(width: 4),
-          _qualityButton(),
-          if (widget.subtitleTracks.isNotEmpty) _subtitleButton(),
-          if (widget.audioTracks.length > 1) _audioButton(),
+          _actionBar(),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              _positionText(),
+              const SizedBox(width: 8),
+              Expanded(child: _progressSlider()),
+              const SizedBox(width: 8),
+              _durationText(),
+              const SizedBox(width: 4),
+              _qualityButton(),
+              if (widget.subtitleTracks.isNotEmpty) _subtitleButton(),
+              if (widget.audioTracks.length > 1) _audioButton(),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _actionBar() {
+    final actions = <Widget>[
+      if (widget.showMediaSwitchButton)
+        _actionButton(
+          icon: Icons.skip_previous,
+          tooltip: '上一部',
+          onPressed: widget.onPreviousMedia,
+        ),
+      if (widget.showSeekButtons)
+        _actionButton(
+          icon: Icons.replay_10,
+          tooltip: '快退 10 秒',
+          onPressed: widget.onSeekBackward,
+        ),
+      if (widget.showPlayPauseButton) _playPauseButton(),
+      if (widget.showSeekButtons)
+        _actionButton(
+          icon: Icons.forward_10,
+          tooltip: '快进 10 秒',
+          onPressed: widget.onSeekForward,
+        ),
+      if (widget.showMediaSwitchButton)
+        _actionButton(
+          icon: Icons.skip_next,
+          tooltip: '下一部',
+          onPressed: widget.onNextMedia,
+        ),
+      if (widget.showSpeedButton) _speedButton(),
+    ];
+    if (actions.isEmpty) return const SizedBox(height: 2);
+    return Align(
+      alignment: Alignment.center,
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 2,
+        children: actions,
+      ),
+    );
+  }
+
+  Widget _actionButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onPressed,
+  }) {
+    final action = onPressed;
+    return IconButton(
+      tooltip: tooltip,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+      icon: Icon(
+        icon,
+        color: action == null ? Colors.white30 : Colors.white,
+        size: 22,
+      ),
+      onPressed: action == null
+          ? null
+          : () {
+              action();
+              widget.onInteraction();
+            },
+    );
+  }
+
+  Widget _speedButton() {
+    const rates = <double>[0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
+    return PopupMenuButton<double>(
+      tooltip: '播放速度',
+      initialValue: widget.playbackRate,
+      padding: EdgeInsets.zero,
+      onSelected: (rate) {
+        widget.onRateChanged(rate);
+        widget.onInteraction();
+      },
+      itemBuilder: (context) => [
+        for (final rate in rates)
+          PopupMenuItem<double>(
+            value: rate,
+            child: Text('${rate.toStringAsFixed(rate % 1 == 0 ? 1 : 2)}x'),
+          ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
+        child: Text(
+          '${widget.playbackRate.toStringAsFixed(1)}x',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            fontFeatures: [FontFeature.tabularFigures()],
+          ),
+        ),
       ),
     );
   }

@@ -22,9 +22,13 @@ import '../../core/platform/app_theme.dart';
 import '../movies/movies_providers.dart';
 import 'player_controller_host.dart';
 import 'player_controls.dart';
+import 'player_device_stats.dart';
 import 'player_gesture_layer.dart';
 import 'player_overlay_indicators.dart';
+import 'player_platform.dart';
+import 'player_queue.dart';
 import 'player_settings.dart';
+import 'player_status_overlay.dart';
 
 /// 全屏视频播放页。播放源由后端协商，页面只负责编排回退、进度和用户控制。
 class PlayerPage extends ConsumerStatefulWidget {
@@ -33,17 +37,23 @@ class PlayerPage extends ConsumerStatefulWidget {
     required this.movieId,
     required this.title,
     this.startPositionSec = 0,
+    this.queue = const <PlayerQueueItem>[],
+    this.queueIndex = 0,
   });
 
   final int movieId;
   final String title;
   final int startPositionSec;
+  final List<PlayerQueueItem> queue;
+  final int queueIndex;
 
   static Future<void> open(
     BuildContext context, {
     required int movieId,
     required String title,
     int startPositionSec = 0,
+    List<PlayerQueueItem> queue = const <PlayerQueueItem>[],
+    int queueIndex = 0,
   }) {
     return Navigator.of(context).push(
       MaterialPageRoute(
@@ -51,6 +61,8 @@ class PlayerPage extends ConsumerStatefulWidget {
           movieId: movieId,
           title: title,
           startPositionSec: startPositionSec,
+          queue: queue,
+          queueIndex: queueIndex,
         ),
       ),
     );
@@ -67,6 +79,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   ];
 
   final PlayerControllerHost _host = PlayerControllerHost();
+  final PlayerDeviceStatsReader _deviceStatsReader =
+      PlayerDeviceStatsReader();
 
   bool _loading = true;
   String? _error;
@@ -86,6 +100,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   StreamSubscription<String>? _errorSub;
   StreamSubscription<playback_models.TranscodeStatus>? _eventsSub;
   Timer? _transcodePollTimer;
+  Timer? _deviceStatsTimer;
+  PlayerDeviceStats _deviceStats = const PlayerDeviceStats();
 
   bool _controlsVisible = true;
   Timer? _hideTimer;
@@ -99,6 +115,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _handlingPlaybackError = false;
   bool _isLandscape = true;
   bool _isRateBoosting = false;
+  double _playbackRate = 1.0;
+  bool _pictureInPictureRequesting = false;
   bool _isLeaving = false;
   Future<void>? _stopPlayerFuture;
   bool _orientationInitialized = false;
@@ -113,6 +131,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     // ignore: discarded_futures
     WakelockPlus.enable();
     _initLevels();
+    _startDeviceStatsPolling();
     _load();
   }
 
@@ -158,11 +177,33 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     } catch (_) {}
   }
 
+  void _startDeviceStatsPolling() {
+    unawaited(_refreshDeviceStats());
+    _deviceStatsTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => unawaited(_refreshDeviceStats()),
+    );
+  }
+
+  Future<void> _refreshDeviceStats() async {
+    if (_isLeaving) return;
+    final settings = ref.read(playerSettingsProvider);
+    if (!settings.showNetworkSpeed &&
+        !settings.showCpuUsage &&
+        !settings.showBattery) {
+      return;
+    }
+    final stats = await _deviceStatsReader.read();
+    if (!mounted || _isLeaving) return;
+    setState(() => _deviceStats = stats);
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_isLeaving) return;
-    if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused) {
+    if ((state == AppLifecycleState.inactive ||
+            state == AppLifecycleState.paused) &&
+        !_pictureInPictureRequesting) {
       _onRateBoostEnd();
       _wasPlayingBeforePause = _host.player.state.playing;
       _backgroundPosition = _host.position;
@@ -195,6 +236,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _errorSub?.cancel();
     _eventsSub?.cancel();
     _transcodePollTimer?.cancel();
+    _deviceStatsTimer?.cancel();
     _hideTimer?.cancel();
     _onRateBoostEnd();
     _indicatorTimer?.cancel();
@@ -310,6 +352,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             ? _protectedUrl(cfg, decision.streamUrl, token)
             : _fallbackHlsUrl(cfg, token, selectedQuality);
         await _openHlsWithClientFallback(hlsUrl, startAt);
+      }
+      if (_playbackRate != 1.0) {
+        await _host.setRate(_playbackRate);
       }
 
       if (!mounted || generation != _loadGeneration) return;
@@ -642,8 +687,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   void _onRateBoostEnd() {
     if (!_isRateBoosting) return;
     _isRateBoosting = false;
-    unawaited(_host.setRate(1.0));
+    unawaited(_host.setRate(_playbackRate));
     _hideIndicator();
+  }
+
+  void _onRateChanged(double rate) {
+    if (_isLeaving) return;
+    _playbackRate = rate;
+    unawaited(_host.setRate(rate));
+    _showIndicator(PlayerIndicator.speed(rate));
   }
 
   void _onDoubleTapCenter() {
@@ -669,6 +721,47 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         deltaMs: target.inMilliseconds - base.inMilliseconds,
       ),
     );
+  }
+
+  Future<void> _enterPictureInPicture() async {
+    if (_isLeaving) return;
+    _pictureInPictureRequesting = true;
+    try {
+      final entered =
+          await PlayerPlatformCapabilities.enterPictureInPicture();
+      if (!entered && mounted) {
+        await _openExternalPlayer();
+      }
+    } finally {
+      _pictureInPictureRequesting = false;
+    }
+  }
+
+  Future<void> _switchMedia(int index) async {
+    if (_isLeaving || index < 0 || index >= widget.queue.length) return;
+    final item = widget.queue[index];
+    _isLeaving = true;
+    _loadGeneration++;
+    _hideTimer?.cancel();
+    _onRateBoostEnd();
+    _reportProgress();
+    try {
+      await _stopPlayer();
+      await _stopTranscodeSession();
+    } finally {
+      if (!mounted) return;
+      await Navigator.of(context).pushReplacement<void, void>(
+        MaterialPageRoute(
+          builder: (_) => PlayerPage(
+            movieId: item.movieId,
+            title: item.title,
+            startPositionSec: item.startPositionSec,
+            queue: widget.queue,
+            queueIndex: index,
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _toggleOrientation() async {
@@ -844,6 +937,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           ),
         ),
         Positioned.fill(child: PlayerOverlayIndicators(indicator: _indicator)),
+        Positioned(
+          top: 58,
+          left: 16,
+          right: 16,
+          child: PlayerStatusOverlay(
+            stats: _deviceStats,
+            showSystemTime: settings.showSystemTime,
+            showNetworkSpeed: settings.showNetworkSpeed,
+            showCpuUsage: settings.showCpuUsage,
+            showBattery: settings.showBattery,
+          ),
+        ),
         Positioned.fill(
           child: IgnorePointer(
             ignoring: !_controlsVisible,
@@ -871,10 +976,28 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 },
                 hardwareLabel: hardwareLabel,
                 hapticProgressBar: settings.hapticProgressBar,
+                showPlayPauseButton: settings.showPlayPauseButton,
+                showSeekButtons: settings.showSeekButtons,
+                showSpeedButton: settings.showSpeedButton,
+                showPipButton: settings.showPipButton,
+                showOrientationButton: settings.showOrientationButton,
+                showMediaSwitchButton: settings.showMediaSwitchButton,
+                playbackRate: _playbackRate,
                 onExternalPlayer: _openExternalPlayer,
+                onPictureInPicture: () =>
+                    unawaited(_enterPictureInPicture()),
+                onPreviousMedia: widget.queueIndex > 0
+                    ? () => unawaited(_switchMedia(widget.queueIndex - 1))
+                    : null,
+                onNextMedia: widget.queueIndex < widget.queue.length - 1
+                    ? () => unawaited(_switchMedia(widget.queueIndex + 1))
+                    : null,
                 isLandscape: _isLandscape,
                 onOrientationToggle: () => unawaited(_toggleOrientation()),
                 onTogglePlay: _togglePlay,
+                onSeekBackward: () => _onDoubleTapSeek(-10),
+                onSeekForward: () => _onDoubleTapSeek(10),
+                onRateChanged: _onRateChanged,
                 onSeek: _host.seek,
                 onInteraction: _restartHideTimer,
               ),
