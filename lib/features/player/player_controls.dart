@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 
 import '../../core/models/playback.dart' as playback_models;
+import 'player_decode_status.dart';
 import 'player_haptics.dart';
 import 'player_overlay_indicators.dart' show formatDuration;
 
@@ -18,7 +19,7 @@ class PlayerControls extends StatefulWidget {
     required this.onSubtitleChanged,
     required this.audioTracks,
     required this.onAudioChanged,
-    required this.hardwareLabel,
+    required this.decodeStatuses,
     required this.hapticProgressBar,
     required this.showPlayPauseButton,
     required this.showSeekButtons,
@@ -48,7 +49,7 @@ class PlayerControls extends StatefulWidget {
   final ValueChanged<playback_models.SubtitleTrack?> onSubtitleChanged;
   final List<playback_models.AudioTrack> audioTracks;
   final ValueChanged<playback_models.AudioTrack> onAudioChanged;
-  final String? hardwareLabel;
+  final List<PlayerDecodeStatus> decodeStatuses;
   final bool hapticProgressBar;
   final bool showPlayPauseButton;
   final bool showSeekButtons;
@@ -194,18 +195,16 @@ class _PlayerControlsState extends State<PlayerControls> {
           child: Row(
             children: [
               _qualityButton(),
-              if (widget.hardwareLabel != null) ...[
-                const SizedBox(width: 10),
+              if (widget.decodeStatuses.isNotEmpty) ...[
+                const SizedBox(width: 8),
                 Flexible(
-                  child: Text(
-                    widget.hardwareLabel!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Wrap(
+                    spacing: 5,
+                    runSpacing: 3,
+                    children: [
+                      for (final status in widget.decodeStatuses)
+                        PlayerDecodeStatusBadge(status: status),
+                    ],
                   ),
                 ),
               ],

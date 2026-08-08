@@ -22,6 +22,7 @@ import '../home/home_providers.dart';
 import '../movies/movies_providers.dart';
 import 'player_controller_host.dart';
 import 'player_controls.dart';
+import 'player_decode_status.dart';
 import 'player_device_stats.dart';
 import 'player_gesture_layer.dart';
 import 'player_overlay_indicators.dart';
@@ -89,7 +90,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _usingHls = false;
   bool _clientHardwareAcceleration = true;
   bool _transcodeSessionActive = false;
-  String? _serverHardwareLabel;
+  PlayerDecodeStatus? _serverDecodeStatus;
   int _loadGeneration = 0;
 
   int _lastPositionSec = 0;
@@ -215,6 +216,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (_transcodeSessionActive) {
         // ignore: discarded_futures
         _stopTranscodeSession();
+        if (mounted) setState(() => _serverDecodeStatus = null);
       }
     } else if (state == AppLifecycleState.resumed && _wasPlayingBeforePause) {
       if (_usingHls) {
@@ -313,7 +315,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _error = null;
       _quality = selectedQuality;
       _decision = null;
-      _serverHardwareLabel = null;
+      _serverDecodeStatus = null;
     });
 
     try {
@@ -338,9 +340,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       );
       if (!mounted || generation != _loadGeneration) return;
       _decision = decision;
-      if (decision.hwAccel.isNotEmpty) {
-        _serverHardwareLabel = '硬解 ${decision.hwAccel}';
-      }
+      _serverDecodeStatus = decision.isTranscode
+          ? PlayerDecodeStatus.server(engine: decision.hwAccel)
+          : null;
 
       final resumeFromLastPosition =
           ref.read(playerSettingsProvider).resumeFromLastPosition;
@@ -508,6 +510,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (_transcodeSessionActive) {
         // ignore: discarded_futures
         _stopTranscodeSession();
+        if (mounted) setState(() => _serverDecodeStatus = null);
       }
       return;
     }
@@ -605,13 +608,20 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   void _applyTranscodeStatus(playback_models.TranscodeStatus status) {
     if (!mounted || _isLeaving) return;
     setState(() {
-      _serverHardwareLabel = !status.active || status.hwAccel.isEmpty
+      _serverDecodeStatus = !status.active
           ? null
-          : status.hwDecodeOk
-              ? '硬解 ${status.hwAccel}'
-              : '软解回退';
+          : PlayerDecodeStatus.server(
+              engine: status.hwAccel,
+              hardwareDecodeOk: status.hwDecodeOk,
+              isFallback: status.hasHardwareFallback,
+            );
     });
   }
+
+  List<PlayerDecodeStatus> get _decodeStatuses => [
+        PlayerDecodeStatus.local(hardware: _clientHardwareAcceleration),
+        if (_usingHls && _serverDecodeStatus != null) _serverDecodeStatus!,
+      ];
 
   Map<String, String>? _authorizationHeaders(String? token) {
     final value = token?.trim() ?? '';
@@ -886,8 +896,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     if (decision == null) {
       return _ErrorView(message: '播放决策为空', onRetry: _load);
     }
-    final hardwareLabel = _serverHardwareLabel ??
-        (_clientHardwareAcceleration ? '硬解开启' : '客户端软解');
     return Stack(
       children: [
         Positioned.fill(
@@ -956,7 +964,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                   // 后端 track index 与 media_kit 的轨道 ID 一致时直接切换。
                   _host.setAudioTrackById(track.index.toString());
                 },
-                hardwareLabel: hardwareLabel,
+                decodeStatuses: _decodeStatuses,
                 hapticProgressBar: settings.hapticProgressBar,
                 showPlayPauseButton: settings.showPlayPauseButton,
                 showSeekButtons: settings.showSeekButtons,
