@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api/dio_factory.dart';
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import 'movies_providers.dart';
 
@@ -180,20 +181,26 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
                   SwitchListTile.adaptive(
                     title: const Text('要求字幕'),
                     value: _requireSub,
-                    onChanged: (v) => setState(() => _requireSub = v),
+                    onChanged: AppHaptics.wrapToggle(
+                      (v) => setState(() => _requireSub = v),
+                    ),
                     contentPadding: EdgeInsets.zero,
                   ),
                   SwitchListTile.adaptive(
                     title: const Text('要求无码'),
                     value: _requireUncensored,
-                    onChanged: (v) => setState(() => _requireUncensored = v),
+                    onChanged: AppHaptics.wrapToggle(
+                      (v) => setState(() => _requireUncensored = v),
+                    ),
                     contentPadding: EdgeInsets.zero,
                   ),
                   SwitchListTile.adaptive(
                     title: const Text('精洗模式'),
                     subtitle: Text('已存在影片也重新下载', style: AppText.meta(context)),
                     value: _washMode,
-                    onChanged: (v) => setState(() => _washMode = v),
+                    onChanged: AppHaptics.wrapToggle(
+                      (v) => setState(() => _washMode = v),
+                    ),
                     contentPadding: EdgeInsets.zero,
                   ),
                   const SizedBox(height: 20),

@@ -164,7 +164,10 @@ class _PlayerControlsState extends State<PlayerControls> {
       visualDensity: VisualDensity.standard,
       constraints: const BoxConstraints.tightFor(width: 46, height: 46),
       icon: Icon(icon, color: Colors.white, size: 25),
-      onPressed: onPressed,
+      onPressed: () {
+        PlayerHaptics.light();
+        onPressed();
+      },
     );
   }
 
@@ -285,6 +288,7 @@ class _PlayerControlsState extends State<PlayerControls> {
       onPressed: action == null
           ? null
           : () {
+              PlayerHaptics.light();
               action();
               widget.onInteraction();
             },
@@ -298,6 +302,7 @@ class _PlayerControlsState extends State<PlayerControls> {
       initialValue: widget.playbackRate,
       padding: EdgeInsets.zero,
       onSelected: (rate) {
+        PlayerHaptics.selection();
         widget.onRateChanged(rate);
         widget.onInteraction();
       },
@@ -332,6 +337,7 @@ class _PlayerControlsState extends State<PlayerControls> {
             size: 36,
           ),
           onPressed: () {
+            PlayerHaptics.light();
             widget.onTogglePlay();
             widget.onInteraction();
           },
@@ -449,6 +455,7 @@ class _PlayerControlsState extends State<PlayerControls> {
       initialValue: widget.quality,
       padding: EdgeInsets.zero,
       onSelected: (quality) {
+        if (quality != widget.quality) PlayerHaptics.selection();
         widget.onQualityChanged(quality);
         widget.onInteraction();
       },
@@ -472,6 +479,7 @@ class _PlayerControlsState extends State<PlayerControls> {
       tooltip: '选择字幕',
       padding: EdgeInsets.zero,
       onSelected: (track) {
+        PlayerHaptics.selection();
         widget.onSubtitleChanged(track.index < 0 ? null : track);
         widget.onInteraction();
       },
@@ -515,6 +523,7 @@ class _PlayerControlsState extends State<PlayerControls> {
       tooltip: '选择音轨',
       padding: EdgeInsets.zero,
       onSelected: (track) {
+        PlayerHaptics.selection();
         widget.onAudioChanged(track);
         widget.onInteraction();
       },

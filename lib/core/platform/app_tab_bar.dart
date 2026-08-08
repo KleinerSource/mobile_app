@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import 'app_haptics.dart';
 import 'platform_utils.dart';
 
 class AppTabItem {
@@ -21,13 +22,19 @@ class AppTabsShell extends StatefulWidget {
 class _AppTabsShellState extends State<AppTabsShell> {
   int _index = 0;
 
+  void _selectTab(int index) {
+    if (index == _index) return;
+    AppHaptics.selection();
+    setState(() => _index = index);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isCupertino(context)) {
       return CupertinoTabScaffold(
         tabBar: CupertinoTabBar(
           currentIndex: _index,
-          onTap: (i) => setState(() => _index = i),
+          onTap: _selectTab,
           items: widget.tabs
               .map((t) => BottomNavigationBarItem(
                     icon: Icon(t.icon),
@@ -45,7 +52,7 @@ class _AppTabsShellState extends State<AppTabsShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: _selectTab,
         destinations: widget.tabs
             .map((t) => NavigationDestination(icon: Icon(t.icon), label: t.label))
             .toList(),

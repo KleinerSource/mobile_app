@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/dio_factory.dart';
 import '../../../core/models/mapping_rule.dart';
+import '../../../core/platform/app_haptics.dart';
 import '../../../core/platform/app_theme.dart';
 import '../actor_associations_providers.dart';
 import '../actor_associations_repository.dart';
@@ -142,6 +143,7 @@ class _ActorAssociationEditorSheetState
         );
       }
       if (!mounted) return;
+      AppHaptics.medium();
       messenger.showSnackBar(SnackBar(content: Text('$_title 成功')));
       Navigator.of(context).pop(true);
     } catch (e) {

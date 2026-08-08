@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
@@ -260,7 +261,7 @@ class _PlayerSwitchTile extends StatelessWidget {
       trailing: Switch(
         value: value,
         activeThumbColor: c.accent,
-        onChanged: onChanged,
+                    onChanged: AppHaptics.wrapToggle(onChanged),
       ),
     );
   }
@@ -323,7 +324,10 @@ class _PlayerOptionTile<T> extends StatelessWidget {
         );
       },
     );
-    if (picked != null && picked != value) onChanged(picked);
+    if (picked != null && picked != value) {
+      AppHaptics.selection();
+      onChanged(picked);
+    }
   }
 
   @override

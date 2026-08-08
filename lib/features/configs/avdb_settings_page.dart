@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/avdb_config.dart';
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import 'configs_providers.dart';
@@ -57,6 +58,7 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
       if (!mounted) return;
       _apiKey.clear();
       ref.invalidate(avdbConfigProvider);
+      AppHaptics.medium();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('AVDB 数据源配置已保存')),
       );
@@ -230,7 +232,10 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
               ],
             ),
           ),
-          Switch.adaptive(value: value, onChanged: onChanged),
+          Switch.adaptive(
+            value: value,
+            onChanged: AppHaptics.wrapToggle(onChanged),
+          ),
         ],
       ),
     );

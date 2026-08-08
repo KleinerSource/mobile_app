@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../favorites/favorites_page.dart';
@@ -21,6 +22,12 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+
+  void _selectTab(int index) {
+    if (index == _index) return;
+    AppHaptics.selection();
+    setState(() => _index = index);
+  }
 
   List<_TabSpec> _tabsFor(BuildContext context) {
     final l = AppL10n.of(context);
@@ -61,7 +68,7 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: _FloatingTabBar(
         tabs: tabs,
         active: _index,
-        onTap: (i) => setState(() => _index = i),
+        onTap: _selectTab,
       ),
     );
   }

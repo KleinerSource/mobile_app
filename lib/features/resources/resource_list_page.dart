@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/resource.dart';
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import 'resource_movies_page.dart';
@@ -428,6 +429,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
         await repo.create(widget.kind,
             name: result.name, description: result.desc);
       }
+      AppHaptics.medium();
       messenger.showSnackBar(SnackBar(
         content: Text(isEdit ? '已保存' : '已创建'),
         duration: const Duration(seconds: 1),
@@ -472,6 +474,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       await ref
           .read(resourcesRepositoryProvider)
           .deleteBatch(widget.kind, [r.id], force: hasMovies);
+      AppHaptics.medium();
       messenger.showSnackBar(const SnackBar(
         content: Text('已删除'),
         duration: Duration(seconds: 1),

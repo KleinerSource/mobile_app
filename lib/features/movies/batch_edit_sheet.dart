@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/resource.dart';
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
@@ -176,6 +177,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
         }
       }
       if (!mounted) return;
+      AppHaptics.medium();
       messenger.showSnackBar(const SnackBar(content: Text('批量编辑成功')));
       Navigator.of(context).pop(true);
     } catch (e) {

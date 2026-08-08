@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/dbo_config.dart';
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import 'configs_providers.dart';
@@ -66,6 +67,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
       await ref
           .read(configsRepositoryProvider)
           .saveDbo(cfg, keepApiKey: keep);
+      AppHaptics.medium();
       messenger.showSnackBar(const SnackBar(
         content: Text('已保存'),
         duration: Duration(seconds: 1),
@@ -162,7 +164,9 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
                     ),
                     Switch.adaptive(
                       value: _enabled,
-                      onChanged: (v) => setState(() => _enabled = v),
+                      onChanged: AppHaptics.wrapToggle(
+                        (v) => setState(() => _enabled = v),
+                      ),
                     ),
                   ],
                 ),
@@ -240,7 +244,11 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
                 children: _presets.map((p) {
                   final active = _maxAge == p.$1;
                   return GestureDetector(
-                    onTap: () => setState(() => _maxAge = p.$1),
+                    onTap: () {
+                      if (active) return;
+                      AppHaptics.selection();
+                      setState(() => _maxAge = p.$1);
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 7),

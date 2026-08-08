@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/filter_chip.dart';
 import '../movies/movies_providers.dart';
@@ -146,6 +147,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       // 触发详情 provider 刷新
       // ignore: unused_result
       ref.refresh(movieDetailProvider(widget.movie.id));
+      AppHaptics.medium();
       messenger.showSnackBar(const SnackBar(
         content: Text('已保存'),
         duration: Duration(seconds: 1),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
@@ -93,8 +94,9 @@ class _PrivacyShieldTile extends ConsumerWidget {
       leadingIcon: Icons.shield_outlined,
       trailing: Switch(
         value: enabled,
-        onChanged: (v) =>
-            ref.read(privacyShieldProvider.notifier).setEnabled(v),
+        onChanged: AppHaptics.wrapToggle(
+          (v) => ref.read(privacyShieldProvider.notifier).setEnabled(v),
+        ),
       ),
     );
   }
@@ -170,7 +172,8 @@ class _LanguageTile extends ConsumerWidget {
         );
       },
     );
-    if (picked != null) {
+    if (picked != null && picked != current) {
+      AppHaptics.selection();
       await ref.read(localeProvider.notifier).set(picked);
     }
   }
@@ -258,7 +261,8 @@ class _ThemeTile extends ConsumerWidget {
         );
       },
     );
-    if (picked != null) {
+    if (picked != null && picked != current) {
+      AppHaptics.selection();
       await ref.read(themeModeProvider.notifier).set(picked);
     }
   }

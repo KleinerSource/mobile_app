@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/library.dart';
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import 'libraries_providers.dart';
@@ -144,6 +145,7 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
         }
       }
 
+      AppHaptics.medium();
       messenger.showSnackBar(SnackBar(
         content: Text(_isEdit ? '已保存' : '已创建'),
         duration: const Duration(seconds: 1),
@@ -268,7 +270,9 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
                           ),
                           Switch(
                             value: _enabled,
-                            onChanged: (v) => setState(() => _enabled = v),
+                            onChanged: AppHaptics.wrapToggle(
+                              (v) => setState(() => _enabled = v),
+                            ),
                           ),
                         ],
                       ),

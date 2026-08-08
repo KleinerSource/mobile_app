@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/ffmpeg_config.dart';
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import 'configs_providers.dart';
@@ -58,6 +59,7 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
           );
       if (!mounted) return;
       ref.invalidate(ffmpegConfigProvider);
+      AppHaptics.medium();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('FFmpeg 与硬解配置已保存')),
       );
@@ -152,7 +154,8 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
                     ],
                     onChanged: _enabled
                         ? (value) {
-                            if (value != null) {
+                            if (value != null && value != _hwAccel) {
+                              AppHaptics.selection();
                               setState(() => _hwAccel = value);
                             }
                           }
@@ -247,7 +250,10 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
               ],
             ),
           ),
-          Switch.adaptive(value: value, onChanged: onChanged),
+          Switch.adaptive(
+            value: value,
+            onChanged: AppHaptics.wrapToggle(onChanged),
+          ),
         ],
       ),
     );

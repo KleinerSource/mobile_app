@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/mapping_rule.dart';
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import 'mappings_providers.dart';
@@ -364,6 +365,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                         Switch(
                           value: isDelete,
                           onChanged: (v) {
+                            AppHaptics.selection();
                             setSt(() {
                               isDelete = v;
                               if (v) mappedCtrl.clear();
@@ -453,6 +455,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
         await repo.update(widget.type, rule.id,
             originalValues: result.originals, mappedValue: result.mapped);
       }
+      AppHaptics.medium();
       messenger.showSnackBar(SnackBar(
         content: Text(rule == null ? '已创建' : '已保存'),
         duration: const Duration(seconds: 1),
@@ -487,6 +490,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await ref.read(mappingsRepositoryProvider).delete(widget.type, [r.id]);
+      AppHaptics.medium();
       messenger.showSnackBar(const SnackBar(
         content: Text('已删除'),
         duration: Duration(seconds: 1),
@@ -505,6 +509,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await ref.read(mappingsRepositoryProvider).syncActors();
+      AppHaptics.medium();
       messenger.showSnackBar(const SnackBar(
         content: Text('同步已启动'),
         duration: Duration(seconds: 1),

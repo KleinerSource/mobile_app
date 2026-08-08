@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 
@@ -53,6 +54,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       await ref
           .read(serverConfigProvider.notifier)
           .save(ServerConfig(baseUrl: normalized));
+      AppHaptics.medium();
       if (mounted) await Navigator.of(context).maybePop();
     } catch (e) {
       setState(() => _error = toApiException(e).message);

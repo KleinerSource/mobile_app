@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/translation_config.dart';
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import 'translation_providers.dart';
@@ -185,6 +186,7 @@ class _TranslationSettingsPageState
       await ref
           .read(translationRepositoryProvider)
           .saveConfig(cfg, keepApiKey: keepKey);
+      AppHaptics.medium();
       messenger.showSnackBar(const SnackBar(
         content: Text('已保存'),
         duration: Duration(seconds: 1),
@@ -281,7 +283,9 @@ class _TranslationSettingsPageState
                       height: 22,
                       child: Switch(
                         value: _enabled,
-                        onChanged: (v) => setState(() => _enabled = v),
+                        onChanged: AppHaptics.wrapToggle(
+                          (v) => setState(() => _enabled = v),
+                        ),
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     ),

@@ -118,6 +118,7 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
             switch (zone) {
               case _DoubleTapZone.center:
                 if (widget.doubleTapCenterEnabled) {
+                  PlayerHaptics.light();
                   widget.onDoubleTapCenter();
                 }
                 break;

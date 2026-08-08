@@ -5,6 +5,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/error_view.dart';
@@ -1161,6 +1162,7 @@ class _NewListCard extends ConsumerWidget {
       await ref
           .read(listsProvider.notifier)
           .create(name: name, hue: selectedHue);
+      AppHaptics.medium();
     }
   }
 }
