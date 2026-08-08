@@ -122,8 +122,8 @@ class _PlayerStatusOverlayState extends State<PlayerStatusOverlay> {
               fontWeight: FontWeight.w600,
               fontFeatures: [FontFeature.tabularFigures()],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
