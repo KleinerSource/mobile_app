@@ -377,11 +377,6 @@ class _ResolutionBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final IconData? icon = switch (tier) {
-      ResolutionTier.fhd => Icons.high_quality_rounded,
-      ResolutionTier.hd => Icons.hd_rounded,
-      _ => null,
-    };
     final (label, color) = switch (tier) {
       ResolutionTier.uhd => ('UHD', const Color(0xFF2D6CDF)),
       ResolutionTier.fhd => ('FHD', const Color(0xFF0EA5E9)),
@@ -390,27 +385,11 @@ class _ResolutionBadge extends StatelessWidget {
     };
     if (label.isEmpty) return const SizedBox.shrink();
 
-    final content = icon == null
-        ? const Text(
-            'UHD',
-            style: TextStyle(
-              color: Colors.white,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w800,
-              fontSize: 10,
-              letterSpacing: 0.4,
-              height: 1,
-            ),
-          )
-        : Icon(icon, color: Colors.white, size: 13);
     return Tooltip(
       message: label,
       child: Container(
-        width: icon == null ? null : 18,
+        width: 18,
         height: 18,
-        padding: icon == null
-            ? const EdgeInsets.symmetric(horizontal: 6)
-            : EdgeInsets.zero,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: color,
@@ -423,7 +402,7 @@ class _ResolutionBadge extends StatelessWidget {
             ),
           ],
         ),
-        child: content,
+        child: const Icon(Icons.tv_rounded, color: Colors.white, size: 13),
       ),
     );
   }

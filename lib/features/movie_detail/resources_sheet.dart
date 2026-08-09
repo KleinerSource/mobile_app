@@ -721,13 +721,13 @@ class _ResourceTagBadges extends StatelessWidget {
           if (hasUHD)
             const _ResBadge(
               label: 'UHD',
-              icon: Icons.monitor_rounded,
+              icon: Icons.tv_rounded,
               color: Color(0xFF2D6CDF),
             )
           else if (hasHD)
             const _ResBadge(
               label: 'HD',
-              icon: Icons.monitor_rounded,
+              icon: Icons.tv_rounded,
               color: Color(0xFF10B981),
             ),
           if (hasSub)

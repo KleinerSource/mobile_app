@@ -96,7 +96,7 @@ void main() {
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
   });
 
-  testWidgets('HD 和 FHD 角标使用图标', (tester) async {
+  testWidgets('清晰度角标统一使用电视图标并按级别着色', (tester) async {
     SharedPreferences.setMockInitialValues({
       'privacy.app_switcher_shield': false,
     });
@@ -129,11 +129,18 @@ void main() {
     }
 
     await pumpMovie(720);
-    expect(find.byIcon(Icons.hd_rounded), findsOneWidget);
+    final hdIcon = tester.widget<Icon>(find.byIcon(Icons.tv_rounded));
+    expect(hdIcon.color, const Color(0xFF10B981));
     expect(find.text('HD'), findsNothing);
 
     await pumpMovie(1080);
-    expect(find.byIcon(Icons.high_quality_rounded), findsOneWidget);
+    final fhdIcon = tester.widget<Icon>(find.byIcon(Icons.tv_rounded));
+    expect(fhdIcon.color, const Color(0xFF0EA5E9));
     expect(find.text('FHD'), findsNothing);
+
+    await pumpMovie(2160);
+    final uhdIcon = tester.widget<Icon>(find.byIcon(Icons.tv_rounded));
+    expect(uhdIcon.color, const Color(0xFF2D6CDF));
+    expect(find.text('UHD'), findsNothing);
   });
 }
