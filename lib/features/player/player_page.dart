@@ -36,6 +36,7 @@ import 'player_status_overlay.dart';
 import 'subtitle_adjustment_sheet.dart';
 import 'subtitle_rendering.dart';
 import 'subtitle_settings.dart';
+import '../cache/disk_cache.dart';
 
 /// 全屏视频播放页。播放源由后端协商，页面只负责编排回退、进度和用户控制。
 class PlayerPage extends ConsumerStatefulWidget {
@@ -407,11 +408,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           (resumePositionSec > 0 ? Duration(seconds: resumePositionSec) : null);
       final direct = !useServerRoute;
       if (direct) {
-        final directUrl = _directUrl(cfg);
+        final cachedFile = selectedQuality == 'original'
+            ? await ref
+                .read(diskCacheServiceProvider)
+                .cachedMovieFile(widget.movieId)
+            : null;
+        final directUrl = cachedFile ?? _directUrl(cfg);
         await _openDirectWithClientFallback(
           directUrl,
           startAt,
-          token,
+          cachedFile == null ? token : null,
         );
       } else {
         final hlsUrl = _fallbackHlsUrl(cfg, token, selectedQuality);

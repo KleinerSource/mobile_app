@@ -9,6 +9,8 @@ import '../i18n/locale_providers.dart';
 import '../i18n/theme_provider.dart';
 import '../privacy/privacy_providers.dart';
 import 'badge_position_page.dart';
+import 'cache_management_page.dart';
+import 'disk_precache_page.dart';
 import 'player_settings_page.dart';
 import 'settings_common.dart';
 import 'subtitle_settings_page.dart';
@@ -69,6 +71,31 @@ class AppSettingsPage extends ConsumerWidget {
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => const SubtitleSettingsPage(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SettingsGroup(
+                title: '缓存',
+                items: [
+                  SettingsTile(
+                    title: '磁盘预缓存',
+                    subtitle: '影片预缓存 / Wi-Fi 和流量额度',
+                    leadingIcon: Icons.sd_storage_outlined,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const DiskPrecachePage(),
+                      ),
+                    ),
+                  ),
+                  SettingsTile(
+                    title: '缓存管理',
+                    subtitle: '视频 / 图片 / 其他缓存清理',
+                    leadingIcon: Icons.cleaning_services_outlined,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const CacheManagementPage(),
                       ),
                     ),
                   ),
