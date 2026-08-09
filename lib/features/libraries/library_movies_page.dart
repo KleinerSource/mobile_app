@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,6 +28,7 @@ class LibraryMoviesPage extends ConsumerStatefulWidget {
 class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
   static const _pageSize = 30;
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
+  Completer<void>? _refreshCompleter;
 
   MovieFilter get _filter => MovieFilter(
         libraryId: widget.library.id,
@@ -41,6 +44,7 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
 
   @override
   void dispose() {
+    _completeRefresh();
     _controller.dispose();
     super.dispose();
   }
@@ -55,9 +59,27 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
       } else {
         _controller.appendPage(page.items, nextOffset);
       }
+      if (offset == 0) _completeRefresh();
     } catch (e) {
       _controller.error = toApiException(e).message;
+      if (offset == 0) _completeRefresh();
     }
+  }
+
+  Future<void> _refreshMovies() {
+    final pending = _refreshCompleter;
+    if (pending != null) return pending.future;
+
+    final completer = Completer<void>();
+    _refreshCompleter = completer;
+    _controller.refresh();
+    return completer.future;
+  }
+
+  void _completeRefresh() {
+    final completer = _refreshCompleter;
+    _refreshCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
   }
 
   int _hueFor(String name) {
@@ -74,8 +96,11 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
     return Scaffold(
       backgroundColor: c.bg,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
+        child: RefreshIndicator(
+          onRefresh: _refreshMovies,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
             SliverAppBar(
               expandedHeight: 180,
               pinned: true,
@@ -128,7 +153,8 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

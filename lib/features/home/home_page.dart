@@ -34,6 +34,23 @@ class HomePage extends ConsumerWidget {
     return l.greetingNight;
   }
 
+  Future<void> _waitForRefresh(Future<Object?> future) async {
+    try {
+      await future;
+    } catch (_) {
+      // 各区块保留自己的错误状态，下拉刷新本身仍应正常结束。
+    }
+  }
+
+  Future<void> _refreshHome(WidgetRef ref) async {
+    await Future.wait<void>([
+      _waitForRefresh(ref.refresh(recentlyAddedProvider.future)),
+      _waitForRefresh(ref.refresh(continueWatchingProvider.future)),
+      _waitForRefresh(ref.refresh(librariesProvider.future)),
+    ]);
+    await _waitForRefresh(ref.refresh(recommendCarouselProvider.future));
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
@@ -47,8 +64,11 @@ class HomePage extends ConsumerWidget {
     return GlowBackground(
       child: SafeArea(
         bottom: false,
-        child: CustomScrollView(
-          slivers: [
+        child: RefreshIndicator(
+          onRefresh: () => _refreshHome(ref),
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
             // -------- 顶部问候 --------
             SliverToBoxAdapter(
               child: Padding(
@@ -187,7 +207,8 @@ class HomePage extends ConsumerWidget {
             ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
-          ],
+            ],
+          ),
         ),
       ),
     );

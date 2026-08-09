@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,6 +44,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   // 选择模式状态
   bool _selectionMode = false;
   final Set<int> _selectedIds = {};
+  Completer<void>? _refreshCompleter;
 
   @override
   void initState() {
@@ -51,6 +54,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
   @override
   void dispose() {
+    _completeRefresh();
     _controller.dispose();
     _searchController.dispose();
     super.dispose();
@@ -67,10 +71,28 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       } else {
         _controller.appendPage(page.items, nextOffset);
       }
+      if (offset == 0) _completeRefresh();
       if (mounted) setState(() {});
     } catch (e) {
       _controller.error = toApiException(e).message;
+      if (offset == 0) _completeRefresh();
     }
+  }
+
+  Future<void> _refreshMovies() {
+    final pending = _refreshCompleter;
+    if (pending != null) return pending.future;
+
+    final completer = Completer<void>();
+    _refreshCompleter = completer;
+    _controller.refresh();
+    return completer.future;
+  }
+
+  void _completeRefresh() {
+    final completer = _refreshCompleter;
+    _refreshCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
   }
 
   void _applyFilter(MovieFilter newFilter) {
@@ -107,8 +129,11 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
           bottom: false,
         child: Stack(
           children: [
-            CustomScrollView(
-          slivers: [
+            RefreshIndicator(
+              onRefresh: _refreshMovies,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
@@ -244,8 +269,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                     ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
-          ],
-        ),
+                ],
+              ),
+            ),
         if (_selectionMode)
           Positioned(
             left: 0,
