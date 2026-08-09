@@ -98,7 +98,7 @@ class MainActivity : FlutterActivity() {
         val rx = TrafficStats.getTotalRxBytes()
         val tx = TrafficStats.getTotalTxBytes()
         if (rx < 0 && tx < 0) return null
-        return (rx.coerceAtLeast(0), tx.coerceAtLeast(0))
+        return Pair(rx.coerceAtLeast(0), tx.coerceAtLeast(0))
     }
 
     private fun readCpuUsage(): Double? {
