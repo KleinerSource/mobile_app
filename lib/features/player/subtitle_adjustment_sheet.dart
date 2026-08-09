@@ -212,90 +212,98 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: c.accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(10),
+    return DefaultTextStyle.merge(
+      style: const TextStyle(decoration: TextDecoration.none),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: c.accent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.chat_bubble_outline,
+                    color: c.accent,
+                    size: 20,
+                  ),
                 ),
-                child: Icon(
-                  Icons.chat_bubble_outline,
-                  color: c.accent,
-                  size: 20,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '字幕设置',
+                    style: AppText.sectionTitle(context).copyWith(
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text('字幕设置', style: AppText.sectionTitle(context)),
-              ),
-              IconButton(
-                tooltip: '恢复本次播放默认',
-                onPressed: _reset,
-                icon: Icon(Icons.restore, color: c.muted, size: 20),
-              ),
-              IconButton(
-                tooltip: '关闭',
-                onPressed: () => Navigator.of(context).pop(),
-                icon: Icon(Icons.close, color: c.muted, size: 20),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _AdjustmentRow(
-            title: '延迟偏移',
-            value: '${(_adjustments.delayMs / 1000).toStringAsFixed(1)} s',
-            onValueTap: _editDelay,
-            onDecrease: _adjustments.delayMs <= -5000
-                ? null
-                : () => _changeDelay(-100),
-            onIncrease: _adjustments.delayMs >= 5000
-                ? null
-                : () => _changeDelay(100),
-          ),
-          _AdjustmentRow(
-            title: '垂直偏移',
-            value: _adjustments.verticalOffset.round().toString(),
-            onValueTap: _editVerticalOffset,
-            onDecrease: _adjustments.verticalOffset <=
-                    widget.verticalOffsetBounds.min
-                ? null
-                : () => _changeVertical(-5),
-            onIncrease: _adjustments.verticalOffset >=
-                    widget.verticalOffsetBounds.max
-                ? null
-                : () => _changeVertical(5),
-          ),
-          _AdjustmentRow(
-            title: '大小缩放',
-            value: '${(_adjustments.sizeScale * 100).round()}%',
-            onValueTap: _editSize,
-            onDecrease: _adjustments.sizeScale <= 0.5
-                ? null
-                : () => _changeSize(-0.05),
-            onIncrease: _adjustments.sizeScale >= 2.0
-                ? null
-                : () => _changeSize(0.05),
-          ),
-          _AdjustmentRow(
-            title: '不透明度',
-            value: '${(_adjustments.opacity * 100).round()}%',
-            onValueTap: _editOpacity,
-            onDecrease: _adjustments.opacity <= 0.1
-                ? null
-                : () => _changeOpacity(-0.05),
-            onIncrease: _adjustments.opacity >= 1.0
-                ? null
-                : () => _changeOpacity(0.05),
-          ),
-        ],
+                IconButton(
+                  tooltip: '恢复本次播放默认',
+                  onPressed: _reset,
+                  icon: Icon(Icons.restore, color: c.muted, size: 20),
+                ),
+                IconButton(
+                  tooltip: '关闭',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: Icon(Icons.close, color: c.muted, size: 20),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _AdjustmentRow(
+              title: '延迟偏移',
+              value: '${(_adjustments.delayMs / 1000).toStringAsFixed(1)} s',
+              onValueTap: _editDelay,
+              onDecrease: _adjustments.delayMs <= -5000
+                  ? null
+                  : () => _changeDelay(-100),
+              onIncrease: _adjustments.delayMs >= 5000
+                  ? null
+                  : () => _changeDelay(100),
+            ),
+            _AdjustmentRow(
+              title: '垂直偏移',
+              value: _adjustments.verticalOffset.round().toString(),
+              onValueTap: _editVerticalOffset,
+              onDecrease: _adjustments.verticalOffset <=
+                      widget.verticalOffsetBounds.min
+                  ? null
+                  : () => _changeVertical(-5),
+              onIncrease: _adjustments.verticalOffset >=
+                      widget.verticalOffsetBounds.max
+                  ? null
+                  : () => _changeVertical(5),
+            ),
+            _AdjustmentRow(
+              title: '大小缩放',
+              value: '${(_adjustments.sizeScale * 100).round()}%',
+              onValueTap: _editSize,
+              onDecrease: _adjustments.sizeScale <= 0.5
+                  ? null
+                  : () => _changeSize(-0.05),
+              onIncrease: _adjustments.sizeScale >= 2.0
+                  ? null
+                  : () => _changeSize(0.05),
+            ),
+            _AdjustmentRow(
+              title: '不透明度',
+              value: '${(_adjustments.opacity * 100).round()}%',
+              onValueTap: _editOpacity,
+              onDecrease: _adjustments.opacity <= 0.1
+                  ? null
+                  : () => _changeOpacity(-0.05),
+              onIncrease: _adjustments.opacity >= 1.0
+                  ? null
+                  : () => _changeOpacity(0.05),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -331,6 +339,7 @@ class _AdjustmentRow extends StatelessWidget {
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
+                decoration: TextDecoration.none,
               ),
             ),
           ),
@@ -354,6 +363,7 @@ class _AdjustmentRow extends StatelessWidget {
                       fontFamily: 'Inter',
                       fontFeatures: const [FontFeature.tabularFigures()],
                       fontSize: 15,
+                      decoration: TextDecoration.none,
                     ),
                   ),
                 ),

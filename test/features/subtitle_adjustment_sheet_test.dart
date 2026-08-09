@@ -27,6 +27,13 @@ void main() {
     expect(find.text('不透明度'), findsOneWidget);
     expect(find.byType(Divider), findsNothing);
 
+    for (final text in ['字幕设置', '延迟偏移', '0.0 s']) {
+      expect(
+        tester.widget<Text>(find.text(text)).style?.decoration,
+        TextDecoration.none,
+      );
+    }
+
     await tester.tap(find.byIcon(Icons.add).first);
     await tester.pump();
 
