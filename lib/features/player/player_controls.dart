@@ -515,15 +515,12 @@ class _PlayerControlsState extends State<PlayerControls> {
             ],
           ),
         ),
-        const PopupMenuItem<Object>(
-          enabled: false,
-          height: 8,
-          child: SizedBox.shrink(),
-        ),
+        const PopupMenuDivider(height: 1),
         _subtitleMenuItem(
           _noSubtitleTrack,
           label: '关闭字幕',
           selected: widget.selectedSubtitle == null,
+          icon: Icons.closed_caption_disabled_outlined,
         ),
         for (final track in widget.subtitleTracks)
           _subtitleMenuItem(
@@ -531,6 +528,7 @@ class _PlayerControlsState extends State<PlayerControls> {
             label: _subtitleLabel(track),
             selected: identical(widget.selectedSubtitle, track),
             enabled: track.canLoad,
+            icon: track.isExternal ? Icons.file_open_outlined : null,
           ),
       ],
       child: SizedBox(
@@ -551,12 +549,17 @@ class _PlayerControlsState extends State<PlayerControls> {
     required String label,
     required bool selected,
     bool enabled = true,
+    IconData? icon,
   }) {
     return PopupMenuItem<Object>(
       value: track,
       enabled: enabled,
       child: Row(
         children: [
+          icon != null
+              ? Icon(icon, size: 18)
+              : const SizedBox(width: 18),
+          const SizedBox(width: 10),
           Expanded(child: Text(label)),
           const SizedBox(width: 16),
           selected
