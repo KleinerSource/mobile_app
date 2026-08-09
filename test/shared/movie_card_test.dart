@@ -128,19 +128,28 @@ void main() {
       await tester.pump();
     }
 
+    Color badgeColor() {
+      final badge = tester.widget<Container>(
+        find
+            .ancestor(
+              of: find.byIcon(Icons.tv_rounded),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      return (badge.decoration! as BoxDecoration).color!;
+    }
+
     await pumpMovie(720);
-    final hdIcon = tester.widget<Icon>(find.byIcon(Icons.tv_rounded));
-    expect(hdIcon.color, const Color(0xFF10B981));
+    expect(badgeColor(), const Color(0xFF10B981));
     expect(find.text('HD'), findsNothing);
 
     await pumpMovie(1080);
-    final fhdIcon = tester.widget<Icon>(find.byIcon(Icons.tv_rounded));
-    expect(fhdIcon.color, const Color(0xFF0EA5E9));
+    expect(badgeColor(), const Color(0xFF0EA5E9));
     expect(find.text('FHD'), findsNothing);
 
     await pumpMovie(2160);
-    final uhdIcon = tester.widget<Icon>(find.byIcon(Icons.tv_rounded));
-    expect(uhdIcon.color, const Color(0xFF2D6CDF));
+    expect(badgeColor(), const Color(0xFF2D6CDF));
     expect(find.text('UHD'), findsNothing);
   });
 }
