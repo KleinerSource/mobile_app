@@ -335,8 +335,11 @@ class DiskCacheService {
       );
       final body = response.data;
       if (body == null) throw StateError('服务器没有返回视频内容');
-      final total = response.headers.contentLength > 0
-          ? response.headers.contentLength
+      final contentLength = int.tryParse(
+        response.headers.value(Headers.contentLengthHeader) ?? '',
+      );
+      final total = contentLength != null && contentLength > 0
+          ? contentLength
           : null;
       if (total != null && total > maxBytes) {
         throw CacheLimitExceededException(maxBytes);

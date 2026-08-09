@@ -79,7 +79,7 @@ class _PrecacheMovieDialogState extends ConsumerState<PrecacheMovieDialog> {
       AppHaptics.medium();
     } catch (error) {
       if (!mounted) return;
-      if (CancelToken.isCancel(error)) return;
+      if (error is DioException && CancelToken.isCancel(error)) return;
       setState(() {
         _running = false;
         _error = _message(error);
