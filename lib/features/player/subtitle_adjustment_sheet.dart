@@ -79,9 +79,9 @@ class SubtitleAdjustmentSheet extends StatefulWidget {
 
 class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
   late SubtitleAdjustments _adjustments = widget.initial.copyWith(
-        verticalOffset: widget.initial.verticalOffset
-            .clamp(subtitleVerticalOffsetMin, subtitleVerticalOffsetMax)
-            .toDouble(),
+        verticalOffset: clampSubtitleVerticalOffset(
+          widget.initial.verticalOffset,
+        ),
       );
 
   void _update(SubtitleAdjustments next) {
@@ -100,9 +100,7 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
   }
 
   void _changeVertical(double delta) {
-    final next = (_adjustments.verticalOffset + delta)
-        .clamp(subtitleVerticalOffsetMin, subtitleVerticalOffsetMax)
-        .toDouble();
+    final next = clampSubtitleVerticalOffset(_adjustments.verticalOffset + delta);
     _update(_adjustments.copyWith(verticalOffset: next));
   }
 

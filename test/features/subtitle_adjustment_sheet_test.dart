@@ -61,29 +61,9 @@ void main() {
     expect(adjustments.delayMs, afterRelease);
   });
 
-  testWidgets('垂直偏移限制在 -100 到 500', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SubtitleAdjustmentSheet(
-            initial: const SubtitleAdjustments(verticalOffset: 600),
-            onChanged: (_) {},
-          ),
-        ),
-      ),
-    );
-    expect(find.text('500'), findsOneWidget);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SubtitleAdjustmentSheet(
-            initial: const SubtitleAdjustments(verticalOffset: -200),
-            onChanged: (_) {},
-          ),
-        ),
-      ),
-    );
-    expect(find.text('-100'), findsOneWidget);
+  test('垂直偏移限制在 -100 到 500', () {
+    expect(clampSubtitleVerticalOffset(600), 500);
+    expect(clampSubtitleVerticalOffset(-200), -100);
+    expect(clampSubtitleVerticalOffset(120), 120);
   });
 }
