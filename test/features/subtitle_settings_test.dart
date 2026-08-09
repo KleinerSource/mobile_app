@@ -38,7 +38,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final repository = SubtitleSettingsRepository(prefs);
-    final expected = SubtitleSettings(
+    const expected = SubtitleSettings(
       rememberSelectedSubtitle: false,
       ignoreAssStyle: true,
       ignoreSrtStyle: true,
