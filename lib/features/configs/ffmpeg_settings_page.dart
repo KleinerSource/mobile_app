@@ -163,22 +163,9 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
                 _errorBox(c, _error!),
               ],
               const SizedBox(height: 28),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _saving ? null : _save,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                  ),
-                  icon: _saving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.save_outlined),
-                  label: Text(_saving ? '保存中...' : '保存配置'),
-                ),
+              SettingsSaveButton(
+                onPressed: _save,
+                saving: _saving,
               ),
             ],
           ),

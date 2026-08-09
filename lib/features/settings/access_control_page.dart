@@ -403,31 +403,9 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                 _errorBox(_error!),
               ],
               const SizedBox(height: 28),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _saving ? null : _save,
-                  icon: _saving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.save_outlined, size: 18),
-                  label: Text(_saving ? '保存中...' : '保存配置'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: c.text,
-                    foregroundColor: c.bg,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    minimumSize: const Size.fromHeight(48),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
+              SettingsSaveButton(
+                onPressed: _save,
+                saving: _saving,
               ),
             ],
           ),

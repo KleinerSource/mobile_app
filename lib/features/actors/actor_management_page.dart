@@ -110,21 +110,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                       child: SettingsSubPageHeader(
                         eyebrow: l.settingsGroupLibrary,
                         title: l.settingsActors,
-                        trailing: FilledButton.icon(
+                        trailing: SettingsAddButton(
                           onPressed: () => _showEditor(context),
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('添加'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: c.text,
-                            foregroundColor: c.bg,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 9,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(100),
-                            ),
-                          ),
                         ),
                       ),
                     ),

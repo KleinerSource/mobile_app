@@ -89,22 +89,8 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                   child: SettingsSubPageHeader(
                     eyebrow: '媒体库',
                     title: widget.kind.plural,
-                    trailing: FilledButton.icon(
+                    trailing: SettingsAddButton(
                       onPressed: () => _showEditor(context),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('添加',
-                          style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13)),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: c.text,
-                        foregroundColor: c.bg,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(100)),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
-                      ),
                     ),
                   ),
                 ),

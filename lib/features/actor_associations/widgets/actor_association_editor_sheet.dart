@@ -160,100 +160,118 @@ class _ActorAssociationEditorSheetState
     final c = appColors(context);
     final mq = MediaQuery.of(context);
     return Padding(
-      padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
-      child: SizedBox(
-        height: mq.size.height * 0.7,
-        child: SafeArea(
-          top: false,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(_title, style: AppText.sectionTitle(context)),
-                    const SizedBox(height: 2),
-                    Text(
-                      _isAppend
-                          ? '已有 ${widget.existing?.originalValues.length ?? 0} 个别名'
-                          : '使用换行 / 逗号 / 顿号分隔多个别名',
-                      style: AppText.meta(context),
-                    ),
-                  ],
+      padding: EdgeInsets.only(bottom: mq.viewInsets.bottom + 22),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(22, 4, 22, 0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_title, style: AppText.sectionTitle(context)),
+            const SizedBox(height: 4),
+            Text(
+              _isAppend
+                  ? '已有 ${widget.existing?.originalValues.length ?? 0} 个别名'
+                  : '使用换行 / 逗号 / 顿号分隔多个别名',
+              style: AppText.meta(context),
+            ),
+            const SizedBox(height: 16),
+            Text('标准演员名称', style: AppText.eyebrow(context)),
+            const SizedBox(height: 2),
+            Text(
+              _isCreate ? '用于匹配影片中的演员名称' : '标准名称不可修改',
+              style: AppText.meta(context),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              decoration: BoxDecoration(
+                color: _isCreate ? c.surface : c.chipBg,
+                border: Border.all(color: c.cardBorder),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TextField(
+                controller: _mapped,
+                enabled: _isCreate,
+                autofocus: _isCreate,
+                decoration: const InputDecoration(
+                  hintText: '例: 加勒比海岛',
+                  border: InputBorder.none,
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+                style: TextStyle(
+                  color: c.text,
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const Divider(height: 1),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
-                  children: [
-                    Text('标准演员名称', style: AppText.meta(context)),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _mapped,
-                      enabled: _isCreate,
-                      decoration: InputDecoration(
-                        hintText: '例: 加勒比海岛',
-                        isDense: true,
-                        border: const OutlineInputBorder(),
-                        filled: !_isCreate,
-                        fillColor: c.chipBg,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      _isAppend ? '新增别名' : '关联别名',
-                      style: AppText.meta(context),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _aliases,
-                      maxLines: 8,
-                      decoration: const InputDecoration(
-                        hintText: '一行一个, 或用 , ; 、 分隔',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              (_isAppend ? '新增别名' : '关联别名').toUpperCase(),
+              style: AppText.eyebrow(context),
+            ),
+            const SizedBox(height: 2),
+            Text('多个值用换行分隔', style: AppText.meta(context)),
+            const SizedBox(height: 6),
+            Container(
+              decoration: BoxDecoration(
+                color: c.surface,
+                border: Border.all(color: c.cardBorder),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TextField(
+                controller: _aliases,
+                minLines: 2,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  hintText: '一行一个, 或用 , ; 、 分隔',
+                  border: InputBorder.none,
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+                style: TextStyle(
+                  color: c.text,
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.fromLTRB(22, 10, 22, 10),
-                decoration: BoxDecoration(
-                  color: c.bg,
-                  border: Border(top: BorderSide(color: c.divider)),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saving ? null : _save,
+                style: FilledButton.styleFrom(
+                  backgroundColor: c.text,
+                  foregroundColor: c.bg,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed:
-                            _saving ? null : () => Navigator.of(context).pop(false),
-                        child: const Text('取消'),
+                child: _saving
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: c.bg,
+                        ),
+                      )
+                    : Text(
+                        _isCreate ? '创建' : '保存',
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 2,
-                      child: FilledButton.icon(
-                        onPressed: _saving ? null : _save,
-                        icon: _saving
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.check, size: 18),
-                        label: Text(_saving ? '保存中...' : '保存'),
-                      ),
-                    ),
-                  ],
-                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

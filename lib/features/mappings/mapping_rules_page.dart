@@ -75,23 +75,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                             icon: Icon(Icons.sync, color: c.muted),
                             onPressed: _syncActors,
                           ),
-                        FilledButton.icon(
-                          onPressed: () => _showEditor(),
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('添加',
-                              style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13)),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: c.text,
-                            foregroundColor: c.bg,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(100)),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
-                          ),
-                        ),
+                        SettingsAddButton(onPressed: () => _showEditor()),
                       ],
                     ),
                   ),

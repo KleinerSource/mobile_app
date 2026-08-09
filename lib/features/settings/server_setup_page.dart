@@ -129,32 +129,10 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                         Text(_error!, style: TextStyle(color: c.danger, fontSize: 13)),
                       ],
                       const SizedBox(height: 28),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _busy ? null : _testAndSave,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: c.text,
-                            foregroundColor: c.bg,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                          child: _busy
-                              ? const SizedBox(
-                                  height: 18,
-                                  width: 18,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Text(
-                                  '测试并保存',
-                                  style: TextStyle(
-                                      fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14),
-                                ),
-                        ),
+                      SettingsSaveButton(
+                        onPressed: _testAndSave,
+                        saving: _busy,
+                        label: '测试并保存',
                       ),
                     ],
                   ),

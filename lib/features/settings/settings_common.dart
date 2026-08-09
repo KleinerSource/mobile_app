@@ -164,6 +164,92 @@ BoxDecoration settingsCardDecoration(BuildContext context) {
   );
 }
 
+/// 设置页标题栏的统一新增操作。
+class SettingsAddButton extends StatelessWidget {
+  const SettingsAddButton({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return FilledButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.add, size: 18),
+      label: const Text(
+        '添加',
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontWeight: FontWeight.w700,
+          fontSize: 13,
+        ),
+      ),
+      style: FilledButton.styleFrom(
+        backgroundColor: c.text,
+        foregroundColor: c.bg,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(100),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      ),
+    );
+  }
+}
+
+/// 设置页统一的保存操作，避免不同页面混用按钮组件和文案。
+class SettingsSaveButton extends StatelessWidget {
+  const SettingsSaveButton({
+    super.key,
+    required this.onPressed,
+    this.saving = false,
+    this.label = '保存设置',
+  });
+
+  final VoidCallback? onPressed;
+  final bool saving;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: saving ? null : onPressed,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(48),
+          backgroundColor: c.text,
+          foregroundColor: c.bg,
+          disabledBackgroundColor: c.text.withValues(alpha: 0.45),
+          disabledForegroundColor: c.bg.withValues(alpha: 0.7),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+        icon: saving
+            ? SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: c.bg,
+                ),
+              )
+            : const Icon(Icons.save_outlined, size: 18),
+        label: Text(
+          saving ? '保存中...' : label,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w800,
+            fontSize: 14,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 设置页通用滑块 · 在拖动起始、跨分段和提交时提供触觉反馈。
 class HapticSlider extends StatefulWidget {
   const HapticSlider({

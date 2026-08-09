@@ -151,9 +151,10 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SettingsSubPageHeader(
+              SettingsSubPageHeader(
                 eyebrow: '媒体库',
                 title: '演员关联管理',
+                trailing: SettingsAddButton(onPressed: _create),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
@@ -188,13 +189,6 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
             ],
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _create,
-        icon: const Icon(Icons.add, size: 18),
-        label: const Text('新建'),
-        backgroundColor: c.accent,
-        foregroundColor: Colors.white,
       ),
     );
   }

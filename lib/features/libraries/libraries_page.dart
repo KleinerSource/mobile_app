@@ -36,25 +36,11 @@ class LibrariesPage extends ConsumerWidget {
                   child: SettingsSubPageHeader(
                     eyebrow: '媒体库',
                     title: '媒体库管理',
-                    trailing: FilledButton.icon(
+                    trailing: SettingsAddButton(
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const LibraryEditorPage(),
                         ),
-                      ),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('添加',
-                          style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13)),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: c.text,
-                        foregroundColor: c.bg,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(100)),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
                       ),
                     ),
                   ),
