@@ -150,10 +150,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          notes="未签名 iOS 构建产物（自动滚动更新）
-
-          - commit: ${GITHUB_SHA}
-          - run: ${GITHUB_RUN_NUMBER}"
+          commit_subject="$(git show -s --format=%s "${GITHUB_SHA}")"
+          commit_body="$(git show -s --format=%b "${GITHUB_SHA}")"
+          if [ -z "${commit_body//[[:space:]]/}" ]; then
+            commit_body="$(git diff-tree --no-commit-id --name-status -r "${GITHUB_SHA}" | sed 's/^/- /')"
+          fi
+          short_sha="${GITHUB_SHA:0:7}"
+          run_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          commit_url="https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+          notes="$(printf '%s\n\n%s\n\ncommit: [%s](%s)\nrun: [%s](%s)' \
+            '未签名 iOS 构建产物（自动滚动更新）' \
+            "$(printf '%s\n%s' "${commit_subject}" "${commit_body}")" \
+            "${short_sha}" \
+            "${commit_url}" \
+            "${GITHUB_RUN_NUMBER}" \
+            "${run_url}")"
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest build/ios/iphoneos/md_center.ipa \
             --prerelease \
