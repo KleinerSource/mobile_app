@@ -12,6 +12,7 @@ import '../libraries/libraries_providers.dart';
 import '../libraries/library_movies_page.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../movies/movies_providers.dart';
+import '../player/player_page.dart';
 import '../privacy/privacy_mask.dart';
 import 'home_providers.dart';
 import 'recommend_carousel.dart';
@@ -316,10 +317,10 @@ class _ContinueWatchingCard extends StatelessWidget {
                   Row(
                     children: [
                       ElevatedButton(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => MovieDetailPage(movieId: movie.id),
-                          ),
+                        onPressed: () => PlayerPage.open(
+                          context,
+                          movieId: movie.id,
+                          title: movie.title,
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,

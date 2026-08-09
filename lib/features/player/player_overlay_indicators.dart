@@ -56,9 +56,14 @@ class PlayerIndicator {
   final Duration seekTarget;
   final Duration seekTotal;
   final int seekDeltaMs;
+
+  bool get isSpeed => _kind == _Kind.speed;
 }
 
-/// 播放器中央指示器层 · 纯展示, 不拦手势
+/// 播放器指示器层 · 纯展示, 不拦手势。
+///
+/// 倍速提示固定在画面上部，避免长按加速时遮挡影片中央内容；其他
+/// 调节提示仍保持在中央，便于用户快速确认当前值。
 class PlayerOverlayIndicators extends StatelessWidget {
   const PlayerOverlayIndicators({super.key, this.indicator});
 
@@ -68,17 +73,35 @@ class PlayerOverlayIndicators extends StatelessWidget {
   Widget build(BuildContext context) {
     final ind = indicator;
     return IgnorePointer(
-      child: Center(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
-          child: ind == null
-              ? const SizedBox.shrink()
-              : KeyedSubtree(
-                  key: const ValueKey('indicator-card'),
-                  child: _card(context, ind),
-                ),
-        ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (ind?.isSpeed == true)
+            Positioned(
+              top: 56,
+              left: 16,
+              right: 16,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: _animatedCard(context, ind),
+              ),
+            )
+          else
+            Center(child: _animatedCard(context, ind)),
+        ],
       ),
+    );
+  }
+
+  Widget _animatedCard(BuildContext context, PlayerIndicator? ind) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      child: ind == null
+          ? const SizedBox.shrink()
+          : KeyedSubtree(
+              key: const ValueKey('indicator-card'),
+              child: _card(context, ind),
+            ),
     );
   }
 
