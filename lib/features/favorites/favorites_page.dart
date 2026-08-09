@@ -59,6 +59,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   FavoritesViewMode _viewMode = FavoritesViewMode.grid;
   FavoritesSort _sort = FavoritesSort.recent;
   int _totalCount = 0;
+  int? _watchedCount;
+  int? _watchedHours;
   final Set<int> _selected = {};
   bool get _selecting => _selected.isNotEmpty;
 
@@ -77,12 +79,15 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   Future<void> _fetch(int offset) async {
     try {
       final repo = ref.read(favoritesRepositoryProvider);
-      final page = await repo.list(
+      final result = await repo.list(
         MovieFilter(sortBy: _sort.sortBy, sortOrder: _sort.order),
         limit: _pageSize,
         offset: offset,
       );
+      final page = result.page;
       _totalCount = page.totalCount;
+      _watchedCount = result.stats?.watchedCount;
+      _watchedHours = result.stats?.hours;
       final nextOffset = offset + page.items.length;
       if (nextOffset >= page.totalCount || page.items.isEmpty) {
         _controller.appendLastPage(page.items);
@@ -288,6 +293,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                   child: _StatsCard(
                     totalCount: _totalCount,
                     items: _controller.itemList ?? const [],
+                    watchedCount: _watchedCount,
+                    watchedHours: _watchedHours,
                   ),
                 ),
               ),
@@ -825,22 +832,33 @@ class _ListRow extends StatelessWidget {
 
 // ============ Stats + Lists 复用 ============
 class _StatsCard extends StatelessWidget {
-  const _StatsCard({required this.totalCount, required this.items});
+  const _StatsCard({
+    required this.totalCount,
+    required this.items,
+    this.watchedCount,
+    this.watchedHours,
+  });
   final int totalCount;
   final List<MovieListItem> items;
+  final int? watchedCount;
+  final int? watchedHours;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final watched = items.where((m) => m.watchRecord?.completed == true).length;
-    final hours = items.fold<int>(0, (acc, m) {
-          final r = m.watchRecord;
-          if (r == null) return acc;
-          final fraction = r.completed ? 1.0 : r.progressRatio;
-          final mins = m.runtime != null ? (m.runtime! * fraction).round() : 0;
-          return acc + mins;
-        }) ~/
-        60;
+    final watched = watchedCount ??
+        items.where((m) => m.watchRecord?.completed == true).length;
+    final hours = watchedHours ??
+        (items.fold<int>(0, (acc, m) {
+              final r = m.watchRecord;
+              if (r == null) return acc;
+              final fraction = r.completed ? 1.0 : r.progressRatio;
+              final mins = m.runtime != null
+                  ? (m.runtime! * fraction).round()
+                  : 0;
+              return acc + mins;
+            }) ~/
+            60);
 
     Widget cell(String k, String v, {bool first = false}) {
       return Expanded(
