@@ -124,11 +124,10 @@ class _PrivacyShieldTile extends ConsumerWidget {
       title: l.settingsPrivacyShield,
       subtitle: l.settingsPrivacyShieldSub,
       leadingIcon: Icons.shield_outlined,
-      trailing: Switch(
+      trailing: SettingsSwitch(
         value: enabled,
-        onChanged: AppHaptics.wrapToggle(
-          (v) => ref.read(privacyShieldProvider.notifier).setEnabled(v),
-        ),
+        onChanged: (v) =>
+            ref.read(privacyShieldProvider.notifier).setEnabled(v),
       ),
     );
   }

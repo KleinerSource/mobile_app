@@ -247,11 +247,9 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
                               ],
                             ),
                           ),
-                          Switch(
+                          SettingsSwitch(
                             value: _enabled,
-                            onChanged: AppHaptics.wrapToggle(
-                              (v) => setState(() => _enabled = v),
-                            ),
+                            onChanged: (v) => setState(() => _enabled = v),
                           ),
                         ],
                       ),

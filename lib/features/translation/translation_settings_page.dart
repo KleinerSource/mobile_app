@@ -263,11 +263,9 @@ class _TranslationSettingsPageState
                   ? '已启用 · 翻译功能可用'
                   : '已禁用 · 保存后不调用翻译服务',
               leadingIcon: Icons.translate_outlined,
-              trailing: Switch(
+              trailing: SettingsSwitch(
                 value: _enabled,
-                onChanged: AppHaptics.wrapToggle(
-                  (v) => setState(() => _enabled = v),
-                ),
+                onChanged: (v) => setState(() => _enabled = v),
               ),
             ),
           ),

@@ -512,13 +512,11 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
               ),
             ),
           ),
-          Switch.adaptive(
+          SettingsSwitch(
             value: _enabled,
             onChanged: _saving
                 ? null
-                : AppHaptics.wrapToggle((value) {
-                    setState(() => _enabled = value);
-                  }),
+                : (value) => setState(() => _enabled = value),
           ),
         ],
       ),

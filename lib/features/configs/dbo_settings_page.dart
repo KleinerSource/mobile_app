@@ -154,11 +154,9 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
                         ),
                       ),
                     ),
-                    Switch.adaptive(
+                    SettingsSwitch(
                       value: _enabled,
-                      onChanged: AppHaptics.wrapToggle(
-                        (v) => setState(() => _enabled = v),
-                      ),
+                      onChanged: (v) => setState(() => _enabled = v),
                     ),
                   ],
                 ),

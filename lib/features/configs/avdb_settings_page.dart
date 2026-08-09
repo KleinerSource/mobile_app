@@ -195,10 +195,7 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
               ],
             ),
           ),
-          Switch.adaptive(
-            value: value,
-            onChanged: AppHaptics.wrapToggle(onChanged),
-          ),
+          SettingsSwitch(value: value, onChanged: onChanged),
         ],
       ),
     );

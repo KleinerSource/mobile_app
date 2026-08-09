@@ -215,16 +215,11 @@ class _SubtitleSwitchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = appColors(context);
     return SettingsTile(
       title: title,
       subtitle: subtitle,
       leadingIcon: icon,
-      trailing: Switch(
-        value: value,
-        activeThumbColor: c.accent,
-        onChanged: AppHaptics.wrapToggle(onChanged),
-      ),
+      trailing: SettingsSwitch(value: value, onChanged: onChanged),
     );
   }
 }

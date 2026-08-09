@@ -327,10 +327,9 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                               fontWeight: FontWeight.w600,
                               fontSize: 11,
                             )),
-                        Switch(
+                        SettingsSwitch(
                           value: isDelete,
                           onChanged: (v) {
-                            AppHaptics.selection();
                             setSt(() {
                               isDelete = v;
                               if (v) mappedCtrl.clear();

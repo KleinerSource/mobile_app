@@ -123,6 +123,35 @@ class SettingsTile extends StatelessWidget {
   }
 }
 
+/// 偏好设置卡片统一开关。
+///
+/// 使用固定的 Material 开关外观，避免 `Switch` 与 `Switch.adaptive` 在
+/// iOS/Android 以及不同页面中显示成不同颜色和尺寸。
+class SettingsSwitch extends StatelessWidget {
+  const SettingsSwitch({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return Switch(
+      value: value,
+      onChanged: AppHaptics.wrapToggle(onChanged),
+      activeThumbColor: c.accent,
+      activeTrackColor: c.accent.withValues(alpha: 0.38),
+      inactiveThumbColor: c.muted,
+      inactiveTrackColor: c.muted2.withValues(alpha: 0.32),
+      trackOutlineColor: WidgetStatePropertyAll(c.cardBorder),
+    );
+  }
+}
+
 /// 设置页输入控件的统一外观与最小触控高度。
 InputDecoration settingsInputDecoration(
   BuildContext context, {

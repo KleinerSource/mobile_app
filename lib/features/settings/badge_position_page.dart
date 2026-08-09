@@ -292,17 +292,12 @@ class _CornerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final c = appColors(context);
     return SettingsTile(
       title: label,
       subtitle: enabled ? _labelOf(value, l) : l.badgeHidden,
       leadingIcon: icon,
       onTap: enabled ? () => _pick(context) : null,
-      trailing: Switch(
-        value: enabled,
-        onChanged: AppHaptics.wrapToggle(onToggle),
-        activeThumbColor: c.accent,
-      ),
+      trailing: SettingsSwitch(value: enabled, onChanged: onToggle),
     );
   }
 }

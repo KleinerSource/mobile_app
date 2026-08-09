@@ -214,10 +214,7 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
               ],
             ),
           ),
-          Switch.adaptive(
-            value: value,
-            onChanged: AppHaptics.wrapToggle(onChanged),
-          ),
+          SettingsSwitch(value: value, onChanged: onChanged),
         ],
       ),
     );
