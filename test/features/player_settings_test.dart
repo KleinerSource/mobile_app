@@ -10,6 +10,7 @@ void main() {
     final settings = PlayerSettingsRepository(prefs).load();
 
     expect(settings.resumeFromLastPosition, isTrue);
+    expect(settings.landscapeSide, PlayerLandscapeSide.cameraRight);
     expect(settings.entryOrientation, PlayerEntryOrientation.forceLandscape);
     expect(settings.doubleTapCenter, isTrue);
     expect(settings.doubleTapEdges, isTrue);
@@ -27,6 +28,22 @@ void main() {
     expect(settings.showPipButton, isTrue);
     expect(settings.showOrientationButton, isTrue);
     expect(settings.showMediaSwitchButton, isTrue);
+  });
+
+  test('设备横屏方向未知值回退为摄像头在右侧', () async {
+    expect(
+      const PlayerSettings().landscapeSide,
+      PlayerLandscapeSide.cameraRight,
+    );
+    SharedPreferences.setMockInitialValues({
+      'player.landscape_side': 'unsupported',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    expect(
+      PlayerSettingsRepository(prefs).load().landscapeSide,
+      PlayerLandscapeSide.cameraRight,
+    );
   });
 
   test('播放器设置可以持久化并恢复', () async {

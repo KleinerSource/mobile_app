@@ -6,6 +6,7 @@ import '../../core/models/translation_config.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../settings/settings_common.dart';
 import 'translation_providers.dart';
 
 class TranslationSettingsPage extends ConsumerStatefulWidget {
@@ -247,65 +248,51 @@ class _TranslationSettingsPageState
   Widget _buildForm(AppColors c) {
     return Column(
       children: [
-        // 顶栏
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _enabled
-                      ? c.accent.withValues(alpha: 0.18)
-                      : c.chipBg,
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _enabled ? '已启用' : '已禁用',
-                      style: TextStyle(
-                        color: _enabled ? c.accent : c.muted,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    SizedBox(
-                      width: 36,
-                      height: 22,
-                      child: Switch(
-                        value: _enabled,
-                        onChanged: AppHaptics.wrapToggle(
-                          (v) => setState(() => _enabled = v),
-                        ),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        const SettingsSubPageHeader(
+          eyebrow: 'SYSTEM',
+          title: '翻译配置',
+          subtitle: '配置 ChatGPT API 翻译功能',
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(22, 8, 22, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('SYSTEM', style: AppText.eyebrow(context)),
-              const SizedBox(height: 3),
-              Text('翻译配置', style: AppText.pageTitle(context)),
-              const SizedBox(height: 6),
-              Text('配置 ChatGPT API 翻译功能', style: AppText.meta(context)),
-            ],
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: _enabled
+                    ? c.accent.withValues(alpha: 0.18)
+                    : c.chipBg,
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _enabled ? '已启用' : '已禁用',
+                    style: TextStyle(
+                      color: _enabled ? c.accent : c.muted,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  SizedBox(
+                    width: 36,
+                    height: 22,
+                    child: Switch(
+                      value: _enabled,
+                      onChanged: AppHaptics.wrapToggle(
+                        (v) => setState(() => _enabled = v),
+                      ),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ),
           ),
         ),
         Expanded(

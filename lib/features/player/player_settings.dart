@@ -16,7 +16,7 @@ enum PlayerLandscapeSide {
   static PlayerLandscapeSide fromValue(String? value) {
     return values.firstWhere(
       (item) => item.value == value,
-      orElse: () => PlayerLandscapeSide.cameraLeft,
+      orElse: () => PlayerLandscapeSide.cameraRight,
     );
   }
 }
@@ -43,7 +43,7 @@ enum PlayerEntryOrientation {
 class PlayerSettings {
   const PlayerSettings({
     this.resumeFromLastPosition = true,
-    this.landscapeSide = PlayerLandscapeSide.cameraLeft,
+    this.landscapeSide = PlayerLandscapeSide.cameraRight,
     this.entryOrientation = PlayerEntryOrientation.forceLandscape,
     this.doubleTapCenter = true,
     this.doubleTapEdges = true,
