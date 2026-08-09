@@ -11,6 +11,7 @@ import '../privacy/privacy_providers.dart';
 import 'badge_position_page.dart';
 import 'player_settings_page.dart';
 import 'settings_common.dart';
+import 'subtitle_settings_page.dart';
 
 /// 应用设置子页 · 仅本地客户端偏好
 class AppSettingsPage extends ConsumerWidget {
@@ -53,6 +54,21 @@ class AppSettingsPage extends ConsumerWidget {
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => const PlayerSettingsPage(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SettingsGroup(
+                title: '字幕设置',
+                items: [
+                  SettingsTile(
+                    title: '字幕设置',
+                    subtitle: '记忆选择 / 字体 / 颜色 / 描边 / 阴影',
+                    leadingIcon: Icons.subtitles_outlined,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const SubtitleSettingsPage(),
                       ),
                     ),
                   ),

@@ -19,6 +19,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/models/playback.dart' as playback_models;
 import '../../core/models/watch_record.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../home/home_providers.dart';
 import '../movies/movies_providers.dart';
 import 'player_controller_host.dart';
@@ -33,6 +34,9 @@ import 'playback_decision.dart';
 import 'player_resume.dart';
 import 'player_settings.dart';
 import 'player_status_overlay.dart';
+import 'subtitle_adjustment_sheet.dart';
+import 'subtitle_rendering.dart';
+import 'subtitle_settings.dart';
 
 /// 全屏视频播放页。播放源由后端协商，页面只负责编排回退、进度和用户控制。
 class PlayerPage extends ConsumerStatefulWidget {
@@ -91,6 +95,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   String _quality = 'original';
   playback_models.PlaybackDecision? _decision;
   playback_models.SubtitleTrack? _selectedSubtitle;
+  SubtitleAdjustments _subtitleAdjustments = const SubtitleAdjustments();
   bool _usingHls = false;
   bool _clientHardwareAcceleration = true;
   bool _transcodeSessionActive = false;
@@ -480,11 +485,25 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     String? token,
     playback_models.PlaybackDecision decision,
   ) async {
+    final subtitleSettings = ref.read(subtitleSettingsProvider);
     playback_models.SubtitleTrack? defaultSubtitle;
-    for (final track in decision.subtitleTracks) {
-      if (track.isDefault) {
-        defaultSubtitle = track;
-        break;
+    final rememberedKey = subtitleSettings.rememberSelectedSubtitle
+        ? subtitleSettings.rememberedSubtitleKey
+        : null;
+    if (rememberedKey != subtitleDisabledSelectionKey) {
+      if (rememberedKey != null) {
+        for (final track in decision.subtitleTracks) {
+          if (subtitleSelectionKey(track) == rememberedKey) {
+            defaultSubtitle = track;
+            break;
+          }
+        }
+      }
+      for (final track in decision.subtitleTracks) {
+        if (defaultSubtitle == null && track.isDefault) {
+          defaultSubtitle = track;
+          break;
+        }
       }
     }
     if (defaultSubtitle != null) {
@@ -610,7 +629,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _host.player.play();
   }
 
-  Future<void> _selectSubtitle(
+  Future<bool> _selectSubtitle(
     ServerConfig cfg,
     String? token,
     playback_models.SubtitleTrack? track, {
@@ -621,7 +640,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (track == null) {
         await _host.clearSubtitle();
         _setSelectedSubtitle(null);
-        return;
+        return true;
       }
       if (track.isEmbedded) {
         await _host.setSubtitleTrackById(
@@ -629,7 +648,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           fallbackIndex: embeddedOrdinal,
         );
         _setSelectedSubtitle(track);
-        return;
+        return true;
       }
       if (!track.canLoad || track.url.trim().isEmpty) {
         throw StateError('字幕地址不可用');
@@ -640,10 +659,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         language: track.language.isEmpty ? null : track.language,
       );
       _setSelectedSubtitle(track);
+      return true;
     } catch (error) {
       if (showError && mounted) {
         _showError('字幕加载失败: ${toApiException(error).message}');
       }
+      return false;
     }
   }
 
@@ -657,13 +678,24 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           ? null
           : await ref.read(authSessionRepositoryProvider).accessToken();
       if (!mounted || _isLeaving) return;
-      await _selectSubtitle(
+      final loaded = await _selectSubtitle(
         cfg,
         token,
         track,
         embeddedOrdinal:
             track == null ? null : _embeddedSubtitleOrdinal(track),
       );
+      if (loaded && ref.read(subtitleSettingsProvider).rememberSelectedSubtitle) {
+        final key = track == null
+            ? subtitleDisabledSelectionKey
+            : subtitleSelectionKey(track);
+        unawaited(
+          ref
+              .read(subtitleSettingsProvider.notifier)
+              .rememberSelection(key)
+              .catchError((_) {}),
+        );
+      }
     } catch (error) {
       if (mounted) _showError('字幕加载失败: ${toApiException(error).message}');
     }
@@ -689,6 +721,22 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   void _setSelectedSubtitle(playback_models.SubtitleTrack? track) {
     if (!mounted) return;
     setState(() => _selectedSubtitle = track);
+  }
+
+  void _updateSubtitleAdjustments(SubtitleAdjustments next) {
+    if (!mounted || _isLeaving) return;
+    setState(() => _subtitleAdjustments = next);
+  }
+
+  Future<void> _showSubtitleSettings() async {
+    await showGlassSheet<void>(
+      context: context,
+      builder: (_) => SubtitleAdjustmentSheet(
+        style: ref.read(subtitleSettingsProvider),
+        initial: _subtitleAdjustments,
+        onChanged: _updateSubtitleAdjustments,
+      ),
+    );
   }
 
   void _showError(String message) {
@@ -1049,6 +1097,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   Widget _body() {
     final settings = ref.watch(playerSettingsProvider);
+    final subtitleSettings = ref.watch(subtitleSettingsProvider);
     if (_loading) {
       return const Center(child: CircularProgressIndicator(color: Colors.white));
     }
@@ -1066,6 +1115,17 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             controller: _host.controller,
             controls: NoVideoControls,
             fit: BoxFit.contain,
+            subtitleViewConfiguration: const SubtitleViewConfiguration(
+              visible: false,
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: PlayerSubtitleOverlay(
+            player: _host.player,
+            selectedTrack: _selectedSubtitle,
+            settings: subtitleSettings,
+            adjustments: _subtitleAdjustments,
           ),
         ),
         Positioned.fill(
@@ -1117,6 +1177,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 selectedSubtitle: _selectedSubtitle,
                 onSubtitleChanged: (track) =>
                     unawaited(_onSubtitleChanged(track)),
+                onOpenSubtitleSettings: () =>
+                    unawaited(_showSubtitleSettings()),
                 audioTracks: decision.audioTracks,
                 onAudioChanged: (track) {
                   // 后端 track index 与 media_kit 的轨道 ID 一致时直接切换。

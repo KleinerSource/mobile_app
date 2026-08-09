@@ -6,6 +6,8 @@ import 'player_decode_status.dart';
 import 'player_haptics.dart';
 import 'player_overlay_indicators.dart' show formatDuration;
 
+enum _SubtitleMenuAction { openSettings }
+
 /// 播放器控制层 · 顶部页面操作 + 底部媒体信息、进度和主播放控制。
 ///
 /// 控制层只覆盖顶部和底部，中央区域始终留给手势层。
@@ -18,6 +20,7 @@ class PlayerControls extends StatefulWidget {
     required this.subtitleTracks,
     required this.selectedSubtitle,
     required this.onSubtitleChanged,
+    required this.onOpenSubtitleSettings,
     required this.audioTracks,
     required this.onAudioChanged,
     required this.decodeStatuses,
@@ -49,6 +52,7 @@ class PlayerControls extends StatefulWidget {
   final List<playback_models.SubtitleTrack> subtitleTracks;
   final playback_models.SubtitleTrack? selectedSubtitle;
   final ValueChanged<playback_models.SubtitleTrack?> onSubtitleChanged;
+  final VoidCallback onOpenSubtitleSettings;
   final List<playback_models.AudioTrack> audioTracks;
   final ValueChanged<playback_models.AudioTrack> onAudioChanged;
   final List<PlayerDecodeStatus> decodeStatuses;
@@ -485,16 +489,37 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   Widget _subtitleButton() {
-    return PopupMenuButton<playback_models.SubtitleTrack>(
+    return PopupMenuButton<Object>(
       tooltip: '选择字幕',
       padding: EdgeInsets.zero,
       initialValue: widget.selectedSubtitle ?? _noSubtitleTrack,
-      onSelected: (track) {
+      onSelected: (value) {
         PlayerHaptics.selection();
+        if (value == _SubtitleMenuAction.openSettings) {
+          widget.onOpenSubtitleSettings();
+          widget.onInteraction();
+          return;
+        }
+        final track = value as playback_models.SubtitleTrack;
         widget.onSubtitleChanged(track.index < 0 ? null : track);
         widget.onInteraction();
       },
-      itemBuilder: (context) => [
+      itemBuilder: (context) => <PopupMenuEntry<Object>>[
+        const PopupMenuItem<Object>(
+          value: _SubtitleMenuAction.openSettings,
+          child: Row(
+            children: [
+              Icon(Icons.tune, size: 18),
+              SizedBox(width: 10),
+              Text('字幕设置'),
+            ],
+          ),
+        ),
+        const PopupMenuItem<Object>(
+          enabled: false,
+          height: 8,
+          child: SizedBox.shrink(),
+        ),
         _subtitleMenuItem(
           _noSubtitleTrack,
           label: '关闭字幕',
@@ -521,13 +546,13 @@ class _PlayerControlsState extends State<PlayerControls> {
     );
   }
 
-  PopupMenuItem<playback_models.SubtitleTrack> _subtitleMenuItem(
+  PopupMenuItem<Object> _subtitleMenuItem(
     playback_models.SubtitleTrack track, {
     required String label,
     required bool selected,
     bool enabled = true,
   }) {
-    return PopupMenuItem<playback_models.SubtitleTrack>(
+    return PopupMenuItem<Object>(
       value: track,
       enabled: enabled,
       child: Row(
