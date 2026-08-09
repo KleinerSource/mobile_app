@@ -488,7 +488,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: c.text,
                     fontWeight: FontWeight.w800,
                     fontSize: 13,
