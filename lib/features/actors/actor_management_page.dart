@@ -107,61 +107,30 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.arrow_back),
-                              onPressed: () =>
-                                  Navigator.of(context).maybePop(),
+                      child: SettingsSubPageHeader(
+                        eyebrow: l.settingsGroupLibrary,
+                        title: l.settingsActors,
+                        trailing: FilledButton.icon(
+                          onPressed: () => _showEditor(context),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('添加'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: c.text,
+                            foregroundColor: c.bg,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 9,
                             ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.only(
-                                  left: 4,
-                                  top: 10,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      l.settingsGroupLibrary.toUpperCase(),
-                                      style: AppText.eyebrow(context),
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      l.settingsActors,
-                                      style: AppText.pageTitle(context),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(100),
                             ),
-                            FilledButton.icon(
-                              onPressed: () => _showEditor(context),
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('添加'),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: c.text,
-                                foregroundColor: c.bg,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 9,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(100),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 8, 22, 18),
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,

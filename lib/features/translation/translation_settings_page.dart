@@ -249,7 +249,7 @@ class _TranslationSettingsPageState
     return Column(
       children: [
         const SettingsSubPageHeader(
-          eyebrow: 'SYSTEM',
+          eyebrow: '系统配置',
           title: '翻译配置',
           subtitle: '配置 ChatGPT API 翻译功能',
         ),

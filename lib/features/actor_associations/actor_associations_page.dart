@@ -11,6 +11,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
+import '../settings/settings_common.dart';
 import 'actor_associations_providers.dart';
 import 'widgets/actor_association_editor_sheet.dart';
 import 'widgets/actor_association_sync_sheet.dart';
@@ -150,34 +151,9 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back),
-                          onPressed: () => Navigator.of(context).maybePop(),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4, top: 4),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('ASSOCIATIONS',
-                              style: AppText.eyebrow(context)),
-                          const SizedBox(height: 3),
-                          Text('演员关联管理',
-                              style: AppText.pageTitle(context)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              const SettingsSubPageHeader(
+                eyebrow: '媒体库',
+                title: '演员关联管理',
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),

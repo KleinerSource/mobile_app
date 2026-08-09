@@ -337,7 +337,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
     return Column(
       children: [
         const SettingsSubPageHeader(
-          eyebrow: 'SECURITY',
+          eyebrow: '系统配置',
           title: '访问控制',
           subtitle: '配置登录凭据与会话策略；关闭时保持开放访问。',
         ),

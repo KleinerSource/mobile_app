@@ -9,6 +9,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import 'settings_common.dart';
 
 class ServerSetupPage extends ConsumerStatefulWidget {
   const ServerSetupPage({super.key});
@@ -83,43 +84,19 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         child: SafeArea(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
-                child: Row(
-                  children: [
-                    if (Navigator.of(context).canPop())
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: () => Navigator.of(context).maybePop(),
-                      ),
-                  ],
-                ),
+              SettingsSubPageHeader(
+                eyebrow: '服务器',
+                title: '连接到 MD Center',
+                subtitle: '输入你的服务器地址,包含协议和端口。\n例:http://192.168.1.10:8001',
+                showBackButton: Navigator.of(context).canPop(),
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(28, 0, 28, 0),
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('CONNECT', style: AppText.eyebrow(context)),
                       const SizedBox(height: 6),
-                      Text(
-                        '连接到 MD Center',
-                        style: TextStyle(
-                          color: c.text,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w800,
-                          fontSize: 32,
-                          letterSpacing: -0.96,
-                          height: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        '输入你的服务器地址,包含协议和端口。\n例:http://192.168.1.10:8001',
-                        style: AppText.body(context),
-                      ),
-                      const SizedBox(height: 28),
                       Container(
                         decoration: BoxDecoration(
                           color: c.surface,

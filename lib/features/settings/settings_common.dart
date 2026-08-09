@@ -230,17 +230,21 @@ class _HapticSliderState extends State<HapticSlider> {
   }
 }
 
-/// 通用设置子页头部 · eyebrow + 大标题 + 返回按钮
+/// 通用设置子页头部 · 分组眉标题 + 中文主标题 + 返回按钮/右侧操作
 class SettingsSubPageHeader extends StatelessWidget {
   const SettingsSubPageHeader({
     super.key,
     required this.eyebrow,
     required this.title,
     this.subtitle,
+    this.trailing,
+    this.showBackButton = true,
   });
   final String eyebrow;
   final String title;
   final String? subtitle;
+  final Widget? trailing;
+  final bool showBackButton;
 
   @override
   Widget build(BuildContext context) {
@@ -251,10 +255,17 @@ class SettingsSubPageHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
+              if (showBackButton)
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).maybePop(),
+                )
+              else
+                const SizedBox(width: 48, height: 48),
+              if (trailing != null) ...[
+                const Spacer(),
+                trailing!,
+              ],
             ],
           ),
           Padding(

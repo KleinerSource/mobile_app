@@ -97,7 +97,7 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
     return Column(
       children: [
         const SettingsSubPageHeader(
-          eyebrow: 'DATA SOURCE',
+          eyebrow: '工具',
           title: 'AVDB 数据源',
           subtitle: '用于演员关联同步。请先配置并启用 AVDB 数据源。',
         ),

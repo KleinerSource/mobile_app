@@ -8,6 +8,7 @@ import '../../core/models/resource.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../settings/settings_common.dart';
 import 'resource_movies_page.dart';
 import 'resources_providers.dart';
 import 'resources_repository.dart';
@@ -85,65 +86,45 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
               slivers: [
                 // 顶部
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back),
-                          onPressed: () => Navigator.of(context).maybePop(),
-                        ),
-                        const Spacer(),
-                        FilledButton.icon(
-                          onPressed: () => _showEditor(context),
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('添加',
-                              style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13)),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: c.text,
-                            foregroundColor: c.bg,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(100)),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
-                          ),
-                        ),
-                      ],
+                  child: SettingsSubPageHeader(
+                    eyebrow: '媒体库',
+                    title: widget.kind.plural,
+                    trailing: FilledButton.icon(
+                      onPressed: () => _showEditor(context),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('添加',
+                          style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: c.text,
+                        foregroundColor: c.bg,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                      ),
                     ),
                   ),
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 8, 22, 18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
                       children: [
-                        Text('媒体库', style: AppText.eyebrow(context)),
-                        const SizedBox(height: 3),
-                        Text(widget.kind.plural,
-                            style: AppText.pageTitle(context)),
-                        const SizedBox(height: 10),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              async.maybeWhen(
-                                data: (p) => '${p.totalCount}',
-                                orElse: () => '—',
-                              ),
-                              style: AppText.pageTitle(context),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '个${widget.kind.label}',
-                              style: AppText.meta(context),
-                            ),
-                          ],
+                        Text(
+                          async.maybeWhen(
+                            data: (p) => '${p.totalCount}',
+                            orElse: () => '—',
+                          ),
+                          style: AppText.pageTitle(context),
                         ),
+                        const SizedBox(width: 8),
+                        Text('个${widget.kind.label}',
+                            style: AppText.meta(context)),
                       ],
                     ),
                   ),

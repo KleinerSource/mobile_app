@@ -5,6 +5,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/library.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../settings/settings_common.dart';
 import 'libraries_providers.dart';
 import 'library_editor_page.dart';
 import 'scan_progress_sheet.dart';
@@ -32,50 +33,29 @@ class LibrariesPage extends ConsumerWidget {
             child: CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 8, 22, 22),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back),
-                          onPressed: () => Navigator.of(context).maybePop(),
+                  child: SettingsSubPageHeader(
+                    eyebrow: '媒体库',
+                    title: '媒体库管理',
+                    trailing: FilledButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const LibraryEditorPage(),
                         ),
-                        const Spacer(),
-                        FilledButton.icon(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const LibraryEditorPage(),
-                            ),
-                          ),
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('添加',
-                              style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13)),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: c.text,
-                            foregroundColor: c.bg,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(100)),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('LIBRARIES', style: AppText.eyebrow(context)),
-                        const SizedBox(height: 3),
-                        Text('媒体库管理', style: AppText.pageTitle(context)),
-                      ],
+                      ),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('添加',
+                          style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: c.text,
+                        foregroundColor: c.bg,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                      ),
                     ),
                   ),
                 ),

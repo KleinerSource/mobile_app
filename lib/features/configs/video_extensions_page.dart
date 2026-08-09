@@ -77,7 +77,7 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
           child: Column(
             children: [
               const SettingsSubPageHeader(
-                eyebrow: 'TOOLS',
+                eyebrow: '工具',
                 title: '视频扩展名',
                 subtitle: '配置媒体库扫描时识别的视频文件后缀',
               ),

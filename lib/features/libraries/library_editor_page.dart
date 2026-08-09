@@ -6,6 +6,7 @@ import '../../core/models/library.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../settings/settings_common.dart';
 import 'libraries_providers.dart';
 
 /// 媒体库编辑器
@@ -169,42 +170,20 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
         child: SafeArea(
           child: Column(
             children: [
-              // 顶部
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.of(context).maybePop(),
+              SettingsSubPageHeader(
+                eyebrow: '媒体库',
+                title: _isEdit ? '编辑媒体库' : '新建媒体库',
+                trailing: TextButton(
+                  onPressed: _saving ? null : _save,
+                  child: Text(
+                    _isEdit ? '保存' : '创建',
+                    style: TextStyle(
+                      color: c.accent,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
                     ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: _saving ? null : _save,
-                      child: Text(
-                        _isEdit ? '保存' : '创建',
-                        style: TextStyle(
-                          color: c.accent,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 8, 22, 22),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_isEdit ? 'EDIT LIBRARY' : 'NEW LIBRARY',
-                        style: AppText.eyebrow(context)),
-                    const SizedBox(height: 3),
-                    Text(_isEdit ? '编辑媒体库' : '新建媒体库',
-                        style: AppText.pageTitle(context)),
-                  ],
+                  ),
                 ),
               ),
               Expanded(

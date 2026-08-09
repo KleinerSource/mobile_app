@@ -8,6 +8,7 @@ import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../settings/settings_common.dart';
 import 'mappings_providers.dart';
 import 'mappings_repository.dart';
 
@@ -62,15 +63,12 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
               slivers: [
                 // 顶栏 + 添加
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-                    child: Row(
+                  child: SettingsSubPageHeader(
+                    eyebrow: '映射规则',
+                    title: '${widget.type.label}映射',
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back),
-                          onPressed: () => Navigator.of(context).maybePop(),
-                        ),
-                        const Spacer(),
                         if (widget.type == MappingType.actor)
                           IconButton(
                             tooltip: '同步演员映射',
@@ -98,33 +96,22 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                     ),
                   ),
                 ),
-                // Header
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 8, 22, 18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
                       children: [
-                        Text('映射规则', style: AppText.eyebrow(context)),
-                        const SizedBox(height: 3),
-                        Text('${widget.type.label}映射',
-                            style: AppText.pageTitle(context)),
-                        const SizedBox(height: 10),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              async.maybeWhen(
-                                data: (list) => '${list.length}',
-                                orElse: () => '—',
-                              ),
-                              style: AppText.pageTitle(context),
-                            ),
-                            const SizedBox(width: 8),
-                            Text('条规则', style: AppText.meta(context)),
-                          ],
+                        Text(
+                          async.maybeWhen(
+                            data: (list) => '${list.length}',
+                            orElse: () => '—',
+                          ),
+                          style: AppText.pageTitle(context),
                         ),
+                        const SizedBox(width: 8),
+                        Text('条规则', style: AppText.meta(context)),
                       ],
                     ),
                   ),

@@ -129,7 +129,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
     return Column(
       children: [
         const SettingsSubPageHeader(
-          eyebrow: 'TOOLS',
+          eyebrow: '工具',
           title: 'DB Online 数据源',
           subtitle: 'Base URL + API Key,用于影片信息、资源和演员关联同步',
         ),

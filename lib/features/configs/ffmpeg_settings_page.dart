@@ -98,7 +98,7 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
     return Column(
       children: [
         const SettingsSubPageHeader(
-          eyebrow: 'PLAYBACK ENGINE',
+          eyebrow: '工具',
           title: 'FFmpeg 与硬解',
           subtitle: '配置服务端转码、硬件解码和硬解失败回退策略。',
         ),
