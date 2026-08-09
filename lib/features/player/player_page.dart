@@ -99,6 +99,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   SubtitleVerticalOffsetBounds _subtitleOffsetBounds =
       const SubtitleVerticalOffsetBounds();
   bool _usingHls = false;
+  String? _pictureInPictureUrl;
+  Map<String, String>? _pictureInPictureHeaders;
+  bool _pictureInPictureActive = false;
+  bool _pictureInPictureWasPlaying = false;
+  bool _pictureInPictureUsesFallbackHls = false;
   bool _clientHardwareAcceleration = true;
   bool _transcodeSessionActive = false;
   PlayerDecodeStatus? _serverDecodeStatus;
@@ -143,6 +148,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     super.initState();
     _subtitleAdjustments = ref.read(subtitleSettingsProvider).adjustments;
     WidgetsBinding.instance.addObserver(this);
+    PlayerPlatformCapabilities.setPictureInPictureStoppedHandler(
+      _onPictureInPictureStopped,
+    );
     unawaited(_applyEntryOrientation(ref.read(playerSettingsProvider)));
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     FlutterVolumeController.updateShowSystemUI(false);
@@ -221,7 +229,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     if (_isLeaving) return;
     if ((state == AppLifecycleState.inactive ||
             state == AppLifecycleState.paused) &&
-        !_pictureInPictureRequesting) {
+        !_pictureInPictureRequesting &&
+        !_pictureInPictureActive) {
       _onRateBoostEnd();
       _wasPlayingBeforePause = _host.player.state.playing;
       _backgroundPosition = _host.position;
@@ -233,7 +242,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         _stopTranscodeSession();
         if (mounted) setState(() => _serverDecodeStatus = null);
       }
-    } else if (state == AppLifecycleState.resumed && _wasPlayingBeforePause) {
+    } else if (state == AppLifecycleState.resumed &&
+        _wasPlayingBeforePause &&
+        !_pictureInPictureActive) {
       if (_usingHls) {
         // HLS 会话在后台已停止，恢复时以当前位置重新协商并起播。
         // ignore: discarded_futures
@@ -250,6 +261,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _isLeaving = true;
     _loadGeneration++;
     WidgetsBinding.instance.removeObserver(this);
+    if (_pictureInPictureActive || _pictureInPictureRequesting) {
+      unawaited(PlayerPlatformCapabilities.stopPictureInPicture());
+    }
+    PlayerPlatformCapabilities.clearPictureInPictureStoppedHandler();
     _posSub?.cancel();
     _durSub?.cancel();
     _completedSub?.cancel();
@@ -282,6 +297,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             .stop(widget.movieId);
         unawaited(stopFuture);
       } catch (_) {}
+    }
+    if (_pictureInPictureUsesFallbackHls) {
+      unawaited(_stopPictureInPictureFallback());
     }
     // ignore: discarded_futures
     WakelockPlus.disable();
@@ -346,6 +364,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _onRateBoostEnd();
     await _stopTranscodeSession();
     if (!mounted || generation != _loadGeneration) return;
+    _pictureInPictureUrl = null;
+    _pictureInPictureHeaders = null;
+    _pictureInPictureUsesFallbackHls = false;
     setState(() {
       _loading = true;
       _error = null;
@@ -482,6 +503,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       );
     }
     _usingHls = false;
+    _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
+    _pictureInPictureHeaders = headers == null
+        ? null
+        : Map<String, String>.from(headers);
   }
 
   Future<void> _openHlsWithClientFallback(String url, Duration? startAt) async {
@@ -494,6 +519,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       await _host.open(url, startAt: startAt);
     }
     _usingHls = true;
+    _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
+    _pictureInPictureHeaders = null;
   }
 
   Future<void> _applyDefaultTracks(
@@ -980,17 +1007,140 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _enterPictureInPicture() async {
-    if (_isLeaving) return;
+    if (_isLeaving ||
+        _pictureInPictureRequesting ||
+        _pictureInPictureActive) {
+      return;
+    }
     _pictureInPictureRequesting = true;
+    final wasPlaying = _host.player.state.playing;
+    final position = _host.position;
+    _pictureInPictureWasPlaying = wasPlaying;
+    _backgroundPosition = position;
     try {
-      final entered =
-          await PlayerPlatformCapabilities.enterPictureInPicture();
-      if (!entered && mounted) {
-        _showError('当前设备或播放内核不支持画中画');
+      final source = await _resolvePictureInPictureSource();
+      if (source == null) {
+        _pictureInPictureWasPlaying = false;
+        if (mounted) _showError('当前播放源暂不支持画中画');
+        return;
       }
+      _pictureInPictureUsesFallbackHls = source.usesFallbackHls;
+      if (wasPlaying) {
+        await _host.player.pause();
+      }
+      final entered = await PlayerPlatformCapabilities.enterPictureInPicture(
+        url: source.url,
+        headers: source.headers,
+        position: position,
+        autoplay: wasPlaying,
+      );
+      if (!entered) {
+        await _stopPictureInPictureFallback();
+        if (wasPlaying && mounted && !_isLeaving) {
+          await _host.player.play();
+        }
+        _pictureInPictureWasPlaying = false;
+        if (mounted) _showError('当前设备或播放内核不支持画中画');
+        return;
+      }
+      if (Platform.isIOS) {
+        // iOS 原生桥接只在系统真正开始 PiP 后返回 true，此后忽略普通
+        // inactive/paused 生命周期，避免误暂停或停止 HLS 会话。
+        _pictureInPictureActive = true;
+      }
+    } catch (_) {
+      await _stopPictureInPictureFallback();
+      if (wasPlaying && mounted && !_isLeaving) {
+        await _host.player.play();
+      }
+      _pictureInPictureWasPlaying = false;
+      if (mounted) _showError('画中画启动失败，请稍后重试');
     } finally {
       _pictureInPictureRequesting = false;
     }
+  }
+
+  Future<_PictureInPictureSource?> _resolvePictureInPictureSource() async {
+    final currentUrl = _pictureInPictureUrl;
+    if (currentUrl == null || currentUrl.trim().isEmpty) return null;
+    if (!Platform.isIOS ||
+        _usingHls ||
+        _isNativePictureInPictureSource(currentUrl)) {
+      return _PictureInPictureSource(
+        url: currentUrl,
+        headers: _pictureInPictureHeaders,
+        usesFallbackHls: false,
+      );
+    }
+
+    // iOS AVPlayer 无法直接播放 media_kit 常用的 MKV 等容器。PiP 单独
+    // 使用一个短生命周期的 HLS 会话，退出时由 _stopPictureInPictureFallback
+    // 释放它，主播放器仍保持原来的 media_kit 直传链路。
+    final cfg = ref.read(serverConfigProvider);
+    if (cfg == null) return null;
+    final token = await ref.read(authSessionRepositoryProvider).accessToken();
+    return _PictureInPictureSource(
+      url: _fallbackHlsUrl(cfg, token, 'original'),
+      headers: null,
+      usesFallbackHls: true,
+    );
+  }
+
+  bool _isNativePictureInPictureSource(String url) {
+    final mimeType = (_decision?.mimeType ?? '').trim().toLowerCase();
+    if (mimeType.isNotEmpty) {
+      return mimeType.contains('mpegurl') ||
+          mimeType.contains('mp4') ||
+          mimeType.contains('quicktime') ||
+          mimeType.contains('x-m4v');
+    }
+    final path = Uri.tryParse(url)?.path.toLowerCase() ?? url.toLowerCase();
+    return path.endsWith('.m3u8') ||
+        path.endsWith('.mp4') ||
+        path.endsWith('.m4v') ||
+        path.endsWith('.mov');
+  }
+
+  String _pictureInPictureSourceUrl(String url) {
+    final value = url.trim();
+    final uri = Uri.tryParse(value);
+    if (uri != null && uri.hasScheme) return uri.toString();
+    return Uri.file(value).toString();
+  }
+
+  Future<void> _onPictureInPictureStopped(int positionMs) async {
+    final wasPlaying = _pictureInPictureWasPlaying;
+    _pictureInPictureActive = false;
+    _pictureInPictureWasPlaying = false;
+    await _stopPictureInPictureFallback();
+    if (!mounted || _isLeaving) return;
+
+    var position = positionMs > 0
+        ? Duration(milliseconds: positionMs)
+        : _backgroundPosition;
+    final duration = _host.duration;
+    if (duration > Duration.zero && position > duration) {
+      position = duration;
+    }
+    if (position > Duration.zero) {
+      await _host.seek(position);
+    }
+    if (wasPlaying && mounted && !_isLeaving) {
+      if (_usingHls) {
+        await _load(resume: position);
+      } else {
+        await _host.player.play();
+      }
+      unawaited(_reportProgress());
+    }
+  }
+
+  Future<void> _stopPictureInPictureFallback() async {
+    if (!_pictureInPictureUsesFallbackHls) return;
+    _pictureInPictureUsesFallbackHls = false;
+    try {
+      await ref.read(requiredApiClientProvider).playback.stop(widget.movieId);
+    } catch (_) {}
   }
 
   Future<void> _switchMedia(int index) async {
@@ -1271,6 +1421,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       ],
     );
   }
+}
+
+class _PictureInPictureSource {
+  const _PictureInPictureSource({
+    required this.url,
+    required this.headers,
+    required this.usesFallbackHls,
+  });
+
+  final String url;
+  final Map<String, String>? headers;
+  final bool usesFallbackHls;
 }
 
 class _ErrorView extends StatelessWidget {
