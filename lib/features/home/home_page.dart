@@ -73,50 +73,15 @@ class HomePage extends ConsumerWidget {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _greeting(l),
-                            style: TextStyle(
-                              color: c.muted,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                              letterSpacing: 0.24,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text('md_center', style: AppText.pageTitle(context)),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFFFF6B9D), Color(0xFF9F6BFF)],
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        'M',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  _greeting(l),
+                  style: TextStyle(
+                    color: c.muted,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    letterSpacing: 0.24,
+                  ),
                 ),
               ),
             ),
