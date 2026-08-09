@@ -1,4 +1,4 @@
-package com.example.md_center
+package com.mdcenter
 
 import android.app.PictureInPictureParams
 import android.content.Intent

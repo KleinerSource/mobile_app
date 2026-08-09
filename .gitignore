@@ -61,9 +61,8 @@ android/app/*
 !android/app/src/main/AndroidManifest.xml
 !android/app/src/main/kotlin/
 !android/app/src/main/kotlin/com/
-!android/app/src/main/kotlin/com/example/
-!android/app/src/main/kotlin/com/example/md_center/
-!android/app/src/main/kotlin/com/example/md_center/MainActivity.kt
+!android/app/src/main/kotlin/com/mdcenter/
+!android/app/src/main/kotlin/com/mdcenter/MainActivity.kt
 android/app/src/debug/
 android/app/src/profile/
 android/app/src/main/res/

@@ -76,7 +76,7 @@ jobs:
             flutter create . \
               --no-pub \
               --platforms=android \
-              --org com.kleinersource.mdcenter \
+              --org com.mdcenter \
               --project-name md_center \
               --description "md_center 移动端"
           else

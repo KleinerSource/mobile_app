@@ -62,7 +62,7 @@ jobs:
             flutter create . \
               --no-pub \
               --platforms=ios \
-              --org com.kleinersource.mdcenter \
+              --org com.mdcenter \
               --project-name md_center \
               --description "md_center 移动端"
             # iOS deployment target 16.0
