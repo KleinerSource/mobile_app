@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_exception.dart';
 import '../api/dio_factory.dart';
 import '../api/providers.dart';
+import '../api/server_compatibility.dart';
 import '../config/server_config_provider.dart';
 import 'auth_session.dart';
 import 'auth_session_provider.dart';
@@ -24,13 +25,29 @@ class AuthController extends AsyncNotifier<AuthState> {
       return const AuthState(phase: AuthPhase.unconfigured);
     }
 
+    try {
+      requireCompatibleServerVersion(await client.system.version());
+    } catch (error) {
+      final exception = toApiException(error);
+      final incompatible = error is ServerCompatibilityException ||
+          exception.status == 401 ||
+          exception.status == 404;
+      return AuthState(
+        phase: incompatible ? AuthPhase.incompatible : AuthPhase.unavailable,
+        message: incompatible &&
+                (exception.status == 401 || exception.status == 404)
+            ? serverCompatibilityRequirementMessage
+            : exception.message,
+      );
+    }
+
     AuthStatus status;
     try {
       status = await client.auth.status();
     } catch (error) {
       final exception = toApiException(error);
       return AuthState(
-        phase: exception.status == 404
+        phase: exception.status == 401 || exception.status == 404
             ? AuthPhase.incompatible
             : AuthPhase.unavailable,
         message: exception.message,

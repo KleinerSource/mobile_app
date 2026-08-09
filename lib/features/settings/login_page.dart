@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/auth/auth_session.dart';
+import '../../core/auth/auth_session_provider.dart';
+import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 
@@ -65,6 +67,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           _error = message.isEmpty ? '登录失败，请检查密码或服务器连接' : message;
         });
       }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _changeServer() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(authSessionRepositoryProvider).clear();
+      await ref.read(serverConfigProvider.notifier).clear();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -141,6 +154,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               )
                             : const Icon(Icons.login),
                         label: Text(_busy ? '登录中...' : '登录'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: _busy ? null : () => _changeServer(),
+                        icon: const Icon(Icons.arrow_back),
+                        label: const Text('返回服务器地址编辑'),
                       ),
                     ),
                   ],

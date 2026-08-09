@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
+import '../../core/api/server_compatibility.dart';
+import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_haptics.dart';
@@ -50,14 +52,23 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     });
     try {
       final dio = buildDio(ServerConfig(baseUrl: normalized));
-      await dio.get<dynamic>('/health');
+      final response = await dio.get<dynamic>('/version');
+      requireCompatibleServerVersion(response.data);
+      final existing = ref.read(serverConfigProvider);
+      if (existing != null && existing.baseUrl != normalized) {
+        await ref.read(authSessionRepositoryProvider).clear();
+      }
       await ref
           .read(serverConfigProvider.notifier)
           .save(ServerConfig(baseUrl: normalized));
       AppHaptics.medium();
       if (mounted) await Navigator.of(context).maybePop();
     } catch (e) {
-      setState(() => _error = toApiException(e).message);
+      final exception = toApiException(e);
+      final incompatible = exception.status == 401 || exception.status == 404;
+      setState(() => _error = incompatible
+          ? serverCompatibilityRequirementMessage
+          : exception.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

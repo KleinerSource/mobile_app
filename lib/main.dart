@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/config/server_config_provider.dart';
 import 'core/auth/auth_provider.dart';
 import 'core/auth/auth_session.dart';
+import 'core/auth/auth_session_provider.dart';
 import 'core/platform/app_theme.dart';
 import 'features/i18n/locale_providers.dart';
 import 'features/i18n/theme_provider.dart';
@@ -34,6 +35,12 @@ class MdCenterApp extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
     final appLocale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
+
+    Future<void> changeServer() async {
+      await ref.read(authSessionRepositoryProvider).clear();
+      await ref.read(serverConfigProvider.notifier).clear();
+    }
+
     return MaterialApp(
       title: 'md_center',
       debugShowCheckedModeBanner: false,
@@ -53,6 +60,7 @@ class MdCenterApp extends ConsumerWidget {
               error: (error, _) => _StartupError(
                     message: error.toString(),
                     onRetry: () => ref.invalidate(authControllerProvider),
+                    onChangeServer: changeServer,
                   ),
               data: (state) => switch (state.phase) {
                 AuthPhase.needsLogin || AuthPhase.totpRequired =>
@@ -61,6 +69,7 @@ class MdCenterApp extends ConsumerWidget {
                   _StartupError(
                     message: state.message ?? '服务器不可用',
                     onRetry: () => ref.invalidate(authControllerProvider),
+                    onChangeServer: changeServer,
                   ),
                 _ => const MainShell(),
               },
@@ -81,10 +90,15 @@ class _StartupLoading extends StatelessWidget {
 }
 
 class _StartupError extends StatelessWidget {
-  const _StartupError({required this.message, required this.onRetry});
+  const _StartupError({
+    required this.message,
+    required this.onRetry,
+    required this.onChangeServer,
+  });
 
   final String message;
   final VoidCallback onRetry;
+  final Future<void> Function() onChangeServer;
 
   @override
   Widget build(BuildContext context) {
@@ -101,6 +115,12 @@ class _StartupError extends StatelessWidget {
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
                 label: const Text('重试'),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () => onChangeServer(),
+                icon: const Icon(Icons.dns_outlined),
+                label: const Text('更换服务器'),
               ),
             ],
           ),
