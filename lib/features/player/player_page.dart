@@ -96,6 +96,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   playback_models.PlaybackDecision? _decision;
   playback_models.SubtitleTrack? _selectedSubtitle;
   SubtitleAdjustments _subtitleAdjustments = const SubtitleAdjustments();
+  SubtitleVerticalOffsetBounds _subtitleOffsetBounds =
+      const SubtitleVerticalOffsetBounds();
   bool _usingHls = false;
   bool _clientHardwareAcceleration = true;
   bool _transcodeSessionActive = false;
@@ -139,6 +141,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   @override
   void initState() {
     super.initState();
+    _subtitleAdjustments = ref.read(subtitleSettingsProvider).adjustments;
     WidgetsBinding.instance.addObserver(this);
     unawaited(_applyEntryOrientation(ref.read(playerSettingsProvider)));
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -738,12 +741,44 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   void _updateSubtitleAdjustments(SubtitleAdjustments next) {
     if (!mounted || _isLeaving) return;
-    setState(() => _subtitleAdjustments = next);
+    final bounded = _subtitleOffsetBounds.clampAdjustments(next);
+    setState(() => _subtitleAdjustments = bounded);
+    unawaited(
+      ref
+          .read(subtitleSettingsProvider.notifier)
+          .updateAdjustments(bounded)
+          .catchError((_) {}),
+    );
+  }
+
+  void _onSubtitleOffsetBoundsChanged(SubtitleVerticalOffsetBounds bounds) {
+    if (!mounted || _isLeaving) return;
+    final bounded = bounds.clampAdjustments(_subtitleAdjustments);
+    final boundsChanged = _subtitleOffsetBounds != bounds;
+    final valueChanged =
+        bounded.verticalOffset != _subtitleAdjustments.verticalOffset;
+    if (!boundsChanged && !valueChanged) return;
+    setState(() {
+      _subtitleOffsetBounds = bounds;
+      if (valueChanged) _subtitleAdjustments = bounded;
+    });
+    if (valueChanged) {
+      unawaited(
+        ref
+            .read(subtitleSettingsProvider.notifier)
+            .updateAdjustments(bounded)
+            .catchError((_) {}),
+      );
+    }
   }
 
   Future<void> _showSubtitleSettings() async {
     if (!mounted || _isLeaving) return;
     final wasPlaying = _host.player.state.playing;
+    final initial = _subtitleOffsetBounds.clampAdjustments(_subtitleAdjustments);
+    if (initial.verticalOffset != _subtitleAdjustments.verticalOffset) {
+      _updateSubtitleAdjustments(initial);
+    }
     try {
       if (wasPlaying) {
         await _host.player.pause();
@@ -751,8 +786,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (!mounted || _isLeaving) return;
       await showSubtitleAdjustmentDialog(
         context: context,
-        initial: _subtitleAdjustments,
+        initial: initial,
         onChanged: _updateSubtitleAdjustments,
+        verticalOffsetBounds: _subtitleOffsetBounds,
       );
     } finally {
       if (wasPlaying && mounted && !_isLeaving) {
@@ -1143,6 +1179,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             selectedTrack: _selectedSubtitle,
             settings: subtitleSettings,
             adjustments: _subtitleAdjustments,
+            onVerticalOffsetBoundsChanged: _onSubtitleOffsetBoundsChanged,
           ),
         ),
         Positioned.fill(

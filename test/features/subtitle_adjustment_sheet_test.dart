@@ -61,9 +61,13 @@ void main() {
     expect(adjustments.delayMs, afterRelease);
   });
 
-  test('垂直偏移限制在 -100 到 500', () {
-    expect(clampSubtitleVerticalOffset(600), 500);
-    expect(clampSubtitleVerticalOffset(-200), -100);
-    expect(clampSubtitleVerticalOffset(120), 120);
+  test('垂直偏移使用运行时屏幕边界', () {
+    const bounds = SubtitleVerticalOffsetBounds(min: -24, max: 736);
+
+    expect(bounds.clamp(900), 736);
+    expect(bounds.clamp(-200), -24);
+    expect(bounds.clamp(120), 120);
+    expect(clampSubtitleVerticalOffset(2500), subtitleVerticalOffsetMax);
+    expect(clampSubtitleVerticalOffset(-1200), subtitleVerticalOffsetMin);
   });
 }

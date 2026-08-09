@@ -32,6 +32,10 @@ void main() {
     expect(actual.shadowSize, 0);
     expect(actual.fontColor, const Color(0xFFFFFFFF));
     expect(actual.backgroundColor, const Color(0xAA000000));
+    expect(actual.adjustments.delayMs, 0);
+    expect(actual.adjustments.verticalOffset, 0);
+    expect(actual.adjustments.sizeScale, 1);
+    expect(actual.adjustments.opacity, 1);
   });
 
   test('字幕设置和选择结果可以持久化恢复', () async {
@@ -51,6 +55,12 @@ void main() {
       outlineWidth: 2.5,
       shadowColor: Color(0xCC000000),
       shadowSize: 4,
+      adjustments: SubtitleAdjustments(
+        delayMs: 1200,
+        verticalOffset: 640,
+        sizeScale: 1.35,
+        opacity: 0.65,
+      ),
       rememberedSubtitleKey: 'remembered',
     );
 
@@ -67,6 +77,10 @@ void main() {
     expect(actual.backgroundColor, expected.backgroundColor);
     expect(actual.outlineWidth, 2.5);
     expect(actual.shadowSize, 4);
+    expect(actual.adjustments.delayMs, 1200);
+    expect(actual.adjustments.verticalOffset, 640);
+    expect(actual.adjustments.sizeScale, 1.35);
+    expect(actual.adjustments.opacity, 0.65);
     expect(actual.rememberedSubtitleKey, 'remembered');
   });
 

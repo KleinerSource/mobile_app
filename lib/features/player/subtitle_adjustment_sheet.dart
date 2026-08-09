@@ -15,6 +15,8 @@ Future<void> showSubtitleAdjustmentDialog({
   required BuildContext context,
   required SubtitleAdjustments initial,
   required ValueChanged<SubtitleAdjustments> onChanged,
+  SubtitleVerticalOffsetBounds verticalOffsetBounds =
+      const SubtitleVerticalOffsetBounds(),
 }) {
   return showGeneralDialog<void>(
     context: context,
@@ -40,6 +42,7 @@ Future<void> showSubtitleAdjustmentDialog({
                 child: SubtitleAdjustmentSheet(
                   initial: initial,
                   onChanged: onChanged,
+                  verticalOffsetBounds: verticalOffsetBounds,
                 ),
               ),
             ),
@@ -67,10 +70,12 @@ class SubtitleAdjustmentSheet extends StatefulWidget {
     super.key,
     required this.initial,
     required this.onChanged,
+    this.verticalOffsetBounds = const SubtitleVerticalOffsetBounds(),
   });
 
   final SubtitleAdjustments initial;
   final ValueChanged<SubtitleAdjustments> onChanged;
+  final SubtitleVerticalOffsetBounds verticalOffsetBounds;
 
   @override
   State<SubtitleAdjustmentSheet> createState() =>
@@ -79,14 +84,15 @@ class SubtitleAdjustmentSheet extends StatefulWidget {
 
 class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
   late SubtitleAdjustments _adjustments = widget.initial.copyWith(
-        verticalOffset: clampSubtitleVerticalOffset(
-          widget.initial.verticalOffset,
-        ),
-      );
+    verticalOffset: widget.verticalOffsetBounds.clamp(
+      widget.initial.verticalOffset,
+    ),
+  );
 
   void _update(SubtitleAdjustments next) {
-    setState(() => _adjustments = next);
-    widget.onChanged(next);
+    final bounded = widget.verticalOffsetBounds.clampAdjustments(next);
+    setState(() => _adjustments = bounded);
+    widget.onChanged(bounded);
   }
 
   void _reset() {
@@ -100,7 +106,9 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
   }
 
   void _changeVertical(double delta) {
-    final next = clampSubtitleVerticalOffset(_adjustments.verticalOffset + delta);
+    final next = widget.verticalOffsetBounds.clamp(
+      _adjustments.verticalOffset + delta,
+    );
     _update(_adjustments.copyWith(verticalOffset: next));
   }
 
@@ -187,10 +195,12 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
           _AdjustmentRow(
             title: '垂直偏移',
             value: _adjustments.verticalOffset.round().toString(),
-            onDecrease: _adjustments.verticalOffset <= subtitleVerticalOffsetMin
+            onDecrease: _adjustments.verticalOffset <=
+                    widget.verticalOffsetBounds.min
                 ? null
                 : () => _changeVertical(-5),
-            onIncrease: _adjustments.verticalOffset >= subtitleVerticalOffsetMax
+            onIncrease: _adjustments.verticalOffset >=
+                    widget.verticalOffsetBounds.max
                 ? null
                 : () => _changeVertical(5),
           ),

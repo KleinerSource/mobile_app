@@ -78,4 +78,17 @@ void main() {
     expect(style.color, const Color(0xFFFFD166));
     expect(style.shadows, isNotEmpty);
   });
+
+  test('字幕垂直边界允许覆盖视频但不会超出视口', () {
+    final bounds = subtitleVerticalOffsetBoundsFor(
+      viewportHeight: 800,
+      subtitleHeight: 40,
+      viewportScale: 1,
+    );
+
+    expect(bounds.min, -24);
+    expect(bounds.max, 736);
+    expect(bounds.clamp(900), 736);
+    expect(bounds.clamp(-100), -24);
+  });
 }

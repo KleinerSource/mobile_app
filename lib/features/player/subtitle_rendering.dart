@@ -7,6 +7,24 @@ import 'package:media_kit/media_kit.dart';
 import '../../core/models/playback.dart' as playback_models;
 import 'subtitle_settings.dart';
 
+SubtitleVerticalOffsetBounds subtitleVerticalOffsetBoundsFor({
+  required double viewportHeight,
+  required double subtitleHeight,
+  required double viewportScale,
+  double bottomPadding = 24,
+}) {
+  final scale = viewportScale > 0 ? viewportScale : 1.0;
+  final minPixels = -bottomPadding;
+  final maxPixels = math.max(
+    minPixels,
+    viewportHeight - subtitleHeight - bottomPadding,
+  );
+  return SubtitleVerticalOffsetBounds(
+    min: minPixels / scale,
+    max: maxPixels / scale,
+  );
+}
+
 TextStyle subtitleTextStyle(
   SubtitleSettings settings,
   SubtitleAdjustments adjustments, {
@@ -101,12 +119,15 @@ class PlayerSubtitleOverlay extends StatefulWidget {
     required this.selectedTrack,
     required this.settings,
     required this.adjustments,
+    this.onVerticalOffsetBoundsChanged,
   });
 
   final Player player;
   final playback_models.SubtitleTrack? selectedTrack;
   final SubtitleSettings settings;
   final SubtitleAdjustments adjustments;
+  final ValueChanged<SubtitleVerticalOffsetBounds>?
+      onVerticalOffsetBoundsChanged;
 
   @override
   State<PlayerSubtitleOverlay> createState() => _PlayerSubtitleOverlayState();
@@ -117,6 +138,7 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
   final List<Timer> _delayTimers = <Timer>[];
   List<String> _rawSubtitle = const [];
   List<String> _displayedSubtitle = const [];
+  SubtitleVerticalOffsetBounds? _lastReportedOffsetBounds;
 
   @override
   void initState() {
@@ -216,6 +238,17 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
     if (subscription != null) unawaited(subscription.cancel());
   }
 
+  void _reportOffsetBounds(SubtitleVerticalOffsetBounds bounds) {
+    final callback = widget.onVerticalOffsetBoundsChanged;
+    if (callback == null || _lastReportedOffsetBounds == bounds) return;
+    _lastReportedOffsetBounds = bounds;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.onVerticalOffsetBoundsChanged == callback) {
+        callback(bounds);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.selectedTrack == null || _displayedSubtitle.isEmpty) {
@@ -229,39 +262,55 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
     if (lines.isEmpty) return const SizedBox.shrink();
 
     return IgnorePointer(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final area = constraints.maxWidth * constraints.maxHeight;
-          const referenceArea = 1920 * 1080;
-          final viewportScale = math.sqrt(
-            (area / referenceArea).clamp(0.12, 1.0).toDouble(),
-          );
-          final style = subtitleTextStyle(
-            widget.settings,
-            widget.adjustments,
-            baseFontSize: 32 * viewportScale,
-          );
-          final verticalOffset =
-              widget.adjustments.verticalOffset * viewportScale;
-          return Align(
-            alignment: Alignment.bottomCenter,
-            child: Transform.translate(
-              offset: Offset(0, -verticalOffset),
-              child: Opacity(
-                opacity:
-                    widget.adjustments.opacity.clamp(0.1, 1.0).toDouble(),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  child: Text(
-                    lines.join('\n'),
-                    textAlign: TextAlign.center,
-                    style: style,
+      child: ClipRect(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final area = constraints.maxWidth * constraints.maxHeight;
+            const referenceArea = 1920 * 1080;
+            final viewportScale = math.sqrt(
+              (area / referenceArea).clamp(0.12, 1.0).toDouble(),
+            );
+            final style = subtitleTextStyle(
+              widget.settings,
+              widget.adjustments,
+              baseFontSize: 32 * viewportScale,
+            );
+            final text = lines.join('\n');
+            final textPainter = TextPainter(
+              text: TextSpan(text: text, style: style),
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.ltr,
+            )
+              ..layout(maxWidth: math.max(1.0, constraints.maxWidth - 32));
+            final bounds = subtitleVerticalOffsetBoundsFor(
+              viewportHeight: constraints.maxHeight,
+              subtitleHeight: textPainter.height,
+              viewportScale: viewportScale,
+            );
+            _reportOffsetBounds(bounds);
+            final verticalOffset =
+                bounds.clamp(widget.adjustments.verticalOffset) *
+                    viewportScale;
+            return Align(
+              alignment: Alignment.bottomCenter,
+              child: Transform.translate(
+                offset: Offset(0, -verticalOffset),
+                child: Opacity(
+                  opacity:
+                      widget.adjustments.opacity.clamp(0.1, 1.0).toDouble(),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    child: Text(
+                      text,
+                      textAlign: TextAlign.center,
+                      style: style,
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
