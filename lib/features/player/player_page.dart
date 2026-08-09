@@ -19,7 +19,6 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/models/playback.dart' as playback_models;
 import '../../core/models/watch_record.dart';
 import '../../core/platform/app_theme.dart';
-import '../../shared/glass.dart';
 import '../home/home_providers.dart';
 import '../movies/movies_providers.dart';
 import 'player_controller_host.dart';
@@ -729,13 +728,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _showSubtitleSettings() async {
-    await showGlassSheet<void>(
+    await showSubtitleAdjustmentDialog(
       context: context,
-      builder: (_) => SubtitleAdjustmentSheet(
-        style: ref.read(subtitleSettingsProvider),
-        initial: _subtitleAdjustments,
-        onChanged: _updateSubtitleAdjustments,
-      ),
+      initial: _subtitleAdjustments,
+      onChanged: _updateSubtitleAdjustments,
     );
   }
 

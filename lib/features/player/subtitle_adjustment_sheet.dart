@@ -2,22 +2,71 @@ import 'package:flutter/material.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
-import 'subtitle_rendering.dart';
+import '../../shared/glass.dart';
 import 'subtitle_settings.dart';
 
-/// 播放器内字幕调节浮层。
+/// 在播放器中央显示紧凑的字幕调节浮层。
 ///
-/// 所有滑块都在拖动过程中回调，父级可以立即更新视频上的字幕层；预览
-/// 使用同一套文字样式，避免调节面板和实际字幕的视觉结果不一致。
+/// 浮层不复制字幕预览，所有按钮操作都会通过 [onChanged] 直接作用于
+/// 播放器当前的字幕层，影片画面和真实字幕始终保持可见。
+Future<void> showSubtitleAdjustmentDialog({
+  required BuildContext context,
+  required SubtitleAdjustments initial,
+  required ValueChanged<SubtitleAdjustments> onChanged,
+}) {
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: '字幕设置',
+    barrierColor: Colors.black.withValues(alpha: 0.08),
+    transitionDuration: const Duration(milliseconds: 180),
+    pageBuilder: (ctx, _, __) {
+      final isDark = Theme.of(ctx).brightness == Brightness.dark;
+      final tint = isDark
+          ? const Color(0xD91B1A24)
+          : const Color(0xD9FAFAFA);
+      return SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: GlassPanel(
+                tint: tint,
+                sigma: 30,
+                borderRadius: BorderRadius.circular(26),
+                child: SubtitleAdjustmentSheet(
+                  initial: initial,
+                  onChanged: onChanged,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+    transitionBuilder: (ctx, animation, _, child) {
+      return FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.96, end: 1).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+          ),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
+/// 播放器内字幕调节控件。
 class SubtitleAdjustmentSheet extends StatefulWidget {
   const SubtitleAdjustmentSheet({
     super.key,
-    required this.style,
     required this.initial,
     required this.onChanged,
   });
 
-  final SubtitleSettings style;
   final SubtitleAdjustments initial;
   final ValueChanged<SubtitleAdjustments> onChanged;
 
@@ -34,202 +83,259 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
     widget.onChanged(next);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return ListView(
-      shrinkWrap: true,
-      padding: const EdgeInsets.fromLTRB(22, 4, 22, 18),
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text('字幕设置', style: AppText.sectionTitle(context)),
-            ),
-            IconButton(
-              tooltip: '关闭',
-              onPressed: () => Navigator.of(context).pop(),
-              icon: Icon(Icons.close, color: c.muted),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        _Preview(style: widget.style, adjustments: _adjustments),
-        const SizedBox(height: 18),
-        _AdjustmentSlider(
-          title: '延迟偏移',
-          valueLabel: _formatDelay(_adjustments.delayMs),
-          icon: Icons.sync_alt,
-          value: _adjustments.delayMs.toDouble(),
-          min: -5000,
-          max: 5000,
-          divisions: 40,
-          onChanged: (value) => _update(
-            _adjustments.copyWith(delayMs: value.round()),
-          ),
-          onChangeEnd: (_) => AppHaptics.selection(),
-        ),
-        _AdjustmentSlider(
-          title: '垂直偏移',
-          valueLabel: _formatOffset(_adjustments.verticalOffset),
-          icon: Icons.height,
-          value: _adjustments.verticalOffset,
-          min: -150,
-          max: 150,
-          divisions: 30,
-          onChanged: (value) => _update(
-            _adjustments.copyWith(verticalOffset: value),
-          ),
-          onChangeEnd: (_) => AppHaptics.selection(),
-        ),
-        _AdjustmentSlider(
-          title: '大小缩放',
-          valueLabel: '${(_adjustments.sizeScale * 100).round()}%',
-          icon: Icons.format_size,
-          value: _adjustments.sizeScale,
-          min: 0.5,
-          max: 2,
-          divisions: 30,
-          onChanged: (value) => _update(
-            _adjustments.copyWith(sizeScale: value),
-          ),
-          onChangeEnd: (_) => AppHaptics.selection(),
-        ),
-        _AdjustmentSlider(
-          title: '不透明度',
-          valueLabel: '${(_adjustments.opacity * 100).round()}%',
-          icon: Icons.opacity,
-          value: _adjustments.opacity,
-          min: 0.1,
-          max: 1,
-          divisions: 18,
-          onChanged: (value) => _update(
-            _adjustments.copyWith(opacity: value),
-          ),
-          onChangeEnd: (_) => AppHaptics.selection(),
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton(
-          onPressed: () {
-            AppHaptics.medium();
-            _update(const SubtitleAdjustments());
-          },
-          child: const Text('恢复本次播放默认'),
-        ),
-      ],
+  void _reset() {
+    AppHaptics.medium();
+    _update(const SubtitleAdjustments());
+  }
+
+  void _changeDelay(int delta) {
+    final next = (_adjustments.delayMs + delta).clamp(-5000, 5000).toInt();
+    _update(_adjustments.copyWith(delayMs: next));
+  }
+
+  void _changeVertical(double delta) {
+    final next = (_adjustments.verticalOffset + delta)
+        .clamp(-150.0, 150.0)
+        .toDouble();
+    _update(_adjustments.copyWith(verticalOffset: next));
+  }
+
+  void _changeSize(double delta) {
+    final next = _stepDouble(
+      _adjustments.sizeScale,
+      delta,
+      min: 0.5,
+      max: 2.0,
     );
+    _update(_adjustments.copyWith(sizeScale: next));
   }
 
-  String _formatDelay(int milliseconds) {
-    if (milliseconds == 0) return '0 ms';
-    final seconds = milliseconds / 1000;
-    return '${seconds > 0 ? '+' : ''}${seconds.toStringAsFixed(1)} s';
-  }
-
-  String _formatOffset(double value) {
-    if (value == 0) return '默认';
-    return '${value > 0 ? '+' : ''}${value.round()} px';
-  }
-}
-
-class _Preview extends StatelessWidget {
-  const _Preview({required this.style, required this.adjustments});
-
-  final SubtitleSettings style;
-  final SubtitleAdjustments adjustments;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 104,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: ColoredBox(
-          color: Colors.black,
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            child: Transform.translate(
-              offset: Offset(0, -adjustments.verticalOffset),
-              child: Opacity(
-                opacity: adjustments.opacity.clamp(0.1, 1.0).toDouble(),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                  child: Text(
-                    '字幕预览\nSubtitle preview',
-                    textAlign: TextAlign.center,
-                    style: subtitleTextStyle(
-                      style,
-                      adjustments,
-                      baseFontSize: 18,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+  void _changeOpacity(double delta) {
+    final next = _stepDouble(
+      _adjustments.opacity,
+      delta,
+      min: 0.1,
+      max: 1.0,
     );
+    _update(_adjustments.copyWith(opacity: next));
   }
-}
 
-class _AdjustmentSlider extends StatelessWidget {
-  const _AdjustmentSlider({
-    required this.title,
-    required this.valueLabel,
-    required this.icon,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.onChanged,
-    required this.onChangeEnd,
-  });
-
-  final String title;
-  final String valueLabel;
-  final IconData icon;
-  final double value;
-  final double min;
-  final double max;
-  final int divisions;
-  final ValueChanged<double> onChanged;
-  final ValueChanged<double> onChangeEnd;
+  double _stepDouble(
+    double value,
+    double delta, {
+    required double min,
+    required double max,
+  }) {
+    final stepped = ((value + delta) * 100).round() / 100;
+    return stepped.clamp(min, max).toDouble();
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: c.muted),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    color: c.text,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: c.accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.chat_bubble_outline,
+                  color: c.accent,
+                  size: 20,
                 ),
               ),
-              Text(valueLabel, style: AppText.meta(context)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text('字幕设置', style: AppText.sectionTitle(context)),
+              ),
+              IconButton(
+                tooltip: '恢复本次播放默认',
+                onPressed: _reset,
+                icon: Icon(Icons.restore, color: c.muted, size: 20),
+              ),
+              IconButton(
+                tooltip: '关闭',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Icon(Icons.close, color: c.muted, size: 20),
+              ),
             ],
           ),
-          Slider(
-            value: value.clamp(min, max).toDouble(),
-            min: min,
-            max: max,
-            divisions: divisions,
-            onChanged: onChanged,
-            onChangeEnd: onChangeEnd,
+          Divider(height: 18, color: c.divider),
+          _AdjustmentRow(
+            title: '延迟偏移',
+            value: '${(_adjustments.delayMs / 1000).toStringAsFixed(1)} s',
+            onDecrease: _adjustments.delayMs <= -5000
+                ? null
+                : () => _changeDelay(-100),
+            onIncrease: _adjustments.delayMs >= 5000
+                ? null
+                : () => _changeDelay(100),
+          ),
+          _AdjustmentRow(
+            title: '垂直偏移',
+            value: _adjustments.verticalOffset.round().toString(),
+            onDecrease: _adjustments.verticalOffset <= -150
+                ? null
+                : () => _changeVertical(-5),
+            onIncrease: _adjustments.verticalOffset >= 150
+                ? null
+                : () => _changeVertical(5),
+          ),
+          _AdjustmentRow(
+            title: '大小缩放',
+            value: '${(_adjustments.sizeScale * 100).round()}%',
+            onDecrease: _adjustments.sizeScale <= 0.5
+                ? null
+                : () => _changeSize(-0.05),
+            onIncrease: _adjustments.sizeScale >= 2.0
+                ? null
+                : () => _changeSize(0.05),
+          ),
+          _AdjustmentRow(
+            title: '不透明度',
+            value: '${(_adjustments.opacity * 100).round()}%',
+            onDecrease: _adjustments.opacity <= 0.1
+                ? null
+                : () => _changeOpacity(-0.05),
+            onIncrease: _adjustments.opacity >= 1.0
+                ? null
+                : () => _changeOpacity(0.05),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AdjustmentRow extends StatelessWidget {
+  const _AdjustmentRow({
+    required this.title,
+    required this.value,
+    required this.onDecrease,
+    required this.onIncrease,
+  });
+
+  final String title;
+  final String value;
+  final VoidCallback? onDecrease;
+  final VoidCallback? onIncrease;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                color: c.text,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 70,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: c.text,
+                fontFamily: 'Inter',
+                fontFeatures: const [FontFeature.tabularFigures()],
+                fontSize: 15,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          _Stepper(
+            onDecrease: onDecrease,
+            onIncrease: onIncrease,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Stepper extends StatelessWidget {
+  const _Stepper({required this.onDecrease, required this.onIncrease});
+
+  final VoidCallback? onDecrease;
+  final VoidCallback? onIncrease;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return Container(
+      height: 40,
+      decoration: BoxDecoration(
+        color: c.surfaceAlt.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: c.cardBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _StepperButton(
+            icon: Icons.remove,
+            tooltip: '减少',
+            onPressed: onDecrease,
+          ),
+          Container(width: 1, height: 22, color: c.divider),
+          _StepperButton(
+            icon: Icons.add,
+            tooltip: '增加',
+            onPressed: onIncrease,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepperButton extends StatelessWidget {
+  const _StepperButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return IconButton(
+      tooltip: tooltip,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 45, height: 40),
+      visualDensity: VisualDensity.compact,
+      onPressed: onPressed == null
+          ? null
+          : () {
+              AppHaptics.selection();
+              onPressed!();
+            },
+      icon: Icon(
+        icon,
+        color: onPressed == null ? c.muted2 : c.text,
+        size: 20,
       ),
     );
   }
