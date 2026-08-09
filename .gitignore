@@ -45,6 +45,10 @@ ios/*
 ios/Runner/*
 !ios/Runner/Info.plist
 !ios/Runner/AppDelegate.swift
+!ios/Runner/Assets.xcassets/
+ios/Runner/Assets.xcassets/*
+!ios/Runner/Assets.xcassets/AppIcon.appiconset/
+!ios/Runner/Assets.xcassets/AppIcon.appiconset/**
 
 # Keep the Android minimum SDK required by flutter_secure_storage in source control.
 !android/
@@ -63,6 +67,11 @@ android/app/*
 android/app/src/debug/
 android/app/src/profile/
 android/app/src/main/res/
+!android/app/src/main/res/
+android/app/src/main/res/*
+!android/app/src/main/res/mipmap-*/
+android/app/src/main/res/mipmap-*/*
+!android/app/src/main/res/mipmap-*/ic_launcher.png
 windows/
 macos/
 linux/
