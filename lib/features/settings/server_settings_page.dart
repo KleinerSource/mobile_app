@@ -6,6 +6,7 @@ import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../actor_associations/actor_associations_page.dart';
+import '../actors/actor_management_page.dart';
 import '../configs/avdb_settings_page.dart';
 import '../configs/dbo_settings_page.dart';
 import '../configs/ffmpeg_settings_page.dart';
@@ -20,18 +21,17 @@ import 'access_control_page.dart';
 import 'server_setup_page.dart';
 import 'settings_common.dart';
 
-/// 服务器设置子页 · 凡是依赖服务端 API 的配置都放这里
+/// 服务器设置子页 · 依赖服务端 API 的配置按业务职责分组。
 class ServerSettingsPage extends ConsumerWidget {
   const ServerSettingsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cfg = ref.watch(serverConfigProvider);
-    final c = appColors(context);
     final l = AppL10n.of(context);
 
     return Scaffold(
-      backgroundColor: c.bg,
+      backgroundColor: appColors(context).bg,
       body: GlowBackground(
         child: SafeArea(
           child: ListView(
@@ -50,7 +50,33 @@ class ServerSettingsPage extends ConsumerWidget {
                     leadingIcon: Icons.dns_outlined,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                          builder: (_) => const ServerSetupPage()),
+                        builder: (_) => const ServerSetupPage(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SettingsGroup(
+                title: l.settingsGroupSystem,
+                items: [
+                  SettingsTile(
+                    title: '访问控制',
+                    subtitle: '登录密码、会话策略与 TOTP',
+                    leadingIcon: Icons.shield_outlined,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const AccessControlPage(),
+                      ),
+                    ),
+                  ),
+                  SettingsTile(
+                    title: l.settingsTranslation,
+                    subtitle: l.settingsTranslationSub,
+                    leadingIcon: Icons.translate_outlined,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const TranslationSettingsPage(),
+                      ),
                     ),
                   ),
                 ],
@@ -64,18 +90,7 @@ class ServerSettingsPage extends ConsumerWidget {
                     leadingIcon: Icons.video_library_outlined,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                          builder: (_) => const LibrariesPage()),
-                    ),
-                  ),
-                  SettingsTile(
-                    title: l.settingsGenres,
-                    subtitle: 'Genres',
-                    leadingIcon: Icons.category_outlined,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ResourceListPage(
-                          kind: ResourceKind.genre,
-                        ),
+                        builder: (_) => const LibrariesPage(),
                       ),
                     ),
                   ),
@@ -87,6 +102,18 @@ class ServerSettingsPage extends ConsumerWidget {
                       MaterialPageRoute(
                         builder: (_) => const ResourceListPage(
                           kind: ResourceKind.tag,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SettingsTile(
+                    title: l.settingsGenres,
+                    subtitle: 'Genres',
+                    leadingIcon: Icons.category_outlined,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ResourceListPage(
+                          kind: ResourceKind.genre,
                         ),
                       ),
                     ),
@@ -104,27 +131,22 @@ class ServerSettingsPage extends ConsumerWidget {
                     ),
                   ),
                   SettingsTile(
-                    title: '访问控制',
-                    subtitle: '登录密码、会话策略与 TOTP',
-                    leadingIcon: Icons.shield_outlined,
+                    title: l.settingsActors,
+                    subtitle: l.settingsActorsSub,
+                    leadingIcon: Icons.people_outline,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => const AccessControlPage(),
+                        builder: (_) => const ActorManagementPage(),
                       ),
                     ),
                   ),
-                ],
-              ),
-              SettingsGroup(
-                title: l.settingsGroupSystem,
-                items: [
                   SettingsTile(
-                    title: l.settingsTranslation,
-                    subtitle: l.settingsTranslationSub,
-                    leadingIcon: Icons.translate_outlined,
+                    title: l.settingsActorAssociations,
+                    subtitle: l.settingsActorAssociationsSub,
+                    leadingIcon: Icons.account_tree_outlined,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => const TranslationSettingsPage(),
+                        builder: (_) => const ActorAssociationsPage(),
                       ),
                     ),
                   ),
@@ -139,8 +161,9 @@ class ServerSettingsPage extends ConsumerWidget {
                     leadingIcon: Icons.swap_horiz,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) =>
-                            const MappingRulesPage(type: MappingType.tag),
+                        builder: (_) => const MappingRulesPage(
+                          type: MappingType.tag,
+                        ),
                       ),
                     ),
                   ),
@@ -150,8 +173,9 @@ class ServerSettingsPage extends ConsumerWidget {
                     leadingIcon: Icons.swap_horiz,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) =>
-                            const MappingRulesPage(type: MappingType.genre),
+                        builder: (_) => const MappingRulesPage(
+                          type: MappingType.genre,
+                        ),
                       ),
                     ),
                   ),
@@ -161,8 +185,9 @@ class ServerSettingsPage extends ConsumerWidget {
                     leadingIcon: Icons.swap_horiz,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) =>
-                            const MappingRulesPage(type: MappingType.series),
+                        builder: (_) => const MappingRulesPage(
+                          type: MappingType.series,
+                        ),
                       ),
                     ),
                   ),
@@ -172,18 +197,9 @@ class ServerSettingsPage extends ConsumerWidget {
                     leadingIcon: Icons.swap_horiz,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) =>
-                            const MappingRulesPage(type: MappingType.actor),
-                      ),
-                    ),
-                  ),
-                  SettingsTile(
-                    title: l.settingsActorAssociations,
-                    subtitle: l.settingsActorAssociationsSub,
-                    leadingIcon: Icons.account_tree_outlined,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ActorAssociationsPage(),
+                        builder: (_) => const MappingRulesPage(
+                          type: MappingType.actor,
+                        ),
                       ),
                     ),
                   ),
@@ -213,7 +229,7 @@ class ServerSettingsPage extends ConsumerWidget {
                     ),
                   ),
                   SettingsTile(
-                    title: 'FFmpeg 与硬解',
+                    title: '转码',
                     subtitle: '硬件解码、后端选择和失败回退',
                     leadingIcon: Icons.memory_outlined,
                     onTap: () => Navigator.of(context).push(

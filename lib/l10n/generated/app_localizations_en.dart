@@ -233,10 +233,10 @@ class AppL10nEn extends AppL10n {
   String get settingsGroupLibrary => 'Library';
 
   @override
-  String get settingsGroupSystem => 'System';
+  String get settingsGroupSystem => 'System configuration';
 
   @override
-  String get settingsGroupMappings => 'Mappings';
+  String get settingsGroupMappings => 'Mapping rules';
 
   @override
   String get settingsGroupTools => 'Tools';
@@ -252,7 +252,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get settingsServerSettingsSub =>
-      'Library / mappings / translation / API';
+      'Server / system configuration / library / mapping rules / tools';
 
   @override
   String get settingsAppSettings => 'App settings';
@@ -333,6 +333,12 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get settingsLibrariesSub => 'Add / edit / scan';
+
+  @override
+  String get settingsActors => 'Actor management';
+
+  @override
+  String get settingsActorsSub => 'Actor metadata and movie relationships';
 
   @override
   String get settingsGenres => 'Genres';

@@ -520,13 +520,13 @@ abstract class AppL10n {
   /// No description provided for @settingsGroupSystem.
   ///
   /// In zh, this message translates to:
-  /// **'系统'**
+  /// **'系统配置'**
   String get settingsGroupSystem;
 
   /// No description provided for @settingsGroupMappings.
   ///
   /// In zh, this message translates to:
-  /// **'映射'**
+  /// **'映射规则'**
   String get settingsGroupMappings;
 
   /// No description provided for @settingsGroupTools.
@@ -556,7 +556,7 @@ abstract class AppL10n {
   /// No description provided for @settingsServerSettingsSub.
   ///
   /// In zh, this message translates to:
-    /// **'媒体库 / 映射 / 翻译 / 数据源'**
+    /// **'服务器 / 系统配置 / 媒体库 / 映射规则 / 工具'**
   String get settingsServerSettingsSub;
 
   /// No description provided for @settingsAppSettings.
@@ -714,6 +714,18 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'添加 / 编辑 / 扫描'**
   String get settingsLibrariesSub;
+
+  /// No description provided for @settingsActors.
+  ///
+  /// In zh, this message translates to:
+  /// **'演员管理'**
+  String get settingsActors;
+
+  /// No description provided for @settingsActorsSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'演员信息、类型与影片关系'**
+  String get settingsActorsSub;
 
   /// No description provided for @settingsGenres.
   ///

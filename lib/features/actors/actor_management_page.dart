@@ -1,0 +1,712 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/api/dio_factory.dart';
+import '../../core/api/envelope.dart';
+import '../../core/api/providers.dart';
+import '../../core/models/actor.dart';
+import '../../core/models/paged_result.dart';
+import '../../core/platform/app_haptics.dart';
+import '../../core/platform/app_theme.dart';
+import '../../l10n/generated/app_localizations.dart';
+import '../../shared/glow_background.dart';
+import '../person_detail/person_detail_page.dart';
+import '../settings/settings_common.dart';
+
+/// 演员管理 · 演员信息 CRUD、搜索、排序和作品查看。
+class ActorManagementPage extends ConsumerStatefulWidget {
+  const ActorManagementPage({super.key});
+
+  @override
+  ConsumerState<ActorManagementPage> createState() =>
+      _ActorManagementPageState();
+}
+
+class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
+  final _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  String? _search;
+  String _sortBy = 'movie_count';
+  String _sortOrder = 'desc';
+  late Future<PagedResult<ActorItem>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<PagedResult<ActorItem>> _load() async {
+    final query = <String, dynamic>{
+      'limit': 200,
+      'offset': 0,
+      'sort_by': _sortBy,
+      'sort_order': _sortOrder,
+      if (_search != null) 'search': _search,
+    };
+    final raw = await ref.read(requiredApiClientProvider).actors.list(query);
+    return unwrapTopLevelList<ActorItem>(raw, ActorItem.fromJson);
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 320), () {
+      if (!mounted) return;
+      setState(() {
+        _search = value.trim().isEmpty ? null : value.trim();
+        _future = _load();
+      });
+    });
+  }
+
+  void _setSort(String field) {
+    setState(() {
+      if (_sortBy == field) {
+        _sortOrder = _sortOrder == 'asc' ? 'desc' : 'asc';
+      } else {
+        _sortBy = field;
+        _sortOrder = field == 'movie_count' ? 'desc' : 'asc';
+      }
+      _future = _load();
+    });
+    AppHaptics.selection();
+  }
+
+  Future<void> _refresh() async {
+    final future = _load();
+    setState(() => _future = future);
+    await future;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final l = AppL10n.of(context);
+
+    return FutureBuilder<PagedResult<ActorItem>>(
+      future: _future,
+      builder: (context, snapshot) {
+        final items = snapshot.data?.items ?? const <ActorItem>[];
+        return Scaffold(
+          backgroundColor: c.bg,
+          body: GlowBackground(
+            child: SafeArea(
+              child: RefreshIndicator(
+                color: c.accent,
+                onRefresh: _refresh,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.arrow_back),
+                              onPressed: () =>
+                                  Navigator.of(context).maybePop(),
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 4,
+                                  top: 10,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      l.settingsGroupLibrary.toUpperCase(),
+                                      style: AppText.eyebrow(context),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      l.settingsActors,
+                                      style: AppText.pageTitle(context),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            FilledButton.icon(
+                              onPressed: () => _showEditor(context),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('添加'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: c.text,
+                                foregroundColor: c.bg,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 9,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(100),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 8, 22, 18),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              snapshot.hasData
+                                  ? '${snapshot.data!.totalCount}'
+                                  : '—',
+                              style: AppText.pageTitle(context),
+                            ),
+                            const SizedBox(width: 8),
+                            Text('位演员', style: AppText.meta(context)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: c.surface,
+                            border: Border.all(color: c.cardBorder),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Row(
+                            children: [
+                              const SizedBox(width: 14),
+                              Icon(Icons.search, size: 18, color: c.muted),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextField(
+                                  controller: _searchController,
+                                  onChanged: _onSearchChanged,
+                                  decoration: const InputDecoration(
+                                    hintText: '搜索演员名称',
+                                    isCollapsed: true,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    border: InputBorder.none,
+                                  ),
+                                  style: TextStyle(
+                                    color: c.text,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              if (_searchController.text.isNotEmpty)
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: c.muted,
+                                  ),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _onSearchChanged('');
+                                  },
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: 36,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 22),
+                          children: [
+                            _ActorSortChip(
+                              label: '影片数',
+                              field: 'movie_count',
+                              activeField: _sortBy,
+                              order: _sortOrder,
+                              onTap: () => _setSort('movie_count'),
+                            ),
+                            const SizedBox(width: 7),
+                            _ActorSortChip(
+                              label: '名称',
+                              field: 'name',
+                              activeField: _sortBy,
+                              order: _sortOrder,
+                              onTap: () => _setSort('name'),
+                            ),
+                            const SizedBox(width: 7),
+                            _ActorSortChip(
+                              label: '创建时间',
+                              field: 'created_at',
+                              activeField: _sortBy,
+                              order: _sortOrder,
+                              onTap: () => _setSort('created_at'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (snapshot.hasError)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              '加载失败: ${toApiException(snapshot.error!).message}',
+                              style: AppText.body(context),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      )
+                    else if (items.isEmpty)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _EmptyActors(),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
+                        sliver: SliverList.builder(
+                          itemCount: items.length,
+                          itemBuilder: (context, index) {
+                            final actor = items[index];
+                            return _ActorTile(
+                              actor: actor,
+                              hue: AppHues.all[index % AppHues.all.length],
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => PersonDetailPage(
+                                    actorId: actor.id,
+                                    name: actor.name,
+                                    actorType: actor.actorType,
+                                    biography: actor.biography,
+                                  ),
+                                ),
+                              ),
+                              onEdit: () => _showEditor(
+                                context,
+                                actor: actor,
+                              ),
+                              onDelete: () => _confirmDelete(
+                                context,
+                                actor,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showEditor(
+    BuildContext context, {
+    ActorItem? actor,
+  }) async {
+    final c = appColors(context);
+    final nameController = TextEditingController(text: actor?.name ?? '');
+    final biographyController =
+        TextEditingController(text: actor?.biography ?? '');
+    final typeController =
+        TextEditingController(text: actor?.actorType ?? '');
+    final isEdit = actor != null;
+
+    final draft = await showModalBottomSheet<_ActorDraft>(
+      context: context,
+      backgroundColor: c.bg,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            22,
+            4,
+            22,
+            MediaQuery.of(sheetContext).viewInsets.bottom + 22,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isEdit ? '编辑演员' : '新建演员',
+                  style: AppText.sectionTitle(sheetContext),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameController,
+                  autofocus: !isEdit,
+                  decoration: settingsInputDecoration(
+                    sheetContext,
+                    hintText: '演员名称',
+                  ),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: typeController,
+                  decoration: settingsInputDecoration(
+                    sheetContext,
+                    hintText: '演员类型 (可选)',
+                  ),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: biographyController,
+                  maxLines: 4,
+                  minLines: 2,
+                  decoration: settingsInputDecoration(
+                    sheetContext,
+                    hintText: '演员简介 (可选)',
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      final name = nameController.text.trim();
+                      if (name.isEmpty) return;
+                      Navigator.of(sheetContext).pop(
+                        _ActorDraft(
+                          name: name,
+                          biography: biographyController.text.trim(),
+                          actorType: typeController.text.trim(),
+                        ),
+                      );
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: c.text,
+                      foregroundColor: c.bg,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(isEdit ? '保存' : '创建'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    nameController.dispose();
+    biographyController.dispose();
+    typeController.dispose();
+
+    if (draft == null || !context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final api = ref.read(requiredApiClientProvider);
+      final body = <String, dynamic>{'name': draft.name};
+      if (isEdit) {
+        body['biography'] = draft.biography;
+        body['actor_type'] = draft.actorType;
+      } else {
+        if (draft.biography.isNotEmpty) body['biography'] = draft.biography;
+        if (draft.actorType.isNotEmpty) body['actor_type'] = draft.actorType;
+      }
+      final raw = isEdit
+          ? await api.catalog.updateActor(actor!.id, body)
+          : await api.catalog.createActor(body);
+      unwrapStd<ActorItem>(
+        raw,
+        (data) => ActorItem.fromJson(Map<String, dynamic>.from(data as Map)),
+      );
+      AppHaptics.medium();
+      messenger.showSnackBar(
+        SnackBar(content: Text(isEdit ? '演员已保存' : '演员已创建')),
+      );
+      await _refresh();
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('操作失败: ${toApiException(error).message}')),
+      );
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext context, ActorItem actor) async {
+    final hasMovies = actor.movieCount > 0;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除演员'),
+        content: Text(
+          hasMovies
+              ? '「${actor.name}」关联了 ${actor.movieCount} 部影片。强制删除将解除关联,影片本身不会被删除。'
+              : '确定删除「${actor.name}」?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(hasMovies ? '强制删除' : '删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final raw = await ref.read(requiredApiClientProvider).catalog.deleteActors(
+        {
+          'ids': [actor.id],
+          'force': hasMovies,
+        },
+      );
+      unwrapStd<void>(raw, (_) {});
+      AppHaptics.medium();
+      messenger.showSnackBar(const SnackBar(content: Text('演员已删除')));
+      await _refresh();
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('删除失败: ${toApiException(error).message}')),
+      );
+    }
+  }
+}
+
+class _ActorDraft {
+  const _ActorDraft({
+    required this.name,
+    required this.biography,
+    required this.actorType,
+  });
+
+  final String name;
+  final String biography;
+  final String actorType;
+}
+
+enum _ActorMenuAction { edit, delete }
+
+class _ActorSortChip extends StatelessWidget {
+  const _ActorSortChip({
+    required this.label,
+    required this.field,
+    required this.activeField,
+    required this.order,
+    required this.onTap,
+  });
+
+  final String label;
+  final String field;
+  final String activeField;
+  final String order;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final active = field == activeField;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? c.chipBgActive : c.chipBg,
+          borderRadius: BorderRadius.circular(100),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: active ? c.chipTextActive : c.text2,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+            if (active) ...[
+              const SizedBox(width: 4),
+              Icon(
+                order == 'asc' ? Icons.arrow_upward : Icons.arrow_downward,
+                size: 12,
+                color: c.chipTextActive,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActorTile extends StatelessWidget {
+  const _ActorTile({
+    required this.actor,
+    required this.hue,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final ActorItem actor;
+  final int hue;
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final type = actor.actorType?.trim();
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: c.surface,
+          border: Border.all(color: c.cardBorder),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppHues.top(hue), AppHues.bottom(hue)],
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                actor.name.isNotEmpty ? actor.name.characters.first : '·',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    actor.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: c.text,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14.5,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    type?.isNotEmpty == true
+                        ? '$type · ${actor.movieCount} 部影片'
+                        : '${actor.movieCount} 部影片',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.meta(context),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuButton<_ActorMenuAction>(
+              tooltip: '更多操作',
+              icon: Icon(Icons.more_horiz, color: c.muted),
+              onSelected: (action) {
+                switch (action) {
+                  case _ActorMenuAction.edit:
+                    onEdit();
+                    return;
+                  case _ActorMenuAction.delete:
+                    onDelete();
+                    return;
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: _ActorMenuAction.edit,
+                  child: Text('编辑'),
+                ),
+                PopupMenuItem(
+                  value: _ActorMenuAction.delete,
+                  child: Text('删除'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyActors extends StatelessWidget {
+  const _EmptyActors();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.people_outline, size: 42, color: c.muted),
+          const SizedBox(height: 14),
+          Text(
+            '还没有演员',
+            style: AppText.body(context).copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text('点击右上角添加演员', style: AppText.meta(context)),
+        ],
+      ),
+    );
+  }
+}

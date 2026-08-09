@@ -233,10 +233,10 @@ class AppL10nZh extends AppL10n {
   String get settingsGroupLibrary => '媒体库';
 
   @override
-  String get settingsGroupSystem => '系统';
+  String get settingsGroupSystem => '系统配置';
 
   @override
-  String get settingsGroupMappings => '映射';
+  String get settingsGroupMappings => '映射规则';
 
   @override
   String get settingsGroupTools => '工具';
@@ -251,7 +251,8 @@ class AppL10nZh extends AppL10n {
   String get settingsServerSettings => '服务器设置';
 
   @override
-  String get settingsServerSettingsSub => '媒体库 / 映射 / 翻译 / 数据源';
+  String get settingsServerSettingsSub =>
+      '服务器 / 系统配置 / 媒体库 / 映射规则 / 工具';
 
   @override
   String get settingsAppSettings => '应用设置';
@@ -330,6 +331,12 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get settingsLibrariesSub => '添加 / 编辑 / 扫描';
+
+  @override
+  String get settingsActors => '演员管理';
+
+  @override
+  String get settingsActorsSub => '演员信息、类型与影片关系';
 
   @override
   String get settingsGenres => '分类管理';
