@@ -42,21 +42,29 @@ String appendQueryToken(String value, String? token) {
   return uri.replace(queryParameters: _flattenQuery(query)).toString();
 }
 
+/// 判断地址是否属于外部媒体源。
+///
+/// 相对地址和当前服务器的绝对地址需要继续携带服务器鉴权；
+/// .strm 解析出的跨域地址交给外部媒体服务器处理，不能透传服务器令牌。
+bool isExternalUrl(ServerConfig config, String value) {
+  final parsed = Uri.tryParse(value.trim());
+  if (parsed == null || !parsed.hasScheme || parsed.host.isEmpty) {
+    return false;
+  }
+  final base = Uri.tryParse(config.baseUrl);
+  if (base == null) return true;
+  return parsed.scheme.toLowerCase() != base.scheme.toLowerCase() ||
+      parsed.host.toLowerCase() != base.host.toLowerCase() ||
+      _effectivePort(parsed) != _effectivePort(base);
+}
+
 /// 为同服务器地址追加临时 token；跨服务器地址视为外部媒体源并原样返回。
 String resolveProtectedUrl(
   ServerConfig config,
   String value,
   String? token,
 ) {
-  final parsed = Uri.tryParse(value.trim());
-  if (parsed != null && parsed.hasScheme && parsed.host.isNotEmpty) {
-    final base = Uri.tryParse(config.baseUrl);
-    final sameServer = base != null &&
-        parsed.scheme.toLowerCase() == base.scheme.toLowerCase() &&
-        parsed.host.toLowerCase() == base.host.toLowerCase() &&
-        _effectivePort(parsed) == _effectivePort(base);
-    if (!sameServer) return value;
-  }
+  if (isExternalUrl(config, value)) return value;
   return appendQueryToken(resolveServerUrl(config, value), token);
 }
 

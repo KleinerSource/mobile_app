@@ -33,6 +33,24 @@ void main() {
     expect(resolveProtectedUrl(config, external, 'access.token'), external);
   });
 
+  test('区分外部 .strm 地址与本地播放地址', () {
+    expect(
+      isExternalUrl(config, 'https://cdn.example/video.mp4?sig=abc'),
+      isTrue,
+    );
+    expect(
+      isExternalUrl(config, '/api/movies/id/7/stream?mode=direct'),
+      isFalse,
+    );
+    expect(
+      isExternalUrl(
+        config,
+        'https://media.example/md-center/api/movies/id/7/stream',
+      ),
+      isFalse,
+    );
+  });
+
   test('同服务器绝对地址追加 token', () {
     const local = 'https://media.example/api/movies/id/7/stream?mode=direct';
     expect(

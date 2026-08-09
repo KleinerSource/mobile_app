@@ -413,11 +413,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 .read(diskCacheServiceProvider)
                 .cachedMovieFile(widget.movieId)
             : null;
-        final directUrl = cachedFile ?? _directUrl(cfg);
+        // .strm 的本地串流接口会返回 302。先请求 stream-url 解析出最终
+        // 外部地址，避免 media_kit 在重定向时丢失地址或透传服务器鉴权头。
+        final rawDirectUrl =
+            cachedFile ?? await client.playback.streamUrl(widget.movieId);
+        final directUrl = cachedFile ?? _protectedUrl(cfg, rawDirectUrl, token);
+        final directHeaders = cachedFile == null &&
+                !isExternalUrl(cfg, rawDirectUrl)
+            ? _authorizationHeaders(token)
+            : null;
         await _openDirectWithClientFallback(
           directUrl,
           startAt,
-          cachedFile == null ? token : null,
+          headers: directHeaders,
         );
       } else {
         final hlsUrl = _fallbackHlsUrl(cfg, token, selectedQuality);
@@ -452,13 +460,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<void> _openDirectWithClientFallback(
     String url,
     Duration? startAt,
-    String? token,
+    {Map<String, String>? headers},
   ) async {
     try {
       await _host.open(
         url,
         startAt: startAt,
-        headers: _authorizationHeaders(token),
+        headers: headers,
       );
     } catch (_) {
       if (!_clientHardwareAcceleration) rethrow;
@@ -467,7 +475,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       await _host.open(
         url,
         startAt: startAt,
-        headers: _authorizationHeaders(token),
+        headers: headers,
       );
     }
     _usingHls = false;
@@ -827,11 +835,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final value = token?.trim() ?? '';
     if (value.isEmpty) return null;
     return {'Authorization': 'Bearer $value'};
-  }
-
-  String _directUrl(ServerConfig cfg) {
-    final path = '/api/movies/id/${widget.movieId}/stream?mode=direct';
-    return resolveServerUrl(cfg, path);
   }
 
   String _fallbackHlsUrl(
