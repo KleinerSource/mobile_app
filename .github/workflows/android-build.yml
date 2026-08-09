@@ -99,6 +99,23 @@ jobs:
         timeout-minutes: 5
         run: flutter pub get
 
+      - name: 修正 Android 音量插件 compileSdk
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          pub_cache_root="${PUB_CACHE:-/home/runner/.pub-cache}"
+          volume_controller_gradle="$(find "${pub_cache_root}" -path '*/flutter_volume_controller-*/android/build.gradle*' -type f -print -quit 2>/dev/null || true)"
+          if [ -z "${volume_controller_gradle}" ]; then
+            echo "无法定位 flutter_volume_controller 的 Android Gradle 配置"
+            exit 1
+          fi
+          sed -i -E \
+            -e 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/g' \
+            -e 's/compileSdk[[:space:]]*=[[:space:]]*[0-9]+/compileSdk = 36/g' \
+            -e 's/compileSdk[[:space:]]+[0-9]+/compileSdk 36/g' \
+            "${volume_controller_gradle}"
+          grep -nE 'compileSdk(Version)?' "${volume_controller_gradle}"
+
       - name: 诊断 Flutter/Dart 版本
         timeout-minutes: 2
         run: |
