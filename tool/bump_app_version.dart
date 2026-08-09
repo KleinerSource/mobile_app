@@ -9,7 +9,8 @@ void main() {
 
   final contents = file.readAsStringSync(encoding: utf8);
   final match = RegExp(
-    r'(?m)^version:\s*(\d+)\.(\d+)\.(\d+)\+(\d+)\s*$',
+    r'^version:\s*(\d+)\.(\d+)\.(\d+)\+(\d+)\s*$',
+    multiLine: true,
   ).firstMatch(contents);
   if (match == null) {
     throw FormatException('pubspec.yaml 中的 version 不是 x.y.z+build 格式');
