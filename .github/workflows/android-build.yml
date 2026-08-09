@@ -37,11 +37,12 @@ jobs:
           channel: stable
           cache: true
 
-      - name: 递增应用版本号
+      - name: 计算构建版本号
         timeout-minutes: 2
         run: |
           set -euo pipefail
-          version="$(dart tool/bump_app_version.dart)"
+          commit_message="$(git log -1 --format=%B "${GITHUB_SHA}")"
+          version="$(dart tool/bump_app_version.dart --auto --commit-message "${commit_message}")"
           echo "构建版本: ${version}"
 
       - name: Flutter doctor
