@@ -442,7 +442,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         if (draft.actorType.isNotEmpty) body['actor_type'] = draft.actorType;
       }
       final raw = isEdit
-          ? await api.catalog.updateActor(actor!.id, body)
+          ? await api.catalog.updateActor(actor.id, body)
           : await api.catalog.createActor(body);
       unwrapStd<ActorItem>(
         raw,
