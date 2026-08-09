@@ -35,6 +35,10 @@ void main() {
       const PlayerSettings().landscapeSide,
       PlayerLandscapeSide.cameraRight,
     );
+    expect(
+      PlayerLandscapeSide.fromValue(null),
+      PlayerLandscapeSide.cameraRight,
+    );
     SharedPreferences.setMockInitialValues({
       'player.landscape_side': 'unsupported',
     });

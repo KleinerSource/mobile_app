@@ -294,7 +294,6 @@ class _TranslationSettingsPageState
             ),
             ),
           ),
-        ),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
