@@ -255,45 +255,23 @@ class _TranslationSettingsPageState
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: _enabled
-                    ? c.accent.withValues(alpha: 0.18)
-                    : c.chipBg,
-                borderRadius: BorderRadius.circular(100),
+          child: Container(
+            decoration: settingsCardDecoration(context),
+            child: SettingsTile(
+              title: '启用翻译',
+              subtitle: _enabled
+                  ? '已启用 · 翻译功能可用'
+                  : '已禁用 · 保存后不调用翻译服务',
+              leadingIcon: Icons.translate_outlined,
+              trailing: Switch(
+                value: _enabled,
+                onChanged: AppHaptics.wrapToggle(
+                  (v) => setState(() => _enabled = v),
+                ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _enabled ? '已启用' : '已禁用',
-                    style: TextStyle(
-                      color: _enabled ? c.accent : c.muted,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  SizedBox(
-                    width: 36,
-                    height: 22,
-                    child: Switch(
-                      value: _enabled,
-                      onChanged: AppHaptics.wrapToggle(
-                        (v) => setState(() => _enabled = v),
-                      ),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
-                ],
-              ),
-            ),
             ),
           ),
+        ),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
