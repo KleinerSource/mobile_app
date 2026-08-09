@@ -730,10 +730,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<void> _showSubtitleSettings() async {
     if (!mounted || _isLeaving) return;
     final wasPlaying = _host.player.state.playing;
-    if (wasPlaying) {
-      await _host.player.pause();
-    }
     try {
+      if (wasPlaying) {
+        await _host.player.pause();
+      }
+      if (!mounted || _isLeaving) return;
       await showSubtitleAdjustmentDialog(
         context: context,
         initial: _subtitleAdjustments,

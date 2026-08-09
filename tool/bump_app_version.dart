@@ -13,7 +13,9 @@ void main() {
     multiLine: true,
   ).firstMatch(contents);
   if (match == null) {
-    throw FormatException('pubspec.yaml 中的 version 不是 x.y.z+build 格式');
+    throw const FormatException(
+      'pubspec.yaml 中的 version 不是 x.y.z+build 格式',
+    );
   }
 
   final major = int.parse(match.group(1)!);
