@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_provider.dart';
 import '../../core/platform/app_theme.dart';
+import '../../core/platform/app_version.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import 'app_settings_page.dart';
@@ -17,6 +18,7 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
     final l = AppL10n.of(context);
+    final packageInfo = ref.watch(appPackageInfoProvider);
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -82,7 +84,12 @@ class SettingsPage extends ConsumerWidget {
                 items: [
                   SettingsTile(
                     title: l.settingsVersion,
-                    subtitle: '0.1.0',
+                    subtitle: packageInfo.when(
+                      data: (info) =>
+                          formatAppVersion(info.version, info.buildNumber),
+                      loading: () => '读取中…',
+                      error: (_, __) => '未知',
+                    ),
                     leadingIcon: Icons.info_outline,
                   ),
                   SettingsTile(
