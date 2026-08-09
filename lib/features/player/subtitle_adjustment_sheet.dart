@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/platform/app_haptics.dart';
@@ -169,7 +171,7 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
               ),
             ],
           ),
-          Divider(height: 18, color: c.divider),
+          const SizedBox(height: 8),
           _AdjustmentRow(
             title: '延迟偏移',
             value: '${(_adjustments.delayMs / 1000).toStringAsFixed(1)} s',
@@ -307,7 +309,7 @@ class _Stepper extends StatelessWidget {
   }
 }
 
-class _StepperButton extends StatelessWidget {
+class _StepperButton extends StatefulWidget {
   const _StepperButton({
     required this.icon,
     required this.tooltip,
@@ -319,23 +321,73 @@ class _StepperButton extends StatelessWidget {
   final VoidCallback? onPressed;
 
   @override
+  State<_StepperButton> createState() => _StepperButtonState();
+}
+
+class _StepperButtonState extends State<_StepperButton> {
+  static const _repeatInterval = Duration(milliseconds: 120);
+
+  Timer? _repeatTimer;
+
+  void _invoke() {
+    final action = widget.onPressed;
+    if (action == null) return;
+    AppHaptics.selection();
+    action();
+  }
+
+  void _startRepeating(LongPressStartDetails _) {
+    if (widget.onPressed == null) return;
+    _invoke();
+    _repeatTimer?.cancel();
+    _repeatTimer = Timer.periodic(_repeatInterval, (_) {
+      if (!mounted || widget.onPressed == null) {
+        _stopRepeating();
+        return;
+      }
+      _invoke();
+    });
+  }
+
+  void _stopRepeating() {
+    _repeatTimer?.cancel();
+    _repeatTimer = null;
+  }
+
+  @override
+  void dispose() {
+    _stopRepeating();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return IconButton(
-      tooltip: tooltip,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints.tightFor(width: 45, height: 40),
-      visualDensity: VisualDensity.compact,
-      onPressed: onPressed == null
-          ? null
-          : () {
-              AppHaptics.selection();
-              onPressed!();
-            },
-      icon: Icon(
-        icon,
-        color: onPressed == null ? c.muted2 : c.text,
-        size: 20,
+    final enabled = widget.onPressed != null;
+    return Tooltip(
+      message: widget.tooltip,
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: widget.tooltip,
+        child: SizedBox(
+          width: 45,
+          height: 40,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: enabled ? _invoke : null,
+            onLongPressStart: enabled ? _startRepeating : null,
+            onLongPressEnd: enabled ? (_) => _stopRepeating() : null,
+            onLongPressCancel: enabled ? _stopRepeating : null,
+            child: Center(
+              child: Icon(
+                widget.icon,
+                color: enabled ? c.text : c.muted2,
+                size: 20,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
