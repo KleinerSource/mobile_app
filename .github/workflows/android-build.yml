@@ -103,8 +103,19 @@ jobs:
         timeout-minutes: 2
         run: |
           set -euo pipefail
-          pub_cache_root="${PUB_CACHE:-/home/runner/.pub-cache}"
-          volume_controller_gradle="$(find "${pub_cache_root}" -path '*/flutter_volume_controller-*/android/build.gradle*' -type f -print -quit 2>/dev/null || true)"
+          volume_controller_root_uri=""
+          if command -v node >/dev/null 2>&1 && [ -f .dart_tool/package_config.json ]; then
+            volume_controller_root_uri="$(node -e "const fs=require('fs'); const config=JSON.parse(fs.readFileSync('.dart_tool/package_config.json','utf8')); const pkg=config.packages.find(({name}) => name === 'flutter_volume_controller'); process.stdout.write(pkg?.rootUri ?? '');")"
+          fi
+          volume_controller_root="${volume_controller_root_uri#file://}"
+          volume_controller_gradle=""
+          if [ -n "${volume_controller_root}" ] && [ -d "${volume_controller_root}/android" ]; then
+            volume_controller_gradle="$(find "${volume_controller_root}/android" -name 'build.gradle*' -type f -print -quit 2>/dev/null || true)"
+          fi
+          if [ -z "${volume_controller_gradle}" ]; then
+            pub_cache_root="${PUB_CACHE:-/home/runner/.pub-cache}"
+            volume_controller_gradle="$(find "${pub_cache_root}" -path '*/flutter_volume_controller-*/android/build.gradle*' -type f -print -quit 2>/dev/null || true)"
+          fi
           if [ -z "${volume_controller_gradle}" ]; then
             echo "无法定位 flutter_volume_controller 的 Android Gradle 配置"
             exit 1
