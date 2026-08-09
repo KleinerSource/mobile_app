@@ -123,6 +123,7 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
     super.initState();
     _rawSubtitle = widget.player.state.subtitle;
     _subscribe();
+    _syncNativeSubtitleDelay();
     _scheduleDisplay();
   }
 
@@ -135,6 +136,7 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
       _rawSubtitle = widget.player.state.subtitle;
       _displayedSubtitle = const [];
       _subscribe();
+      _syncNativeSubtitleDelay();
       _scheduleDisplay();
       return;
     }
@@ -144,6 +146,7 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
       _scheduleDisplay();
     } else if (oldWidget.adjustments.delayMs != widget.adjustments.delayMs) {
       _cancelDelayTimers();
+      _syncNativeSubtitleDelay();
       _scheduleDisplay();
     }
   }
@@ -168,6 +171,24 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
       _applySubtitle(nextSubtitle);
     });
     _delayTimers.add(timer);
+  }
+
+  void _syncNativeSubtitleDelay() {
+    final platform = widget.player.platform;
+    if (platform == null) return;
+    final delay = widget.adjustments.delayMs < 0
+        ? widget.adjustments.delayMs / 1000
+        : 0;
+    // media_kit 没有跨平台公开的字幕延迟 API，原生平台通过 mpv 属性补足负偏移。
+    unawaited(_setNativeSubtitleDelay(platform, delay.toString()));
+  }
+
+  Future<void> _setNativeSubtitleDelay(Object platform, String value) async {
+    try {
+      await (platform as dynamic).setProperty('sub-delay', value);
+    } catch (_) {
+      // Web 或不支持原生属性的平台继续使用客户端字幕层。
+    }
   }
 
   void _applySubtitle(List<String> subtitle) {
