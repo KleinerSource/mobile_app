@@ -12,6 +12,7 @@ import '../privacy/privacy_mask.dart';
 /// - 卡片宽屏 16:10 + fanart 满铺 + 渐隐 + 大标题
 /// - 5 秒自动切换
 /// - 底部圆点指示器
+/// - 虚拟页索引无限增长, 真实数据按取模映射实现首尾相连
 class RecommendCarousel extends StatefulWidget {
   const RecommendCarousel({
     super.key,
@@ -29,12 +30,50 @@ class RecommendCarousel extends StatefulWidget {
 class _RecommendCarouselState extends State<RecommendCarousel> {
   late final PageController _controller;
   Timer? _autoplay;
+  static const _initialPageBase = 10000;
+  int _page = 0;
   int _index = 0;
 
   @override
   void initState() {
     super.initState();
-    _controller = PageController(viewportFraction: 0.88);
+    _page = _initialPage(widget.items.length);
+    _controller = PageController(
+      initialPage: _page,
+      viewportFraction: 0.88,
+    );
+    _startAutoplay();
+  }
+
+  @override
+  void didUpdateWidget(covariant RecommendCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_itemsChanged(oldWidget.items, widget.items)) return;
+
+    if (widget.items.isEmpty) {
+      _autoplay?.cancel();
+      _page = 0;
+      _index = 0;
+      return;
+    }
+
+    final currentId = oldWidget.items.isEmpty
+        ? null
+        : oldWidget.items[_index % oldWidget.items.length].id;
+    final matchingIndex = currentId == null
+        ? -1
+        : widget.items.indexWhere((item) => item.id == currentId);
+    final nextIndex = matchingIndex >= 0
+        ? matchingIndex
+        : _index.clamp(0, widget.items.length - 1);
+    final nextPage = _page - (_page % widget.items.length) + nextIndex;
+    _page = nextPage;
+    _index = nextIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _controller.hasClients) {
+        _controller.jumpToPage(nextPage);
+      }
+    });
     _startAutoplay();
   }
 
@@ -50,9 +89,8 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
     if (widget.items.length <= 1) return;
     _autoplay = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || !_controller.hasClients) return;
-      final next = (_index + 1) % widget.items.length;
       _controller.animateToPage(
-        next,
+        _page + 1,
         duration: const Duration(milliseconds: 450),
         curve: Curves.easeOutCubic,
       );
@@ -66,6 +104,8 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.items.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -73,14 +113,16 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
           aspectRatio: 16 / 10,
           child: PageView.builder(
             controller: _controller,
-            itemCount: widget.items.length,
             onPageChanged: (i) {
-              setState(() => _index = i);
+              setState(() {
+                _page = i;
+                _index = i % widget.items.length;
+              });
               // 用户手动滑动后,重新启动 autoplay 计时
               _startAutoplay();
             },
             itemBuilder: (ctx, i) {
-              final m = widget.items[i];
+              final m = widget.items[i % widget.items.length];
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: _CarouselCard(
@@ -100,6 +142,22 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
         _Dots(active: _index, total: widget.items.length),
       ],
     );
+  }
+
+  int _initialPage(int length) {
+    if (length <= 0) return 0;
+    return _initialPageBase - (_initialPageBase % length);
+  }
+
+  bool _itemsChanged(
+    List<MovieListItem> previous,
+    List<MovieListItem> next,
+  ) {
+    if (previous.length != next.length) return true;
+    for (var i = 0; i < previous.length; i++) {
+      if (previous[i].id != next[i].id) return true;
+    }
+    return false;
   }
 }
 
