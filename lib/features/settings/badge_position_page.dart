@@ -256,7 +256,6 @@ class _CornerTile extends StatelessWidget {
     final l = AppL10n.of(context);
     final picked = await showModalBottomSheet<BadgeCorner>(
       context: context,
-      backgroundColor: c.bg,
       showDragHandle: true,
       builder: (ctx) {
         return SafeArea(
@@ -272,11 +271,9 @@ class _CornerTile extends StatelessWidget {
               for (final corner in BadgeCorner.values)
                 ListTile(
                   title: Text(_labelOf(corner, l),
-                      style: TextStyle(
+                      style: AppText.body(ctx).copyWith(
                         color: c.text,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                       )),
                   trailing: corner == value
                       ? Icon(Icons.check, color: c.accent)

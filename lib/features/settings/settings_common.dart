@@ -102,6 +102,7 @@ class SettingsTile extends StatelessWidget {
                       fontFamily: 'Inter',
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
+                      height: 1.25,
                     ),
                   ),
                   if (subtitle != null) ...[
@@ -120,6 +121,47 @@ class SettingsTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 设置页输入控件的统一外观与最小触控高度。
+InputDecoration settingsInputDecoration(
+  BuildContext context, {
+  String? hintText,
+  String? labelText,
+  Widget? prefixIcon,
+  Widget? suffixIcon,
+  bool borderless = false,
+}) {
+  final c = appColors(context);
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: BorderSide(color: c.cardBorder),
+  );
+  return InputDecoration(
+    filled: true,
+    fillColor: borderless ? Colors.transparent : c.surface,
+    hintText: hintText,
+    labelText: labelText,
+    prefixIcon: prefixIcon,
+    suffixIcon: suffixIcon,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    border: borderless ? InputBorder.none : border,
+    enabledBorder: borderless ? InputBorder.none : border,
+    focusedBorder: borderless
+        ? InputBorder.none
+        : border.copyWith(
+            borderSide: BorderSide(color: c.accent, width: 1.5),
+          ),
+  );
+}
+
+BoxDecoration settingsCardDecoration(BuildContext context) {
+  final c = appColors(context);
+  return BoxDecoration(
+    color: c.surface,
+    border: Border.all(color: c.cardBorder),
+    borderRadius: BorderRadius.circular(16),
+  );
 }
 
 /// 设置页通用滑块 · 在拖动起始、跨分段和提交时提供触觉反馈。
@@ -194,9 +236,11 @@ class SettingsSubPageHeader extends StatelessWidget {
     super.key,
     required this.eyebrow,
     required this.title,
+    this.subtitle,
   });
   final String eyebrow;
   final String title;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -221,6 +265,10 @@ class SettingsSubPageHeader extends StatelessWidget {
                 Text(eyebrow.toUpperCase(), style: AppText.eyebrow(context)),
                 const SizedBox(height: 3),
                 Text(title, style: AppText.pageTitle(context)),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 8),
+                  Text(subtitle!, style: AppText.meta(context)),
+                ],
               ],
             ),
           ),

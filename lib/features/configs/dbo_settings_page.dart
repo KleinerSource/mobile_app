@@ -6,6 +6,7 @@ import '../../core/models/dbo_config.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../settings/settings_common.dart';
 import 'configs_providers.dart';
 
 class DboSettingsPage extends ConsumerStatefulWidget {
@@ -127,30 +128,10 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
   Widget _buildForm(AppColors c) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-          child: Row(children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-          ]),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(22, 8, 22, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('TOOLS', style: AppText.eyebrow(context)),
-              const SizedBox(height: 3),
-              Text('DB Online 数据源', style: AppText.pageTitle(context)),
-              const SizedBox(height: 6),
-              Text(
-                'Base URL + API Key,用于影片信息、资源和演员关联同步',
-                style: AppText.meta(context),
-              ),
-            ],
-          ),
+        const SettingsSubPageHeader(
+          eyebrow: 'TOOLS',
+          title: 'DB Online 数据源',
+          subtitle: 'Base URL + API Key,用于影片信息、资源和演员关联同步',
         ),
         Expanded(
           child: ListView(
@@ -159,11 +140,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
               _label('启用', _enabled ? '已启用 · 所有 DBO 功能可用' : '已停用 · 所有 DBO 功能将被屏蔽'),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                decoration: BoxDecoration(
-                  color: c.surface,
-                  border: Border.all(color: c.cardBorder),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                decoration: settingsCardDecoration(context),
                 child: Row(
                   children: [
                     Expanded(
@@ -195,11 +172,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
               const SizedBox(height: 18),
               _label('资源过滤器', '按发布日期过滤 · 0 = 不过滤'),
               Container(
-                decoration: BoxDecoration(
-                  color: c.surface,
-                  border: Border.all(color: c.cardBorder),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                decoration: settingsCardDecoration(context),
                 child: Row(
                   children: [
                     SizedBox(
@@ -293,11 +266,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
               const SizedBox(height: 18),
               _label('起始年月', '按发布日期保留该月份及之后的资源 · 格式 YYYY-MM'),
               Container(
-                decoration: BoxDecoration(
-                  color: c.surface,
-                  border: Border.all(color: c.cardBorder),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                decoration: settingsCardDecoration(context),
                 child: TextField(
                   controller: _minResourceMonth,
                   keyboardType: TextInputType.datetime,
@@ -307,13 +276,10 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
                       setState(() => _maxAge = 0);
                     }
                   },
-                  decoration: const InputDecoration(
+                  decoration: settingsInputDecoration(
+                    context,
                     hintText: '例如 2024-01',
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
+                    borderless: true,
                   ),
                   style: TextStyle(
                     color: c.text,
@@ -337,6 +303,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
                     foregroundColor: c.bg,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
+                    minimumSize: const Size.fromHeight(48),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   child: _saving
@@ -381,18 +348,13 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
   Widget _input(TextEditingController controller, {String? hint}) {
     final c = appColors(context);
     return Container(
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.cardBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: settingsCardDecoration(context),
       child: TextField(
         controller: controller,
-        decoration: InputDecoration(
+        decoration: settingsInputDecoration(
+          context,
           hintText: hint,
-          border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          borderless: true,
         ),
         style: TextStyle(
           color: c.text,
@@ -406,22 +368,17 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
 
   Widget _passwordInput(AppColors c) {
     return Container(
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.cardBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: settingsCardDecoration(context),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _apiKey,
               obscureText: !_showKey,
-              decoration: InputDecoration(
+              decoration: settingsInputDecoration(
+                context,
                 hintText: _hasKey ? '已配置 · 留空则保留' : '请输入',
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 12),
+                borderless: true,
               ),
               style: TextStyle(
                 color: c.text,
@@ -448,7 +405,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
       decoration: BoxDecoration(
         color: c.danger.withValues(alpha: 0.1),
         border: Border.all(color: c.danger.withValues(alpha: 0.4)),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [

@@ -12,6 +12,7 @@ import '../../core/auth/auth_session.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import 'settings_common.dart';
 
 /// 服务器访问控制 · 登录凭据、会话策略和 TOTP
 class AccessControlPage extends ConsumerStatefulWidget {
@@ -335,30 +336,10 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
 
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-          child: Row(children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-          ]),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(22, 8, 22, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('SECURITY', style: AppText.eyebrow(context)),
-              const SizedBox(height: 3),
-              Text('访问控制', style: AppText.pageTitle(context)),
-              const SizedBox(height: 6),
-              Text(
-                '配置登录凭据与会话策略；关闭时保持开放访问。',
-                style: AppText.meta(context),
-              ),
-            ],
-          ),
+        const SettingsSubPageHeader(
+          eyebrow: 'SECURITY',
+          title: '访问控制',
+          subtitle: '配置登录凭据与会话策略；关闭时保持开放访问。',
         ),
         Expanded(
           child: ListView(
@@ -443,6 +424,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    minimumSize: const Size.fromHeight(48),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
@@ -539,11 +521,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
   Widget _switchCard(AppColors c) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.cardBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: settingsCardDecoration(context),
       child: Row(
         children: [
           Expanded(
@@ -571,26 +549,21 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
 
   Widget _passwordInput(AppColors c) {
     return Container(
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.cardBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: settingsCardDecoration(context),
       child: TextField(
         controller: _passwordController,
         obscureText: !_showPassword,
         autocorrect: false,
-        decoration: InputDecoration(
+        decoration: settingsInputDecoration(
+          context,
+          borderless: true,
           hintText: _configured ? '已配置 · 留空则保留' : '至少 8 位字符',
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 12,
-          ),
           suffixIcon: IconButton(
             tooltip: _showPassword ? '隐藏密码' : '显示密码',
             icon: Icon(
-              _showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              _showPassword
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
               size: 18,
               color: c.muted,
             ),
@@ -620,23 +593,16 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
         Text(label, style: TextStyle(color: c.text2, fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
         Container(
-          decoration: BoxDecoration(
-            color: c.surface,
-            border: Border.all(color: c.cardBorder),
-            borderRadius: BorderRadius.circular(12),
-          ),
+          decoration: settingsCardDecoration(context),
           child: Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: controller,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
+                  decoration: settingsInputDecoration(
+                    context,
+                    borderless: true,
                   ),
                   style: TextStyle(
                     fontFamily: 'monospace',
@@ -661,11 +627,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
   Widget _totpCard(AppColors c) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.cardBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: settingsCardDecoration(context),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -730,7 +692,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
       decoration: BoxDecoration(
         color: c.accent.withValues(alpha: 0.08),
         border: Border.all(color: c.accent.withValues(alpha: 0.25)),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -750,7 +712,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
       decoration: BoxDecoration(
         color: c.danger.withValues(alpha: 0.1),
         border: Border.all(color: c.danger.withValues(alpha: 0.4)),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

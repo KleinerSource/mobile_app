@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/glow_background.dart';
 import '../player/subtitle_settings.dart';
 import 'settings_common.dart';
 
@@ -29,9 +30,10 @@ class SubtitleSettingsPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: appColors(context).bg,
-      body: SafeArea(
-        child: ListView(
-          children: [
+      body: GlowBackground(
+        child: SafeArea(
+          child: ListView(
+            children: [
             const SettingsSubPageHeader(
               eyebrow: '应用设置',
               title: '字幕设置',
@@ -165,7 +167,8 @@ class SubtitleSettingsPage extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 80),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -261,10 +264,9 @@ class _SubtitleOptionTile<T> extends StatelessWidget {
             ListTile(
               title: Text(
                 labelOf(option),
-                style: TextStyle(
+                style: AppText.body(ctx).copyWith(
                   color: c.text,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               trailing: option == value

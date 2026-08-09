@@ -6,6 +6,7 @@ import '../../core/models/avdb_config.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../settings/settings_common.dart';
 import 'configs_providers.dart';
 
 class AvdbSettingsPage extends ConsumerStatefulWidget {
@@ -95,31 +96,10 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
   Widget _buildForm(AppColors c) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: '返回',
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(22, 8, 22, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('DATA SOURCE', style: AppText.eyebrow(context)),
-              const SizedBox(height: 3),
-              Text('AVDB 数据源', style: AppText.pageTitle(context)),
-              const SizedBox(height: 6),
-              Text('用于演员关联同步。请先配置并启用 AVDB 数据源。',
-                  style: AppText.meta(context)),
-            ],
-          ),
+        const SettingsSubPageHeader(
+          eyebrow: 'DATA SOURCE',
+          title: 'AVDB 数据源',
+          subtitle: '用于演员关联同步。请先配置并启用 AVDB 数据源。',
         ),
         Expanded(
           child: ListView(
@@ -146,9 +126,8 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
               TextField(
                 controller: _apiKey,
                 obscureText: !_showKey,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: c.surface,
+                decoration: settingsInputDecoration(
+                  context,
                   hintText: '留空保留当前密钥',
                   prefixIcon: const Icon(Icons.key_outlined),
                   suffixIcon: IconButton(
@@ -168,6 +147,9 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: _saving ? null : _save,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
                   icon: _saving
                       ? const SizedBox(
                           width: 18,
@@ -191,13 +173,11 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
       );
 
   Widget _field(TextEditingController controller, {required String hint}) {
-    final c = appColors(context);
     return TextField(
       controller: controller,
       keyboardType: TextInputType.url,
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: c.surface,
+      decoration: settingsInputDecoration(
+        context,
         hintText: hint,
         prefixIcon: const Icon(Icons.link),
       ),
@@ -213,11 +193,7 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
   }) {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.cardBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: settingsCardDecoration(context),
       child: Row(
         children: [
           Expanded(
@@ -247,7 +223,7 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
       decoration: BoxDecoration(
         color: c.danger.withValues(alpha: 0.10),
         border: Border.all(color: c.danger.withValues(alpha: 0.28)),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(message, style: TextStyle(color: c.danger)),
     );

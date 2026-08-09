@@ -26,35 +26,9 @@ class SettingsPage extends ConsumerWidget {
         child: SafeArea(
           child: ListView(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 16, 22, 22),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back),
-                          onPressed: () =>
-                              Navigator.of(context).maybePop(),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4, top: 4),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(l.settingsTitle.toUpperCase(),
-                              style: AppText.eyebrow(context)),
-                          const SizedBox(height: 3),
-                          Text(l.settingsPreferences,
-                              style: AppText.pageTitle(context)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              SettingsSubPageHeader(
+                eyebrow: l.settingsTitle,
+                title: l.settingsPreferences,
               ),
               SettingsGroup(
                 title: l.settingsPreferences,

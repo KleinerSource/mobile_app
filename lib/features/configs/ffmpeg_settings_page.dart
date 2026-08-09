@@ -6,6 +6,7 @@ import '../../core/models/ffmpeg_config.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../settings/settings_common.dart';
 import 'configs_providers.dart';
 
 class FfmpegSettingsPage extends ConsumerStatefulWidget {
@@ -96,31 +97,10 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
   Widget _buildForm(AppColors c) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: '返回',
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(22, 8, 22, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('PLAYBACK ENGINE', style: AppText.eyebrow(context)),
-              const SizedBox(height: 3),
-              Text('FFmpeg 与硬解', style: AppText.pageTitle(context)),
-              const SizedBox(height: 6),
-              Text('配置服务端转码、硬件解码和硬解失败回退策略。',
-                  style: AppText.meta(context)),
-            ],
-          ),
+        const SettingsSubPageHeader(
+          eyebrow: 'PLAYBACK ENGINE',
+          title: 'FFmpeg 与硬解',
+          subtitle: '配置服务端转码、硬件解码和硬解失败回退策略。',
         ),
         Expanded(
           child: ListView(
@@ -136,10 +116,10 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
               ),
               const SizedBox(height: 12),
               InputDecorator(
-                decoration: const InputDecoration(
+                decoration: settingsInputDecoration(
+                  context,
                   labelText: '硬件后端',
-                  prefixIcon: Icon(Icons.memory_outlined),
-                  border: OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.memory_outlined),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
@@ -187,6 +167,9 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: _saving ? null : _save,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
                   icon: _saving
                       ? const SizedBox(
                           width: 18,
@@ -210,12 +193,10 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
       );
 
   Widget _pathField(TextEditingController controller, String hint) {
-    final c = appColors(context);
     return TextField(
       controller: controller,
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: c.surface,
+      decoration: settingsInputDecoration(
+        context,
         hintText: hint,
         prefixIcon: const Icon(Icons.folder_open_outlined),
       ),
@@ -231,11 +212,7 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
   }) {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.cardBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: settingsCardDecoration(context),
       child: Row(
         children: [
           Expanded(
@@ -265,7 +242,7 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
       decoration: BoxDecoration(
         color: c.danger.withValues(alpha: 0.10),
         border: Border.all(color: c.danger.withValues(alpha: 0.28)),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(message, style: TextStyle(color: c.danger)),
     );

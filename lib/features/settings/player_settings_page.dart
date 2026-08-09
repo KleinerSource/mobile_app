@@ -288,7 +288,6 @@ class _PlayerOptionTile<T> extends StatelessWidget {
     final c = appColors(context);
     final picked = await showModalBottomSheet<T>(
       context: context,
-      backgroundColor: c.bg,
       showDragHandle: true,
       builder: (ctx) {
         return SafeArea(
@@ -306,11 +305,9 @@ class _PlayerOptionTile<T> extends StatelessWidget {
                 ListTile(
                   title: Text(
                     optionLabel(option),
-                    style: TextStyle(
+                    style: AppText.body(ctx).copyWith(
                       color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   trailing: option == value

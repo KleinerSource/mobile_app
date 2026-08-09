@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../settings/settings_common.dart';
 import 'configs_providers.dart';
 
 class VideoExtensionsPage extends ConsumerStatefulWidget {
@@ -75,30 +76,10 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
         child: SafeArea(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-                child: Row(children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.of(context).maybePop(),
-                  ),
-                ]),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 8, 22, 22),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('TOOLS', style: AppText.eyebrow(context)),
-                    const SizedBox(height: 3),
-                    Text('视频扩展名', style: AppText.pageTitle(context)),
-                    const SizedBox(height: 6),
-                    Text(
-                      '配置媒体库扫描时识别的视频文件后缀',
-                      style: AppText.meta(context),
-                    ),
-                  ],
-                ),
+              const SettingsSubPageHeader(
+                eyebrow: 'TOOLS',
+                title: '视频扩展名',
+                subtitle: '配置媒体库扫描时识别的视频文件后缀',
               ),
               Expanded(
                 child: async.when(
@@ -127,11 +108,7 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
         Text('ADD', style: AppText.eyebrow(context)),
         const SizedBox(height: 8),
         Container(
-          decoration: BoxDecoration(
-            color: c.surface,
-            border: Border.all(color: c.cardBorder),
-            borderRadius: BorderRadius.circular(12),
-          ),
+          decoration: settingsCardDecoration(context),
           child: Row(
             children: [
               Expanded(
@@ -139,11 +116,10 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
                   controller: _input,
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _add(extensions),
-                  decoration: const InputDecoration(
+                  decoration: settingsInputDecoration(
+                    context,
                     hintText: 'mp4',
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 14),
+                    borderless: true,
                   ),
                   style: TextStyle(
                     color: c.text,
@@ -162,6 +138,7 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
                     foregroundColor: c.bg,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8)),
+                    minimumSize: const Size(48, 44),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
                   ),
@@ -188,11 +165,7 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
         if (extensions.isEmpty)
           Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: c.surface,
-              border: Border.all(color: c.cardBorder),
-              borderRadius: BorderRadius.circular(12),
-            ),
+            decoration: settingsCardDecoration(context),
             child: Center(
               child: Text('还没有配置扩展名', style: AppText.meta(context)),
             ),
@@ -230,7 +203,7 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
                       constraints:
-                          const BoxConstraints.tightFor(width: 28, height: 28),
+                          const BoxConstraints.tightFor(width: 44, height: 44),
                     ),
                   ],
                 ),

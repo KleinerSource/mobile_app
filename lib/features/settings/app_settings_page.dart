@@ -169,7 +169,6 @@ class _LanguageTile extends ConsumerWidget {
     final l = AppL10n.of(context);
     final picked = await showModalBottomSheet<AppLocale>(
       context: context,
-      backgroundColor: c.bg,
       showDragHandle: true,
       builder: (ctx) {
         return SafeArea(
@@ -186,11 +185,9 @@ class _LanguageTile extends ConsumerWidget {
                 ListTile(
                   title: Text(
                     _labelOf(loc, l),
-                    style: TextStyle(
+                    style: AppText.body(ctx).copyWith(
                       color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   trailing: loc == current
@@ -257,7 +254,6 @@ class _ThemeTile extends ConsumerWidget {
     final l = AppL10n.of(context);
     final picked = await showModalBottomSheet<AppThemeMode>(
       context: context,
-      backgroundColor: c.bg,
       showDragHandle: true,
       builder: (ctx) {
         return SafeArea(
@@ -275,11 +271,9 @@ class _ThemeTile extends ConsumerWidget {
                   leading: Icon(_iconOf(m), color: c.muted, size: 20),
                   title: Text(
                     _labelOf(m, l),
-                    style: TextStyle(
+                    style: AppText.body(ctx).copyWith(
                       color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   trailing: m == current
