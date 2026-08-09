@@ -90,6 +90,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   String? _error;
   String _quality = 'original';
   playback_models.PlaybackDecision? _decision;
+  playback_models.SubtitleTrack? _selectedSubtitle;
   bool _usingHls = false;
   bool _clientHardwareAcceleration = true;
   bool _transcodeSessionActive = false;
@@ -342,6 +343,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _error = null;
       _quality = selectedQuality;
       _decision = null;
+      _selectedSubtitle = null;
       _serverDecodeStatus = null;
     });
 
@@ -486,7 +488,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       }
     }
     if (defaultSubtitle != null) {
-      await _selectSubtitle(cfg, token, defaultSubtitle, showError: false);
+      await _selectSubtitle(
+        cfg,
+        token,
+        defaultSubtitle,
+        embeddedOrdinal: _embeddedSubtitleOrdinal(defaultSubtitle),
+        showError: false,
+      );
     }
     playback_models.AudioTrack? defaultAudio;
     for (final track in decision.audioTracks) {
@@ -606,28 +614,81 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     ServerConfig cfg,
     String? token,
     playback_models.SubtitleTrack? track, {
+    int? embeddedOrdinal,
     bool showError = true,
   }) async {
     try {
       if (track == null) {
         await _host.clearSubtitle();
+        _setSelectedSubtitle(null);
         return;
       }
       if (track.isEmbedded) {
-        await _host.setSubtitleTrackById(track.index.toString());
+        await _host.setSubtitleTrackById(
+          track.index.toString(),
+          fallbackIndex: embeddedOrdinal,
+        );
+        _setSelectedSubtitle(track);
         return;
       }
-      if (!track.canLoad || track.url.trim().isEmpty) return;
+      if (!track.canLoad || track.url.trim().isEmpty) {
+        throw StateError('字幕地址不可用');
+      }
       await _host.setSubtitleUrl(
         _protectedUrl(cfg, track.url, token),
         title: track.title.isEmpty ? null : track.title,
         language: track.language.isEmpty ? null : track.language,
       );
+      _setSelectedSubtitle(track);
     } catch (error) {
       if (showError && mounted) {
         _showError('字幕加载失败: ${toApiException(error).message}');
       }
     }
+  }
+
+  Future<void> _onSubtitleChanged(
+    playback_models.SubtitleTrack? track,
+  ) async {
+    final cfg = ref.read(serverConfigProvider);
+    if (cfg == null) return;
+    try {
+      final token = track == null
+          ? null
+          : await ref.read(authSessionRepositoryProvider).accessToken();
+      if (!mounted || _isLeaving) return;
+      await _selectSubtitle(
+        cfg,
+        token,
+        track,
+        embeddedOrdinal:
+            track == null ? null : _embeddedSubtitleOrdinal(track),
+      );
+    } catch (error) {
+      if (mounted) _showError('字幕加载失败: ${toApiException(error).message}');
+    }
+  }
+
+  int? _embeddedSubtitleOrdinal(playback_models.SubtitleTrack track) {
+    final decision = _decision;
+    if (decision == null || !track.isEmbedded) return null;
+    var ordinal = 0;
+    for (final candidate in decision.subtitleTracks) {
+      if (!candidate.isEmbedded) continue;
+      if (identical(candidate, track) ||
+          (candidate.index == track.index &&
+              candidate.source == track.source &&
+              candidate.url == track.url)) {
+        return ordinal;
+      }
+      ordinal++;
+    }
+    return null;
+  }
+
+  void _setSelectedSubtitle(playback_models.SubtitleTrack? track) {
+    if (!mounted) return;
+    setState(() => _selectedSubtitle = track);
   }
 
   void _showError(String message) {
@@ -1053,14 +1114,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 quality: _quality,
                 onQualityChanged: _onQualityChanged,
                 subtitleTracks: decision.subtitleTracks,
-                onSubtitleChanged: (track) {
-                  final cfg = ref.read(serverConfigProvider);
-                  if (cfg == null) return;
-                  ref
-                      .read(authSessionRepositoryProvider)
-                      .accessToken()
-                      .then((token) => _selectSubtitle(cfg, token, track));
-                },
+                selectedSubtitle: _selectedSubtitle,
+                onSubtitleChanged: (track) =>
+                    unawaited(_onSubtitleChanged(track)),
                 audioTracks: decision.audioTracks,
                 onAudioChanged: (track) {
                   // 后端 track index 与 media_kit 的轨道 ID 一致时直接切换。

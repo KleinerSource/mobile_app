@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+
+import 'player_subtitle_track_resolver.dart';
 
 /// media_kit 内核封装 · libmpv (内置 ffmpeg 软解 + VideoToolbox 硬解)
 ///
@@ -48,12 +52,39 @@ class PlayerControllerHost {
 
   Future<void> clearSubtitle() => player.setSubtitleTrack(SubtitleTrack.no());
 
-  Future<void> setSubtitleTrackById(String id) async {
-    final track = player.state.tracks.subtitle.firstWhere(
-      (item) => item.id == id,
-      orElse: SubtitleTrack.auto,
-    );
+  Future<void> setSubtitleTrackById(
+    String id, {
+    int? fallbackIndex,
+  }) async {
+    final track = await _findSubtitleTrack(id, fallbackIndex);
+    if (track == null) {
+      throw StateError('未找到内嵌字幕轨道: $id');
+    }
     await player.setSubtitleTrack(track);
+  }
+
+  Future<SubtitleTrack?> _findSubtitleTrack(
+    String id,
+    int? fallbackIndex,
+  ) async {
+    SubtitleTrack? find(Tracks tracks) => resolveSubtitleTrack(
+          tracks.subtitle,
+          id,
+          fallbackIndex: fallbackIndex,
+        );
+
+    var track = find(player.state.tracks);
+    if (track != null || fallbackIndex == null) return track;
+
+    try {
+      final tracks = await player.stream.tracks
+          .firstWhere((value) => find(value) != null)
+          .timeout(const Duration(seconds: 5));
+      track = find(tracks);
+    } on TimeoutException {
+      track = null;
+    }
+    return track;
   }
 
   Future<void> setAudioTrackById(String id) async {

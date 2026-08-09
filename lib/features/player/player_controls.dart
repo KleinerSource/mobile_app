@@ -16,6 +16,7 @@ class PlayerControls extends StatefulWidget {
     required this.quality,
     required this.onQualityChanged,
     required this.subtitleTracks,
+    required this.selectedSubtitle,
     required this.onSubtitleChanged,
     required this.audioTracks,
     required this.onAudioChanged,
@@ -46,6 +47,7 @@ class PlayerControls extends StatefulWidget {
   final String quality;
   final ValueChanged<String> onQualityChanged;
   final List<playback_models.SubtitleTrack> subtitleTracks;
+  final playback_models.SubtitleTrack? selectedSubtitle;
   final ValueChanged<playback_models.SubtitleTrack?> onSubtitleChanged;
   final List<playback_models.AudioTrack> audioTracks;
   final ValueChanged<playback_models.AudioTrack> onAudioChanged;
@@ -80,6 +82,15 @@ class PlayerControls extends StatefulWidget {
 
 class _PlayerControlsState extends State<PlayerControls> {
   static const int _sliderHapticStepMs = 5000;
+  static const _noSubtitleTrack = playback_models.SubtitleTrack(
+    index: -1,
+    source: 'none',
+    language: '',
+    title: '',
+    codec: '',
+    url: '',
+    isDefault: false,
+  );
 
   /// 拖动进度条时的本地预览值 (null = 未拖动)。
   double? _dragValue;
@@ -477,35 +488,56 @@ class _PlayerControlsState extends State<PlayerControls> {
     return PopupMenuButton<playback_models.SubtitleTrack>(
       tooltip: '选择字幕',
       padding: EdgeInsets.zero,
+      initialValue: widget.selectedSubtitle ?? _noSubtitleTrack,
       onSelected: (track) {
         PlayerHaptics.selection();
         widget.onSubtitleChanged(track.index < 0 ? null : track);
         widget.onInteraction();
       },
       itemBuilder: (context) => [
-        const PopupMenuItem<playback_models.SubtitleTrack>(
-          value: playback_models.SubtitleTrack(
-            index: -1,
-            source: 'none',
-            language: '',
-            title: '',
-            codec: '',
-            url: '',
-            isDefault: false,
-          ),
-          child: Text('关闭字幕'),
+        _subtitleMenuItem(
+          _noSubtitleTrack,
+          label: '关闭字幕',
+          selected: widget.selectedSubtitle == null,
         ),
         for (final track in widget.subtitleTracks)
-          PopupMenuItem<playback_models.SubtitleTrack>(
-            value: track,
+          _subtitleMenuItem(
+            track,
+            label: _subtitleLabel(track),
+            selected: identical(widget.selectedSubtitle, track),
             enabled: track.canLoad,
-            child: Text(_subtitleLabel(track)),
           ),
       ],
       child: SizedBox(
         width: 42,
         height: 42,
-        child: Center(child: _roundIcon(Icons.subtitles_outlined)),
+        child: Center(
+          child: _roundIcon(
+            Icons.subtitles_outlined,
+            active: widget.selectedSubtitle != null,
+          ),
+        ),
+      ),
+    );
+  }
+
+  PopupMenuItem<playback_models.SubtitleTrack> _subtitleMenuItem(
+    playback_models.SubtitleTrack track, {
+    required String label,
+    required bool selected,
+    bool enabled = true,
+  }) {
+    return PopupMenuItem<playback_models.SubtitleTrack>(
+      value: track,
+      enabled: enabled,
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          const SizedBox(width: 16),
+          selected
+              ? const Icon(Icons.check, size: 18)
+              : const SizedBox(width: 18),
+        ],
       ),
     );
   }
@@ -543,16 +575,17 @@ class _PlayerControlsState extends State<PlayerControls> {
     );
   }
 
-  Widget _roundIcon(IconData icon) {
+  Widget _roundIcon(IconData icon, {bool active = false}) {
+    final color = active ? Colors.white : Colors.white70;
     return Container(
       width: 34,
       height: 34,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white70, width: 1.2),
+        border: Border.all(color: color, width: 1.2),
       ),
       alignment: Alignment.center,
-      child: Icon(icon, color: Colors.white, size: 19),
+      child: Icon(icon, color: color, size: 19),
     );
   }
 }
