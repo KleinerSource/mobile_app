@@ -130,7 +130,7 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
   void didUpdateWidget(covariant PlayerSubtitleOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.player != widget.player) {
-      _subscription?.cancel();
+      _cancelSubscription();
       _cancelDelayTimers();
       _rawSubtitle = widget.player.state.subtitle;
       _displayedSubtitle = const [];
@@ -185,8 +185,14 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
   @override
   void dispose() {
     _cancelDelayTimers();
-    _subscription?.cancel();
+    _cancelSubscription();
     super.dispose();
+  }
+
+  void _cancelSubscription() {
+    final subscription = _subscription;
+    _subscription = null;
+    if (subscription != null) unawaited(subscription.cancel());
   }
 
   @override
