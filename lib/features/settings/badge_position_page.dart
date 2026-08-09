@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/movie.dart';
-import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
