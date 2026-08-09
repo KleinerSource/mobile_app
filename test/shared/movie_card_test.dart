@@ -95,4 +95,45 @@ void main() {
     );
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
   });
+
+  testWidgets('HD 和 FHD 角标使用图标', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'privacy.app_switcher_shield': false,
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    Future<void> pumpMovie(int height) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 140,
+                  child: MovieCard(
+                    movie: MovieListItem(
+                      id: 1,
+                      title: 'A',
+                      videoHeight: height,
+                    ),
+                    posterUrlBuilder: (u) => 'http://x/$u',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    await pumpMovie(720);
+    expect(find.byIcon(Icons.hd_rounded), findsOneWidget);
+    expect(find.text('HD'), findsNothing);
+
+    await pumpMovie(1080);
+    expect(find.byIcon(Icons.high_quality_rounded), findsOneWidget);
+    expect(find.text('FHD'), findsNothing);
+  });
 }

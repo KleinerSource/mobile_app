@@ -377,6 +377,11 @@ class _ResolutionBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final IconData? icon = switch (tier) {
+      ResolutionTier.fhd => Icons.high_quality_rounded,
+      ResolutionTier.hd => Icons.hd_rounded,
+      _ => null,
+    };
     final (label, color) = switch (tier) {
       ResolutionTier.uhd => ('UHD', const Color(0xFF2D6CDF)),
       ResolutionTier.fhd => ('FHD', const Color(0xFF0EA5E9)),
@@ -384,31 +389,41 @@ class _ResolutionBadge extends StatelessWidget {
       _ => ('', Colors.white),
     };
     if (label.isEmpty) return const SizedBox.shrink();
-    return Container(
-      height: 18,
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(4),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w800,
-          fontSize: 10,
-          letterSpacing: 0.4,
-          height: 1,
+
+    final content = icon == null
+        ? Text(
+            label,
+            style: TextStyle(
+              color: Colors.white,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w800,
+              fontSize: 10,
+              letterSpacing: 0.4,
+              height: 1,
+            ),
+          )
+        : Icon(icon, color: Colors.white, size: 13);
+    return Tooltip(
+      message: label,
+      child: Container(
+        width: icon == null ? null : 18,
+        height: 18,
+        padding: icon == null
+            ? const EdgeInsets.symmetric(horizontal: 6)
+            : EdgeInsets.zero,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
+        child: content,
       ),
     );
   }
