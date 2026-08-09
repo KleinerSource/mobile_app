@@ -194,7 +194,7 @@ class _OffsetSlider extends StatelessWidget {
             child: Text(label, style: AppText.meta(context)),
           ),
           Expanded(
-            child: Slider(
+            child: HapticSlider(
               min: -16,
               max: 16,
               divisions: 32,

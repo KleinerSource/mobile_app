@@ -415,8 +415,8 @@ class _SubtitleSliderTile extends StatelessWidget {
       leadingIcon: icon,
       trailing: SizedBox(
         width: 148,
-        child: Slider(
-          value: value.clamp(min, max).toDouble(),
+        child: HapticSlider(
+          value: value,
           min: min,
           max: max,
           divisions: divisions,

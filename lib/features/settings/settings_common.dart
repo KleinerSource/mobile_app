@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 
 class SettingsGroup extends StatelessWidget {
@@ -118,6 +119,72 @@ class SettingsTile extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 设置页通用滑块 · 在拖动起始、跨分段和提交时提供触觉反馈。
+class HapticSlider extends StatefulWidget {
+  const HapticSlider({
+    super.key,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.onChanged,
+    this.label,
+    this.onChangeStart,
+    this.onChangeEnd,
+  });
+
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final ValueChanged<double> onChanged;
+  final String? label;
+  final ValueChanged<double>? onChangeStart;
+  final ValueChanged<double>? onChangeEnd;
+
+  @override
+  State<HapticSlider> createState() => _HapticSliderState();
+}
+
+class _HapticSliderState extends State<HapticSlider> {
+  int? _lastHapticBucket;
+
+  @override
+  Widget build(BuildContext context) {
+    return Slider(
+      value: widget.value.clamp(widget.min, widget.max).toDouble(),
+      min: widget.min,
+      max: widget.max,
+      divisions: widget.divisions,
+      label: widget.label,
+      onChangeStart: (value) {
+        _lastHapticBucket = _bucket(value);
+        AppHaptics.selection();
+        widget.onChangeStart?.call(value);
+      },
+      onChanged: (value) {
+        final bucket = _bucket(value);
+        if (bucket != _lastHapticBucket) {
+          _lastHapticBucket = bucket;
+          AppHaptics.selection();
+        }
+        widget.onChanged(value);
+      },
+      onChangeEnd: (value) {
+        _lastHapticBucket = null;
+        AppHaptics.medium();
+        widget.onChangeEnd?.call(value);
+      },
+    );
+  }
+
+  int _bucket(double value) {
+    final span = widget.max - widget.min;
+    if (span <= 0 || widget.divisions <= 0) return 0;
+    return ((value - widget.min) / span * widget.divisions).round();
   }
 }
 

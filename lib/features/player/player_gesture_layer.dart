@@ -103,6 +103,7 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
 
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
+          // 单击仅切换播放器控件显隐，不触发触觉反馈。
           onTap: widget.onTap,
           onDoubleTapDown: (details) {
             final x = details.localPosition.dx;
