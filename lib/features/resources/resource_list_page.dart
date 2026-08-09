@@ -121,9 +121,11 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(widget.kind.icon,
-                            style: AppText.eyebrow(context)),
+                        Text('媒体库', style: AppText.eyebrow(context)),
                         const SizedBox(height: 3),
+                        Text(widget.kind.plural,
+                            style: AppText.pageTitle(context)),
+                        const SizedBox(height: 10),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
@@ -137,13 +139,8 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              widget.kind.label,
-                              style: TextStyle(
-                                color: c.muted,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
+                              '个${widget.kind.label}',
+                              style: AppText.meta(context),
                             ),
                           ],
                         ),

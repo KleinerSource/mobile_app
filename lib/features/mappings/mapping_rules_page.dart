@@ -105,9 +105,11 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('MAPPINGS · ${widget.type.value.toUpperCase()}',
-                            style: AppText.eyebrow(context)),
+                        Text('映射规则', style: AppText.eyebrow(context)),
                         const SizedBox(height: 3),
+                        Text('${widget.type.label}映射',
+                            style: AppText.pageTitle(context)),
+                        const SizedBox(height: 10),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
@@ -120,15 +122,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                               style: AppText.pageTitle(context),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              '${widget.type.label}映射',
-                              style: TextStyle(
-                                color: c.muted,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                            ),
+                            Text('条规则', style: AppText.meta(context)),
                           ],
                         ),
                       ],
