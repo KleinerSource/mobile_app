@@ -10,6 +10,7 @@ abstract class DboConfig with _$DboConfig {
     @JsonKey(name: 'base_url') @Default('') String baseUrl,
     @JsonKey(name: 'api_key') @Default('') String apiKey,
     @JsonKey(name: 'max_age_months') @Default(0) int maxAgeMonths,
+    @JsonKey(name: 'min_resource_month') @Default('') String minResourceMonth,
   }) = _DboConfig;
 
   factory DboConfig.fromJson(Map<String, dynamic> json) =>

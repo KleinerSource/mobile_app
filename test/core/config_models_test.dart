@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:md_center/core/auth/auth_session.dart';
 import 'package:md_center/core/models/avdb_config.dart';
+import 'package:md_center/core/models/dbo_config.dart';
 import 'package:md_center/core/models/ffmpeg_config.dart';
 
 void main() {
@@ -36,5 +38,35 @@ void main() {
       FfmpegConfig.fromJson(const {'hwaccel': 'videotoolbox'}).hwAccel,
       'none',
     );
+  });
+
+  test('DB Online 配置读写起始年月', () {
+    final config = DboConfig.fromJson(const {
+      'enabled': true,
+      'min_resource_month': '2024-01',
+    });
+
+    expect(config.minResourceMonth, '2024-01');
+    expect(config.toJson()['min_resource_month'], '2024-01');
+  });
+
+  test('访问控制配置读取会话策略和验证方式状态', () {
+    final config = AuthConfig.fromJson(const {
+      'enabled': true,
+      'configured': true,
+      'password_login_disabled': false,
+      'refresh_token_expire_days': 14,
+      'max_failed_attempts': 8,
+      'lock_minutes': 45,
+      'totp_configured': true,
+      'webauthn_configured': true,
+    });
+
+    expect(config.enabled, isTrue);
+    expect(config.refreshTokenExpireDays, 14);
+    expect(config.maxFailedAttempts, 8);
+    expect(config.lockMinutes, 45);
+    expect(config.totpConfigured, isTrue);
+    expect(config.webAuthnConfigured, isTrue);
   });
 }

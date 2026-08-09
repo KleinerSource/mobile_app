@@ -16,6 +16,7 @@ import '../mappings/mappings_repository.dart';
 import '../resources/resource_list_page.dart';
 import '../resources/resources_repository.dart';
 import '../translation/translation_settings_page.dart';
+import 'access_control_page.dart';
 import 'server_setup_page.dart';
 import 'settings_common.dart';
 
@@ -99,6 +100,16 @@ class ServerSettingsPage extends ConsumerWidget {
                         builder: (_) => const ResourceListPage(
                           kind: ResourceKind.series,
                         ),
+                      ),
+                    ),
+                  ),
+                  SettingsTile(
+                    title: '访问控制',
+                    subtitle: '登录密码、会话策略与 TOTP',
+                    leadingIcon: Icons.shield_outlined,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const AccessControlPage(),
                       ),
                     ),
                   ),

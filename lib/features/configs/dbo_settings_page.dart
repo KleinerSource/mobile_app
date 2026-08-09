@@ -26,6 +26,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
 
   final _baseUrl = TextEditingController();
   final _apiKey = TextEditingController();
+  final _minResourceMonth = TextEditingController();
   int _maxAge = 0;
   bool _enabled = false;
   bool _showKey = false;
@@ -38,6 +39,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
   void dispose() {
     _baseUrl.dispose();
     _apiKey.dispose();
+    _minResourceMonth.dispose();
     super.dispose();
   }
 
@@ -47,10 +49,22 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
     _enabled = cfg.enabled;
     _baseUrl.text = cfg.baseUrl;
     _maxAge = cfg.maxAgeMonths;
+    _minResourceMonth.text = cfg.minResourceMonth;
     _hasKey = cfg.hasApiKey;
   }
 
   Future<void> _save() async {
+    final rawMonth = _minResourceMonth.text.trim();
+    final minResourceMonth = _normalizeResourceMonth(rawMonth);
+    if (rawMonth.isNotEmpty && minResourceMonth == null) {
+      setState(() => _error = '起始年月必须使用 YYYY-MM 格式');
+      return;
+    }
+    if (_maxAge > 0 && minResourceMonth != null) {
+      setState(() => _error = '最近资源时间和起始年月只能二选一');
+      return;
+    }
+
     setState(() {
       _saving = true;
       _error = null;
@@ -62,6 +76,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
         baseUrl: _baseUrl.text.trim(),
         apiKey: _apiKey.text.trim(),
         maxAgeMonths: _maxAge,
+        minResourceMonth: minResourceMonth ?? '',
       );
       final keep = _apiKey.text.trim().isEmpty && _hasKey;
       await ref
@@ -208,7 +223,10 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
                         onSubmitted: (v) {
                           final n = int.tryParse(v);
                           if (n != null && n >= 0 && n <= 120) {
-                            setState(() => _maxAge = n);
+                            setState(() {
+                              _maxAge = n;
+                              _minResourceMonth.clear();
+                            });
                           }
                         },
                       ),
@@ -247,7 +265,10 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
                     onTap: () {
                       if (active) return;
                       AppHaptics.selection();
-                      setState(() => _maxAge = p.$1);
+                      setState(() {
+                        _maxAge = p.$1;
+                        _minResourceMonth.clear();
+                      });
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -268,6 +289,39 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
                     ),
                   );
                 }).toList(),
+              ),
+              const SizedBox(height: 18),
+              _label('起始年月', '按发布日期保留该月份及之后的资源 · 格式 YYYY-MM'),
+              Container(
+                decoration: BoxDecoration(
+                  color: c.surface,
+                  border: Border.all(color: c.cardBorder),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: TextField(
+                  controller: _minResourceMonth,
+                  keyboardType: TextInputType.datetime,
+                  autocorrect: false,
+                  onChanged: (value) {
+                    if (value.trim().isNotEmpty && _maxAge != 0) {
+                      setState(() => _maxAge = 0);
+                    }
+                  },
+                  decoration: const InputDecoration(
+                    hintText: '例如 2024-01',
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                  ),
+                  style: TextStyle(
+                    color: c.text,
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 14),
@@ -414,5 +468,17 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
         ],
       ),
     );
+  }
+
+  String? _normalizeResourceMonth(String value) {
+    final month = value.trim();
+    if (month.isEmpty) return '';
+    final match = RegExp(r'^(\d{4})-(\d{1,2})$').firstMatch(month);
+    if (match == null) return null;
+    final monthNumber = int.tryParse(match.group(2)!);
+    if (monthNumber == null || monthNumber < 1 || monthNumber > 12) {
+      return null;
+    }
+    return '${match.group(1)}-${monthNumber.toString().padLeft(2, '0')}';
   }
 }

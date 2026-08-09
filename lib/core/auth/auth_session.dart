@@ -65,6 +65,61 @@ class AuthStatus {
       );
 }
 
+@immutable
+class AuthConfig {
+  const AuthConfig({
+    this.enabled = false,
+    this.configured = false,
+    this.passwordLoginDisabled = false,
+    this.refreshTokenExpireDays = 7,
+    this.maxFailedAttempts = 5,
+    this.lockMinutes = 30,
+    this.totpConfigured = false,
+    this.webAuthnConfigured = false,
+  });
+
+  final bool enabled;
+  final bool configured;
+  final bool passwordLoginDisabled;
+  final int refreshTokenExpireDays;
+  final int maxFailedAttempts;
+  final int lockMinutes;
+  final bool totpConfigured;
+  final bool webAuthnConfigured;
+
+  factory AuthConfig.fromJson(Map<String, dynamic> json) => AuthConfig(
+        enabled: json['enabled'] == true,
+        configured: json['configured'] == true,
+        passwordLoginDisabled: json['password_login_disabled'] == true,
+        refreshTokenExpireDays:
+            (json['refresh_token_expire_days'] as num?)?.toInt() ?? 7,
+        maxFailedAttempts:
+            (json['max_failed_attempts'] as num?)?.toInt() ?? 5,
+        lockMinutes: (json['lock_minutes'] as num?)?.toInt() ?? 30,
+        totpConfigured: json['totp_configured'] == true,
+        webAuthnConfigured: json['webauthn_configured'] == true,
+      );
+}
+
+@immutable
+class TotpSetup {
+  const TotpSetup({
+    required this.sessionId,
+    required this.secret,
+    required this.qrDataUrl,
+  });
+
+  final String sessionId;
+  final String secret;
+  final String qrDataUrl;
+
+  factory TotpSetup.fromJson(Map<String, dynamic> json) => TotpSetup(
+        sessionId: json['session_id']?.toString() ?? '',
+        secret: json['secret']?.toString() ?? '',
+        qrDataUrl: json['qr_data_url']?.toString() ?? '',
+      );
+}
+
 enum AuthPhase {
   unconfigured,
   needsLogin,

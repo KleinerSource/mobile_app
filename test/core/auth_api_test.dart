@@ -10,20 +10,39 @@ void main() {
     final api = AuthApi(_dio(adapter));
 
     final status = await api.status();
+    final config = await api.config();
+    final updatedConfig = await api.updateConfig(
+      enabled: true,
+      password: 'password',
+      refreshTokenExpireDays: 14,
+      maxFailedAttempts: 8,
+      lockMinutes: 45,
+    );
     final session = await api.login(password: 'password', totpCode: '123456');
     final refreshed = await api.refresh('refresh-token');
     final verified = await api.verify();
+    final totp = await api.beginTotp();
+    await api.finishTotp(sessionId: totp.sessionId, code: '123456');
+    await api.deleteTotp();
     await api.logout();
 
     expect(status.enabled, isTrue);
+    expect(config.configured, isTrue);
+    expect(updatedConfig.refreshTokenExpireDays, 14);
     expect(session.accessToken, 'access-token');
     expect(refreshed.refreshToken, 'refresh-token');
+    expect(totp.secret, 'TOTPSECRET');
     expect(verified, isTrue);
     expect(adapter.paths, <String>[
       '/api/auth/status',
+      '/api/auth/config',
+      '/api/auth/config',
       '/api/auth/login',
       '/api/auth/refresh',
       '/api/auth/verify',
+      '/api/auth/totp/begin',
+      '/api/auth/totp/finish',
+      '/api/auth/totp',
       '/api/auth/logout',
     ]);
     expect(adapter.refreshAuthorization, 'Bearer refresh-token');
@@ -65,6 +84,23 @@ class _AuthAdapter implements HttpClientAdapter {
           'totp_configured': true,
           'webauthn_configured': false,
         },
+      '/api/auth/config' => {
+          'enabled': true,
+          'configured': true,
+          'password_login_disabled': false,
+          'refresh_token_expire_days': options.method == 'PATCH' ? 14 : 7,
+          'max_failed_attempts': options.method == 'PATCH' ? 8 : 5,
+          'lock_minutes': options.method == 'PATCH' ? 45 : 30,
+          'totp_configured': true,
+          'webauthn_configured': false,
+        },
+      '/api/auth/totp/begin' => {
+          'session_id': 'totp-session',
+          'secret': 'TOTPSECRET',
+          'qr_data_url': 'data:image/png;base64,AAAA',
+        },
+      '/api/auth/totp/finish' => {'totp_configured': true},
+      '/api/auth/totp' => {'totp_configured': false},
       '/api/auth/verify' => {'valid': true},
       _ => null,
     };
