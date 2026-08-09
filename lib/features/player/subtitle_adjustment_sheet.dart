@@ -132,6 +132,73 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
     _update(_adjustments.copyWith(opacity: next));
   }
 
+  Future<void> _editDelay() async {
+    final value = await _showNumericInput(
+      title: '延迟偏移',
+      initialValue: (_adjustments.delayMs / 1000).toStringAsFixed(1),
+      unit: '秒',
+      min: -5,
+      max: 5,
+    );
+    if (!mounted || value == null) return;
+    _update(_adjustments.copyWith(delayMs: (value * 1000).round()));
+  }
+
+  Future<void> _editVerticalOffset() async {
+    final value = await _showNumericInput(
+      title: '垂直偏移',
+      initialValue: _adjustments.verticalOffset.round().toString(),
+      unit: '像素',
+      min: widget.verticalOffsetBounds.min,
+      max: widget.verticalOffsetBounds.max,
+    );
+    if (!mounted || value == null) return;
+    _update(_adjustments.copyWith(verticalOffset: value.roundToDouble()));
+  }
+
+  Future<void> _editSize() async {
+    final value = await _showNumericInput(
+      title: '大小缩放',
+      initialValue: (_adjustments.sizeScale * 100).round().toString(),
+      unit: '%',
+      min: 50,
+      max: 200,
+    );
+    if (!mounted || value == null) return;
+    _update(_adjustments.copyWith(sizeScale: value / 100));
+  }
+
+  Future<void> _editOpacity() async {
+    final value = await _showNumericInput(
+      title: '不透明度',
+      initialValue: (_adjustments.opacity * 100).round().toString(),
+      unit: '%',
+      min: 10,
+      max: 100,
+    );
+    if (!mounted || value == null) return;
+    _update(_adjustments.copyWith(opacity: value / 100));
+  }
+
+  Future<double?> _showNumericInput({
+    required String title,
+    required String initialValue,
+    required String unit,
+    required double min,
+    required double max,
+  }) {
+    return showDialog<double>(
+      context: context,
+      builder: (_) => _SubtitleNumericInputDialog(
+        title: title,
+        initialValue: initialValue,
+        unit: unit,
+        min: min,
+        max: max,
+      ),
+    );
+  }
+
   double _stepDouble(
     double value,
     double delta, {
@@ -185,6 +252,7 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
           _AdjustmentRow(
             title: '延迟偏移',
             value: '${(_adjustments.delayMs / 1000).toStringAsFixed(1)} s',
+            onValueTap: _editDelay,
             onDecrease: _adjustments.delayMs <= -5000
                 ? null
                 : () => _changeDelay(-100),
@@ -195,6 +263,7 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
           _AdjustmentRow(
             title: '垂直偏移',
             value: _adjustments.verticalOffset.round().toString(),
+            onValueTap: _editVerticalOffset,
             onDecrease: _adjustments.verticalOffset <=
                     widget.verticalOffsetBounds.min
                 ? null
@@ -207,6 +276,7 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
           _AdjustmentRow(
             title: '大小缩放',
             value: '${(_adjustments.sizeScale * 100).round()}%',
+            onValueTap: _editSize,
             onDecrease: _adjustments.sizeScale <= 0.5
                 ? null
                 : () => _changeSize(-0.05),
@@ -217,6 +287,7 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
           _AdjustmentRow(
             title: '不透明度',
             value: '${(_adjustments.opacity * 100).round()}%',
+            onValueTap: _editOpacity,
             onDecrease: _adjustments.opacity <= 0.1
                 ? null
                 : () => _changeOpacity(-0.05),
@@ -234,12 +305,14 @@ class _AdjustmentRow extends StatelessWidget {
   const _AdjustmentRow({
     required this.title,
     required this.value,
+    required this.onValueTap,
     required this.onDecrease,
     required this.onIncrease,
   });
 
   final String title;
   final String value;
+  final VoidCallback onValueTap;
   final VoidCallback? onDecrease;
   final VoidCallback? onIncrease;
 
@@ -261,16 +334,29 @@ class _AdjustmentRow extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(
-            width: 70,
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: c.text,
-                fontFamily: 'Inter',
-                fontFeatures: const [FontFeature.tabularFigures()],
-                fontSize: 15,
+          Tooltip(
+            message: '编辑$title',
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: onValueTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 6,
+                ),
+                child: SizedBox(
+                  width: 70,
+                  child: Text(
+                    value,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: c.text,
+                      fontFamily: 'Inter',
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -283,6 +369,108 @@ class _AdjustmentRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SubtitleNumericInputDialog extends StatefulWidget {
+  const _SubtitleNumericInputDialog({
+    required this.title,
+    required this.initialValue,
+    required this.unit,
+    required this.min,
+    required this.max,
+  });
+
+  final String title;
+  final String initialValue;
+  final String unit;
+  final double min;
+  final double max;
+
+  @override
+  State<_SubtitleNumericInputDialog> createState() =>
+      _SubtitleNumericInputDialogState();
+}
+
+class _SubtitleNumericInputDialogState
+    extends State<_SubtitleNumericInputDialog> {
+  late final TextEditingController _controller;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  void _submit() {
+    final value = double.tryParse(_controller.text.trim());
+    if (value == null || !value.isFinite) {
+      setState(() => _errorText = '请输入有效数字');
+      return;
+    }
+    Navigator.of(context).pop(value.clamp(widget.min, widget.max).toDouble());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return AlertDialog(
+      title: Text(widget.title),
+      content: Container(
+        decoration: BoxDecoration(
+          color: c.surfaceAlt.withValues(alpha: 0.65),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: c.cardBorder),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: TextField(
+          controller: _controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(
+            decimal: true,
+            signed: true,
+          ),
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _submit(),
+          decoration: InputDecoration(
+            hintText:
+                '${_formatNumber(widget.min)} ~ ${_formatNumber(widget.max)}',
+            suffixText: widget.unit,
+            errorText: _errorText,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+            focusedErrorBorder: InputBorder.none,
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text('确定'),
+        ),
+      ],
+    );
+  }
+}
+
+String _formatNumber(double value) {
+  if (value == value.roundToDouble()) return value.round().toString();
+  return value.toStringAsFixed(1);
 }
 
 class _Stepper extends StatelessWidget {

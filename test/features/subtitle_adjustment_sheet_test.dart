@@ -34,6 +34,32 @@ void main() {
     expect(find.text('0.1 s'), findsOneWidget);
   });
 
+  testWidgets('点击数值可以直接输入并应用目标值', (tester) async {
+    var adjustments = const SubtitleAdjustments();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SubtitleAdjustmentSheet(
+            initial: adjustments,
+            onChanged: (value) => adjustments = value,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('编辑延迟偏移'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TextField), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '2.3');
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    expect(adjustments.delayMs, 2300);
+    expect(find.text('2.3 s'), findsOneWidget);
+  });
+
   testWidgets('长按步进按钮会连续调节并在松开后停止', (tester) async {
     var adjustments = const SubtitleAdjustments();
 
