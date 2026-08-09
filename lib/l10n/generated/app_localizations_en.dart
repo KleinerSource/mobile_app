@@ -9,7 +9,7 @@ class AppL10nEn extends AppL10n {
   AppL10nEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appName => 'md_center';
+  String get appName => 'MD Center';
 
   @override
   String get tabHome => 'Home';

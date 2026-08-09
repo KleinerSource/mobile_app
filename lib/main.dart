@@ -42,7 +42,7 @@ class MdCenterApp extends ConsumerWidget {
     }
 
     return MaterialApp(
-      title: 'md_center',
+      title: 'MD Center',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(Brightness.light),
       darkTheme: buildAppTheme(Brightness.dark),

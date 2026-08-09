@@ -100,7 +100,7 @@ abstract class AppL10n {
   /// No description provided for @appName.
   ///
   /// In zh, this message translates to:
-  /// **'md_center'**
+  /// **'MD Center'**
   String get appName;
 
   /// No description provided for @tabHome.

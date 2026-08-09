@@ -104,7 +104,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                       Text('CONNECT', style: AppText.eyebrow(context)),
                       const SizedBox(height: 6),
                       Text(
-                        '连接到 md_center',
+                        '连接到 MD Center',
                         style: TextStyle(
                           color: c.text,
                           fontFamily: 'Inter',
