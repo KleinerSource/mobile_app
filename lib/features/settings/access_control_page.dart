@@ -604,7 +604,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                     context,
                     borderless: true,
                   ),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
