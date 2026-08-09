@@ -2,7 +2,11 @@ name: iOS Build (unsigned)
 
 on:
   push:
+    paths-ignore:
+      - '.github/workflows/android-build.yml'
   pull_request:
+    paths-ignore:
+      - '.github/workflows/android-build.yml'
   workflow_dispatch:
 
 concurrency:

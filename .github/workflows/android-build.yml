@@ -2,7 +2,11 @@ name: Android Build (unsigned)
 
 on:
   push:
+    paths-ignore:
+      - '.github/workflows/ios-build.yml'
   pull_request:
+    paths-ignore:
+      - '.github/workflows/ios-build.yml'
   workflow_dispatch:
 
 concurrency:
@@ -44,6 +48,13 @@ jobs:
         timeout-minutes: 3
         run: flutter doctor -v
 
+      - name: 安装 Android SDK 36
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36"
+
       # 仓库只保留 Android 必要的源码文件，CI checkout 后补齐 Gradle 工程。
       - name: Bootstrap android/ if Gradle project is missing
         timeout-minutes: 5
@@ -65,7 +76,7 @@ jobs:
             if [ -f "${gradle_file}" ]; then
               sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' "${gradle_file}" || true
               sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 35/' "${gradle_file}" || true
-              sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 35/' "${gradle_file}" || true
+              sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' "${gradle_file}" || true
             fi
           done
 
