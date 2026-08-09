@@ -459,9 +459,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   Future<void> _openDirectWithClientFallback(
     String url,
-    Duration? startAt,
-    {Map<String, String>? headers},
-  ) async {
+    Duration? startAt, {
+    Map<String, String>? headers,
+  }) async {
     try {
       await _host.open(
         url,
