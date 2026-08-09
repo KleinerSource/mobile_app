@@ -14,7 +14,6 @@ import '../lists/add_to_list_sheet.dart';
 import '../movies/movies_providers.dart';
 import '../player/player_page.dart';
 import '../player/player_queue.dart';
-import '../cache/precache_movie_dialog.dart';
 import '../resources/resource_movies_page.dart';
 import 'actor_movies_page.dart';
 import 'dbo_diff_sheet.dart';
@@ -894,13 +893,6 @@ class _MoreMenuButton extends ConsumerWidget {
           case 'subtitle':
             await ThunderSubtitleSheet.show(context, movie.id);
             break;
-          case 'precache':
-            await PrecacheMovieDialog.show(
-              context,
-              movieId: movie.id,
-              movieTitle: movie.title,
-            );
-            break;
           case 'resources':
             await ResourcesSheet.show(
               context,
@@ -953,14 +945,6 @@ class _MoreMenuButton extends ConsumerWidget {
             Icon(Icons.subtitles_outlined, size: 17),
             SizedBox(width: 10),
             Text('字幕下载'),
-          ]),
-        ),
-        const PopupMenuItem(
-          value: 'precache',
-          child: Row(children: [
-            Icon(Icons.download_for_offline_outlined, size: 17),
-            SizedBox(width: 10),
-            Text('磁盘预缓存'),
           ]),
         ),
         const PopupMenuDivider(),

@@ -43,6 +43,7 @@ class HomePage extends ConsumerWidget {
   }
 
   Future<void> _refreshHome(WidgetRef ref) async {
+    refreshImageCache(ref);
     await Future.wait<void>([
       _waitForRefresh(ref.refresh(recentlyAddedProvider.future)),
       _waitForRefresh(ref.refresh(continueWatchingProvider.future)),

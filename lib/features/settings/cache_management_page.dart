@@ -29,7 +29,7 @@ class CacheManagementPage extends ConsumerWidget {
                 items: [
                   SettingsTile(
                     title: '缓存大小(Wi-Fi)',
-                    subtitle: '连接 Wi-Fi 时允许使用的最大视频缓存空间',
+                    subtitle: '播放时最多保留的缓冲数据，不下载完整视频',
                     leadingIcon: Icons.wifi_outlined,
                     trailing: _ValueLabel(text: settings.wifiLimit.label),
                     onTap: () => _selectLimit(
@@ -41,7 +41,7 @@ class CacheManagementPage extends ConsumerWidget {
                   ),
                   SettingsTile(
                     title: '缓存大小(流量)',
-                    subtitle: '使用移动数据时允许的最大视频缓存空间',
+                    subtitle: '播放时最多保留的缓冲数据，不下载完整视频',
                     leadingIcon: Icons.signal_cellular_alt_outlined,
                     trailing: _ValueLabel(text: settings.mobileLimit.label),
                     onTap: () => _selectLimit(

@@ -83,6 +83,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     final pending = _refreshCompleter;
     if (pending != null) return pending.future;
 
+    refreshImageCache(ref);
     final completer = Completer<void>();
     _refreshCompleter = completer;
     _controller.refresh();

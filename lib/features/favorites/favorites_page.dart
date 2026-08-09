@@ -101,6 +101,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   }
 
   Future<void> _refresh() async {
+    refreshImageCache(ref);
     _controller.refresh();
     // 等首页就绪
     await Future.delayed(const Duration(milliseconds: 600));

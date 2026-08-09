@@ -1,21 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/api/api_client.dart';
-import '../../core/api/providers.dart';
-import '../../core/api/url_resolver.dart';
-import '../../core/auth/auth_session_provider.dart';
-import '../../core/auth/auth_session_repository.dart';
-import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 
 enum CacheSizeOption {
@@ -132,6 +124,34 @@ final diskPrecacheSettingsProvider =
   DiskPrecacheSettingsNotifier.new,
 );
 
+/// 播放器没有启用磁盘缓存时仍保留一段基础内存缓冲，避免“禁用缓存”变成
+/// 播放器完全没有网络缓冲能力。
+const defaultVideoBufferBytes = 32 * 1024 * 1024;
+
+@immutable
+class VideoBufferPolicy {
+  const VideoBufferPolicy({
+    required this.bufferSize,
+    required this.diskCacheEnabled,
+  });
+
+  final int bufferSize;
+  final bool diskCacheEnabled;
+}
+
+VideoBufferPolicy videoBufferPolicyFor(CacheSizeOption option) {
+  if (option == CacheSizeOption.disabled) {
+    return const VideoBufferPolicy(
+      bufferSize: defaultVideoBufferBytes,
+      diskCacheEnabled: false,
+    );
+  }
+  return VideoBufferPolicy(
+    bufferSize: option.bytes,
+    diskCacheEnabled: true,
+  );
+}
+
 enum CacheCategory { video, image, other }
 
 extension CacheCategoryX on CacheCategory {
@@ -176,41 +196,10 @@ String formatCacheBytes(int bytes) {
   return '${value.toStringAsFixed(digits)} ${units[unit]}';
 }
 
-@immutable
-class VideoCacheResult {
-  const VideoCacheResult({
-    required this.path,
-    required this.bytes,
-    required this.fromCache,
-  });
-
-  final String path;
-  final int bytes;
-  final bool fromCache;
-}
-
 enum PrecacheNetwork { wifi, mobile }
 
 extension PrecacheNetworkX on PrecacheNetwork {
   String get label => this == PrecacheNetwork.wifi ? 'Wi-Fi' : '流量';
-}
-
-class CacheDisabledException implements Exception {
-  const CacheDisabledException(this.network);
-
-  final PrecacheNetwork network;
-
-  @override
-  String toString() => '${network.label}预缓存已禁用';
-}
-
-class CacheLimitExceededException implements Exception {
-  const CacheLimitExceededException(this.limitBytes);
-
-  final int limitBytes;
-
-  @override
-  String toString() => '影片大小超过当前缓存上限';
 }
 
 class CacheNetworkUnavailableException implements Exception {
@@ -221,18 +210,12 @@ class CacheNetworkUnavailableException implements Exception {
 }
 
 class DiskCacheService {
-  DiskCacheService({
-    Dio? downloadClient,
-    Directory? rootDirectory,
-  })  : _downloadClient = downloadClient ?? Dio(),
-        _rootOverride = rootDirectory;
+  DiskCacheService({Directory? rootDirectory}) : _rootOverride = rootDirectory;
 
   static const _rootName = 'md_center_cache';
   static const _videoDirName = 'video';
   static const _otherDirName = 'other';
-  static const _indexName = 'index.json';
 
-  final Dio _downloadClient;
   final Directory? _rootOverride;
   Directory? _root;
   Future<void> _operationQueue = Future<void>.value();
@@ -271,131 +254,10 @@ class DiskCacheService {
     );
   }
 
-  Future<String?> cachedMovieFile(int movieId) async {
-    return _enqueue(() async {
-      final video = await _categoryDirectory(_videoDirName);
-      final index = await _readIndex(video);
-      final item = index['$movieId'];
-      if (item is! Map) return null;
-      final fileName = item['file']?.toString() ?? '';
-      if (fileName.isEmpty) return null;
-      final file = File('${video.path}${Platform.pathSeparator}$fileName');
-      if (!await file.exists()) {
-        index.remove('$movieId');
-        await _writeIndex(video, index);
-        return null;
-      }
-      index['$movieId'] = {
-        ...Map<String, dynamic>.from(item),
-        'last_accessed': DateTime.now().millisecondsSinceEpoch,
-      };
-      await _writeIndex(video, index);
-      return file.path;
-    });
-  }
-
-  Future<VideoCacheResult> cacheMovie({
-    required int movieId,
-    required String sourceUrl,
-    required int maxBytes,
-    Map<String, String>? headers,
-    CancelToken? cancelToken,
-    void Function(int received, int total)? onProgress,
-  }) {
-    return _enqueue(() async {
-      if (maxBytes <= 0) {
-        throw const CacheLimitExceededException(0);
-      }
-      final video = await _categoryDirectory(_videoDirName);
-      final index = await _readIndex(video);
-      final cached = await _existingFile(video, index, movieId);
-      if (cached != null) {
-        index['$movieId'] = {
-          ...Map<String, dynamic>.from(index['$movieId'] as Map),
-          'last_accessed': DateTime.now().millisecondsSinceEpoch,
-        };
-        await _writeIndex(video, index);
-        return VideoCacheResult(
-          path: cached.path,
-          bytes: await cached.length(),
-          fromCache: true,
-        );
-      }
-
-      await _removeEntry(video, index, movieId);
-      final response = await _downloadClient.get<ResponseBody>(
-        sourceUrl,
-        cancelToken: cancelToken,
-        options: Options(
-          responseType: ResponseType.stream,
-          headers: headers,
-          followRedirects: true,
-          receiveTimeout: null,
-        ),
-      );
-      final body = response.data;
-      if (body == null) throw StateError('服务器没有返回视频内容');
-      final contentLength = int.tryParse(
-        response.headers.value(Headers.contentLengthHeader) ?? '',
-      );
-      final total = contentLength != null && contentLength > 0
-          ? contentLength
-          : null;
-      if (total != null && total > maxBytes) {
-        throw CacheLimitExceededException(maxBytes);
-      }
-
-      await _evictToFit(
-        video,
-        index,
-        maxBytes: maxBytes,
-        requiredBytes: total ?? 0,
-        protectedMovieId: movieId,
-      );
-      final currentUsage = await _directorySize(video);
-      final fileName = _fileName(
-        movieId,
-        sourceUrl,
-        contentType: response.headers.value(Headers.contentTypeHeader),
-      );
-      final target = File('${video.path}${Platform.pathSeparator}$fileName');
-      final partial = File('${target.path}.part');
-      if (await partial.exists()) await partial.delete();
-
-      var received = 0;
-      var completed = false;
-      final sink = partial.openWrite();
-      try {
-        await for (final chunk in body.stream) {
-          received += chunk.length;
-          if (currentUsage + received > maxBytes) {
-            throw CacheLimitExceededException(maxBytes);
-          }
-          sink.add(chunk);
-          onProgress?.call(received, total ?? 0);
-        }
-        await sink.flush();
-        completed = true;
-      } finally {
-        await sink.close();
-        if (!completed && await partial.exists()) await partial.delete();
-      }
-
-      if (await target.exists()) await target.delete();
-      await partial.rename(target.path);
-      index['$movieId'] = {
-        'file': fileName,
-        'bytes': received,
-        'last_accessed': DateTime.now().millisecondsSinceEpoch,
-      };
-      await _writeIndex(video, index);
-      return VideoCacheResult(
-        path: target.path,
-        bytes: received,
-        fromCache: false,
-      );
-    });
-  }
+  /// media_kit 的 `demuxer-cache-dir` 使用此目录写入播放中的临时缓冲。
+  /// 缓冲文件由 mpv 在媒体关闭后自动删除，不会变成完整视频文件。
+  Future<Directory> videoBufferDirectory() =>
+      _categoryDirectory(_videoDirName);
 
   Future<void> clear(CacheCategory category) {
     return _enqueue(() async {
@@ -423,19 +285,6 @@ class DiskCacheService {
     });
   }
 
-  Future<void> trimVideoCache(int maxBytes) {
-    return _enqueue(() async {
-      final video = await _categoryDirectory(_videoDirName);
-      final index = await _readIndex(video);
-      await _evictToFit(
-        video,
-        index,
-        maxBytes: maxBytes,
-        requiredBytes: 0,
-      );
-    });
-  }
-
   Future<T> _enqueue<T>(Future<T> Function() action) {
     final result = _operationQueue.then((_) => action());
     _operationQueue = result.then<void>(
@@ -443,130 +292,6 @@ class DiskCacheService {
       onError: (Object _, StackTrace __) {},
     );
     return result;
-  }
-
-  Future<File?> _existingFile(
-    Directory video,
-    Map<String, dynamic> index,
-    int movieId,
-  ) async {
-    final item = index['$movieId'];
-    if (item is! Map) return null;
-    final fileName = item['file']?.toString() ?? '';
-    if (fileName.isEmpty) return null;
-    final file = File('${video.path}${Platform.pathSeparator}$fileName');
-    if (await file.exists()) return file;
-    index.remove('$movieId');
-    await _writeIndex(video, index);
-    return null;
-  }
-
-  Future<void> _removeEntry(
-    Directory video,
-    Map<String, dynamic> index,
-    int movieId,
-  ) async {
-    final item = index.remove('$movieId');
-    if (item is Map) {
-      final fileName = item['file']?.toString() ?? '';
-      if (fileName.isNotEmpty) {
-        final file = File('${video.path}${Platform.pathSeparator}$fileName');
-        if (await file.exists()) await file.delete();
-      }
-    }
-    await _writeIndex(video, index);
-  }
-
-  Future<void> _evictToFit(
-    Directory video,
-    Map<String, dynamic> index, {
-    required int maxBytes,
-    required int requiredBytes,
-    int? protectedMovieId,
-  }) async {
-    if (requiredBytes > maxBytes) {
-      throw CacheLimitExceededException(maxBytes);
-    }
-    var usage = await _directorySize(video);
-    if (usage + requiredBytes <= maxBytes) return;
-
-    final entries = index.entries
-        .where((entry) =>
-            protectedMovieId == null || entry.key != '$protectedMovieId')
-        .where((entry) => entry.value is Map)
-        .toList()
-      ..sort((a, b) => _lastAccessed(a.value).compareTo(_lastAccessed(b.value)));
-
-    for (final entry in entries) {
-      if (usage + requiredBytes <= maxBytes) break;
-      final value = Map<String, dynamic>.from(entry.value as Map);
-      final fileName = value['file']?.toString() ?? '';
-      if (fileName.isNotEmpty) {
-        final file = File('${video.path}${Platform.pathSeparator}$fileName');
-        if (await file.exists()) {
-          final bytes = await file.length();
-          await file.delete();
-          usage -= bytes;
-        }
-      }
-      index.remove(entry.key);
-    }
-    await _writeIndex(video, index);
-    if (usage + requiredBytes > maxBytes) {
-      throw CacheLimitExceededException(maxBytes);
-    }
-  }
-
-  int _lastAccessed(Object? value) {
-    if (value is! Map) return 0;
-    return (value['last_accessed'] as num?)?.toInt() ?? 0;
-  }
-
-  Future<Map<String, dynamic>> _readIndex(Directory video) async {
-    final file = File('${video.path}${Platform.pathSeparator}$_indexName');
-    if (!await file.exists()) return <String, dynamic>{};
-    try {
-      final decoded = jsonDecode(await file.readAsString());
-      if (decoded is Map) return Map<String, dynamic>.from(decoded);
-    } catch (_) {}
-    return <String, dynamic>{};
-  }
-
-  Future<void> _writeIndex(
-    Directory video,
-    Map<String, dynamic> index,
-  ) async {
-    final file = File('${video.path}${Platform.pathSeparator}$_indexName');
-    await file.writeAsString(jsonEncode(index));
-  }
-
-  String _fileName(
-    int movieId,
-    String sourceUrl, {
-    String? contentType,
-  }) {
-    final uri = Uri.tryParse(sourceUrl);
-    final segment = uri?.pathSegments.isNotEmpty == true
-        ? uri!.pathSegments.last
-        : '';
-    final extension = RegExp(r'\.[A-Za-z0-9]{1,8}$')
-            .firstMatch(segment)
-            ?.group(0)
-            ?.toLowerCase() ??
-        _extensionForContentType(contentType) ?? '.mp4';
-    return 'movie_$movieId$extension';
-  }
-
-  String? _extensionForContentType(String? contentType) {
-    final value = contentType?.split(';').first.trim().toLowerCase();
-    return switch (value) {
-      'video/x-matroska' || 'video/mkv' => '.mkv',
-      'video/webm' => '.webm',
-      'video/quicktime' => '.mov',
-      'video/mpeg' => '.mpeg',
-      'video/mp4' => '.mp4',
-      _ => null,
-    };
   }
 
   Future<int> _directorySize(Directory directory) async {
@@ -579,19 +304,10 @@ class DiskCacheService {
   }
 }
 
-class VideoPrecacheService {
-  const VideoPrecacheService({
-    required this.cache,
-    required this.client,
-    required this.config,
-    required this.auth,
-    Connectivity? connectivity,
-  }) : _connectivity = connectivity;
+class VideoBufferPolicyService {
+  const VideoBufferPolicyService({Connectivity? connectivity})
+      : _connectivity = connectivity;
 
-  final DiskCacheService cache;
-  final ApiClient client;
-  final ServerConfig? config;
-  final AuthSessionRepository auth;
   final Connectivity? _connectivity;
 
   Future<PrecacheNetwork> network() async {
@@ -606,39 +322,12 @@ class VideoPrecacheService {
     throw const CacheNetworkUnavailableException();
   }
 
-  Future<VideoCacheResult> precacheMovie({
-    required int movieId,
-    required DiskPrecacheSettings settings,
-    CancelToken? cancelToken,
-    void Function(int received, int total)? onProgress,
-  }) async {
-    final existing = await cache.cachedMovieFile(movieId);
-    if (existing != null) {
-      return VideoCacheResult(
-        path: existing,
-        bytes: await File(existing).length(),
-        fromCache: true,
-      );
-    }
+  Future<VideoBufferPolicy> policy(DiskPrecacheSettings settings) async {
     final networkType = await network();
-    final limit = networkType == PrecacheNetwork.wifi
-        ? settings.wifiLimit.bytes
-        : settings.mobileLimit.bytes;
-    if (limit <= 0) throw CacheDisabledException(networkType);
-
-    final server = config;
-    if (server == null) throw StateError('未配置服务器');
-    final rawUrl = await client.playback.streamUrl(movieId);
-    if (rawUrl.trim().isEmpty) throw StateError('服务器没有返回视频地址');
-    final token = await auth.accessToken();
-    final url = resolveProtectedUrl(server, rawUrl, token);
-    return cache.cacheMovie(
-      movieId: movieId,
-      sourceUrl: url,
-      maxBytes: limit,
-      cancelToken: cancelToken,
-      onProgress: onProgress,
-    );
+    final option = networkType == PrecacheNetwork.wifi
+        ? settings.wifiLimit
+        : settings.mobileLimit;
+    return videoBufferPolicyFor(option);
   }
 }
 
@@ -650,11 +339,6 @@ final cacheUsageProvider = FutureProvider.autoDispose<CacheUsage>((ref) {
   return ref.watch(diskCacheServiceProvider).usage();
 });
 
-final videoPrecacheServiceProvider = Provider<VideoPrecacheService>((ref) {
-  return VideoPrecacheService(
-    cache: ref.watch(diskCacheServiceProvider),
-    client: ref.watch(requiredApiClientProvider),
-    config: ref.watch(serverConfigProvider),
-    auth: ref.watch(authSessionRepositoryProvider),
-  );
+final videoBufferPolicyProvider = Provider<VideoBufferPolicyService>((ref) {
+  return const VideoBufferPolicyService();
 });

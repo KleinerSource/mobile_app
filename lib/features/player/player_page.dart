@@ -394,6 +394,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       }
       if (!mounted || generation != _loadGeneration) return;
 
+      final bufferPolicy = await _resolveVideoBufferPolicy();
+      final bufferDirectory = await ref
+          .read(diskCacheServiceProvider)
+          .videoBufferDirectory();
+      await _host.recreate(
+        enableHardwareAcceleration: _clientHardwareAcceleration,
+        bufferSize: bufferPolicy.bufferSize,
+        diskCacheEnabled: bufferPolicy.diskCacheEnabled,
+        diskCacheDirectory: bufferDirectory.path,
+      );
+      if (!mounted || generation != _loadGeneration) return;
+
       final decision = cachedDecision ??
           await client.playback.decision(
             widget.movieId,
@@ -432,18 +444,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           (resumePositionSec > 0 ? Duration(seconds: resumePositionSec) : null);
       final direct = !useServerRoute;
       if (direct) {
-        final cachedFile = selectedQuality == 'original'
-            ? await ref
-                .read(diskCacheServiceProvider)
-                .cachedMovieFile(widget.movieId)
-            : null;
         // .strm 的本地串流接口会返回 302。先请求 stream-url 解析出最终
         // 外部地址，避免 media_kit 在重定向时丢失地址或透传服务器鉴权头。
-        final rawDirectUrl =
-            cachedFile ?? await client.playback.streamUrl(widget.movieId);
-        final directUrl = cachedFile ?? _protectedUrl(cfg, rawDirectUrl, token);
-        final directHeaders = cachedFile == null &&
-                !isExternalUrl(cfg, rawDirectUrl)
+        final rawDirectUrl = await client.playback.streamUrl(widget.movieId);
+        final directUrl = _protectedUrl(cfg, rawDirectUrl, token);
+        final directHeaders = !isExternalUrl(cfg, rawDirectUrl)
             ? _authorizationHeaders(token)
             : null;
         await _openDirectWithClientFallback(
@@ -893,6 +898,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         localHardware: _clientHardwareAcceleration,
         serverStatus: _serverDecodeStatus,
       );
+
+  Future<VideoBufferPolicy> _resolveVideoBufferPolicy() async {
+    final settings = ref.read(diskPrecacheSettingsProvider);
+    try {
+      return await ref.read(videoBufferPolicyProvider).policy(settings);
+    } catch (_) {
+      // 网络状态暂时不可用时仍保留基础内存缓冲，不让缓存设置阻塞播放。
+      return videoBufferPolicyFor(CacheSizeOption.disabled);
+    }
+  }
 
   Map<String, String>? _authorizationHeaders(String? token) {
     final value = token?.trim() ?? '';

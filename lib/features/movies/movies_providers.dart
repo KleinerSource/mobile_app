@@ -10,6 +10,28 @@ import 'movies_repository.dart';
 
 final movieFilterProvider = StateProvider<MovieFilter>((_) => const MovieFilter());
 
+/// 图片服务通常使用稳定 UUID 作为路径；同一个 UUID 的封面被服务器替换
+/// 后，CachedNetworkImage 仍会命中旧文件。下拉刷新时递增此版本，让图片
+/// URL 产生新的缓存键，同时保留服务器原有的图片路径。
+final imageCacheRevisionProvider = StateProvider<int>((_) => 0);
+
+void refreshImageCache(WidgetRef ref) {
+  ref.read(imageCacheRevisionProvider.notifier).state++;
+}
+
+String imageUrlWithCacheRevision(String url, int revision) {
+  if (revision <= 0) return url;
+  final uri = Uri.parse(url);
+  return uri
+      .replace(
+        queryParameters: {
+          ...uri.queryParameters,
+          '_mdc_image_revision': '$revision',
+        },
+      )
+      .toString();
+}
+
 final moviesRepositoryProvider = Provider<MoviesRepository>((ref) {
   final client = ref.watch(requiredApiClientProvider);
   return MoviesRepository(client.movies, client.favorites, client.system);
@@ -18,7 +40,12 @@ final moviesRepositoryProvider = Provider<MoviesRepository>((ref) {
 /// 海报/图片 URL 构造器。
 final imageUrlBuilderProvider = Provider<String Function(String uuid)>((ref) {
   final cfg = ref.watch(serverConfigProvider);
-  return (uuid) => cfg == null ? '' : resolveApiUrl(cfg, '/images/$uuid');
+  final revision = ref.watch(imageCacheRevisionProvider);
+  return (uuid) {
+    if (cfg == null) return '';
+    final url = resolveApiUrl(cfg, '/images/$uuid');
+    return imageUrlWithCacheRevision(url, revision);
+  };
 });
 
 final movieDetailProvider = FutureProvider.autoDispose

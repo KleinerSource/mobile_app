@@ -10,16 +10,25 @@ import 'player_subtitle_track_resolver.dart';
 /// 把命令式播放 API + 状态流收拢到一个对象, 供 PlayerPage 编排。
 /// PlayerPage 只通过本类的方法/getter 访问内核, 不直接接触 media_kit 类型。
 class PlayerControllerHost {
-  PlayerControllerHost({this.hardwareAcceleration = true}) {
+  PlayerControllerHost({
+    this.hardwareAcceleration = true,
+    this.bufferSize = 32 * 1024 * 1024,
+    this.diskCacheEnabled = true,
+  }) {
     _createPlayer();
   }
 
   late Player player;
   late VideoController controller;
   bool hardwareAcceleration;
+  int bufferSize;
+  bool diskCacheEnabled;
+  String? diskCacheDirectory;
 
   void _createPlayer() {
-    player = Player();
+    player = Player(
+      configuration: PlayerConfiguration(bufferSize: bufferSize),
+    );
     controller = VideoController(
       player,
       configuration: VideoControllerConfiguration(
@@ -34,7 +43,33 @@ class PlayerControllerHost {
     Duration? startAt,
     Map<String, String>? headers,
   }) {
-    return player.open(
+    return _openWithBufferOptions(
+      url,
+      startAt: startAt,
+      headers: headers,
+    );
+  }
+
+  Future<void> _openWithBufferOptions(
+    String url, {
+    Duration? startAt,
+    Map<String, String>? headers,
+  }) async {
+    try {
+      final platform = player.platform;
+      if (platform is NativePlayer) {
+        if (diskCacheDirectory != null) {
+          await platform.setProperty('demuxer-cache-dir', diskCacheDirectory!);
+        }
+        await platform.setProperty(
+          'cache-on-disk',
+          diskCacheEnabled ? 'yes' : 'no',
+        );
+      }
+    } catch (_) {
+      // 部分平台的 mpv 构建不允许运行时修改缓存选项，仍继续正常播放。
+    }
+    await player.open(
       Media(url, start: startAt, httpHeaders: headers),
       play: true,
     );
@@ -95,11 +130,28 @@ class PlayerControllerHost {
     await player.setAudioTrack(track);
   }
 
-  /// 硬解失败时重建视频输出，保留播放器外的页面状态。
-  Future<void> recreate({required bool enableHardwareAcceleration}) async {
-    if (hardwareAcceleration == enableHardwareAcceleration) return;
+  /// 重建播放器以应用硬解或播放缓冲配置。
+  Future<void> recreate({
+    required bool enableHardwareAcceleration,
+    int? bufferSize,
+    bool? diskCacheEnabled,
+    String? diskCacheDirectory,
+  }) async {
+    final nextBufferSize = bufferSize ?? this.bufferSize;
+    final nextDiskCacheEnabled = diskCacheEnabled ?? this.diskCacheEnabled;
+    final nextDiskCacheDirectory =
+        diskCacheDirectory ?? this.diskCacheDirectory;
+    if (hardwareAcceleration == enableHardwareAcceleration &&
+        this.bufferSize == nextBufferSize &&
+        this.diskCacheEnabled == nextDiskCacheEnabled &&
+        this.diskCacheDirectory == nextDiskCacheDirectory) {
+      return;
+    }
     final previous = player;
     hardwareAcceleration = enableHardwareAcceleration;
+    this.bufferSize = nextBufferSize;
+    this.diskCacheEnabled = nextDiskCacheEnabled;
+    this.diskCacheDirectory = nextDiskCacheDirectory;
     _createPlayer();
     await previous.dispose();
   }
