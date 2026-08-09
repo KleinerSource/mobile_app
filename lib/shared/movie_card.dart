@@ -391,8 +391,8 @@ class _ResolutionBadge extends StatelessWidget {
     if (label.isEmpty) return const SizedBox.shrink();
 
     final content = icon == null
-        ? Text(
-            label,
+        ? const Text(
+            'UHD',
             style: TextStyle(
               color: Colors.white,
               fontFamily: 'Inter',
