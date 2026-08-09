@@ -162,11 +162,22 @@ jobs:
             exit 1
           fi
 
+      - name: 添加版本号到 Android 产物
+        id: android_artifact
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
+          artifact_path="build/app/outputs/flutter-apk/md_center_${version}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "${artifact_path}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "path=${artifact_path}" >> "${GITHUB_OUTPUT}"
+
       - name: 上传 Android Actions 产物
         uses: actions/upload-artifact@v6
         with:
-          name: md_center-android-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: md_center_${{ steps.android_artifact.outputs.version }}.apk
+          path: ${{ steps.android_artifact.outputs.path }}
           if-no-files-found: error
           retention-days: 14
 
@@ -184,17 +195,19 @@ jobs:
             commit_body="$(git diff-tree --no-commit-id --name-status -r "${GITHUB_SHA}" | sed 's/^/- /')"
           fi
           short_sha="${GITHUB_SHA:0:7}"
+          version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
           run_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           commit_url="https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
-          notes="$(printf '%s\n\n%s\n\ncommit: [%s](%s)\nrun: [%s](%s)' \
+          notes="$(printf '%s\n\n版本: %s\n\n%s\n\ncommit: [%s](%s)\nrun: [%s](%s)' \
             '未签名 Android 构建产物（自动滚动更新）' \
+            "${version}" \
             "$(printf '%s\n%s' "${commit_subject}" "${commit_body}")" \
             "${short_sha}" \
             "${commit_url}" \
             "${GITHUB_RUN_NUMBER}" \
             "${run_url}")"
           gh release delete latest-android --yes --cleanup-tag || true
-          gh release create latest-android build/app/outputs/flutter-apk/app-release.apk \
+          gh release create latest-android "${{ steps.android_artifact.outputs.path }}" \
             --prerelease \
             --target "$GITHUB_SHA" \
             --title "Latest unsigned Android build" \

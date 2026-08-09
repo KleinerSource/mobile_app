@@ -137,14 +137,27 @@ jobs:
         timeout-minutes: 25
         run: flutter build ios --release --no-codesign --no-pub
 
-      - name: 打包 unsigned .ipa
+      - name: 打包带版本号的 unsigned .ipa
+        id: ios_artifact
         timeout-minutes: 3
         run: |
           set -euo pipefail
+          version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
           cd build/ios/iphoneos
           mkdir Payload
           cp -r Runner.app Payload/
-          zip -qr md_center.ipa Payload
+          artifact_name="md_center_${version}.ipa"
+          zip -qr "${artifact_name}" Payload
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "path=build/ios/iphoneos/${artifact_name}" >> "${GITHUB_OUTPUT}"
+
+      - name: 上传 iOS Actions 产物
+        uses: actions/upload-artifact@v6
+        with:
+          name: md_center_${{ steps.ios_artifact.outputs.version }}.ipa
+          path: ${{ steps.ios_artifact.outputs.path }}
+          if-no-files-found: error
+          retention-days: 14
 
       # 仅 master 分支 push 时滚动发布 latest 预发布
       - name: 发布到 GitHub Release (latest)
@@ -160,17 +173,19 @@ jobs:
             commit_body="$(git diff-tree --no-commit-id --name-status -r "${GITHUB_SHA}" | sed 's/^/- /')"
           fi
           short_sha="${GITHUB_SHA:0:7}"
+          version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
           run_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           commit_url="https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
-          notes="$(printf '%s\n\n%s\n\ncommit: [%s](%s)\nrun: [%s](%s)' \
+          notes="$(printf '%s\n\n版本: %s\n\n%s\n\ncommit: [%s](%s)\nrun: [%s](%s)' \
             '未签名 iOS 构建产物（自动滚动更新）' \
+            "${version}" \
             "$(printf '%s\n%s' "${commit_subject}" "${commit_body}")" \
             "${short_sha}" \
             "${commit_url}" \
             "${GITHUB_RUN_NUMBER}" \
             "${run_url}")"
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest build/ios/iphoneos/md_center.ipa \
+          gh release create latest "${{ steps.ios_artifact.outputs.path }}" \
             --prerelease \
             --target "$GITHUB_SHA" \
             --title "Latest unsigned iOS build" \
