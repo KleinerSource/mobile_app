@@ -149,13 +149,24 @@ jobs:
 
       - name: build android apk
         timeout-minutes: 25
-        run: flutter build apk --release --target-platform android-arm64 --split-per-abi --no-pub
+        run: flutter build apk --release --target-platform android-arm64 --no-pub
+
+      - name: 验证 Android APK 仅包含 arm64
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          apk_path="build/app/outputs/flutter-apk/app-release.apk"
+          unzip -l "${apk_path}" | grep -q 'lib/arm64-v8a/'
+          if unzip -l "${apk_path}" | grep -Eq 'lib/(armeabi-v7a|x86|x86_64)/'; then
+            echo "APK 仍包含非 arm64 原生库"
+            exit 1
+          fi
 
       - name: 上传 Android Actions 产物
         uses: actions/upload-artifact@v6
         with:
           name: md_center-android-apk
-          path: build/app/outputs/flutter-apk/app-*-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -183,7 +194,7 @@ jobs:
             "${GITHUB_RUN_NUMBER}" \
             "${run_url}")"
           gh release delete latest-android --yes --cleanup-tag || true
-          gh release create latest-android build/app/outputs/flutter-apk/app-*-release.apk \
+          gh release create latest-android build/app/outputs/flutter-apk/app-release.apk \
             --prerelease \
             --target "$GITHUB_SHA" \
             --title "Latest unsigned Android build" \
