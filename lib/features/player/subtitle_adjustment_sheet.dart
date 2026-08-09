@@ -78,7 +78,11 @@ class SubtitleAdjustmentSheet extends StatefulWidget {
 }
 
 class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
-  late SubtitleAdjustments _adjustments = widget.initial;
+  late SubtitleAdjustments _adjustments = widget.initial.copyWith(
+        verticalOffset: widget.initial.verticalOffset
+            .clamp(subtitleVerticalOffsetMin, subtitleVerticalOffsetMax)
+            .toDouble(),
+      );
 
   void _update(SubtitleAdjustments next) {
     setState(() => _adjustments = next);
@@ -97,7 +101,7 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
 
   void _changeVertical(double delta) {
     final next = (_adjustments.verticalOffset + delta)
-        .clamp(-150.0, 150.0)
+        .clamp(subtitleVerticalOffsetMin, subtitleVerticalOffsetMax)
         .toDouble();
     _update(_adjustments.copyWith(verticalOffset: next));
   }
@@ -185,10 +189,10 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
           _AdjustmentRow(
             title: '垂直偏移',
             value: _adjustments.verticalOffset.round().toString(),
-            onDecrease: _adjustments.verticalOffset <= -150
+            onDecrease: _adjustments.verticalOffset <= subtitleVerticalOffsetMin
                 ? null
                 : () => _changeVertical(-5),
-            onIncrease: _adjustments.verticalOffset >= 150
+            onIncrease: _adjustments.verticalOffset >= subtitleVerticalOffsetMax
                 ? null
                 : () => _changeVertical(5),
           ),

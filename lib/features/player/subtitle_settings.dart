@@ -9,6 +9,9 @@ import '../../core/models/playback.dart' as playback_models;
 
 const subtitleDisabledSelectionKey = '__subtitle_disabled__';
 
+const subtitleVerticalOffsetMin = -100.0;
+const subtitleVerticalOffsetMax = 500.0;
+
 /// 使用轨道元数据记住字幕选择，不保存带鉴权信息的字幕 URL。
 String subtitleSelectionKey(playback_models.SubtitleTrack track) {
   return jsonEncode([

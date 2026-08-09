@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
+import '../movies/movies_repository.dart';
 import '../movies/movies_providers.dart';
 
 /// 合并 magnets/ed2k 资源 sheet · 内部 tab 切换
@@ -44,8 +47,10 @@ const _kEd2kSupportedDownloaders = {
   'thunder',
 };
 
+const _kResourceSources = ['detail', 'custom', 'nyaa'];
+
 class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
-  bool _loading = true;
+  bool _loadingResources = true;
   String? _error;
   List<Map<String, dynamic>> _magnets = const [];
   List<Map<String, dynamic>> _ed2ks = const [];
@@ -55,6 +60,10 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
   Map<String, String> _downloadedEd2ks = const {};
   _ResTab _tab = _ResTab.magnet;
   String? _pushingKey;
+  Set<String> _pendingSources = {..._kResourceSources};
+  final Map<String, String> _sourceErrors = {};
+  int _loadGeneration = 0;
+  bool _tabPicked = false;
 
   int get _movieId => widget.movie.id;
   String get _movieTitle => widget.movie.title;
@@ -68,49 +77,108 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
     _load();
   }
 
-  Future<void> _load() async {
+  void _load() {
+    final generation = ++_loadGeneration;
     setState(() {
-      _loading = true;
+      _loadingResources = true;
       _error = null;
+      _magnets = const [];
+      _ed2ks = const [];
+      _warnings = const [];
+      _pendingSources = {..._kResourceSources};
+      _sourceErrors.clear();
+      _tab = _ResTab.magnet;
+      _tabPicked = false;
     });
     final repo = ref.read(moviesRepositoryProvider);
+    for (final source in _kResourceSources) {
+      unawaited(_loadResourceSource(repo, source, generation));
+    }
+    unawaited(_loadDownloaders(repo, generation));
+    unawaited(_loadHistory(repo, generation));
+  }
+
+  Future<void> _loadResourceSource(
+    MoviesRepository repo,
+    String source,
+    int generation,
+  ) async {
     try {
-      final results = await Future.wait([
-        repo.getAllResources(_movieId),
-        repo.getDownloaders().catchError((_) =>
-            <({String name, String displayName})>[]),
-        repo.getDownloadHistory(_movieId).catchError((_) =>
-            (magnets: <String, String>{}, ed2ks: <String, String>{})),
-      ]);
-      if (!mounted) return;
-      final res = results[0] as ({
-        List<Map<String, dynamic>> magnets,
-        List<Map<String, dynamic>> ed2ks,
-        List<String> warnings
-      });
-      final dls = results[1] as List<({String name, String displayName})>;
-      final history = results[2] as ({
-        Map<String, String> magnets,
-        Map<String, String> ed2ks
-      });
+      final res = await repo.getResourcesBySource(_movieId, source).timeout(
+            const Duration(seconds: 20),
+          );
+      if (!_isCurrentLoad(generation)) return;
       setState(() {
-        _magnets = res.magnets;
-        _ed2ks = res.ed2ks;
-        _warnings = res.warnings;
-        _downloaders = dls;
-        _downloadedMagnets = history.magnets;
-        _downloadedEd2ks = history.ed2ks;
-        if (_magnets.isEmpty && _ed2ks.isNotEmpty) {
-          _tab = _ResTab.ed2k;
-        } else {
-          _tab = _ResTab.magnet;
-        }
+        _magnets = [..._magnets, ...res.magnets];
+        _ed2ks = [..._ed2ks, ...res.ed2ks];
+        _warnings = [..._warnings, ...res.warnings];
+        _pendingSources.remove(source);
+        _loadingResources = _pendingSources.isNotEmpty;
+        _selectDefaultTab();
       });
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = toApiException(e).message);
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      if (!_isCurrentLoad(generation)) return;
+      final message = '${_sourceLabel(source)}: ${toApiException(e).message}';
+      setState(() {
+        _sourceErrors[source] = message;
+        _warnings = [..._warnings, message];
+        _pendingSources.remove(source);
+        _loadingResources = _pendingSources.isNotEmpty;
+        if (_pendingSources.isEmpty &&
+            _magnets.isEmpty &&
+            _ed2ks.isEmpty &&
+            _sourceErrors.length == _kResourceSources.length) {
+          _error = message;
+        }
+      });
+    }
+  }
+
+  Future<void> _loadDownloaders(MoviesRepository repo, int generation) async {
+    try {
+      final downloaders = await repo.getDownloaders();
+      if (!_isCurrentLoad(generation)) return;
+      setState(() => _downloaders = downloaders);
+    } catch (_) {
+      // 下载器列表失败不应阻塞在线资源展示。
+    }
+  }
+
+  Future<void> _loadHistory(MoviesRepository repo, int generation) async {
+    try {
+      final history = await repo.getDownloadHistory(_movieId);
+      if (!_isCurrentLoad(generation)) return;
+      setState(() {
+        _downloadedMagnets = history.magnets;
+        _downloadedEd2ks = history.ed2ks;
+      });
+    } catch (_) {
+      // 下载历史失败不应阻塞在线资源展示。
+    }
+  }
+
+  bool _isCurrentLoad(int generation) =>
+      mounted && generation == _loadGeneration;
+
+  void _selectDefaultTab() {
+    if (_tabPicked) return;
+    if (_magnets.isNotEmpty) {
+      _tab = _ResTab.magnet;
+    } else if (_ed2ks.isNotEmpty) {
+      _tab = _ResTab.ed2k;
+    }
+  }
+
+  String _sourceLabel(String source) {
+    switch (source) {
+      case 'detail':
+        return '影片详情资源';
+      case 'custom':
+        return '自定义资源';
+      case 'nyaa':
+        return 'Nyaa 资源';
+      default:
+        return source;
     }
   }
 
@@ -289,13 +357,13 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.refresh, size: 18),
-                    onPressed: _loading ? null : _load,
+                    onPressed: _loadingResources ? null : _load,
                   ),
                 ],
               ),
             ),
             // ===== Tab 切换 =====
-            if (!_loading && _error == null)
+            if (_error == null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 22),
                 child: Container(
@@ -310,14 +378,20 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                         child: _TabBtn(
                           label: '磁力 (${_magnets.length})',
                           active: _tab == _ResTab.magnet,
-                          onTap: () => setState(() => _tab = _ResTab.magnet),
+                          onTap: () => setState(() {
+                            _tab = _ResTab.magnet;
+                            _tabPicked = true;
+                          }),
                         ),
                       ),
                       Expanded(
                         child: _TabBtn(
                           label: 'ED2K (${_ed2ks.length})',
                           active: _tab == _ResTab.ed2k,
-                          onTap: () => setState(() => _tab = _ResTab.ed2k),
+                          onTap: () => setState(() {
+                            _tab = _ResTab.ed2k;
+                            _tabPicked = true;
+                          }),
                         ),
                       ),
                     ],
@@ -359,52 +433,82 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
               ),
             // ===== 内容 =====
             Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(22),
-                            child: Text(
-                              _error!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  color: c.danger,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600),
+              child: _error != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(22),
+                        child: Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: c.danger,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        if (_loadingResources)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: c.accent,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '正在加载在线资源…',
+                                  style: AppText.meta(context),
+                                ),
+                              ],
                             ),
                           ),
-                        )
-                      : _activeList.isEmpty
-                          ? Center(
-                              child: Text(
-                                _tab == _ResTab.magnet
-                                    ? '没有磁力资源'
-                                    : '没有 ED2K 资源',
-                                style: AppText.body(context),
-                              ),
-                            )
-                          : ListView.separated(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 22),
-                              itemCount: _activeList.length,
-                              separatorBuilder: (_, __) =>
-                                  Divider(height: 1, color: c.divider),
-                              itemBuilder: (ctx, i) {
-                                final r = _activeList[i];
-                                final url = _pickUrl(r);
-                                final downloadedAt = _getDownloadedAt(r);
-                                return _ResourceTile(
-                                  item: r,
-                                  url: url,
-                                  downloadedAt: downloadedAt,
-                                  pushing: _pushingKey == url,
-                                  pushDisabled: _pushingKey != null ||
-                                      _activeDownloaders.isEmpty,
-                                  onPush: () => _onPush(r),
-                                );
-                              },
-                            ),
+                        Expanded(
+                          child: _activeList.isEmpty
+                              ? Center(
+                                  child: _loadingResources
+                                      ? Text(
+                                          '已返回的渠道暂无资源，继续等待其他渠道…',
+                                          style: AppText.body(context),
+                                        )
+                                      : Text(
+                                          _tab == _ResTab.magnet
+                                              ? '没有磁力资源'
+                                              : '没有 ED2K 资源',
+                                          style: AppText.body(context),
+                                        ),
+                                )
+                              : ListView.separated(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 22),
+                                  itemCount: _activeList.length,
+                                  separatorBuilder: (_, __) =>
+                                      Divider(height: 1, color: c.divider),
+                                  itemBuilder: (ctx, i) {
+                                    final r = _activeList[i];
+                                    final url = _pickUrl(r);
+                                    final downloadedAt = _getDownloadedAt(r);
+                                    return _ResourceTile(
+                                      item: r,
+                                      url: url,
+                                      downloadedAt: downloadedAt,
+                                      pushing: _pushingKey == url,
+                                      pushDisabled: _pushingKey != null ||
+                                          _activeDownloaders.isEmpty,
+                                      onPush: () => _onPush(r),
+                                    );
+                                  },
+                                ),
+                        ),
+                      ],
+                    ),
             ),
           ],
         ),

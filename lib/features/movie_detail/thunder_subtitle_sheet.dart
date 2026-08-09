@@ -15,16 +15,25 @@ import '../movies/movies_providers.dart';
 /// - 预览按钮 → push 独立全屏页面
 /// - 下载按钮
 class ThunderSubtitleSheet extends ConsumerStatefulWidget {
-  const ThunderSubtitleSheet({super.key, required this.movieId});
+  const ThunderSubtitleSheet({
+    super.key,
+    required this.movieId,
+    this.hostMessenger,
+  });
   final int movieId;
+  final ScaffoldMessengerState? hostMessenger;
 
   static Future<void> show(BuildContext context, int movieId) {
+    final hostMessenger = ScaffoldMessenger.maybeOf(context);
     return showModalBottomSheet<void>(
       context: context,
       backgroundColor: appColors(context).bg,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => ThunderSubtitleSheet(movieId: movieId),
+      builder: (_) => ThunderSubtitleSheet(
+        movieId: movieId,
+        hostMessenger: hostMessenger,
+      ),
     );
   }
 
@@ -123,7 +132,8 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
       {bool overwrite = false}) async {
     if (_downloadingIndex == index) return;
     setState(() => _downloadingIndex = index);
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger =
+        widget.hostMessenger ?? ScaffoldMessenger.maybeOf(context);
     try {
       await ref.read(moviesRepositoryProvider).downloadSubtitle(
             widget.movieId,
@@ -131,14 +141,16 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
             ext: item.ext ?? 'srt',
             overwrite: overwrite,
           );
-      messenger.showSnackBar(SnackBar(
+      // ignore: unused_result
+      ref.refresh(movieDetailProvider(widget.movieId));
+      if (mounted) Navigator.of(context).pop();
+      messenger?.showSnackBar(SnackBar(
         content: Text('已下载 ${item.name}'),
         duration: const Duration(seconds: 1),
       ));
-      // ignore: unused_result
-      ref.refresh(movieDetailProvider(widget.movieId));
     } catch (e) {
-      messenger.showSnackBar(
+      if (!mounted) return;
+      messenger?.showSnackBar(
         SnackBar(content: Text('下载失败: ${toApiException(e).message}')),
       );
     } finally {

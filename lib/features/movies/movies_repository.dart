@@ -222,7 +222,9 @@ class MoviesRepository {
     });
   }
 
-  /// 合并 detail / custom / nyaa 三个源, 容错单源失败
+  /// 合并 detail / custom / nyaa 三个源, 容错单源失败。
+  ///
+  /// 三个源并发请求，避免单个慢源阻塞其它源。
   Future<({List<Map<String, dynamic>> magnets, List<Map<String, dynamic>> ed2ks, List<String> warnings})>
       getAllResources(int id) async {
     const sources = ['detail', 'custom', 'nyaa'];
@@ -230,7 +232,8 @@ class MoviesRepository {
     final ed2ks = <Map<String, dynamic>>[];
     final warnings = <String>[];
     final errors = <String>[];
-    for (final s in sources) {
+
+    await Future.wait(sources.map((s) async {
       try {
         final r = await getResourcesBySource(id, s);
         magnets.addAll(r.magnets);
@@ -239,7 +242,7 @@ class MoviesRepository {
       } catch (e) {
         errors.add('$s: ${e is ApiException ? e.message : e.toString()}');
       }
-    }
+    }));
     if (magnets.isEmpty && ed2ks.isEmpty && errors.isNotEmpty) {
       throw ApiException(errors.first);
     }
