@@ -64,4 +64,22 @@ void main() {
       expect(out.totalCount, 2);
     });
   });
+
+  test('解出有界选项结果和 has_more', () {
+    final out = unwrapOptions<int>(
+      {
+        'success': true,
+        'message': 'ok',
+        'data': [
+          {'id': 1},
+        ],
+        'has_more': true,
+        'limit': 100,
+      },
+      (item) => item['id'] as int,
+    );
+    expect(out.items, [1]);
+    expect(out.hasMore, isTrue);
+    expect(out.limit, 100);
+  });
 }

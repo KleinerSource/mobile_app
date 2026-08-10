@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:md_center/core/api/services/actors_api.dart';
 import 'package:md_center/core/api/services/configs_extended_api.dart';
 import 'package:md_center/core/api/services/mappings_api.dart';
 import 'package:md_center/core/api/services/movies_api.dart';
@@ -32,6 +33,14 @@ void main() {
       '/api/mappings/actors/external-sync/preview',
     );
     expect(adapter.requestBodies.single['source'], 'avdb');
+  });
+
+  test('影片编辑器选项接口传递搜索关键词', () async {
+    final adapter = _RouteAdapter();
+    await ActorsApi(_dio(adapter)).options({'search': '演员'});
+
+    expect(adapter.paths.single, '/api/actors/options');
+    expect(adapter.queries.single['search'], '演员');
   });
 
   test('数据源和 FFmpeg 配置接口使用后端路径', () async {

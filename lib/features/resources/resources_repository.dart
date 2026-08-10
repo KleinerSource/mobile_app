@@ -1,4 +1,5 @@
 import '../../core/api/api_client.dart';
+import '../../core/api/dio_factory.dart';
 import '../../core/api/envelope.dart';
 import '../../core/models/paged_result.dart';
 import '../../core/models/resource.dart';
@@ -34,6 +35,17 @@ class ResourcesRepository {
         return _client.tags.list(q);
       case ResourceKind.series:
         return _client.series.list(q);
+    }
+  }
+
+  Future<dynamic> _options(ResourceKind k, Map<String, dynamic> q) {
+    switch (k) {
+      case ResourceKind.genre:
+        return _client.genres.options(q);
+      case ResourceKind.tag:
+        return _client.tags.options(q);
+      case ResourceKind.series:
+        return _client.series.options(q);
     }
   }
 
@@ -91,6 +103,38 @@ class ResourcesRepository {
     // 后端 /tags · /genres · /series 返回 { success, data: [...] } 顶层数组
     // (不是分页 envelope 的 data.items 结构)
     return unwrapTopLevelList<ResourceItem>(raw, ResourceItem.fromJson);
+  }
+
+  Future<OptionsResult<ResourceItem>> options(
+    ResourceKind kind, {
+    String? search,
+  }) async {
+    final q = <String, dynamic>{};
+    final keyword = search?.trim() ?? '';
+    if (keyword.isNotEmpty) q['search'] = keyword;
+
+    try {
+      final raw = await _options(kind, q);
+      return unwrapOptions<ResourceItem>(raw, ResourceItem.fromJson);
+    } catch (error) {
+      // 新接口是增量能力；老服务没有路由时继续使用原列表接口。
+      final status = toApiException(error).status;
+      // 老服务没有 /options 路由时，/options 可能会命中 /:id 并返回 400。
+      if (status != 404 && status != 400) rethrow;
+      final page = await list(
+        kind,
+        limit: 500,
+        offset: 0,
+        search: keyword.isEmpty ? null : keyword,
+        sortBy: 'name',
+        sortOrder: 'asc',
+      );
+      return OptionsResult<ResourceItem>(
+        items: page.items,
+        hasMore: page.hasMore,
+        limit: page.limit,
+      );
+    }
   }
 
   Future<ResourceItem> create(

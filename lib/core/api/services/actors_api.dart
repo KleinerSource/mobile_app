@@ -9,4 +9,7 @@ abstract class ActorsApi {
 
   @GET('/actors')
   Future<dynamic> list(@Queries() Map<String, dynamic> q);
+
+  @GET('/actors/options')
+  Future<dynamic> options(@Queries() Map<String, dynamic> q);
 }

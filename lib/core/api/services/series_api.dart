@@ -10,6 +10,9 @@ abstract class SeriesApi {
   @GET('/series')
   Future<dynamic> list(@Queries() Map<String, dynamic> q);
 
+  @GET('/series/options')
+  Future<dynamic> options(@Queries() Map<String, dynamic> q);
+
   @POST('/series')
   Future<dynamic> create(@Body() Map<String, dynamic> body);
 

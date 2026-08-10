@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/api_exception.dart';
-import '../../core/api/providers.dart';
+import '../../core/api/dio_factory.dart';
 import '../../core/api/envelope.dart';
+import '../../core/api/providers.dart';
 import '../../core/models/paged_result.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_theme.dart';
@@ -46,6 +46,7 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
     super.key,
     required this.kind,
     required this.initialSelectedIds,
+    this.selectedNames = const {},
   });
 
   final EntityPickerKind kind;
@@ -53,11 +54,15 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
   /// 初始选中 · multi 用 list,series 用 [singleId] 形式
   final List<int> initialSelectedIds;
 
+  /// 当前选中项的名称。远程查询只返回有限候选时，用于继续显示已选项。
+  final Map<int, String> selectedNames;
+
   /// 弹出多选 · 返回 `List<int>` (取消则 null)
   static Future<List<int>?> pickMulti({
     required BuildContext context,
     required EntityPickerKind kind,
     required List<int> selected,
+    Map<int, String> selectedNames = const {},
   }) async {
     assert(kind.multi, 'series 用 pickSingle');
     return showModalBottomSheet<List<int>>(
@@ -68,6 +73,7 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
       builder: (_) => EntityPickerSheet(
         kind: kind,
         initialSelectedIds: selected,
+        selectedNames: selectedNames,
       ),
     );
   }
@@ -77,6 +83,7 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
     required BuildContext context,
     required EntityPickerKind kind,
     required int? selected,
+    Map<int, String> selectedNames = const {},
   }) async {
     assert(!kind.multi, 'multi 用 pickMulti');
     final result = await showModalBottomSheet<List<int>>(
@@ -87,6 +94,7 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
       builder: (_) => EntityPickerSheet(
         kind: kind,
         initialSelectedIds: selected != null ? [selected] : const [],
+        selectedNames: selectedNames,
       ),
     );
     if (result == null) return null;
@@ -114,7 +122,7 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
 
   void _onSearchChanged(String v) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 320), () {
+    _debounce = Timer(const Duration(milliseconds: 250), () {
       if (mounted) {
         setState(() => _search = v.trim().isEmpty ? null : v.trim());
       }
@@ -232,8 +240,13 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
                       child: TextField(
                         controller: _searchCtrl,
                         onChanged: _onSearchChanged,
-                        decoration: const InputDecoration(
-                          hintText: '搜索名称 / 拼音 / 首字母',
+                        decoration: InputDecoration(
+                          hintText: widget.kind == EntityPickerKind.genre ||
+                                  widget.kind == EntityPickerKind.tag
+                              ? '搜索名称 / 拼音 / 首字母'
+                              : widget.kind == EntityPickerKind.actor
+                                  ? '搜索名称 / 别名'
+                                  : '搜索名称',
                           border: InputBorder.none,
                           isCollapsed: true,
                           contentPadding:
@@ -251,12 +264,14 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
                   ? _ActorList(
                       search: _search,
                       selected: _selected,
+                      selectedNames: widget.selectedNames,
                       onToggle: _toggle,
                     )
                   : _ResourceList(
                       kind: _resourceKindOf(widget.kind),
                       search: _search,
                       selected: _selected,
+                      selectedNames: widget.selectedNames,
                       onToggle: _toggle,
                       singleSelect: !widget.kind.multi,
                     ),
@@ -303,6 +318,7 @@ class _ResourceList extends ConsumerStatefulWidget {
     required this.kind,
     required this.search,
     required this.selected,
+    required this.selectedNames,
     required this.onToggle,
     required this.singleSelect,
   });
@@ -310,6 +326,7 @@ class _ResourceList extends ConsumerStatefulWidget {
   final ResourceKind kind;
   final String? search;
   final Set<int> selected;
+  final Map<int, String> selectedNames;
   final ValueChanged<int> onToggle;
   final bool singleSelect;
 
@@ -318,45 +335,78 @@ class _ResourceList extends ConsumerStatefulWidget {
 }
 
 class _ResourceListState extends ConsumerState<_ResourceList> {
-  bool _loading = true;
+  OptionsResult<ResourceItem>? _data;
+  bool _loading = false;
   Object? _error;
-  List<ResourceItem> _items = const [];
+  int _requestSerial = 0;
+  List<ResourceItem> _localItems = const [];
   Map<int, PinyinSearchTokens> _pinyinIndex = {};
+  bool _localHasMore = false;
+  final _knownNames = <int, String>{};
+
+  // 分类/标签遵循移动端现有的本地拼音筛选；系列与演员走有界远程搜索。
+  bool get _usesLocalPinyin =>
+      widget.kind == ResourceKind.genre || widget.kind == ResourceKind.tag;
 
   @override
   void initState() {
     super.initState();
+    _knownNames.addAll(widget.selectedNames);
     _load();
   }
 
   @override
   void didUpdateWidget(covariant _ResourceList oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.kind != widget.kind) _load();
+    _knownNames.addAll(widget.selectedNames);
+    if (oldWidget.kind != widget.kind ||
+        (!_usesLocalPinyin && oldWidget.search != widget.search)) {
+      _load();
+    }
   }
 
   Future<void> _load() async {
+    final requestSerial = ++_requestSerial;
+    final search = widget.search;
+    final usesLocalPinyin = _usesLocalPinyin;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final page = await ref.read(resourcesRepositoryProvider).list(
-            widget.kind,
-            limit: 500,
-            sortBy: 'name',
-            sortOrder: 'asc',
-          );
-      if (!mounted) return;
+      final result = usesLocalPinyin
+          ? null
+          : await ref.read(resourcesRepositoryProvider).options(
+                widget.kind,
+                search: search,
+              );
+      final localPage = usesLocalPinyin
+          ? await ref.read(resourcesRepositoryProvider).list(
+                widget.kind,
+                limit: 500,
+                offset: 0,
+                sortBy: 'name',
+                sortOrder: 'asc',
+              )
+          : null;
+      if (!mounted || requestSerial != _requestSerial) return;
+      final loadedItems =
+          result?.items ?? localPage?.items ?? const <ResourceItem>[];
+      for (final item in loadedItems) {
+        _knownNames[item.id] = item.name;
+      }
       setState(() {
-        _items = page.items;
+        _data = result;
+        _localItems = localPage?.items ?? const [];
         _pinyinIndex = {
-          for (final r in page.items) r.id: pinyinSearchTokens(r.name),
+          for (final item in _localItems)
+            item.id: pinyinSearchTokens(item.name),
         };
+        _localHasMore = localPage?.hasMore ?? false;
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || requestSerial != _requestSerial) return;
       setState(() {
         _error = e;
         _loading = false;
@@ -364,114 +414,28 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
     }
   }
 
-  bool _matches(ResourceItem resource) {
-    return matchesPinyinSearch(
-      resource.name,
-      widget.search ?? '',
-      tokens: _pinyinIndex[resource.id],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final filtered = _items.where(_matches).toList();
-
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Text('加载失败: $_error', style: AppText.meta(context)),
-        ),
-      );
+  List<ResourceItem> _visibleItems() {
+    final source = _usesLocalPinyin
+        ? _localItems.where(
+            (item) => matchesPinyinSearch(
+              item.name,
+              widget.search ?? '',
+              tokens: _pinyinIndex[item.id],
+            ),
+          )
+        : (_data?.items ?? const <ResourceItem>[]);
+    final byId = <int, ResourceItem>{
+      for (final item in source)
+        item.id: item,
+    };
+    for (final id in widget.selected) {
+      if (byId.containsKey(id)) continue;
+      final name = _knownNames[id];
+      if (name != null && name.isNotEmpty) {
+        byId[id] = ResourceItem(id: id, name: name);
+      }
     }
-    if (filtered.isEmpty) {
-      return Center(child: Text('没有匹配的资源', style: AppText.meta(context)));
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
-      itemCount: filtered.length,
-      itemBuilder: (ctx, i) {
-        final r = filtered[i];
-        final isSel = widget.selected.contains(r.id);
-        return _PickerTile(
-          id: r.id,
-          label: r.name,
-          sub: r.movieCount > 0 ? '${r.movieCount} 部' : null,
-          hue: AppHues.all[i % AppHues.all.length],
-          selected: isSel,
-          multiCheckbox: !widget.singleSelect,
-          onTap: () => widget.onToggle(r.id),
-        );
-      },
-    );
-  }
-}
-
-/// 演员单独走 ActorsApi (因为 ResourcesRepository 没接 actor)
-class _ActorList extends ConsumerStatefulWidget {
-  const _ActorList({
-    required this.search,
-    required this.selected,
-    required this.onToggle,
-  });
-
-  final String? search;
-  final Set<int> selected;
-  final ValueChanged<int> onToggle;
-
-  @override
-  ConsumerState<_ActorList> createState() => _ActorListState();
-}
-
-class _ActorListState extends ConsumerState<_ActorList> {
-  PagedResult<ResourceItem>? _data;
-  Object? _error;
-  bool _loading = false;
-  String? _lastSearch;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetch();
-  }
-
-  @override
-  void didUpdateWidget(covariant _ActorList old) {
-    super.didUpdateWidget(old);
-    if (old.search != widget.search) _fetch();
-  }
-
-  Future<void> _fetch() async {
-    if (_lastSearch == widget.search && _data != null) return;
-    _lastSearch = widget.search;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final api = ref.read(requiredApiClientProvider).actors;
-      final raw = await api.list({
-        'limit': 500,
-        'offset': 0,
-        'sort_by': 'movie_count',
-        'sort_order': 'desc',
-        if (widget.search != null) 'search': widget.search,
-      });
-      // 后端返回顶层数组 { success, data: [...] }
-      final paged = unwrapTopLevelList<ResourceItem>(
-        raw,
-        ResourceItem.fromJson,
-      );
-      if (!mounted) return;
-      setState(() => _data = paged);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = e);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+    return byId.values.toList();
   }
 
   @override
@@ -484,29 +448,213 @@ class _ActorListState extends ConsumerState<_ActorList> {
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Text(
-            '加载失败: ${_error is ApiException ? (_error as ApiException).message : _error}',
+            '加载失败: ${toApiException(_error!).message}',
             style: AppText.meta(context),
           ),
         ),
       );
     }
-    final items = _data?.items ?? const <ResourceItem>[];
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
-      itemCount: items.length,
-      itemBuilder: (ctx, i) {
-        final r = items[i];
-        final isSel = widget.selected.contains(r.id);
-        return _PickerTile(
-          id: r.id,
-          label: r.name,
-          sub: r.movieCount > 0 ? '${r.movieCount} 部' : null,
-          hue: AppHues.all[i % AppHues.all.length],
-          selected: isSel,
-          multiCheckbox: true,
-          onTap: () => widget.onToggle(r.id),
+    final items = _visibleItems();
+    if (items.isEmpty && !_loading) {
+      return Center(child: Text('没有匹配的资源', style: AppText.meta(context)));
+    }
+
+    return Column(
+      children: [
+        if ((_usesLocalPinyin && _localHasMore) ||
+            (!_usesLocalPinyin && _data?.hasMore == true))
+          const _OptionsMoreHint(),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
+            itemCount: items.length,
+            itemBuilder: (ctx, i) {
+              final r = items[i];
+              final isSel = widget.selected.contains(r.id);
+              return _PickerTile(
+                id: r.id,
+                label: r.name,
+                sub: r.movieCount > 0 ? '${r.movieCount} 部' : null,
+                hue: AppHues.all[i % AppHues.all.length],
+                selected: isSel,
+                multiCheckbox: !widget.singleSelect,
+                onTap: () => widget.onToggle(r.id),
+              );
+            },
+          ),
+        ),
+        if (_loading) const LinearProgressIndicator(minHeight: 2),
+      ],
+    );
+  }
+}
+
+class _ActorList extends ConsumerStatefulWidget {
+  const _ActorList({
+    required this.search,
+    required this.selected,
+    required this.selectedNames,
+    required this.onToggle,
+  });
+
+  final String? search;
+  final Set<int> selected;
+  final Map<int, String> selectedNames;
+  final ValueChanged<int> onToggle;
+
+  @override
+  ConsumerState<_ActorList> createState() => _ActorListState();
+}
+
+class _ActorListState extends ConsumerState<_ActorList> {
+  OptionsResult<ResourceItem>? _data;
+  Object? _error;
+  bool _loading = false;
+  int _requestSerial = 0;
+  final _knownNames = <int, String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _knownNames.addAll(widget.selectedNames);
+    _fetch();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ActorList old) {
+    super.didUpdateWidget(old);
+    _knownNames.addAll(widget.selectedNames);
+    if (old.search != widget.search) _fetch();
+  }
+
+  Future<void> _fetch() async {
+    final requestSerial = ++_requestSerial;
+    final search = widget.search;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final api = ref.read(requiredApiClientProvider).actors;
+      final q = <String, dynamic>{
+        if (search != null && search.isNotEmpty) 'search': search,
+      };
+      OptionsResult<ResourceItem> result;
+      try {
+        final raw = await api.options(q);
+        result = unwrapOptions<ResourceItem>(raw, ResourceItem.fromJson);
+      } catch (error) {
+        final status = toApiException(error).status;
+        // 老服务没有 /options 路由时，/options 可能会命中 /:id 并返回 400。
+        if (status != 404 && status != 400) rethrow;
+        final raw = await api.list({
+          'limit': 500,
+          'offset': 0,
+          'sort_by': 'movie_count',
+          'sort_order': 'desc',
+          if (search != null && search.isNotEmpty) 'search': search,
+        });
+        final page = unwrapTopLevelList<ResourceItem>(
+          raw,
+          ResourceItem.fromJson,
         );
-      },
+        result = OptionsResult<ResourceItem>(
+          items: page.items,
+          hasMore: page.hasMore,
+          limit: page.limit,
+        );
+      }
+      if (!mounted || requestSerial != _requestSerial) return;
+      for (final item in result.items) {
+        _knownNames[item.id] = item.name;
+      }
+      setState(() => _data = result);
+    } catch (e) {
+      if (!mounted || requestSerial != _requestSerial) return;
+      setState(() => _error = e);
+    } finally {
+      if (mounted && requestSerial == _requestSerial) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  List<ResourceItem> _visibleItems() {
+    final byId = <int, ResourceItem>{
+      for (final item in _data?.items ?? const <ResourceItem>[]) item.id: item,
+    };
+    for (final id in widget.selected) {
+      if (byId.containsKey(id)) continue;
+      final name = _knownNames[id];
+      if (name != null && name.isNotEmpty) {
+        byId[id] = ResourceItem(id: id, name: name);
+      }
+    }
+    return byId.values.toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading && _data == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(
+            '加载失败: ${toApiException(_error!).message}',
+            style: AppText.meta(context),
+          ),
+        ),
+      );
+    }
+    final items = _visibleItems();
+    if (items.isEmpty && !_loading) {
+      return Center(child: Text('没有匹配的演员', style: AppText.meta(context)));
+    }
+    return Column(
+      children: [
+        if (_data?.hasMore == true) const _OptionsMoreHint(),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
+            itemCount: items.length,
+            itemBuilder: (ctx, i) {
+              final r = items[i];
+              final isSel = widget.selected.contains(r.id);
+              return _PickerTile(
+                id: r.id,
+                label: r.name,
+                sub: r.movieCount > 0 ? '${r.movieCount} 部' : null,
+                hue: AppHues.all[i % AppHues.all.length],
+                selected: isSel,
+                multiCheckbox: true,
+                onTap: () => widget.onToggle(r.id),
+              );
+            },
+          ),
+        ),
+        if (_loading) const LinearProgressIndicator(minHeight: 2),
+      ],
+    );
+  }
+}
+
+class _OptionsMoreHint extends StatelessWidget {
+  const _OptionsMoreHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 2, 22, 6),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          '结果较多，请继续输入关键词缩小范围',
+          style: AppText.meta(context),
+        ),
+      ),
     );
   }
 }

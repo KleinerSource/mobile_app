@@ -10,6 +10,9 @@ abstract class TagsApi {
   @GET('/tags')
   Future<dynamic> list(@Queries() Map<String, dynamic> q);
 
+  @GET('/tags/options')
+  Future<dynamic> options(@Queries() Map<String, dynamic> q);
+
   @POST('/tags')
   Future<dynamic> create(@Body() Map<String, dynamic> body);
 

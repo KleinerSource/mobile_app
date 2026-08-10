@@ -167,6 +167,9 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       context: context,
       kind: EntityPickerKind.series,
       selected: _seriesId,
+      selectedNames: _seriesId != null && _seriesName != null
+          ? {_seriesId!: _seriesName!}
+          : const {},
     );
     if (picked == null) return;
     if (picked == -1) {
@@ -195,6 +198,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       context: context,
       kind: kind,
       selected: selected,
+      selectedNames: {for (final e in current) e.id: e.name},
     );
     if (result == null) return;
     // 保留旧名字, 新增 id 用 '#id' 临时占位 (detail refresh 后会更新)

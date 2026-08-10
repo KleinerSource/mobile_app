@@ -73,3 +73,30 @@ PagedResult<T> unwrapTopLevelList<T>(
     offset: (raw['offset'] as num?)?.toInt() ?? 0,
   );
 }
+
+OptionsResult<T> unwrapOptions<T>(
+  Object? raw,
+  T Function(Map<String, dynamic>) decodeItem,
+) {
+  if (raw is! Map) {
+    throw ApiException('响应格式异常');
+  }
+  if (raw['success'] != true) {
+    throw ApiException(
+      (raw['message'] as String?) ?? '操作失败',
+      data: raw['data'],
+    );
+  }
+  final dataRaw = raw['data'];
+  final items = (dataRaw is List)
+      ? dataRaw
+          .whereType<Map>()
+          .map((e) => decodeItem(Map<String, dynamic>.from(e)))
+          .toList()
+      : <T>[];
+  return OptionsResult<T>(
+    items: items,
+    hasMore: raw['has_more'] == true,
+    limit: (raw['limit'] as num?)?.toInt() ?? items.length,
+  );
+}

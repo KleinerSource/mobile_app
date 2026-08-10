@@ -10,6 +10,9 @@ abstract class GenresApi {
   @GET('/genres')
   Future<dynamic> list(@Queries() Map<String, dynamic> q);
 
+  @GET('/genres/options')
+  Future<dynamic> options(@Queries() Map<String, dynamic> q);
+
   @POST('/genres')
   Future<dynamic> create(@Body() Map<String, dynamic> body);
 

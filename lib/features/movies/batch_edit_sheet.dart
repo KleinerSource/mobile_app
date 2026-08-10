@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -102,8 +104,8 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
     final repo = ref.read(resourcesRepositoryProvider);
     final lower = name.trim().toLowerCase();
     if (lower.isEmpty) return null;
-    final page = await repo.list(kind, limit: 500);
-    for (final r in page.items) {
+    final result = await repo.options(kind, search: name);
+    for (final r in result.items) {
       if (r.name.trim().toLowerCase() == lower) return r.id;
     }
     final created = await repo.create(kind, name: name);
@@ -673,6 +675,7 @@ class _SingleSeriesPicker extends ConsumerStatefulWidget {
 class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
   bool _loading = true;
   List<ResourceItem> _all = const [];
+  bool _hasMore = false;
 
   @override
   void initState() {
@@ -682,12 +685,13 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
 
   Future<void> _load() async {
     try {
-      final page = await ref
+      final result = await ref
           .read(resourcesRepositoryProvider)
-          .list(ResourceKind.series, limit: 500);
+          .options(ResourceKind.series);
       if (!mounted) return;
       setState(() {
-        _all = page.items;
+        _all = result.items;
+        _hasMore = result.hasMore;
         _loading = false;
       });
     } catch (_) {
@@ -700,6 +704,37 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
     final c = appColors(context);
     final mq = MediaQuery.of(context);
     var q = '';
+    var items = List<ResourceItem>.of(_all);
+    var hasMore = _hasMore;
+    var searching = false;
+    String? searchError;
+    Timer? debounce;
+    var requestSerial = 0;
+    var active = true;
+
+    Future<void> searchSeries(String value, StateSetter setS) async {
+      final serial = ++requestSerial;
+      setS(() {
+        searching = true;
+        searchError = null;
+      });
+      try {
+        final result = await ref
+            .read(resourcesRepositoryProvider)
+            .options(ResourceKind.series, search: value);
+        if (!active || serial != requestSerial) return;
+        items = result.items;
+        hasMore = result.hasMore;
+      } catch (_) {
+        if (!active || serial != requestSerial) return;
+        searchError = '搜索系列失败，请稍后重试';
+      } finally {
+        if (active && serial == requestSerial) {
+          setS(() => searching = false);
+        }
+      }
+    }
+
     final picked = await showModalBottomSheet<({int? id, bool clear})>(
       context: context,
       backgroundColor: c.bg,
@@ -707,11 +742,6 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
       showDragHandle: true,
       builder: (ctx) {
         return StatefulBuilder(builder: (ctx, setS) {
-          final filtered = q.isEmpty
-              ? _all
-              : _all
-                  .where((r) => r.name.toLowerCase().contains(q.toLowerCase()))
-                  .toList();
           return SizedBox(
             height: mq.size.height * 0.75,
             child: Column(
@@ -723,7 +753,14 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
                   child: TextField(
-                    onChanged: (v) => setS(() => q = v.trim()),
+                    onChanged: (v) {
+                      q = v.trim();
+                      debounce?.cancel();
+                      debounce = Timer(const Duration(milliseconds: 250), () {
+                        searchSeries(q, setS);
+                      });
+                      setS(() {});
+                    },
                     decoration: InputDecoration(
                       hintText: '搜索系列...',
                       prefixIcon:
@@ -733,27 +770,58 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
                     ),
                   ),
                 ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: filtered.length,
-                    itemBuilder: (ctx, i) {
-                      final r = filtered[i];
-                      final isSel = widget.selected == r.id;
-                      return ListTile(
-                        dense: true,
-                        leading: Icon(
-                          isSel
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_unchecked,
-                          size: 18,
-                          color: isSel ? c.accent : c.muted,
-                        ),
-                        title: Text(r.name),
-                        onTap: () =>
-                            Navigator.of(ctx).pop((id: r.id, clear: false)),
-                      );
-                    },
+                if (searchError != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 6),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        searchError!,
+                        style: TextStyle(color: c.danger, fontSize: 12),
+                      ),
+                    ),
                   ),
+                if (hasMore)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 6),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '结果较多，请继续输入关键词缩小范围',
+                        style: TextStyle(color: c.muted, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: searching
+                      ? const Center(child: CircularProgressIndicator())
+                      : items.isEmpty
+                          ? Center(
+                              child: Text(
+                                q.isEmpty ? '暂无系列' : '未找到匹配的系列',
+                                style: AppText.body(ctx),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: items.length,
+                              itemBuilder: (ctx, i) {
+                                final r = items[i];
+                                final isSel = widget.selected == r.id;
+                                return ListTile(
+                                  dense: true,
+                                  leading: Icon(
+                                    isSel
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_unchecked,
+                                    size: 18,
+                                    color: isSel ? c.accent : c.muted,
+                                  ),
+                                  title: Text(r.name),
+                                  onTap: () => Navigator.of(ctx)
+                                      .pop((id: r.id, clear: false)),
+                                );
+                              },
+                            ),
                 ),
                 SafeArea(
                   top: false,
@@ -772,7 +840,27 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
         });
       },
     );
+    active = false;
+    debounce?.cancel();
     if (picked != null) {
+      if (!picked.clear && picked.id != null) {
+        ResourceItem? selectedItem;
+        for (final item in items) {
+          if (item.id == picked.id) {
+            selectedItem = item;
+            break;
+          }
+        }
+        final item = selectedItem;
+        if (item != null && mounted) {
+          setState(() {
+            _all = [
+              item,
+              ..._all.where((existing) => existing.id != item.id),
+            ];
+          });
+        }
+      }
       widget.onChanged(picked.clear ? null : picked.id);
     }
   }

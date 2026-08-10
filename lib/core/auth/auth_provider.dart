@@ -54,7 +54,12 @@ class AuthController extends AsyncNotifier<AuthState> {
       );
     }
 
-    if (!status.enabled || status.authenticated) {
+    if (!status.enabled) {
+      // 鉴权关闭后清除历史会话，避免任务 WebSocket 继续携带旧 token。
+      await ref.read(authSessionRepositoryProvider).clear();
+      return AuthState(phase: AuthPhase.authenticated, status: status);
+    }
+    if (status.authenticated) {
       return AuthState(phase: AuthPhase.authenticated, status: status);
     }
 
