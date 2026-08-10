@@ -26,6 +26,14 @@ void main() {
       'https://api.github.com/repos/KleinerSource/mobile_app/releases?per_page=100',
     );
     expect(
+      repository.releaseTagApiUrl(UpdatePlatform.ios),
+      'https://api.github.com/repos/KleinerSource/mobile_app/releases/tags/latest',
+    );
+    expect(
+      repository.releaseTagApiUrl(UpdatePlatform.android),
+      'https://api.github.com/repos/KleinerSource/mobile_app/releases/tags/latest-android',
+    );
+    expect(
       () => GitHubRepository.parse('https://example.com/owner/repo'),
       throwsFormatException,
     );
@@ -95,5 +103,31 @@ void main() {
     expect(ios?.version, const AppReleaseVersion(major: 0, minor: 1, patch: 60, build: 67));
     expect(ios?.asset.name, 'md_center_0.1.60+67.ipa');
     expect(android?.asset.name, 'md_center_0.1.60+67.apk');
+  });
+
+  test('滚动 Release 标签中的 IPA 资产可识别', () {
+    final release = GitHubRelease.fromJson(const {
+      'tag_name': 'latest',
+      'name': 'Latest unsigned iOS build',
+      'assets': [
+        {
+          'name': 'md_center_0.1.73+80.ipa',
+          'browser_download_url':
+              'https://github.com/o/r/releases/download/latest/md_center_0.1.73%2B80.ipa',
+          'size': 100,
+        },
+      ],
+    });
+
+    final candidate = GitHubUpdateService.selectLatestCandidate(
+      [release],
+      UpdatePlatform.ios,
+    );
+
+    expect(candidate?.asset.name, 'md_center_0.1.73+80.ipa');
+    expect(
+      candidate?.version,
+      const AppReleaseVersion(major: 0, minor: 1, patch: 73, build: 80),
+    );
   });
 }

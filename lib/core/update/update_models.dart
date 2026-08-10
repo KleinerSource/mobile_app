@@ -5,6 +5,9 @@ enum UpdatePlatform { ios, android }
 extension UpdatePlatformX on UpdatePlatform {
   String get assetExtension => this == UpdatePlatform.ios ? '.ipa' : '.apk';
 
+  String get rollingReleaseTag =>
+      this == UpdatePlatform.ios ? 'latest' : 'latest-android';
+
   String get label => this == UpdatePlatform.ios ? 'iOS' : 'Android';
 }
 
@@ -132,6 +135,10 @@ class GitHubRepository {
   String get releasesApiUrl =>
       'https://api.github.com/repos/$owner/$name/releases?per_page=100';
 
+  String releaseTagApiUrl(UpdatePlatform platform) =>
+      'https://api.github.com/repos/$owner/$name/releases/tags/'
+      '${platform.rollingReleaseTag}';
+
   @override
   String toString() => canonicalUrl;
 }
@@ -207,8 +214,7 @@ class GitHubRelease {
   GitHubReleaseAsset? assetFor(UpdatePlatform platform) {
     final matching = assets
         .where((asset) =>
-            asset.isHttpsUrl &&
-            asset.name.toLowerCase().endsWith(platform.assetExtension))
+            asset.isHttpsUrl && _matchesPlatformAsset(asset, platform))
         .toList();
     if (matching.isEmpty) return null;
     matching.sort((left, right) {
@@ -224,6 +230,22 @@ class GitHubRelease {
       return left.size.compareTo(right.size);
     });
     return matching.last;
+  }
+
+  bool _matchesPlatformAsset(
+    GitHubReleaseAsset asset,
+    UpdatePlatform platform,
+  ) {
+    final name = _decodeAssetName(asset.name).toLowerCase();
+    return name.endsWith(platform.assetExtension);
+  }
+
+  String _decodeAssetName(String value) {
+    try {
+      return Uri.decodeComponent(value.trim());
+    } on FormatException {
+      return value.trim();
+    }
   }
 }
 

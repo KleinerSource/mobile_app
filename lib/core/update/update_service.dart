@@ -38,16 +38,7 @@ class GitHubUpdateService {
   }) async {
     final repository = GitHubRepository.parse(repositoryUrl);
     try {
-      final response = await _dio.get<dynamic>(repository.releasesApiUrl);
-      final rawReleases = response.data;
-      if (rawReleases is! List) {
-        throw const UpdateException('GitHub 返回的 Release 数据格式不正确');
-      }
-      final releases = rawReleases
-          .whereType<Map>()
-          .map((item) => GitHubRelease.fromJson(Map<String, dynamic>.from(item)))
-          .where((release) => !release.draft)
-          .toList();
+      final releases = await _loadReleases(repository, platform);
       final candidate = selectLatestCandidate(releases, platform);
       if (candidate == null) {
         throw UpdateException('没有找到适用于 ${platform.label} 的安装包');
@@ -71,6 +62,44 @@ class GitHubUpdateService {
     } catch (_) {
       throw const UpdateException('读取 GitHub Release 失败');
     }
+  }
+
+  Future<List<GitHubRelease>> _loadReleases(
+    GitHubRepository repository,
+    UpdatePlatform platform,
+  ) async {
+    final rollingReleases = <GitHubRelease>[];
+    try {
+      final response = await _dio.get<dynamic>(
+        repository.releaseTagApiUrl(platform),
+      );
+      final data = response.data;
+      if (data is Map) {
+        rollingReleases.add(
+          GitHubRelease.fromJson(Map<String, dynamic>.from(data)),
+        );
+      }
+    } on DioException catch (error) {
+      // 自建仓库可能没有使用滚动标签，继续回退到 Release 列表。
+      if (error.response?.statusCode != 404) rethrow;
+    }
+
+    if (selectLatestCandidate(rollingReleases, platform) != null) {
+      return rollingReleases.where((release) => !release.draft).toList();
+    }
+
+    final response = await _dio.get<dynamic>(repository.releasesApiUrl);
+    final rawReleases = response.data;
+    if (rawReleases is! List) {
+      throw const UpdateException('GitHub 返回的 Release 数据格式不正确');
+    }
+    return [
+      ...rollingReleases,
+      ...rawReleases
+          .whereType<Map>()
+          .map((item) => GitHubRelease.fromJson(Map<String, dynamic>.from(item)))
+          .where((release) => !release.draft),
+    ];
   }
 
   static GitHubUpdateCandidate? selectLatestCandidate(
