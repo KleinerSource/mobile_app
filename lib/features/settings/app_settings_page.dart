@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +10,7 @@ import '../../shared/glow_background.dart';
 import '../i18n/locale_providers.dart';
 import '../i18n/theme_provider.dart';
 import '../privacy/privacy_providers.dart';
+import '../security/security_settings_page.dart';
 import 'badge_position_page.dart';
 import 'cache_management_page.dart';
 import 'haptic_settings.dart';
@@ -35,8 +38,18 @@ class AppSettingsPage extends ConsumerWidget {
               ),
               SettingsGroup(
                 title: l.settingsGroupPrivacy,
-                items: const [
-                  _PrivacyShieldTile(),
+                items: [
+                  const _PrivacyShieldTile(),
+                  SettingsTile(
+                    title: '安全设置',
+                    subtitle: '面容/指纹、进入密码、手势密码',
+                    leadingIcon: Icons.lock_outline,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const SecuritySettingsPage(),
+                      ),
+                    ),
+                  ),
                 ],
               ),
               SettingsGroup(

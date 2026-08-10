@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>MD Center 需要访问局域网内的媒体服务器。</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>MD Center 使用面容识别验证进入应用。</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

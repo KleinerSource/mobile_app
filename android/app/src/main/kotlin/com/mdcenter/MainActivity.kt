@@ -8,12 +8,12 @@ import android.os.Build
 import android.os.SystemClock
 import android.net.TrafficStats
 import android.util.Rational
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
     companion object {
         private const val STATS_CHANNEL = "md_center/player_stats"
         private const val CAPABILITIES_CHANNEL = "md_center/player_capabilities"
