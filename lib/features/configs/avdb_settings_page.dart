@@ -38,6 +38,7 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
     _loaded = true;
     _enabled = cfg.enabled;
     _baseUrl.text = cfg.baseUrl;
+    _apiKey.text = cfg.apiKey;
     _hasKey = cfg.hasApiKey;
   }
 
@@ -48,7 +49,7 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
     });
     try {
       final apiKey = _apiKey.text.trim();
-      await ref.read(configsRepositoryProvider).saveAvdb(
+      final saved = await ref.read(configsRepositoryProvider).saveAvdb(
             AvdbConfig(
               enabled: _enabled,
               baseUrl: _baseUrl.text.trim(),
@@ -57,7 +58,10 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
             keepApiKey: apiKey.isEmpty && _hasKey,
           );
       if (!mounted) return;
-      _apiKey.clear();
+      if (saved.apiKey.trim().isNotEmpty) {
+        _apiKey.text = saved.apiKey;
+        _hasKey = true;
+      }
       ref.invalidate(avdbConfigProvider);
       AppHaptics.medium();
       ScaffoldMessenger.of(context).showSnackBar(

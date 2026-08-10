@@ -40,12 +40,16 @@ void main() {
     );
   });
 
-  test('DB Online 配置读写起始年月', () {
+  test('DB Online 配置读写 API Key 和起始年月', () {
     final config = DboConfig.fromJson(const {
       'enabled': true,
+      'api_key': 'dbo-secret',
       'min_resource_month': '2024-01',
     });
 
+    expect(config.apiKey, 'dbo-secret');
+    expect(config.hasApiKey, isTrue);
+    expect(config.toJson()['api_key'], 'dbo-secret');
     expect(config.minResourceMonth, '2024-01');
     expect(config.toJson()['min_resource_month'], '2024-01');
   });

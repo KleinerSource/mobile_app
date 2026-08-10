@@ -49,6 +49,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
     _loaded = true;
     _enabled = cfg.enabled;
     _baseUrl.text = cfg.baseUrl;
+    _apiKey.text = cfg.apiKey;
     _maxAge = cfg.maxAgeMonths;
     _minResourceMonth.text = cfg.minResourceMonth;
     _hasKey = cfg.hasApiKey;
@@ -80,15 +81,19 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
         minResourceMonth: minResourceMonth ?? '',
       );
       final keep = _apiKey.text.trim().isEmpty && _hasKey;
-      await ref
+      final saved = await ref
           .read(configsRepositoryProvider)
           .saveDbo(cfg, keepApiKey: keep);
+      if (!mounted) return;
+      if (saved.apiKey.trim().isNotEmpty) {
+        _apiKey.text = saved.apiKey;
+        _hasKey = true;
+      }
       AppHaptics.medium();
       messenger.showSnackBar(const SnackBar(
         content: Text('已保存'),
         duration: Duration(seconds: 1),
       ));
-      _apiKey.clear();
       // ignore: unused_result
       ref.refresh(dboConfigProvider);
     } catch (e) {
