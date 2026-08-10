@@ -28,7 +28,6 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
   bool _busy = false;
   bool _biometricInFlight = false;
   bool _biometricAttempted = false;
-  bool _skipNextResume = false;
   bool _wasBackgrounded = false;
   String? _error;
 
@@ -50,14 +49,15 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       _wasBackgrounded = true;
+      ref.read(securityBiometricCoordinatorProvider).didEnterInactive();
       return;
     }
     if (state != AppLifecycleState.resumed || !mounted) return;
 
     // local_auth 的系统验证页也会触发一次生命周期切换。这个切换不是
     // 用户离开应用，不能在验证成功后再次锁定并重复弹出生物识别。
-    if (_biometricInFlight || _skipNextResume) {
-      _skipNextResume = false;
+    if (ref.read(securityBiometricCoordinatorProvider).consumeResume() ||
+        _biometricInFlight) {
       _wasBackgrounded = false;
       return;
     }
@@ -119,20 +119,23 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
 
   Future<void> _authenticateBiometric() async {
     if (_busy || !mounted) return;
+    final coordinator = ref.read(securityBiometricCoordinatorProvider);
+    coordinator.beginAuthentication();
     _biometricInFlight = true;
-    _skipNextResume = true;
     setState(() {
       _busy = true;
       _error = null;
     });
-    final success = await ref
-        .read(securityRepositoryProvider)
-        .authenticateBiometric();
+    bool success = false;
+    try {
+      success = await ref
+          .read(securityRepositoryProvider)
+          .authenticateBiometric();
+    } finally {
+      _biometricInFlight = false;
+      coordinator.endAuthentication();
+    }
     if (!mounted) return;
-    _biometricInFlight = false;
-    // 某些设备不会向 Flutter 派发生命周期事件。没有待处理的后台返回时，
-    // 清掉跳过标记，避免下一次真实回到前台被误放过。
-    if (!_wasBackgrounded) _skipNextResume = false;
     setState(() {
       _busy = false;
       if (success) {

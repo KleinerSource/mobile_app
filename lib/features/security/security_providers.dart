@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../../core/config/server_config_provider.dart';
+import 'security_biometric_coordinator.dart';
 import 'security_repository.dart';
 
 final securityRepositoryProvider = Provider<SecurityRepository>((ref) {
@@ -11,6 +12,11 @@ final securityRepositoryProvider = Provider<SecurityRepository>((ref) {
     storage: const FlutterSecureStorage(),
     localAuthentication: LocalAuthentication(),
   );
+});
+
+final securityBiometricCoordinatorProvider =
+    Provider<SecurityBiometricCoordinator>((ref) {
+  return SecurityBiometricCoordinator();
 });
 
 final securityControllerProvider =
@@ -25,6 +31,8 @@ class SecurityController extends AsyncNotifier<SecuritySettings> {
   }
 
   SecurityRepository get _repository => ref.read(securityRepositoryProvider);
+
+  Future<bool>? _enableBiometricsRequest;
 
   Future<void> savePin(String pin) => _reload(() => _repository.savePin(pin));
 
@@ -42,13 +50,31 @@ class SecurityController extends AsyncNotifier<SecuritySettings> {
 
   Future<void> clearGesture() => _reload(_repository.clearGesture);
 
-  Future<bool> enableBiometrics() async {
+  Future<bool> enableBiometrics() {
+    final pending = _enableBiometricsRequest;
+    if (pending != null) return pending;
+    final request = _enableBiometrics();
+    _enableBiometricsRequest = request;
+    return request.whenComplete(() {
+      if (identical(_enableBiometricsRequest, request)) {
+        _enableBiometricsRequest = null;
+      }
+    });
+  }
+
+  Future<bool> _enableBiometrics() async {
     final current = await _repository.load();
     if (!current.hasPin) return false;
     if (!await _repository.canUseBiometrics()) return false;
-    if (!await _repository.authenticateBiometric()) return false;
-    await _reload(() => _repository.setBiometricEnabled(true));
-    return true;
+    final coordinator = ref.read(securityBiometricCoordinatorProvider);
+    coordinator.beginAuthentication();
+    try {
+      if (!await _repository.authenticateBiometric()) return false;
+      await _reload(() => _repository.setBiometricEnabled(true));
+      return true;
+    } finally {
+      coordinator.endAuthentication();
+    }
   }
 
   Future<void> disableBiometrics() {
