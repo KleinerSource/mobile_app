@@ -8,12 +8,12 @@ import 'dart:math' as math;
 class ShakeDetector {
   ShakeDetector({
     required this.onShake,
-    this.threshold = 18,
-    this.requiredPeaks = 3,
-    this.sequenceWindow = const Duration(milliseconds: 1500),
+    this.threshold = 15,
+    this.requiredPeaks = 2,
+    this.sequenceWindow = const Duration(milliseconds: 1800),
     this.cooldown = const Duration(seconds: 1),
     double? releaseThreshold,
-  }) : releaseThreshold = releaseThreshold ?? threshold * 0.7;
+  }) : releaseThreshold = releaseThreshold ?? threshold * 0.75;
 
   final void Function() onShake;
   final double threshold;
