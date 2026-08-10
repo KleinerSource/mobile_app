@@ -19,9 +19,19 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
   }
 
   Future<void> save(ServerConfig cfg) async {
-    final normalized = ServerConfig(baseUrl: ServerConfig.normalize(cfg.baseUrl));
-    await ref.read(serverConfigRepoProvider).save(normalized);
-    state = normalized;
+    final normalized = cfg.copyWith(
+      baseUrl: ServerConfig.normalize(cfg.baseUrl),
+      lines: cfg.lines
+          .map(
+            (line) => line.copyWith(
+              baseUrl: ServerConfig.normalize(line.baseUrl),
+            ),
+          )
+          .toList(),
+    );
+    final repository = ref.read(serverConfigRepoProvider);
+    await repository.save(normalized);
+    state = repository.load();
   }
 
   Future<void> clear() async {

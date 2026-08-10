@@ -15,13 +15,16 @@ Dio buildDio(
   ServerConfig config, {
   AuthSessionRepository? sessionRepository,
   void Function()? onSessionExpired,
+  Duration connectTimeout = const Duration(seconds: 15),
+  Duration sendTimeout = const Duration(seconds: 30),
+  Duration receiveTimeout = const Duration(seconds: 30),
 }) {
   final dio = Dio(
     BaseOptions(
       baseUrl: config.apiBase,
-      connectTimeout: const Duration(seconds: 15),
-      sendTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
+      connectTimeout: connectTimeout,
+      sendTimeout: sendTimeout,
+      receiveTimeout: receiveTimeout,
       headers: const {'Content-Type': 'application/json'},
       responseType: ResponseType.json,
     ),
