@@ -24,7 +24,8 @@ class SecurityGate extends ConsumerStatefulWidget {
 
 class _SecurityGateState extends ConsumerState<SecurityGate>
     with WidgetsBindingObserver {
-  bool _locked = true;
+  bool _locked = false;
+  bool _securityInitialized = false;
   bool _busy = false;
   bool _biometricInFlight = false;
   bool _biometricAttempted = false;
@@ -84,6 +85,11 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
         onRetry: () => ref.invalidate(securityControllerProvider),
       ),
       data: (settings) {
+        if (!_securityInitialized) {
+          _securityInitialized = true;
+          // 首次加载没有凭据时保持已解锁；如果已有凭据，则从启动开始锁定。
+          _locked = settings.requiresUnlock;
+        }
         if (!settings.requiresUnlock || !_locked) return widget.child;
         _scheduleBiometric(settings);
         return Stack(
