@@ -63,9 +63,7 @@ class AppSettingsPage extends ConsumerWidget {
                   const _HapticIntensityTile(),
                   SettingsTile(
                     title: '应用更新',
-                    subtitle: updateRepository == null
-                        ? '未配置 GitHub 地址'
-                        : updateRepository,
+                    subtitle: updateRepository ?? '未配置 GitHub 地址',
                     leadingIcon: Icons.system_update_alt_outlined,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(

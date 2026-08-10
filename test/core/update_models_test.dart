@@ -32,36 +32,36 @@ void main() {
 
   test('按平台从不同 Release 中选择最高版本产物', () {
     final releases = [
-      GitHubRelease.fromJson({
+      GitHubRelease.fromJson(const {
         'tag_name': 'latest',
         'name': 'iOS build',
         'published_at': '2026-08-10T05:20:00Z',
-        'assets': [
-          {
+        'assets': const [
+          const {
             'name': 'md_center_0.1.60+67.ipa',
             'browser_download_url': 'https://github.com/o/r/releases/ipa',
             'size': 100,
           },
         ],
       }),
-      GitHubRelease.fromJson({
+      GitHubRelease.fromJson(const {
         'tag_name': 'latest-android',
         'name': 'Android build',
         'published_at': '2026-08-10T05:21:00Z',
-        'assets': [
-          {
+        'assets': const [
+          const {
             'name': 'md_center_0.1.60+67.apk',
             'browser_download_url': 'https://github.com/o/r/releases/apk',
             'size': 200,
           },
         ],
       }),
-      GitHubRelease.fromJson({
+      GitHubRelease.fromJson(const {
         'tag_name': 'v0.1.59+66',
         'name': 'Older Android build',
         'published_at': '2026-08-09T05:21:00Z',
-        'assets': [
-          {
+        'assets': const [
+          const {
             'name': 'md_center_0.1.59+66.apk',
             'browser_download_url': 'https://github.com/o/r/releases/old',
             'size': 180,
