@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lpinyin/lpinyin.dart';
 
 import '../../core/models/resource.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/pinyin_search.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
 import 'movie_filter.dart';
@@ -734,30 +734,20 @@ class _PickerSheet extends StatefulWidget {
 class _PickerSheetState extends State<_PickerSheet> {
   late Set<int> _selected;
   String _q = '';
-  late final Map<int, ({String pinyin, String firstLetters})> _pinyinIndex;
+  late final Map<int, PinyinSearchTokens> _pinyinIndex;
 
   @override
   void initState() {
     super.initState();
     _selected = Set.of(widget.selected);
     _pinyinIndex = {
-      for (final r in widget.all)
-        r.id: (
-          pinyin:
-              PinyinHelper.getPinyinE(r.name, separator: '', defPinyin: '?')
-                  .toLowerCase(),
-          firstLetters: PinyinHelper.getShortPinyin(r.name).toLowerCase(),
-        ),
+      for (final r in widget.all) r.id: pinyinSearchTokens(r.name),
     };
   }
 
   bool _matches(ResourceItem r) {
-    if (_q.isEmpty) return true;
-    final q = _q.toLowerCase();
-    if (r.name.toLowerCase().contains(q)) return true;
     final idx = _pinyinIndex[r.id];
-    if (idx == null) return false;
-    return idx.pinyin.contains(q) || idx.firstLetters.contains(q);
+    return matchesPinyinSearch(r.name, _q, tokens: idx);
   }
 
   @override

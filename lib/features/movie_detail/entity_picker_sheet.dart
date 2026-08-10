@@ -9,6 +9,7 @@ import '../../core/api/envelope.dart';
 import '../../core/models/paged_result.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/pinyin_search.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
 
@@ -232,7 +233,7 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
                         controller: _searchCtrl,
                         onChanged: _onSearchChanged,
                         decoration: const InputDecoration(
-                          hintText: '搜索...',
+                          hintText: '搜索名称 / 拼音 / 首字母',
                           border: InputBorder.none,
                           isCollapsed: true,
                           contentPadding:
@@ -297,7 +298,7 @@ ResourceKind _resourceKindOf(EntityPickerKind k) {
   }
 }
 
-class _ResourceList extends ConsumerWidget {
+class _ResourceList extends ConsumerStatefulWidget {
   const _ResourceList({
     required this.kind,
     required this.search,
@@ -313,39 +314,97 @@ class _ResourceList extends ConsumerWidget {
   final bool singleSelect;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(resourceListProvider(ResourceListKey(
-      kind: kind,
-      search: search,
-      sortBy: 'name',
-      sortOrder: 'asc',
-    )));
+  ConsumerState<_ResourceList> createState() => _ResourceListState();
+}
 
-    return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(
+class _ResourceListState extends ConsumerState<_ResourceList> {
+  bool _loading = true;
+  Object? _error;
+  List<ResourceItem> _items = const [];
+  Map<int, PinyinSearchTokens> _pinyinIndex = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ResourceList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.kind != widget.kind) _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final page = await ref.read(resourcesRepositoryProvider).list(
+            widget.kind,
+            limit: 500,
+            sortBy: 'name',
+            sortOrder: 'asc',
+          );
+      if (!mounted) return;
+      setState(() {
+        _items = page.items;
+        _pinyinIndex = {
+          for (final r in page.items) r.id: pinyinSearchTokens(r.name),
+        };
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e;
+        _loading = false;
+      });
+    }
+  }
+
+  bool _matches(ResourceItem resource) {
+    return matchesPinyinSearch(
+      resource.name,
+      widget.search ?? '',
+      tokens: _pinyinIndex[resource.id],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _items.where(_matches).toList();
+
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) {
+      return Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Text('加载失败: $e', style: AppText.meta(context)),
+          child: Text('加载失败: $_error', style: AppText.meta(context)),
         ),
-      ),
-      data: (paged) => ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
-        itemCount: paged.items.length,
-        itemBuilder: (ctx, i) {
-          final r = paged.items[i];
-          final isSel = selected.contains(r.id);
-          return _PickerTile(
-            id: r.id,
-            label: r.name,
-            sub: r.movieCount > 0 ? '${r.movieCount} 部' : null,
-            hue: AppHues.all[i % AppHues.all.length],
-            selected: isSel,
-            multiCheckbox: !singleSelect,
-            onTap: () => onToggle(r.id),
-          );
-        },
-      ),
+      );
+    }
+    if (filtered.isEmpty) {
+      return Center(child: Text('没有匹配的资源', style: AppText.meta(context)));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
+      itemCount: filtered.length,
+      itemBuilder: (ctx, i) {
+        final r = filtered[i];
+        final isSel = widget.selected.contains(r.id);
+        return _PickerTile(
+          id: r.id,
+          label: r.name,
+          sub: r.movieCount > 0 ? '${r.movieCount} 部' : null,
+          hue: AppHues.all[i % AppHues.all.length],
+          selected: isSel,
+          multiCheckbox: !widget.singleSelect,
+          onTap: () => widget.onToggle(r.id),
+        );
+      },
     );
   }
 }
