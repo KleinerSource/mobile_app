@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -269,7 +268,13 @@ class _AppUpdateSettingsPageState
         child: FilledButton.icon(
           onPressed: _downloading
               ? null
-              : () => _download(result, buttonContext),
+              : () {
+                  final box = buttonContext.findRenderObject() as RenderBox?;
+                  final sharePositionOrigin = box == null
+                      ? null
+                      : box.localToGlobal(Offset.zero) & box.size;
+                  unawaited(_download(result, sharePositionOrigin));
+                },
           icon: _downloading
               ? SizedBox(
                   width: 18,
@@ -345,7 +350,7 @@ class _AppUpdateSettingsPageState
 
   Future<void> _download(
     UpdateCheckResult result,
-    BuildContext shareContext,
+    Rect? sharePositionOrigin,
   ) async {
     if (_downloading) return;
     if (!Platform.isIOS && !Platform.isAndroid) {
@@ -368,7 +373,7 @@ class _AppUpdateSettingsPageState
             },
           );
       if (Platform.isIOS) {
-        await _shareIosPackage(file, result, shareContext);
+        await _shareIosPackage(file, result, sharePositionOrigin);
       } else {
         final installed = await AndroidUpdateInstaller.install(file);
         if (!installed && mounted) {
@@ -392,9 +397,8 @@ class _AppUpdateSettingsPageState
   Future<void> _shareIosPackage(
     File file,
     UpdateCheckResult result,
-    BuildContext shareContext,
+    Rect? sharePositionOrigin,
   ) async {
-    final box = shareContext.findRenderObject() as RenderBox?;
     final shareResult = await SharePlus.instance.share(
       ShareParams(
         title: 'MD Center 更新包',
@@ -407,9 +411,7 @@ class _AppUpdateSettingsPageState
             mimeType: 'application/octet-stream',
           ),
         ],
-        sharePositionOrigin: box == null
-            ? null
-            : box.localToGlobal(Offset.zero) & box.size,
+        sharePositionOrigin: sharePositionOrigin,
       ),
     );
     if (!mounted) return;
