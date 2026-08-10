@@ -446,7 +446,7 @@ class _IconBtn extends StatelessWidget {
 }
 
 /// 字幕预览独立页 · 整个内容可滚动 + 顶部 copy 按钮
-class _SubtitlePreviewPage extends StatelessWidget {
+class _SubtitlePreviewPage extends StatefulWidget {
   const _SubtitlePreviewPage({
     required this.item,
     required this.content,
@@ -456,6 +456,19 @@ class _SubtitlePreviewPage extends StatelessWidget {
   final SubtitleSearchItem item;
   final String content;
   final int? duration;
+
+  @override
+  State<_SubtitlePreviewPage> createState() => _SubtitlePreviewPageState();
+}
+
+class _SubtitlePreviewPageState extends State<_SubtitlePreviewPage> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -482,7 +495,7 @@ class _SubtitlePreviewPage extends StatelessWidget {
               ),
             ),
             Text(
-              item.name,
+              widget.item.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -495,7 +508,7 @@ class _SubtitlePreviewPage extends StatelessWidget {
           ],
         ),
         actions: [
-          if (duration != null)
+          if (widget.duration != null)
             Padding(
               padding: const EdgeInsets.only(right: 6),
               child: Center(
@@ -512,7 +525,7 @@ class _SubtitlePreviewPage extends StatelessWidget {
                       Icon(Icons.access_time, size: 11, color: c.muted),
                       const SizedBox(width: 4),
                       Text(
-                        _formatDuration(duration!),
+                        _formatDuration(widget.duration!),
                         style: TextStyle(
                           color: c.text2,
                           fontFamily: 'monospace',
@@ -529,7 +542,7 @@ class _SubtitlePreviewPage extends StatelessWidget {
             tooltip: '复制',
             icon: const Icon(Icons.copy, size: 18),
             onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: content));
+              await Clipboard.setData(ClipboardData(text: widget.content));
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -543,22 +556,34 @@ class _SubtitlePreviewPage extends StatelessWidget {
       ),
       body: SafeArea(
         top: false,
-        child: Scrollbar(
-          thumbVisibility: true,
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              child: SelectableText(
-                content,
-                style: TextStyle(
-                  color: c.text2,
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                  height: 1.55,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Scrollbar(
+              controller: _scrollController,
+              thumbVisibility: true,
+              trackVisibility: true,
+              scrollbarOrientation: ScrollbarOrientation.right,
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                primary: false,
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 28, 24),
+                    child: SelectableText(
+                      widget.content,
+                      style: TextStyle(
+                        color: c.text2,
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        height: 1.55,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
