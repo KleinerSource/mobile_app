@@ -47,7 +47,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
 
   Future<PagedResult<ActorItem>> _load() async {
     final query = <String, dynamic>{
-      'limit': 200,
+      'limit': 100,
       'offset': 0,
       'sort_by': _sortBy,
       'sort_order': _sortOrder,

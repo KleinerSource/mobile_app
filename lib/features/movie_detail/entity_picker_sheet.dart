@@ -438,7 +438,7 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
           sortBy: 'name',
           sortOrder: 'asc',
         );
-        if (probe.totalCount <= _taxonomyLocalLimit) {
+        if (probe.totalCount < _taxonomyLocalLimit) {
           if (!mounted || requestSerial != _requestSerial) return;
           _localPinyinMode = true;
           _localItems = probe.items;
@@ -615,7 +615,7 @@ class _ActorListState extends ConsumerState<_ActorList> {
         // 老服务没有 /options 路由时，/options 可能会命中 /:id 并返回 400。
         if (status != 404 && status != 400) rethrow;
         final raw = await api.list({
-          'limit': 200,
+          'limit': 100,
           'offset': 0,
           'sort_by': 'movie_count',
           'sort_order': 'desc',

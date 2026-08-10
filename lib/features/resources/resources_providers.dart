@@ -35,12 +35,13 @@ class ResourceListKey {
   int get hashCode => Object.hash(kind, search, sortBy, sortOrder);
 }
 
-/// 列出某类资源 · 默认前 200 条
+/// 列出某类资源 · 标签/分类默认前 200 条，系列默认前 100 条
 final resourceListProvider = FutureProvider.autoDispose
     .family<PagedResult<ResourceItem>, ResourceListKey>((ref, key) async {
+  final limit = key.kind == ResourceKind.series ? 100 : 200;
   return ref.watch(resourcesRepositoryProvider).list(
         key.kind,
-        limit: 200,
+        limit: limit,
         offset: 0,
         search: key.search,
         sortBy: key.sortBy,

@@ -134,9 +134,10 @@ class ResourcesRepository {
       final status = toApiException(error).status;
       // 老服务没有 /options 路由时，/options 可能会命中 /:id 并返回 400。
       if (status != 404 && status != 400) rethrow;
+      final fallbackLimit = kind == ResourceKind.series ? 100 : 200;
       final page = await list(
         kind,
-        limit: 200,
+        limit: fallbackLimit,
         offset: 0,
         search: keyword.isEmpty ? null : keyword,
         sortBy: 'name',
