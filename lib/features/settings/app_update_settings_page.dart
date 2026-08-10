@@ -294,6 +294,7 @@ class _AppUpdateSettingsPageState
                   ? '安装更新'
                   : '下载并安装',
         ),
+      ),
     );
   }
 
