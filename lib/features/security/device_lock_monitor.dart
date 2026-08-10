@@ -12,6 +12,7 @@ class DeviceLockMonitor {
   static Stream<String> get events {
     return _channel
         .receiveBroadcastStream()
-        .whereType<String>();
+        .where((event) => event is String)
+        .cast<String>();
   }
 }
