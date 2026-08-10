@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 
+import '../../core/platform/app_haptics.dart';
 import '../../l10n/generated/app_localizations.dart';
 import 'privacy_providers.dart';
+import 'shake_detector.dart';
 
 /// 包裹整个 app 的隐私遮罩
 ///
@@ -24,21 +28,33 @@ class PrivacyShield extends ConsumerStatefulWidget {
 class _PrivacyShieldState extends ConsumerState<PrivacyShield>
     with WidgetsBindingObserver {
   bool _covered = false;
+  StreamSubscription<AccelerometerEvent>? _shakeSubscription;
+  late final ShakeDetector _shakeDetector;
+  bool _privacyToggleInFlight = false;
 
   @override
   void initState() {
     super.initState();
+    _shakeDetector = ShakeDetector(onShake: _togglePrivacyMode);
     WidgetsBinding.instance.addObserver(this);
+    _startShakeDetection();
   }
 
   @override
   void dispose() {
+    _stopShakeDetection();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startShakeDetection();
+    } else {
+      _stopShakeDetection();
+    }
+
     final enabled = ref.read(privacyShieldProvider);
     if (!enabled) return;
 
@@ -50,6 +66,46 @@ class _PrivacyShieldState extends ConsumerState<PrivacyShield>
 
     if (shouldCover != _covered) {
       setState(() => _covered = shouldCover);
+    }
+  }
+
+  void _startShakeDetection() {
+    if (!mounted || _shakeSubscription != null) return;
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+
+    _shakeDetector.reset();
+    _shakeSubscription = accelerometerEventStream(
+      samplingPeriod: const Duration(milliseconds: 100),
+    ).listen(
+      (event) => _shakeDetector.handle(
+        x: event.x,
+        y: event.y,
+        z: event.z,
+      ),
+      onError: (_) {
+        _shakeSubscription = null;
+      },
+    );
+  }
+
+  void _stopShakeDetection() {
+    final subscription = _shakeSubscription;
+    _shakeSubscription = null;
+    _shakeDetector.reset();
+    if (subscription != null) unawaited(subscription.cancel());
+  }
+
+  Future<void> _togglePrivacyMode() async {
+    if (!mounted || !ref.read(privacyShakeProvider)) return;
+    if (_privacyToggleInFlight) return;
+
+    _privacyToggleInFlight = true;
+    try {
+      final next = !ref.read(privacyShieldProvider);
+      await ref.read(privacyShieldProvider.notifier).setEnabled(next);
+      AppHaptics.medium();
+    } finally {
+      _privacyToggleInFlight = false;
     }
   }
 

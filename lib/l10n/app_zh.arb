@@ -140,6 +140,8 @@
   "settingsExtensionsSub": "扫描时识别的文件后缀",
   "settingsPrivacyShield": "隐私遮罩",
   "settingsPrivacyShieldSub": "后台切换时盖住预览图",
+  "settingsShakePrivacy": "摇一摇切换隐私模式",
+  "settingsShakePrivacySub": "摇动设备快速开启或关闭隐私模式",
   "settingsLanguage": "语言",
   "settingsLanguageSub": "界面显示语言",
   "settingsVersion": "版本",

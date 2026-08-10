@@ -140,6 +140,8 @@
   "settingsExtensionsSub": "File suffixes recognized by scanner",
   "settingsPrivacyShield": "Privacy shield",
   "settingsPrivacyShieldSub": "Mask preview when in background",
+  "settingsShakePrivacy": "Shake to toggle privacy mode",
+  "settingsShakePrivacySub": "Shake the device to turn privacy mode on or off",
   "settingsLanguage": "Language",
   "settingsLanguageSub": "Interface language",
   "settingsVersion": "Version",

@@ -835,6 +835,18 @@ abstract class AppL10n {
   /// **'后台切换时盖住预览图'**
   String get settingsPrivacyShieldSub;
 
+  /// No description provided for @settingsShakePrivacy.
+  ///
+  /// In zh, this message translates to:
+  /// **'摇一摇切换隐私模式'**
+  String get settingsShakePrivacy;
+
+  /// No description provided for @settingsShakePrivacySub.
+  ///
+  /// In zh, this message translates to:
+  /// **'摇动设备快速开启或关闭隐私模式'**
+  String get settingsShakePrivacySub;
+
   /// No description provided for @settingsLanguage.
   ///
   /// In zh, this message translates to:

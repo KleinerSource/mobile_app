@@ -26,6 +26,24 @@ class PrivacyShieldNotifier extends Notifier<bool> {
 final privacyShieldProvider =
     NotifierProvider<PrivacyShieldNotifier, bool>(PrivacyShieldNotifier.new);
 
+/// 是否允许通过摇动设备快速切换隐私模式。
+class PrivacyShakeNotifier extends Notifier<bool> {
+  static const _key = 'privacy.shake_to_toggle';
+
+  @override
+  bool build() {
+    return ref.read(sharedPrefsProvider).getBool(_key) ?? true;
+  }
+
+  Future<void> setEnabled(bool v) async {
+    state = v;
+    await ref.read(sharedPrefsProvider).setBool(_key, v);
+  }
+}
+
+final privacyShakeProvider =
+    NotifierProvider<PrivacyShakeNotifier, bool>(PrivacyShakeNotifier.new);
+
 /// 当前 session 内被临时揭开的影片 id 集合 · 不持久化
 /// 隐私模式开启时,海报与标题被遮罩盖住,点击单卡片揭开该张
 class RevealedMoviesNotifier extends Notifier<Set<int>> {

@@ -40,6 +40,7 @@ class AppSettingsPage extends ConsumerWidget {
                 title: l.settingsGroupPrivacy,
                 items: [
                   const _PrivacyShieldTile(),
+                  const _ShakePrivacyTile(),
                   SettingsTile(
                     title: '安全设置',
                     subtitle: '面容/指纹、进入密码、手势密码',
@@ -128,6 +129,26 @@ class _PrivacyShieldTile extends ConsumerWidget {
         value: enabled,
         onChanged: (v) =>
             ref.read(privacyShieldProvider.notifier).setEnabled(v),
+      ),
+    );
+  }
+}
+
+class _ShakePrivacyTile extends ConsumerWidget {
+  const _ShakePrivacyTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppL10n.of(context);
+    final enabled = ref.watch(privacyShakeProvider);
+    return SettingsTile(
+      title: l.settingsShakePrivacy,
+      subtitle: l.settingsShakePrivacySub,
+      leadingIcon: Icons.vibration,
+      trailing: SettingsSwitch(
+        value: enabled,
+        onChanged: (v) =>
+            ref.read(privacyShakeProvider.notifier).setEnabled(v),
       ),
     );
   }

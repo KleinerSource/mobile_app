@@ -393,6 +393,12 @@ class AppL10nZh extends AppL10n {
   String get settingsPrivacyShieldSub => '后台切换时盖住预览图';
 
   @override
+  String get settingsShakePrivacy => '摇一摇切换隐私模式';
+
+  @override
+  String get settingsShakePrivacySub => '摇动设备快速开启或关闭隐私模式';
+
+  @override
   String get settingsLanguage => '语言';
 
   @override

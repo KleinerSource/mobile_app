@@ -397,6 +397,13 @@ class AppL10nEn extends AppL10n {
   String get settingsPrivacyShieldSub => 'Mask preview when in background';
 
   @override
+  String get settingsShakePrivacy => 'Shake to toggle privacy mode';
+
+  @override
+  String get settingsShakePrivacySub =>
+      'Shake the device to turn privacy mode on or off';
+
+  @override
   String get settingsLanguage => 'Language';
 
   @override
