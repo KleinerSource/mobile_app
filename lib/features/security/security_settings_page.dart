@@ -75,9 +75,9 @@ class _SecuritySettingsContent extends ConsumerWidget {
             ),
           ],
         ),
-        SettingsGroup(
+        const SettingsGroup(
           title: '使用说明',
-          items: [
+          items: const [
             SettingsTile(
               title: '应用锁定时验证',
               subtitle: '配置任意一种方式后，应用启动和回到前台时会要求验证。',
@@ -102,7 +102,7 @@ class _SecuritySettingsContent extends ConsumerWidget {
     final action = await showModalBottomSheet<_CredentialAction>(
       context: context,
       showDragHandle: true,
-      builder: (context) => _CredentialActionSheet(
+      builder: (context) => const _CredentialActionSheet(
         title: '进入密码',
         icon: Icons.password_outlined,
       ),
@@ -150,7 +150,7 @@ class _SecuritySettingsContent extends ConsumerWidget {
     final action = await showModalBottomSheet<_CredentialAction>(
       context: context,
       showDragHandle: true,
-      builder: (context) => _CredentialActionSheet(
+      builder: (context) => const _CredentialActionSheet(
         title: '手势密码',
         icon: Icons.gesture_rounded,
       ),
