@@ -2,9 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:md_center/features/security/security_policy.dart';
 
 void main() {
-  test('数字密码只接受 4–6 位数字', () {
-    expect(isValidSecurityPin('123'), isFalse);
-    expect(isValidSecurityPin('1234'), isTrue);
+  test('数字密码固定为 6 位数字', () {
+    expect(isValidSecurityPin('12345'), isFalse);
     expect(isValidSecurityPin('123456'), isTrue);
     expect(isValidSecurityPin('1234567'), isFalse);
     expect(isValidSecurityPin('12a4'), isFalse);

@@ -2,12 +2,12 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 
-const securityPinMinLength = 4;
+const securityPinMinLength = 6;
 const securityPinMaxLength = 6;
 
-/// 本地数字密码只接受 4–6 位 ASCII 数字。
+/// 本地数字密码固定为 6 位 ASCII 数字。
 bool isValidSecurityPin(String value) {
-  return RegExp(r'^\d{4,6}$').hasMatch(value);
+  return RegExp(r'^\d{6}$').hasMatch(value);
 }
 
 /// 手势图案使用 0–8 表示 3×3 网格，至少连接四个不同节点。

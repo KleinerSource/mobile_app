@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform/app_haptics.dart';
@@ -10,6 +9,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import '../settings/settings_common.dart';
 import 'security_pattern_pad.dart';
+import 'security_pin_pad.dart';
 import 'security_policy.dart';
 import 'security_providers.dart';
 import 'security_repository.dart';
@@ -63,7 +63,7 @@ class _SecuritySettingsContent extends ConsumerWidget {
             ),
             SettingsTile(
               title: '进入密码',
-              subtitle: settings.hasPin ? '已设置 · 4–6 位数字' : '未设置',
+              subtitle: settings.hasPin ? '已设置 · 6 位数字' : '未设置',
               leadingIcon: Icons.password_outlined,
               onTap: () => _openPinActions(context, ref, settings.hasPin),
             ),
@@ -348,16 +348,8 @@ class _PinSetupDialog extends StatefulWidget {
 }
 
 class _PinSetupDialogState extends State<_PinSetupDialog> {
-  final _pinController = TextEditingController();
-  final _confirmController = TextEditingController();
-  String? _error;
-
-  @override
-  void dispose() {
-    _pinController.dispose();
-    _confirmController.dispose();
-    super.dispose();
-  }
+  String? _firstPin;
+  String _message = '请输入 6 位数字';
 
   @override
   Widget build(BuildContext context) {
@@ -367,46 +359,13 @@ class _PinSetupDialogState extends State<_PinSetupDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: _pinController,
-              autofocus: true,
-              obscureText: true,
-              keyboardType: TextInputType.number,
-              maxLength: securityPinMaxLength,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(securityPinMaxLength),
-              ],
-              decoration: settingsInputDecoration(
-                context,
-                labelText: '4–6 位数字',
-                prefixIcon: const Icon(Icons.password_outlined),
-              ),
-            ),
+            Text(_message, style: AppText.meta(context)),
             const SizedBox(height: 12),
-            TextField(
-              controller: _confirmController,
-              obscureText: true,
-              keyboardType: TextInputType.number,
-              maxLength: securityPinMaxLength,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(securityPinMaxLength),
-              ],
-              decoration: settingsInputDecoration(
-                context,
-                labelText: '再次输入',
-                prefixIcon: const Icon(Icons.check_circle_outline),
-              ),
+            SecurityPinPad(
+              key: ValueKey(_firstPin == null ? 'first' : 'confirm'),
+              submitLabel: _firstPin == null ? '下一步' : '保存',
+              onCompleted: _handlePin,
             ),
-            if (_error != null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _error!,
-                  style: TextStyle(color: appColors(context).danger),
-                ),
-              ),
           ],
         ),
       ),
@@ -415,23 +374,24 @@ class _PinSetupDialogState extends State<_PinSetupDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('取消'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('保存'),
-        ),
       ],
     );
   }
 
-  void _submit() {
-    final pin = _pinController.text;
-    final confirm = _confirmController.text;
-    if (!isValidSecurityPin(pin)) {
-      setState(() => _error = '请输入 4–6 位数字');
+  void _handlePin(String pin) {
+    final first = _firstPin;
+    if (first == null) {
+      setState(() {
+        _firstPin = pin;
+        _message = '请再次输入相同的 6 位密码';
+      });
       return;
     }
-    if (pin != confirm) {
-      setState(() => _error = '两次输入的密码不一致');
+    if (first != pin) {
+      setState(() {
+        _firstPin = null;
+        _message = '两次输入的密码不一致，请重新设置';
+      });
       return;
     }
     AppHaptics.medium();

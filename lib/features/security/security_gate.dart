@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import 'security_pattern_pad.dart';
+import 'security_pin_pad.dart';
 import 'security_policy.dart';
 import 'security_providers.dart';
 import 'security_repository.dart';
@@ -210,7 +210,7 @@ enum _UnlockMethod { pin, gesture }
 
 class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
   late _UnlockMethod _method;
-  final _pinController = TextEditingController();
+  late bool _showFallback;
 
   @override
   void initState() {
@@ -218,6 +218,7 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
     _method = widget.settings.hasPin
         ? _UnlockMethod.pin
         : _UnlockMethod.gesture;
+    _showFallback = !widget.settings.biometricEnabled;
   }
 
   @override
@@ -229,12 +230,9 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
     if (!widget.settings.hasGesture && _method == _UnlockMethod.gesture) {
       _method = _UnlockMethod.pin;
     }
-  }
-
-  @override
-  void dispose() {
-    _pinController.dispose();
-    super.dispose();
+    if (!widget.settings.biometricEnabled && !_showFallback) {
+      _showFallback = true;
+    }
   }
 
   @override
@@ -291,8 +289,21 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                         ),
                       ),
                     if (widget.settings.biometricEnabled && methods.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: widget.busy
+                            ? null
+                            : () {
+                                AppHaptics.selection();
+                                setState(() => _showFallback = true);
+                              },
+                        icon: const Icon(Icons.password_outlined),
+                        label: const Text('使用密码/滑动解锁'),
+                      ),
+                    if (_showFallback &&
+                        widget.settings.biometricEnabled &&
+                        methods.isNotEmpty)
                       const SizedBox(height: 16),
-                    if (methods.length > 1)
+                    if (_showFallback && methods.length > 1)
                       SegmentedButton<_UnlockMethod>(
                         segments: const [
                           ButtonSegment(
@@ -316,14 +327,17 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                               },
                       ),
                     const SizedBox(height: 20),
-                    if (_method == _UnlockMethod.pin && widget.settings.hasPin)
-                      _PinUnlockForm(
-                        controller: _pinController,
+                    if (_showFallback &&
+                        _method == _UnlockMethod.pin &&
+                        widget.settings.hasPin)
+                      SecurityPinPad(
                         busy: widget.busy,
-                        onSubmit: () =>
-                            unawaited(widget.onPin(_pinController.text)),
+                        submitLabel: '解锁',
+                        onCompleted: (pin) =>
+                            unawaited(widget.onPin(pin)),
                       ),
-                    if (_method == _UnlockMethod.gesture &&
+                    if (_showFallback &&
+                        _method == _UnlockMethod.gesture &&
                         widget.settings.hasGesture)
                       SecurityPatternPad(
                         size: 260,
@@ -346,58 +360,6 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _PinUnlockForm extends StatelessWidget {
-  const _PinUnlockForm({
-    required this.controller,
-    required this.busy,
-    required this.onSubmit,
-  });
-
-  final TextEditingController controller;
-  final bool busy;
-  final VoidCallback onSubmit;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        TextField(
-          controller: controller,
-          autofocus: true,
-          obscureText: true,
-          keyboardType: TextInputType.number,
-          maxLength: securityPinMaxLength,
-          textAlign: TextAlign.center,
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(securityPinMaxLength),
-          ],
-          onSubmitted: (_) => onSubmit(),
-          decoration: InputDecoration(
-            hintText: '输入 4–6 位数字密码',
-            counterText: '',
-            filled: true,
-            fillColor: appColors(context).surface,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: appColors(context).cardBorder),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: busy ? null : onSubmit,
-            icon: const Icon(Icons.lock_open_outlined),
-            label: Text(busy ? '验证中...' : '解锁'),
-          ),
-        ),
-      ],
     );
   }
 }

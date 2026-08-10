@@ -60,7 +60,7 @@ class SecurityRepository {
 
   Future<void> savePin(String pin) async {
     if (!isValidSecurityPin(pin)) {
-      throw const FormatException('数字密码必须为 4–6 位数字');
+      throw const FormatException('数字密码必须为 6 位数字');
     }
     await _storage.write(
       key: _pinDigestKey,
