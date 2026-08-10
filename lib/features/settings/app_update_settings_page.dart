@@ -165,7 +165,7 @@ class _AppUpdateSettingsPageState
                         title: '已安装版本',
                         subtitle: version,
                         leadingIcon: Icons.phone_android_outlined,
-                      ),
+                      );
                     },
                   ),
                 ],
