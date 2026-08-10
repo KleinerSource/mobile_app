@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
@@ -262,45 +262,38 @@ class _AppUpdateSettingsPageState
     final colors = appColors(context);
     final isIos = Platform.isIOS;
     final progress = _downloadProgress;
-    return Builder(
-      builder: (buttonContext) => SizedBox(
-        width: double.infinity,
-        child: FilledButton.icon(
-          onPressed: _downloading
-              ? null
-              : () {
-                  final box = buttonContext.findRenderObject() as RenderBox?;
-                  final sharePositionOrigin = box == null
-                      ? null
-                      : box.localToGlobal(Offset.zero) & box.size;
-                  unawaited(_download(result, sharePositionOrigin));
-                },
-          icon: _downloading
-              ? SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    value: progress,
-                    color: colors.bg,
-                  ),
-                )
-              : Icon(
-                  isIos
-                      ? Icons.share_outlined
-                      : Icons.install_mobile_outlined,
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: _downloading
+            ? null
+            : () => unawaited(_download(result)),
+        icon: _downloading
+            ? SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  value: progress,
+                  color: colors.bg,
                 ),
-          label: Text(
-            _downloading
-                ? progress == null
-                    ? '下载中…'
-                    : '下载中 ${(progress * 100).round()}%'
-                : isIos
-                    ? '下载并分享 IPA'
-                    : '下载并安装',
-          ),
+              )
+            : Icon(
+                isIos
+                    ? Icons.system_update_alt_outlined
+                    : Icons.install_mobile_outlined,
+              ),
+        label: Text(
+          _downloading
+              ? isIos
+                  ? '正在打开安装器…'
+                  : progress == null
+                      ? '下载中…'
+                      : '下载中 ${(progress * 100).round()}%'
+              : isIos
+                  ? '安装更新'
+                  : '下载并安装',
         ),
-      ),
     );
   }
 
@@ -348,10 +341,7 @@ class _AppUpdateSettingsPageState
     }
   }
 
-  Future<void> _download(
-    UpdateCheckResult result,
-    Rect? sharePositionOrigin,
-  ) async {
+  Future<void> _download(UpdateCheckResult result) async {
     if (_downloading) return;
     if (!Platform.isIOS && !Platform.isAndroid) {
       _showMessage('当前平台不支持安装此更新');
@@ -365,16 +355,16 @@ class _AppUpdateSettingsPageState
       _error = null;
     });
     try {
-      final file = await ref.read(gitHubUpdateServiceProvider).download(
-            asset,
-            onReceiveProgress: (received, total) {
-              if (!mounted || total <= 0) return;
-              setState(() => _downloadProgress = received / total);
-            },
-          );
       if (Platform.isIOS) {
-        await _shareIosPackage(file, result, sharePositionOrigin);
+        await _openIosInstaller(asset.downloadUrl);
       } else {
+        final file = await ref.read(gitHubUpdateServiceProvider).download(
+              asset,
+              onReceiveProgress: (received, total) {
+                if (!mounted || total <= 0) return;
+                setState(() => _downloadProgress = received / total);
+              },
+            );
         final installed = await AndroidUpdateInstaller.install(file);
         if (!installed && mounted) {
           _showMessage('无法打开系统安装器，请重新下载');
@@ -394,33 +384,18 @@ class _AppUpdateSettingsPageState
     }
   }
 
-  Future<void> _shareIosPackage(
-    File file,
-    UpdateCheckResult result,
-    Rect? sharePositionOrigin,
-  ) async {
-    final shareResult = await SharePlus.instance.share(
-      ShareParams(
-        title: 'MD Center 更新包',
-        subject: 'MD Center ${result.candidate.version.display}',
-        text: 'MD Center ${result.candidate.version.display} IPA 安装包',
-        files: [
-          XFile(
-            file.path,
-            name: result.candidate.asset.name,
-            mimeType: 'application/octet-stream',
-          ),
-        ],
-        sharePositionOrigin: sharePositionOrigin,
-      ),
+  Future<void> _openIosInstaller(String downloadUrl) async {
+    final installerUrl = IosUpdateInstaller.installUri(downloadUrl);
+    final launched = await launchUrl(
+      installerUrl,
+      mode: LaunchMode.externalApplication,
     );
     if (!mounted) return;
-    if (shareResult.status == ShareResultStatus.dismissed) {
-      _showMessage('已取消分享 IPA');
-    } else if (shareResult.status == ShareResultStatus.success) {
-      _showMessage('已打开系统分享');
+    if (launched) {
+      AppHaptics.medium();
+      _showMessage('已打开 iOS 安装器');
     } else {
-      _showMessage('无法打开系统分享，请重试');
+      _showMessage('无法打开 iOS 安装器，请确认已安装 TrollStore');
     }
   }
 

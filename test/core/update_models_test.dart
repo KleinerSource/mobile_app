@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:md_center/core/update/update_installer.dart';
 import 'package:md_center/core/update/update_models.dart';
 import 'package:md_center/core/update/update_service.dart';
 
@@ -28,6 +29,18 @@ void main() {
       () => GitHubRepository.parse('https://example.com/owner/repo'),
       throwsFormatException,
     );
+  });
+
+  test('iOS 安装器 URI 会正确编码 GitHub IPA 下载地址', () {
+    const downloadUrl =
+        'https://github.com/KleinerSource/mobile_app/releases/download/'
+        'latest/md_center_0.1.64+71.ipa';
+
+    final installerUrl = IosUpdateInstaller.installUri(downloadUrl);
+
+    expect(installerUrl.scheme, 'apple-magnifier');
+    expect(installerUrl.host, 'install');
+    expect(installerUrl.queryParameters['url'], downloadUrl);
   });
 
   test('按平台从不同 Release 中选择最高版本产物', () {

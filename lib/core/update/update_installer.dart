@@ -20,3 +20,15 @@ class AndroidUpdateInstaller {
     }
   }
 }
+
+class IosUpdateInstaller {
+  IosUpdateInstaller._();
+
+  static Uri installUri(String downloadUrl) {
+    return Uri(
+      scheme: 'apple-magnifier',
+      host: 'install',
+      queryParameters: {'url': downloadUrl},
+    );
+  }
+}
