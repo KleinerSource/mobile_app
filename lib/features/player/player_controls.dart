@@ -176,6 +176,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   }) {
     return IconButton(
       tooltip: tooltip,
+      enableFeedback: false,
       padding: EdgeInsets.zero,
       visualDensity: VisualDensity.standard,
       constraints: const BoxConstraints.tightFor(width: 46, height: 46),
@@ -291,6 +292,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     final action = onPressed;
     return IconButton(
       tooltip: tooltip,
+      enableFeedback: false,
       padding: EdgeInsets.zero,
       visualDensity: VisualDensity.standard,
       constraints: const BoxConstraints.tightFor(width: 48, height: 48),
@@ -313,6 +315,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     const rates = <double>[0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
     return PopupMenuButton<double>(
       tooltip: '播放速度 ${widget.playbackRate.toStringAsFixed(1)}x',
+      enableFeedback: false,
       initialValue: widget.playbackRate,
       padding: EdgeInsets.zero,
       onSelected: (rate) {
@@ -342,6 +345,7 @@ class _PlayerControlsState extends State<PlayerControls> {
       builder: (context, snap) {
         final playing = snap.data ?? false;
         return IconButton(
+          enableFeedback: false,
           padding: EdgeInsets.zero,
           visualDensity: VisualDensity.standard,
           constraints: const BoxConstraints.tightFor(width: 56, height: 56),
@@ -466,6 +470,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     };
     return PopupMenuButton<String>(
       tooltip: '选择画质',
+      enableFeedback: false,
       initialValue: widget.quality,
       padding: EdgeInsets.zero,
       onSelected: (quality) {
@@ -491,6 +496,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   Widget _subtitleButton() {
     return PopupMenuButton<Object>(
       tooltip: '选择字幕',
+      enableFeedback: false,
       padding: EdgeInsets.zero,
       initialValue: widget.selectedSubtitle ?? _noSubtitleTrack,
       onSelected: (value) {
@@ -580,6 +586,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   Widget _audioButton() {
     return PopupMenuButton<playback_models.AudioTrack>(
       tooltip: '选择音轨',
+      enableFeedback: false,
       padding: EdgeInsets.zero,
       onSelected: (track) {
         PlayerHaptics.selection();

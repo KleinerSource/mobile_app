@@ -91,6 +91,7 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
   bool _isBoosting = false;
   double _boostRate = _baseRate;
   int _lastSeekHapticBucket = 0;
+  bool _hasHorizontalDragMovement = false;
   _DoubleTapZone? _doubleTapZone;
 
   @override
@@ -164,24 +165,34 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
             _totalMs = widget.durationGetter().inMilliseconds;
             _accumMs = 0;
             _lastSeekHapticBucket = _baseMs ~/ _seekHapticStepMs;
-            if (widget.hapticSeek) PlayerHaptics.selection();
+            _hasHorizontalDragMovement = false;
           },
           onHorizontalDragUpdate: (d) {
             _accumMs += (d.delta.dx * msPerPx).round();
             final target = _clampTarget();
             final bucket = target.inMilliseconds ~/ _seekHapticStepMs;
-            if (widget.hapticSeek && bucket != _lastSeekHapticBucket) {
+            final moved = d.delta.dx.abs() > 0.01;
+            final firstMovement = moved && !_hasHorizontalDragMovement;
+            if (moved) _hasHorizontalDragMovement = true;
+            if (widget.hapticSeek &&
+                (firstMovement || bucket != _lastSeekHapticBucket)) {
               _lastSeekHapticBucket = bucket;
               PlayerHaptics.selection();
             }
             widget.onSeekPreview(target, target.inMilliseconds - _baseMs);
           },
           onHorizontalDragEnd: (_) {
-            if (widget.hapticSeek) PlayerHaptics.medium();
+            if (widget.hapticSeek && _hasHorizontalDragMovement) {
+              PlayerHaptics.medium();
+            }
+            _hasHorizontalDragMovement = false;
             widget.onSeekCommit(_clampTarget());
           },
           onHorizontalDragCancel: () {
-            if (widget.hapticSeek) PlayerHaptics.light();
+            if (widget.hapticSeek && _hasHorizontalDragMovement) {
+              PlayerHaptics.light();
+            }
+            _hasHorizontalDragMovement = false;
           },
           onVerticalDragStart: (d) {
             _isLeft = d.localPosition.dx < width / 2;
