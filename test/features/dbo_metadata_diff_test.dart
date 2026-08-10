@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:md_center/core/models/actor.dart';
 import 'package:md_center/core/models/movie.dart';
 import 'package:md_center/core/models/resource.dart';
