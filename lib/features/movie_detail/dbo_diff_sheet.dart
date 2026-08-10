@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/api_client.dart';
+import '../../core/api/envelope.dart';
 import '../../core/api/dio_factory.dart';
+import '../../core/api/providers.dart';
 import '../../core/models/movie.dart';
+import '../../core/models/resource.dart';
 import '../../core/platform/app_theme.dart';
+import '../resources/resources_providers.dart';
+import '../resources/resources_repository.dart';
 import '../movies/movies_providers.dart';
+import 'dbo_metadata_diff.dart';
 
 /// 从 DBO 接口拉元数据 · 弹出 diff sheet 让用户挑选要应用的字段
 ///
@@ -30,25 +37,11 @@ class DboDiffSheet extends ConsumerStatefulWidget {
   ConsumerState<DboDiffSheet> createState() => _DboDiffSheetState();
 }
 
-class _DboDiffItem {
-  _DboDiffItem({
-    required this.field,
-    required this.label,
-    required this.localValue,
-    required this.dboValue,
-  });
-  final String field;
-  final String label;
-  final String? localValue;
-  final dynamic dboValue;
-  bool selected = false;
-}
-
 class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
   bool _loading = true;
   bool _saving = false;
   String? _error;
-  List<_DboDiffItem> _items = const [];
+  List<DboMetadataDiffItem> _items = const [];
   Map<String, dynamic>? _meta;
 
   @override
@@ -68,7 +61,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
           .getDbonlineMetadata(widget.movie.id);
       if (!mounted) return;
       _meta = data;
-      _items = _buildDiff(widget.movie, data);
+      _items = buildDboMetadataDiff(widget.movie, data).items;
       setState(() {});
     } catch (e) {
       if (!mounted) return;
@@ -76,36 +69,6 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  /// 简化 diff: 仅对比顶层标量字段
-  /// frontend 也对系列/分类/演员做关联同步, 这里先不做以避免大量代码
-  List<_DboDiffItem> _buildDiff(MovieDetail m, Map<String, dynamic> dbo) {
-    final res = <_DboDiffItem>[];
-    void check(String field, String label, String? local, dynamic remote) {
-      if (remote == null) return;
-      final localStr = local?.trim() ?? '';
-      final remoteStr = remote.toString().trim();
-      if (remoteStr.isEmpty || remoteStr == localStr) return;
-      res.add(_DboDiffItem(
-        field: field,
-        label: label,
-        localValue: localStr.isEmpty ? null : localStr,
-        dboValue: remote,
-      ));
-    }
-
-    check('title', '标题', m.title, dbo['title']);
-    check('original_title', '原标题', m.originalTitle, dbo['original_title']);
-    check('plot', '剧情', m.plot, dbo['plot']);
-    check('outline', '简介', m.outline, dbo['outline']);
-    check('country', '产地', m.country, dbo['country']);
-    check('rating', '评分', m.rating?.toString(), dbo['rating']);
-    check('year', '年份', m.year?.toString(), dbo['year']);
-    check('runtime', '时长', m.runtime?.toString(), dbo['runtime']);
-    check('num', '番号', m.num, dbo['num']);
-    check('trailer', '预告片', m.trailer, dbo['trailer']);
-    return res;
   }
 
   bool get _anySelected => _items.any((i) => i.selected);
@@ -116,21 +79,64 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
     setState(() => _saving = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
+      final movies = ref.read(moviesRepositoryProvider);
       final payload = <String, dynamic>{};
-      for (final s in selected) {
-        if (s.field == 'rating') {
-          final v = double.tryParse(s.dboValue.toString());
-          if (v != null) payload['rating'] = v;
-        } else if (s.field == 'year' || s.field == 'runtime') {
-          final v = int.tryParse(s.dboValue.toString());
-          if (v != null) payload[s.field] = v;
-        } else {
-          payload[s.field] = s.dboValue.toString();
+      for (final item in selected) {
+        if (item.section != DboMetadataDiffSection.info ||
+            item.field == null) {
+          continue;
+        }
+        payload[item.field!] = item.value;
+      }
+
+      final selectedSeries = selected
+          .where((item) => item.section == DboMetadataDiffSection.series)
+          .toList();
+      var seriesRemoved = false;
+      for (final item in selectedSeries) {
+        if (item.action == DboMetadataDiffAction.remove &&
+            item.localId != null) {
+          await movies.batchRemoveAssociations(
+            movieIds: [widget.movie.id],
+            seriesId: item.localId,
+          );
+          seriesRemoved = true;
+        } else if (item.action != DboMetadataDiffAction.remove &&
+            item.remoteName?.trim().isNotEmpty == true) {
+          payload['series_id'] = await _ensureOptionId(
+            type: 'series',
+            name: item.remoteName!,
+          );
         }
       }
-      await ref
-          .read(moviesRepositoryProvider)
-          .updateMovie(widget.movie.id, payload);
+
+      final selectedGenres = selected
+          .where((item) => item.section == DboMetadataDiffSection.genres)
+          .toList();
+      if (selectedGenres.isNotEmpty) {
+        payload['genre_ids'] = await _nextAssociationIds(
+          currentIds: widget.movie.genres.map((item) => item.id),
+          changes: selectedGenres,
+          type: 'genre',
+        );
+      }
+
+      final selectedActors = selected
+          .where((item) => item.section == DboMetadataDiffSection.actors)
+          .toList();
+      if (selectedActors.isNotEmpty) {
+        payload['actor_ids'] = await _nextAssociationIds(
+          currentIds: widget.movie.actors.map((item) => item.id),
+          changes: selectedActors,
+          type: 'actor',
+        );
+      }
+
+      if (payload.isNotEmpty) {
+        await movies.updateMovie(widget.movie.id, payload);
+      } else if (!seriesRemoved) {
+        return;
+      }
       // ignore: unused_result
       ref.refresh(movieDetailProvider(widget.movie.id));
       messenger.showSnackBar(SnackBar(
@@ -149,6 +155,92 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
     }
   }
 
+  Future<List<int>> _nextAssociationIds({
+    required Iterable<int> currentIds,
+    required List<DboMetadataDiffItem> changes,
+    required String type,
+  }) async {
+    final ids = currentIds.toSet();
+    for (final item in changes) {
+      if (item.action == DboMetadataDiffAction.remove) {
+        if (item.localId != null) ids.remove(item.localId);
+        continue;
+      }
+      final name = item.remoteName?.trim() ?? '';
+      if (name.isEmpty) continue;
+      ids.add(await _ensureOptionId(type: type, name: name));
+    }
+    return ids.toList();
+  }
+
+  Future<int> _ensureOptionId({
+    required String type,
+    required String name,
+  }) async {
+    final normalizedName = name.trim();
+    if (normalizedName.isEmpty) {
+      throw StateError('DB Online 返回的名称为空');
+    }
+
+    final client = ref.read(requiredApiClientProvider);
+    final candidates = switch (type) {
+      'genre' => (await ref.read(resourcesRepositoryProvider).options(
+            ResourceKind.genre,
+            search: normalizedName,
+          )).items,
+      'series' => (await ref.read(resourcesRepositoryProvider).options(
+            ResourceKind.series,
+            search: normalizedName,
+          )).items,
+      'actor' => await _actorOptions(client, normalizedName),
+      _ => const <ResourceItem>[],
+    };
+    final key = normalizedName.toLowerCase();
+    for (final item in candidates) {
+      if (item.name.trim().toLowerCase() == key) return item.id;
+    }
+
+    final raw = switch (type) {
+      'genre' => await ref.read(resourcesRepositoryProvider).create(
+            ResourceKind.genre,
+            name: normalizedName,
+          ),
+      'series' => await ref.read(resourcesRepositoryProvider).create(
+            ResourceKind.series,
+            name: normalizedName,
+          ),
+      'actor' => await client.catalog.createActor({'name': normalizedName}),
+      _ => throw StateError('未知 DBO 关联类型: $type'),
+    };
+    final created = unwrapStd<ResourceItem>(raw, (data) {
+      if (data is! Map) throw const FormatException('实体响应格式异常');
+      return ResourceItem.fromJson(Map<String, dynamic>.from(data));
+    });
+    return created.id;
+  }
+
+  Future<List<ResourceItem>> _actorOptions(
+    ApiClient client,
+    String search,
+  ) async {
+    try {
+      final raw = await client.actors.options({'search': search});
+      return unwrapOptions<ResourceItem>(raw, ResourceItem.fromJson).items;
+    } catch (error) {
+      final status = toApiException(error).status;
+      if (status != 404 && status != 400) rethrow;
+      final raw = await client.actors.list({
+        'limit': 500,
+        'offset': 0,
+        'sort_by': 'movie_count',
+        'sort_order': 'desc',
+        'search': search,
+      });
+      return unwrapTopLevelList<ResourceItem>(raw, ResourceItem.fromJson)
+          .items;
+    }
+  }
+
   void _selectAll(bool v) {
     setState(() {
       for (final it in _items) {
@@ -162,7 +254,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
     final c = appColors(context);
     final mq = MediaQuery.of(context);
     final dboTitle = _meta?['title']?.toString() ?? '';
-    final dboCode = _meta?['num']?.toString() ?? _meta?['code']?.toString() ?? '';
+    final dboCode = _meta?['code']?.toString() ?? _meta?['num']?.toString() ?? '';
 
     return SizedBox(
       height: mq.size.height * 0.85,
@@ -298,7 +390,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
                                                     fontSize: 13.5,
                                                   )),
                                               const SizedBox(height: 4),
-                                              if (item.localValue != null)
+                                              if (item.currentText != null)
                                                 Row(
                                                   crossAxisAlignment:
                                                       CrossAxisAlignment
@@ -310,7 +402,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
                                                     const SizedBox(width: 6),
                                                     Expanded(
                                                       child: Text(
-                                                        item.localValue!,
+                                                        item.currentText!,
                                                         maxLines: 2,
                                                         overflow:
                                                             TextOverflow
@@ -342,8 +434,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
                                                   const SizedBox(width: 4),
                                                   Expanded(
                                                     child: Text(
-                                                      item.dboValue
-                                                          .toString(),
+                                                      item.remoteText,
                                                       maxLines: 3,
                                                       overflow:
                                                           TextOverflow
