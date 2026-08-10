@@ -70,6 +70,7 @@ class SecurityController extends AsyncNotifier<SecuritySettings> {
     coordinator.beginAuthentication();
     try {
       if (!await _repository.authenticateBiometric()) return false;
+      coordinator.markSessionAuthenticated();
       await _reload(() => _repository.setBiometricEnabled(true));
       return true;
     } finally {

@@ -44,4 +44,14 @@ void main() {
     expect(coordinator.consumeDeviceLockResume(), isTrue);
     expect(coordinator.consumeDeviceLockResume(), isFalse);
   });
+
+  test('进程内完成验证后，生命周期切换不会清除会话验证状态', () {
+    final coordinator = SecurityBiometricCoordinator();
+
+    expect(coordinator.isSessionAuthenticated, isFalse);
+    coordinator.markSessionAuthenticated();
+    coordinator.didEnterInactive();
+
+    expect(coordinator.isSessionAuthenticated, isTrue);
+  });
 }

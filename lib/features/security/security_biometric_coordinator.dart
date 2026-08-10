@@ -5,10 +5,19 @@ class SecurityBiometricCoordinator {
   bool _sawInactive = false;
   bool _deviceLocked = false;
   bool _deviceLockCycle = false;
+  bool _sessionAuthenticated = false;
 
   bool get isAuthenticationInFlight => _authenticationInFlight;
   bool get isDeviceLocked => _deviceLocked;
   bool get hasDeviceLockCycle => _deviceLockCycle;
+  bool get isSessionAuthenticated => _sessionAuthenticated;
+
+  /// 标记当前进程已经完成过一次本地安全验证。
+  ///
+  /// 状态只存在于内存中，因此应用进程结束后会自动恢复为未验证。
+  void markSessionAuthenticated() {
+    _sessionAuthenticated = true;
+  }
 
   void beginAuthentication() {
     _authenticationInFlight = true;

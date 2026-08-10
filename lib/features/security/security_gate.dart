@@ -73,6 +73,10 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
       _appResumed = false;
       final coordinator = ref.read(securityBiometricCoordinatorProvider);
       coordinator.didEnterInactive();
+      if (coordinator.isSessionAuthenticated) {
+        _wasBackgrounded = false;
+        return;
+      }
       if (_ignoreBackgroundUntilResume ||
           coordinator.isAuthenticationInFlight ||
           _biometricInFlight) {
@@ -97,6 +101,10 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
     // 用户离开应用，不能在验证成功后再次锁定并重复弹出生物识别。
     if (ref.read(securityBiometricCoordinatorProvider).consumeResume() ||
         _biometricInFlight) {
+      _wasBackgrounded = false;
+      return;
+    }
+    if (coordinator.isSessionAuthenticated) {
       _wasBackgrounded = false;
       return;
     }
@@ -159,8 +167,12 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
       data: (settings) {
         if (!_securityInitialized) {
           _securityInitialized = true;
-          // 首次加载没有凭据时保持已解锁；如果已有凭据，则从启动开始锁定。
-          _locked = settings.requiresUnlock;
+          // 已验证状态只存在于当前进程。后台切回前台不重新锁定，进程重启
+          // 后 coordinator 会重新创建，才会再次执行启动验证。
+          _locked = settings.requiresUnlock &&
+              !ref
+                  .read(securityBiometricCoordinatorProvider)
+                  .isSessionAuthenticated;
         }
         if (!settings.requiresUnlock || !_locked) {
           _notifyReady();
@@ -217,7 +229,9 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
   void _lockForBackground() {
     if (!mounted || _locked) return;
     final coordinator = ref.read(securityBiometricCoordinatorProvider);
-    if (coordinator.isDeviceLocked || coordinator.hasDeviceLockCycle) {
+    if (coordinator.isSessionAuthenticated ||
+        coordinator.isDeviceLocked ||
+        coordinator.hasDeviceLockCycle) {
       return;
     }
     final settings = ref.read(securityControllerProvider).valueOrNull;
@@ -248,6 +262,9 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
       coordinator.endAuthentication();
     }
     if (!mounted) return;
+    if (success) {
+      coordinator.markSessionAuthenticated();
+    }
     setState(() {
       _busy = false;
       if (success) {
@@ -275,6 +292,9 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
     final success =
         await ref.read(securityRepositoryProvider).verifyPin(pin);
     if (!mounted) return;
+    if (success) {
+      ref.read(securityBiometricCoordinatorProvider).markSessionAuthenticated();
+    }
     setState(() {
       _busy = false;
       if (success) {
@@ -295,6 +315,9 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
     final success =
         await ref.read(securityRepositoryProvider).verifyGesture(pattern);
     if (!mounted) return;
+    if (success) {
+      ref.read(securityBiometricCoordinatorProvider).markSessionAuthenticated();
+    }
     setState(() {
       _busy = false;
       if (success) {
