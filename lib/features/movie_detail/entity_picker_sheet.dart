@@ -38,9 +38,14 @@ extension on EntityPickerKind {
   bool get multi => this != EntityPickerKind.series;
 }
 
+typedef EntityPickerSelection = ({
+  List<int> ids,
+  Map<int, String> names,
+});
+
 /// 实体选择 sheet · multi-select (series 单选)
 ///
-/// 接收当前选中 ids,返回新的 ids list (multi) 或单个 int? (series)。
+/// 接收当前选中 ids,返回新的 ids 和名称 (multi / series)。
 class EntityPickerSheet extends ConsumerStatefulWidget {
   const EntityPickerSheet({
     super.key,
@@ -57,15 +62,15 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
   /// 当前选中项的名称。远程查询只返回有限候选时，用于继续显示已选项。
   final Map<int, String> selectedNames;
 
-  /// 弹出多选 · 返回 `List<int>` (取消则 null)
-  static Future<List<int>?> pickMulti({
+  /// 弹出多选 · 返回选中 ID 和名称 (取消则 null)
+  static Future<EntityPickerSelection?> pickMulti({
     required BuildContext context,
     required EntityPickerKind kind,
     required List<int> selected,
     Map<int, String> selectedNames = const {},
   }) async {
     assert(kind.multi, 'series 用 pickSingle');
-    return showModalBottomSheet<List<int>>(
+    return showModalBottomSheet<EntityPickerSelection>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
@@ -78,15 +83,15 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
     );
   }
 
-  /// 弹出单选 (series 专用) · 返回 int? (清空则 -1, 取消则 null 注: 用 [] 表示清空)
-  static Future<int?> pickSingle({
+  /// 弹出单选 (series 专用) · 返回选中 ID 和名称 (取消则 null)
+  static Future<EntityPickerSelection?> pickSingle({
     required BuildContext context,
     required EntityPickerKind kind,
     required int? selected,
     Map<int, String> selectedNames = const {},
   }) async {
     assert(!kind.multi, 'multi 用 pickMulti');
-    final result = await showModalBottomSheet<List<int>>(
+    final result = await showModalBottomSheet<EntityPickerSelection>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
@@ -97,9 +102,7 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
         selectedNames: selectedNames,
       ),
     );
-    if (result == null) return null;
-    if (result.isEmpty) return -1;
-    return result.first;
+    return result;
   }
 
   @override
@@ -112,6 +115,13 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
   String? _search;
   late final Set<int> _selected =
       widget.initialSelectedIds.toSet();
+  final Map<int, String> _selectedNames = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedNames.addAll(widget.selectedNames);
+  }
 
   @override
   void dispose() {
@@ -129,20 +139,38 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
     });
   }
 
-  void _toggle(int id) {
+  void _toggle(({int id, String name}) selection) {
+    final id = selection.id;
+    final name = selection.name;
     setState(() {
       if (widget.kind.multi) {
         if (_selected.contains(id)) {
           _selected.remove(id);
+          _selectedNames.remove(id);
         } else {
           _selected.add(id);
+          _selectedNames[id] = name;
         }
       } else {
         // 单选: 替换
         _selected.clear();
         _selected.add(id);
+        _selectedNames
+          ..clear()
+          ..[id] = name;
       }
     });
+  }
+
+  EntityPickerSelection _selection() {
+    return (
+      ids: _selected.toList(),
+      names: {
+        for (final id in _selected)
+          if (_selectedNames[id]?.trim().isNotEmpty == true)
+            id: _selectedNames[id]!.trim(),
+      },
+    );
   }
 
   @override
@@ -209,7 +237,7 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
                   ),
                   TextButton(
                     onPressed: () =>
-                        Navigator.of(context).pop(_selected.toList()),
+                        Navigator.of(context).pop(_selection()),
                     child: Text(
                       widget.kind.multi ? '完成' : '使用',
                       style: TextStyle(
@@ -281,7 +309,10 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
                 child: TextButton(
-                  onPressed: () => setState(_selected.clear),
+                  onPressed: () => setState(() {
+                    _selected.clear();
+                    _selectedNames.clear();
+                  }),
                   child: Text(
                     '清空',
                     style: TextStyle(
@@ -327,7 +358,7 @@ class _ResourceList extends ConsumerStatefulWidget {
   final String? search;
   final Set<int> selected;
   final Map<int, String> selectedNames;
-  final ValueChanged<int> onToggle;
+  final ValueChanged<({int id, String name})> onToggle;
   final bool singleSelect;
 
   @override
@@ -478,7 +509,7 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
                 hue: AppHues.all[i % AppHues.all.length],
                 selected: isSel,
                 multiCheckbox: !widget.singleSelect,
-                onTap: () => widget.onToggle(r.id),
+                onTap: () => widget.onToggle((id: r.id, name: r.name)),
               );
             },
           ),
@@ -500,7 +531,7 @@ class _ActorList extends ConsumerStatefulWidget {
   final String? search;
   final Set<int> selected;
   final Map<int, String> selectedNames;
-  final ValueChanged<int> onToggle;
+  final ValueChanged<({int id, String name})> onToggle;
 
   @override
   ConsumerState<_ActorList> createState() => _ActorListState();
@@ -630,7 +661,7 @@ class _ActorListState extends ConsumerState<_ActorList> {
                 hue: AppHues.all[i % AppHues.all.length],
                 selected: isSel,
                 multiCheckbox: true,
-                onTap: () => widget.onToggle(r.id),
+                onTap: () => widget.onToggle((id: r.id, name: r.name)),
               );
             },
           ),

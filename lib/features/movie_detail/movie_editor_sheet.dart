@@ -172,18 +172,11 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
           : const {},
     );
     if (picked == null) return;
-    if (picked == -1) {
-      setState(() {
-        _seriesId = null;
-        _seriesName = null;
-      });
-    } else {
-      // 用 entity picker 返回 id, 但我们没拿名字 — 临时存 id, 显示用 id (后续 detail refresh 会带名字回来)
-      setState(() {
-        _seriesId = picked;
-        _seriesName = '#$picked';
-      });
-    }
+    final id = picked.ids.isEmpty ? null : picked.ids.first;
+    setState(() {
+      _seriesId = id;
+      _seriesName = id == null ? null : picked.names[id] ?? '未命名系列';
+    });
   }
 
   Future<void> _pickMulti(EntityPickerKind kind) async {
@@ -201,10 +194,18 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       selectedNames: {for (final e in current) e.id: e.name},
     );
     if (result == null) return;
-    // 保留旧名字, 新增 id 用 '#id' 临时占位 (detail refresh 后会更新)
-    final nameMap = {for (final e in current) e.id: e.name};
-    final next = result
-        .map((id) => (id: id, name: nameMap[id] ?? '#$id'))
+    final nameMap = {
+      for (final e in current) e.id: e.name,
+      ...result.names,
+    };
+    final fallbackName = switch (kind) {
+      EntityPickerKind.genre => '未命名分类',
+      EntityPickerKind.tag => '未命名标签',
+      EntityPickerKind.actor => '未命名演员',
+      EntityPickerKind.series => '未命名系列',
+    };
+    final next = result.ids
+        .map((id) => (id: id, name: nameMap[id] ?? fallbackName))
         .toList();
     setState(() {
       switch (kind) {
@@ -420,7 +421,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                     children: _seriesId != null
                         ? [
                             HueChip(
-                              label: _seriesName ?? '#$_seriesId',
+                            label: _seriesName ?? '未命名系列',
                               hue: AppHues.sky,
                             ),
                           ]
