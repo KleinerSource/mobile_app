@@ -10,7 +10,7 @@ class ShakeDetector {
     required this.onShake,
     this.threshold = 15,
     this.requiredPeaks = 2,
-    this.sequenceWindow = const Duration(milliseconds: 1800),
+    this.sequenceWindow = const Duration(seconds: 1),
     this.cooldown = const Duration(seconds: 1),
     double? releaseThreshold,
   }) : releaseThreshold = releaseThreshold ?? threshold * 0.75;

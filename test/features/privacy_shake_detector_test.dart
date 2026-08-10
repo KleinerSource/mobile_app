@@ -14,10 +14,7 @@ void main() {
 
   test('需要连续两个摇动峰值才触发', () {
     var count = 0;
-    final detector = ShakeDetector(
-      onShake: () => count++,
-      sequenceWindow: const Duration(seconds: 2),
-    );
+    final detector = ShakeDetector(onShake: () => count++);
     final first = DateTime.utc(2026, 8, 10, 12);
 
     expect(
@@ -63,6 +60,28 @@ void main() {
       y: 0,
       z: 0,
       now: first.add(const Duration(milliseconds: 600)),
+    );
+
+    expect(count, 0);
+  });
+
+  test('超过一秒的峰值序列会重新开始计数', () {
+    var count = 0;
+    final detector = ShakeDetector(onShake: () => count++);
+    final first = DateTime.utc(2026, 8, 10, 12);
+
+    detector.handle(x: 16, y: 0, z: 0, now: first);
+    detector.handle(
+      x: 0,
+      y: 10,
+      z: 0,
+      now: first.add(const Duration(milliseconds: 400)),
+    );
+    detector.handle(
+      x: 16,
+      y: 0,
+      z: 0,
+      now: first.add(const Duration(milliseconds: 1100)),
     );
 
     expect(count, 0);
