@@ -40,21 +40,11 @@ class AppSettingsPage extends ConsumerWidget {
                 ],
               ),
               SettingsGroup(
-                title: l.settingsLanguage,
-                items: const [
-                  _LanguageTile(),
-                  _ThemeTile(),
-                ],
-              ),
-              const SettingsGroup(
-                title: '反馈',
+                title: '通用',
                 items: [
-                  _HapticIntensityTile(),
-                ],
-              ),
-              SettingsGroup(
-                title: '播放器设置',
-                items: [
+                  const _LanguageTile(),
+                  const _ThemeTile(),
+                  const _HapticIntensityTile(),
                   SettingsTile(
                     title: '播放器设置',
                     subtitle: '播放进度 / 屏幕方向 / OSD / 播放按钮 / 手势反馈',
@@ -65,11 +55,6 @@ class AppSettingsPage extends ConsumerWidget {
                       ),
                     ),
                   ),
-                ],
-              ),
-              SettingsGroup(
-                title: '字幕设置',
-                items: [
                   SettingsTile(
                     title: '字幕设置',
                     subtitle: '记忆选择 / 字体 / 颜色 / 描边 / 阴影',
@@ -80,11 +65,6 @@ class AppSettingsPage extends ConsumerWidget {
                       ),
                     ),
                   ),
-                ],
-              ),
-              SettingsGroup(
-                title: '缓存',
-                items: [
                   SettingsTile(
                     title: '缓存管理',
                     subtitle: '磁盘缓存额度 / 缓存分类 / 一键清理',
@@ -95,11 +75,6 @@ class AppSettingsPage extends ConsumerWidget {
                       ),
                     ),
                   ),
-                ],
-              ),
-              SettingsGroup(
-                title: l.settingsBadgePositions,
-                items: [
                   SettingsTile(
                     title: l.settingsBadgePositions,
                     subtitle: l.settingsBadgePositionsSub,
