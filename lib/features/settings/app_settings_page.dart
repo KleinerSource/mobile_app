@@ -46,6 +46,20 @@ class AppSettingsPage extends ConsumerWidget {
                   const _ThemeTile(),
                   const _HapticIntensityTile(),
                   SettingsTile(
+                    title: l.settingsBadgePositions,
+                    subtitle: l.settingsBadgePositionsSub,
+                    leadingIcon: Icons.grid_view_rounded,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                          builder: (_) => const BadgePositionPage()),
+                    ),
+                  ),
+                ],
+              ),
+              SettingsGroup(
+                title: '播放器',
+                items: [
+                  SettingsTile(
                     title: '播放器设置',
                     subtitle: '播放进度 / 屏幕方向 / OSD / 播放按钮 / 手势反馈',
                     leadingIcon: Icons.play_circle_outline,
@@ -73,15 +87,6 @@ class AppSettingsPage extends ConsumerWidget {
                       MaterialPageRoute(
                         builder: (_) => const CacheManagementPage(),
                       ),
-                    ),
-                  ),
-                  SettingsTile(
-                    title: l.settingsBadgePositions,
-                    subtitle: l.settingsBadgePositionsSub,
-                    leadingIcon: Icons.grid_view_rounded,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => const BadgePositionPage()),
                     ),
                   ),
                 ],
