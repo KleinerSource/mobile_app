@@ -1,5 +1,5 @@
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:md_center/features/player/player_gesture_layer.dart';
@@ -59,7 +59,7 @@ void main() {
     );
 
     await tester.tap(find.byType(PlayerGestureLayer));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
 
     expect(tapCount, 1);
     expect(hapticCalls, isEmpty);
