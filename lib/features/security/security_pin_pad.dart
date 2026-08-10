@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -14,72 +15,111 @@ class SecurityPinPad extends StatefulWidget {
     this.busy = false,
     this.submitLabel = '确认',
     this.autoSubmit = false,
+    this.showError = false,
   });
 
   final Future<void> Function(String) onCompleted;
   final bool busy;
   final String submitLabel;
   final bool autoSubmit;
+  final bool showError;
 
   @override
   State<SecurityPinPad> createState() => _SecurityPinPadState();
 }
 
-class _SecurityPinPadState extends State<SecurityPinPad> {
+class _SecurityPinPadState extends State<SecurityPinPad>
+    with SingleTickerProviderStateMixin {
   String _value = '';
+  late final AnimationController _shakeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+    if (widget.showError) _shakeController.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant SecurityPinPad oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.showError && !oldWidget.showError) {
+      _shakeController.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _shakeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _PinDots(value: _value),
-        const SizedBox(height: 8),
-        Text('请输入 6 位数字', style: AppText.meta(context)),
-        const SizedBox(height: 14),
-        for (final row in _pinRows)
+    return AnimatedBuilder(
+      animation: _shakeController,
+      builder: (context, child) {
+        final progress = _shakeController.value;
+        final offset = math.sin(progress * math.pi * 12) * (1 - progress) * 10;
+        return Transform.translate(
+          offset: Offset(offset, 0),
+          child: child,
+        );
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _PinDots(value: _value),
+          const SizedBox(height: 8),
+          Text('请输入 6 位数字', style: AppText.meta(context)),
+          const SizedBox(height: 14),
+          for (final row in _pinRows)
+            Row(
+              children: [
+                for (final digit in row) _digitButton(context, digit),
+              ],
+            ),
           Row(
             children: [
-              for (final digit in row) _digitButton(context, digit),
+              SizedBox(
+                width: 72,
+                height: 54,
+                child: IconButton(
+                  onPressed: widget.busy || _value.isEmpty ? null : _delete,
+                  tooltip: '删除',
+                  icon: const Icon(Icons.backspace_outlined),
+                ),
+              ),
+              _digitButton(context, '0'),
+              SizedBox(
+                width: 72,
+                height: 54,
+                child: IconButton(
+                  onPressed: widget.busy || _value.isEmpty ? null : _clear,
+                  tooltip: '清空',
+                  icon: const Icon(Icons.clear),
+                ),
+              ),
             ],
           ),
-        Row(
-          children: [
+          if (!widget.autoSubmit) ...[
+            const SizedBox(height: 12),
             SizedBox(
-              width: 72,
-              height: 54,
-              child: IconButton(
-                onPressed: widget.busy || _value.isEmpty ? null : _delete,
-                tooltip: '删除',
-                icon: const Icon(Icons.backspace_outlined),
-              ),
-            ),
-            _digitButton(context, '0'),
-            SizedBox(
-              width: 72,
-              height: 54,
-              child: IconButton(
-                onPressed: widget.busy || _value.isEmpty ? null : _clear,
-                tooltip: '清空',
-                icon: const Icon(Icons.clear),
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: widget.busy || !isValidSecurityPin(_value)
+                    ? null
+                    : () => unawaited(_submit(_value)),
+                icon: const Icon(Icons.lock_open_outlined),
+                label: Text(widget.busy ? '验证中...' : widget.submitLabel),
               ),
             ),
           ],
-        ),
-        if (!widget.autoSubmit) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: widget.busy || !isValidSecurityPin(_value)
-                  ? null
-                  : () => unawaited(_submit(_value)),
-              icon: const Icon(Icons.lock_open_outlined),
-              label: Text(widget.busy ? '验证中...' : widget.submitLabel),
-            ),
-          ),
         ],
-      ],
+      ),
     );
   }
 

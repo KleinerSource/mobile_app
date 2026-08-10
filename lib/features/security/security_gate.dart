@@ -335,6 +335,7 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                       SecurityPinPad(
                         busy: widget.busy,
                         autoSubmit: true,
+                        showError: widget.error != null,
                         onCompleted: widget.onPin,
                       ),
                     if (_showFallback &&
