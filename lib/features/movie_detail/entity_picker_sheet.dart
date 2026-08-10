@@ -456,8 +456,8 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
           return;
         }
         _localPinyinMode = false;
-      } else if (_localPinyinMode == null) {
-        _localPinyinMode = false;
+      } else {
+        _localPinyinMode ??= false;
       }
 
       final result = await repository.options(widget.kind, search: search);
