@@ -4,8 +4,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:md_center/core/api/services/configs_extended_api.dart';
 import 'package:md_center/core/api/services/mappings_api.dart';
+import 'package:md_center/core/api/services/movies_api.dart';
 import 'package:md_center/core/api/services/playback_api.dart';
+import 'package:md_center/core/api/services/translation_api.dart';
 import 'package:md_center/core/models/playback.dart';
+import 'package:md_center/features/translation/translation_repository.dart';
 
 void main() {
   test('映射 Retrofit 路径使用后端实际的 /mappings/type/{type}', () async {
@@ -56,6 +59,7 @@ void main() {
     expect((await api.status(7)).active, isTrue);
     expect((await api.events(7).toList()).single.quality, '1080p');
     await api.stop(7);
+    await MoviesApi(_dio(adapter)).acknowledgeResources(7);
 
     expect(
       adapter.paths,
@@ -65,8 +69,21 @@ void main() {
         '/api/movies/id/7/transcode-status',
         '/api/movies/id/7/transcode-events',
         '/api/movies/id/7/transcode-session',
+        '/api/movies/id/7/dbonline/resources/acknowledge',
       ]),
     );
+  });
+
+  test('翻译模型请求使用服务器已保存的 API Key', () async {
+    final adapter = _RouteAdapter();
+    final repository = TranslationRepository(TranslationApi(_dio(adapter)));
+
+    await repository.fetchModels(' https://translate.example/ ', '');
+
+    expect(adapter.requestBodies.single, {
+      'api_url': 'https://translate.example/',
+      'api_key': '__saved__',
+    });
   });
 }
 

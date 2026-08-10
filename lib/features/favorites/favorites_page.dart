@@ -59,8 +59,6 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   FavoritesViewMode _viewMode = FavoritesViewMode.grid;
   FavoritesSort _sort = FavoritesSort.recent;
   int _totalCount = 0;
-  int? _watchedCount;
-  int? _watchedHours;
   final Set<int> _selected = {};
   bool get _selecting => _selected.isNotEmpty;
 
@@ -86,8 +84,6 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       );
       final page = result.page;
       _totalCount = page.totalCount;
-      _watchedCount = result.stats?.watchedCount;
-      _watchedHours = result.stats?.hours;
       final nextOffset = offset + page.items.length;
       if (nextOffset >= page.totalCount || page.items.isEmpty) {
         _controller.appendLastPage(page.items);
@@ -294,8 +290,6 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                   child: _StatsCard(
                     totalCount: _totalCount,
                     items: _controller.itemList ?? const [],
-                    watchedCount: _watchedCount,
-                    watchedHours: _watchedHours,
                   ),
                 ),
               ),
@@ -836,30 +830,14 @@ class _StatsCard extends StatelessWidget {
   const _StatsCard({
     required this.totalCount,
     required this.items,
-    this.watchedCount,
-    this.watchedHours,
   });
   final int totalCount;
   final List<MovieListItem> items;
-  final int? watchedCount;
-  final int? watchedHours;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final watched = watchedCount ??
-        items.where((m) => m.watchRecord?.completed == true).length;
-    final hours = watchedHours ??
-        (items.fold<int>(0, (acc, m) {
-              final r = m.watchRecord;
-              if (r == null) return acc;
-              final fraction = r.completed ? 1.0 : r.progressRatio;
-              final mins = m.runtime != null
-                  ? (m.runtime! * fraction).round()
-                  : 0;
-              return acc + mins;
-            }) ~/
-            60);
+    final localStats = FavoriteStats.fromMovies(items);
 
     Widget cell(String k, String v, {bool first = false}) {
       return Expanded(
@@ -910,8 +888,8 @@ class _StatsCard extends StatelessWidget {
         children: [
           cell('已收藏', totalCount > 0 ? '$totalCount' : '${items.length}',
               first: true),
-          cell('已看', '$watched'),
-          cell('小时', '$hours'),
+          cell('已看', '${localStats.watchedCount}'),
+          cell('分钟', '${localStats.watchedMinutes}'),
         ],
       ),
     );

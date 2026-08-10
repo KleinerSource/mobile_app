@@ -13,6 +13,24 @@ class FavoriteStats {
   final int watchedCount;
   final int watchedMinutes;
 
+  factory FavoriteStats.fromMovies(Iterable<MovieListItem> movies) {
+    var watchedCount = 0;
+    var watchedMinutes = 0;
+    for (final movie in movies) {
+      final record = movie.watchRecord;
+      if (record == null) continue;
+      if (record.completed) watchedCount++;
+      if (movie.runtime != null && movie.runtime! > 0) {
+        final ratio = record.completed ? 1.0 : record.progressRatio;
+        watchedMinutes += (movie.runtime! * ratio.clamp(0.0, 1.0)).round();
+      }
+    }
+    return FavoriteStats(
+      watchedCount: watchedCount,
+      watchedMinutes: watchedMinutes,
+    );
+  }
+
   factory FavoriteStats.fromJson(Map<String, dynamic> json) {
     return FavoriteStats(
       watchedCount: (json['watched_count'] as num?)?.toInt() ?? 0,

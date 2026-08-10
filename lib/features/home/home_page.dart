@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -386,10 +388,35 @@ class _ContinueWatchingCard extends StatelessWidget {
 }
 
 // ============ Recently Added (横向卡片) ============
-class _RecentRow extends StatelessWidget {
+class _RecentRow extends ConsumerStatefulWidget {
   const _RecentRow({required this.items, required this.urlBuilder});
   final List<MovieListItem> items;
   final String Function(String) urlBuilder;
+
+  @override
+  ConsumerState<_RecentRow> createState() => _RecentRowState();
+}
+
+class _RecentRowState extends ConsumerState<_RecentRow> {
+  final Set<int> _dismissedNewMovies = <int>{};
+
+  Future<void> _acknowledge(MovieListItem movie) async {
+    try {
+      await ref.read(moviesRepositoryProvider).acknowledgeResources(movie.id);
+    } catch (_) {
+      // 详情页仍可正常打开，下一次刷新会重新以服务端状态为准。
+    }
+  }
+
+  void _openMovie(MovieListItem movie) {
+    if (movie.hasNewResources) {
+      setState(() => _dismissedNewMovies.add(movie.id));
+      unawaited(_acknowledge(movie));
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -398,23 +425,21 @@ class _RecentRow extends StatelessWidget {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 22),
-        itemCount: items.length,
+        itemCount: widget.items.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (ctx, i) {
-          final it = items[i];
+        itemBuilder: (_, i) {
+          final it = widget.items[i];
           return SizedBox(
             width: 132,
             child: Stack(
               children: [
                 MovieCard(
                   movie: it,
-                  posterUrlBuilder: urlBuilder,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => MovieDetailPage(movieId: it.id)),
-                  ),
+                  posterUrlBuilder: widget.urlBuilder,
+                  onTap: () => _openMovie(it),
                 ),
-                if (i == 0)
+                if (it.hasNewResources &&
+                    !_dismissedNewMovies.contains(it.id))
                   Positioned(
                     top: 8,
                     left: 8,

@@ -35,9 +35,13 @@ class TranslationRepository {
 
   /// 拉可用模型 · 返回 [{id, name?}, ...]
   Future<List<TranslationModel>> fetchModels(String apiUrl, String apiKey) async {
+    final normalizedUrl = apiUrl.trim();
+    final normalizedKey = apiKey.trim();
     final raw = await _api.fetchModels({
-      'api_url': apiUrl,
-      'api_key': apiKey,
+      'api_url': normalizedUrl,
+      // 密钥输入框为空时使用服务器配置中的已保存密钥，避免把空值
+      // 传给后端翻译服务。页面会在没有已保存密钥时提前提示用户输入。
+      'api_key': normalizedKey.isEmpty ? '__saved__' : normalizedKey,
     });
     if (raw is! Map || raw['success'] != true) return const [];
     final data = raw['data'];

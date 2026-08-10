@@ -22,6 +22,10 @@ abstract class MoviesApi {
   @GET('/movies/id/{id}/watch-record')
   Future<dynamic> getWatchRecord(@Path('id') int id);
 
+  /// 打开影片后确认已查看新资源，清除服务端 NEW 标记。
+  @POST('/movies/id/{id}/dbonline/resources/acknowledge')
+  Future<dynamic> acknowledgeResources(@Path('id') int id);
+
   /// 额外剧照列表 (来自 master 后端能力)
   @GET('/movies/id/{id}/extrafanart')
   Future<dynamic> getExtraFanarts(@Path('id') int id);

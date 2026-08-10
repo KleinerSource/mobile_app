@@ -87,6 +87,11 @@ class MoviesRepository {
     }
   }
 
+  Future<void> acknowledgeResources(int id) async {
+    final raw = await _api.acknowledgeResources(id);
+    unwrapStd<void>(raw, (_) {});
+  }
+
   /// 更新观看进度 · positionSec / durationSec 由播放器上报
   Future<void> upsertWatchRecord(
     int id, {

@@ -1,6 +1,8 @@
 import '../../core/api/api_exception.dart';
 import '../../core/api/envelope.dart';
 import '../../core/api/services/mappings_api.dart';
+import '../../core/models/avdb_config.dart';
+import '../../core/models/dbo_config.dart';
 import '../../core/models/mapping_rule.dart';
 
 enum ActorDataSource {
@@ -17,7 +19,27 @@ extension ActorDataSourceX on ActorDataSource {
   String get label => switch (this) {
         ActorDataSource.dbonline => 'DB Online',
         ActorDataSource.avdb => 'AVDB',
-      };
+  };
+}
+
+/// 只有服务端配置中同时存在启用状态、地址和 API Key 的来源才允许同步。
+/// API Key 不随演员同步请求下发，实际请求由后端从数据源配置读取。
+List<ActorDataSource> configuredActorDataSources({
+  DboConfig? dbonline,
+  AvdbConfig? avdb,
+}) {
+  final result = <ActorDataSource>[];
+  if (dbonline?.enabled == true &&
+      dbonline!.baseUrl.trim().isNotEmpty &&
+      dbonline.hasApiKey) {
+    result.add(ActorDataSource.dbonline);
+  }
+  if (avdb?.enabled == true &&
+      avdb!.baseUrl.trim().isNotEmpty &&
+      avdb.hasApiKey) {
+    result.add(ActorDataSource.avdb);
+  }
+  return result;
 }
 
 /// 数据源预览结果

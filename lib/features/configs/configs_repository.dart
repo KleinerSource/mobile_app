@@ -22,7 +22,8 @@ class ConfigsRepository {
 
   Future<DboConfig> saveDbo(DboConfig cfg, {bool keepApiKey = false}) async {
     final body = cfg.toJson();
-    if (keepApiKey) body.remove('api_key');
+    // 密钥输入框留空表示沿用服务端配置；不要用空字符串覆盖已有密钥。
+    if (keepApiKey || cfg.apiKey.trim().isEmpty) body.remove('api_key');
     final raw = await _api.saveDbo(body);
     return unwrapStd<DboConfig>(raw, (d) {
       if (d is Map) return DboConfig.fromJson(Map<String, dynamic>.from(d));
@@ -45,7 +46,8 @@ class ConfigsRepository {
     bool keepApiKey = false,
   }) async {
     final body = cfg.toJson();
-    if (keepApiKey) body.remove('api_key');
+    // AVDB 密钥同样由服务端数据源配置保存，留空时只更新其它字段。
+    if (keepApiKey || cfg.apiKey.trim().isEmpty) body.remove('api_key');
     final raw = await _extendedApi.saveAvdb(body);
     return unwrapStd<AvdbConfig>(raw, (d) {
       if (d is Map) return AvdbConfig.fromJson(Map<String, dynamic>.from(d));

@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/dio_factory.dart';
+import '../../../core/models/avdb_config.dart';
+import '../../../core/models/dbo_config.dart';
 import '../../../core/models/mapping_rule.dart';
 import '../../../core/platform/app_theme.dart';
+import '../../configs/configs_providers.dart';
 import '../actor_associations_providers.dart';
 import '../actor_associations_repository.dart';
 
@@ -35,6 +38,8 @@ class _ActorAssociationSyncSheetState
   String? _error;
   ActorAssocPreview? _preview;
   ActorDataSource _source = ActorDataSource.dbonline;
+  List<ActorDataSource> _availableSources = const [];
+  bool _sourcesLoaded = false;
   bool _applying = false;
 
   String get _actorName =>
@@ -57,20 +62,59 @@ class _ActorAssociationSyncSheetState
       _error = null;
     });
     try {
+      if (!_sourcesLoaded) {
+        final available = await _loadAvailableSources();
+        if (!mounted) return;
+        _availableSources = available;
+        _sourcesLoaded = true;
+        if (_availableSources.isEmpty) {
+          throw StateError('请先在服务器设置中配置并启用 DB Online 或 AVDB 数据源');
+        }
+        if (!_availableSources.contains(_source)) {
+          _source = _availableSources.first;
+        }
+      }
+      final actualSource = _availableSources.contains(selectedSource)
+          ? selectedSource
+          : _source;
       final repo = ref.read(actorAssociationsRepositoryProvider);
-      final p = await repo.previewSource(_actorName, source: selectedSource);
-      if (!mounted || selectedSource != _source) return;
+      final p = await repo.previewSource(_actorName, source: actualSource);
+      if (!mounted || actualSource != _source) return;
       setState(() {
         _preview = p;
         _loading = false;
       });
     } catch (e) {
-      if (!mounted || selectedSource != _source) return;
+      if (!mounted || (source != null && selectedSource != _source)) return;
       setState(() {
         _error = toApiException(e).message;
         _loading = false;
       });
     }
+  }
+
+  Future<List<ActorDataSource>> _loadAvailableSources() async {
+    Future<DboConfig?> loadDbo() async {
+      try {
+        return await ref.read(dboConfigProvider.future);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    Future<AvdbConfig?> loadAvdb() async {
+      try {
+        return await ref.read(avdbConfigProvider.future);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final configs = await Future.wait<Object?>([loadDbo(), loadAvdb()]);
+    return configuredActorDataSources(
+      dbonline: configs[0] as DboConfig?,
+      avdb: configs[1] as AvdbConfig?,
+    );
   }
 
   Future<void> _apply() async {
@@ -144,7 +188,7 @@ class _ActorAssociationSyncSheetState
                       isDense: true,
                     ),
                     items: [
-                      for (final source in ActorDataSource.values)
+                      for (final source in _availableSources)
                         DropdownMenuItem(
                           value: source,
                           child: Text(source.label),

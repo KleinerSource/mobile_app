@@ -24,6 +24,7 @@ abstract class MovieListItem with _$MovieListItem {
     @JsonKey(name: 'series_name') String? seriesName,
     @JsonKey(name: 'is_favorited') @Default(false) bool isFavorited,
     @JsonKey(name: 'is_updated') @Default(false) bool isUpdated,
+    @JsonKey(name: 'has_new_resources') @Default(false) bool hasNewResources,
     @JsonKey(name: 'has_external_subtitle') @Default(false) bool hasExternalSubtitle,
     @JsonKey(name: 'has_internal_subtitle') @Default(false) bool hasInternalSubtitle,
     @JsonKey(name: 'video_width') int? videoWidth,

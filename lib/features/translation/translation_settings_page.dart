@@ -376,7 +376,7 @@ class _TranslationSettingsPageState
               const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
-                child: OutlinedButton(
+                child: OutlinedButton.icon(
                   onPressed: _testing ? null : _test,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: c.text,
@@ -385,19 +385,20 @@ class _TranslationSettingsPageState
                         borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: _testing
+                  icon: _testing
                       ? const SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text(
-                          '测试翻译',
-                          style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14),
-                        ),
+                      : const Icon(Icons.translate_outlined, size: 18),
+                  label: const Text(
+                    '测试翻译',
+                    style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14),
+                  ),
                 ),
               ),
             ],

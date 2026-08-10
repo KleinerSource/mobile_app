@@ -20,7 +20,7 @@ abstract class TranslationApi {
   @GET('/translation/status')
   Future<dynamic> status();
 
-  /// 拉取可用模型 · body: { api_url, api_key }
+  /// 拉取可用模型 · body: { api_url, api_key }；api_key=__saved__ 时使用服务端配置
   @POST('/translation/models')
   Future<dynamic> fetchModels(@Body() Map<String, dynamic> body);
 

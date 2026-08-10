@@ -18,6 +18,10 @@ void main() {
     expect(result.stats?.watchedCount, 2);
     expect(result.stats?.watchedMinutes, 180);
     expect(result.stats?.hours, 3);
+
+    final local = FavoriteStats.fromMovies(result.page.items);
+    expect(local.watchedCount, 1);
+    expect(local.watchedMinutes, 120);
   });
 
   test('旧服务端没有统计字段时保留空统计以便页面回退本地计算', () async {

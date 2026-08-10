@@ -90,6 +90,15 @@ void main() {
 
     expect(api.lastWatchRecordBody, {'ended': true});
   });
+
+  test('打开新资源影片会调用确认接口', () async {
+    final api = _StubMoviesApi({});
+    final repo = MoviesRepository(api, _StubFavoritesApi(), _StubSystemApi());
+
+    await repo.acknowledgeResources(9);
+
+    expect(api.lastAcknowledgedId, 9);
+  });
 }
 
 class _StubMoviesApi implements MoviesApi {
@@ -100,6 +109,7 @@ class _StubMoviesApi implements MoviesApi {
   final Map<String, dynamic>? watchRecordResponse;
   Map<String, dynamic>? lastQuery;
   Map<String, dynamic>? lastWatchRecordBody;
+  int? lastAcknowledgedId;
 
   @override
   Future<dynamic> getMovies(Map<String, dynamic> q) async {
@@ -120,6 +130,16 @@ class _StubMoviesApi implements MoviesApi {
   Future<dynamic> getWatchRecord(int id) async =>
       watchRecordResponse ??
       {'success': true, 'message': 'ok', 'data': null};
+
+  @override
+  Future<dynamic> acknowledgeResources(int id) async {
+    lastAcknowledgedId = id;
+    return {
+      'success': true,
+      'message': 'ok',
+      'data': {'has_new_resources': false},
+    };
+  }
 
   @override
   Future<dynamic> getExtraFanarts(int id) async =>

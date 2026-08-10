@@ -764,12 +764,11 @@ class _QuickChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active ? c.accent.withValues(alpha: 0.15) : c.chipBg,
-          borderRadius: BorderRadius.circular(100),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: active ? c.accent.withValues(alpha: 0.5) : c.cardBorder,
           ),
@@ -777,12 +776,12 @@ class _QuickChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: iconColor),
+            Icon(icon, size: 15, color: iconColor),
             const SizedBox(width: 5),
             Text(
               label,
               strutStyle: const StrutStyle(
-                fontSize: 12,
+                fontSize: 11.5,
                 height: 1.0,
                 forceStrutHeight: true,
               ),
@@ -790,7 +789,7 @@ class _QuickChip extends StatelessWidget {
                 color: fg,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w700,
-                fontSize: 12,
+                fontSize: 11.5,
               ),
             ),
           ],
@@ -855,12 +854,11 @@ class _UpdatedDropdownChip extends StatelessWidget {
     return GestureDetector(
       onTap: () => _openMenu(context),
       child: Container(
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active ? c.accent.withValues(alpha: 0.15) : c.chipBg,
-          borderRadius: BorderRadius.circular(100),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: active ? c.accent.withValues(alpha: 0.5) : c.cardBorder,
           ),
@@ -868,10 +866,12 @@ class _UpdatedDropdownChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(Icons.update_rounded, size: 15, color: iconColor),
+            const SizedBox(width: 5),
             Text(
               _label,
               strutStyle: const StrutStyle(
-                fontSize: 12,
+                fontSize: 11.5,
                 height: 1.0,
                 forceStrutHeight: true,
               ),
@@ -879,7 +879,7 @@ class _UpdatedDropdownChip extends StatelessWidget {
                 color: fg,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w700,
-                fontSize: 12,
+                fontSize: 11.5,
               ),
             ),
             const SizedBox(width: 3),
