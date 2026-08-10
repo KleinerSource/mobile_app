@@ -1,0 +1,86 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:md_center/core/update/update_models.dart';
+import 'package:md_center/core/update/update_service.dart';
+
+void main() {
+  test('版本号支持语义版本和 build 号比较', () {
+    final current = AppReleaseVersion.parse('0.1.60+67');
+    final nextPatch = AppReleaseVersion.parse('md_center_0.1.61+68.apk');
+    final nextBuild = AppReleaseVersion.parse('v0.1.60+68');
+
+    expect(current.display, '0.1.60+67');
+    expect(nextPatch.compareTo(current), greaterThan(0));
+    expect(nextBuild.compareTo(current), greaterThan(0));
+    expect(AppReleaseVersion.tryParse('latest'), isNull);
+  });
+
+  test('GitHub 地址规范化并生成 Release API 地址', () {
+    final repository = GitHubRepository.parse(
+      'https://github.com/KleinerSource/mobile_app/releases',
+    );
+
+    expect(repository.canonicalUrl, 'https://github.com/KleinerSource/mobile_app');
+    expect(
+      repository.releasesApiUrl,
+      'https://api.github.com/repos/KleinerSource/mobile_app/releases?per_page=100',
+    );
+    expect(
+      () => GitHubRepository.parse('https://example.com/owner/repo'),
+      throwsFormatException,
+    );
+  });
+
+  test('按平台从不同 Release 中选择最高版本产物', () {
+    final releases = [
+      GitHubRelease.fromJson({
+        'tag_name': 'latest',
+        'name': 'iOS build',
+        'published_at': '2026-08-10T05:20:00Z',
+        'assets': [
+          {
+            'name': 'md_center_0.1.60+67.ipa',
+            'browser_download_url': 'https://github.com/o/r/releases/ipa',
+            'size': 100,
+          },
+        ],
+      }),
+      GitHubRelease.fromJson({
+        'tag_name': 'latest-android',
+        'name': 'Android build',
+        'published_at': '2026-08-10T05:21:00Z',
+        'assets': [
+          {
+            'name': 'md_center_0.1.60+67.apk',
+            'browser_download_url': 'https://github.com/o/r/releases/apk',
+            'size': 200,
+          },
+        ],
+      }),
+      GitHubRelease.fromJson({
+        'tag_name': 'v0.1.59+66',
+        'name': 'Older Android build',
+        'published_at': '2026-08-09T05:21:00Z',
+        'assets': [
+          {
+            'name': 'md_center_0.1.59+66.apk',
+            'browser_download_url': 'https://github.com/o/r/releases/old',
+            'size': 180,
+          },
+        ],
+      }),
+    ];
+
+    final ios = GitHubUpdateService.selectLatestCandidate(
+      releases,
+      UpdatePlatform.ios,
+    );
+    final android = GitHubUpdateService.selectLatestCandidate(
+      releases,
+      UpdatePlatform.android,
+    );
+
+    expect(ios?.version, const AppReleaseVersion(major: 0, minor: 1, patch: 60, build: 67));
+    expect(ios?.asset.name, 'md_center_0.1.60+67.ipa');
+    expect(android?.asset.name, 'md_center_0.1.60+67.apk');
+  });
+}

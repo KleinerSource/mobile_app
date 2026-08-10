@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.SystemClock
 import android.net.TrafficStats
 import android.util.Rational
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -17,6 +18,7 @@ class MainActivity : FlutterFragmentActivity() {
     companion object {
         private const val STATS_CHANNEL = "md_center/player_stats"
         private const val CAPABILITIES_CHANNEL = "md_center/player_capabilities"
+        private const val UPDATE_CHANNEL = "md_center/app_update"
     }
 
     private var previousRxBytes: Long? = null
@@ -45,6 +47,41 @@ class MainActivity : FlutterFragmentActivity() {
                 "enterPictureInPicture" -> enterPictureInPicture(result)
                 else -> result.notImplemented()
             }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            UPDATE_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "installApk" -> installApk(call.argument<String>("path"), result)
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun installApk(path: String?, result: MethodChannel.Result) {
+        if (path.isNullOrBlank()) {
+            result.success(false)
+            return
+        }
+        try {
+            val apk = File(path)
+            if (!apk.exists()) {
+                result.success(false)
+                return
+            }
+            val authority = "${applicationContext.packageName}.fileprovider"
+            val uri = FileProvider.getUriForFile(this, authority, apk)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+            result.success(true)
+        } catch (_: Exception) {
+            result.success(false)
         }
     }
 
