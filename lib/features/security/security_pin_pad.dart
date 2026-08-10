@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/platform/app_haptics.dart';
@@ -11,11 +13,13 @@ class SecurityPinPad extends StatefulWidget {
     required this.onCompleted,
     this.busy = false,
     this.submitLabel = '确认',
+    this.autoSubmit = false,
   });
 
-  final ValueChanged<String> onCompleted;
+  final Future<void> Function(String) onCompleted;
   final bool busy;
   final String submitLabel;
+  final bool autoSubmit;
 
   @override
   State<SecurityPinPad> createState() => _SecurityPinPadState();
@@ -62,17 +66,19 @@ class _SecurityPinPadState extends State<SecurityPinPad> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: widget.busy || !isValidSecurityPin(_value)
-                ? null
-                : () => widget.onCompleted(_value),
-            icon: const Icon(Icons.lock_open_outlined),
-            label: Text(widget.busy ? '验证中...' : widget.submitLabel),
+        if (!widget.autoSubmit) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: widget.busy || !isValidSecurityPin(_value)
+                  ? null
+                  : () => unawaited(_submit(_value)),
+              icon: const Icon(Icons.lock_open_outlined),
+              label: Text(widget.busy ? '验证中...' : widget.submitLabel),
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -95,7 +101,20 @@ class _SecurityPinPadState extends State<SecurityPinPad> {
   void _append(String digit) {
     if (_value.length >= securityPinMaxLength) return;
     AppHaptics.selection();
-    setState(() => _value += digit);
+    final nextValue = '$_value$digit';
+    setState(() => _value = nextValue);
+    if (widget.autoSubmit && nextValue.length == securityPinMaxLength) {
+      unawaited(_submit(nextValue));
+    }
+  }
+
+  Future<void> _submit(String pin) async {
+    AppHaptics.medium();
+    try {
+      await widget.onCompleted(pin);
+    } finally {
+      if (mounted) setState(() => _value = '');
+    }
   }
 
   void _delete() {

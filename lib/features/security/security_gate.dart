@@ -334,9 +334,8 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                         widget.settings.hasPin)
                       SecurityPinPad(
                         busy: widget.busy,
-                        submitLabel: '解锁',
-                        onCompleted: (pin) =>
-                            unawaited(widget.onPin(pin)),
+                        autoSubmit: true,
+                        onCompleted: widget.onPin,
                       ),
                     if (_showFallback &&
                         _method == _UnlockMethod.gesture &&

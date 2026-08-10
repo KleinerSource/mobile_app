@@ -378,7 +378,7 @@ class _PinSetupDialogState extends State<_PinSetupDialog> {
     );
   }
 
-  void _handlePin(String pin) {
+  Future<void> _handlePin(String pin) async {
     final first = _firstPin;
     if (first == null) {
       setState(() {
