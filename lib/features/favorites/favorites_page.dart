@@ -21,6 +21,7 @@ import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
 import '../settings/settings_page.dart';
 import 'favorites_providers.dart';
+import 'favorites_repository.dart';
 
 enum FavoritesViewMode { grid, list }
 
