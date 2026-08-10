@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +9,7 @@ import '../../core/platform/app_version.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import 'app_settings_page.dart';
+import 'app_update_settings_page.dart';
 import 'server_settings_page.dart';
 import 'settings_common.dart';
 
@@ -56,15 +59,14 @@ class SettingsPage extends ConsumerWidget {
               SettingsGroup(
                 title: l.settingsGroupAbout,
                 items: [
-                  SettingsTile(
-                    title: l.settingsVersion,
+                  _VersionSettingsTile(
                     subtitle: packageInfo.when(
                       data: (info) =>
                           formatAppVersion(info.version, info.buildNumber),
                       loading: () => '读取中…',
                       error: (_, __) => '未知',
                     ),
-                    leadingIcon: Icons.info_outline,
+                    title: l.settingsVersion,
                   ),
                   SettingsTile(
                     title: l.settingsLogout,
@@ -109,5 +111,64 @@ class SettingsPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+class _VersionSettingsTile extends StatefulWidget {
+  const _VersionSettingsTile({
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  State<_VersionSettingsTile> createState() => _VersionSettingsTileState();
+}
+
+class _VersionSettingsTileState extends State<_VersionSettingsTile> {
+  static const _requiredTaps = 5;
+  static const _tapWindow = Duration(seconds: 2);
+
+  int _tapCount = 0;
+  Timer? _resetTimer;
+
+  @override
+  void dispose() {
+    _resetTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsTile(
+      title: widget.title,
+      subtitle: widget.subtitle,
+      leadingIcon: Icons.info_outline,
+      showChevron: false,
+      onTap: _handleTap,
+    );
+  }
+
+  void _handleTap() {
+    _resetTimer?.cancel();
+    _tapCount++;
+
+    if (_tapCount >= _requiredTaps) {
+      _tapCount = 0;
+      unawaited(
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const AppUpdateSettingsPage(),
+          ),
+        ),
+      );
+      return;
+    }
+
+    _resetTimer = Timer(_tapWindow, () {
+      _tapCount = 0;
+    });
   }
 }

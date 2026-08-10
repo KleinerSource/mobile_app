@@ -54,6 +54,7 @@ class SettingsTile extends StatelessWidget {
     this.onTap,
     this.destructive = false,
     this.leadingIcon,
+    this.showChevron = true,
   });
   final String title;
   final String? subtitle;
@@ -61,12 +62,18 @@ class SettingsTile extends StatelessWidget {
   final VoidCallback? onTap;
   final bool destructive;
   final IconData? leadingIcon;
+  final bool showChevron;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
     return InkWell(
-      onTap: onTap,
+      onTap: onTap == null
+          ? null
+          : () {
+              AppHaptics.selection();
+              onTap!();
+            },
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -114,7 +121,7 @@ class SettingsTile extends StatelessWidget {
             ),
             if (trailing != null)
               trailing!
-            else if (onTap != null && !destructive)
+            else if (onTap != null && !destructive && showChevron)
               Icon(Icons.chevron_right, size: 18, color: c.muted),
           ],
         ),

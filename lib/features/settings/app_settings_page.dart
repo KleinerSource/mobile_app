@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
-import '../../core/update/update_repository.dart';
 import '../../shared/glow_background.dart';
 import '../i18n/locale_providers.dart';
 import '../i18n/theme_provider.dart';
@@ -15,7 +14,6 @@ import '../security/security_settings_page.dart';
 import 'badge_position_page.dart';
 import 'cache_management_page.dart';
 import 'haptic_settings.dart';
-import 'app_update_settings_page.dart';
 import 'player_settings_page.dart';
 import 'settings_common.dart';
 import 'subtitle_settings_page.dart';
@@ -28,7 +26,6 @@ class AppSettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final updateRepository = ref.watch(updateRepositoryUrlProvider);
     return Scaffold(
       backgroundColor: c.bg,
       body: GlowBackground(
@@ -61,16 +58,6 @@ class AppSettingsPage extends ConsumerWidget {
                   const _LanguageTile(),
                   const _ThemeTile(),
                   const _HapticIntensityTile(),
-                  SettingsTile(
-                    title: '应用更新',
-                    subtitle: updateRepository ?? '未配置 GitHub 地址',
-                    leadingIcon: Icons.system_update_alt_outlined,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const AppUpdateSettingsPage(),
-                      ),
-                    ),
-                  ),
                   SettingsTile(
                     title: l.settingsBadgePositions,
                     subtitle: l.settingsBadgePositionsSub,
