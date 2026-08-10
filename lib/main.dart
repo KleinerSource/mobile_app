@@ -7,6 +7,7 @@ import 'core/config/server_config_provider.dart';
 import 'core/auth/auth_provider.dart';
 import 'core/auth/auth_session.dart';
 import 'core/auth/auth_session_provider.dart';
+import 'core/platform/app_haptics.dart';
 import 'core/platform/app_theme.dart';
 import 'features/i18n/locale_providers.dart';
 import 'features/i18n/theme_provider.dart';
@@ -20,6 +21,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
+  AppHaptics.configureFromPreferences(prefs);
   runApp(ProviderScope(
     overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
     child: const MdCenterApp(),

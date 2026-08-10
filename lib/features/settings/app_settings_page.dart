@@ -10,6 +10,7 @@ import '../i18n/theme_provider.dart';
 import '../privacy/privacy_providers.dart';
 import 'badge_position_page.dart';
 import 'cache_management_page.dart';
+import 'haptic_settings.dart';
 import 'player_settings_page.dart';
 import 'settings_common.dart';
 import 'subtitle_settings_page.dart';
@@ -43,6 +44,12 @@ class AppSettingsPage extends ConsumerWidget {
                 items: const [
                   _LanguageTile(),
                   _ThemeTile(),
+                ],
+              ),
+              const SettingsGroup(
+                title: '反馈',
+                items: [
+                  _HapticIntensityTile(),
                 ],
               ),
               SettingsGroup(
@@ -289,6 +296,70 @@ class _ThemeTile extends ConsumerWidget {
     if (picked != null && picked != current) {
       AppHaptics.selection();
       await ref.read(themeModeProvider.notifier).set(picked);
+    }
+  }
+}
+
+class _HapticIntensityTile extends ConsumerWidget {
+  const _HapticIntensityTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(hapticIntensityProvider);
+    return SettingsTile(
+      title: '震动反馈强度',
+      subtitle: current.label,
+      leadingIcon: Icons.vibration,
+      onTap: () => _showSheet(context, ref, current),
+    );
+  }
+
+  Future<void> _showSheet(
+    BuildContext context,
+    WidgetRef ref,
+    HapticIntensity current,
+  ) async {
+    final c = appColors(context);
+    final picked = await showModalBottomSheet<HapticIntensity>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
+                child: Row(
+                  children: [
+                    Text('震动反馈强度', style: AppText.sectionTitle(ctx)),
+                  ],
+                ),
+              ),
+              for (final intensity in HapticIntensity.values)
+                ListTile(
+                  leading: Icon(Icons.vibration, color: c.muted, size: 20),
+                  title: Text(
+                    intensity.label,
+                    style: AppText.body(ctx).copyWith(
+                      color: c.text,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  trailing: intensity == current
+                      ? Icon(Icons.check, color: c.accent)
+                      : null,
+                  onTap: () => Navigator.pop(ctx, intensity),
+                ),
+              const SizedBox(height: 6),
+            ],
+          ),
+        );
+      },
+    );
+    if (picked != null && picked != current) {
+      await ref.read(hapticIntensityProvider.notifier).set(picked);
+      AppHaptics.selection();
     }
   }
 }

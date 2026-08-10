@@ -7,6 +7,7 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
+import '../player/subtitle_rendering.dart';
 import '../player/subtitle_settings.dart';
 import 'settings_common.dart';
 
@@ -37,6 +38,12 @@ class SubtitleSettingsPage extends ConsumerWidget {
             const SettingsSubPageHeader(
               eyebrow: '应用设置',
               title: '字幕设置',
+            ),
+            SettingsGroup(
+              title: '样式预览',
+              items: [
+                _SubtitleStylePreview(settings: settings),
+              ],
             ),
             SettingsGroup(
               title: '字幕行为',
@@ -195,6 +202,45 @@ class SubtitleSettingsPage extends ConsumerWidget {
         const SnackBar(content: Text('字幕设置已恢复默认')),
       );
     }
+  }
+}
+
+class _SubtitleStylePreview extends StatelessWidget {
+  const _SubtitleStylePreview({required this.settings});
+
+  final SubtitleSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final style = subtitleTextStyle(
+      settings,
+      settings.adjustments,
+      baseFontSize: 24,
+    );
+    return Padding(
+      padding: const EdgeInsets.all(14),
+      child: Container(
+        height: 116,
+        alignment: Alignment.bottomCenter,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+        decoration: BoxDecoration(
+          color: const Color(0xFF20242C),
+          border: Border.all(color: c.cardBorder),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Opacity(
+          opacity: settings.adjustments.opacity.clamp(0.1, 1.0).toDouble(),
+          child: Text(
+            '这是一段字幕预览',
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          ),
+        ),
+      ),
+    );
   }
 }
 

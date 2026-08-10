@@ -1,13 +1,47 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+enum HapticIntensity {
+  low('low', '轻'),
+  standard('standard', '标准'),
+  high('high', '强');
+
+  const HapticIntensity(this.storageValue, this.label);
+
+  final String storageValue;
+  final String label;
+
+  static HapticIntensity fromStorage(String? value) {
+    for (final intensity in values) {
+      if (intensity.storageValue == value) return intensity;
+    }
+    return HapticIntensity.standard;
+  }
+}
 
 /// 应用级触觉反馈。
 ///
 /// 只在状态切换、选择、提交和播放器操作等有明确结果的交互中调用，
 /// 普通点击（例如播放器显隐控制栏）不触发反馈。
 abstract final class AppHaptics {
+  static const preferenceKey = 'app.haptic_intensity';
+
   static DateTime? _lastSelectionAt;
+  static HapticIntensity _intensity = HapticIntensity.standard;
+
+  static HapticIntensity get intensity => _intensity;
+
+  static void setIntensity(HapticIntensity intensity) {
+    _intensity = intensity;
+  }
+
+  static void configureFromPreferences(SharedPreferences prefs) {
+    _intensity = HapticIntensity.fromStorage(
+      prefs.getString(preferenceKey),
+    );
+  }
 
   static void selection() {
     final now = DateTime.now();
@@ -17,12 +51,12 @@ abstract final class AppHaptics {
       return;
     }
     _lastSelectionAt = now;
-    _send(HapticFeedback.selectionClick());
+    _send(_selectionEffect());
   }
 
-  static void light() => _send(HapticFeedback.lightImpact());
+  static void light() => _send(_lightEffect());
 
-  static void medium() => _send(HapticFeedback.mediumImpact());
+  static void medium() => _send(_mediumEffect());
 
   /// 为开关统一添加反馈，禁用状态保持原来的 null 回调语义。
   static ValueChanged<bool>? wrapToggle(ValueChanged<bool>? onChanged) {
@@ -35,5 +69,29 @@ abstract final class AppHaptics {
 
   static void _send(Future<void> effect) {
     unawaited(effect.catchError((_) {}));
+  }
+
+  static Future<void> _selectionEffect() {
+    return switch (_intensity) {
+      HapticIntensity.low => HapticFeedback.selectionClick(),
+      HapticIntensity.standard => HapticFeedback.lightImpact(),
+      HapticIntensity.high => HapticFeedback.mediumImpact(),
+    };
+  }
+
+  static Future<void> _lightEffect() {
+    return switch (_intensity) {
+      HapticIntensity.low => HapticFeedback.selectionClick(),
+      HapticIntensity.standard => HapticFeedback.lightImpact(),
+      HapticIntensity.high => HapticFeedback.mediumImpact(),
+    };
+  }
+
+  static Future<void> _mediumEffect() {
+    return switch (_intensity) {
+      HapticIntensity.low => HapticFeedback.lightImpact(),
+      HapticIntensity.standard => HapticFeedback.mediumImpact(),
+      HapticIntensity.high => HapticFeedback.heavyImpact(),
+    };
   }
 }
