@@ -33,15 +33,18 @@ class _AppUpdateSettingsPageState
   String? _error;
   bool _checking = false;
   bool _downloading = false;
+  bool _editingRepository = false;
   double? _downloadProgress;
 
   @override
   void initState() {
     super.initState();
+    final savedRepository = ref.read(updateRepositoryUrlProvider);
     _repositoryController = TextEditingController(
-      text: ref.read(updateRepositoryUrlProvider) ?? '',
+      text: savedRepository ?? '',
     );
     _repositoryFocusNode = FocusNode();
+    _editingRepository = savedRepository == null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
           !widget.checkOnOpen ||
@@ -64,9 +67,9 @@ class _AppUpdateSettingsPageState
     final colors = appColors(context);
     final savedRepository = ref.watch(updateRepositoryUrlProvider);
     final currentRepository = _repositoryController.text.trim();
-    final repositoryIsSaved = savedRepository != null &&
-        savedRepository == currentRepository &&
-        currentRepository.isNotEmpty;
+    final hasSavedRepository = savedRepository != null &&
+        savedRepository.trim().isNotEmpty;
+    final repositoryLocked = hasSavedRepository && !_editingRepository;
     return Scaffold(
       backgroundColor: colors.bg,
       body: GlowBackground(
@@ -93,6 +96,7 @@ class _AppUpdateSettingsPageState
                             keyboardType: TextInputType.url,
                             autocorrect: false,
                             enableSuggestions: false,
+                            readOnly: repositoryLocked,
                             textInputAction: TextInputAction.done,
                             decoration: settingsInputDecoration(
                               context,
@@ -111,9 +115,9 @@ class _AppUpdateSettingsPageState
                             onPressed: _checking || _downloading
                                 ? null
                                 : _saveOrEditRepository,
-                            tooltip: repositoryIsSaved ? '编辑更新源' : '保存更新源',
+                            tooltip: repositoryLocked ? '编辑更新源' : '保存更新源',
                             icon: Icon(
-                              repositoryIsSaved
+                              repositoryLocked
                                   ? Icons.edit_outlined
                                   : Icons.save_outlined,
                               size: 20,
@@ -337,9 +341,10 @@ class _AppUpdateSettingsPageState
   }
 
   Future<void> _saveOrEditRepository() async {
-    final current = _repositoryController.text.trim();
     final saved = ref.read(updateRepositoryUrlProvider);
-    if (saved != null && saved == current && current.isNotEmpty) {
+    final hasSavedRepository = saved != null && saved.trim().isNotEmpty;
+    if (hasSavedRepository && !_editingRepository) {
+      setState(() => _editingRepository = true);
       AppHaptics.selection();
       _repositoryFocusNode.requestFocus();
       _repositoryController.selection = TextSelection(
@@ -365,6 +370,10 @@ class _AppUpdateSettingsPageState
           offset: repository.canonicalUrl.length,
         ),
       );
+      setState(() {
+        _editingRepository = false;
+        _error = null;
+      });
       AppHaptics.selection();
       _showMessage('更新源已保存');
     } on FormatException catch (error) {
@@ -397,6 +406,7 @@ class _AppUpdateSettingsPageState
     if (!mounted) return;
     _repositoryController.clear();
     setState(() {
+      _editingRepository = true;
       _result = null;
       _error = null;
     });
