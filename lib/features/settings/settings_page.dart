@@ -175,18 +175,20 @@ class _VersionSettingsTileState extends State<_VersionSettingsTile> {
       subtitle: widget.subtitle,
       leadingIcon: Icons.info_outline,
       showChevron: false,
-      trailing: TextButton.icon(
-        onPressed: () {
-          AppHaptics.selection();
-          widget.onCheckForUpdates();
-        },
-        icon: const Icon(Icons.refresh_rounded, size: 18),
-        label: Text(widget.hasUpdateSource ? '检测更新' : '配置更新源'),
-        style: TextButton.styleFrom(
-          minimumSize: const Size(0, 40),
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-        ),
-      ),
+      trailing: widget.hasUpdateSource
+          ? TextButton.icon(
+              onPressed: () {
+                AppHaptics.selection();
+                widget.onCheckForUpdates();
+              },
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('检测更新'),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, 40),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            )
+          : null,
       onTap: _handleTap,
     );
   }

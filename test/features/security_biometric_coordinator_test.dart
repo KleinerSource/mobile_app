@@ -5,10 +5,13 @@ void main() {
   test('启用生物识别的系统页返回不会再次触发应用锁', () {
     final coordinator = SecurityBiometricCoordinator();
 
+    expect(coordinator.isAuthenticationInFlight, isFalse);
     coordinator.beginAuthentication();
+    expect(coordinator.isAuthenticationInFlight, isTrue);
     coordinator.didEnterInactive();
     expect(coordinator.consumeResume(), isTrue);
     coordinator.endAuthentication();
+    expect(coordinator.isAuthenticationInFlight, isFalse);
     expect(coordinator.consumeResume(), isFalse);
   });
 

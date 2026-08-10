@@ -4,6 +4,8 @@ class SecurityBiometricCoordinator {
   bool _skipNextResume = false;
   bool _sawInactive = false;
 
+  bool get isAuthenticationInFlight => _authenticationInFlight;
+
   void beginAuthentication() {
     _authenticationInFlight = true;
     _skipNextResume = true;

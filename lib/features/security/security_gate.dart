@@ -31,6 +31,7 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
   bool _biometricAttempted = false;
   bool _readyNotified = false;
   bool _wasBackgrounded = false;
+  bool _appResumed = true;
   String? _error;
 
   @override
@@ -50,11 +51,17 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
+      _appResumed = false;
       _wasBackgrounded = true;
-      ref.read(securityBiometricCoordinatorProvider).didEnterInactive();
+      final coordinator = ref.read(securityBiometricCoordinatorProvider);
+      if (!_biometricInFlight && !coordinator.isAuthenticationInFlight) {
+        _lockForBackground();
+      }
+      coordinator.didEnterInactive();
       return;
     }
     if (state != AppLifecycleState.resumed || !mounted) return;
+    _appResumed = true;
 
     // local_auth 的系统验证页也会触发一次生命周期切换。这个切换不是
     // 用户离开应用，不能在验证成功后再次锁定并重复弹出生物识别。
@@ -123,10 +130,26 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
   }
 
   void _scheduleBiometric(SecuritySettings settings) {
-    if (!settings.biometricEnabled || _biometricAttempted || _busy) return;
+    if (!_appResumed ||
+        !settings.biometricEnabled ||
+        _biometricAttempted ||
+        _busy) {
+      return;
+    }
     _biometricAttempted = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_authenticateBiometric());
+    });
+  }
+
+  void _lockForBackground() {
+    if (!mounted || _locked) return;
+    final settings = ref.read(securityControllerProvider).valueOrNull;
+    if (settings?.requiresUnlock != true) return;
+    setState(() {
+      _locked = true;
+      _error = null;
+      _biometricAttempted = false;
     });
   }
 
