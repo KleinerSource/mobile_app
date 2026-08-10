@@ -13,6 +13,8 @@ import '../../shared/pinyin_search.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
 
+const _taxonomyLocalLimit = 200;
+
 /// 资源选择器类型 · 比 ResourceKind 多个 actor
 enum EntityPickerKind {
   genre,
@@ -52,6 +54,8 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
     required this.kind,
     required this.initialSelectedIds,
     this.selectedNames = const {},
+    this.allowMultiple = false,
+    this.allowedIds,
   });
 
   final EntityPickerKind kind;
@@ -62,14 +66,20 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
   /// 当前选中项的名称。远程查询只返回有限候选时，用于继续显示已选项。
   final Map<int, String> selectedNames;
 
+  /// 某些筛选器需要对系列进行多选；影片编辑仍由 pickSingle 保持单选。
+  final bool allowMultiple;
+
+  /// 可选范围；高级筛选的“移除共有项”使用它限制结果。
+  final Set<int>? allowedIds;
+
   /// 弹出多选 · 返回选中 ID 和名称 (取消则 null)
   static Future<EntityPickerSelection?> pickMulti({
     required BuildContext context,
     required EntityPickerKind kind,
     required List<int> selected,
     Map<int, String> selectedNames = const {},
+    Set<int>? allowedIds,
   }) async {
-    assert(kind.multi, 'series 用 pickSingle');
     return showModalBottomSheet<EntityPickerSelection>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -79,6 +89,8 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
         kind: kind,
         initialSelectedIds: selected,
         selectedNames: selectedNames,
+        allowMultiple: true,
+        allowedIds: allowedIds,
       ),
     );
   }
@@ -100,6 +112,7 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
         kind: kind,
         initialSelectedIds: selected != null ? [selected] : const [],
         selectedNames: selectedNames,
+        allowMultiple: false,
       ),
     );
     return result;
@@ -116,6 +129,8 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
   late final Set<int> _selected =
       widget.initialSelectedIds.toSet();
   final Map<int, String> _selectedNames = {};
+
+  bool get _isMulti => widget.allowMultiple || widget.kind.multi;
 
   @override
   void initState() {
@@ -143,7 +158,7 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
     final id = selection.id;
     final name = selection.name;
     setState(() {
-      if (widget.kind.multi) {
+      if (_isMulti) {
         if (_selected.contains(id)) {
           _selected.remove(id);
           _selectedNames.remove(id);
@@ -222,10 +237,10 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          widget.kind.multi ? '选择${widget.kind.label}' : '选择${widget.kind.label}',
+                          '选择${widget.kind.label}',
                           style: AppText.sectionTitle(context),
                         ),
-                        if (widget.kind.multi) ...[
+                        if (_isMulti) ...[
                           const SizedBox(height: 2),
                           Text(
                             '${_selected.length} 已选',
@@ -239,7 +254,7 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
                     onPressed: () =>
                         Navigator.of(context).pop(_selection()),
                     child: Text(
-                      widget.kind.multi ? '完成' : '使用',
+                      _isMulti ? '完成' : '使用',
                       style: TextStyle(
                         color: c.accent,
                         fontFamily: 'Inter',
@@ -271,7 +286,7 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
                         decoration: InputDecoration(
                           hintText: widget.kind == EntityPickerKind.genre ||
                                   widget.kind == EntityPickerKind.tag
-                              ? '搜索名称 / 拼音 / 首字母'
+                              ? '搜索名称'
                               : widget.kind == EntityPickerKind.actor
                                   ? '搜索名称 / 别名'
                                   : '搜索名称',
@@ -300,8 +315,9 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
                       search: _search,
                       selected: _selected,
                       selectedNames: widget.selectedNames,
+                      allowedIds: widget.allowedIds,
                       onToggle: _toggle,
-                      singleSelect: !widget.kind.multi,
+                      singleSelect: !_isMulti,
                     ),
             ),
             // 底部清空按钮
@@ -350,6 +366,7 @@ class _ResourceList extends ConsumerStatefulWidget {
     required this.search,
     required this.selected,
     required this.selectedNames,
+    this.allowedIds,
     required this.onToggle,
     required this.singleSelect,
   });
@@ -358,6 +375,7 @@ class _ResourceList extends ConsumerStatefulWidget {
   final String? search;
   final Set<int> selected;
   final Map<int, String> selectedNames;
+  final Set<int>? allowedIds;
   final ValueChanged<({int id, String name})> onToggle;
   final bool singleSelect;
 
@@ -370,13 +388,12 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
   bool _loading = false;
   Object? _error;
   int _requestSerial = 0;
+  bool? _localPinyinMode;
   List<ResourceItem> _localItems = const [];
   Map<int, PinyinSearchTokens> _pinyinIndex = {};
-  bool _localHasMore = false;
   final _knownNames = <int, String>{};
 
-  // 分类/标签遵循移动端现有的本地拼音筛选；系列与演员走有界远程搜索。
-  bool get _usesLocalPinyin =>
+  bool get _supportsLocalPinyin =>
       widget.kind == ResourceKind.genre || widget.kind == ResourceKind.tag;
 
   @override
@@ -390,8 +407,13 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
   void didUpdateWidget(covariant _ResourceList oldWidget) {
     super.didUpdateWidget(oldWidget);
     _knownNames.addAll(widget.selectedNames);
-    if (oldWidget.kind != widget.kind ||
-        (!_usesLocalPinyin && oldWidget.search != widget.search)) {
+    if (oldWidget.kind != widget.kind) {
+      _localPinyinMode = null;
+      _data = null;
+      _load();
+    } else if (oldWidget.search != widget.search && _localPinyinMode == true) {
+      setState(() {});
+    } else if (oldWidget.search != widget.search) {
       _load();
     }
   }
@@ -399,41 +421,52 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
   Future<void> _load() async {
     final requestSerial = ++_requestSerial;
     final search = widget.search;
-    final usesLocalPinyin = _usesLocalPinyin;
+    if (_localPinyinMode == true) {
+      if (mounted) setState(() {});
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final result = usesLocalPinyin
-          ? null
-          : await ref.read(resourcesRepositoryProvider).options(
-                widget.kind,
-                search: search,
-              );
-      final localPage = usesLocalPinyin
-          ? await ref.read(resourcesRepositoryProvider).list(
-                widget.kind,
-                limit: 500,
-                offset: 0,
-                sortBy: 'name',
-                sortOrder: 'asc',
-              )
-          : null;
+      final repository = ref.read(resourcesRepositoryProvider);
+      if (_localPinyinMode == null && _supportsLocalPinyin) {
+        final probe = await repository.list(
+          widget.kind,
+          limit: _taxonomyLocalLimit + 1,
+          sortBy: 'name',
+          sortOrder: 'asc',
+        );
+        if (probe.totalCount <= _taxonomyLocalLimit) {
+          if (!mounted || requestSerial != _requestSerial) return;
+          _localPinyinMode = true;
+          _localItems = probe.items;
+          _pinyinIndex = {
+            for (final item in _localItems)
+              item.id: pinyinSearchTokens(item.name),
+          };
+          for (final item in _localItems) {
+            _knownNames[item.id] = item.name;
+          }
+          setState(() {
+            _loading = false;
+            _data = null;
+          });
+          return;
+        }
+        _localPinyinMode = false;
+      } else if (_localPinyinMode == null) {
+        _localPinyinMode = false;
+      }
+
+      final result = await repository.options(widget.kind, search: search);
       if (!mounted || requestSerial != _requestSerial) return;
-      final loadedItems =
-          result?.items ?? localPage?.items ?? const <ResourceItem>[];
-      for (final item in loadedItems) {
+      for (final item in result.items) {
         _knownNames[item.id] = item.name;
       }
       setState(() {
         _data = result;
-        _localItems = localPage?.items ?? const [];
-        _pinyinIndex = {
-          for (final item in _localItems)
-            item.id: pinyinSearchTokens(item.name),
-        };
-        _localHasMore = localPage?.hasMore ?? false;
         _loading = false;
       });
     } catch (e) {
@@ -446,7 +479,7 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
   }
 
   List<ResourceItem> _visibleItems() {
-    final source = _usesLocalPinyin
+    final source = _localPinyinMode == true
         ? _localItems.where(
             (item) => matchesPinyinSearch(
               item.name,
@@ -457,9 +490,13 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
         : (_data?.items ?? const <ResourceItem>[]);
     final byId = <int, ResourceItem>{
       for (final item in source)
-        item.id: item,
+        if (widget.allowedIds == null || widget.allowedIds!.contains(item.id))
+          item.id: item,
     };
     for (final id in widget.selected) {
+      if (widget.allowedIds != null && !widget.allowedIds!.contains(id)) {
+        continue;
+      }
       if (byId.containsKey(id)) continue;
       final name = _knownNames[id];
       if (name != null && name.isNotEmpty) {
@@ -492,8 +529,7 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
 
     return Column(
       children: [
-        if ((_usesLocalPinyin && _localHasMore) ||
-            (!_usesLocalPinyin && _data?.hasMore == true))
+        if (_localPinyinMode != true && _data?.hasMore == true)
           const _OptionsMoreHint(),
         Expanded(
           child: ListView.builder(
@@ -579,7 +615,7 @@ class _ActorListState extends ConsumerState<_ActorList> {
         // 老服务没有 /options 路由时，/options 可能会命中 /:id 并返回 400。
         if (status != 404 && status != 400) rethrow;
         final raw = await api.list({
-          'limit': 500,
+          'limit': 200,
           'offset': 0,
           'sort_by': 'movie_count',
           'sort_order': 'desc',

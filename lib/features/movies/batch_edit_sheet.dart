@@ -7,6 +7,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../movie_detail/entity_picker_sheet.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
 import 'movies_providers.dart';
@@ -436,8 +437,6 @@ class _PickerField extends ConsumerStatefulWidget {
   final ResourceKind kind;
   final Set<int> selected;
   final ValueChanged<Set<int>> onChanged;
-
-  /// 若提供, 仅显示这些 id; null = 不限制 (用于 "添加" 场景)
   final Set<int>? restrictToIds;
   final bool restrictLoading;
 
@@ -446,152 +445,73 @@ class _PickerField extends ConsumerStatefulWidget {
 }
 
 class _PickerFieldState extends ConsumerState<_PickerField> {
-  bool _loading = true;
-  List<ResourceItem> _all = const [];
+  final Map<int, String> _names = {};
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadSelectedNames();
   }
 
-  Future<void> _load() async {
-    try {
-      final page = await ref
-          .read(resourcesRepositoryProvider)
-          .list(widget.kind, limit: 500);
-      if (!mounted) return;
-      setState(() {
-        _all = page.items;
-        _loading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _loading = false);
+  @override
+  void didUpdateWidget(covariant _PickerField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.kind != widget.kind || oldWidget.selected != widget.selected) {
+      _loadSelectedNames();
     }
   }
 
-  List<ResourceItem> get _visibleAll {
-    final restrict = widget.restrictToIds;
-    if (restrict == null) return _all;
-    return _all.where((r) => restrict.contains(r.id)).toList();
+  Future<void> _loadSelectedNames() async {
+    if (widget.selected.isEmpty) return;
+    final repository = ref.read(resourcesRepositoryProvider);
+    try {
+      final items = await Future.wait(
+        widget.selected.take(100).map((id) => repository.get(widget.kind, id)),
+      );
+      if (!mounted) return;
+      setState(() {
+        for (final item in items) {
+          _names[item.id] = item.name;
+        }
+      });
+    } catch (_) {
+      // 选项查询失败不阻断批量编辑；已选 ID 仍可提交。
+    }
   }
 
   Future<void> _open() async {
-    final c = appColors(context);
-    final mq = MediaQuery.of(context);
-    var q = '';
-    final picked = await showModalBottomSheet<Set<int>>(
+    final kind = switch (widget.kind) {
+      ResourceKind.genre => EntityPickerKind.genre,
+      ResourceKind.tag => EntityPickerKind.tag,
+      ResourceKind.series => EntityPickerKind.series,
+    };
+    final result = await EntityPickerSheet.pickMulti(
       context: context,
-      backgroundColor: c.bg,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) {
-        final selected = Set.of(widget.selected);
-        return StatefulBuilder(builder: (ctx, setS) {
-          final source = _visibleAll;
-          final filtered = q.isEmpty
-              ? source
-              : source
-                  .where((r) => r.name.toLowerCase().contains(q.toLowerCase()))
-                  .toList();
-          return SizedBox(
-            height: mq.size.height * 0.75,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
-                  child: Text('选择${widget.kind.label}',
-                      style: AppText.sectionTitle(ctx)),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
-                  child: TextField(
-                    onChanged: (v) => setS(() => q = v.trim()),
-                    decoration: InputDecoration(
-                      hintText: '搜索${widget.kind.label}...',
-                      prefixIcon:
-                          Icon(Icons.search, size: 18, color: c.muted),
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: filtered.length,
-                    itemBuilder: (ctx, i) {
-                      final r = filtered[i];
-                      return CheckboxListTile(
-                        dense: true,
-                        value: selected.contains(r.id),
-                        title: Text(r.name),
-                        onChanged: (v) {
-                          setS(() {
-                            if (v == true) {
-                              selected.add(r.id);
-                            } else {
-                              selected.remove(r.id);
-                            }
-                          });
-                        },
-                      );
-                    },
-                  ),
-                ),
-                SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 8, 22, 10),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => setS(() => selected.clear()),
-                            child: const Text('清空'),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          flex: 2,
-                          child: FilledButton(
-                            onPressed: () => Navigator.of(ctx).pop(selected),
-                            child: const Text('确定'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        });
-      },
+      kind: kind,
+      selected: widget.selected.toList(),
+      selectedNames: _names,
+      allowedIds: widget.restrictToIds,
     );
-    if (picked != null) widget.onChanged(picked);
+    if (result == null) return;
+    _names.addAll(result.names);
+    widget.onChanged(result.ids.toSet());
   }
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final selectedItems =
-        _all.where((r) => widget.selected.contains(r.id)).toList();
     final restrict = widget.restrictToIds;
     final restricted = restrict != null;
     final restrictEmpty = restricted && restrict.isEmpty;
-    final disabled = _loading ||
-        widget.restrictLoading ||
-        (restricted && restrict.isEmpty);
-
-    String placeholder;
-    if (_loading || widget.restrictLoading) {
-      placeholder = '加载中...';
-    } else if (restrictEmpty) {
-      placeholder = '无共有${widget.kind.label}';
-    } else {
-      placeholder = '选择${widget.kind.label}...';
-    }
+    final disabled = widget.restrictLoading || restrictEmpty;
+    final selectedItems = widget.selected
+        .map((id) => ResourceItem(id: id, name: _names[id] ?? '#$id'))
+        .toList();
+    final placeholder = widget.restrictLoading
+        ? '加载中...'
+        : restrictEmpty
+            ? '无共有${widget.kind.label}'
+            : '选择${widget.kind.label}...';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -601,8 +521,7 @@ class _PickerFieldState extends ConsumerState<_PickerField> {
         GestureDetector(
           onTap: disabled ? null : _open,
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: c.chipBg,
               borderRadius: BorderRadius.circular(8),
@@ -612,13 +531,12 @@ class _PickerFieldState extends ConsumerState<_PickerField> {
               children: [
                 Expanded(
                   child: selectedItems.isEmpty
-                      ? Text(placeholder,
-                          style: TextStyle(color: c.muted))
+                      ? Text(placeholder, style: TextStyle(color: c.muted))
                       : Wrap(
                           spacing: 6,
                           runSpacing: 4,
                           children: [
-                            for (final r in selectedItems.take(3))
+                            for (final item in selectedItems.take(3))
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 3),
@@ -626,7 +544,7 @@ class _PickerFieldState extends ConsumerState<_PickerField> {
                                   color: c.accent.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(100),
                                 ),
-                                child: Text(r.name,
+                                child: Text(item.name,
                                     style: TextStyle(
                                       color: c.accent,
                                       fontSize: 11.5,

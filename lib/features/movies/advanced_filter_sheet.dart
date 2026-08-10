@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/resource.dart';
 import '../../core/platform/app_theme.dart';
-import '../../shared/pinyin_search.dart';
+import '../movie_detail/entity_picker_sheet.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
 import 'movie_filter.dart';
@@ -584,24 +584,37 @@ class _ResourceMultiSelect extends ConsumerStatefulWidget {
 }
 
 class _ResourceMultiSelectState extends ConsumerState<_ResourceMultiSelect> {
-  bool _loading = true;
+  bool _loading = false;
   String? _error;
-  List<ResourceItem> _all = const [];
+  final Map<int, String> _names = {};
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadSelectedNames();
   }
 
-  Future<void> _load() async {
+  @override
+  void didUpdateWidget(covariant _ResourceMultiSelect oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.kind != widget.kind || oldWidget.selected != widget.selected) {
+      _loadSelectedNames();
+    }
+  }
+
+  Future<void> _loadSelectedNames() async {
+    if (widget.selected.isEmpty) return;
+    setState(() => _loading = true);
     try {
-      final page = await ref
-          .read(resourcesRepositoryProvider)
-          .list(widget.kind, limit: 500);
+      final repository = ref.read(resourcesRepositoryProvider);
+      final items = await Future.wait(
+        widget.selected.take(100).map((id) => repository.get(widget.kind, id)),
+      );
       if (!mounted) return;
       setState(() {
-        _all = page.items;
+        for (final item in items) {
+          _names[item.id] = item.name;
+        }
         _loading = false;
       });
     } catch (e) {
@@ -614,18 +627,21 @@ class _ResourceMultiSelectState extends ConsumerState<_ResourceMultiSelect> {
   }
 
   Future<void> _openPicker() async {
-    final updated = await showModalBottomSheet<Set<int>>(
+    final kind = switch (widget.kind) {
+      ResourceKind.genre => EntityPickerKind.genre,
+      ResourceKind.tag => EntityPickerKind.tag,
+      ResourceKind.series => EntityPickerKind.series,
+    };
+    final updated = await EntityPickerSheet.pickMulti(
       context: context,
-      backgroundColor: appColors(context).bg,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => _PickerSheet(
-        title: widget.kind.label,
-        all: _all,
-        selected: Set.of(widget.selected),
-      ),
+      kind: kind,
+      selected: widget.selected.toList(),
+      selectedNames: _names,
     );
-    if (updated != null) widget.onChanged(updated);
+    if (updated != null) {
+      _names.addAll(updated.names);
+      widget.onChanged(updated.ids.toSet());
+    }
   }
 
   @override
@@ -649,7 +665,9 @@ class _ResourceMultiSelectState extends ConsumerState<_ResourceMultiSelect> {
         style: TextStyle(color: c.danger, fontSize: 12),
       );
     }
-    final selectedItems = _all.where((r) => widget.selected.contains(r.id)).toList();
+    final selectedItems = widget.selected
+        .map((id) => ResourceItem(id: id, name: _names[id] ?? '#$id'))
+        .toList();
     return GestureDetector(
       onTap: _openPicker,
       child: Container(
@@ -710,153 +728,6 @@ class _ResourceMultiSelectState extends ConsumerState<_ResourceMultiSelect> {
                     ),
             ),
             Icon(Icons.expand_more, color: c.muted, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PickerSheet extends StatefulWidget {
-  const _PickerSheet({
-    required this.title,
-    required this.all,
-    required this.selected,
-  });
-  final String title;
-  final List<ResourceItem> all;
-  final Set<int> selected;
-
-  @override
-  State<_PickerSheet> createState() => _PickerSheetState();
-}
-
-class _PickerSheetState extends State<_PickerSheet> {
-  late Set<int> _selected;
-  String _q = '';
-  late final Map<int, PinyinSearchTokens> _pinyinIndex;
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = Set.of(widget.selected);
-    _pinyinIndex = {
-      for (final r in widget.all) r.id: pinyinSearchTokens(r.name),
-    };
-  }
-
-  bool _matches(ResourceItem r) {
-    final idx = _pinyinIndex[r.id];
-    return matchesPinyinSearch(r.name, _q, tokens: idx);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    final mq = MediaQuery.of(context);
-    final filtered = widget.all.where(_matches).toList();
-    return SizedBox(
-      height: mq.size.height * 0.75,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text('选择${widget.title}',
-                        style: AppText.sectionTitle(context)),
-                  ),
-                  Text('${_selected.length}',
-                      style: TextStyle(
-                        color: c.accent,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w800,
-                      )),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
-              child: TextField(
-                onChanged: (v) => setState(() => _q = v.trim()),
-                decoration: InputDecoration(
-                  hintText: '搜索${widget.title} (支持拼音首字母, 如 jl)',
-                  hintStyle: TextStyle(color: c.muted, fontSize: 13),
-                  prefixIcon: Icon(Icons.search, size: 18, color: c.muted),
-                  isDense: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: c.cardBorder),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: c.cardBorder),
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: filtered.isEmpty
-                  ? Center(
-                      child: Text('未找到匹配的${widget.title}',
-                          style: AppText.body(context)),
-                    )
-                  : ListView.builder(
-                      itemCount: filtered.length,
-                      itemBuilder: (ctx, i) {
-                        final r = filtered[i];
-                        final checked = _selected.contains(r.id);
-                        return CheckboxListTile(
-                          dense: true,
-                          value: checked,
-                          title: Text(r.name),
-                          onChanged: (v) {
-                            setState(() {
-                              if (v == true) {
-                                _selected.add(r.id);
-                              } else {
-                                _selected.remove(r.id);
-                              }
-                            });
-                          },
-                        );
-                      },
-                    ),
-            ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(22, 8, 22, 10),
-              decoration: BoxDecoration(
-                color: c.bg,
-                border: Border(top: BorderSide(color: c.divider)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => setState(() => _selected.clear()),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: const Text('清空'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton(
-                      onPressed: () => Navigator.of(context).pop(_selected),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: const Text('确定'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),

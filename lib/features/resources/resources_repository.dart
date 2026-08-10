@@ -82,6 +82,19 @@ class ResourcesRepository {
     }
   }
 
+  Future<ResourceItem> get(ResourceKind kind, int id) async {
+    final path = switch (kind) {
+      ResourceKind.genre => '/genres/$id',
+      ResourceKind.tag => '/tags/$id',
+      ResourceKind.series => '/series/$id',
+    };
+    final response = await _client.dio.get(path);
+    return unwrapStd<ResourceItem>(
+      response.data,
+      (d) => ResourceItem.fromJson(Map<String, dynamic>.from(d as Map)),
+    );
+  }
+
   Future<PagedResult<ResourceItem>> list(
     ResourceKind kind, {
     int limit = 100,
@@ -123,7 +136,7 @@ class ResourcesRepository {
       if (status != 404 && status != 400) rethrow;
       final page = await list(
         kind,
-        limit: 500,
+        limit: 200,
         offset: 0,
         search: keyword.isEmpty ? null : keyword,
         sortBy: 'name',
