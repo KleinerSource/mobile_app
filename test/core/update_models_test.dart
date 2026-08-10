@@ -36,8 +36,8 @@ void main() {
         'tag_name': 'latest',
         'name': 'iOS build',
         'published_at': '2026-08-10T05:20:00Z',
-        'assets': const [
-          const {
+        'assets': [
+          {
             'name': 'md_center_0.1.60+67.ipa',
             'browser_download_url': 'https://github.com/o/r/releases/ipa',
             'size': 100,
@@ -48,8 +48,8 @@ void main() {
         'tag_name': 'latest-android',
         'name': 'Android build',
         'published_at': '2026-08-10T05:21:00Z',
-        'assets': const [
-          const {
+        'assets': [
+          {
             'name': 'md_center_0.1.60+67.apk',
             'browser_download_url': 'https://github.com/o/r/releases/apk',
             'size': 200,
@@ -60,8 +60,8 @@ void main() {
         'tag_name': 'v0.1.59+66',
         'name': 'Older Android build',
         'published_at': '2026-08-09T05:21:00Z',
-        'assets': const [
-          const {
+        'assets': [
+          {
             'name': 'md_center_0.1.59+66.apk',
             'browser_download_url': 'https://github.com/o/r/releases/old',
             'size': 180,
