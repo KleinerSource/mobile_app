@@ -12,6 +12,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import 'app_settings_page.dart';
 import 'app_update_settings_page.dart';
+import 'app_update_startup_gate.dart';
 import 'server_settings_page.dart';
 import 'settings_common.dart';
 
@@ -71,15 +72,25 @@ class SettingsPage extends ConsumerWidget {
                     ),
                     title: l.settingsVersion,
                     hasUpdateSource: updateRepository != null,
-                    onCheckForUpdates: () => unawaited(
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => AppUpdateSettingsPage(
-                            checkOnOpen: updateRepository != null,
+                    onCheckForUpdates: () {
+                      if (updateRepository == null) {
+                        unawaited(
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const AppUpdateSettingsPage(),
+                            ),
                           ),
+                        );
+                        return;
+                      }
+                      unawaited(
+                        checkConfiguredAppUpdate(
+                          context: context,
+                          ref: ref,
+                          showLatestMessage: true,
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                   SettingsTile(
                     title: l.settingsLogout,

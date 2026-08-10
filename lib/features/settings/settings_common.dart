@@ -67,63 +67,68 @@ class SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return InkWell(
-      onTap: onTap == null
-          ? null
-          : () {
-              AppHaptics.selection();
-              onTap!();
-            },
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            if (leadingIcon != null) ...[
-              Container(
-                width: 32,
-                height: 32,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: (destructive ? c.danger : c.accent)
-                      .withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  leadingIcon,
-                  color: destructive ? c.danger : c.accent,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 12),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: destructive ? c.danger : c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      height: 1.25,
-                    ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap == null
+            ? null
+            : () {
+                AppHaptics.selection();
+                onTap!();
+              },
+        borderRadius: BorderRadius.circular(16),
+        splashColor: c.accent.withValues(alpha: 0.14),
+        highlightColor: c.accent.withValues(alpha: 0.08),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              if (leadingIcon != null) ...[
+                Container(
+                  width: 32,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: (destructive ? c.danger : c.accent)
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(subtitle!, style: AppText.meta(context)),
+                  child: Icon(
+                    leadingIcon,
+                    color: destructive ? c.danger : c.accent,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: destructive ? c.danger : c.text,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        height: 1.25,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(subtitle!, style: AppText.meta(context)),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            if (trailing != null)
-              trailing!
-            else if (onTap != null && !destructive && showChevron)
-              Icon(Icons.chevron_right, size: 18, color: c.muted),
-          ],
+              if (trailing != null)
+                trailing!
+              else if (onTap != null && !destructive && showChevron)
+                Icon(Icons.chevron_right, size: 18, color: c.muted),
+            ],
+          ),
         ),
       ),
     );

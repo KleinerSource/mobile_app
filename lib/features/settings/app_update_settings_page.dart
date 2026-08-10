@@ -107,21 +107,16 @@ class _AppUpdateSettingsPageState
                         const SizedBox(width: 8),
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
-                          child: FilledButton.icon(
+                          child: IconButton.filled(
                             onPressed: _checking || _downloading
                                 ? null
                                 : _saveOrEditRepository,
+                            tooltip: repositoryIsSaved ? '编辑更新源' : '保存更新源',
                             icon: Icon(
                               repositoryIsSaved
                                   ? Icons.edit_outlined
                                   : Icons.save_outlined,
-                              size: 18,
-                            ),
-                            label: Text(repositoryIsSaved ? '编辑' : '保存'),
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(0, 48),
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
+                              size: 20,
                             ),
                           ),
                         ),

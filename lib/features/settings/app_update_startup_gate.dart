@@ -12,6 +12,108 @@ import '../../core/update/update_models.dart';
 import '../../core/update/update_repository.dart';
 import '../../core/update/update_service.dart';
 
+/// 检查已经配置的更新源，并在有新版本时直接展示更新引导。
+///
+/// `respectIgnored` 只用于启动检查；手动点击“检测更新”时始终重新展示
+/// 当前检测到的版本，避免用户无法主动恢复被忽略的更新提示。
+Future<void> checkConfiguredAppUpdate({
+  required BuildContext context,
+  required WidgetRef ref,
+  bool respectIgnored = false,
+  bool showLatestMessage = false,
+}) async {
+  final repositoryUrl = ref.read(updateRepositoryUrlProvider);
+  final platform = _currentUpdatePlatform;
+  if (repositoryUrl == null || platform == null) return;
+
+  try {
+    final packageInfo = await ref.read(appPackageInfoProvider.future);
+    final currentVersion = AppReleaseVersion.fromPackageInfo(
+      packageInfo.version,
+      packageInfo.buildNumber,
+    );
+    final result = await ref.read(appUpdateCoordinatorProvider).check(
+          repositoryUrl: repositoryUrl,
+          platform: platform,
+          currentVersion: currentVersion,
+        );
+    if (!context.mounted) return;
+
+    if (!result.hasUpdate) {
+      if (showLatestMessage) {
+        _showUpdateMessage(context, '当前已是最新版本');
+      }
+      return;
+    }
+
+    final repository = ref.read(updateSettingsRepositoryProvider);
+    if (respectIgnored &&
+        repository.isUpdateIgnored(
+          repositoryUrl: result.repository.canonicalUrl,
+          platform: platform,
+          version: result.candidate.version,
+        )) {
+      return;
+    }
+
+    await _showUpdatePrompt(
+      context: context,
+      ref: ref,
+      result: result,
+      repository: repository,
+      platform: platform,
+    );
+  } catch (error) {
+    if (!showLatestMessage || !context.mounted) return;
+    _showUpdateMessage(context, _updateErrorMessage(error));
+  }
+}
+
+UpdatePlatform? get _currentUpdatePlatform {
+  if (Platform.isIOS) return UpdatePlatform.ios;
+  if (Platform.isAndroid) return UpdatePlatform.android;
+  return null;
+}
+
+Future<void> _showUpdatePrompt({
+  required BuildContext context,
+  required WidgetRef ref,
+  required UpdateCheckResult result,
+  required UpdateSettingsRepository repository,
+  required UpdatePlatform platform,
+}) async {
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => UpdatePromptDialog(
+      result: result,
+      onUpdate: (onProgress) async {
+        await ref.read(appUpdateCoordinatorProvider).install(
+              result,
+              onReceiveProgress: onProgress,
+            );
+      },
+      onIgnore: () => repository.ignoreUpdate(
+        repositoryUrl: result.repository.canonicalUrl,
+        platform: platform,
+        version: result.candidate.version,
+      ),
+    ),
+  );
+}
+
+void _showUpdateMessage(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+}
+
+String _updateErrorMessage(Object error) {
+  if (error is FormatException) return error.message.toString();
+  if (error is UpdateException) return error.message;
+  return '检查更新失败，请稍后重试';
+}
+
 class StartupUpdateGate extends ConsumerStatefulWidget {
   const StartupUpdateGate({super.key, required this.child});
 
@@ -34,59 +136,11 @@ class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
   }
 
   Future<void> _checkForUpdate() async {
-    final repositoryUrl = ref.read(updateRepositoryUrlProvider);
-    final platform = _currentPlatform;
-    if (repositoryUrl == null || platform == null) return;
-
-    try {
-      final packageInfo = await ref.read(appPackageInfoProvider.future);
-      final currentVersion = AppReleaseVersion.fromPackageInfo(
-        packageInfo.version,
-        packageInfo.buildNumber,
-      );
-      final result = await ref.read(appUpdateCoordinatorProvider).check(
-            repositoryUrl: repositoryUrl,
-            platform: platform,
-            currentVersion: currentVersion,
-          );
-      if (!mounted || !result.hasUpdate) return;
-
-      final repository = ref.read(updateSettingsRepositoryProvider);
-      if (repository.isUpdateIgnored(
-        repositoryUrl: result.repository.canonicalUrl,
-        platform: platform,
-        version: result.candidate.version,
-      )) {
-        return;
-      }
-
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => UpdatePromptDialog(
-          result: result,
-          onUpdate: (onProgress) async {
-            await ref.read(appUpdateCoordinatorProvider).install(
-                  result,
-                  onReceiveProgress: onProgress,
-                );
-          },
-          onIgnore: () => repository.ignoreUpdate(
-            repositoryUrl: result.repository.canonicalUrl,
-            platform: platform,
-            version: result.candidate.version,
-          ),
-        ),
-      );
-    } catch (_) {
-      // 启动检查失败不打断主界面，用户仍可从版本号后的按钮手动检查。
-    }
-  }
-
-  UpdatePlatform? get _currentPlatform {
-    if (Platform.isIOS) return UpdatePlatform.ios;
-    if (Platform.isAndroid) return UpdatePlatform.android;
-    return null;
+    await checkConfiguredAppUpdate(
+      context: context,
+      ref: ref,
+      respectIgnored: true,
+    );
   }
 }
 
