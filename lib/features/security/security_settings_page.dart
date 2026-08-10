@@ -77,7 +77,7 @@ class _SecuritySettingsContent extends ConsumerWidget {
         ),
         const SettingsGroup(
           title: '使用说明',
-          items: const [
+          items: [
             SettingsTile(
               title: '应用锁定时验证',
               subtitle: '配置任意一种方式后，应用启动和回到前台时会要求验证。',
