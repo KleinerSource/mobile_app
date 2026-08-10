@@ -297,7 +297,7 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                           ButtonSegment(
                             value: _UnlockMethod.gesture,
                             icon: Icon(Icons.gesture_rounded),
-                            label: Text('手势'),
+                            label: Text('滑动解锁'),
                           ),
                         ],
                         selected: {_method},

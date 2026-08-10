@@ -43,10 +43,16 @@ class SecurityRepository {
   Future<SecuritySettings> load() async {
     final pinDigest = await _storage.read(key: _pinDigestKey);
     final gestureDigest = await _storage.read(key: _gestureDigestKey);
-    final biometricEnabled =
-        _preferences.getBool(_biometricEnabledKey) ?? false;
+    final hasPin = pinDigest?.isNotEmpty == true;
+    var biometricEnabled = _preferences.getBool(_biometricEnabledKey) ?? false;
+    if (biometricEnabled && !hasPin) {
+      // 生物识别必须始终有进入密码作为降级方式。清理旧版本可能留下的
+      // 孤立开关，避免用户在没有任何可用降级方式时被锁在应用外。
+      await _preferences.setBool(_biometricEnabledKey, false);
+      biometricEnabled = false;
+    }
     return SecuritySettings(
-      hasPin: pinDigest?.isNotEmpty == true,
+      hasPin: hasPin,
       hasGesture: gestureDigest?.isNotEmpty == true,
       biometricEnabled: biometricEnabled,
     );

@@ -56,7 +56,11 @@ class _SecuritySettingsContent extends ConsumerWidget {
         SettingsGroup(
           title: '解锁方式',
           items: [
-            _BiometricTile(enabled: settings.biometricEnabled),
+            _BiometricTile(
+              enabled: settings.biometricEnabled,
+              hasPin: settings.hasPin,
+              onConfigurePin: () => _configurePin(context, ref),
+            ),
             SettingsTile(
               title: '进入密码',
               subtitle: settings.hasPin ? '已设置 · 4–6 位数字' : '未设置',
@@ -229,15 +233,23 @@ class _SecuritySettingsContent extends ConsumerWidget {
 }
 
 class _BiometricTile extends ConsumerWidget {
-  const _BiometricTile({required this.enabled});
+  const _BiometricTile({
+    required this.enabled,
+    required this.hasPin,
+    required this.onConfigurePin,
+  });
 
   final bool enabled;
+  final bool hasPin;
+  final Future<void> Function() onConfigurePin;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return SettingsTile(
       title: '面容/指纹解锁',
-      subtitle: enabled ? '已启用 · 支持时优先使用系统生物识别' : '未启用',
+      subtitle: enabled
+          ? '已启用 · 进入密码可作为降级解锁'
+          : '需要先配置进入密码',
       leadingIcon: Icons.fingerprint,
       trailing: SettingsSwitch(
         value: enabled,
@@ -254,6 +266,20 @@ class _BiometricTile extends ConsumerWidget {
     final controller = ref.read(securityControllerProvider.notifier);
     try {
       if (value) {
+        var pinConfigured =
+            ref.read(securityControllerProvider).valueOrNull?.hasPin ?? hasPin;
+        if (!pinConfigured) {
+          await onConfigurePin();
+          if (!context.mounted) return;
+          pinConfigured =
+              ref.read(securityControllerProvider).valueOrNull?.hasPin ?? false;
+          if (!pinConfigured) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('请先设置进入密码，再启用生物识别')),
+            );
+            return;
+          }
+        }
         final enabled = await controller.enableBiometrics();
         if (!enabled && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

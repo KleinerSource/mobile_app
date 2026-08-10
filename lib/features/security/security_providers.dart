@@ -28,7 +28,13 @@ class SecurityController extends AsyncNotifier<SecuritySettings> {
 
   Future<void> savePin(String pin) => _reload(() => _repository.savePin(pin));
 
-  Future<void> clearPin() => _reload(_repository.clearPin);
+  Future<void> clearPin() async {
+    final current = await _repository.load();
+    if (current.biometricEnabled) {
+      throw StateError('请先关闭生物识别，再清除进入密码');
+    }
+    await _reload(_repository.clearPin);
+  }
 
   Future<void> saveGesture(Iterable<int> pattern) {
     return _reload(() => _repository.saveGesture(pattern));
@@ -37,6 +43,8 @@ class SecurityController extends AsyncNotifier<SecuritySettings> {
   Future<void> clearGesture() => _reload(_repository.clearGesture);
 
   Future<bool> enableBiometrics() async {
+    final current = await _repository.load();
+    if (!current.hasPin) return false;
     if (!await _repository.canUseBiometrics()) return false;
     if (!await _repository.authenticateBiometric()) return false;
     await _reload(() => _repository.setBiometricEnabled(true));
