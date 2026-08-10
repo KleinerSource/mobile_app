@@ -33,6 +33,7 @@ import 'playback_decision.dart';
 import 'player_resume.dart';
 import 'player_settings.dart';
 import 'player_status_overlay.dart';
+import 'playback_retry_policy.dart';
 import 'subtitle_adjustment_sheet.dart';
 import 'subtitle_rendering.dart';
 import 'subtitle_settings.dart';
@@ -132,8 +133,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _wasPlayingBeforePause = false;
   Duration _backgroundPosition = Duration.zero;
   bool _handlingPlaybackError = false;
+  bool _playbackErrorReported = false;
+  final PlaybackRetryPolicy _playbackRetryPolicy = PlaybackRetryPolicy();
   String? _pendingPlaybackError;
   Timer? _rateChangeGraceTimer;
+  Timer? _playbackFailureResetTimer;
   bool _isLandscape = true;
   bool _isRateBoosting = false;
   double _playbackRate = 1.0;
@@ -275,6 +279,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _progressReportTimer?.cancel();
     _hideTimer?.cancel();
     _rateChangeGraceTimer?.cancel();
+    _playbackFailureResetTimer?.cancel();
     _onRateBoostEnd();
     _indicatorTimer?.cancel();
     unawaited(SystemChrome.setPreferredOrientations(DeviceOrientation.values));
@@ -336,7 +341,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     String? quality,
     Duration? resume,
     bool forceSoftware = false,
+    bool automaticRecovery = false,
   }) {
+    if (!automaticRecovery) {
+      _playbackFailureResetTimer?.cancel();
+      _playbackFailureResetTimer = null;
+      _playbackRetryPolicy.reset();
+      _playbackErrorReported = false;
+    }
     final generation = ++_loadGeneration;
 
     final next = _loadQueue.then<void>(
@@ -476,6 +488,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         _startTranscodeMonitoring(selectedQuality);
       }
       setState(() => _loading = false);
+      _schedulePlaybackFailureReset();
       _restartHideTimer();
     } catch (error) {
       if (!mounted || generation != _loadGeneration) return;
@@ -609,9 +622,33 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _onPlayerError(String message) {
-    if (!mounted || _isLeaving || _loading || _handlingPlaybackError) return;
+    if (!mounted ||
+        _isLeaving ||
+        _loading ||
+        _handlingPlaybackError ||
+        _playbackErrorReported) {
+      return;
+    }
     if (_rateChangeGraceTimer != null) {
       _pendingPlaybackError = message;
+      return;
+    }
+    _handlePlaybackFailure(message);
+  }
+
+  void _handlePlaybackFailure(String message) {
+    if (!mounted ||
+        _isLeaving ||
+        _loading ||
+        _handlingPlaybackError ||
+        _playbackErrorReported) {
+      return;
+    }
+    _playbackFailureResetTimer?.cancel();
+    _playbackFailureResetTimer = null;
+    if (!_playbackRetryPolicy.recordFailure()) {
+      _playbackErrorReported = true;
+      unawaited(_stopAfterPlaybackFailure(message));
       return;
     }
     _beginPlaybackErrorRecovery(message);
@@ -630,10 +667,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         await _load(
           resume: resume,
           forceSoftware: true,
+          automaticRecovery: true,
         );
       } else if (!_usingHls) {
         // 自动画质下只重开当前直传源，不能把播放器错误升级成服务端转码。
-        await _load(resume: resume);
+        await _load(resume: resume, automaticRecovery: true);
       } else if (mounted) {
         setState(() {
           _error = toApiException(message).message;
@@ -643,6 +681,33 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     } finally {
       _handlingPlaybackError = false;
     }
+  }
+
+  Future<void> _stopAfterPlaybackFailure(String message) async {
+    try {
+      await _host.stop();
+      await _stopTranscodeSession();
+    } catch (_) {}
+    if (!mounted || _isLeaving) return;
+    setState(() {
+      _error = '播放失败，已连续尝试 ${_playbackRetryPolicy.maxFailures} 次：'
+          '${toApiException(message).message}';
+      _loading = false;
+    });
+  }
+
+  void _schedulePlaybackFailureReset() {
+    _playbackFailureResetTimer?.cancel();
+    _playbackFailureResetTimer = Timer(const Duration(seconds: 10), () {
+      _playbackFailureResetTimer = null;
+      if (!mounted ||
+          _isLeaving ||
+          _handlingPlaybackError ||
+          _playbackErrorReported) {
+        return;
+      }
+      _playbackRetryPolicy.reset();
+    });
   }
 
   Future<void> _onQualityChanged(String quality) async {
@@ -983,7 +1048,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _rateChangeGraceTimer = null;
       final pending = _pendingPlaybackError;
       _pendingPlaybackError = null;
-      if (pending != null) _beginPlaybackErrorRecovery(pending);
+      if (pending != null) _handlePlaybackFailure(pending);
     });
     unawaited(_setPlaybackRateInternal(rate));
   }
