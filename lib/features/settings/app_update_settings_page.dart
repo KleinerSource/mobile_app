@@ -4,12 +4,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/platform/app_version.dart';
-import '../../core/update/update_installer.dart';
+import '../../core/update/update_coordinator.dart';
 import '../../core/update/update_models.dart';
 import '../../core/update/update_repository.dart';
 import '../../core/update/update_service.dart';
@@ -17,7 +16,9 @@ import '../../shared/glow_background.dart';
 import 'settings_common.dart';
 
 class AppUpdateSettingsPage extends ConsumerStatefulWidget {
-  const AppUpdateSettingsPage({super.key});
+  const AppUpdateSettingsPage({super.key, this.checkOnOpen = false});
+
+  final bool checkOnOpen;
 
   @override
   ConsumerState<AppUpdateSettingsPage> createState() =>
@@ -27,6 +28,7 @@ class AppUpdateSettingsPage extends ConsumerStatefulWidget {
 class _AppUpdateSettingsPageState
     extends ConsumerState<AppUpdateSettingsPage> {
   late final TextEditingController _repositoryController;
+  late final FocusNode _repositoryFocusNode;
   UpdateCheckResult? _result;
   String? _error;
   bool _checking = false;
@@ -39,8 +41,13 @@ class _AppUpdateSettingsPageState
     _repositoryController = TextEditingController(
       text: ref.read(updateRepositoryUrlProvider) ?? '',
     );
+    _repositoryFocusNode = FocusNode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _repositoryController.text.trim().isEmpty) return;
+      if (!mounted ||
+          !widget.checkOnOpen ||
+          _repositoryController.text.trim().isEmpty) {
+        return;
+      }
       unawaited(_checkForUpdates(silent: true));
     });
   }
@@ -48,12 +55,18 @@ class _AppUpdateSettingsPageState
   @override
   void dispose() {
     _repositoryController.dispose();
+    _repositoryFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final savedRepository = ref.watch(updateRepositoryUrlProvider);
+    final currentRepository = _repositoryController.text.trim();
+    final repositoryIsSaved = savedRepository != null &&
+        savedRepository == currentRepository &&
+        currentRepository.isNotEmpty;
     return Scaffold(
       backgroundColor: colors.bg,
       body: GlowBackground(
@@ -70,36 +83,66 @@ class _AppUpdateSettingsPageState
                 items: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-                    child: TextField(
-                      controller: _repositoryController,
-                      keyboardType: TextInputType.url,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      textInputAction: TextInputAction.done,
-                      decoration: settingsInputDecoration(
-                        context,
-                        labelText: 'GitHub 仓库地址',
-                        hintText: 'https://github.com/owner/repository',
-                        prefixIcon: const Icon(Icons.code_outlined),
-                      ),
-                      onSubmitted: (_) => _checkForUpdates(),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _repositoryController,
+                            focusNode: _repositoryFocusNode,
+                            keyboardType: TextInputType.url,
+                            autocorrect: false,
+                            enableSuggestions: false,
+                            textInputAction: TextInputAction.done,
+                            decoration: settingsInputDecoration(
+                              context,
+                              labelText: 'GitHub 仓库地址',
+                              hintText: 'https://github.com/owner/repository',
+                              prefixIcon: const Icon(Icons.code_outlined),
+                            ),
+                            onChanged: (_) => setState(() {}),
+                            onSubmitted: (_) => unawaited(_saveRepository()),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: FilledButton.icon(
+                            onPressed: _checking || _downloading
+                                ? null
+                                : _saveOrEditRepository,
+                            icon: Icon(
+                              repositoryIsSaved
+                                  ? Icons.edit_outlined
+                                  : Icons.save_outlined,
+                              size: 18,
+                            ),
+                            label: Text(repositoryIsSaved ? '编辑' : '保存'),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(0, 48),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: '清空更新源',
+                          onPressed: _checking ||
+                                  _downloading ||
+                                  (savedRepository == null &&
+                                      currentRepository.isEmpty)
+                              ? null
+                              : () => unawaited(_clearRepository()),
+                          icon: const Icon(Icons.delete_outline),
+                        ),
+                      ],
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                     child: Text(
-                      '不会内置或自动替换仓库地址，只会读取你填写的公开 Release。',
+                      '保存后会在启动时自动检查更新；清空后将停止自动检查。',
                       style: AppText.meta(context),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: SettingsSaveButton(
-                      onPressed: _checking || _downloading
-                          ? null
-                          : _checkForUpdates,
-                      saving: _checking,
-                      label: '保存并检查更新',
                     ),
                   ),
                 ],
@@ -122,7 +165,7 @@ class _AppUpdateSettingsPageState
                         title: '已安装版本',
                         subtitle: version,
                         leadingIcon: Icons.phone_android_outlined,
-                      );
+                      ),
                     },
                   ),
                 ],
@@ -298,6 +341,74 @@ class _AppUpdateSettingsPageState
     );
   }
 
+  Future<void> _saveOrEditRepository() async {
+    final current = _repositoryController.text.trim();
+    final saved = ref.read(updateRepositoryUrlProvider);
+    if (saved != null && saved == current && current.isNotEmpty) {
+      AppHaptics.selection();
+      _repositoryFocusNode.requestFocus();
+      _repositoryController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _repositoryController.text.length,
+      );
+      return;
+    }
+    await _saveRepository();
+  }
+
+  Future<void> _saveRepository() async {
+    if (_checking || _downloading) return;
+    try {
+      final repository = GitHubRepository.parse(_repositoryController.text);
+      await ref
+          .read(updateRepositoryUrlProvider.notifier)
+          .save(repository.canonicalUrl);
+      if (!mounted) return;
+      _repositoryController.value = TextEditingValue(
+        text: repository.canonicalUrl,
+        selection: TextSelection.collapsed(
+          offset: repository.canonicalUrl.length,
+        ),
+      );
+      AppHaptics.selection();
+      _showMessage('更新源已保存');
+    } on FormatException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = '保存更新源失败，请稍后重试');
+    }
+  }
+
+  Future<void> _clearRepository() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('清空更新源？'),
+        content: const Text('清空后，应用启动时将不再自动检查更新。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('清空'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    await ref.read(updateRepositoryUrlProvider.notifier).save(null);
+    if (!mounted) return;
+    _repositoryController.clear();
+    setState(() {
+      _result = null;
+      _error = null;
+    });
+    AppHaptics.medium();
+    _showMessage('更新源已清空');
+  }
+
   Future<void> _checkForUpdates({bool silent = false}) async {
     if (_checking || _downloading) return;
     final raw = _repositoryController.text.trim();
@@ -308,9 +419,6 @@ class _AppUpdateSettingsPageState
     });
     try {
       final repository = GitHubRepository.parse(raw);
-      await ref
-          .read(updateRepositoryUrlProvider.notifier)
-          .save(repository.canonicalUrl);
       final platform = _currentPlatform;
       if (platform == null) {
         throw const UpdateException('当前平台不支持在线更新');
@@ -320,7 +428,7 @@ class _AppUpdateSettingsPageState
         packageInfo.version,
         packageInfo.buildNumber,
       );
-      final result = await ref.read(gitHubUpdateServiceProvider).check(
+      final result = await ref.read(appUpdateCoordinatorProvider).check(
             repositoryUrl: repository.canonicalUrl,
             platform: platform,
             currentVersion: currentVersion,
@@ -349,27 +457,26 @@ class _AppUpdateSettingsPageState
       return;
     }
 
-    final asset = result.candidate.asset;
     setState(() {
       _downloading = true;
       _downloadProgress = null;
       _error = null;
     });
     try {
-      if (Platform.isIOS) {
-        await _openIosInstaller(asset.downloadUrl);
-      } else {
-        final file = await ref.read(gitHubUpdateServiceProvider).download(
-              asset,
-              onReceiveProgress: (received, total) {
-                if (!mounted || total <= 0) return;
-                setState(() => _downloadProgress = received / total);
-              },
-            );
-        final installed = await AndroidUpdateInstaller.install(file);
-        if (!installed && mounted) {
-          _showMessage('无法打开系统安装器，请重新下载');
-        }
+      final action = await ref.read(appUpdateCoordinatorProvider).install(
+            result,
+            onReceiveProgress: (received, total) {
+              if (!mounted || total <= 0) return;
+              setState(() => _downloadProgress = received / total);
+            },
+          );
+      if (mounted) {
+        AppHaptics.medium();
+        _showMessage(
+          action == UpdateInstallAction.iosInstallerOpened
+              ? '已打开 iOS 安装器'
+              : '已打开系统安装器',
+        );
       }
     } on UpdateException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -382,21 +489,6 @@ class _AppUpdateSettingsPageState
           _downloadProgress = null;
         });
       }
-    }
-  }
-
-  Future<void> _openIosInstaller(String downloadUrl) async {
-    final installerUrl = IosUpdateInstaller.installUri(downloadUrl);
-    final launched = await launchUrl(
-      installerUrl,
-      mode: LaunchMode.externalApplication,
-    );
-    if (!mounted) return;
-    if (launched) {
-      AppHaptics.medium();
-      _showMessage('已打开 iOS 安装器');
-    } else {
-      _showMessage('无法打开 iOS 安装器，请确认已安装 TrollStore');
     }
   }
 

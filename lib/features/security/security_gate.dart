@@ -13,9 +13,10 @@ import 'security_repository.dart';
 
 /// 在主界面外层提供本地应用锁，不影响服务端登录会话。
 class SecurityGate extends ConsumerStatefulWidget {
-  const SecurityGate({super.key, required this.child});
+  const SecurityGate({super.key, required this.child, this.onReady});
 
   final Widget child;
+  final VoidCallback? onReady;
 
   @override
   ConsumerState<SecurityGate> createState() => _SecurityGateState();
@@ -28,6 +29,7 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
   bool _busy = false;
   bool _biometricInFlight = false;
   bool _biometricAttempted = false;
+  bool _readyNotified = false;
   bool _wasBackgrounded = false;
   String? _error;
 
@@ -89,7 +91,10 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
           // 首次加载没有凭据时保持已解锁；如果已有凭据，则从启动开始锁定。
           _locked = settings.requiresUnlock;
         }
-        if (!settings.requiresUnlock || !_locked) return widget.child;
+        if (!settings.requiresUnlock || !_locked) {
+          _notifyReady();
+          return widget.child;
+        }
         _scheduleBiometric(settings);
         return Stack(
           fit: StackFit.expand,
@@ -107,6 +112,14 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
         );
       },
     );
+  }
+
+  void _notifyReady() {
+    if (_readyNotified) return;
+    _readyNotified = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onReady?.call();
+    });
   }
 
   void _scheduleBiometric(SecuritySettings settings) {

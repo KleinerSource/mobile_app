@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_provider.dart';
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/platform/app_version.dart';
+import '../../core/update/update_repository.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import 'app_settings_page.dart';
@@ -22,6 +24,7 @@ class SettingsPage extends ConsumerWidget {
     final c = appColors(context);
     final l = AppL10n.of(context);
     final packageInfo = ref.watch(appPackageInfoProvider);
+    final updateRepository = ref.watch(updateRepositoryUrlProvider);
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -67,6 +70,16 @@ class SettingsPage extends ConsumerWidget {
                       error: (_, __) => '未知',
                     ),
                     title: l.settingsVersion,
+                    hasUpdateSource: updateRepository != null,
+                    onCheckForUpdates: () => unawaited(
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => AppUpdateSettingsPage(
+                            checkOnOpen: updateRepository != null,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                   SettingsTile(
                     title: l.settingsLogout,
@@ -118,10 +131,14 @@ class _VersionSettingsTile extends StatefulWidget {
   const _VersionSettingsTile({
     required this.title,
     required this.subtitle,
+    required this.hasUpdateSource,
+    required this.onCheckForUpdates,
   });
 
   final String title;
   final String subtitle;
+  final bool hasUpdateSource;
+  final VoidCallback onCheckForUpdates;
 
   @override
   State<_VersionSettingsTile> createState() => _VersionSettingsTileState();
@@ -147,6 +164,18 @@ class _VersionSettingsTileState extends State<_VersionSettingsTile> {
       subtitle: widget.subtitle,
       leadingIcon: Icons.info_outline,
       showChevron: false,
+      trailing: TextButton.icon(
+        onPressed: () {
+          AppHaptics.selection();
+          widget.onCheckForUpdates();
+        },
+        icon: const Icon(Icons.refresh_rounded, size: 18),
+        label: Text(widget.hasUpdateSource ? '检测更新' : '配置更新源'),
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+      ),
       onTap: _handleTap,
     );
   }

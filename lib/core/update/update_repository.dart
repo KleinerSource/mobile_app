@@ -2,12 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/server_config_provider.dart';
+import 'update_models.dart';
 import 'update_service.dart';
 
 class UpdateSettingsRepository {
   UpdateSettingsRepository(this._prefs);
 
   static const githubRepositoryKey = 'app.update.github_repository';
+  static const ignoredUpdateKey = 'app.update.ignored_update';
 
   final SharedPreferences _prefs;
 
@@ -18,11 +20,42 @@ class UpdateSettingsRepository {
 
   Future<void> saveRepository(String? value) async {
     final normalized = value?.trim() ?? '';
+    final previous = loadRepository();
     if (normalized.isEmpty) {
       await _prefs.remove(githubRepositoryKey);
+      await _prefs.remove(ignoredUpdateKey);
     } else {
       await _prefs.setString(githubRepositoryKey, normalized);
+      if (previous != normalized) await _prefs.remove(ignoredUpdateKey);
     }
+  }
+
+  bool isUpdateIgnored({
+    required String repositoryUrl,
+    required UpdatePlatform platform,
+    required AppReleaseVersion version,
+  }) {
+    return _prefs.getString(ignoredUpdateKey) ==
+        _ignoredUpdateValue(repositoryUrl, platform, version);
+  }
+
+  Future<void> ignoreUpdate({
+    required String repositoryUrl,
+    required UpdatePlatform platform,
+    required AppReleaseVersion version,
+  }) {
+    return _prefs.setString(
+      ignoredUpdateKey,
+      _ignoredUpdateValue(repositoryUrl, platform, version),
+    );
+  }
+
+  String _ignoredUpdateValue(
+    String repositoryUrl,
+    UpdatePlatform platform,
+    AppReleaseVersion version,
+  ) {
+    return '${repositoryUrl.trim()}|${platform.name}|${version.display}';
   }
 }
 

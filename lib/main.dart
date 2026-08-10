@@ -14,6 +14,7 @@ import 'features/i18n/theme_provider.dart';
 import 'features/main/main_shell.dart';
 import 'features/privacy/privacy_shield.dart';
 import 'features/security/security_gate.dart';
+import 'features/settings/app_update_startup_gate.dart';
 import 'features/settings/server_setup_page.dart';
 import 'features/settings/login_page.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -74,9 +75,31 @@ class MdCenterApp extends ConsumerWidget {
                     onRetry: () => ref.invalidate(authControllerProvider),
                     onChangeServer: changeServer,
                   ),
-                _ => const SecurityGate(child: MainShell()),
+                _ => const _AuthenticatedHome(),
               },
             ),
+    );
+  }
+}
+
+class _AuthenticatedHome extends StatefulWidget {
+  const _AuthenticatedHome();
+
+  @override
+  State<_AuthenticatedHome> createState() => _AuthenticatedHomeState();
+}
+
+class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
+  final _updateGateKey = GlobalKey<StartupUpdateGateState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return SecurityGate(
+      onReady: () => _updateGateKey.currentState?.startCheck(),
+      child: StartupUpdateGate(
+        key: _updateGateKey,
+        child: const MainShell(),
+      ),
     );
   }
 }
