@@ -250,7 +250,7 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
                           border: InputBorder.none,
                           isCollapsed: true,
                           contentPadding:
-                              EdgeInsets.symmetric(vertical: 12),
+                              const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
                     ),
