@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import 'device_lock_monitor.dart';
 import 'security_pattern_pad.dart';
 import 'security_pin_pad.dart';
 import 'security_providers.dart';
@@ -30,43 +31,79 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
   bool _biometricInFlight = false;
   bool _biometricAttempted = false;
   bool _readyNotified = false;
+  bool _readyScheduled = false;
+  Timer? _readyTimer;
   bool _wasBackgrounded = false;
   bool _appResumed = true;
+  Timer? _backgroundLockTimer;
+  Timer? _authenticationGraceTimer;
+  StreamSubscription<String>? _deviceLockSubscription;
+  bool _ignoreBackgroundUntilResume = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _deviceLockSubscription = DeviceLockMonitor.events.listen(
+      _onDeviceLockEvent,
+      onError: (_) {},
+    );
   }
 
   @override
   void dispose() {
+    _backgroundLockTimer?.cancel();
+    _authenticationGraceTimer?.cancel();
+    _readyTimer?.cancel();
+    _deviceLockSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused ||
+    if (state == AppLifecycleState.inactive) {
+      _appResumed = false;
+      ref.read(securityBiometricCoordinatorProvider).didEnterInactive();
+      return;
+    }
+    if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       _appResumed = false;
-      _wasBackgrounded = true;
       final coordinator = ref.read(securityBiometricCoordinatorProvider);
-      if (!_biometricInFlight && !coordinator.isAuthenticationInFlight) {
-        _lockForBackground();
-      }
       coordinator.didEnterInactive();
+      if (_ignoreBackgroundUntilResume ||
+          coordinator.isAuthenticationInFlight ||
+          _biometricInFlight) {
+        _wasBackgrounded = false;
+        return;
+      }
+      _wasBackgrounded = true;
+      _scheduleBackgroundLock();
       return;
     }
     if (state != AppLifecycleState.resumed || !mounted) return;
     _appResumed = true;
+    _backgroundLockTimer?.cancel();
+
+    final coordinator = ref.read(securityBiometricCoordinatorProvider);
+    if (coordinator.consumeDeviceLockResume()) {
+      _wasBackgrounded = false;
+      return;
+    }
 
     // local_auth 的系统验证页也会触发一次生命周期切换。这个切换不是
     // 用户离开应用，不能在验证成功后再次锁定并重复弹出生物识别。
     if (ref.read(securityBiometricCoordinatorProvider).consumeResume() ||
         _biometricInFlight) {
+      _wasBackgrounded = false;
+      return;
+    }
+    if (_ignoreBackgroundUntilResume) {
+      _ignoreBackgroundUntilResume = false;
+      _authenticationGraceTimer?.cancel();
+      _authenticationGraceTimer = null;
       _wasBackgrounded = false;
       return;
     }
@@ -81,6 +118,33 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
       _biometricAttempted = false;
     });
     _scheduleBiometric(settings!);
+  }
+
+  void _onDeviceLockEvent(String event) {
+    final coordinator = ref.read(securityBiometricCoordinatorProvider);
+    if (event == 'locked') {
+      _backgroundLockTimer?.cancel();
+      coordinator.didLockDevice();
+      _wasBackgrounded = false;
+    } else if (event == 'unlocked') {
+      coordinator.didUnlockDevice();
+    }
+  }
+
+  void _scheduleBackgroundLock() {
+    _backgroundLockTimer?.cancel();
+    _backgroundLockTimer = Timer(const Duration(milliseconds: 350), () {
+      _backgroundLockTimer = null;
+      if (!mounted) return;
+      final coordinator = ref.read(securityBiometricCoordinatorProvider);
+      if (coordinator.isDeviceLocked ||
+          coordinator.hasDeviceLockCycle ||
+          coordinator.isAuthenticationInFlight ||
+          _biometricInFlight) {
+        return;
+      }
+      _lockForBackground();
+    });
   }
 
   @override
@@ -122,10 +186,18 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
   }
 
   void _notifyReady() {
-    if (_readyNotified) return;
-    _readyNotified = true;
+    if (_readyNotified || _readyScheduled) return;
+    _readyScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.onReady?.call();
+      if (!mounted) return;
+      _readyTimer = Timer(const Duration(milliseconds: 600), () {
+        if (!mounted) return;
+        _readyTimer = null;
+        _readyScheduled = false;
+        if (_locked || _biometricInFlight || !_appResumed) return;
+        _readyNotified = true;
+        widget.onReady?.call();
+      });
     });
   }
 
@@ -144,6 +216,10 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
 
   void _lockForBackground() {
     if (!mounted || _locked) return;
+    final coordinator = ref.read(securityBiometricCoordinatorProvider);
+    if (coordinator.isDeviceLocked || coordinator.hasDeviceLockCycle) {
+      return;
+    }
     final settings = ref.read(securityControllerProvider).valueOrNull;
     if (settings?.requiresUnlock != true) return;
     setState(() {
@@ -176,6 +252,14 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
       _busy = false;
       if (success) {
         _locked = false;
+        _backgroundLockTimer?.cancel();
+        _wasBackgrounded = false;
+        _ignoreBackgroundUntilResume = true;
+        _authenticationGraceTimer?.cancel();
+        _authenticationGraceTimer = Timer(const Duration(seconds: 1), () {
+          _ignoreBackgroundUntilResume = false;
+          _authenticationGraceTimer = null;
+        });
       } else {
         _error = '验证未完成，请重试或使用其他解锁方式';
       }

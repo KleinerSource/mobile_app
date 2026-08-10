@@ -50,6 +50,55 @@ import UIKit
         result(FlutterMethodNotImplemented)
       }
     }
+
+    let deviceLockChannel = FlutterEventChannel(
+      name: "md_center/device_lock",
+      binaryMessenger: registrar.messenger()
+    )
+    deviceLockChannel.setStreamHandler(DeviceLockStreamHandler())
+  }
+}
+
+private final class DeviceLockStreamHandler: NSObject, FlutterStreamHandler {
+  private var sink: FlutterEventSink?
+  private var observers: [NSObjectProtocol] = []
+
+  func onListen(
+    withArguments arguments: Any?,
+    eventSink events: @escaping FlutterEventSink
+  ) -> FlutterError? {
+    removeObservers()
+    sink = events
+    let center = NotificationCenter.default
+    observers = [
+      center.addObserver(
+        forName: UIApplication.protectedDataWillBecomeUnavailableNotification,
+        object: nil,
+        queue: .main
+      ) { [weak self] _ in
+        self?.sink?("locked")
+      },
+      center.addObserver(
+        forName: UIApplication.protectedDataDidBecomeAvailableNotification,
+        object: nil,
+        queue: .main
+      ) { [weak self] _ in
+        self?.sink?("unlocked")
+      },
+    ]
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    removeObservers()
+    sink = nil
+    return nil
+  }
+
+  private func removeObservers() {
+    let center = NotificationCenter.default
+    observers.forEach { center.removeObserver($0) }
+    observers.removeAll()
   }
 }
 

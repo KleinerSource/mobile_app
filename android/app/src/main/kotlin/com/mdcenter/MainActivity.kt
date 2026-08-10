@@ -1,6 +1,8 @@
 package com.mdcenter
 
 import android.app.PictureInPictureParams
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
@@ -11,6 +13,7 @@ import android.util.Rational
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
@@ -19,12 +22,24 @@ class MainActivity : FlutterFragmentActivity() {
         private const val STATS_CHANNEL = "md_center/player_stats"
         private const val CAPABILITIES_CHANNEL = "md_center/player_capabilities"
         private const val UPDATE_CHANNEL = "md_center/app_update"
+        private const val DEVICE_LOCK_CHANNEL = "md_center/device_lock"
     }
 
     private var previousRxBytes: Long? = null
     private var previousTxBytes: Long? = null
     private var previousNetworkAtMs: Long? = null
     private var previousCpu: CpuSnapshot? = null
+    private var deviceLockSink: EventChannel.EventSink? = null
+    private var deviceLockReceiverRegistered = false
+
+    private val deviceLockReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> deviceLockSink?.success("locked")
+                Intent.ACTION_USER_PRESENT -> deviceLockSink?.success("unlocked")
+            }
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -58,6 +73,50 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            DEVICE_LOCK_CHANNEL,
+        ).setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(
+                arguments: Any?,
+                events: EventChannel.EventSink?,
+            ) {
+                deviceLockSink = events
+                if (deviceLockReceiverRegistered) return
+                val filter = IntentFilter().apply {
+                    addAction(Intent.ACTION_SCREEN_OFF)
+                    addAction(Intent.ACTION_USER_PRESENT)
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    registerReceiver(
+                        deviceLockReceiver,
+                        filter,
+                        Context.RECEIVER_NOT_EXPORTED,
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    registerReceiver(deviceLockReceiver, filter)
+                }
+                deviceLockReceiverRegistered = true
+            }
+
+            override fun onCancel(arguments: Any?) {
+                deviceLockSink = null
+                unregisterDeviceLockReceiver()
+            }
+        })
+    }
+
+    override fun onDestroy() {
+        unregisterDeviceLockReceiver()
+        super.onDestroy()
+    }
+
+    private fun unregisterDeviceLockReceiver() {
+        if (!deviceLockReceiverRegistered) return
+        unregisterReceiver(deviceLockReceiver)
+        deviceLockReceiverRegistered = false
     }
 
     private fun installApk(path: String?, result: MethodChannel.Result) {

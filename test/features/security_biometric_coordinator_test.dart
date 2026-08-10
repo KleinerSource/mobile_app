@@ -32,4 +32,16 @@ void main() {
     coordinator.endAuthentication();
     expect(coordinator.consumeResume(), isFalse);
   });
+
+  test('设备锁屏解锁只消费设备锁周期，不触发应用锁', () {
+    final coordinator = SecurityBiometricCoordinator();
+
+    coordinator.didLockDevice();
+    expect(coordinator.isDeviceLocked, isTrue);
+    expect(coordinator.hasDeviceLockCycle, isTrue);
+    coordinator.didUnlockDevice();
+    expect(coordinator.isDeviceLocked, isFalse);
+    expect(coordinator.consumeDeviceLockResume(), isTrue);
+    expect(coordinator.consumeDeviceLockResume(), isFalse);
+  });
 }
