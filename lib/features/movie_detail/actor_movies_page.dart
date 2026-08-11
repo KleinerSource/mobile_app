@@ -9,6 +9,7 @@ import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
+import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
@@ -73,66 +74,93 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
 
     return Scaffold(
       backgroundColor: c.bg,
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              expandedHeight: 200,
-              pinned: true,
-              backgroundColor: c.bg,
-              surfaceTintColor: Colors.transparent,
-              leading: IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: c.surface.withValues(alpha: 0.6),
-                    shape: BoxShape.circle,
+      body: GlowBackground(
+        child: SafeArea(
+          child: CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 220,
+                pinned: true,
+                backgroundColor: c.bg,
+                surfaceTintColor: Colors.transparent,
+                leading: IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: c.surface.withValues(alpha: 0.6),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.arrow_back, size: 18),
                   ),
-                  child: const Icon(Icons.arrow_back, size: 18),
+                  onPressed: () => Navigator.of(context).maybePop(),
                 ),
-                onPressed: () => Navigator.of(context).maybePop(),
+                flexibleSpace: FlexibleSpaceBar(
+                  background: _ActorHero(
+                    actor: widget.actor,
+                    hue: _hue,
+                    count: _totalCount,
+                  ),
+                ),
               ),
-              flexibleSpace: FlexibleSpaceBar(
-                background: _ActorHero(
-                  actor: widget.actor,
-                  hue: _hue,
-                  count: _totalCount,
+              SliverToBoxAdapter(
+                child: _ActorBiographyCard(actor: widget.actor),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 24, 22, 14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '相关影片',
+                          style: AppText.sectionTitle(context),
+                        ),
+                      ),
+                      if (_totalCount != null)
+                        Text(
+                          '${_totalCount!} 部',
+                          style: AppText.meta(context),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(22, 18, 22, 80),
-              sliver: PagedSliverGrid<int, MovieListItem>(
-                pagingController: _controller,
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  childAspectRatio: 0.55,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 14,
-                ),
-                builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
-                  itemBuilder: (ctx, m, idx) => MovieCard(
-                    movie: m,
-                    posterUrlBuilder: urlBuilder,
-                    onTap: () => Navigator.of(ctx).push(
-                      MaterialPageRoute(
-                        builder: (_) => MovieDetailPage(movieId: m.id),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
+                sliver: PagedSliverGrid<int, MovieListItem>(
+                  pagingController: _controller,
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    childAspectRatio: 0.55,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 14,
+                  ),
+                  builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
+                    itemBuilder: (ctx, m, idx) => MovieCard(
+                      movie: m,
+                      posterUrlBuilder: urlBuilder,
+                      onTap: () => Navigator.of(ctx).push(
+                        MaterialPageRoute(
+                          builder: (_) => MovieDetailPage(movieId: m.id),
+                        ),
                       ),
                     ),
+                    firstPageProgressIndicatorBuilder: (_) =>
+                        const Center(child: CupertinoActivityIndicator()),
+                    firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                      message: _controller.error?.toString() ?? '加载失败',
+                      onRetry: () => _controller.refresh(),
+                    ),
+                    noItemsFoundIndicatorBuilder: (_) =>
+                        const EmptyView(message: '没有该演员的影片'),
                   ),
-                  firstPageProgressIndicatorBuilder: (_) =>
-                      const Center(child: CupertinoActivityIndicator()),
-                  firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                    message: _controller.error?.toString() ?? '加载失败',
-                    onRetry: () => _controller.refresh(),
-                  ),
-                  noItemsFoundIndicatorBuilder: (_) =>
-                      const EmptyView(message: '没有该演员的影片'),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -177,7 +205,7 @@ class _ActorHero extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    '演员',
+                    '演员资料',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
                       fontFamily: 'Inter',
@@ -200,21 +228,92 @@ class _ActorHero extends StatelessWidget {
                       height: 1.05,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${count ?? '—'} 部影片',
-                    style: const TextStyle(
-                      color: Color(0xCCFFFFFF),
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      if (actor.actorType?.trim().isNotEmpty == true)
+                        _HeroPill(label: actor.actorType!.trim()),
+                      _HeroPill(label: '${count ?? '—'} 部影片'),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeroPill extends StatelessWidget {
+  const _HeroPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Color(0xE6FFFFFF),
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w700,
+            fontSize: 11,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActorBiographyCard extends StatelessWidget {
+  const _ActorBiographyCard({required this.actor});
+
+  final ActorItem actor;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final biography = actor.biography?.trim() ?? '';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 15, 16, 16),
+        decoration: BoxDecoration(
+          color: c.surface,
+          border: Border.all(color: c.cardBorder),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.notes_outlined, color: c.accent, size: 18),
+                const SizedBox(width: 8),
+                Text('简介', style: AppText.cardTitle(context)),
+              ],
+            ),
+            const SizedBox(height: 9),
+            Text(
+              biography.isEmpty ? '暂无简介' : biography,
+              style: AppText.body(context),
+            ),
+          ],
+        ),
       ),
     );
   }
