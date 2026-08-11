@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
 import '../api/api_exception.dart';
+import '../api/dio_factory.dart';
 import '../api/providers.dart';
 import '../api/server_compatibility.dart';
 import '../config/server_config.dart';
