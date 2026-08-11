@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
@@ -8,6 +11,7 @@ import 'core/auth/auth_provider.dart';
 import 'core/auth/auth_session.dart';
 import 'core/auth/auth_session_provider.dart';
 import 'core/config/server_config_provider.dart';
+import 'core/diagnostics/crash_log_service.dart';
 import 'core/platform/app_haptics.dart';
 import 'core/platform/app_theme.dart';
 import 'features/i18n/locale_providers.dart';
@@ -24,13 +28,49 @@ import 'shared/glow_background.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-  AppHaptics.configureFromPreferences(prefs);
-  runApp(ProviderScope(
-    overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-    child: const MdCenterApp(),
-  ));
+  final crashLogs = await CrashLogService.create();
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    _recordCrashSafely(
+      crashLogs,
+      details.exception,
+      details.stack ?? StackTrace.empty,
+      source: 'flutter',
+    );
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    _recordCrashSafely(crashLogs, error, stack, source: 'platform');
+    return true;
+  };
+
+  await runZonedGuarded(() async {
+    MediaKit.ensureInitialized();
+    final prefs = await SharedPreferences.getInstance();
+    AppHaptics.configureFromPreferences(prefs);
+    await crashLogs.recordMessage('应用启动', source: 'app');
+    runApp(ProviderScope(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        crashLogServiceProvider.overrideWithValue(crashLogs),
+      ],
+      child: const MdCenterApp(),
+    ));
+  }, (error, stack) {
+    _recordCrashSafely(crashLogs, error, stack, source: 'zone');
+  });
+}
+
+void _recordCrashSafely(
+  CrashLogService service,
+  Object error,
+  StackTrace stack, {
+  required String source,
+}) {
+  unawaited(
+    service
+        .recordError(error, stack, source: source)
+        .catchError((_) {}),
+  );
 }
 
 class MdCenterApp extends ConsumerWidget {

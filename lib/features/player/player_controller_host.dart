@@ -58,7 +58,12 @@ class PlayerControllerHost {
     try {
       final platform = player.platform;
       if (platform is NativePlayer) {
-        if (diskCacheDirectory != null) {
+        // mpv 的磁盘缓存只有在显式启用网络缓存后才会生效。
+        await platform.setProperty(
+          'cache',
+          diskCacheEnabled ? 'yes' : 'no',
+        );
+        if (diskCacheEnabled && diskCacheDirectory != null) {
           await platform.setProperty('demuxer-cache-dir', diskCacheDirectory!);
         }
         await platform.setProperty(

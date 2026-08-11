@@ -223,11 +223,18 @@ class DiskCacheService {
   Future<Directory> _rootDirectory() async {
     final existing = _root;
     if (existing != null) return existing;
-    final base = _rootOverride ?? await getTemporaryDirectory();
+    final base = await _cacheBaseDirectory();
     final directory = Directory('${base.path}${Platform.pathSeparator}$_rootName');
     await directory.create(recursive: true);
     _root = directory;
     return directory;
+  }
+
+  Future<Directory> _cacheBaseDirectory() {
+    final override = _rootOverride;
+    return override == null
+        ? getApplicationCacheDirectory()
+        : Future.value(override);
   }
 
   Future<Directory> _categoryDirectory(String name) async {
@@ -239,9 +246,11 @@ class DiskCacheService {
 
   Future<CacheUsage> usage() async {
     final root = await _rootDirectory();
-    final temporary = _rootOverride ?? await getTemporaryDirectory();
+    // DefaultCacheManager 仍使用临时目录，图片统计要跟随它的实际位置；
+    // 播放缓冲则使用应用缓存目录，避免两者路径混淆。
+    final imageBase = _rootOverride ?? await getTemporaryDirectory();
     final image = Directory(
-      '${temporary.path}${Platform.pathSeparator}${DefaultCacheManager.key}',
+      '${imageBase.path}${Platform.pathSeparator}${DefaultCacheManager.key}',
     );
     return CacheUsage(
       videoBytes: await _directorySize(
@@ -254,7 +263,7 @@ class DiskCacheService {
     );
   }
 
-  /// media_kit 的 `demuxer-cache-dir` 使用此目录写入播放中的临时缓冲。
+  /// media_kit/libmpv 的 `demuxer-cache-dir` 使用此目录写入播放中的临时缓冲。
   /// 缓冲文件由 mpv 在媒体关闭后自动删除，不会变成完整视频文件。
   Future<Directory> videoBufferDirectory() =>
       _categoryDirectory(_videoDirName);
