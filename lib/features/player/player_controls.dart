@@ -493,7 +493,9 @@ class _PlayerControlsState extends State<PlayerControls> {
                         : (v) => _endSliderDrag(v),
                   ),
                 ),
-                if (_sliderDragging && previewPosition != null)
+                if (_sliderDragging &&
+                    previewPosition != null &&
+                    _framePreview != null)
                   Positioned(
                     left: previewLeft,
                     bottom: 38,
@@ -541,6 +543,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     setState(() {
       _dragValue = value;
       _framePreviewPosition = position;
+      _framePreview = null;
     });
     _queueFramePreview(position);
     widget.onInteraction();
