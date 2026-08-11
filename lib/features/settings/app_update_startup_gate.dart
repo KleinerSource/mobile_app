@@ -117,65 +117,156 @@ String _updateErrorMessage(Object error) {
   return '检查更新失败，请稍后重试';
 }
 
+typedef StartupUpdateCheck = Future<bool> Function(
+  BuildContext context,
+  WidgetRef ref,
+);
+
 class StartupUpdateGate extends ConsumerStatefulWidget {
   const StartupUpdateGate({
     super.key,
     required this.enabled,
     required this.child,
+    this.checkForUpdate,
+    this.startDelay = const Duration(milliseconds: 700),
+    this.retryDelays = const [
+      Duration.zero,
+      Duration(seconds: 3),
+      Duration(seconds: 6),
+    ],
+    this.retryAfterFailure = const Duration(seconds: 15),
   });
 
   final bool enabled;
   final Widget child;
+  final StartupUpdateCheck? checkForUpdate;
+  final Duration startDelay;
+  final List<Duration> retryDelays;
+  final Duration retryAfterFailure;
 
   @override
   StartupUpdateGateState createState() => StartupUpdateGateState();
 }
 
 class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
-  bool _started = false;
+  Timer? _startTimer;
+  String? _scheduledRepository;
+  String? _checkedRepository;
+  bool _checking = false;
+  String? _failureRepository;
+  int _failureRetryCount = 0;
 
   @override
-  void initState() {
-    super.initState();
-    _scheduleStart();
+  void dispose() {
+    _startTimer?.cancel();
+    super.dispose();
   }
 
   @override
   void didUpdateWidget(covariant StartupUpdateGate oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!oldWidget.enabled && widget.enabled) _scheduleStart();
+    if (!widget.enabled) {
+      _startTimer?.cancel();
+      _scheduledRepository = null;
+    }
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    final repositoryUrl = ref.watch(updateRepositoryUrlProvider);
+    _scheduleStart(repositoryUrl);
+    return widget.child;
+  }
 
-  void _scheduleStart() {
-    if (_started || !widget.enabled) return;
+  void _scheduleStart(String? repositoryUrl) {
+    final repository = repositoryUrl?.trim();
+    if (!widget.enabled ||
+        repository == null ||
+        repository.isEmpty ||
+        _checking ||
+        _checkedRepository == repository ||
+        _scheduledRepository == repository) {
+      return;
+    }
+    if (_failureRepository != repository) {
+      _failureRepository = repository;
+      _failureRetryCount = 0;
+    }
+    _scheduledRepository = repository;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _started || !widget.enabled) return;
-      _started = true;
-      unawaited(_checkForUpdate());
+      if (!mounted ||
+          !widget.enabled ||
+          ref.read(updateRepositoryUrlProvider)?.trim() != repository) {
+        if (_scheduledRepository == repository) {
+          _scheduledRepository = null;
+        }
+        return;
+      }
+      _startTimer?.cancel();
+      _startTimer = Timer(widget.startDelay, () {
+        _startTimer = null;
+        if (!mounted ||
+            !widget.enabled ||
+            ref.read(updateRepositoryUrlProvider)?.trim() != repository) {
+          if (_scheduledRepository == repository) {
+            _scheduledRepository = null;
+          }
+          return;
+        }
+        unawaited(_checkForUpdate(repository));
+      });
     });
   }
 
-  Future<void> _checkForUpdate() async {
-    if (ref.read(updateRepositoryUrlProvider) == null) return;
+  Future<void> _checkForUpdate(String repository) async {
+    if (_checking) return;
+    _checking = true;
+    var completed = false;
+    try {
+      for (final delay in widget.retryDelays) {
+        if (!mounted ||
+            !widget.enabled ||
+            ref.read(updateRepositoryUrlProvider)?.trim() != repository) {
+          return;
+        }
+        if (delay > Duration.zero) await Future<void>.delayed(delay);
+        if (!mounted ||
+            !widget.enabled ||
+            ref.read(updateRepositoryUrlProvider)?.trim() != repository) {
+          return;
+        }
+        final check = widget.checkForUpdate;
+        completed = check == null
+            ? await checkConfiguredAppUpdate(
+                context: context,
+                ref: ref,
+                respectIgnored: true,
+              )
+            : await check(context, ref);
+        if (completed || !mounted) break;
+      }
+      if (completed) {
+        _checkedRepository = repository;
+        _failureRetryCount = 0;
+      }
+    } finally {
+      _checking = false;
+      if (_scheduledRepository == repository) {
+        _scheduledRepository = null;
+      }
+    }
 
-    const retryDelays = [
-      Duration.zero,
-      Duration(seconds: 3),
-      Duration(seconds: 6),
-    ];
-    for (final delay in retryDelays) {
-      if (!mounted) return;
-      if (delay > Duration.zero) await Future<void>.delayed(delay);
-      if (!mounted) return;
-      final completed = await checkConfiguredAppUpdate(
-        context: context,
-        ref: ref,
-        respectIgnored: true,
-      );
-      if (completed || !mounted) return;
+    if (!completed &&
+        mounted &&
+        widget.enabled &&
+        _failureRetryCount < 1 &&
+        ref.read(updateRepositoryUrlProvider)?.trim() == repository) {
+      _failureRetryCount++;
+      _startTimer = Timer(widget.retryAfterFailure, () {
+        _startTimer = null;
+        if (!mounted) return;
+        _scheduleStart(repository);
+      });
     }
   }
 }

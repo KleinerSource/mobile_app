@@ -112,6 +112,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   DateTime? _lastFramePreviewAt;
   int _framePreviewSession = 0;
   bool _framePreviewBusy = false;
+  bool _framePreviewUnavailable = false;
   Player? _framePreviewPlayer;
   String? _framePreviewSourceUri;
   Map<String, String>? _framePreviewSourceHeaders;
@@ -490,6 +491,7 @@ class _PlayerControlsState extends State<PlayerControls> {
                       child: _SliderFramePreview(
                         frame: _framePreview,
                         position: previewPosition,
+                        unavailable: _framePreviewUnavailable,
                       ),
                     ),
                   ),
@@ -513,6 +515,7 @@ class _PlayerControlsState extends State<PlayerControls> {
       _dragValue = value;
       _framePreview = null;
       _framePreviewPosition = position;
+      _framePreviewUnavailable = false;
     });
     _queueFramePreview(position);
     widget.onInteraction();
@@ -545,7 +548,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   void _queueFramePreview(Duration position) {
-    if (!_sliderDragging) return;
+    if (!_sliderDragging || _framePreviewUnavailable) return;
     _pendingFramePreviewPosition = position;
     if (_framePreviewBusy) return;
     _framePreviewBusy = true;
@@ -588,17 +591,28 @@ class _PlayerControlsState extends State<PlayerControls> {
 
         try {
           final previewPlayer = await _ensureFramePreviewPlayer(position);
-          if (previewPlayer == null) break;
+          if (previewPlayer == null) {
+            _markFramePreviewUnavailable(session);
+            break;
+          }
           final frame = await _captureFrame(previewPlayer, position);
           _lastFramePreviewAt = DateTime.now();
           if (frame != null &&
               mounted &&
               _sliderDragging &&
               session == _framePreviewSession) {
-            setState(() => _framePreview = frame);
+            setState(() {
+              _framePreview = frame;
+              _framePreviewUnavailable = false;
+            });
+          } else if (frame == null) {
+            _markFramePreviewUnavailable(session);
+            break;
           }
         } catch (_) {
           _lastFramePreviewAt = DateTime.now();
+          _markFramePreviewUnavailable(session);
+          break;
         }
       }
     } finally {
@@ -642,8 +656,16 @@ class _PlayerControlsState extends State<PlayerControls> {
           httpHeaders: source.httpHeaders,
           start: startAt,
         ),
-        play: false,
-      );
+        // screenshot 只有在解码出视频帧后才会返回数据。预览内核保持
+        // 静音，只在取帧期间短暂播放，绝不影响主播放器位置。
+        play: true,
+      ).timeout(const Duration(seconds: 3));
+      final width = player.state.width;
+      if (width == null || width <= 0) {
+        await player.stream.width
+            .firstWhere((value) => value != null && value > 0)
+            .timeout(const Duration(milliseconds: 2500));
+      }
       return player;
     } catch (_) {
       if (identical(_framePreviewPlayer, player)) {
@@ -662,13 +684,33 @@ class _PlayerControlsState extends State<PlayerControls> {
     Player previewPlayer,
     Duration position,
   ) async {
-    await previewPlayer.seek(position);
-    for (var attempt = 0; attempt < 15; attempt++) {
-      final frame = await previewPlayer.screenshot(format: 'image/jpeg');
-      if (frame != null && frame.isNotEmpty) return frame;
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+    try {
+      await previewPlayer.seek(position).timeout(const Duration(seconds: 2));
+      await previewPlayer.play();
+      for (var attempt = 0; attempt < 15; attempt++) {
+        final frame = await previewPlayer
+            .screenshot(format: 'image/jpeg')
+            .timeout(
+              const Duration(milliseconds: 400),
+              onTimeout: () => null,
+            );
+        if (frame != null && frame.isNotEmpty) return frame;
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+      }
+      return null;
+    } finally {
+      try {
+        await previewPlayer.pause();
+      } catch (_) {}
     }
-    return null;
+  }
+
+  void _markFramePreviewUnavailable(int session) {
+    if (!mounted || !_sliderDragging || session != _framePreviewSession) return;
+    setState(() {
+      _framePreview = null;
+      _framePreviewUnavailable = true;
+    });
   }
 
   Future<void> _disposeFramePreviewPlayer() async {
@@ -689,6 +731,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     _framePreview = null;
     _framePreviewPosition = null;
     _lastFramePreviewAt = null;
+    _framePreviewUnavailable = false;
   }
 
   Widget _qualityButton() {
@@ -858,10 +901,15 @@ class _PlayerControlsState extends State<PlayerControls> {
 }
 
 class _SliderFramePreview extends StatelessWidget {
-  const _SliderFramePreview({required this.frame, required this.position});
+  const _SliderFramePreview({
+    required this.frame,
+    required this.position,
+    required this.unavailable,
+  });
 
   final Uint8List? frame;
   final Duration position;
+  final bool unavailable;
 
   @override
   Widget build(BuildContext context) {
@@ -884,7 +932,7 @@ class _SliderFramePreview extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (frame == null)
+          if (frame == null && !unavailable)
             const Center(
               child: SizedBox.square(
                 dimension: 18,
@@ -892,6 +940,21 @@ class _SliderFramePreview extends StatelessWidget {
                   strokeWidth: 2,
                   color: Colors.white70,
                 ),
+              ),
+            )
+          else if (frame == null)
+            const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.image_not_supported_outlined,
+                      color: Colors.white70, size: 20),
+                  SizedBox(height: 4),
+                  Text(
+                    '当前源无法预览',
+                    style: TextStyle(color: Colors.white70, fontSize: 10),
+                  ),
+                ],
               ),
             )
           else

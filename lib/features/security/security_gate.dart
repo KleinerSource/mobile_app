@@ -94,6 +94,7 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
     final coordinator = ref.read(securityBiometricCoordinatorProvider);
     if (coordinator.consumeDeviceLockResume()) {
       _wasBackgrounded = false;
+      _notifyReady();
       return;
     }
 
@@ -102,10 +103,12 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
     if (ref.read(securityBiometricCoordinatorProvider).consumeResume() ||
         _biometricInFlight) {
       _wasBackgrounded = false;
+      _notifyReady();
       return;
     }
     if (coordinator.isSessionAuthenticated) {
       _wasBackgrounded = false;
+      _notifyReady();
       return;
     }
     if (_ignoreBackgroundUntilResume) {
@@ -113,9 +116,13 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
       _authenticationGraceTimer?.cancel();
       _authenticationGraceTimer = null;
       _wasBackgrounded = false;
+      _notifyReady();
       return;
     }
-    if (!_wasBackgrounded) return;
+    if (!_wasBackgrounded) {
+      _notifyReady();
+      return;
+    }
     _wasBackgrounded = false;
 
     final settings = ref.read(securityControllerProvider).valueOrNull;
