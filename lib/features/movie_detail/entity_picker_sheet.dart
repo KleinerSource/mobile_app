@@ -13,7 +13,7 @@ import '../../shared/pinyin_search.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
 
-const _taxonomyLocalLimit = 200;
+const _taxonomyLocalLimit = 300;
 
 /// 资源选择器类型 · 比 ResourceKind 多个 actor
 enum EntityPickerKind {
@@ -432,13 +432,9 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
     try {
       final repository = ref.read(resourcesRepositoryProvider);
       if (_localPinyinMode == null && _supportsLocalPinyin) {
-        final probe = await repository.list(
-          widget.kind,
-          limit: _taxonomyLocalLimit + 1,
-          sortBy: 'name',
-          sortOrder: 'asc',
-        );
-        if (probe.totalCount < _taxonomyLocalLimit) {
+        // 选项接口只读取 id/name，不触发资源管理页的影片计数聚合。
+        final probe = await repository.options(widget.kind);
+        if (!probe.hasMore && probe.items.length < _taxonomyLocalLimit) {
           if (!mounted || requestSerial != _requestSerial) return;
           _localPinyinMode = true;
           _localItems = probe.items;
