@@ -38,6 +38,11 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     await ref.read(serverConfigRepoProvider).clear();
     state = null;
   }
+
+  /// 进入服务器编辑页，但保留本地配置，供编辑页回填。
+  void beginEdit() {
+    state = null;
+  }
 }
 
 final serverConfigProvider =

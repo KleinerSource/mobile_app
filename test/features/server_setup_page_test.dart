@@ -38,4 +38,22 @@ void main() {
     await tester.pump();
     expect(find.text('地址必须以 http:// 或 https:// 开头'), findsOneWidget);
   });
+
+  testWidgets('更换服务器时回填已保存地址', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.base_url': 'https://saved.example:8001/',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: const MaterialApp(home: ServerSetupPage()),
+      ),
+    );
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.controller?.text, 'https://saved.example:8001');
+    expect(find.text('已回填上次保存的服务器地址，可直接修改后重新测试。'), findsNothing);
+  });
 }

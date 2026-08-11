@@ -77,7 +77,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     setState(() => _busy = true);
     try {
       await ref.read(authSessionRepositoryProvider).clear();
-      await ref.read(serverConfigProvider.notifier).clear();
+      ref.read(serverConfigProvider.notifier).beginEdit();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
