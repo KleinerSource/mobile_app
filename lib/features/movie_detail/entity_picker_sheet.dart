@@ -10,10 +10,9 @@ import '../../core/models/paged_result.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/pinyin_search.dart';
+import '../../shared/taxonomy_search_policy.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
-
-const _taxonomyLocalLimit = 300;
 
 /// 资源选择器类型 · 比 ResourceKind 多个 actor
 enum EntityPickerKind {
@@ -431,11 +430,15 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
     });
     try {
       final repository = ref.read(resourcesRepositoryProvider);
+      OptionsResult<ResourceItem>? probe;
       if (_localPinyinMode == null && _supportsLocalPinyin) {
         // 选项接口只读取 id/name，不触发资源管理页的影片计数聚合。
-        final probe = await repository.options(widget.kind);
-        if (!probe.hasMore && probe.items.length < _taxonomyLocalLimit) {
-          if (!mounted || requestSerial != _requestSerial) return;
+        probe = await repository.options(widget.kind);
+        if (!mounted || requestSerial != _requestSerial) return;
+        if (shouldUseLocalTaxonomySearch(
+          hasMore: probe.hasMore,
+          itemCount: probe.items.length,
+        )) {
           _localPinyinMode = true;
           _localItems = probe.items;
           _pinyinIndex = {
@@ -456,7 +459,9 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
         _localPinyinMode ??= false;
       }
 
-      final result = await repository.options(widget.kind, search: search);
+      final result = probe != null && (search == null || search.isEmpty)
+          ? probe
+          : await repository.options(widget.kind, search: search);
       if (!mounted || requestSerial != _requestSerial) return;
       for (final item in result.items) {
         _knownNames[item.id] = item.name;

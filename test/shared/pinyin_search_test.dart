@@ -13,4 +13,17 @@ void main() {
     expect(matchesPinyinSearch('动作', ''), isTrue);
     expect(matchesPinyinSearch('动作', '  '), isTrue);
   });
+
+  test('拼音首字母不会匹配音节尾首拼接', () {
+    expect(matchesPinyinSearch('性感', 'gg'), isFalse);
+    expect(matchesPinyinSearch('顶高潮', 'gg'), isFalse);
+    expect(matchesPinyinSearch('高跟鞋', 'gg'), isTrue);
+  });
+
+  test('保留中文、全拼和首字母搜索', () {
+    expect(matchesPinyinSearch('性感', '性感'), isTrue);
+    expect(matchesPinyinSearch('性感', 'xinggan'), isTrue);
+    expect(matchesPinyinSearch('性感', 'gan'), isTrue);
+    expect(matchesPinyinSearch('性感', 'xg'), isTrue);
+  });
 }
