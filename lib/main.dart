@@ -97,14 +97,17 @@ class _AuthenticatedHome extends StatefulWidget {
 }
 
 class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
-  final _updateGateKey = GlobalKey<StartupUpdateGateState>();
+  bool _securityReady = false;
 
   @override
   Widget build(BuildContext context) {
     return SecurityGate(
-      onReady: () => _updateGateKey.currentState?.startCheck(),
+      onReady: () {
+        if (!mounted || _securityReady) return;
+        setState(() => _securityReady = true);
+      },
       child: StartupUpdateGate(
-        key: _updateGateKey,
+        enabled: _securityReady,
         child: const MainShell(),
       ),
     );

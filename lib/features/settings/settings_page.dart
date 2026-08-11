@@ -83,13 +83,11 @@ class SettingsPage extends ConsumerWidget {
                         );
                         return;
                       }
-                      unawaited(
-                        checkConfiguredAppUpdate(
-                          context: context,
-                          ref: ref,
-                          showLatestMessage: true,
-                        ),
-                      );
+                      checkConfiguredAppUpdate(
+                        context: context,
+                        ref: ref,
+                        showLatestMessage: true,
+                      ).ignore();
                     },
                   ),
                   SettingsTile(

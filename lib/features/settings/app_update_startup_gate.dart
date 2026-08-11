@@ -16,7 +16,7 @@ import '../../core/update/update_service.dart';
 ///
 /// `respectIgnored` 只用于启动检查；手动点击“检测更新”时始终重新展示
 /// 当前检测到的版本，避免用户无法主动恢复被忽略的更新提示。
-Future<void> checkConfiguredAppUpdate({
+Future<bool> checkConfiguredAppUpdate({
   required BuildContext context,
   required WidgetRef ref,
   bool respectIgnored = false,
@@ -24,7 +24,7 @@ Future<void> checkConfiguredAppUpdate({
 }) async {
   final repositoryUrl = ref.read(updateRepositoryUrlProvider);
   final platform = _currentUpdatePlatform;
-  if (repositoryUrl == null || platform == null) return;
+  if (repositoryUrl == null || platform == null) return false;
 
   try {
     final packageInfo = await ref.read(appPackageInfoProvider.future);
@@ -37,13 +37,13 @@ Future<void> checkConfiguredAppUpdate({
           platform: platform,
           currentVersion: currentVersion,
         );
-    if (!context.mounted) return;
+    if (!context.mounted) return true;
 
     if (!result.hasUpdate) {
       if (showLatestMessage) {
         _showUpdateMessage(context, '当前已是最新版本');
       }
-      return;
+      return true;
     }
 
     final repository = ref.read(updateSettingsRepositoryProvider);
@@ -53,7 +53,7 @@ Future<void> checkConfiguredAppUpdate({
           platform: platform,
           version: result.candidate.version,
         )) {
-      return;
+      return true;
     }
 
     await _showUpdatePrompt(
@@ -63,9 +63,12 @@ Future<void> checkConfiguredAppUpdate({
       repository: repository,
       platform: platform,
     );
+    return true;
   } catch (error) {
-    if (!showLatestMessage || !context.mounted) return;
-    _showUpdateMessage(context, _updateErrorMessage(error));
+    if (showLatestMessage && context.mounted) {
+      _showUpdateMessage(context, _updateErrorMessage(error));
+    }
+    return false;
   }
 }
 
@@ -115,8 +118,13 @@ String _updateErrorMessage(Object error) {
 }
 
 class StartupUpdateGate extends ConsumerStatefulWidget {
-  const StartupUpdateGate({super.key, required this.child});
+  const StartupUpdateGate({
+    super.key,
+    required this.enabled,
+    required this.child,
+  });
 
+  final bool enabled;
   final Widget child;
 
   @override
@@ -127,20 +135,47 @@ class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
   bool _started = false;
 
   @override
+  void initState() {
+    super.initState();
+    _scheduleStart();
+  }
+
+  @override
+  void didUpdateWidget(covariant StartupUpdateGate oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.enabled && widget.enabled) _scheduleStart();
+  }
+
+  @override
   Widget build(BuildContext context) => widget.child;
 
-  void startCheck() {
-    if (_started || !mounted) return;
-    _started = true;
-    unawaited(_checkForUpdate());
+  void _scheduleStart() {
+    if (_started || !widget.enabled) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _started || !widget.enabled) return;
+      _started = true;
+      unawaited(_checkForUpdate());
+    });
   }
 
   Future<void> _checkForUpdate() async {
-    await checkConfiguredAppUpdate(
-      context: context,
-      ref: ref,
-      respectIgnored: true,
-    );
+    if (ref.read(updateRepositoryUrlProvider) == null) return;
+
+    const retryDelays = [
+      Duration.zero,
+      Duration(seconds: 3),
+      Duration(seconds: 6),
+    ];
+    for (final delay in retryDelays) {
+      if (!mounted) return;
+      if (delay > Duration.zero) await Future<void>.delayed(delay);
+      final completed = await checkConfiguredAppUpdate(
+        context: context,
+        ref: ref,
+        respectIgnored: true,
+      );
+      if (completed || !mounted) return;
+    }
   }
 }
 
