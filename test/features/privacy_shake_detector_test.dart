@@ -34,6 +34,34 @@ void main() {
     expect(count, 0);
   });
 
+  test('纵向和前后方向的剧烈移动不会触发', () {
+    var count = 0;
+    final detector = ShakeDetector(onShake: () => count++);
+    final first = DateTime.utc(2026, 8, 10, 12);
+
+    detector.handle(x: 0, y: 20, z: 0, now: first);
+    detector.handle(
+      x: 0,
+      y: -22,
+      z: 0,
+      now: first.add(const Duration(milliseconds: 250)),
+    );
+    detector.handle(
+      x: 0,
+      y: 0,
+      z: 24,
+      now: first.add(const Duration(milliseconds: 500)),
+    );
+    detector.handle(
+      x: 0,
+      y: 0,
+      z: -26,
+      now: first.add(const Duration(milliseconds: 750)),
+    );
+
+    expect(count, 0);
+  });
+
   test('需要一秒内连续三个反向摇动峰值才触发', () {
     var count = 0;
     final detector = ShakeDetector(onShake: () => count++);
