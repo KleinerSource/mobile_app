@@ -119,7 +119,6 @@ class _PlayerControlsState extends State<PlayerControls> {
   bool _framePreviewBusy = false;
   bool _framePreviewUnavailable = false;
   Player? _framePreviewPlayer;
-  VideoController? _framePreviewController;
   String? _framePreviewSourceUri;
   Map<String, String>? _framePreviewSourceHeaders;
 
@@ -670,7 +669,6 @@ class _PlayerControlsState extends State<PlayerControls> {
       ),
     );
     _framePreviewPlayer = player;
-    _framePreviewController = controller;
     _framePreviewSourceUri = sourceUri;
     _framePreviewSourceHeaders = sourceHeaders == null
         ? null
@@ -702,7 +700,6 @@ class _PlayerControlsState extends State<PlayerControls> {
     } catch (_) {
       if (identical(_framePreviewPlayer, player)) {
         _framePreviewPlayer = null;
-        _framePreviewController = null;
         _framePreviewSourceUri = null;
         _framePreviewSourceHeaders = null;
       }
@@ -749,7 +746,6 @@ class _PlayerControlsState extends State<PlayerControls> {
   Future<void> _disposeFramePreviewPlayer() async {
     final player = _framePreviewPlayer;
     _framePreviewPlayer = null;
-    _framePreviewController = null;
     _framePreviewSourceUri = null;
     _framePreviewSourceHeaders = null;
     if (player == null) return;
