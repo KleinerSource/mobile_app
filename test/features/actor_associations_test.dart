@@ -36,6 +36,24 @@ void main() {
     expect(preview.biography, '演员简介');
   });
 
+  test('演员简介相同或仅换行差异时不需要重复同步', () {
+    expect(
+      ActorAssociationsRepository.biographyNeedsSync(
+        '演员简介\r\n',
+        ' 演员简介\n',
+      ),
+      isFalse,
+    );
+    expect(
+      ActorAssociationsRepository.biographyNeedsSync('旧简介', '新简介'),
+      isTrue,
+    );
+    expect(
+      ActorAssociationsRepository.biographyNeedsSync('已有简介', ''),
+      isFalse,
+    );
+  });
+
   test('演员同步来源记忆上次选择', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();

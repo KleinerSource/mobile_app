@@ -150,6 +150,19 @@ class ActorAssociationsRepository {
     return result;
   }
 
+  /// 判断数据源简介是否需要写回本地。
+  ///
+  /// 数据源可能只是在换行或首尾空白上不同,这类差异不应重复触发同步。
+  static bool biographyNeedsSync(String? current, String? incoming) {
+    final currentText = _normalizeBiography(current);
+    final incomingText = _normalizeBiography(incoming);
+    return incomingText.isNotEmpty && incomingText != currentText;
+  }
+
+  static String _normalizeBiography(String? value) {
+    return (value ?? '').replaceAll('\r\n', '\n').trim();
+  }
+
   // ===== 列表 / CRUD =====
 
   /// 列表 · 固定 scope=association / status=active

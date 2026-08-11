@@ -15,16 +15,32 @@ import '../actor_associations_repository.dart';
 
 /// 演员关联数据源同步 sheet · 选择数据源预览, 用户确认后应用
 class ActorAssociationSyncSheet extends ConsumerStatefulWidget {
-  const ActorAssociationSyncSheet({super.key, required this.actor});
+  const ActorAssociationSyncSheet({
+    super.key,
+    required this.actor,
+    this.currentBiography,
+    this.onBiographyApplied,
+  });
   final MappingRule actor;
+  final String? currentBiography;
+  final ValueChanged<String>? onBiographyApplied;
 
-  static Future<bool?> show(BuildContext context, MappingRule actor) {
+  static Future<bool?> show(
+    BuildContext context,
+    MappingRule actor, {
+    String? currentBiography,
+    ValueChanged<String>? onBiographyApplied,
+  }) {
     return showModalBottomSheet<bool>(
       context: context,
       backgroundColor: appColors(context).bg,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => ActorAssociationSyncSheet(actor: actor),
+      builder: (_) => ActorAssociationSyncSheet(
+        actor: actor,
+        currentBiography: currentBiography,
+        onBiographyApplied: onBiographyApplied,
+      ),
     );
   }
 
@@ -61,7 +77,11 @@ class _ActorAssociationSyncSheetState
   }
 
   bool _hasSyncChanges(ActorAssocPreview preview) {
-    return preview.newAliases.isNotEmpty || preview.biography.isNotEmpty;
+    return preview.newAliases.isNotEmpty ||
+        ActorAssociationsRepository.biographyNeedsSync(
+          widget.currentBiography,
+          preview.biography,
+        );
   }
 
   Future<void> _load({ActorDataSource? source}) async {
@@ -131,6 +151,10 @@ class _ActorAssociationSyncSheetState
     if (preview == null || _applying) return;
     if (!_hasSyncChanges(preview)) return;
 
+    final biographyChanged = ActorAssociationsRepository.biographyNeedsSync(
+      widget.currentBiography,
+      preview.biography,
+    );
     setState(() => _applying = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -147,14 +171,17 @@ class _ActorAssociationSyncSheetState
                 : widget.actor.mappedValue ?? '',
             originalValues: merged,
             source: _source,
-            biography: preview.biography,
+            biography: biographyChanged ? preview.biography : null,
           );
       if (!mounted) return;
       final changes = <String>[];
       if (preview.newAliases.isNotEmpty) {
         changes.add('添加 ${preview.newAliases.length} 个关联名称');
       }
-      if (preview.biography.isNotEmpty) changes.add('更新演员简介');
+      if (biographyChanged) {
+        changes.add('更新演员简介');
+        widget.onBiographyApplied?.call(preview.biography.trim());
+      }
       messenger.showSnackBar(
         SnackBar(content: Text('同步完成：${changes.join('，')}')),
       );
@@ -248,7 +275,11 @@ class _ActorAssociationSyncSheetState
                                       mappedValue: preview.mappedValue,
                                       newCount: preview.newAliases.length,
                                     ),
-                                    if (preview.biography.isNotEmpty) ...[
+                                    if (ActorAssociationsRepository
+                                        .biographyNeedsSync(
+                                      widget.currentBiography,
+                                      preview.biography,
+                                    )) ...[
                                       const SizedBox(height: 16),
                                       _BiographySection(
                                         biography: preview.biography,

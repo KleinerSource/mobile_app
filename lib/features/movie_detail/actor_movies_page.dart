@@ -5,12 +5,14 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/actor.dart';
+import '../../core/models/mapping_rule.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
+import '../actor_associations/widgets/actor_association_sync_sheet.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
 import 'movie_detail_page.dart';
@@ -28,10 +30,12 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
   static const _pageSize = 30;
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
   int? _totalCount;
+  late String _currentBiography;
 
   @override
   void initState() {
     super.initState();
+    _currentBiography = widget.actor.biography?.trim() ?? '';
     _controller.addPageRequestListener(_fetch);
   }
 
@@ -60,6 +64,26 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
       }
     } catch (e) {
       _controller.error = toApiException(e).message;
+    }
+  }
+
+  Future<void> _syncActor() async {
+    final actor = widget.actor;
+    final rule = MappingRule(
+      id: actor.id,
+      mappedValue: actor.name,
+      originalValues: [actor.name],
+    );
+    final synced = await ActorAssociationSyncSheet.show(
+      context,
+      rule,
+      currentBiography: _currentBiography,
+      onBiographyApplied: (biography) {
+        if (mounted) setState(() => _currentBiography = biography);
+      },
+    );
+    if (synced == true && mounted) {
+      _controller.refresh();
     }
   }
 
@@ -94,6 +118,13 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
                   ),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
+                actions: [
+                  IconButton(
+                    tooltip: '数据源同步',
+                    icon: const Icon(Icons.cloud_sync_outlined),
+                    onPressed: _syncActor,
+                  ),
+                ],
                 flexibleSpace: FlexibleSpaceBar(
                   background: _ActorHero(
                     actor: widget.actor,
@@ -102,9 +133,9 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
                   ),
                 ),
               ),
-              if (widget.actor.biography?.trim().isNotEmpty == true)
+              if (_currentBiography.isNotEmpty)
                 SliverToBoxAdapter(
-                  child: _ActorBiographyCard(actor: widget.actor),
+                  child: _ActorBiographyCard(biography: _currentBiography),
                 ),
               SliverToBoxAdapter(
                 child: Padding(
@@ -281,14 +312,13 @@ class _HeroPill extends StatelessWidget {
 }
 
 class _ActorBiographyCard extends StatelessWidget {
-  const _ActorBiographyCard({required this.actor});
+  const _ActorBiographyCard({required this.biography});
 
-  final ActorItem actor;
+  final String biography;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final biography = actor.biography!.trim();
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
       child: Container(
