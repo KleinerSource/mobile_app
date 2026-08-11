@@ -200,12 +200,15 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                       label: '新资源',
                       icon: Icons.fiber_new_rounded,
                       active: _currentFilter.hasNewResources == true,
-                      onTap: () => _applyFilter(
-                        _currentFilter.copyWith(
-                          hasNewResources:
-                              _currentFilter.hasNewResources == true ? null : true,
-                        ),
-                      ),
+                      onTap: () {
+                        final enabled = _currentFilter.hasNewResources == true;
+                        _applyFilter(
+                          _currentFilter.copyWith(
+                            hasNewResources: enabled ? null : true,
+                            clearHasNewResources: enabled,
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(width: 7),
                     _QuickChip(

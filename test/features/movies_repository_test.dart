@@ -114,6 +114,17 @@ void main() {
       'has_new_resources': true,
     });
   });
+
+  test('关闭新资源筛选会清除当前状态', () {
+    const filter = MovieFilter(hasNewResources: true);
+
+    expect(
+      filter
+          .copyWith(hasNewResources: null, clearHasNewResources: true)
+          .hasNewResources,
+      isNull,
+    );
+  });
 }
 
 class _StubMoviesApi implements MoviesApi {

@@ -58,4 +58,15 @@ void main() {
       '$local&token=access.token',
     );
   });
+
+  test('预览图相对地址解析为带鉴权参数的服务器地址', () {
+    expect(
+      resolveProtectedUrl(
+        config,
+        '/api/movies/id/7/extrafanart/preview-1.jpg',
+        'access.token',
+      ),
+      'https://media.example/md-center/api/movies/id/7/extrafanart/preview-1.jpg?token=access.token',
+    );
+  });
 }

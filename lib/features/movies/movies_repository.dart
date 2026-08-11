@@ -52,6 +52,14 @@ class MoviesRepository {
     });
   }
 
+  Future<void> downloadExtraFanarts(int id) async {
+    final api = _extendedApi;
+    if (api == null) {
+      throw ApiException('预览图获取接口不可用，请更新服务器后重试');
+    }
+    await api.downloadDbonlineExtrafanart(id);
+  }
+
   Future<MediaInfo?> mediaInfo(int id) async {
     try {
       final raw = await _api.getMediaInfo(id);

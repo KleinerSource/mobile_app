@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -156,6 +159,12 @@ class _DetailBody extends ConsumerWidget {
               ),
             ),
           ),
+        SliverToBoxAdapter(
+          child: _ExtraFanartSection(
+            movieId: movie.id,
+            canFetch: movie.num?.trim().isNotEmpty == true,
+          ),
+        ),
         if (movie.actors.isNotEmpty)
           SliverToBoxAdapter(
             child: _CastSection(actors: movie.actors),
@@ -456,6 +465,297 @@ class _ActionRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ExtraFanartSection extends ConsumerStatefulWidget {
+  const _ExtraFanartSection({required this.movieId, required this.canFetch});
+
+  final int movieId;
+  final bool canFetch;
+
+  @override
+  ConsumerState<_ExtraFanartSection> createState() =>
+      _ExtraFanartSectionState();
+}
+
+class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
+  bool _fetching = false;
+
+  Future<void> _fetchExtraFanarts() async {
+    if (_fetching || !widget.canFetch) return;
+    setState(() => _fetching = true);
+    try {
+      await ref
+          .read(moviesRepositoryProvider)
+          .downloadExtraFanarts(widget.movieId);
+      if (!mounted) return;
+      ref.invalidate(extraFanartsProvider(widget.movieId));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('预览图获取完成')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('获取预览图失败: ${toApiException(error).message}')),
+      );
+    } finally {
+      if (mounted) setState(() => _fetching = false);
+    }
+  }
+
+  Widget _header(BuildContext context, {required bool hasImages}) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text('预览图', style: AppText.sectionTitle(context)),
+        ),
+        if (widget.canFetch)
+          TextButton.icon(
+            onPressed: _fetching ? null : _fetchExtraFanarts,
+            icon: _fetching
+                ? const SizedBox(
+                    width: 15,
+                    height: 15,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh_rounded, size: 17),
+            label: Text(hasImages ? '重新获取' : '获取'),
+          ),
+      ],
+    );
+  }
+
+  Widget _emptyState(BuildContext context, String message, IconData icon) {
+    final c = appColors(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      decoration: BoxDecoration(
+        color: c.surfaceAlt,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: c.cardBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: c.muted, size: 22),
+          const SizedBox(width: 10),
+          Expanded(child: Text(message, style: AppText.body(context))),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(extraFanartsProvider(widget.movieId));
+    return async.when(
+      loading: () => Padding(
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _header(context, hasImages: false),
+            const SizedBox(height: 12),
+            _emptyState(context, '正在加载预览图', Icons.hourglass_empty_rounded),
+          ],
+        ),
+      ),
+      error: (error, _) => Padding(
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _header(context, hasImages: false),
+            const SizedBox(height: 12),
+            _emptyState(
+              context,
+              '预览图加载失败: ${toApiException(error).message}',
+              Icons.broken_image_outlined,
+            ),
+          ],
+        ),
+      ),
+      data: (urls) {
+        if (urls.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _header(context, hasImages: false),
+                const SizedBox(height: 12),
+                _emptyState(context, '暂无预览图', Icons.photo_library_outlined),
+              ],
+            ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _header(context, hasImages: true),
+              const SizedBox(height: 12),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: urls.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 16 / 9,
+                ),
+                itemBuilder: (context, index) {
+                  final url = urls[index];
+                  return Material(
+                    color: appColors(context).surfaceAlt,
+                    borderRadius: BorderRadius.circular(10),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () {
+                        unawaited(_openViewer(context, urls, index));
+                      },
+                      child: CachedNetworkImage(
+                        imageUrl: url,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => const Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                        errorWidget: (_, __, ___) => Icon(
+                          Icons.broken_image_outlined,
+                          color: appColors(context).muted,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openViewer(
+    BuildContext context,
+    List<String> urls,
+    int initialIndex,
+  ) {
+    return showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '关闭预览图',
+      barrierColor: Colors.black.withValues(alpha: 0.94),
+      pageBuilder: (_, __, ___) => _ExtraFanartViewer(
+        urls: urls,
+        initialIndex: initialIndex,
+      ),
+    );
+  }
+}
+
+class _ExtraFanartViewer extends StatefulWidget {
+  const _ExtraFanartViewer({required this.urls, required this.initialIndex});
+
+  final List<String> urls;
+  final int initialIndex;
+
+  @override
+  State<_ExtraFanartViewer> createState() => _ExtraFanartViewerState();
+}
+
+class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
+  late final PageController _controller;
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+    _controller = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: SafeArea(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            PageView.builder(
+              controller: _controller,
+              itemCount: widget.urls.length,
+              onPageChanged: (value) => setState(() => _index = value),
+              itemBuilder: (context, index) => Center(
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 4,
+                  child: CachedNetworkImage(
+                    imageUrl: widget.urls[index],
+                    fit: BoxFit.contain,
+                    placeholder: (_, __) => const CircularProgressIndicator(),
+                    errorWidget: (_, __, ___) => const Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.white54,
+                      size: 48,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton(
+                tooltip: '关闭预览图',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+              ),
+            ),
+            if (widget.urls.length > 1)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 12,
+                child: Center(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      child: Text(
+                        '${_index + 1} / ${widget.urls.length}',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

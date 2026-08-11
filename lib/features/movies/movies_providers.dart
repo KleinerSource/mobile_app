@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/providers.dart';
 import '../../core/api/url_resolver.dart';
+import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/media_info.dart';
 import '../../core/models/movie.dart';
@@ -60,7 +61,16 @@ final movieDetailProvider = FutureProvider.autoDispose
 
 final extraFanartsProvider = FutureProvider.autoDispose
     .family<List<String>, int>((ref, id) async {
-  return ref.read(moviesRepositoryProvider).extraFanarts(id);
+  final rawUrls = await ref.read(moviesRepositoryProvider).extraFanarts(id);
+  final config = ref.read(serverConfigProvider);
+  if (config == null) return rawUrls;
+
+  final token = await ref.read(authSessionRepositoryProvider).accessToken();
+  final revision = ref.watch(imageCacheRevisionProvider);
+  return rawUrls
+      .map((url) => resolveProtectedUrl(config, url, token))
+      .map((url) => imageUrlWithCacheRevision(url, revision))
+      .toList(growable: false);
 });
 
 final mediaInfoProvider = FutureProvider.autoDispose
