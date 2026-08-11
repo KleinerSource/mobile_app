@@ -66,7 +66,7 @@ class MdCenterApp extends ConsumerWidget {
               loading: () => const _StartupLoading(),
               error: (error, _) => _StartupError(
                     message: error.toString(),
-                    serverUrl: cfg?.baseUrl,
+                    serverUrl: cfg.baseUrl,
                     incompatible: error is ServerCompatibilityException,
                     onRetry: () => ref.invalidate(authControllerProvider),
                     onChangeServer: changeServer,
@@ -77,7 +77,7 @@ class MdCenterApp extends ConsumerWidget {
                 AuthPhase.incompatible || AuthPhase.unavailable =>
                   _StartupError(
                     message: state.message ?? '服务器不可用',
-                    serverUrl: cfg?.baseUrl,
+                    serverUrl: cfg.baseUrl,
                     incompatible: state.phase == AuthPhase.incompatible,
                     onRetry: () => ref.invalidate(authControllerProvider),
                     onChangeServer: changeServer,
