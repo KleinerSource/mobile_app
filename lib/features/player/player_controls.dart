@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 
@@ -110,8 +111,10 @@ class _PlayerControlsState extends State<PlayerControls> {
   Duration? _pendingFramePreviewPosition;
   DateTime? _lastFramePreviewAt;
   int _framePreviewSession = 0;
-  int? _runningFramePreviewSession;
-  Future<void>? _framePreviewTask;
+  bool _framePreviewBusy = false;
+  Player? _framePreviewPlayer;
+  String? _framePreviewSourceUri;
+  Map<String, String>? _framePreviewSourceHeaders;
 
   @override
   void didUpdateWidget(covariant PlayerControls oldWidget) {
@@ -119,12 +122,14 @@ class _PlayerControlsState extends State<PlayerControls> {
     if (oldWidget.player != widget.player) {
       _cancelFramePreview();
       _dragValue = null;
+      unawaited(_disposeFramePreviewPlayer());
     }
   }
 
   @override
   void dispose() {
     _cancelFramePreview();
+    unawaited(_disposeFramePreviewPlayer());
     super.dispose();
   }
 
@@ -531,36 +536,26 @@ class _PlayerControlsState extends State<PlayerControls> {
   void _endSliderDrag(double value) {
     if (widget.hapticProgressBar) PlayerHaptics.medium();
     final position = Duration(milliseconds: value.round());
-    final previewTask = _framePreviewTask;
     final commitSeek = widget.onSeek;
     _cancelFramePreview();
     setState(() => _dragValue = null);
     _lastSliderHapticBucket = null;
     widget.onInteraction();
-    unawaited(_commitSliderSeek(position, previewTask, commitSeek));
+    unawaited(_commitSliderSeek(position, commitSeek));
   }
 
   void _queueFramePreview(Duration position) {
     if (!_sliderDragging) return;
     _pendingFramePreviewPosition = position;
-    final session = _framePreviewSession;
-    if (_runningFramePreviewSession == session) return;
-    _runningFramePreviewSession = session;
-    final task = _runFramePreviewLoop(session);
-    _framePreviewTask = task;
-    unawaited(task);
+    if (_framePreviewBusy) return;
+    _framePreviewBusy = true;
+    unawaited(_runFramePreviewLoop(_framePreviewSession));
   }
 
   Future<void> _commitSliderSeek(
     Duration position,
-    Future<void>? previewTask,
     Future<void> Function(Duration) commitSeek,
   ) async {
-    try {
-      await previewTask;
-    } catch (_) {
-      // 预览失败不应阻止最终定位。
-    }
     try {
       await commitSeek(position);
     } catch (_) {
@@ -592,8 +587,9 @@ class _PlayerControlsState extends State<PlayerControls> {
         }
 
         try {
-          await widget.player.seek(position);
-          final frame = await widget.player.screenshot(format: 'image/jpeg');
+          final previewPlayer = await _ensureFramePreviewPlayer(position);
+          if (previewPlayer == null) break;
+          final frame = await _captureFrame(previewPlayer, position);
           _lastFramePreviewAt = DateTime.now();
           if (frame != null &&
               mounted &&
@@ -606,17 +602,84 @@ class _PlayerControlsState extends State<PlayerControls> {
         }
       }
     } finally {
-      if (_runningFramePreviewSession == session) {
-        _runningFramePreviewSession = null;
-        final pending = _pendingFramePreviewPosition;
-        if (mounted &&
-            _sliderDragging &&
-            session == _framePreviewSession &&
-            pending != null) {
-          _queueFramePreview(pending);
-        }
+      _framePreviewBusy = false;
+      final pending = _pendingFramePreviewPosition;
+      if (mounted && _sliderDragging && pending != null) {
+        _queueFramePreview(pending);
       }
     }
+  }
+
+  Future<Player?> _ensureFramePreviewPlayer(Duration startAt) async {
+    final playlist = widget.player.state.playlist;
+    if (playlist.index < 0 || playlist.index >= playlist.medias.length) {
+      return null;
+    }
+    final source = playlist.medias[playlist.index];
+    final existing = _framePreviewPlayer;
+    if (existing != null &&
+        _framePreviewSourceUri == source.uri &&
+        mapEquals(_framePreviewSourceHeaders, source.httpHeaders)) {
+      return existing;
+    }
+
+    await _disposeFramePreviewPlayer();
+    final player = Player(
+      configuration: const PlayerConfiguration(
+        muted: true,
+        bufferSize: 8 * 1024 * 1024,
+      ),
+    );
+    _framePreviewPlayer = player;
+    _framePreviewSourceUri = source.uri;
+    _framePreviewSourceHeaders = source.httpHeaders == null
+        ? null
+        : Map<String, String>.from(source.httpHeaders!);
+    try {
+      await player.open(
+        Media(
+          source.uri,
+          httpHeaders: source.httpHeaders,
+          start: startAt,
+        ),
+        play: false,
+      );
+      return player;
+    } catch (_) {
+      if (identical(_framePreviewPlayer, player)) {
+        _framePreviewPlayer = null;
+        _framePreviewSourceUri = null;
+        _framePreviewSourceHeaders = null;
+      }
+      try {
+        await player.dispose();
+      } catch (_) {}
+      return null;
+    }
+  }
+
+  Future<Uint8List?> _captureFrame(
+    Player previewPlayer,
+    Duration position,
+  ) async {
+    await previewPlayer.seek(position);
+    for (var attempt = 0; attempt < 15; attempt++) {
+      final frame = await previewPlayer.screenshot(format: 'image/jpeg');
+      if (frame != null && frame.isNotEmpty) return frame;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    return null;
+  }
+
+  Future<void> _disposeFramePreviewPlayer() async {
+    final player = _framePreviewPlayer;
+    _framePreviewPlayer = null;
+    _framePreviewSourceUri = null;
+    _framePreviewSourceHeaders = null;
+    if (player == null) return;
+    try {
+      await player.dispose();
+    } catch (_) {}
   }
 
   void _cancelFramePreview() {

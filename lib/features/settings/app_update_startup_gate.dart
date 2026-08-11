@@ -169,6 +169,7 @@ class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
     for (final delay in retryDelays) {
       if (!mounted) return;
       if (delay > Duration.zero) await Future<void>.delayed(delay);
+      if (!mounted) return;
       final completed = await checkConfiguredAppUpdate(
         context: context,
         ref: ref,
