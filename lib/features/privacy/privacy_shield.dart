@@ -28,7 +28,7 @@ class PrivacyShield extends ConsumerStatefulWidget {
 class _PrivacyShieldState extends ConsumerState<PrivacyShield>
     with WidgetsBindingObserver {
   bool _covered = false;
-  StreamSubscription<AccelerometerEvent>? _shakeSubscription;
+  StreamSubscription<UserAccelerometerEvent>? _shakeSubscription;
   late final ShakeDetector _shakeDetector;
   bool _privacyToggleInFlight = false;
 
@@ -74,7 +74,7 @@ class _PrivacyShieldState extends ConsumerState<PrivacyShield>
     if (!Platform.isAndroid && !Platform.isIOS) return;
 
     _shakeDetector.reset();
-    _shakeSubscription = accelerometerEventStream(
+    _shakeSubscription = userAccelerometerEventStream(
       samplingPeriod: const Duration(milliseconds: 100),
     ).listen(
       (event) => _shakeDetector.handle(

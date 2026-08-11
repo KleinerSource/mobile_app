@@ -12,28 +12,59 @@ void main() {
     expect(count, 0);
   });
 
-  test('需要连续两个摇动峰值才触发', () {
+  test('走路时的小幅度往复移动不会触发', () {
     var count = 0;
     final detector = ShakeDetector(onShake: () => count++);
     final first = DateTime.utc(2026, 8, 10, 12);
 
-    expect(
-      detector.handle(x: 15, y: 0, z: 0, now: first),
-      isFalse,
+    detector.handle(x: 5, y: 0, z: 0, now: first);
+    detector.handle(
+      x: -5,
+      y: 0,
+      z: 0,
+      now: first.add(const Duration(milliseconds: 250)),
+    );
+    detector.handle(
+      x: 6,
+      y: 0,
+      z: 0,
+      now: first.add(const Duration(milliseconds: 500)),
+    );
+
+    expect(count, 0);
+  });
+
+  test('需要一秒内连续三个反向摇动峰值才触发', () {
+    var count = 0;
+    final detector = ShakeDetector(onShake: () => count++);
+    final first = DateTime.utc(2026, 8, 10, 12);
+
+    expect(detector.handle(x: 10, y: 0, z: 0, now: first), isFalse);
+    detector.handle(
+      x: 0,
+      y: 0,
+      z: 0,
+      now: first.add(const Duration(milliseconds: 150)),
     );
     expect(
       detector.handle(
-        x: 0,
-        y: 10,
+        x: -11,
+        y: 0,
         z: 0,
-        now: first.add(const Duration(milliseconds: 400)),
+        now: first.add(const Duration(milliseconds: 300)),
       ),
       isFalse,
     );
+    detector.handle(
+      x: 0,
+      y: 0,
+      z: 0,
+      now: first.add(const Duration(milliseconds: 450)),
+    );
     expect(
       detector.handle(
-        x: 0,
-        y: 16,
+        x: 12,
+        y: 0,
         z: 0,
         now: first.add(const Duration(milliseconds: 600)),
       ),
@@ -43,20 +74,54 @@ void main() {
     expect(count, 1);
   });
 
-  test('持续高加速度但没有连续峰值不会触发', () {
+  test('峰值方向没有反转时不会触发', () {
     var count = 0;
     final detector = ShakeDetector(onShake: () => count++);
     final first = DateTime.utc(2026, 8, 10, 12);
 
-    detector.handle(x: 16, y: 0, z: 0, now: first);
+    detector.handle(x: 10, y: 0, z: 0, now: first);
     detector.handle(
-      x: 16,
+      x: 0,
+      y: 0,
+      z: 0,
+      now: first.add(const Duration(milliseconds: 100)),
+    );
+    detector.handle(
+      x: 11,
+      y: 0,
+      z: 0,
+      now: first.add(const Duration(milliseconds: 200)),
+    );
+    detector.handle(
+      x: 0,
       y: 0,
       z: 0,
       now: first.add(const Duration(milliseconds: 300)),
     );
     detector.handle(
-      x: 19,
+      x: 12,
+      y: 0,
+      z: 0,
+      now: first.add(const Duration(milliseconds: 400)),
+    );
+
+    expect(count, 0);
+  });
+
+  test('持续高加速度但没有连续峰值不会触发', () {
+    var count = 0;
+    final detector = ShakeDetector(onShake: () => count++);
+    final first = DateTime.utc(2026, 8, 10, 12);
+
+    detector.handle(x: 10, y: 0, z: 0, now: first);
+    detector.handle(
+      x: 11,
+      y: 0,
+      z: 0,
+      now: first.add(const Duration(milliseconds: 300)),
+    );
+    detector.handle(
+      x: 12,
       y: 0,
       z: 0,
       now: first.add(const Duration(milliseconds: 600)),
@@ -70,15 +135,15 @@ void main() {
     final detector = ShakeDetector(onShake: () => count++);
     final first = DateTime.utc(2026, 8, 10, 12);
 
-    detector.handle(x: 16, y: 0, z: 0, now: first);
+    detector.handle(x: 10, y: 0, z: 0, now: first);
     detector.handle(
       x: 0,
-      y: 10,
+      y: 0,
       z: 0,
       now: first.add(const Duration(milliseconds: 400)),
     );
     detector.handle(
-      x: 16,
+      x: -11,
       y: 0,
       z: 0,
       now: first.add(const Duration(milliseconds: 1100)),
@@ -92,31 +157,37 @@ void main() {
     final detector = ShakeDetector(onShake: () => count++);
     final now = DateTime.utc(2026, 8, 10, 12);
 
-    detector.handle(x: 18, y: 0, z: 0, now: now);
+    detector.handle(x: 10, y: 0, z: 0, now: now);
     detector.reset();
     detector.handle(
-      x: 15,
+      x: 10,
       y: 0,
       z: 0,
       now: now.add(const Duration(milliseconds: 100)),
     );
     detector.handle(
       x: 0,
-      y: 10,
+      y: 0,
       z: 0,
       now: now.add(const Duration(milliseconds: 200)),
     );
     detector.handle(
-      x: 16,
+      x: -11,
       y: 0,
       z: 0,
       now: now.add(const Duration(milliseconds: 300)),
     );
     detector.handle(
       x: 0,
-      y: 10,
+      y: 0,
       z: 0,
       now: now.add(const Duration(milliseconds: 400)),
+    );
+    detector.handle(
+      x: 12,
+      y: 0,
+      z: 0,
+      now: now.add(const Duration(milliseconds: 500)),
     );
     expect(count, 1);
   });
