@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'api_exception.dart';
 
 const requiredServerProjectName = 'md_center';
-const minimumSupportedServerVersion = '1.3.32';
+const minimumSupportedServerVersion = '1.4.50';
 
 String get serverCompatibilityRequirementMessage =>
     '服务器不兼容，需要 $requiredServerProjectName 版本不低于 '
