@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/models/playback.dart' as playback_models;
 import 'player_decode_status.dart';
@@ -19,6 +20,8 @@ class PlayerControls extends StatefulWidget {
   const PlayerControls({
     super.key,
     required this.player,
+    this.previewSourceUri,
+    this.previewSourceHeaders,
     required this.quality,
     required this.onQualityChanged,
     required this.subtitleTracks,
@@ -51,6 +54,8 @@ class PlayerControls extends StatefulWidget {
   });
 
   final Player player;
+  final String? previewSourceUri;
+  final Map<String, String>? previewSourceHeaders;
   final String quality;
   final ValueChanged<String> onQualityChanged;
   final List<playback_models.SubtitleTrack> subtitleTracks;
@@ -114,13 +119,19 @@ class _PlayerControlsState extends State<PlayerControls> {
   bool _framePreviewBusy = false;
   bool _framePreviewUnavailable = false;
   Player? _framePreviewPlayer;
+  VideoController? _framePreviewController;
   String? _framePreviewSourceUri;
   Map<String, String>? _framePreviewSourceHeaders;
 
   @override
   void didUpdateWidget(covariant PlayerControls oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.player != widget.player) {
+    if (oldWidget.player != widget.player ||
+        oldWidget.previewSourceUri != widget.previewSourceUri ||
+        !mapEquals(
+          oldWidget.previewSourceHeaders,
+          widget.previewSourceHeaders,
+        )) {
       _cancelFramePreview();
       _dragValue = null;
       unawaited(_disposeFramePreviewPlayer());
@@ -626,14 +637,22 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   Future<Player?> _ensureFramePreviewPlayer(Duration startAt) async {
     final playlist = widget.player.state.playlist;
-    if (playlist.index < 0 || playlist.index >= playlist.medias.length) {
-      return null;
-    }
-    final source = playlist.medias[playlist.index];
+    final previewUri = widget.previewSourceUri?.trim();
+    final sourceUri = previewUri == null || previewUri.isEmpty
+        ? playlist.index >= 0 && playlist.index < playlist.medias.length
+            ? playlist.medias[playlist.index].uri
+            : null
+        : previewUri;
+    if (sourceUri == null || sourceUri.isEmpty) return null;
+    final sourceHeaders = previewUri == null || previewUri.isEmpty
+        ? playlist.index >= 0 && playlist.index < playlist.medias.length
+            ? playlist.medias[playlist.index].httpHeaders
+            : null
+        : widget.previewSourceHeaders;
     final existing = _framePreviewPlayer;
     if (existing != null &&
-        _framePreviewSourceUri == source.uri &&
-        mapEquals(_framePreviewSourceHeaders, source.httpHeaders)) {
+        _framePreviewSourceUri == sourceUri &&
+        mapEquals(_framePreviewSourceHeaders, sourceHeaders)) {
       return existing;
     }
 
@@ -644,16 +663,23 @@ class _PlayerControlsState extends State<PlayerControls> {
         bufferSize: 8 * 1024 * 1024,
       ),
     );
+    final controller = VideoController(
+      player,
+      configuration: const VideoControllerConfiguration(
+        enableHardwareAcceleration: true,
+      ),
+    );
     _framePreviewPlayer = player;
-    _framePreviewSourceUri = source.uri;
-    _framePreviewSourceHeaders = source.httpHeaders == null
+    _framePreviewController = controller;
+    _framePreviewSourceUri = sourceUri;
+    _framePreviewSourceHeaders = sourceHeaders == null
         ? null
-        : Map<String, String>.from(source.httpHeaders!);
+        : Map<String, String>.from(sourceHeaders);
     try {
       await player.open(
         Media(
-          source.uri,
-          httpHeaders: source.httpHeaders,
+          sourceUri,
+          httpHeaders: sourceHeaders,
           start: startAt,
         ),
         // screenshot 只有在解码出视频帧后才会返回数据。预览内核保持
@@ -666,10 +692,17 @@ class _PlayerControlsState extends State<PlayerControls> {
             .firstWhere((value) => value != null && value > 0)
             .timeout(const Duration(milliseconds: 2500));
       }
+      try {
+        await controller.waitUntilFirstFrameRendered
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {
+        // 某些平台不会回报首帧事件，继续使用 screenshot 的重试机制。
+      }
       return player;
     } catch (_) {
       if (identical(_framePreviewPlayer, player)) {
         _framePreviewPlayer = null;
+        _framePreviewController = null;
         _framePreviewSourceUri = null;
         _framePreviewSourceHeaders = null;
       }
@@ -716,6 +749,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   Future<void> _disposeFramePreviewPlayer() async {
     final player = _framePreviewPlayer;
     _framePreviewPlayer = null;
+    _framePreviewController = null;
     _framePreviewSourceUri = null;
     _framePreviewSourceHeaders = null;
     if (player == null) return;

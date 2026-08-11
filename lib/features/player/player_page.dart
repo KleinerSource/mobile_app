@@ -1455,6 +1455,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
               duration: const Duration(milliseconds: 200),
               child: PlayerControls(
                 player: _host.player,
+                previewSourceUri: _pictureInPictureUrl,
+                previewSourceHeaders: _pictureInPictureHeaders,
                 quality: _quality,
                 onQualityChanged: _onQualityChanged,
                 subtitleTracks: decision.subtitleTracks,
