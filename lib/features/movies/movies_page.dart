@@ -458,7 +458,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   Future<void> _startResourceScan({List<int>? movieIds}) async {
     if (_resourceScanStarting) return;
     final selected = movieIds != null && movieIds.isNotEmpty;
-    final count = selected ? (movieIds?.length ?? 0) : _totalCount;
+    final count = selected ? movieIds.length : _totalCount;
     if (count <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('当前没有可扫描的影片')),
