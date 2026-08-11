@@ -504,7 +504,12 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
         byId[id] = ResourceItem(id: id, name: name);
       }
     }
-    return byId.values.toList();
+    if (!_supportsLocalPinyin) return byId.values.toList();
+    return prioritizeSelectedWhenSearchEmpty(
+      items: byId.values,
+      searchIsEmpty: widget.search == null || widget.search!.trim().isEmpty,
+      isSelected: (item) => widget.selected.contains(item.id),
+    );
   }
 
   @override

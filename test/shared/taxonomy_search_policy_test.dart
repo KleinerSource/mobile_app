@@ -27,4 +27,24 @@ void main() {
       isFalse,
     );
   });
+
+  test('空搜索时将已选项稳定排在最前面', () {
+    final result = prioritizeSelectedWhenSearchEmpty(
+      items: [1, 2, 3, 4, 5],
+      searchIsEmpty: true,
+      isSelected: {2, 4}.contains,
+    );
+
+    expect(result, [2, 4, 1, 3, 5]);
+  });
+
+  test('存在搜索词时保留匹配结果顺序', () {
+    final result = prioritizeSelectedWhenSearchEmpty(
+      items: [1, 2, 3, 4, 5],
+      searchIsEmpty: false,
+      isSelected: {2, 4}.contains,
+    );
+
+    expect(result, [1, 2, 3, 4, 5]);
+  });
 }
