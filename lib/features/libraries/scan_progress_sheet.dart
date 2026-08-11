@@ -333,7 +333,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                         onPressed: _busy
                             ? null
                             : () {
-                                if (t!.isPaused) {
+                                if (t.isPaused) {
                                   _act(
                                     () => ref
                                         .read(librariesRepositoryProvider)
@@ -350,7 +350,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                                 }
                               },
                         icon: Icon(
-                            t!.isPaused ? Icons.play_arrow : Icons.pause,
+                            t.isPaused ? Icons.play_arrow : Icons.pause,
                             size: 18),
                         label: Text(
                           t.isPaused ? '继续' : '暂停',
