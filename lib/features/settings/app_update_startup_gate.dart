@@ -149,6 +149,7 @@ class StartupUpdateGate extends ConsumerStatefulWidget {
 }
 
 class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
+  late final ProviderSubscription<String?> _repositorySubscription;
   Timer? _startTimer;
   String? _scheduledRepository;
   String? _checkedRepository;
@@ -157,8 +158,19 @@ class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
   int _failureRetryCount = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _repositorySubscription = ref.listenManual<String?>(
+      updateRepositoryUrlProvider,
+      (_, repositoryUrl) => _scheduleStart(repositoryUrl),
+      fireImmediately: true,
+    );
+  }
+
+  @override
   void dispose() {
     _startTimer?.cancel();
+    _repositorySubscription.close();
     super.dispose();
   }
 
@@ -168,22 +180,25 @@ class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
     if (!widget.enabled) {
       _startTimer?.cancel();
       _scheduledRepository = null;
+    } else if (!oldWidget.enabled) {
+      _scheduleStart(ref.read(updateRepositoryUrlProvider));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final repositoryUrl = ref.watch(updateRepositoryUrlProvider);
-    _scheduleStart(repositoryUrl);
     return widget.child;
   }
 
   void _scheduleStart(String? repositoryUrl) {
     final repository = repositoryUrl?.trim();
-    if (!widget.enabled ||
-        repository == null ||
-        repository.isEmpty ||
-        _checking ||
+    if (!widget.enabled || repository == null || repository.isEmpty) {
+      _startTimer?.cancel();
+      _startTimer = null;
+      _scheduledRepository = null;
+      return;
+    }
+    if (_checking ||
         _checkedRepository == repository ||
         _scheduledRepository == repository) {
       return;
@@ -193,7 +208,9 @@ class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
       _failureRetryCount = 0;
     }
     _scheduledRepository = repository;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    _startTimer?.cancel();
+    _startTimer = Timer(widget.startDelay, () {
+      _startTimer = null;
       if (!mounted ||
           !widget.enabled ||
           ref.read(updateRepositoryUrlProvider)?.trim() != repository) {
@@ -202,19 +219,7 @@ class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
         }
         return;
       }
-      _startTimer?.cancel();
-      _startTimer = Timer(widget.startDelay, () {
-        _startTimer = null;
-        if (!mounted ||
-            !widget.enabled ||
-            ref.read(updateRepositoryUrlProvider)?.trim() != repository) {
-          if (_scheduledRepository == repository) {
-            _scheduledRepository = null;
-          }
-          return;
-        }
-        unawaited(_checkForUpdate(repository));
-      });
+      unawaited(_checkForUpdate(repository));
     });
   }
 
@@ -254,6 +259,16 @@ class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
       if (_scheduledRepository == repository) {
         _scheduledRepository = null;
       }
+    }
+
+    final currentRepository = ref.read(updateRepositoryUrlProvider)?.trim();
+    if (mounted &&
+        widget.enabled &&
+        currentRepository != null &&
+        currentRepository.isNotEmpty &&
+        currentRepository != repository) {
+      _scheduleStart(currentRepository);
+      return;
     }
 
     if (!completed &&
