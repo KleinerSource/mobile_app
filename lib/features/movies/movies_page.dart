@@ -122,12 +122,15 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     final w = MediaQuery.of(context).size.width;
     final crossAxisCount = w > 600 ? 4 : 3;
 
-    return PopScope(
-      canPop: !_selectionMode,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _selectionMode) _exitSelection();
-      },
-      child: GlowBackground(
+    return DefaultTextStyle.merge(
+      // 影片库会被底部导航和首页路由复用,不要继承入口按钮的文字装饰。
+      style: const TextStyle(decoration: TextDecoration.none),
+      child: PopScope(
+        canPop: !_selectionMode,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _selectionMode) _exitSelection();
+        },
+        child: GlowBackground(
         child: SafeArea(
           bottom: false,
         child: Stack(
@@ -320,6 +323,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
             ),
           ),
           ],
+        ),
         ),
         ),
       ),
