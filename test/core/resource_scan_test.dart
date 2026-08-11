@@ -6,14 +6,14 @@ void main() {
     final task = ResourceScanTask.fromJson(const {
       'task_id': 'task-1',
       'status': 'running',
-      'movie_ids': const [1, 2],
+      'movie_ids': [1, 2],
       'total_count': 4,
       'current_index': 2,
       'current_movie': 'ABC-123',
       'success_count': 2,
       'failed_count': 0,
       'new_movie_count': 1,
-      'errors': const [],
+      'errors': [],
     });
 
     expect(task.taskId, 'task-1');
@@ -27,7 +27,7 @@ void main() {
       'task_id': 'task-2',
       'accepted_count': 3,
       'skipped_count': 1,
-      'skipped_ids': const [9],
+      'skipped_ids': [9],
     });
 
     expect(result.taskId, 'task-2');
