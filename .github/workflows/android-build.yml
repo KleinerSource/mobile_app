@@ -101,6 +101,17 @@ jobs:
         timeout-minutes: 5
         run: flutter pub get
 
+      - name: 修复 Gradle Wrapper 下载源
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          wrapper_properties="android/gradle/wrapper/gradle-wrapper.properties"
+          test -f "${wrapper_properties}"
+          # services.gradle.org 会重定向到发布资源,部分 runner 的 Java truststore
+          # 无法验证该入口证书;官方 downloads 域名提供相同版本的直连下载。
+          sed -i 's/services\.gradle\.org/downloads.gradle.org/g' "${wrapper_properties}"
+          grep '^distributionUrl=' "${wrapper_properties}"
+
       - name: 修正 Android 音量插件 compileSdk
         timeout-minutes: 2
         run: |
