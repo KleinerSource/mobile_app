@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/dio_factory.dart';
+import '../../../core/config/server_config_provider.dart';
 import '../../../core/models/avdb_config.dart';
 import '../../../core/models/dbo_config.dart';
 import '../../../core/models/mapping_rule.dart';
@@ -52,7 +53,15 @@ class _ActorAssociationSyncSheetState
   @override
   void initState() {
     super.initState();
+    _source = ActorAssociationsRepository.loadRememberedSource(
+          ref.read(sharedPrefsProvider),
+        ) ??
+        ActorDataSource.dbonline;
     unawaited(_load());
+  }
+
+  bool _hasSyncChanges(ActorAssocPreview preview) {
+    return preview.newAliases.isNotEmpty || preview.biography.isNotEmpty;
   }
 
   Future<void> _load({ActorDataSource? source}) async {
@@ -120,7 +129,7 @@ class _ActorAssociationSyncSheetState
   Future<void> _apply() async {
     final preview = _preview;
     if (preview == null || _applying) return;
-    if (preview.newAliases.isEmpty) return;
+    if (!_hasSyncChanges(preview)) return;
 
     setState(() => _applying = true);
     final messenger = ScaffoldMessenger.of(context);
@@ -137,10 +146,17 @@ class _ActorAssociationSyncSheetState
                 ? preview.mappedValue
                 : widget.actor.mappedValue ?? '',
             originalValues: merged,
+            source: _source,
+            biography: preview.biography,
           );
       if (!mounted) return;
+      final changes = <String>[];
+      if (preview.newAliases.isNotEmpty) {
+        changes.add('添加 ${preview.newAliases.length} 个关联名称');
+      }
+      if (preview.biography.isNotEmpty) changes.add('更新演员简介');
       messenger.showSnackBar(
-        SnackBar(content: Text('已添加 ${preview.newAliases.length} 个别名')),
+        SnackBar(content: Text('同步完成：${changes.join('，')}')),
       );
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -159,7 +175,7 @@ class _ActorAssociationSyncSheetState
     final preview = _preview;
     final canApply = preview != null &&
         preview.found &&
-        preview.newAliases.isNotEmpty &&
+        _hasSyncChanges(preview) &&
         !_applying;
     return SizedBox(
       height: mq.size.height * 0.78,
@@ -202,6 +218,12 @@ class _ActorAssociationSyncSheetState
                               _source = source;
                               _preview = null;
                             });
+                            unawaited(
+                              ActorAssociationsRepository.rememberSource(
+                                ref.read(sharedPrefsProvider),
+                                source,
+                              ),
+                            );
                             unawaited(_load(source: source));
                           },
                   ),
@@ -226,6 +248,12 @@ class _ActorAssociationSyncSheetState
                                       mappedValue: preview.mappedValue,
                                       newCount: preview.newAliases.length,
                                     ),
+                                    if (preview.biography.isNotEmpty) ...[
+                                      const SizedBox(height: 16),
+                                      _BiographySection(
+                                        biography: preview.biography,
+                                      ),
+                                    ],
                                     const SizedBox(height: 16),
                                     _AliasSection(
                                       title: '待新增名称',
@@ -339,6 +367,33 @@ class _SummaryRow extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BiographySection extends StatelessWidget {
+  const _BiographySection({required this.biography});
+
+  final String biography;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 13),
+      decoration: BoxDecoration(
+        color: c.surface,
+        border: Border.all(color: c.cardBorder),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('演员简介（AVDB）', style: AppText.cardTitle(context)),
+          const SizedBox(height: 7),
+          Text(biography, style: AppText.body(context)),
         ],
       ),
     );

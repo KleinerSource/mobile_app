@@ -1,3 +1,5 @@
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../core/api/api_exception.dart';
 import '../../core/api/envelope.dart';
 import '../../core/api/services/mappings_api.dart';
@@ -19,6 +21,14 @@ extension ActorDataSourceX on ActorDataSource {
   String get label => switch (this) {
         ActorDataSource.dbonline => 'DB Online',
         ActorDataSource.avdb => 'AVDB',
+  };
+}
+
+ActorDataSource? actorDataSourceFromValue(String? value) {
+  return switch (value?.trim().toLowerCase()) {
+    'dbonline' => ActorDataSource.dbonline,
+    'avdb' => ActorDataSource.avdb,
+    _ => null,
   };
 }
 
@@ -52,6 +62,7 @@ class ActorAssocPreview {
     required this.existingAliases,
     required this.newAliases,
     this.externalId,
+    this.biography = '',
   });
 
   final bool found;
@@ -61,6 +72,7 @@ class ActorAssocPreview {
   final List<String> existingAliases;
   final List<String> newAliases;
   final String? externalId;
+  final String biography;
 
   factory ActorAssocPreview.fromJson(Map<String, dynamic> j) {
     List<String> arr(dynamic v) =>
@@ -75,6 +87,7 @@ class ActorAssocPreview {
       externalId: (j['external_id'] as String?)?.trim().isEmpty == true
           ? null
           : j['external_id']?.toString(),
+      biography: (j['biography'] ?? '').toString().trim(),
     );
   }
 }
@@ -82,6 +95,19 @@ class ActorAssocPreview {
 class ActorAssociationsRepository {
   ActorAssociationsRepository(this._api);
   final MappingsApi _api;
+
+  static const lastSourceKey = 'actor_association_source';
+
+  static ActorDataSource? loadRememberedSource(SharedPreferences prefs) {
+    return actorDataSourceFromValue(prefs.getString(lastSourceKey));
+  }
+
+  static Future<void> rememberSource(
+    SharedPreferences prefs,
+    ActorDataSource source,
+  ) async {
+    await prefs.setString(lastSourceKey, source.value);
+  }
 
   static const _type = 'actors';
   static const _scope = 'association';
@@ -221,17 +247,22 @@ class ActorAssociationsRepository {
   }
 
   /// 应用数据源同步结果 (mapped_value + 合并后的所有别名)
-  Future<MappingRule> applySource({
+  Future<void> applySource({
     required String mappedValue,
     required List<String> originalValues,
+    ActorDataSource source = ActorDataSource.dbonline,
+    String? biography,
   }) async {
-    final raw = await _api.actorExternalSyncApply({
+    final body = <String, dynamic>{
       'mapped_value': mappedValue,
       'original_values': originalValues,
-    });
-    return unwrapStd<MappingRule>(
-      raw,
-      (d) => MappingRule.fromJson(Map<String, dynamic>.from(d as Map)),
-    );
+      'source': source.value,
+    };
+    final trimmedBiography = biography?.trim() ?? '';
+    if (trimmedBiography.isNotEmpty) {
+      body['biography'] = trimmedBiography;
+    }
+    final raw = await _api.actorExternalSyncApply(body);
+    unwrapStd<void>(raw, (_) {});
   }
 }

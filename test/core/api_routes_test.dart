@@ -38,6 +38,20 @@ void main() {
     expect(adapter.requestBodies.single['source'], 'avdb');
   });
 
+  test('演员数据源应用会传递渠道和 AVDB 简介', () async {
+    final adapter = _RouteAdapter();
+    await MappingsApi(_dio(adapter)).actorExternalSyncApply({
+      'mapped_value': '演员 A',
+      'original_values': <String>[],
+      'source': 'avdb',
+      'biography': '演员简介',
+    });
+
+    expect(adapter.paths.single, '/api/mappings/actors/external-sync/apply');
+    expect(adapter.requestBodies.single['source'], 'avdb');
+    expect(adapter.requestBodies.single['biography'], '演员简介');
+  });
+
   test('影片编辑器选项接口传递搜索关键词', () async {
     final adapter = _RouteAdapter();
     await ActorsApi(_dio(adapter)).options({'search': '演员'});

@@ -112,11 +112,11 @@ class PersonDetailPage extends ConsumerWidget {
                 ),
               ),
             ),
-            if (biography != null && biography!.isNotEmpty)
+            if (biography?.trim().isNotEmpty == true)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
-                  child: Text(biography!, style: AppText.body(context)),
+                  child: Text(biography!.trim(), style: AppText.body(context)),
                 ),
               ),
             SliverToBoxAdapter(

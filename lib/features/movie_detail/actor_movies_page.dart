@@ -102,9 +102,10 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
                   ),
                 ),
               ),
-              SliverToBoxAdapter(
-                child: _ActorBiographyCard(actor: widget.actor),
-              ),
+              if (widget.actor.biography?.trim().isNotEmpty == true)
+                SliverToBoxAdapter(
+                  child: _ActorBiographyCard(actor: widget.actor),
+                ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(22, 24, 22, 14),
@@ -287,7 +288,7 @@ class _ActorBiographyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final biography = actor.biography?.trim() ?? '';
+    final biography = actor.biography!.trim();
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
       child: Container(
@@ -308,10 +309,7 @@ class _ActorBiographyCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 9),
-            Text(
-              biography.isEmpty ? '暂无简介' : biography,
-              style: AppText.body(context),
-            ),
+            Text(biography, style: AppText.body(context)),
           ],
         ),
       ),
