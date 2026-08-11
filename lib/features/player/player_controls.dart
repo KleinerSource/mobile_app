@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 
@@ -74,7 +77,7 @@ class PlayerControls extends StatefulWidget {
   final VoidCallback onSeekBackward;
   final VoidCallback onSeekForward;
   final ValueChanged<double> onRateChanged;
-  final void Function(Duration) onSeek;
+  final Future<void> Function(Duration) onSeek;
 
   /// 任意控制交互 · 父级据此重置自动隐藏定时器。
   final VoidCallback onInteraction;
@@ -86,6 +89,8 @@ class PlayerControls extends StatefulWidget {
 
 class _PlayerControlsState extends State<PlayerControls> {
   static const int _sliderHapticStepMs = 5000;
+  static const Duration _framePreviewInterval = Duration(milliseconds: 250);
+  static const double _framePreviewWidth = 136;
   static const _noSubtitleTrack = playback_models.SubtitleTrack(
     index: -1,
     source: 'none',
@@ -99,6 +104,29 @@ class _PlayerControlsState extends State<PlayerControls> {
   /// 拖动进度条时的本地预览值 (null = 未拖动)。
   double? _dragValue;
   int? _lastSliderHapticBucket;
+  bool _sliderDragging = false;
+  Uint8List? _framePreview;
+  Duration? _framePreviewPosition;
+  Duration? _pendingFramePreviewPosition;
+  DateTime? _lastFramePreviewAt;
+  int _framePreviewSession = 0;
+  int? _runningFramePreviewSession;
+  Future<void>? _framePreviewTask;
+
+  @override
+  void didUpdateWidget(covariant PlayerControls oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.player != widget.player) {
+      _cancelFramePreview();
+      _dragValue = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _cancelFramePreview();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -408,55 +436,196 @@ class _PlayerControlsState extends State<PlayerControls> {
         final max = dur > 0 ? dur.toDouble() : 1.0;
         final live = pos.clamp(0, max.toInt()).toDouble();
         final value = _dragValue ?? live;
-        return SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            trackHeight: 3,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-            activeTrackColor: Colors.white,
-            inactiveTrackColor: Colors.white30,
-            thumbColor: Colors.white,
-            overlayColor: Colors.white24,
-          ),
-          child: Slider(
-            min: 0,
-            max: max,
-            value: value.clamp(0, max),
-            onChangeStart: dur <= 0
-                ? null
-                : (v) {
-                    _lastSliderHapticBucket =
-                        (v / _sliderHapticStepMs).floor();
-                    if (widget.hapticProgressBar) {
-                      PlayerHaptics.selection();
-                    }
-                    widget.onInteraction();
-                  },
-            onChanged: dur <= 0
-                ? null
-                : (v) {
-                    final bucket = (v / _sliderHapticStepMs).floor();
-                    if (widget.hapticProgressBar &&
-                        bucket != _lastSliderHapticBucket) {
-                      _lastSliderHapticBucket = bucket;
-                      PlayerHaptics.selection();
-                    }
-                    setState(() => _dragValue = v);
-                    widget.onInteraction();
-                  },
-            onChangeEnd: dur <= 0
-                ? null
-                : (v) {
-                    if (widget.hapticProgressBar) PlayerHaptics.medium();
-                    widget.onSeek(Duration(milliseconds: v.round()));
-                    setState(() => _dragValue = null);
-                    _lastSliderHapticBucket = null;
-                    widget.onInteraction();
-                  },
-          ),
+        final previewPosition = _framePreviewPosition;
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final fraction = max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
+            final maxLeft = (constraints.maxWidth - _framePreviewWidth)
+                .clamp(0.0, double.infinity)
+                .toDouble();
+            final previewLeft = (constraints.maxWidth * fraction -
+                    _framePreviewWidth / 2)
+                .clamp(0.0, maxLeft)
+                .toDouble();
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 3,
+                    thumbShape:
+                        const RoundSliderThumbShape(enabledThumbRadius: 5),
+                    overlayShape:
+                        const RoundSliderOverlayShape(overlayRadius: 14),
+                    activeTrackColor: Colors.white,
+                    inactiveTrackColor: Colors.white30,
+                    thumbColor: Colors.white,
+                    overlayColor: Colors.white24,
+                  ),
+                  child: Slider(
+                    min: 0,
+                    max: max,
+                    value: value.clamp(0, max),
+                    onChangeStart: dur <= 0
+                        ? null
+                        : (v) => _beginSliderDrag(v),
+                    onChanged: dur <= 0
+                        ? null
+                        : (v) => _updateSliderDrag(v),
+                    onChangeEnd: dur <= 0
+                        ? null
+                        : (v) => _endSliderDrag(v),
+                  ),
+                ),
+                if (_sliderDragging && previewPosition != null)
+                  Positioned(
+                    left: previewLeft,
+                    bottom: 38,
+                    child: IgnorePointer(
+                      child: _SliderFramePreview(
+                        frame: _framePreview,
+                        position: previewPosition,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         );
       },
     );
+  }
+
+  void _beginSliderDrag(double value) {
+    final position = Duration(milliseconds: value.round());
+    _framePreviewSession++;
+    _sliderDragging = true;
+    _lastFramePreviewAt = null;
+    _pendingFramePreviewPosition = null;
+    _lastSliderHapticBucket = (value / _sliderHapticStepMs).floor();
+    if (widget.hapticProgressBar) PlayerHaptics.selection();
+    setState(() {
+      _dragValue = value;
+      _framePreview = null;
+      _framePreviewPosition = position;
+    });
+    _queueFramePreview(position);
+    widget.onInteraction();
+  }
+
+  void _updateSliderDrag(double value) {
+    final bucket = (value / _sliderHapticStepMs).floor();
+    if (widget.hapticProgressBar && bucket != _lastSliderHapticBucket) {
+      _lastSliderHapticBucket = bucket;
+      PlayerHaptics.selection();
+    }
+    final position = Duration(milliseconds: value.round());
+    setState(() {
+      _dragValue = value;
+      _framePreviewPosition = position;
+    });
+    _queueFramePreview(position);
+    widget.onInteraction();
+  }
+
+  void _endSliderDrag(double value) {
+    if (widget.hapticProgressBar) PlayerHaptics.medium();
+    final position = Duration(milliseconds: value.round());
+    final previewTask = _framePreviewTask;
+    final commitSeek = widget.onSeek;
+    _cancelFramePreview();
+    setState(() => _dragValue = null);
+    _lastSliderHapticBucket = null;
+    widget.onInteraction();
+    unawaited(_commitSliderSeek(position, previewTask, commitSeek));
+  }
+
+  void _queueFramePreview(Duration position) {
+    if (!_sliderDragging) return;
+    _pendingFramePreviewPosition = position;
+    final session = _framePreviewSession;
+    if (_runningFramePreviewSession == session) return;
+    _runningFramePreviewSession = session;
+    final task = _runFramePreviewLoop(session);
+    _framePreviewTask = task;
+    unawaited(task);
+  }
+
+  Future<void> _commitSliderSeek(
+    Duration position,
+    Future<void>? previewTask,
+    Future<void> Function(Duration) commitSeek,
+  ) async {
+    try {
+      await previewTask;
+    } catch (_) {
+      // 预览失败不应阻止最终定位。
+    }
+    try {
+      await commitSeek(position);
+    } catch (_) {
+      // 播放器错误流会负责展示定位失败,这里避免产生未处理 Future。
+    }
+  }
+
+  Future<void> _runFramePreviewLoop(int session) async {
+    try {
+      while (mounted &&
+          _sliderDragging &&
+          session == _framePreviewSession) {
+        var position = _pendingFramePreviewPosition;
+        if (position == null) break;
+        _pendingFramePreviewPosition = null;
+
+        final lastCapture = _lastFramePreviewAt;
+        if (lastCapture != null) {
+          final elapsed = DateTime.now().difference(lastCapture);
+          final remaining = _framePreviewInterval - elapsed;
+          if (remaining > Duration.zero) await Future<void>.delayed(remaining);
+          if (!mounted ||
+              !_sliderDragging ||
+              session != _framePreviewSession) {
+            break;
+          }
+          position = _pendingFramePreviewPosition ?? position;
+          _pendingFramePreviewPosition = null;
+        }
+
+        try {
+          await widget.player.seek(position);
+          final frame = await widget.player.screenshot(format: 'image/jpeg');
+          _lastFramePreviewAt = DateTime.now();
+          if (frame != null &&
+              mounted &&
+              _sliderDragging &&
+              session == _framePreviewSession) {
+            setState(() => _framePreview = frame);
+          }
+        } catch (_) {
+          _lastFramePreviewAt = DateTime.now();
+        }
+      }
+    } finally {
+      if (_runningFramePreviewSession == session) {
+        _runningFramePreviewSession = null;
+        final pending = _pendingFramePreviewPosition;
+        if (mounted &&
+            _sliderDragging &&
+            session == _framePreviewSession &&
+            pending != null) {
+          _queueFramePreview(pending);
+        }
+      }
+    }
+  }
+
+  void _cancelFramePreview() {
+    _sliderDragging = false;
+    _framePreviewSession++;
+    _pendingFramePreviewPosition = null;
+    _framePreview = null;
+    _framePreviewPosition = null;
+    _lastFramePreviewAt = null;
   }
 
   Widget _qualityButton() {
@@ -621,6 +790,75 @@ class _PlayerControlsState extends State<PlayerControls> {
       ),
       alignment: Alignment.center,
       child: Icon(icon, color: color, size: 19),
+    );
+  }
+}
+
+class _SliderFramePreview extends StatelessWidget {
+  const _SliderFramePreview({required this.frame, required this.position});
+
+  final Uint8List? frame;
+  final Duration position;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: _PlayerControlsState._framePreviewWidth,
+      height: 92,
+      decoration: BoxDecoration(
+        color: const Color(0xF21A191F),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white38),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black54,
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (frame == null)
+            const Center(
+              child: SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white70,
+                ),
+              ),
+            )
+          else
+            Image.memory(
+              frame!,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              filterQuality: FilterQuality.low,
+              cacheWidth: 272,
+            ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              color: Colors.black.withValues(alpha: 0.72),
+              child: Text(
+                formatDuration(position),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
