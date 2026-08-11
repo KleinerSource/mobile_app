@@ -24,7 +24,6 @@ class ShakeDetector {
   DateTime? _lastTriggeredAt;
   DateTime? _sequenceStartedAt;
   int _peakCount = 0;
-  bool _peakActive = false;
   double? _lastPeakX;
 
   bool handle({
@@ -38,11 +37,9 @@ class ShakeDetector {
 
     // 必须先回落到释放阈值以下,下一次升高才算新的摇动峰值。
     if (lateralAcceleration <= releaseThreshold) {
-      _peakActive = false;
       return false;
     }
-    if (lateralAcceleration < threshold || _peakActive) return false;
-    _peakActive = true;
+    if (lateralAcceleration < threshold) return false;
 
     final previous = _lastTriggeredAt;
     if (previous != null && timestamp.difference(previous) < cooldown) {
@@ -57,7 +54,8 @@ class ShakeDetector {
     }
 
     if (!_isOppositeDirection(x)) {
-      _startSequence(timestamp, x);
+      // 同方向的高加速度仍属于同一个峰值。只有方向真正反转才进入
+      // 下一次峰值，避免采样频率较低时重复或重置连续摇动序列。
       return false;
     }
 
@@ -91,6 +89,5 @@ class ShakeDetector {
   void reset() {
     _lastTriggeredAt = null;
     _clearSequence();
-    _peakActive = false;
   }
 }

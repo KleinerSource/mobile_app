@@ -75,7 +75,7 @@ class _PrivacyShieldState extends ConsumerState<PrivacyShield>
 
     _shakeDetector.reset();
     _shakeSubscription = userAccelerometerEventStream(
-      samplingPeriod: const Duration(milliseconds: 100),
+      samplingPeriod: const Duration(milliseconds: 50),
     ).listen(
       (event) => _shakeDetector.handle(
         x: event.x,

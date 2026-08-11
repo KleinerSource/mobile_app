@@ -592,6 +592,11 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
           );
         }
 
+        final cardWidth = (MediaQuery.sizeOf(context).width * 0.72)
+            .clamp(220.0, 300.0)
+            .toDouble();
+        final cardHeight = cardWidth * 9 / 16;
+
         return Padding(
           padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
           child: Column(
@@ -599,45 +604,45 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
             children: [
               _header(context, hasImages: true),
               const SizedBox(height: 12),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: urls.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: 16 / 9,
-                ),
-                itemBuilder: (context, index) {
-                  final url = urls[index];
-                  return Material(
-                    color: appColors(context).surfaceAlt,
-                    borderRadius: BorderRadius.circular(10),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () {
-                        unawaited(_openViewer(context, urls, index));
-                      },
-                      child: CachedNetworkImage(
-                        imageUrl: url,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => const Center(
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+              SizedBox(
+                height: cardHeight,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: urls.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (context, index) {
+                    final url = urls[index];
+                    return SizedBox(
+                      width: cardWidth,
+                      child: Material(
+                        color: appColors(context).surfaceAlt,
+                        borderRadius: BorderRadius.circular(10),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () {
+                            unawaited(_openViewer(context, urls, index));
+                          },
+                          child: CachedNetworkImage(
+                            imageUrl: url,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => const Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                            errorWidget: (_, __, ___) => Icon(
+                              Icons.broken_image_outlined,
+                              color: appColors(context).muted,
+                              size: 28,
+                            ),
                           ),
                         ),
-                        errorWidget: (_, __, ___) => Icon(
-                          Icons.broken_image_outlined,
-                          color: appColors(context).muted,
-                          size: 28,
-                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ],
           ),

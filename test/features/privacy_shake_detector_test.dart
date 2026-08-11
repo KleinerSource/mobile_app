@@ -102,6 +102,31 @@ void main() {
     expect(count, 1);
   });
 
+  test('连续反向峰值不需要采到释放阈值也能触发', () {
+    var count = 0;
+    final detector = ShakeDetector(onShake: () => count++);
+    final first = DateTime.utc(2026, 8, 10, 12);
+
+    detector.handle(x: 10, y: 0, z: 0, now: first);
+    detector.handle(
+      x: -11,
+      y: 0,
+      z: 0,
+      now: first.add(const Duration(milliseconds: 250)),
+    );
+    expect(
+      detector.handle(
+        x: 12,
+        y: 0,
+        z: 0,
+        now: first.add(const Duration(milliseconds: 500)),
+      ),
+      isTrue,
+    );
+
+    expect(count, 1);
+  });
+
   test('峰值方向没有反转时不会触发', () {
     var count = 0;
     final detector = ShakeDetector(onShake: () => count++);

@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>MD Center 需要访问局域网内的媒体服务器。</string>
+	<key>NSMotionUsageDescription</key>
+	<string>MD Center 需要使用设备运动传感器识别摇一摇隐私模式。</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>MD Center 使用面容识别验证进入应用。</string>
 	<key>NSAppTransportSecurity</key>
