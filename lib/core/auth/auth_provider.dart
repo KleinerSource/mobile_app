@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../api/api_client.dart';
 import '../api/api_exception.dart';
-import '../api/dio_factory.dart';
 import '../api/providers.dart';
 import '../api/server_compatibility.dart';
+import '../config/server_config.dart';
 import '../config/server_config_provider.dart';
+import '../config/server_line_probe.dart';
 import 'auth_session.dart';
 import 'auth_session_provider.dart';
 
@@ -14,33 +16,57 @@ final authControllerProvider =
 class AuthController extends AsyncNotifier<AuthState> {
   @override
   Future<AuthState> build() async {
-    ref.watch(serverConfigProvider);
+    final config = ref.watch(serverConfigProvider);
     ref.watch(authExpiryProvider);
-    return _bootstrap();
-  }
-
-  Future<AuthState> _bootstrap() async {
-    final client = ref.read(apiClientProvider);
-    if (client == null) {
+    if (config == null) {
       return const AuthState(phase: AuthPhase.unconfigured);
     }
 
-    try {
-      requireCompatibleServerVersion(await client.system.version());
-    } catch (error) {
-      final exception = toApiException(error);
-      final incompatible = error is ServerCompatibilityException ||
-          exception.status == 401 ||
-          exception.status == 404;
+    final candidates = config.lines.where((line) => line.enabled).toList();
+    final current = candidates.firstWhere(
+      (line) => line.baseUrl == config.baseUrl,
+      orElse: () => candidates.isEmpty
+          ? ServerLine(
+              id: 'active',
+              name: '当前线路',
+              baseUrl: config.baseUrl,
+            )
+          : candidates.first,
+    );
+    final alternatives = candidates.where((line) => line.id != current.id);
+    final selection = await ServerLineProbeCoordinator().selectPreferred(
+      current: current,
+      alternatives: alternatives,
+    );
+    final selected = selection.selected;
+    if (selected == null) {
+      final incompatible = selection.results.any((result) => result.incompatible);
+      final detail = selection.results
+          .map((result) => '${result.line.name}：${result.message}')
+          .join('\n');
       return AuthState(
         phase: incompatible ? AuthPhase.incompatible : AuthPhase.unavailable,
-        message: incompatible &&
-                (exception.status == 401 || exception.status == 404)
+        message: incompatible
             ? serverCompatibilityRequirementMessage
-            : exception.message,
+            : detail.isEmpty
+                ? '没有可用的服务器线路'
+                : detail,
       );
     }
 
+    final selectedConfig = _withSelectedLine(config, selected);
+    if (selectedConfig.baseUrl != config.baseUrl) {
+      await ref.read(serverConfigProvider.notifier).save(selectedConfig);
+    }
+    final client = ApiClient.fromConfig(
+      selectedConfig,
+      sessionRepository: ref.read(authSessionRepositoryProvider),
+      onSessionExpired: () => ref.read(authExpiryProvider.notifier).state++,
+    );
+    return _bootstrap(client);
+  }
+
+  Future<AuthState> _bootstrap(ApiClient client) async {
     AuthStatus status;
     try {
       status = await client.auth.status();
@@ -119,7 +145,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
   }
 
-  Future<bool> _refresh(dynamic client) async {
+  Future<bool> _refresh(ApiClient client) async {
     final current = await ref.read(authSessionRepositoryProvider).current();
     if (current == null || current.refreshToken.isEmpty) return false;
     try {
@@ -134,6 +160,24 @@ class AuthController extends AsyncNotifier<AuthState> {
       await ref.read(authSessionRepositoryProvider).clear();
       return false;
     }
+  }
+
+  ServerConfig _withSelectedLine(
+    ServerConfig config,
+    ServerLineProbeResult selected,
+  ) {
+    final testedAt = DateTime.now();
+    final lines = config.lines
+        .map(
+          (line) => line.id == selected.line.id
+              ? line.copyWith(
+                  latencyMs: selected.latencyMs,
+                  lastTestedAt: testedAt,
+                )
+              : line,
+        )
+        .toList();
+    return config.copyWith(baseUrl: selected.line.baseUrl, lines: lines);
   }
 
   Future<void> logout() async {

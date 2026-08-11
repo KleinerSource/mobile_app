@@ -1,12 +1,12 @@
-import 'package:dio/dio.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
-import '../../core/api/server_compatibility.dart';
-import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_line_probe.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import 'settings_common.dart';
@@ -19,7 +19,8 @@ class ServerLinesPage extends ConsumerStatefulWidget {
 }
 
 class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
-  final _testResults = <String, _LineTestResult>{};
+  final _testResults = <String, ServerLineProbeResult>{};
+  final _probeCoordinator = ServerLineProbeCoordinator();
   final _testingIds = <String>{};
   List<ServerLine> _lines = const [];
   bool _loaded = false;
@@ -49,7 +50,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
               const SettingsSubPageHeader(
                 eyebrow: '服务器',
                 title: '服务器线路',
-                subtitle: '配置多条访问线路，自动测试延迟后选择当前线路',
+                subtitle: '并发探测多条线路，首个可用线路立即生效',
               ),
               Expanded(
                 child: ListView(
@@ -90,7 +91,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
           child: FilledButton.icon(
             onPressed: disabled || _lines.isEmpty ? null : _testAll,
             icon: const Icon(Icons.speed_outlined),
-            label: const Text('自动测试'),
+            label: const Text('自动选择'),
           ),
         ),
       ],
@@ -271,7 +272,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
 
   String _statusText(
     ServerLine line,
-    _LineTestResult? result,
+    ServerLineProbeResult? result,
     bool testing,
   ) {
     if (testing) return '测试中...';
@@ -283,54 +284,58 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
 
   Future<void> _testAll() async {
     if (_testingAll || _lines.isEmpty) return;
-    final lines = List<ServerLine>.of(_lines);
+    final lines = _lines.where((line) => line.enabled).toList();
+    if (lines.isEmpty) {
+      _showMessage('没有启用的服务器线路');
+      return;
+    }
     setState(() {
       _testingAll = true;
       _testingIds.addAll(lines.map((line) => line.id));
       _testResults.clear();
     });
+    final batch = _probeCoordinator.probeAll(
+      lines,
+      onResult: _recordProbeResult,
+    );
     try {
-      final tested = await Future.wait(
-        lines.map(
-          (line) async => MapEntry(line.id, await _testLine(line)),
-        ),
-      );
-      if (!mounted) return;
-      final resultMap = Map<String, _LineTestResult>.fromEntries(tested);
-      final now = DateTime.now();
-      final updated = lines
-          .map((line) {
-            final result = resultMap[line.id];
-            if (result?.success != true) return line;
-            return line.copyWith(
-              latencyMs: result!.latencyMs,
-              lastTestedAt: now,
-            );
-          })
-          .toList();
-      setState(() {
-        _testResults
-          ..clear()
-          ..addAll(resultMap);
-        _lines = updated;
-        _testingIds.clear();
-      });
-      ServerLine? fastestLine;
-      var fastestLatency = 0;
-      for (final entry in tested) {
-        if (!entry.value.success) continue;
-        if (fastestLine == null || entry.value.latencyMs < fastestLatency) {
-          fastestLine = lines.firstWhere((line) => line.id == entry.key);
-          fastestLatency = entry.value.latencyMs;
+      final selected = await batch.firstAvailable;
+      if (selected != null && mounted) {
+        // 首个健康线路立即成为当前线路，不再等待最慢线路的超时结果。
+        final current = ref.read(serverConfigProvider);
+        if (current != null && current.baseUrl != selected.line.baseUrl) {
+          await _persist(_lines, selected.line.baseUrl);
+        }
+        if (mounted) {
+          setState(() => _testingAll = false);
+          _showMessage(
+            '已切换到 ${selected.line.name}（${selected.latencyMs} ms）',
+          );
         }
       }
-      if (mounted) {
-        final message = fastestLine == null
-            ? '自动测试完成，没有可用线路'
-            : '最快线路：${fastestLine.name}（$fastestLatency ms）';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+
+      final tested = await batch.completed;
+      if (!mounted) return;
+      final activeUrl = selected?.line.baseUrl ??
+          ref.read(serverConfigProvider)?.baseUrl;
+      if (activeUrl != null) {
+        await _persist(_lines, activeUrl);
+      }
+      if (selected == null) {
+        _showMessage('自动测试完成，没有可用线路');
+      } else if (tested.isNotEmpty) {
+        final fastest = tested
+            .where((result) => result.success)
+            .fold<ServerLineProbeResult?>(
+              null,
+              (best, result) => best == null ||
+                      result.latencyMs < best.latencyMs
+                  ? result
+                  : best,
+            );
+        if (fastest != null && fastest.line.id != selected.line.id) {
+          _showMessage('测试完成，最快线路为 ${fastest.line.name}');
+        }
       }
     } catch (error) {
       if (mounted) _showMessage(toApiException(error).message);
@@ -424,12 +429,24 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     final current = ref.read(serverConfigProvider);
     if (current == null) return;
     if (!enabled && line.baseUrl == current.baseUrl) {
-      final fallback = _lines.firstWhere(
-        (item) => item.id != line.id && item.enabled,
-        orElse: () => line,
-      );
-      if (fallback.id == line.id) {
+      final fallbackLines = _lines
+          .where((item) => item.id != line.id && item.enabled)
+          .toList();
+      if (fallbackLines.isEmpty) {
         _showMessage('至少保留一条启用线路');
+        return;
+      }
+      setState(() => _testingIds.addAll(fallbackLines.map((item) => item.id)));
+      final batch = _probeCoordinator.probeAll(
+        fallbackLines,
+        onResult: _recordProbeResult,
+      );
+      final selected = await batch.firstAvailable;
+      if (!mounted) return;
+      if (selected == null) {
+        setState(() => _testingIds.clear());
+        _showMessage('没有可用的备用线路，未关闭当前线路');
+        unawaited(batch.completed);
         return;
       }
       final next = _lines
@@ -438,10 +455,11 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
               : item)
           .toList();
       try {
-        await _persist(next, fallback.baseUrl);
+        await _persist(next, selected.line.baseUrl);
       } catch (error) {
         if (mounted) _showMessage(toApiException(error).message);
       }
+      unawaited(batch.completed);
       return;
     }
     final next = _lines
@@ -493,50 +511,47 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     }
   }
 
-  Future<_LineTestResult> _testAndShow(ServerLine line) async {
+  Future<ServerLineProbeResult> _testAndShow(ServerLine line) async {
     setState(() {
       _testingIds.add(line.id);
       _testResults.remove(line.id);
     });
-    final result = await _testLine(line);
-    if (!mounted) return result;
+    final result = await _probeCoordinator.probeAll([line]).firstAvailable;
+    final resolved = result ??
+        ServerLineProbeResult.failure(line, '线路没有响应');
+    if (!mounted) return resolved;
     setState(() {
       _testingIds.remove(line.id);
-      _testResults[line.id] = result;
+      _testResults[line.id] = resolved;
     });
-    if (!result.success) {
-      _showMessage('线路测试失败：${result.message}');
+    if (!resolved.success) {
+      _showMessage('线路测试失败：${resolved.message}');
     }
-    return result;
+    return resolved;
   }
 
-  Future<_LineTestResult> _testLine(ServerLine line) async {
-    final stopwatch = Stopwatch()..start();
-    try {
-      final dio = buildDio(
-        ServerConfig(baseUrl: line.baseUrl),
-        connectTimeout: const Duration(seconds: 5),
-        sendTimeout: const Duration(seconds: 5),
-        receiveTimeout: const Duration(seconds: 5),
-      );
-      final response = await dio.get<dynamic>(
-        '/version',
-        options: Options(extra: {'skipRetry': true}),
-      );
-      requireCompatibleServerVersion(response.data);
-      stopwatch.stop();
-      return _LineTestResult.success(stopwatch.elapsedMilliseconds);
-    } catch (error) {
-      stopwatch.stop();
-      return _LineTestResult.failure(toApiException(error).message);
-    }
+  void _recordProbeResult(ServerLineProbeResult result) {
+    if (!mounted) return;
+    final now = DateTime.now();
+    setState(() {
+      _testingIds.remove(result.line.id);
+      _testResults[result.line.id] = result;
+      if (result.success) {
+        _lines = _lines
+            .map(
+              (line) => line.id == result.line.id
+                  ? line.copyWith(
+                      latencyMs: result.latencyMs,
+                      lastTestedAt: now,
+                    )
+                  : line,
+            )
+            .toList();
+      }
+    });
   }
 
   Future<void> _persist(List<ServerLine> lines, String activeUrl) async {
-    final current = ref.read(serverConfigProvider);
-    if (current != null && current.baseUrl != activeUrl) {
-      await ref.read(authSessionRepositoryProvider).clear();
-    }
     await ref.read(serverConfigProvider.notifier).save(
           ServerConfig(baseUrl: activeUrl, lines: lines),
         );
@@ -546,24 +561,6 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
-}
-
-class _LineTestResult {
-  const _LineTestResult._({
-    required this.success,
-    required this.latencyMs,
-    required this.message,
-  });
-
-  const _LineTestResult.success(int latencyMs)
-      : this._(success: true, latencyMs: latencyMs, message: '');
-
-  const _LineTestResult.failure(String message)
-      : this._(success: false, latencyMs: 0, message: message);
-
-  final bool success;
-  final int latencyMs;
-  final String message;
 }
 
 class _ServerLineDraft {
