@@ -217,6 +217,9 @@ class _StartupError extends StatelessWidget {
   }
 
   Widget _buildDetails(BuildContext context, AppColors c) {
+    final compatibilityMessage = message.trim().isNotEmpty
+        ? message.trim()
+        : serverCompatibilityRequirementMessage;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: c.surfaceAlt,
@@ -243,14 +246,9 @@ class _StartupError extends StatelessWidget {
               Text('兼容性要求', style: AppText.meta(context)),
               const SizedBox(height: 4),
               Text(
-                serverCompatibilityRequirementMessage,
+                compatibilityMessage,
                 style: AppText.body(context).copyWith(color: c.warning),
               ),
-              if (message.trim().isNotEmpty &&
-                  message.trim() != serverCompatibilityRequirementMessage) ...[
-                const SizedBox(height: 8),
-                Text(message, style: AppText.meta(context)),
-              ],
             ] else
               Text(message, style: AppText.body(context)),
           ],
