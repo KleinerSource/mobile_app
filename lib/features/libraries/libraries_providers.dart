@@ -6,7 +6,7 @@ import 'libraries_repository.dart';
 
 final librariesRepositoryProvider = Provider<LibrariesRepository>((ref) {
   final client = ref.watch(requiredApiClientProvider);
-  return LibrariesRepository(client.libraries);
+  return LibrariesRepository(client.libraries, client.librariesExtended);
 });
 
 /// 首页 用 · 只取启用的 (轻量)

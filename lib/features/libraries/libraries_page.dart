@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/library.dart';
+import '../../core/platform/app_action_sheet.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import '../settings/settings_common.dart';
@@ -13,13 +14,22 @@ import 'scan_tasks_provider.dart';
 
 /// 媒体库管理列表页
 /// - 卡片列表 (名称 + 启用状态 + 文件数 + 目录数 + 多彩 hue)
-/// - 顶右 + 添加按钮
+/// - 顶右批量扫描菜单 + 添加按钮
 /// - 卡片操作: 编辑 / 增量扫描 / more (全量 / 启用-停用 / 删除)
-class LibrariesPage extends ConsumerWidget {
+class LibrariesPage extends ConsumerStatefulWidget {
   const LibrariesPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LibrariesPage> createState() => _LibrariesPageState();
+}
+
+enum _BatchScanAction { incremental, full }
+
+class _LibrariesPageState extends ConsumerState<LibrariesPage> {
+  bool _batchScanStarting = false;
+
+  @override
+  Widget build(BuildContext context) {
     final c = appColors(context);
     final async = ref.watch(librariesAllProvider);
 
@@ -36,12 +46,50 @@ class LibrariesPage extends ConsumerWidget {
                   child: SettingsSubPageHeader(
                     eyebrow: '媒体库',
                     title: '媒体库管理',
-                    trailing: SettingsAddButton(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const LibraryEditorPage(),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _batchScanStarting
+                              ? null
+                              : _showBatchScanActions,
+                          icon: _batchScanStarting
+                              ? SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: c.text,
+                                  ),
+                                )
+                              : const Icon(Icons.sync_rounded, size: 18),
+                          label: Text(
+                            _batchScanStarting ? '提交中' : '扫描',
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: c.text,
+                            side: BorderSide(color: c.cardBorder),
+                            shape: const StadiumBorder(),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 13,
+                              vertical: 8,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        SettingsAddButton(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const LibraryEditorPage(),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -93,6 +141,93 @@ class LibrariesPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _showBatchScanActions() async {
+    final action = await showAppActionSheet<_BatchScanAction>(
+      context: context,
+      title: '批量扫描（仅启用媒体库）',
+      actions: const [
+        AppActionSheetAction(
+          label: '一键增量扫描',
+          value: _BatchScanAction.incremental,
+        ),
+        AppActionSheetAction(
+          label: '一键全量扫描',
+          value: _BatchScanAction.full,
+        ),
+      ],
+    );
+    if (!mounted || action == null) return;
+    await _triggerBatchScan(action == _BatchScanAction.incremental);
+  }
+
+  Future<void> _triggerBatchScan(bool incremental) async {
+    if (_batchScanStarting) return;
+    setState(() => _batchScanStarting = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final result = await ref
+          .read(librariesRepositoryProvider)
+          .batchScan(incremental: incremental);
+      if (!mounted) return;
+
+      final taskNotifier = ref.read(scanTasksProvider.notifier);
+      for (final task in result.tasks) {
+        final queueMessage = task.queuePosition > 0
+            ? '排队中（第 ${task.queuePosition} 位）'
+            : '排队中';
+        taskNotifier.register(
+          libraryId: task.libraryId,
+          libraryName: task.libraryName,
+          taskId: task.taskId,
+          task: ScanTask(
+            taskId: task.taskId,
+            libraryId: task.libraryId,
+            status: task.status,
+            incremental: incremental,
+            currentFile:
+                task.status == 'queued' ? queueMessage : '准备扫描',
+          ),
+        );
+      }
+
+      String message;
+      if (result.acceptedCount == 0) {
+        if (result.enabledCount == 0) {
+          message = result.message.isNotEmpty
+              ? result.message
+              : '没有已启用的媒体库可扫描';
+        } else {
+          message = result.message.isNotEmpty
+              ? result.message
+              : '没有可提交的${result.scanType}任务';
+          if (result.failedCount > 0) {
+            message += '，${result.failedCount} 个媒体库提交失败';
+          }
+        }
+      } else {
+        message = '已提交 ${result.acceptedCount} 个媒体库的${result.scanType}';
+        if (result.reusedCount > 0) {
+          message += ' · ${result.reusedCount} 个复用现有任务';
+        }
+        if (result.failedCount > 0) {
+          message += ' · ${result.failedCount} 个提交失败';
+        }
+      }
+      if (result.skippedDisabledCount > 0) {
+        message += ' · 已忽略 ${result.skippedDisabledCount} 个停用媒体库';
+      }
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('批量扫描失败: ${toApiException(e).message}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _batchScanStarting = false);
+    }
   }
 }
 

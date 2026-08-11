@@ -4,11 +4,14 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:md_center/core/api/services/actors_api.dart';
 import 'package:md_center/core/api/services/configs_extended_api.dart';
+import 'package:md_center/core/api/services/libraries_api.dart';
+import 'package:md_center/core/api/services/libraries_extended_api.dart';
 import 'package:md_center/core/api/services/mappings_api.dart';
 import 'package:md_center/core/api/services/movies_api.dart';
 import 'package:md_center/core/api/services/playback_api.dart';
 import 'package:md_center/core/api/services/translation_api.dart';
 import 'package:md_center/core/models/playback.dart';
+import 'package:md_center/features/libraries/libraries_repository.dart';
 import 'package:md_center/features/translation/translation_repository.dart';
 
 void main() {
@@ -51,6 +54,23 @@ void main() {
     await api.ffmpeg();
 
     expect(adapter.paths, <String>['/api/configs/avdb', '/api/configs/ffmpeg']);
+  });
+
+  test('媒体库批量增量和全量扫描均由单个后端接口发起', () async {
+    for (final incremental in const [true, false]) {
+      final adapter = _RouteAdapter();
+      final dio = _dio(adapter);
+      final result = await LibrariesRepository(
+        LibrariesApi(dio),
+        LibrariesExtendedApi(dio),
+      ).batchScan(incremental: incremental);
+
+      expect(adapter.paths.single, '/api/libraries/scan');
+      expect(adapter.requestBodies.single, {'incremental': incremental});
+      expect(result.acceptedCount, 2);
+      expect(result.skippedDisabledCount, 1);
+      expect(result.tasks.map((task) => task.libraryId).toList(), [1, 3]);
+    }
   });
 
   test('播放接口覆盖决策、串流地址、状态、SSE 和停止会话', () async {
@@ -152,6 +172,32 @@ class _RouteAdapter implements HttpClientAdapter {
           'hw_accel': 'videotoolbox',
           'hw_decode_ok': true,
           'hw_encode_ok': true,
+        },
+      '/api/libraries/scan' => {
+          'scan_type': '全量扫描',
+          'enabled_count': 2,
+          'accepted_count': 2,
+          'reused_count': 0,
+          'failed_count': 0,
+          'skipped_disabled_count': 1,
+          'tasks': [
+            {
+              'library_id': 1,
+              'library_name': 'Library 1',
+              'task_id': 'task-1',
+              'status': 'running',
+              'queue_position': 0,
+              'reused': false,
+            },
+            {
+              'library_id': 3,
+              'library_name': 'Library 3',
+              'task_id': 'task-3',
+              'status': 'queued',
+              'queue_position': 1,
+              'reused': false,
+            },
+          ],
         },
       _ => null,
     };

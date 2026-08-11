@@ -10,6 +10,9 @@ class LibrariesExtendedApi {
   Future<Object?> batchDelete(Map<String, dynamic> body) =>
       _post('/libraries/batch-delete', body);
 
+  Future<Object?> batchScan(Map<String, dynamic> body) =>
+      _post('/libraries/scan', body);
+
   Future<Object?> regenerateAllCovers() => _post('/libraries/covers/regenerate');
 
   Future<Object?> regenerateCover(int libraryId) =>

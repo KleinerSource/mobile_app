@@ -41,12 +41,14 @@ class TrackedScan {
 class _WsState {
   _WsState({
     required this.isRunning,
+    required this.status,
     required this.total,
     required this.completed,
     required this.percent,
     required this.message,
   });
   final bool isRunning;
+  final String status;
   final int total;
   final int completed;
   final double percent;
@@ -72,6 +74,7 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
     required int libraryId,
     required String libraryName,
     required String taskId,
+    ScanTask? task,
   }) {
     final filtered = state.where((s) => s.libraryId != libraryId).toList();
     state = [
@@ -80,10 +83,11 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
         libraryId: libraryId,
         libraryName: libraryName,
         taskId: taskId,
+        task: task,
       ),
     ];
-    // 主动拉一次, 让 dock 立即出现 (即使 ws 还没消息)
-    _refreshOnceFallback(libraryId);
+    // 没有初始任务数据时主动拉一次, 让 dock 立即出现 (即使 ws 还没消息)
+    if (task == null) _refreshOnceFallback(libraryId);
   }
 
   void remove(int libraryId) {
@@ -96,7 +100,14 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
       final repo = _ref.read(librariesRepositoryProvider);
       final active = await repo.activeScans(libraryId);
       if (active.isEmpty || !mounted) return;
-      final t = active.first;
+      final trackedIndex = state.indexWhere((item) => item.libraryId == libraryId);
+      final tracked = trackedIndex < 0 ? null : state[trackedIndex];
+      final t = tracked == null || tracked.taskId.isEmpty
+          ? active.first
+          : active.firstWhere(
+              (task) => task.taskId == tracked.taskId,
+              orElse: () => active.first,
+            );
       state = [
         for (final s in state)
           if (s.libraryId == libraryId)
@@ -171,6 +182,8 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
       final taskId = (m['taskId'] ?? '').toString();
       if (taskId.isEmpty) return;
       final isRunning = m['isRunning'] == true;
+      final status =
+          (m['status'] ?? (isRunning ? 'running' : 'completed')).toString();
       final prog = m['progress'];
       final total = prog is Map && prog['total'] is num
           ? (prog['total'] as num).toInt()
@@ -187,6 +200,7 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
         taskId: taskId,
         ws: _WsState(
           isRunning: isRunning,
+          status: status,
           total: total,
           completed: completed,
           percent: percent,
@@ -218,7 +232,7 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
     final updated = ScanTask(
       taskId: taskId,
       libraryId: cur.libraryId,
-      status: 'running',
+      status: ws.status,
       totalFiles: ws.total,
       processedFiles: ws.completed,
       currentFile: ws.message,

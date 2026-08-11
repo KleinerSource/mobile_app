@@ -125,9 +125,14 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final t = _task;
-    final isDone =
-        t != null && !t.isActive && t.status != 'failed' && t.status != 'cancelled';
-    final isFailed = t?.status == 'failed' || t?.status == 'cancelled';
+    final isDone = t != null &&
+        !t.isActive &&
+        t.status != 'failed' &&
+        t.status != 'error' &&
+        t.status != 'cancelled';
+    final isFailed = t?.status == 'failed' ||
+        t?.status == 'error' ||
+        t?.status == 'cancelled';
     final ratio = t?.progressRatio ?? 0.0;
     final processed = t?.processedFiles ?? 0;
     final total = t?.totalFiles ?? 0;
@@ -321,49 +326,49 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _busy
-                          ? null
-                          : () {
-                              if (t!.isPaused) {
-                                _act(
-                                  () => ref
-                                      .read(librariesRepositoryProvider)
-                                      .resumeScan(widget.libraryId, _effectiveTaskId),
-                                  errPrefix: '恢复失败',
-                                );
-                              } else {
-                                _act(
-                                  () => ref
-                                      .read(librariesRepositoryProvider)
-                                      .pauseScan(widget.libraryId, _effectiveTaskId),
-                                  errPrefix: '暂停失败',
-                                );
-                              }
-                            },
-                      icon: Icon(
-                          t!.isPaused
-                              ? Icons.play_arrow
-                              : Icons.pause,
-                          size: 18),
-                      label: Text(
-                        t.isPaused ? '继续' : '暂停',
-                        style: const TextStyle(
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: c.text,
-                        foregroundColor: c.bg,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                  if (t!.status != 'queued') ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _busy
+                            ? null
+                            : () {
+                                if (t!.isPaused) {
+                                  _act(
+                                    () => ref
+                                        .read(librariesRepositoryProvider)
+                                        .resumeScan(widget.libraryId, _effectiveTaskId),
+                                    errPrefix: '恢复失败',
+                                  );
+                                } else {
+                                  _act(
+                                    () => ref
+                                        .read(librariesRepositoryProvider)
+                                        .pauseScan(widget.libraryId, _effectiveTaskId),
+                                    errPrefix: '暂停失败',
+                                  );
+                                }
+                              },
+                        icon: Icon(
+                            t!.isPaused ? Icons.play_arrow : Icons.pause,
+                            size: 18),
+                        label: Text(
+                          t.isPaused ? '继续' : '暂停',
+                          style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: c.text,
+                          foregroundColor: c.bg,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ] else ...[
                   Expanded(
                     child: ElevatedButton(
@@ -449,10 +454,12 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final (text, color) = switch (status) {
+      'queued' => ('排队中', c.warning),
       'running' => ('扫描中', c.accent),
       'paused' => ('已暂停', c.warning),
       'completed' => ('已完成', AppHues.top(AppHues.mint)),
       'failed' => ('失败', c.danger),
+      'error' => ('失败', c.danger),
       'cancelled' => ('已取消', c.muted),
       _ => ('准备中', c.muted),
     };

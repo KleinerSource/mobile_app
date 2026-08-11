@@ -65,7 +65,10 @@ extension ScanTaskX on ScanTask {
   }
 
   bool get isActive =>
-      status == 'pending' || status == 'running' || status == 'paused';
+      status == 'pending' ||
+      status == 'queued' ||
+      status == 'running' ||
+      status == 'paused';
 
   bool get isPaused => status == 'paused';
 }

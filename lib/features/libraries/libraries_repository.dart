@@ -1,10 +1,32 @@
 import '../../core/api/envelope.dart';
 import '../../core/api/services/libraries_api.dart';
+import '../../core/api/services/libraries_extended_api.dart';
 import '../../core/models/library.dart';
 
+typedef BatchLibraryScanTask = ({
+  int libraryId,
+  String libraryName,
+  String taskId,
+  String status,
+  int queuePosition,
+  bool reused,
+});
+
+typedef BatchLibraryScanResult = ({
+  String message,
+  String scanType,
+  int enabledCount,
+  int acceptedCount,
+  int reusedCount,
+  int failedCount,
+  int skippedDisabledCount,
+  List<BatchLibraryScanTask> tasks,
+});
+
 class LibrariesRepository {
-  LibrariesRepository(this._api);
+  LibrariesRepository(this._api, this._extendedApi);
   final LibrariesApi _api;
+  final LibrariesExtendedApi _extendedApi;
 
   // ===== List =====
 
@@ -72,6 +94,9 @@ class LibrariesRepository {
   /// 触发扫描。返回 taskId (后端可能返回 task_id 或直接放在 data)
   Future<String> scan(int id, {bool incremental = true}) async {
     final raw = await _api.scan(id, {'incremental': incremental});
+    if (raw is Map && raw['success'] == true && raw['task_id'] != null) {
+      return raw['task_id'].toString();
+    }
     return unwrapStd<String>(raw, (d) {
       if (d == null) return '';
       if (d is Map) {
@@ -83,31 +108,80 @@ class LibrariesRepository {
     });
   }
 
+  Future<BatchLibraryScanResult> batchScan({
+    required bool incremental,
+  }) async {
+    final raw = await _extendedApi.batchScan({'incremental': incremental});
+    final message = raw is Map ? (raw['message'] ?? '').toString() : '';
+    final data = unwrapStd<Map<String, dynamic>>(
+      raw,
+      (value) => value is Map
+          ? Map<String, dynamic>.from(value)
+          : <String, dynamic>{},
+    );
+    final tasks = <BatchLibraryScanTask>[];
+    final rawTasks = data['tasks'];
+    if (rawTasks is List) {
+      for (final rawTask in rawTasks.whereType<Map>()) {
+        final task = Map<String, dynamic>.from(rawTask);
+        final libraryId = _asInt(task['library_id']);
+        final taskId = (task['task_id'] ?? '').toString();
+        if (libraryId <= 0 || taskId.isEmpty) continue;
+        tasks.add((
+          libraryId: libraryId,
+          libraryName:
+              (task['library_name'] ?? '媒体库 $libraryId').toString(),
+          taskId: taskId,
+          status: (task['status'] ?? 'queued').toString(),
+          queuePosition: _asInt(task['queue_position']),
+          reused: task['reused'] == true,
+        ));
+      }
+    }
+    return (
+      message: message,
+      scanType: (data['scan_type'] ?? (incremental ? '增量扫描' : '全量扫描'))
+          .toString(),
+      enabledCount: _asInt(data['enabled_count']),
+      acceptedCount: _asInt(data['accepted_count']),
+      reusedCount: _asInt(data['reused_count']),
+      failedCount: _asInt(data['failed_count']),
+      skippedDisabledCount: _asInt(data['skipped_disabled_count']),
+      tasks: tasks,
+    );
+  }
+
   Future<List<ScanTask>> activeScans(int id) async {
     final raw = await _api.activeScans(id);
     if (raw is! Map || raw['success'] != true) return const [];
     final data = raw['data'];
-    if (data is List) {
-      return data
-          .whereType<Map>()
-          .map((e) => ScanTask.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
-    }
-    if (data is Map && data['items'] is List) {
-      return (data['items'] as List)
-          .whereType<Map>()
-          .map((e) => ScanTask.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
-    }
-    return const [];
+    final items = data is List
+        ? data
+        : data is Map && data['active_scans'] is List
+            ? data['active_scans'] as List
+            : data is Map && data['items'] is List
+                ? data['items'] as List
+                : const [];
+    return items.whereType<Map>().map(_decodeScanTask).toList();
   }
 
   Future<ScanTask> scanProgress(int id, String taskId) async {
     final raw = await _api.scanProgress(id, taskId);
     return unwrapStd<ScanTask>(
       raw,
-      (d) => ScanTask.fromJson(Map<String, dynamic>.from(d as Map)),
+      (d) => _decodeScanTask(d as Map),
     );
+  }
+
+  ScanTask _decodeScanTask(Map raw) {
+    final json = Map<String, dynamic>.from(raw);
+    json['current_file'] ??= json['current_file_path'];
+    json['added_files'] ??= json['new_movies'];
+    json['updated_files'] ??= json['updated_movies'];
+    json['removed_files'] ??= json['deleted_movies'];
+    json['started_at'] ??= json['start_time'];
+    json['finished_at'] ??= json['end_time'];
+    return ScanTask.fromJson(json);
   }
 
   Future<void> pauseScan(int id, String taskId) async {
@@ -195,4 +269,9 @@ class LibrariesRepository {
       return const {};
     });
   }
+}
+
+int _asInt(Object? value) {
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '') ?? 0;
 }
