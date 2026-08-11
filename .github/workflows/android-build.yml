@@ -41,6 +41,7 @@ jobs:
         timeout-minutes: 2
         run: |
           set -euo pipefail
+          # feat: 次版本号 +1 且补丁号归零；fix/优化: 补丁号 +1；构建始终只增加 build。
           commit_message="$(git log -1 --format=%B "${GITHUB_SHA}")"
           version="$(dart tool/bump_app_version.dart --auto --commit-message "${commit_message}")"
           echo "构建版本: ${version}"

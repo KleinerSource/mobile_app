@@ -13,6 +13,7 @@ import '../../shared/poster.dart';
 import '../libraries/libraries_providers.dart';
 import '../libraries/library_movies_page.dart';
 import '../movie_detail/movie_detail_page.dart';
+import '../movies/movies_page.dart';
 import '../movies/movies_providers.dart';
 import '../player/player_page.dart';
 import '../privacy/privacy_mask.dart';
@@ -135,13 +136,29 @@ class HomePage extends ConsumerWidget {
                         style: AppText.sectionTitle(context),
                       ),
                     ),
-                    Text(
-                      l.homeSeeAll,
-                      style: TextStyle(
-                        color: c.accent,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
+                    TextButton.icon(
+                      onPressed: () => unawaited(
+                        Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const MoviesPage(),
+                          ),
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: c.accent,
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.arrow_forward_ios_rounded, size: 13),
+                      label: Text(
+                        l.homeSeeAll,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],

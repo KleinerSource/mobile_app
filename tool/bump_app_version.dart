@@ -22,10 +22,10 @@ void main(List<String> args) {
 
   final major = int.parse(match.group(1)!);
   final minor = int.parse(match.group(2)!);
-  final currentPatch = int.parse(match.group(3)!);
-  final build = int.parse(match.group(4)!) + 1;
-  final patch = _shouldBumpPatch(args) ? currentPatch + 1 : currentPatch;
-  final next = '$major.$minor.$patch+$build';
+  final patch = int.parse(match.group(3)!);
+  final build = int.parse(match.group(4)!);
+  final currentVersion = '$major.$minor.$patch+$build';
+  final next = nextAppVersion(currentVersion, _versionBump(args));
   final updated = contents.replaceRange(
     match.start,
     match.end,
@@ -35,10 +35,11 @@ void main(List<String> args) {
   stdout.writeln(next);
 }
 
-bool _shouldBumpPatch(List<String> args) {
-  if (args.contains('--build-only')) return false;
-  if (args.contains('--feature')) return true;
-  if (!args.contains('--auto')) return true;
+VersionBump _versionBump(List<String> args) {
+  if (args.contains('--build-only')) return VersionBump.buildOnly;
+  if (args.contains('--feature')) return VersionBump.feature;
+  if (args.contains('--bug-fix')) return VersionBump.bugFix;
+  if (!args.contains('--auto')) return VersionBump.bugFix;
 
   final index = args.indexOf('--commit-message');
   if (index < 0 || index + 1 >= args.length) {
@@ -46,5 +47,5 @@ bool _shouldBumpPatch(List<String> args) {
       '--auto 模式必须同时提供 --commit-message',
     );
   }
-  return shouldBumpPatchForCommit(args[index + 1]);
+  return versionBumpForCommit(args[index + 1]);
 }

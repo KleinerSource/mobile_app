@@ -682,6 +682,7 @@ class _ExtraFanartViewer extends StatefulWidget {
 class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
   late final PageController _controller;
   late int _index;
+  double _verticalDragDistance = 0;
 
   @override
   void initState() {
@@ -696,6 +697,10 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
     super.dispose();
   }
 
+  void _close() {
+    if (mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -708,18 +713,34 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
               controller: _controller,
               itemCount: widget.urls.length,
               onPageChanged: (value) => setState(() => _index = value),
-              itemBuilder: (context, index) => Center(
-                child: InteractiveViewer(
-                  minScale: 0.8,
-                  maxScale: 4,
-                  child: CachedNetworkImage(
-                    imageUrl: widget.urls[index],
-                    fit: BoxFit.contain,
-                    placeholder: (_, __) => const CircularProgressIndicator(),
-                    errorWidget: (_, __, ___) => const Icon(
-                      Icons.broken_image_outlined,
-                      color: Colors.white54,
-                      size: 48,
+              itemBuilder: (context, index) => GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _close,
+                onVerticalDragStart: (_) => _verticalDragDistance = 0,
+                onVerticalDragUpdate: (details) {
+                  _verticalDragDistance += details.primaryDelta ?? 0;
+                },
+                onVerticalDragEnd: (details) {
+                  final velocity = details.primaryVelocity ?? 0;
+                  if (_verticalDragDistance > 88 || velocity > 700) {
+                    _close();
+                  }
+                  _verticalDragDistance = 0;
+                },
+                child: Center(
+                  child: InteractiveViewer(
+                    minScale: 0.8,
+                    maxScale: 4,
+                    child: CachedNetworkImage(
+                      imageUrl: widget.urls[index],
+                      fit: BoxFit.contain,
+                      placeholder: (_, __) =>
+                          const CircularProgressIndicator(),
+                      errorWidget: (_, __, ___) => const Icon(
+                        Icons.broken_image_outlined,
+                        color: Colors.white54,
+                        size: 48,
+                      ),
                     ),
                   ),
                 ),
@@ -730,7 +751,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
               right: 4,
               child: IconButton(
                 tooltip: '关闭预览图',
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: _close,
                 icon: const Icon(Icons.close_rounded, color: Colors.white),
               ),
             ),
