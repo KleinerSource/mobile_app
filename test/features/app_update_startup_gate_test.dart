@@ -45,8 +45,7 @@ void main() {
     expect(checkCount, 0);
 
     await tester.pumpWidget(app(true));
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(checkCount, 1);
   });
 
@@ -82,8 +81,7 @@ void main() {
     await container
         .read(updateRepositoryUrlProvider.notifier)
         .save('https://github.com/example/mobile_app');
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(checkCount, 1);
   });
 }
