@@ -19,6 +19,7 @@ import '../privacy/privacy_mask.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
+import '../movies/resource_scan_progress_sheet.dart';
 import '../settings/settings_page.dart';
 import 'favorites_providers.dart';
 import 'favorites_repository.dart';
@@ -61,6 +62,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   FavoritesSort _sort = FavoritesSort.recent;
   int _totalCount = 0;
   final Set<int> _selected = {};
+  bool _newResourcesOnly = false;
+  bool _resourceScanStarting = false;
   bool get _selecting => _selected.isNotEmpty;
 
   @override
@@ -79,7 +82,11 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     try {
       final repo = ref.read(favoritesRepositoryProvider);
       final result = await repo.list(
-        MovieFilter(sortBy: _sort.sortBy, sortOrder: _sort.order),
+        MovieFilter(
+          sortBy: _sort.sortBy,
+          sortOrder: _sort.order,
+          hasNewResources: _newResourcesOnly ? true : null,
+        ),
         limit: _pageSize,
         offset: offset,
       );
@@ -102,6 +109,66 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     _controller.refresh();
     // 等首页就绪
     await Future.delayed(const Duration(milliseconds: 600));
+  }
+
+  Future<void> _startResourceScan() async {
+    if (_resourceScanStarting || _totalCount <= 0) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('扫描收藏资源'),
+        content: Text('将扫描收藏夹中的 $_totalCount 部影片（包含全部分页），确定继续吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('开始扫描'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _resourceScanStarting = true);
+    try {
+      final result = await ref.read(moviesRepositoryProvider).startResourceScan(
+            filter: MovieFilter(
+              hasNewResources: _newResourcesOnly ? true : null,
+              sortBy: _sort.sortBy,
+              sortOrder: _sort.order,
+            ),
+            favoriteOnly: true,
+          );
+      if (!mounted) return;
+      setState(() => _resourceScanStarting = false);
+      final skippedText = result.skippedCount > 0
+          ? '，跳过 ${result.skippedCount} 部无效影片'
+          : '';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已提交 ${result.acceptedCount} 部影片$skippedText')),
+      );
+      await ResourceScanProgressSheet.show(
+        context,
+        taskId: result.taskId,
+        onCompleted: () {
+          if (mounted) _controller.refresh();
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _resourceScanStarting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('创建资源扫描任务失败: ${toApiException(e).message}')),
+      );
+    }
+  }
+
+  void _toggleNewResourcesFilter() {
+    setState(() => _newResourcesOnly = !_newResourcesOnly);
+    _controller.refresh();
   }
 
   void _changeSort(FavoritesSort v) {
@@ -271,6 +338,34 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                   color: c.surface,
                                   border: Border.all(color: c.cardBorder),
                                 ),
+                                child: _resourceScanStarting
+                                    ? SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: c.accent,
+                                        ),
+                                      )
+                                    : Icon(
+                                        Icons.cloud_download_outlined,
+                                        size: 18,
+                                        color: c.text,
+                                      ),
+                              ),
+                              tooltip: '扫描资源',
+                              onPressed: _resourceScanStarting || _totalCount <= 0
+                                  ? null
+                                  : _startResourceScan,
+                            ),
+                            IconButton(
+                              icon: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: c.surface,
+                                  border: Border.all(color: c.cardBorder),
+                                ),
                                 child:
                                     Icon(Icons.settings, size: 18, color: c.text),
                               ),
@@ -327,11 +422,28 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                           ],
                         ),
                       ),
-                      _SortPill(label: _sort.label, onTap: _showSortSheet),
-                      const SizedBox(width: 6),
-                      _ViewToggle(
-                        mode: _viewMode,
-                        onChange: (m) => setState(() => _viewMode = m),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _FavoriteFilterPill(
+                                active: _newResourcesOnly,
+                                onTap: _toggleNewResourcesFilter,
+                              ),
+                              const SizedBox(width: 6),
+                              _SortPill(
+                                label: _sort.label,
+                                onTap: _showSortSheet,
+                              ),
+                              const SizedBox(width: 6),
+                              _ViewToggle(
+                                mode: _viewMode,
+                                onChange: (m) => setState(() => _viewMode = m),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -513,6 +625,51 @@ class _SelectionBar extends StatelessWidget {
                 ),
               ),
               onPressed: onRemove,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FavoriteFilterPill extends StatelessWidget {
+  const _FavoriteFilterPill({required this.active, required this.onTap});
+
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? c.accent.withValues(alpha: 0.15) : c.chipBg,
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: active ? c.accent.withValues(alpha: 0.5) : c.cardBorder,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.fiber_new_rounded,
+              size: 14,
+              color: active ? c.accent : c.muted,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '新资源',
+              style: TextStyle(
+                color: active ? c.accent : c.text,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+                fontSize: 11.5,
+              ),
             ),
           ],
         ),

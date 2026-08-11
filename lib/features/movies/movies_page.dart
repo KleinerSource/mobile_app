@@ -23,6 +23,7 @@ import 'batch_edit_sheet.dart';
 import 'batch_merge_sheet.dart';
 import 'movie_filter.dart';
 import 'movies_providers.dart';
+import 'resource_scan_progress_sheet.dart';
 
 enum _ViewMode { grid, list }
 
@@ -45,6 +46,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   bool _selectionMode = false;
   final Set<int> _selectedIds = {};
   Completer<void>? _refreshCompleter;
+  bool _resourceScanStarting = false;
 
   @override
   void initState() {
@@ -195,6 +197,18 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                     ),
                     const SizedBox(width: 7),
                     _QuickChip(
+                      label: '新资源',
+                      icon: Icons.fiber_new_rounded,
+                      active: _currentFilter.hasNewResources == true,
+                      onTap: () => _applyFilter(
+                        _currentFilter.copyWith(
+                          hasNewResources:
+                              _currentFilter.hasNewResources == true ? null : true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    _QuickChip(
                       label: '重复番号',
                       icon: Icons.copy_all_outlined,
                       active: _currentFilter.duplicateNum,
@@ -203,6 +217,17 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                           duplicateNum: !_currentFilter.duplicateNum,
                         ),
                       ),
+                    ),
+                    const SizedBox(width: 7),
+                    _QuickChip(
+                      label: _resourceScanStarting ? '扫描中' : '扫描资源',
+                      icon: _resourceScanStarting
+                          ? Icons.sync_rounded
+                          : Icons.cloud_download_outlined,
+                      active: _resourceScanStarting,
+                      onTap: _resourceScanStarting
+                          ? () {}
+                          : () => _startResourceScan(),
                     ),
                   ],
                 ),
@@ -286,6 +311,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
               onClose: _exitSelection,
               onEdit: _onBatchEdit,
               onDownload: _onBatchDownload,
+              onResourceScan: _onBatchResourceScan,
               onCompare: _onBatchCompareNfo,
               onMerge: _onBatchMerge,
             ),
@@ -422,6 +448,76 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   Future<void> _onBatchDownload() async {
     final ok = await BatchDownloadSheet.show(context, _selectedIds.toList());
     if (ok == true) _exitSelection();
+  }
+
+  Future<void> _onBatchResourceScan() async {
+    if (_selectedIds.isEmpty) return;
+    await _startResourceScan(movieIds: _selectedIds.toList());
+  }
+
+  Future<void> _startResourceScan({List<int>? movieIds}) async {
+    if (_resourceScanStarting) return;
+    final selected = movieIds != null && movieIds.isNotEmpty;
+    final count = selected ? (movieIds?.length ?? 0) : _totalCount;
+    if (count <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('当前没有可扫描的影片')),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(selected ? '扫描已选影片' : '扫描筛选结果'),
+        content: Text(
+          selected
+              ? '将扫描已选的 $count 部影片，确定继续吗？'
+              : '将扫描当前筛选结果中的 $count 部影片（包含全部分页），确定继续吗？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('开始扫描'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _resourceScanStarting = true);
+    try {
+      final result = await ref.read(moviesRepositoryProvider).startResourceScan(
+            movieIds: selected ? movieIds : null,
+            filter: _currentFilter,
+          );
+      if (!mounted) return;
+      if (selected) _exitSelection();
+      setState(() => _resourceScanStarting = false);
+      final skippedText = result.skippedCount > 0
+          ? '，跳过 ${result.skippedCount} 部无效影片'
+          : '';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已提交 ${result.acceptedCount} 部影片$skippedText')),
+      );
+      await ResourceScanProgressSheet.show(
+        context,
+        taskId: result.taskId,
+        onCompleted: () {
+          if (mounted) _controller.refresh();
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _resourceScanStarting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('创建资源扫描任务失败: ${toApiException(e).message}')),
+      );
+    }
   }
 
   Future<void> _onBatchMerge() async {
@@ -1052,6 +1148,7 @@ class _BatchActionBar extends StatelessWidget {
     required this.onClose,
     required this.onEdit,
     required this.onDownload,
+    required this.onResourceScan,
     required this.onCompare,
     required this.onMerge,
   });
@@ -1063,6 +1160,7 @@ class _BatchActionBar extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onEdit;
   final VoidCallback onDownload;
+  final VoidCallback onResourceScan;
   final VoidCallback onCompare;
   final VoidCallback onMerge;
 
@@ -1155,6 +1253,14 @@ class _BatchActionBar extends StatelessWidget {
                         label: '下载',
                         color: const Color(0xFF34F5A5),
                         onTap: selectedCount > 0 ? onDownload : null,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _BatchActionButton(
+                        icon: Icons.sync_rounded,
+                        label: '扫描',
+                        onTap: selectedCount > 0 ? onResourceScan : null,
                       ),
                     ),
                     if (canMergeOrCompare) ...[

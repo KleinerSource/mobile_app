@@ -8,6 +8,7 @@ import 'package:md_center/core/api/services/libraries_api.dart';
 import 'package:md_center/core/api/services/libraries_extended_api.dart';
 import 'package:md_center/core/api/services/mappings_api.dart';
 import 'package:md_center/core/api/services/movies_api.dart';
+import 'package:md_center/core/api/services/movies_extended_api.dart';
 import 'package:md_center/core/api/services/playback_api.dart';
 import 'package:md_center/core/api/services/translation_api.dart';
 import 'package:md_center/core/models/playback.dart';
@@ -85,6 +86,30 @@ void main() {
       expect(result.skippedDisabledCount, 1);
       expect(result.tasks.map((task) => task.libraryId).toList(), [1, 3]);
     }
+  });
+
+  test('影片资源扫描使用批量扫描接口并传递筛选体', () async {
+    final adapter = _RouteAdapter();
+    final api = MoviesExtendedApi(_dio(adapter));
+
+    await api.batchResourceScan({
+      'scan_all': true,
+      'favorite_only': false,
+      'filters': {
+        'has_new_resources': true,
+        'genre_ids': [3, 8],
+      },
+    });
+
+    expect(
+      adapter.paths.single,
+      '/api/movies/batch/dbonline/resources/scan',
+    );
+    expect(adapter.requestBodies.single['scan_all'], true);
+    expect(adapter.requestBodies.single['filters'], {
+      'has_new_resources': true,
+      'genre_ids': [3, 8],
+    });
   });
 
   test('播放接口覆盖决策、串流地址、状态、SSE 和停止会话', () async {

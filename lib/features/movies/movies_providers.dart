@@ -34,7 +34,12 @@ String imageUrlWithCacheRevision(String url, int revision) {
 
 final moviesRepositoryProvider = Provider<MoviesRepository>((ref) {
   final client = ref.watch(requiredApiClientProvider);
-  return MoviesRepository(client.movies, client.favorites, client.system);
+  return MoviesRepository(
+    client.movies,
+    client.favorites,
+    client.system,
+    extendedApi: client.moviesExtended,
+  );
 });
 
 /// 海报/图片 URL 构造器。

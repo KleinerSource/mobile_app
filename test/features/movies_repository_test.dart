@@ -99,6 +99,21 @@ void main() {
 
     expect(api.lastAcknowledgedId, 9);
   });
+
+  test('影片筛选支持新资源参数和资源扫描 JSON 筛选体', () {
+    const filter = MovieFilter(
+      hasNewResources: true,
+      genreIds: [3, 8],
+      yearFrom: 2020,
+    );
+
+    expect(filter.toQuery(limit: 20, offset: 0)['has_new_resources'], true);
+    expect(filter.toResourceScanBody(), {
+      'genre_ids': [3, 8],
+      'year_from': 2020,
+      'has_new_resources': true,
+    });
+  });
 }
 
 class _StubMoviesApi implements MoviesApi {

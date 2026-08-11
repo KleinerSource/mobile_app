@@ -20,6 +20,7 @@ class MovieFilter {
     this.excludeHasExternalSubtitle,
     this.fileFilterMode,
     this.isUpdated,
+    this.hasNewResources,
     this.duplicateNum = false,
     this.sortBy = 'created_at',
     this.sortOrder = 'desc',
@@ -53,6 +54,9 @@ class MovieFilter {
   /// 已更新筛选: true=已更新 / false=未更新 / null=不限
   final bool? isUpdated;
 
+  /// 仅显示最近资源扫描发现新资源的影片。
+  final bool? hasNewResources;
+
   /// 仅显示重复番号 (true / false)
   final bool duplicateNum;
 
@@ -72,6 +76,7 @@ class MovieFilter {
     if (hasExternalSubtitle == true || excludeHasExternalSubtitle == true) n++;
     if (fileFilterMode != null && fileFilterMode!.isNotEmpty) n++;
     if (isUpdated != null) n++;
+    if (hasNewResources == true) n++;
     if (duplicateNum) n++;
     return n;
   }
@@ -108,6 +113,45 @@ class MovieFilter {
       m['file_filter_mode'] = fileFilterMode;
     }
     if (isUpdated != null) m['is_updated'] = isUpdated;
+    if (hasNewResources == true) m['has_new_resources'] = true;
+    if (duplicateNum) m['duplicate_num'] = true;
+    return m;
+  }
+
+  /// 构造资源扫描接口所需的 JSON 筛选体。
+  ///
+  /// 资源扫描接口接收数组和数字，不复用列表查询中的逗号分隔参数，
+  /// 同时省略分页、排序等只对列表请求有意义的字段。
+  Map<String, dynamic> toResourceScanBody() {
+    final m = <String, dynamic>{};
+    void addList(String key, List<int> values) {
+      if (values.isNotEmpty) m[key] = List<int>.from(values);
+    }
+
+    if (search != null && search!.trim().isNotEmpty) {
+      m['search'] = search!.trim();
+    }
+    addList('tag_ids', tagIds);
+    addList('exclude_tag_ids', excludeTagIds);
+    addList('genre_ids', genreIds);
+    addList('exclude_genre_ids', excludeGenreIds);
+    addList('series_ids', seriesIds);
+    addList('actor_ids', actorIds);
+    if (directoryId != null) m['directory_id'] = directoryId;
+    if (libraryId != null) m['library_id'] = libraryId;
+    if (yearFrom != null) m['year_from'] = yearFrom;
+    if (yearTo != null) m['year_to'] = yearTo;
+    if (ratingFrom != null) m['rating_from'] = ratingFrom;
+    if (ratingTo != null) m['rating_to'] = ratingTo;
+    if (isUpdated != null) m['is_updated'] = isUpdated;
+    if (hasNewResources == true) m['has_new_resources'] = true;
+    if (hasExternalSubtitle == true) m['has_external_subtitle'] = true;
+    if (excludeHasExternalSubtitle == true) {
+      m['exclude_has_external_subtitle'] = true;
+    }
+    if (fileFilterMode != null && fileFilterMode!.isNotEmpty) {
+      m['file_filter_mode'] = fileFilterMode;
+    }
     if (duplicateNum) m['duplicate_num'] = true;
     return m;
   }
@@ -130,6 +174,7 @@ class MovieFilter {
     bool? excludeHasExternalSubtitle,
     String? fileFilterMode,
     bool? isUpdated,
+    bool? hasNewResources,
     bool? duplicateNum,
     bool clearDirectory = false,
     bool clearLibrary = false,
@@ -141,6 +186,7 @@ class MovieFilter {
     bool clearExcludeHasExternalSubtitle = false,
     bool clearFileFilterMode = false,
     bool clearIsUpdated = false,
+    bool clearHasNewResources = false,
     String? sortBy,
     String? sortOrder,
   }) {
@@ -168,6 +214,9 @@ class MovieFilter {
           ? null
           : (fileFilterMode ?? this.fileFilterMode),
       isUpdated: clearIsUpdated ? null : (isUpdated ?? this.isUpdated),
+      hasNewResources: clearHasNewResources
+          ? null
+          : (hasNewResources ?? this.hasNewResources),
       duplicateNum: duplicateNum ?? this.duplicateNum,
       sortBy: sortBy ?? this.sortBy,
       sortOrder: sortOrder ?? this.sortOrder,
@@ -195,6 +244,7 @@ class MovieFilter {
         other.excludeHasExternalSubtitle == excludeHasExternalSubtitle &&
         other.fileFilterMode == fileFilterMode &&
         other.isUpdated == isUpdated &&
+        other.hasNewResources == hasNewResources &&
         other.duplicateNum == duplicateNum &&
         other.sortBy == sortBy &&
         other.sortOrder == sortOrder;
@@ -219,6 +269,7 @@ class MovieFilter {
         excludeHasExternalSubtitle,
         fileFilterMode,
         isUpdated,
+        hasNewResources,
         duplicateNum,
         sortBy,
         sortOrder,

@@ -3,19 +3,27 @@ import '../../core/api/dio_factory.dart';
 import '../../core/api/envelope.dart';
 import '../../core/api/services/favorites_api.dart';
 import '../../core/api/services/movies_api.dart';
+import '../../core/api/services/movies_extended_api.dart';
 import '../../core/api/services/system_api.dart';
 import '../../core/models/media_info.dart';
 import '../../core/models/movie.dart';
 import '../../core/models/paged_result.dart';
+import '../../core/models/resource_scan.dart';
 import '../../core/models/subtitle_search.dart';
 import '../../core/models/watch_record.dart';
 import 'movie_filter.dart';
 
 class MoviesRepository {
-  MoviesRepository(this._api, this._favorites, this._system);
+  MoviesRepository(
+    this._api,
+    this._favorites,
+    this._system, {
+    MoviesExtendedApi? extendedApi,
+  }) : _extendedApi = extendedApi;
   final MoviesApi _api;
   final FavoritesApi _favorites;
   final SystemApi _system;
+  final MoviesExtendedApi? _extendedApi;
 
   Future<PagedResult<MovieListItem>> list(
     MovieFilter filter, {
@@ -90,6 +98,45 @@ class MoviesRepository {
   Future<void> acknowledgeResources(int id) async {
     final raw = await _api.acknowledgeResources(id);
     unwrapStd<void>(raw, (_) {});
+  }
+
+  Future<ResourceScanStartResult> startResourceScan({
+    List<int>? movieIds,
+    MovieFilter? filter,
+    bool favoriteOnly = false,
+  }) async {
+    final api = _extendedApi;
+    if (api == null) {
+      throw ApiException('资源扫描接口不可用，请更新服务器后重试');
+    }
+    final ids = movieIds
+        ?.where((id) => id > 0)
+        .toSet()
+        .toList(growable: false);
+    final body = ids != null && ids.isNotEmpty
+        ? <String, dynamic>{'movie_ids': ids}
+        : <String, dynamic>{
+            'scan_all': true,
+            'favorite_only': favoriteOnly,
+            'filters': (filter ?? const MovieFilter()).toResourceScanBody(),
+          };
+    final data = await api.batchResourceScan(body);
+    if (data is! Map) {
+      throw ApiException('资源扫描响应格式错误');
+    }
+    return ResourceScanStartResult.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  Future<ResourceScanTask> resourceScanProgress(String taskId) async {
+    final api = _extendedApi;
+    if (api == null) {
+      throw ApiException('资源扫描接口不可用，请更新服务器后重试');
+    }
+    final data = await api.resourceScanProgress(taskId);
+    if (data is! Map) {
+      throw ApiException('资源扫描进度响应格式错误');
+    }
+    return ResourceScanTask.fromJson(Map<String, dynamic>.from(data));
   }
 
   /// 更新观看进度 · positionSec / durationSec 由播放器上报
