@@ -10,6 +10,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/poster.dart';
+import '../../shared/collection_card_layout.dart';
 import '../libraries/libraries_providers.dart';
 import '../libraries/library_movies_page.dart';
 import '../movie_detail/movie_detail_page.dart';
@@ -504,32 +505,35 @@ class _CollectionsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardWidth =
-        (MediaQuery.sizeOf(context).width * 0.4).clamp(132.0, 180.0).toDouble();
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(AppL10n.of(context).homeYourLibraries,
-              style: AppText.sectionTitle(context)),
-          const SizedBox(height: 14),
-          SizedBox(
-            height: cardWidth / (5 / 3),
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: libraries.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (_, i) => SizedBox(
-                width: cardWidth,
-                child: _LibraryCard(
-                  library: libraries[i],
-                  hue: AppHues.all[i % AppHues.all.length],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cardWidth = collectionCardWidth(constraints.maxWidth);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(AppL10n.of(context).homeYourLibraries,
+                  style: AppText.sectionTitle(context)),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: cardWidth / (5 / 3),
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: libraries.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (_, i) => SizedBox(
+                    width: cardWidth,
+                    child: _LibraryCard(
+                      library: libraries[i],
+                      hue: AppHues.all[i % AppHues.all.length],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

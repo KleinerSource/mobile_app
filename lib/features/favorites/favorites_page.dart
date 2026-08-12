@@ -12,6 +12,7 @@ import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/poster.dart';
+import '../../shared/collection_card_layout.dart';
 import '../lists/list_detail_page.dart';
 import '../lists/list_model.dart';
 import '../lists/lists_providers.dart';
@@ -1059,23 +1060,27 @@ class _ListsGrid extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final lists = ref.watch(listsProvider);
     return LayoutBuilder(builder: (ctx, cons) {
-      const gap = 10.0;
-      final w = (cons.maxWidth - gap) / 2;
-      return Wrap(
-        spacing: gap,
-        runSpacing: gap,
-        children: [
-          for (final l in lists)
-            SizedBox(
-              width: w,
-              child: _ListCard(list: l),
-            ),
-          // "+ 新建集合" 卡片
-          SizedBox(
-            width: w,
-            child: _NewListCard(),
-          ),
-        ],
+      final cardWidth = collectionCardWidth(cons.maxWidth);
+      return SizedBox(
+        height: cardWidth / (5 / 3),
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: lists.length + 1,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (_, index) {
+            if (index == lists.length) {
+              // "+ 新建集合" 卡片
+              return SizedBox(
+                width: cardWidth,
+                child: _NewListCard(),
+              );
+            }
+            return SizedBox(
+              width: cardWidth,
+              child: _ListCard(list: lists[index]),
+            );
+          },
+        ),
       );
     });
   }
