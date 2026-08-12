@@ -750,34 +750,33 @@ class _ActorTile extends StatelessWidget {
                 ),
               ],
             ),
-            Positioned(
-              right: 51,
-              top: 8,
-              child: Tooltip(
-                message: hasBiography ? '已有简介' : '暂无简介',
+            if (hasBiography)
+              Positioned(
+                right: 51,
+                top: 8,
                 child: Container(
-                  width: 26,
-                  height: 26,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: (hasBiography ? c.accent : c.muted2)
-                        .withValues(alpha: 0.12),
+                    color: c.accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(7),
                     border: Border.all(
-                      color: (hasBiography ? c.accent : c.muted2)
-                          .withValues(alpha: 0.3),
+                      color: c.accent.withValues(alpha: 0.3),
                     ),
                   ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    hasBiography
-                        ? Icons.description
-                        : Icons.description_outlined,
-                    size: 15,
-                    color: hasBiography ? c.accent : c.muted2,
+                  child: Text(
+                    '简介',
+                    style: TextStyle(
+                      color: c.accent,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),
