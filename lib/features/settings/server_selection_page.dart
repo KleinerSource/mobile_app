@@ -151,6 +151,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
 
 class _ServerAvatarCard extends StatefulWidget {
   const _ServerAvatarCard({
+    super.key,
     required this.server,
     required this.busy,
     required this.onTap,

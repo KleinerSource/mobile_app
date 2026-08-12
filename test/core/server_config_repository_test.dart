@@ -104,7 +104,7 @@ void main() {
       ServerConfig(
         baseUrl: 'http://192.168.1.10:8001',
         lines: home.lines,
-        servers: [home, remote],
+        servers: const [home, remote],
         activeServerId: 'home',
       ),
     );
@@ -150,7 +150,7 @@ void main() {
       ServerConfig(
         baseUrl: 'https://media.example',
         lines: server.lines,
-        servers: [server],
+        servers: const [server],
         activeServerId: 'server',
       ),
     );
