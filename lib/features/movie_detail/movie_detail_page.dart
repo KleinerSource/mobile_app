@@ -271,8 +271,8 @@ class _HeroHeader extends StatelessWidget {
               stops: const [0.0, 0.35],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -463,6 +463,7 @@ class _ActionRow extends StatelessWidget {
                   fontSize: 14),
             ),
           ),
+        ),
       ],
     );
   }
