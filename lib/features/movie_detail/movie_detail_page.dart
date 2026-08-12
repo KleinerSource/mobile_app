@@ -696,6 +696,9 @@ class _ExtraFanartViewer extends StatefulWidget {
 
 class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
   late final PageController _controller;
+  final Map<int, TransformationController> _imageControllers =
+      <int, TransformationController>{};
+  final Set<int> _zoomedIndexes = <int>{};
   late int _index;
   double _verticalDragOffset = 0;
   bool _isDragging = false;
@@ -713,7 +716,52 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
   @override
   void dispose() {
     _controller.dispose();
+    for (final controller in _imageControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  TransformationController _imageControllerFor(int index) {
+    return _imageControllers.putIfAbsent(index, () {
+      final controller = TransformationController();
+      controller.addListener(() => _onImageTransformChanged(index, controller));
+      return controller;
+    });
+  }
+
+  void _onImageTransformChanged(
+    int index,
+    TransformationController controller,
+  ) {
+    final scale = controller.value.getMaxScaleOnAxis();
+    final isZoomed = scale > 1.01;
+    final wasZoomed = _zoomedIndexes.contains(index);
+
+    // 缩回完整显示时清掉残留平移，确保下滑退出从稳定的初始位置开始。
+    if (!isZoomed) {
+      final translation = controller.value.getTranslation();
+      if (translation.x.abs() > 0.5 || translation.y.abs() > 0.5) {
+        controller.value = Matrix4.identity();
+      }
+    }
+
+    if (isZoomed == wasZoomed) return;
+    if (isZoomed) {
+      _zoomedIndexes.add(index);
+    } else {
+      _zoomedIndexes.remove(index);
+    }
+    if (mounted && index == _index) setState(() {});
+  }
+
+  bool _isZoomed(int index) => _zoomedIndexes.contains(index);
+
+  void _resetImageTransform(int index) {
+    final controller = _imageControllers[index];
+    if (controller == null) return;
+    controller.value = Matrix4.identity();
+    _zoomedIndexes.remove(index);
   }
 
   void _close() {
@@ -721,7 +769,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
   }
 
   void _startVerticalDrag() {
-    if (_isClosing) return;
+    if (_isClosing || _isZoomed(_index)) return;
     setState(() {
       _isDragging = true;
       _verticalDragOffset = 0;
@@ -729,7 +777,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
   }
 
   void _updateVerticalDrag(DragUpdateDetails details) {
-    if (_isClosing) return;
+    if (_isClosing || _isZoomed(_index)) return;
     final delta = details.primaryDelta ?? 0;
     setState(() {
       // 只允许向下退出，向上拖动时保持在原位，避免灯箱被拖出屏幕顶部。
@@ -739,7 +787,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
   }
 
   void _endVerticalDrag(DragEndDetails details) {
-    if (_isClosing) return;
+    if (_isClosing || _isZoomed(_index)) return;
     final height = MediaQuery.sizeOf(context).height;
     final velocity = details.primaryVelocity ?? 0;
     final shouldClose =
@@ -766,7 +814,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
   }
 
   void _cancelVerticalDrag() {
-    if (_isClosing) return;
+    if (_isClosing || _isZoomed(_index)) return;
     setState(() {
       _isDragging = false;
       _verticalDragOffset = 0;
@@ -812,33 +860,61 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
                   children: [
                     PageView.builder(
                       controller: _controller,
+                      physics: _isZoomed(_index)
+                          ? const NeverScrollableScrollPhysics()
+                          : null,
                       itemCount: widget.urls.length,
-                      onPageChanged: (value) => setState(() => _index = value),
-                      itemBuilder: (context, index) => GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _close,
-                        onVerticalDragStart: (_) => _startVerticalDrag(),
-                        onVerticalDragUpdate: _updateVerticalDrag,
-                        onVerticalDragEnd: _endVerticalDrag,
-                        onVerticalDragCancel: _cancelVerticalDrag,
-                        child: Center(
-                          child: InteractiveViewer(
-                            minScale: 0.8,
-                            maxScale: 4,
-                            child: CachedNetworkImage(
-                              imageUrl: widget.urls[index],
-                              fit: BoxFit.contain,
-                              placeholder: (_, __) =>
-                                  const CircularProgressIndicator(),
-                              errorWidget: (_, __, ___) => const Icon(
-                                Icons.broken_image_outlined,
-                                color: Colors.white54,
-                                size: 48,
-                              ),
-                            ),
+                      onPageChanged: (value) {
+                        _resetImageTransform(_index);
+                        setState(() => _index = value);
+                      },
+                      itemBuilder: (context, index) {
+                        final imageController = _imageControllerFor(index);
+                        final isZoomed = _isZoomed(index);
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _close,
+                          onVerticalDragStart: isZoomed
+                              ? null
+                              : (_) => _startVerticalDrag(),
+                          onVerticalDragUpdate:
+                              isZoomed ? null : _updateVerticalDrag,
+                          onVerticalDragEnd: isZoomed ? null : _endVerticalDrag,
+                          onVerticalDragCancel:
+                              isZoomed ? null : _cancelVerticalDrag,
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              return InteractiveViewer(
+                                transformationController: imageController,
+                                minScale: 1,
+                                maxScale: 6,
+                                panEnabled: isZoomed,
+                                scaleEnabled: true,
+                                constrained: false,
+                                boundaryMargin: const EdgeInsets.all(100000),
+                                clipBehavior: Clip.none,
+                                child: SizedBox(
+                                  width: constraints.maxWidth,
+                                  height: constraints.maxHeight,
+                                  child: Center(
+                                    child: CachedNetworkImage(
+                                      imageUrl: widget.urls[index],
+                                      fit: BoxFit.contain,
+                                      placeholder: (_, __) =>
+                                          const CircularProgressIndicator(),
+                                      errorWidget: (_, __, ___) => const Icon(
+                                        Icons.broken_image_outlined,
+                                        color: Colors.white54,
+                                        size: 48,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                     Positioned(
                       top: 4,
