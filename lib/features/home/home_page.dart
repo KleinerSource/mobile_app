@@ -505,7 +505,7 @@ class _CollectionsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardWidth =
-        (MediaQuery.sizeOf(context).width * 0.64).clamp(220.0, 300.0).toDouble();
+        (MediaQuery.sizeOf(context).width * 0.32).clamp(110.0, 150.0).toDouble();
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
       child: Column(
