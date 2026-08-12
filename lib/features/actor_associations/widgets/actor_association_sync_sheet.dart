@@ -79,10 +79,18 @@ class _ActorAssociationSyncSheetState
 
   bool _hasSyncChanges(ActorAssocPreview preview) {
     return _selectedAliases.isNotEmpty ||
-        ActorAssociationsRepository.biographyNeedsSync(
-          widget.currentBiography,
-          preview.biography,
-        );
+        _biographyNeedsSync(preview);
+  }
+
+  bool _biographyNeedsSync(ActorAssocPreview preview) {
+    if (preview.biographyChanged != null) {
+      return preview.biographyChanged!;
+    }
+    if (widget.currentBiography == null) return false;
+    return ActorAssociationsRepository.biographyNeedsSync(
+      widget.currentBiography,
+      preview.biography,
+    );
   }
 
   Future<void> _load({ActorDataSource? source}) async {
@@ -153,10 +161,7 @@ class _ActorAssociationSyncSheetState
     if (preview == null || _applying) return;
     if (!_hasSyncChanges(preview)) return;
 
-    final biographyChanged = ActorAssociationsRepository.biographyNeedsSync(
-      widget.currentBiography,
-      preview.biography,
-    );
+    final biographyChanged = _biographyNeedsSync(preview);
     final selectedAliases = preview.newAliases
         .where(_selectedAliases.contains)
         .toList(growable: false);
@@ -281,11 +286,7 @@ class _ActorAssociationSyncSheetState
                                       mappedValue: preview.mappedValue,
                                       newCount: _selectedAliases.length,
                                     ),
-                                    if (ActorAssociationsRepository
-                                        .biographyNeedsSync(
-                                      widget.currentBiography,
-                                      preview.biography,
-                                    )) ...[
+                                    if (_biographyNeedsSync(preview)) ...[
                                       const SizedBox(height: 16),
                                       _BiographySection(
                                         biography: preview.biography,
@@ -488,53 +489,74 @@ class _AliasSection extends StatelessWidget {
             runSpacing: 6,
             children: [
               for (final a in aliases)
-                selectedAliases != null && onToggle != null
-                    ? FilterChip(
-                        label: Text(a),
-                        selected: selectedAliases!.contains(a),
-                        showCheckmark: true,
-                        onSelected: (_) => onToggle!(a),
-                        selectedColor: color.withValues(alpha: 0.15),
-                        checkmarkColor: color,
-                        side: BorderSide(
-                          color: selectedAliases!.contains(a)
-                              ? color.withValues(alpha: 0.45)
-                              : c.cardBorder,
-                        ),
-                        labelStyle: TextStyle(
-                          color: selectedAliases!.contains(a) ? color : c.muted,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                        ),
-                      )
-                    : Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: highlight
-                              ? color.withValues(alpha: 0.15)
-                              : c.chipBg,
-                          borderRadius: BorderRadius.circular(100),
-                          border: Border.all(
-                            color: highlight
-                                ? color.withValues(alpha: 0.45)
-                                : c.cardBorder,
-                          ),
-                        ),
-                        child: Text(
-                          a,
-                          style: TextStyle(
-                            color: highlight ? color : c.text,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
+                _AliasPill(
+                  label: a,
+                  color: color,
+                  highlight: highlight,
+                  selected: selectedAliases?.contains(a) ?? false,
+                  onTap: selectedAliases != null && onToggle != null
+                      ? () => onToggle!(a)
+                      : null,
+                ),
             ],
           ),
       ],
+    );
+  }
+}
+
+class _AliasPill extends StatelessWidget {
+  const _AliasPill({
+    required this.label,
+    required this.color,
+    required this.highlight,
+    required this.selected,
+    this.onTap,
+  });
+
+  final String label;
+  final Color color;
+  final bool highlight;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final active = selected || (onTap == null && highlight);
+    final pill = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: active ? color.withValues(alpha: 0.15) : c.chipBg,
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(
+          color: active ? color.withValues(alpha: 0.45) : c.cardBorder,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: active ? color : c.text,
+          fontFamily: 'Inter',
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+
+    if (onTap == null) return pill;
+    return Semantics(
+      button: true,
+      toggled: selected,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(100),
+          child: pill,
+        ),
+      ),
     );
   }
 }
