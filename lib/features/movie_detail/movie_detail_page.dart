@@ -660,7 +660,8 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
       context: context,
       barrierDismissible: true,
       barrierLabel: '关闭预览图',
-      barrierColor: Colors.black.withValues(alpha: 0.94),
+      // 背景由灯箱自身绘制，才能在下滑时和内容一起实时淡出。
+      barrierColor: Colors.transparent,
       pageBuilder: (_, __, ___) => _ExtraFanartViewer(
         urls: urls,
         initialIndex: initialIndex,
@@ -682,7 +683,11 @@ class _ExtraFanartViewer extends StatefulWidget {
 class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
   late final PageController _controller;
   late int _index;
-  double _verticalDragDistance = 0;
+  double _verticalDragOffset = 0;
+  bool _isDragging = false;
+  bool _isClosing = false;
+
+  static const _dragAnimationDuration = Duration(milliseconds: 220);
 
   @override
   void initState() {
@@ -701,87 +706,169 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  void _startVerticalDrag() {
+    if (_isClosing) return;
+    setState(() {
+      _isDragging = true;
+      _verticalDragOffset = 0;
+    });
+  }
+
+  void _updateVerticalDrag(DragUpdateDetails details) {
+    if (_isClosing) return;
+    final delta = details.primaryDelta ?? 0;
+    setState(() {
+      // 只允许向下退出，向上拖动时保持在原位，避免灯箱被拖出屏幕顶部。
+      _verticalDragOffset =
+          (_verticalDragOffset + delta).clamp(0.0, double.infinity).toDouble();
+    });
+  }
+
+  void _endVerticalDrag(DragEndDetails details) {
+    if (_isClosing) return;
+    final height = MediaQuery.sizeOf(context).height;
+    final velocity = details.primaryVelocity ?? 0;
+    final shouldClose =
+        _verticalDragOffset > height * 0.2 || velocity > 700;
+
+    if (shouldClose) {
+      setState(() {
+        _isClosing = true;
+        _isDragging = false;
+        _verticalDragOffset = height;
+      });
+      unawaited(
+        Future<void>.delayed(_dragAnimationDuration, () {
+          if (mounted) Navigator.of(context).pop();
+        }),
+      );
+      return;
+    }
+
+    setState(() {
+      _isDragging = false;
+      _verticalDragOffset = 0;
+    });
+  }
+
+  void _cancelVerticalDrag() {
+    if (_isClosing) return;
+    setState(() {
+      _isDragging = false;
+      _verticalDragOffset = 0;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final height = MediaQuery.sizeOf(context).height;
+    final dragProgress =
+        (_verticalDragOffset / height).clamp(0.0, 1.0).toDouble();
+    final animationDuration = _isDragging
+        ? Duration.zero
+        : _dragAnimationDuration;
+
     return Material(
       color: Colors.transparent,
-      child: SafeArea(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            PageView.builder(
-              controller: _controller,
-              itemCount: widget.urls.length,
-              onPageChanged: (value) => setState(() => _index = value),
-              itemBuilder: (context, index) => GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _close,
-                onVerticalDragStart: (_) => _verticalDragDistance = 0,
-                onVerticalDragUpdate: (details) {
-                  _verticalDragDistance += details.primaryDelta ?? 0;
-                },
-                onVerticalDragEnd: (details) {
-                  final velocity = details.primaryVelocity ?? 0;
-                  if (_verticalDragDistance > 88 || velocity > 700) {
-                    _close();
-                  }
-                  _verticalDragDistance = 0;
-                },
-                child: Center(
-                  child: InteractiveViewer(
-                    minScale: 0.8,
-                    maxScale: 4,
-                    child: CachedNetworkImage(
-                      imageUrl: widget.urls[index],
-                      fit: BoxFit.contain,
-                      placeholder: (_, __) =>
-                          const CircularProgressIndicator(),
-                      errorWidget: (_, __, ___) => const Icon(
-                        Icons.broken_image_outlined,
-                        color: Colors.white54,
-                        size: 48,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          AnimatedContainer(
+            duration: animationDuration,
+            curve: Curves.easeOutCubic,
+            color: Colors.black.withValues(
+              alpha: (0.94 * (1 - dragProgress)).clamp(0.0, 0.94).toDouble(),
+            ),
+          ),
+          AnimatedOpacity(
+            duration: animationDuration,
+            curve: Curves.easeOutCubic,
+            opacity: (1 - dragProgress).clamp(0.0, 1.0).toDouble(),
+            child: AnimatedContainer(
+              duration: animationDuration,
+              curve: Curves.easeOutCubic,
+              transform: Matrix4.translationValues(
+                0,
+                _verticalDragOffset,
+                0,
+              ),
+              child: SafeArea(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    PageView.builder(
+                      controller: _controller,
+                      itemCount: widget.urls.length,
+                      onPageChanged: (value) => setState(() => _index = value),
+                      itemBuilder: (context, index) => GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _close,
+                        onVerticalDragStart: (_) => _startVerticalDrag(),
+                        onVerticalDragUpdate: _updateVerticalDrag,
+                        onVerticalDragEnd: _endVerticalDrag,
+                        onVerticalDragCancel: _cancelVerticalDrag,
+                        child: Center(
+                          child: InteractiveViewer(
+                            minScale: 0.8,
+                            maxScale: 4,
+                            child: CachedNetworkImage(
+                              imageUrl: widget.urls[index],
+                              fit: BoxFit.contain,
+                              placeholder: (_, __) =>
+                                  const CircularProgressIndicator(),
+                              errorWidget: (_, __, ___) => const Icon(
+                                Icons.broken_image_outlined,
+                                color: Colors.white54,
+                                size: 48,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: IconButton(
+                        tooltip: '关闭预览图',
+                        onPressed: _close,
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    if (widget.urls.length > 1)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 12,
+                        child: Center(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              child: Text(
+                                '${_index + 1} / ${widget.urls.length}',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-            Positioned(
-              top: 4,
-              right: 4,
-              child: IconButton(
-                tooltip: '关闭预览图',
-                onPressed: _close,
-                icon: const Icon(Icons.close_rounded, color: Colors.white),
-              ),
-            ),
-            if (widget.urls.length > 1)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 12,
-                child: Center(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.55),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      child: Text(
-                        '${_index + 1} / ${widget.urls.length}',
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
