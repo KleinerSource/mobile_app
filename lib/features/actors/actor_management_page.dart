@@ -670,100 +670,113 @@ class _ActorTile extends StatelessWidget {
           border: Border.all(color: c.cardBorder),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: Row(
+        child: Stack(
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppHues.top(hue), AppHues.bottom(hue)],
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppHues.top(hue), AppHues.bottom(hue)],
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    actor.name.isNotEmpty ? actor.name.characters.first : '·',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
                 ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                actor.name.isNotEmpty ? actor.name.characters.first : '·',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
-                        child: Text(
-                          actor.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: c.text,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14.5,
-                          ),
+                      Text(
+                        actor.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.text,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14.5,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Transform.translate(
-                        offset: const Offset(0, 4),
-                        child: Tooltip(
-                          message: hasBiography ? '已有简介' : '暂无简介',
-                          child: Icon(
-                            hasBiography
-                                ? Icons.description
-                                : Icons.description_outlined,
-                            size: 16,
-                            color: hasBiography ? c.accent : c.muted2,
-                          ),
-                        ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${actor.movieCount} 部影片',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.meta(context),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '${actor.movieCount} 部影片',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.meta(context),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuButton<_ActorMenuAction>(
-              tooltip: '更多操作',
-              icon: Icon(Icons.more_horiz, color: c.muted),
-              onSelected: (action) {
-                switch (action) {
-                  case _ActorMenuAction.edit:
-                    onEdit();
-                    return;
-                  case _ActorMenuAction.delete:
-                    onDelete();
-                    return;
-                }
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(
-                  value: _ActorMenuAction.edit,
-                  child: Text('编辑'),
                 ),
-                PopupMenuItem(
-                  value: _ActorMenuAction.delete,
-                  child: Text('删除'),
+                const SizedBox(width: 30),
+                PopupMenuButton<_ActorMenuAction>(
+                  tooltip: '更多操作',
+                  icon: Icon(Icons.more_horiz, color: c.muted),
+                  onSelected: (action) {
+                    switch (action) {
+                      case _ActorMenuAction.edit:
+                        onEdit();
+                        return;
+                      case _ActorMenuAction.delete:
+                        onDelete();
+                        return;
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: _ActorMenuAction.edit,
+                      child: Text('编辑'),
+                    ),
+                    PopupMenuItem(
+                      value: _ActorMenuAction.delete,
+                      child: Text('删除'),
+                    ),
+                  ],
                 ),
               ],
+            ),
+            Positioned(
+              right: 51,
+              top: 8,
+              child: Tooltip(
+                message: hasBiography ? '已有简介' : '暂无简介',
+                child: Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    color: (hasBiography ? c.accent : c.muted2)
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(
+                      color: (hasBiography ? c.accent : c.muted2)
+                          .withValues(alpha: 0.3),
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    hasBiography
+                        ? Icons.description
+                        : Icons.description_outlined,
+                    size: 15,
+                    color: hasBiography ? c.accent : c.muted2,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
