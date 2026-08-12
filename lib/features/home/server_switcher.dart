@@ -149,12 +149,15 @@ class _ServerMenuEntry extends PopupMenuEntry<String> {
     required this.activeServerId,
     required this.selectingId,
     required this.profileFor,
-  }) : super(height: servers.length * 48.0 + 12);
+  });
 
   final List<ServerProfile> servers;
   final String activeServerId;
   final String? selectingId;
   final Future<ServerProfileData?> Function(ServerProfile server) profileFor;
+
+  @override
+  double get height => servers.length * 48.0 + 12;
 
   @override
   bool represents(String? value) => false;
