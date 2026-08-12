@@ -71,6 +71,62 @@ void main() {
     expect(config?.lines[1].lastTestedAt, testedAt);
   });
 
+  test('多服务器配置会保存各自线路并恢复当前服务器', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repo = ServerConfigRepository(prefs);
+    const home = ServerProfile(
+      id: 'home',
+      name: '家庭服务器',
+      lines: [
+        ServerLine(
+          id: 'home-lan',
+          name: '局域网',
+          baseUrl: 'http://192.168.1.10:8001/',
+        ),
+      ],
+      activeLineId: 'home-lan',
+    );
+    const remote = ServerProfile(
+      id: 'remote',
+      name: '公网服务器',
+      lines: [
+        ServerLine(
+          id: 'remote-cdn',
+          name: 'CDN',
+          baseUrl: 'https://media.example/',
+        ),
+      ],
+      activeLineId: 'remote-cdn',
+    );
+
+    await repo.save(
+      const ServerConfig(
+        baseUrl: 'http://192.168.1.10:8001',
+        lines: home.lines,
+        servers: [home, remote],
+        activeServerId: 'home',
+      ),
+    );
+
+    var config = repo.load();
+    expect(config?.servers, hasLength(2));
+    expect(config?.activeServerId, 'home');
+    expect(config?.baseUrl, 'http://192.168.1.10:8001');
+    expect(config?.servers[1].lines.single.baseUrl, 'https://media.example');
+
+    await repo.save(
+      config!.copyWith(
+        baseUrl: 'https://media.example',
+        lines: remote.lines,
+        activeServerId: 'remote',
+      ),
+    );
+    config = repo.load();
+    expect(config?.activeServerId, 'remote');
+    expect(config?.baseUrl, 'https://media.example');
+    expect(config?.servers[0].lines.single.baseUrl, 'http://192.168.1.10:8001');
+  });
+
   test('normalize 去除末尾斜杠', () {
     expect(ServerConfig.normalize('http://x:8001/'), 'http://x:8001');
     expect(ServerConfig.normalize(' http://x:8001 '), 'http://x:8001');

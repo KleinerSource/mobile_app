@@ -21,6 +21,7 @@ import 'features/privacy/privacy_shield.dart';
 import 'features/security/security_gate.dart';
 import 'features/settings/app_update_startup_gate.dart';
 import 'features/settings/server_setup_page.dart';
+import 'features/settings/server_selection_page.dart';
 import 'features/settings/login_page.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'shared/glass.dart';
@@ -85,7 +86,11 @@ class MdCenterApp extends ConsumerWidget {
 
     Future<void> changeServer() async {
       await ref.read(authSessionRepositoryProvider).clear();
-      ref.read(serverConfigProvider.notifier).beginEdit();
+      if (cfg?.hasMultipleServers == true) {
+        ref.read(serverConfigProvider.notifier).showServerSelection();
+      } else {
+        ref.read(serverConfigProvider.notifier).beginEdit();
+      }
     }
 
     return MaterialApp(
@@ -114,6 +119,7 @@ class MdCenterApp extends ConsumerWidget {
               data: (state) => switch (state.phase) {
                 AuthPhase.needsLogin || AuthPhase.totpRequired =>
                   const LoginPage(),
+                AuthPhase.serverSelection => const ServerSelectionPage(),
                 AuthPhase.incompatible || AuthPhase.unavailable =>
                   _StartupError(
                     message: state.message ?? '服务器不可用',

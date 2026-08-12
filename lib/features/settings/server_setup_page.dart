@@ -67,6 +67,12 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       final config = ServerConfig(
         baseUrl: normalized,
         lines: existing?.baseUrl == normalized ? existing!.lines : const [],
+        servers: existing?.baseUrl == normalized
+            ? existing!.servers
+            : const [],
+        activeServerId: existing?.baseUrl == normalized
+            ? existing!.activeServerId
+            : null,
       );
       await ref
           .read(serverConfigProvider.notifier)

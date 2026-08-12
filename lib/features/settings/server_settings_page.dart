@@ -18,7 +18,7 @@ import '../resources/resource_list_page.dart';
 import '../resources/resources_repository.dart';
 import '../translation/translation_settings_page.dart';
 import 'access_control_page.dart';
-import 'server_lines_page.dart';
+import 'server_list_page.dart';
 import 'server_setup_page.dart';
 import 'settings_common.dart';
 
@@ -45,16 +45,16 @@ class ServerSettingsPage extends ConsumerWidget {
                 title: l.settingsGroupServer,
                 items: [
                   SettingsTile(
-                    title: '服务器线路',
+                    title: '服务器列表',
                     subtitle: cfg == null
                         ? l.settingsServerNotConfigured
-                        : '${cfg.baseUrl} · ${cfg.lines.length} 条线路',
+                        : '${cfg.servers.length} 台服务器 · 可分别配置线路',
                     leadingIcon: Icons.dns_outlined,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => cfg == null
                             ? const ServerSetupPage()
-                            : const ServerLinesPage(),
+                            : const ServerListPage(),
                       ),
                     ),
                   ),

@@ -12,7 +12,9 @@ import '../../shared/glow_background.dart';
 import 'settings_common.dart';
 
 class ServerLinesPage extends ConsumerStatefulWidget {
-  const ServerLinesPage({super.key});
+  const ServerLinesPage({super.key, this.serverId});
+
+  final String? serverId;
 
   @override
   ConsumerState<ServerLinesPage> createState() => _ServerLinesPageState();
@@ -26,6 +28,15 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
   bool _loaded = false;
   bool _testingAll = false;
 
+  ServerProfile? _serverFor(ServerConfig config) {
+    if (config.servers.isEmpty) return null;
+    if (widget.serverId == null) return config.activeServer;
+    for (final server in config.servers) {
+      if (server.id == widget.serverId) return server;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
@@ -36,9 +47,16 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         body: const Center(child: Text('服务器尚未配置')),
       );
     }
+    final server = _serverFor(config);
+    if (server == null) {
+      return Scaffold(
+        backgroundColor: colors.bg,
+        body: const Center(child: Text('服务器不存在')),
+      );
+    }
     if (!_loaded) {
       _loaded = true;
-      _lines = List<ServerLine>.of(config.lines);
+      _lines = List<ServerLine>.of(server.lines);
     }
 
     return Scaffold(
@@ -47,10 +65,10 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         child: SafeArea(
           child: Column(
             children: [
-              const SettingsSubPageHeader(
-                eyebrow: '服务器',
+              SettingsSubPageHeader(
+                eyebrow: '服务器 · ${server.name}',
                 title: '服务器线路',
-                subtitle: '并发探测多条线路，首个可用线路立即生效',
+                subtitle: '当前服务器可配置多条线路，自动选择最快可用线路',
               ),
               Expanded(
                 child: ListView(
@@ -62,7 +80,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
                       _buildEmpty(colors)
                     else
                       for (final line in _lines) ...[
-                        _buildLineCard(context, colors, config, line),
+                        _buildLineCard(context, colors, server, line),
                         const SizedBox(height: 12),
                       ],
                   ],
@@ -121,10 +139,10 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
   Widget _buildLineCard(
     BuildContext context,
     AppColors colors,
-    ServerConfig config,
+    ServerProfile server,
     ServerLine line,
   ) {
-    final active = line.baseUrl == config.baseUrl;
+    final active = line.id == server.activeLine?.id;
     final testing = _testingIds.contains(line.id);
     final result = _testResults[line.id];
     final statusColor = testing
@@ -301,23 +319,21 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     try {
       final selected = await batch.firstAvailable;
       if (selected != null && mounted) {
-        // 首个健康线路立即成为当前线路，不再等待最慢线路的超时结果。
-        final current = ref.read(serverConfigProvider);
-        if (current != null && current.baseUrl != selected.line.baseUrl) {
-          await _persist(_lines, selected.line.baseUrl);
-        }
+        // 首个健康线路立即成为当前服务器的线路，不再等待最慢线路的超时结果。
+        await _persist(_lines, selected.line.baseUrl);
         if (mounted) {
           setState(() => _testingAll = false);
           _showMessage(
-            '已切换到 ${selected.line.name}（${selected.latencyMs} ms）',
+            '已选择 ${selected.line.name}（${selected.latencyMs} ms）',
           );
         }
       }
 
       final tested = await batch.completed;
       if (!mounted) return;
-      final activeUrl = selected?.line.baseUrl ??
-          ref.read(serverConfigProvider)?.baseUrl;
+      final current = ref.read(serverConfigProvider);
+      final server = current == null ? null : _serverFor(current);
+      final activeUrl = selected?.line.baseUrl ?? server?.activeLine?.baseUrl;
       if (activeUrl != null) {
         await _persist(_lines, activeUrl);
       }
@@ -387,13 +403,13 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
             .map((item) => item.id == existing.id ? testedLine : item)
             .toList();
     final current = ref.read(serverConfigProvider);
+    final server = current == null ? null : _serverFor(current);
+    if (server == null) return;
     final editingActive =
-        existing != null && current?.baseUrl == existing.baseUrl;
-    final activeUrl = current == null
+        existing != null && server.activeLine?.id == existing.id;
+    final activeUrl = editingActive
         ? testedLine.baseUrl
-        : editingActive
-            ? testedLine.baseUrl
-            : current.baseUrl;
+        : server.activeLine?.baseUrl ?? testedLine.baseUrl;
     try {
       await _persist(next, activeUrl);
       if (mounted) {
@@ -427,8 +443,9 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
 
   Future<void> _toggle(ServerLine line, bool enabled) async {
     final current = ref.read(serverConfigProvider);
-    if (current == null) return;
-    if (!enabled && line.baseUrl == current.baseUrl) {
+    final server = current == null ? null : _serverFor(current);
+    if (current == null || server == null) return;
+    if (!enabled && line.id == server.activeLine?.id) {
       final fallbackLines = _lines
           .where((item) => item.id != line.id && item.enabled)
           .toList();
@@ -468,7 +485,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
             : item)
         .toList();
     try {
-      await _persist(next, current.baseUrl);
+      await _persist(next, server.activeLine?.baseUrl ?? line.baseUrl);
     } catch (error) {
       if (mounted) _showMessage(toApiException(error).message);
     }
@@ -499,10 +516,14 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     if (confirmed != true || !mounted) return;
     final current = ref.read(serverConfigProvider);
     if (current == null) return;
+    final server = _serverFor(current);
+    if (server == null) return;
     final next = _lines.where((item) => item.id != line.id).toList();
-    final activeUrl = line.baseUrl == current.baseUrl
-        ? next.firstWhere((item) => item.enabled, orElse: () => next.first).baseUrl
-        : current.baseUrl;
+    final activeUrl = line.id == server.activeLine?.id
+        ? next
+            .firstWhere((item) => item.enabled, orElse: () => next.first)
+            .baseUrl
+        : server.activeLine?.baseUrl ?? next.first.baseUrl;
     try {
       await _persist(next, activeUrl);
       if (mounted) _showMessage('线路已删除');
@@ -552,14 +573,30 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
   }
 
   Future<void> _persist(List<ServerLine> lines, String activeUrl) async {
-    await ref.read(serverConfigProvider.notifier).save(
-          ServerConfig(baseUrl: activeUrl, lines: lines),
+    final config = ref.read(serverConfigProvider);
+    final server = config == null ? null : _serverFor(config);
+    if (server == null) return;
+    final selectedLine = lines.firstWhere(
+      (line) => line.baseUrl == activeUrl,
+      orElse: () => lines.firstWhere(
+        (line) => line.enabled,
+        orElse: () => lines.first,
+      ),
+    );
+    await ref.read(serverConfigProvider.notifier).saveServer(
+          server.copyWith(
+            lines: lines,
+            activeLineId: selectedLine.id,
+          ),
+          select: config.activeServerId == server.id,
         );
     if (mounted) setState(() => _lines = List<ServerLine>.of(lines));
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 }
 

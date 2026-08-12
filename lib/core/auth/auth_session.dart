@@ -122,6 +122,7 @@ class TotpSetup {
 
 enum AuthPhase {
   unconfigured,
+  serverSelection,
   needsLogin,
   totpRequired,
   authenticated,

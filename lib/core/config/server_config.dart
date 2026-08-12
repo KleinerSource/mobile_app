@@ -86,11 +86,102 @@ class ServerLine {
 }
 
 @immutable
+class ServerProfile {
+  const ServerProfile({
+    required this.id,
+    required this.name,
+    required this.lines,
+    this.activeLineId,
+  });
+
+  final String id;
+  final String name;
+  final List<ServerLine> lines;
+  final String? activeLineId;
+
+  factory ServerProfile.fromJson(Map<String, dynamic> json) {
+    final id = json['id']?.toString().trim() ?? '';
+    final name = json['name']?.toString().trim() ?? '';
+    final rawLines = json['lines'];
+    final lines = rawLines is List
+        ? rawLines
+            .whereType<Map>()
+            .map((item) => ServerLine.fromJson(Map<String, dynamic>.from(item)))
+            .where((line) => line.baseUrl.isNotEmpty)
+            .toList()
+        : <ServerLine>[];
+    return ServerProfile(
+      id: id.isNotEmpty ? id : 'server-${name.hashCode}',
+      name: name.isNotEmpty ? name : '服务器',
+      lines: lines,
+      activeLineId: json['active_line_id']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'lines': lines.map((line) => line.toJson()).toList(),
+        if (activeLineId != null) 'active_line_id': activeLineId,
+      };
+
+  ServerLine? get activeLine {
+    if (lines.isEmpty) return null;
+    for (final line in lines) {
+      if (line.id == activeLineId) return line;
+    }
+    for (final line in lines) {
+      if (line.enabled) return line;
+    }
+    return lines.first;
+  }
+
+  ServerProfile copyWith({
+    String? id,
+    String? name,
+    List<ServerLine>? lines,
+    String? activeLineId,
+  }) {
+    return ServerProfile(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      lines: lines ?? this.lines,
+      activeLineId: activeLineId ?? this.activeLineId,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ServerProfile &&
+          other.id == id &&
+          other.name == name &&
+          listEquals(other.lines, lines) &&
+          other.activeLineId == activeLineId;
+
+  @override
+  int get hashCode => Object.hash(
+        id,
+        name,
+        Object.hashAll(lines),
+        activeLineId,
+      );
+}
+
+@immutable
 class ServerConfig {
-  const ServerConfig({required this.baseUrl, this.lines = const []});
+  const ServerConfig({
+    required this.baseUrl,
+    this.lines = const [],
+    this.servers = const [],
+    this.activeServerId,
+  });
 
   final String baseUrl;
+  /// 当前服务器的线路。保留该字段是为了兼容已有 API、播放器和缓存逻辑。
   final List<ServerLine> lines;
+  final List<ServerProfile> servers;
+  final String? activeServerId;
 
   static String normalize(String raw) {
     var s = raw.trim();
@@ -102,10 +193,27 @@ class ServerConfig {
 
   String get apiBase => '$baseUrl/api';
 
-  ServerConfig copyWith({String? baseUrl, List<ServerLine>? lines}) {
+  bool get hasMultipleServers => servers.length > 1;
+
+  ServerProfile? get activeServer {
+    if (servers.isEmpty) return null;
+    return servers.firstWhere(
+      (server) => server.id == activeServerId,
+      orElse: () => servers.first,
+    );
+  }
+
+  ServerConfig copyWith({
+    String? baseUrl,
+    List<ServerLine>? lines,
+    List<ServerProfile>? servers,
+    String? activeServerId,
+  }) {
     return ServerConfig(
       baseUrl: baseUrl ?? this.baseUrl,
       lines: lines ?? this.lines,
+      servers: servers ?? this.servers,
+      activeServerId: activeServerId ?? this.activeServerId,
     );
   }
 
@@ -114,8 +222,15 @@ class ServerConfig {
       identical(this, other) ||
       other is ServerConfig &&
           other.baseUrl == baseUrl &&
-          listEquals(other.lines, lines);
+          listEquals(other.lines, lines) &&
+          listEquals(other.servers, servers) &&
+          other.activeServerId == activeServerId;
 
   @override
-  int get hashCode => Object.hash(baseUrl, Object.hashAll(lines));
+  int get hashCode => Object.hash(
+        baseUrl,
+        Object.hashAll(lines),
+        Object.hashAll(servers),
+        activeServerId,
+      );
 }

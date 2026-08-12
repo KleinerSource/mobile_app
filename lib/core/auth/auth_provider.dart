@@ -23,6 +23,11 @@ class AuthController extends AsyncNotifier<AuthState> {
       return const AuthState(phase: AuthPhase.unconfigured);
     }
 
+    if (config.hasMultipleServers &&
+        !ref.watch(serverSelectionReadyProvider)) {
+      return const AuthState(phase: AuthPhase.serverSelection);
+    }
+
     final candidates = config.lines.where((line) => line.enabled).toList();
     final current = candidates.firstWhere(
       (line) => line.baseUrl == config.baseUrl,
