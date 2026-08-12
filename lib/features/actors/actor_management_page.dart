@@ -7,11 +7,14 @@ import '../../core/api/dio_factory.dart';
 import '../../core/api/envelope.dart';
 import '../../core/api/providers.dart';
 import '../../core/models/actor.dart';
+import '../../core/models/mapping_rule.dart';
 import '../../core/models/paged_result.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
+import '../actor_associations/actor_associations_providers.dart';
+import '../actor_associations/actor_associations_repository.dart';
 import '../person_detail/person_detail_page.dart';
 import '../settings/settings_common.dart';
 
@@ -289,12 +292,17 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     BuildContext context, {
     ActorItem? actor,
   }) async {
+    final associationData = actor == null
+        ? const _ActorAssociationData.empty()
+        : await _loadActorAssociation(actor.name);
+    if (!context.mounted) return;
+
     final c = appColors(context);
     final nameController = TextEditingController(text: actor?.name ?? '');
     final biographyController =
         TextEditingController(text: actor?.biography ?? '');
-    final typeController =
-        TextEditingController(text: actor?.actorType ?? '');
+    final associationController =
+        TextEditingController(text: associationData.aliases.join('\n'));
     final isEdit = actor != null;
 
     final draft = await showModalBottomSheet<_ActorDraft>(
@@ -325,16 +333,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                   autofocus: !isEdit,
                   decoration: settingsInputDecoration(
                     sheetContext,
+                    labelText: '演员名称',
                     hintText: '演员名称',
-                  ),
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: typeController,
-                  decoration: settingsInputDecoration(
-                    sheetContext,
-                    hintText: '演员类型 (可选)',
                   ),
                   textInputAction: TextInputAction.next,
                 ),
@@ -345,7 +345,20 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                   minLines: 2,
                   decoration: settingsInputDecoration(
                     sheetContext,
-                    hintText: '演员简介 (可选)',
+                    labelText: '演员简介',
+                    hintText: '填写演员简介（可选）',
+                  ),
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: associationController,
+                  maxLines: 4,
+                  minLines: 2,
+                  decoration: settingsInputDecoration(
+                    sheetContext,
+                    labelText: '关联名称',
+                    hintText: '每行一个，可选',
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -359,7 +372,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                         _ActorDraft(
                           name: name,
                           biography: biographyController.text.trim(),
-                          actorType: typeController.text.trim(),
+                          associationText: associationController.text,
                         ),
                       );
                     },
@@ -383,7 +396,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
 
     nameController.dispose();
     biographyController.dispose();
-    typeController.dispose();
+    associationController.dispose();
 
     if (draft == null || !context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
@@ -392,18 +405,26 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       final body = <String, dynamic>{'name': draft.name};
       if (isEdit) {
         body['biography'] = draft.biography;
-        body['actor_type'] = draft.actorType;
       } else {
         if (draft.biography.isNotEmpty) body['biography'] = draft.biography;
-        if (draft.actorType.isNotEmpty) body['actor_type'] = draft.actorType;
       }
       final raw = isEdit
           ? await api.catalog.updateActor(actor.id, body)
           : await api.catalog.createActor(body);
-      unwrapStd<ActorItem>(
+      final savedActor = unwrapStd<ActorItem>(
         raw,
         (data) => ActorItem.fromJson(Map<String, dynamic>.from(data as Map)),
       );
+
+      if (associationData.loaded &&
+          (isEdit || draft.associationText.trim().isNotEmpty)) {
+        await _saveActorAssociation(
+          actorName: savedActor.name,
+          associationText: draft.associationText,
+          existing: associationData.rule,
+          isCanonical: associationData.isCanonical,
+        );
+      }
       AppHaptics.medium();
       messenger.showSnackBar(
         SnackBar(content: Text(isEdit ? '演员已保存' : '演员已创建')),
@@ -415,6 +436,73 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       );
     }
   }
+
+  Future<_ActorAssociationData> _loadActorAssociation(String actorName) async {
+    try {
+      final rules = await ref.read(actorAssociationsRepositoryProvider).list(
+            limit: 100,
+            search: actorName,
+          );
+      final normalizedName = _normalizeActorName(actorName);
+      MappingRule? rule;
+      for (final item in rules) {
+        final matchesCanonical =
+            _normalizeActorName(item.mappedValue) == normalizedName;
+        final matchesAlias = item.originalValues.any(
+          (value) => _normalizeActorName(value) == normalizedName,
+        );
+        if (matchesCanonical || matchesAlias) {
+          rule = item;
+          break;
+        }
+      }
+      if (rule == null) return const _ActorAssociationData.loaded();
+
+      final isCanonical =
+          _normalizeActorName(rule.mappedValue) == normalizedName;
+      return _ActorAssociationData(
+        rule: rule,
+        isCanonical: isCanonical,
+        aliases: List<String>.from(rule.originalValues),
+      );
+    } catch (_) {
+      // 演员资料仍可编辑；关联接口不可用时不覆盖已有规则。
+      return const _ActorAssociationData.unavailable();
+    }
+  }
+
+  Future<void> _saveActorAssociation({
+    required String actorName,
+    required String associationText,
+    required MappingRule? existing,
+    required bool isCanonical,
+  }) async {
+    final repo = ref.read(actorAssociationsRepositoryProvider);
+    final mappedValue = isCanonical
+        ? actorName
+        : (existing?.mappedValue?.trim() ?? actorName);
+    final aliases = ActorAssociationsRepository.parseAliases(
+      associationText,
+      mappedValue,
+    );
+
+    if (aliases.isEmpty) {
+      if (existing != null) await repo.deleteById(existing.id);
+      return;
+    }
+    if (existing == null) {
+      await repo.create(mappedValue: mappedValue, originalValues: aliases);
+    } else {
+      await repo.update(
+        id: existing.id,
+        mappedValue: mappedValue,
+        originalValues: aliases,
+      );
+    }
+  }
+
+  String _normalizeActorName(String? value) =>
+      (value ?? '').trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
 
   Future<void> _confirmDelete(BuildContext context, ActorItem actor) async {
     final hasMovies = actor.movieCount > 0;
@@ -465,12 +553,34 @@ class _ActorDraft {
   const _ActorDraft({
     required this.name,
     required this.biography,
-    required this.actorType,
+    required this.associationText,
   });
 
   final String name;
   final String biography;
-  final String actorType;
+  final String associationText;
+}
+
+class _ActorAssociationData {
+  const _ActorAssociationData({
+    this.rule,
+    this.isCanonical = true,
+    this.aliases = const <String>[],
+    this.loaded = true,
+  });
+
+  const _ActorAssociationData.empty() : this();
+
+  const _ActorAssociationData.loaded()
+      : this(loaded: true);
+
+  const _ActorAssociationData.unavailable()
+      : this(loaded: false);
+
+  final MappingRule? rule;
+  final bool isCanonical;
+  final List<String> aliases;
+  final bool loaded;
 }
 
 enum _ActorMenuAction { edit, delete }
@@ -547,7 +657,7 @@ class _ActorTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final type = actor.actorType?.trim();
+    final hasBiography = actor.biography?.trim().isNotEmpty == true;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
@@ -589,22 +699,37 @@ class _ActorTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    actor.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14.5,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          actor.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: c.text,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Tooltip(
+                        message: hasBiography ? '已有简介' : '暂无简介',
+                        child: Icon(
+                          hasBiography
+                              ? Icons.description
+                              : Icons.description_outlined,
+                          size: 16,
+                          color: hasBiography ? c.accent : c.muted2,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    type?.isNotEmpty == true
-                        ? '$type · ${actor.movieCount} 部影片'
-                        : '${actor.movieCount} 部影片',
+                    '${actor.movieCount} 部影片',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppText.meta(context),
