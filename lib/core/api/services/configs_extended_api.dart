@@ -5,8 +5,6 @@ class ConfigsExtendedApi {
 
   final Dio _dio;
 
-  Future<Object?> list() => _get('/configs');
-
   Future<Object?> create(Map<String, dynamic> body) => _post('/configs', body);
 
   Future<Object?> avdb() => _get('/configs/avdb');

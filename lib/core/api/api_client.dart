@@ -16,7 +16,6 @@ import 'services/movies_extended_api.dart';
 import 'services/libraries_extended_api.dart';
 import 'services/catalog_extended_api.dart';
 import 'services/configs_extended_api.dart';
-import 'services/images_api.dart';
 import 'services/mappings_extended_api.dart';
 import 'services/series_api.dart';
 import 'services/system_api.dart';
@@ -44,8 +43,7 @@ class ApiClient {
         mappings = MappingsApi(dio),
         mappingsExtended = MappingsExtendedApi(dio),
         configs = ConfigsApi(dio),
-        configsExtended = ConfigsExtendedApi(dio),
-        images = ImagesApi(dio);
+        configsExtended = ConfigsExtendedApi(dio);
 
   factory ApiClient.fromConfig(
     ServerConfig config, {
@@ -80,6 +78,5 @@ class ApiClient {
   final MappingsExtendedApi mappingsExtended;
   final ConfigsApi configs;
   final ConfigsExtendedApi configsExtended;
-  final ImagesApi images;
   final SystemExtendedApi systemExtended;
 }
