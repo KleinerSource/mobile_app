@@ -664,112 +664,110 @@ class _ActorTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: c.surface,
           border: Border.all(color: c.cardBorder),
           borderRadius: BorderRadius.circular(14),
         ),
+        clipBehavior: Clip.hardEdge,
         child: Stack(
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppHues.top(hue), AppHues.bottom(hue)],
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    actor.name.isNotEmpty ? actor.name.characters.first : '·',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        actor.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: c.text,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14.5,
-                        ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppHues.top(hue), AppHues.bottom(hue)],
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '${actor.movieCount} 部影片',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.meta(context),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      actor.name.isNotEmpty ? actor.name.characters.first : '·',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          actor.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: c.text,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14.5,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${actor.movieCount} 部影片',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.meta(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuButton<_ActorMenuAction>(
+                    tooltip: '更多操作',
+                    icon: Icon(Icons.more_horiz, color: c.muted),
+                    onSelected: (action) {
+                      switch (action) {
+                        case _ActorMenuAction.edit:
+                          onEdit();
+                          return;
+                        case _ActorMenuAction.delete:
+                          onDelete();
+                          return;
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: _ActorMenuAction.edit,
+                        child: Text('编辑'),
+                      ),
+                      PopupMenuItem(
+                        value: _ActorMenuAction.delete,
+                        child: Text('删除'),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 30),
-                PopupMenuButton<_ActorMenuAction>(
-                  tooltip: '更多操作',
-                  icon: Icon(Icons.more_horiz, color: c.muted),
-                  onSelected: (action) {
-                    switch (action) {
-                      case _ActorMenuAction.edit:
-                        onEdit();
-                        return;
-                      case _ActorMenuAction.delete:
-                        onDelete();
-                        return;
-                    }
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
-                      value: _ActorMenuAction.edit,
-                      child: Text('编辑'),
-                    ),
-                    PopupMenuItem(
-                      value: _ActorMenuAction.delete,
-                      child: Text('删除'),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
             if (hasBiography)
               Positioned(
-                right: 51,
-                top: 8,
+                top: 0,
+                right: 0,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 4,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(8, 3, 8, 4),
                   decoration: BoxDecoration(
-                    color: c.accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(7),
-                    border: Border.all(
-                      color: c.accent.withValues(alpha: 0.3),
+                    color: c.accent,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(8),
                     ),
                   ),
-                  child: Text(
+                  child: const Text(
                     '简介',
                     style: TextStyle(
-                      color: c.accent,
+                      color: Colors.white,
                       fontFamily: 'Inter',
                       fontWeight: FontWeight.w700,
                       fontSize: 11,
