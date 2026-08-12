@@ -103,7 +103,7 @@ class _HomeServerSwitcherMenuState
           tooltip: '切换服务器',
           offset: const Offset(0, 46),
           position: PopupMenuPosition.under,
-          color: colors.bg.withValues(alpha: 0.46),
+          color: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           elevation: 12,
           shape: RoundedRectangleBorder(
