@@ -81,6 +81,7 @@ class MdCenterApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cfg = ref.watch(serverConfigProvider);
     final auth = ref.watch(authControllerProvider);
+    final serverSelectionReady = ref.watch(serverSelectionReadyProvider);
     final appLocale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
 
@@ -112,7 +113,9 @@ class MdCenterApp extends ConsumerWidget {
         child: cfg == null
             ? const ServerSetupPage()
             : auth.when(
-                loading: () => const _StartupLoading(),
+                loading: () => cfg.hasMultipleServers && serverSelectionReady
+                    ? const ServerSelectionPage()
+                    : const _StartupLoading(),
                 error: (error, _) => _StartupError(
                       message: error.toString(),
                       serverUrl: cfg.baseUrl,
@@ -122,7 +125,9 @@ class MdCenterApp extends ConsumerWidget {
                     ),
                 data: (state) => switch (state.phase) {
                   AuthPhase.needsLogin || AuthPhase.totpRequired =>
-                    const LoginPage(),
+                    cfg.hasMultipleServers && serverSelectionReady
+                        ? const ServerSelectionPage()
+                        : const LoginPage(),
                   AuthPhase.serverSelection => const ServerSelectionPage(),
                   AuthPhase.incompatible || AuthPhase.unavailable =>
                     _StartupError(
