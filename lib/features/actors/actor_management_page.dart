@@ -8,7 +8,6 @@ import '../../core/api/envelope.dart';
 import '../../core/api/providers.dart';
 import '../../core/models/actor.dart';
 import '../../core/models/mapping_rule.dart';
-import '../../core/models/paged_result.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -28,36 +27,95 @@ class ActorManagementPage extends ConsumerStatefulWidget {
 }
 
 class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
+  static const _pageSize = 100;
+
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
   Timer? _searchDebounce;
   String? _search;
   String _sortBy = 'movie_count';
   String _sortOrder = 'desc';
-  late Future<PagedResult<ActorItem>> _future;
+  List<ActorItem> _items = const [];
+  int _totalCount = 0;
+  int _nextOffset = 0;
+  bool _hasMore = false;
+  bool _loading = false;
+  bool _hasLoaded = false;
+  Object? _error;
+  int _requestSerial = 0;
 
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _scrollController.addListener(_onScroll);
+    unawaited(_fetch(reset: true));
   }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<PagedResult<ActorItem>> _load() async {
+  void _onScroll() {
+    if (!_scrollController.hasClients ||
+        _scrollController.position.extentAfter > 280 ||
+        _error != null) {
+      return;
+    }
+    unawaited(_fetch(reset: false));
+  }
+
+  Future<void> _fetch({required bool reset}) async {
+    if (!reset && (_loading || !_hasMore)) return;
+
+    final requestSerial = reset ? ++_requestSerial : _requestSerial;
+    final offset = reset ? 0 : _nextOffset;
     final query = <String, dynamic>{
-      'limit': 100,
-      'offset': 0,
+      'limit': _pageSize,
+      'offset': offset,
       'sort_by': _sortBy,
       'sort_order': _sortOrder,
       if (_search != null) 'search': _search,
     };
-    final raw = await ref.read(requiredApiClientProvider).actors.list(query);
-    return unwrapTopLevelList<ActorItem>(raw, ActorItem.fromJson);
+    setState(() {
+      _loading = true;
+      _error = null;
+      if (reset) {
+        _items = const [];
+        _totalCount = 0;
+        _nextOffset = 0;
+        _hasMore = false;
+        _hasLoaded = false;
+      }
+    });
+
+    try {
+      final raw = await ref.read(requiredApiClientProvider).actors.list(query);
+      final page = unwrapTopLevelList<ActorItem>(raw, ActorItem.fromJson);
+      if (!mounted || requestSerial != _requestSerial) return;
+
+      final existingIds = _items.map((item) => item.id).toSet();
+      final newItems = page.items
+          .where((item) => existingIds.add(item.id))
+          .toList();
+      setState(() {
+        _items = [..._items, ...newItems];
+        _totalCount = page.totalCount;
+        _nextOffset = offset + page.items.length;
+        _hasMore = page.hasMore && newItems.isNotEmpty;
+        _loading = false;
+        _hasLoaded = true;
+      });
+    } catch (error) {
+      if (!mounted || requestSerial != _requestSerial) return;
+      setState(() {
+        _error = error;
+        _loading = false;
+      });
+    }
   }
 
   void _onSearchChanged(String value) {
@@ -66,8 +124,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       if (!mounted) return;
       setState(() {
         _search = value.trim().isEmpty ? null : value.trim();
-        _future = _load();
       });
+      unawaited(_fetch(reset: true));
     });
   }
 
@@ -79,27 +137,22 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         _sortBy = field;
         _sortOrder = field == 'movie_count' ? 'desc' : 'asc';
       }
-      _future = _load();
     });
+    unawaited(_fetch(reset: true));
     AppHaptics.selection();
   }
 
   Future<void> _refresh() async {
-    final future = _load();
-    setState(() => _future = future);
-    await future;
+    await _fetch(reset: true);
   }
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
+    final items = _items;
 
-    return FutureBuilder<PagedResult<ActorItem>>(
-      future: _future,
-      builder: (context, snapshot) {
-        final items = snapshot.data?.items ?? const <ActorItem>[];
-        return Scaffold(
+    return Scaffold(
           backgroundColor: c.bg,
           body: GlowBackground(
             child: SafeArea(
@@ -107,6 +160,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                 color: c.accent,
                 onRefresh: _refresh,
                 child: CustomScrollView(
+                  controller: _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverToBoxAdapter(
@@ -126,8 +180,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                           textBaseline: TextBaseline.alphabetic,
                           children: [
                             Text(
-                              snapshot.hasData
-                                  ? '${snapshot.data!.totalCount}'
+                              _hasLoaded
+                                  ? '$_totalCount'
                                   : '—',
                               style: AppText.pageTitle(context),
                             ),
@@ -221,27 +275,37 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                       ),
                     ),
                     const SliverToBoxAdapter(child: SizedBox(height: 10)),
-                    if (snapshot.connectionState == ConnectionState.waiting &&
-                        !snapshot.hasData)
+                    if (_loading && !_hasLoaded)
                       const SliverFillRemaining(
                         hasScrollBody: false,
                         child: Center(child: CircularProgressIndicator()),
                       )
-                    else if (snapshot.hasError)
+                    else if (_error != null && items.isEmpty)
                       SliverFillRemaining(
                         hasScrollBody: false,
                         child: Center(
                           child: Padding(
                             padding: const EdgeInsets.all(24),
-                            child: Text(
-                              '加载失败: ${toApiException(snapshot.error!).message}',
-                              style: AppText.body(context),
-                              textAlign: TextAlign.center,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '加载失败: ${toApiException(_error!).message}',
+                                  style: AppText.body(context),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 10),
+                                TextButton(
+                                  onPressed: () =>
+                                      unawaited(_fetch(reset: true)),
+                                  child: const Text('点击重试'),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       )
-                    else if (items.isEmpty)
+                    else if (items.isEmpty && _hasLoaded)
                       const SliverFillRemaining(
                         hasScrollBody: false,
                         child: _EmptyActors(),
@@ -250,8 +314,36 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                       SliverPadding(
                         padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
                         sliver: SliverList.builder(
-                          itemCount: items.length,
+                          itemCount: items.length + (_hasMore ? 1 : 0),
                           itemBuilder: (context, index) {
+                            if (index >= items.length) {
+                              if (_error != null) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  child: Center(
+                                    child: TextButton(
+                                      onPressed: () =>
+                                          unawaited(_fetch(reset: false)),
+                                      child: const Text('加载更多失败，点击重试'),
+                                    ),
+                                  ),
+                                );
+                              }
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
                             final actor = items[index];
                             return _ActorTile(
                               actor: actor,
@@ -278,14 +370,16 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                           },
                         ),
                       ),
+                    if (_loading && _hasLoaded)
+                      const SliverToBoxAdapter(
+                        child: LinearProgressIndicator(minHeight: 2),
+                      ),
                   ],
                 ),
               ),
             ),
           ),
         );
-      },
-    );
   }
 
   Future<void> _showEditor(
