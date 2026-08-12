@@ -101,7 +101,7 @@ class _HomeServerSwitcherMenuState
         return PopupMenuButton<String>(
           enabled: _selectingId == null,
           tooltip: '切换服务器',
-          offset: const Offset(0, 46),
+          offset: const Offset(0, 4),
           position: PopupMenuPosition.under,
           color: Colors.transparent,
           surfaceTintColor: Colors.transparent,
@@ -194,8 +194,9 @@ class _ServerMenuPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final menuWidth = _serverMenuWidth(servers);
     return SizedBox(
-      width: 244,
+      width: menuWidth,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: BackdropFilter(
@@ -225,6 +226,17 @@ class _ServerMenuPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+double _serverMenuWidth(List<ServerProfile> servers) {
+  var maxNameLength = 0;
+  for (final server in servers) {
+    final nameLength = server.name.trim().runes.length;
+    if (nameLength > maxNameLength) maxNameLength = nameLength;
+  }
+
+  // 头像、间距和状态图标占用固定空间，名称长度决定剩余宽度。
+  return (maxNameLength * 15.0 + 92.0).clamp(148.0, 224.0).toDouble();
 }
 
 class _ServerMenuRow extends StatelessWidget {
