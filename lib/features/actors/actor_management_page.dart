@@ -439,10 +439,11 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
 
   Future<_ActorAssociationData> _loadActorAssociation(String actorName) async {
     try {
-      final rules = await ref.read(actorAssociationsRepositoryProvider).list(
+      final rules = (await ref.read(actorAssociationsRepositoryProvider).list(
             limit: 100,
             search: actorName,
-          );
+          ))
+          .items;
       final normalizedName = _normalizeActorName(actorName);
       MappingRule? rule;
       for (final item in rules) {
