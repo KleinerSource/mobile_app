@@ -105,10 +105,10 @@ class _HomeServerSwitcherMenuState
           position: PopupMenuPosition.under,
           color: Colors.transparent,
           surfaceTintColor: Colors.transparent,
-          elevation: 12,
+          elevation: 0,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: colors.cardBorder),
           ),
           onSelected: (serverId) => unawaited(_selectServer(serverId)),
           itemBuilder: (context) => [
