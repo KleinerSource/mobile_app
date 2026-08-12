@@ -27,44 +27,50 @@ class AuthController extends AsyncNotifier<AuthState> {
         .read(authSessionRepositoryProvider)
         .setActiveServerId(config.activeServerId);
 
-    if (config.hasMultipleServers &&
-        !ref.watch(serverSelectionReadyProvider)) {
+    final serverSelectionReady = ref.watch(serverSelectionReadyProvider);
+    if (config.hasMultipleServers && !serverSelectionReady) {
       return const AuthState(phase: AuthPhase.serverSelection);
     }
 
-    final candidates = config.lines.where((line) => line.enabled).toList();
-    final current = candidates.firstWhere(
-      (line) => line.baseUrl == config.baseUrl,
-      orElse: () => candidates.isEmpty
-          ? ServerLine(
-              id: 'active',
-              name: '当前线路',
-              baseUrl: config.baseUrl,
-            )
-          : candidates.first,
-    );
-    final alternatives = candidates.where((line) => line.id != current.id);
-    final selection = await ServerLineProbeCoordinator().selectPreferred(
-      current: current,
-      alternatives: alternatives,
-    );
-    final selected = selection.selected;
-    if (selected == null) {
-      final incompatible = selection.results.any((result) => result.incompatible);
-      final detail = selection.results
-          .map((result) => '${result.line.name}：${result.message}')
-          .join('\n');
-      return AuthState(
-        phase: incompatible ? AuthPhase.incompatible : AuthPhase.unavailable,
-        message: incompatible
-            ? serverCompatibilityRequirementMessage
-            : detail.isEmpty
-                ? '没有可用的服务器线路'
-                : detail,
+    // 用户刚刚明确选择服务器时，当前线路已经是用户选择的目标，不再重复
+    // 探测所有线路；这样切换服务器后可以立即检查鉴权状态。
+    var selectedConfig = config;
+    if (!(config.hasMultipleServers && serverSelectionReady)) {
+      final candidates = config.lines.where((line) => line.enabled).toList();
+      final current = candidates.firstWhere(
+        (line) => line.baseUrl == config.baseUrl,
+        orElse: () => candidates.isEmpty
+            ? ServerLine(
+                id: 'active',
+                name: '当前线路',
+                baseUrl: config.baseUrl,
+              )
+            : candidates.first,
       );
+      final alternatives = candidates.where((line) => line.id != current.id);
+      final selection = await ServerLineProbeCoordinator().selectPreferred(
+        current: current,
+        alternatives: alternatives,
+      );
+      final selected = selection.selected;
+      if (selected == null) {
+        final incompatible =
+            selection.results.any((result) => result.incompatible);
+        final detail = selection.results
+            .map((result) => '${result.line.name}：${result.message}')
+            .join('\n');
+        return AuthState(
+          phase: incompatible ? AuthPhase.incompatible : AuthPhase.unavailable,
+          message: incompatible
+              ? serverCompatibilityRequirementMessage
+              : detail.isEmpty
+                  ? '没有可用的服务器线路'
+                  : detail,
+        );
+      }
+      selectedConfig = _withSelectedLine(config, selected);
     }
 
-    final selectedConfig = _withSelectedLine(config, selected);
     if (selectedConfig.baseUrl != config.baseUrl) {
       await ref.read(serverConfigProvider.notifier).save(selectedConfig);
     }
@@ -104,8 +110,8 @@ class AuthController extends AsyncNotifier<AuthState> {
       }
     }
 
-    if (!status.enabled) {
-      // 鉴权关闭后清除历史会话，避免任务 WebSocket 继续携带旧 token。
+    if (!status.enabled || !status.configured) {
+      // 鉴权关闭或尚未配置时清除历史会话，避免任务 WebSocket 继续携带旧 token。
       await ref.read(authSessionRepositoryProvider).clear();
       return AuthState(phase: AuthPhase.authenticated, status: status);
     }
@@ -117,7 +123,9 @@ class AuthController extends AsyncNotifier<AuthState> {
     if (session != null && await _refresh(client)) {
       try {
         final refreshed = await client.auth.status();
-        if (!refreshed.enabled || refreshed.authenticated) {
+        if (!refreshed.enabled ||
+            !refreshed.configured ||
+            refreshed.authenticated) {
           return AuthState(phase: AuthPhase.authenticated, status: refreshed);
         }
         status = refreshed;

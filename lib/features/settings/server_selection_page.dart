@@ -37,6 +37,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   String? _selectedServerId;
   String? _selectingId;
   bool? _needsLogin;
+  bool _authCheckPending = false;
   bool _loginBusy = false;
   bool _totpRequired = false;
   bool _transitionLocked = false;
@@ -109,13 +110,15 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     final servers = config?.servers ?? const <ServerProfile>[];
     final selected = _selectedServerFor(servers);
     ref.listen<AsyncValue<AuthState>>(authControllerProvider, (_, next) {
-      final phase = next.valueOrNull?.phase;
-      if (!mounted || _selectedServerId == null) {
+      final state = next.valueOrNull;
+      if (!mounted || _selectedServerId == null || _authCheckPending) {
         return;
       }
-      if (phase == AuthPhase.needsLogin || phase == AuthPhase.totpRequired) {
-        setState(() => _needsLogin = true);
-      } else if (phase == AuthPhase.authenticated) {
+      if (state == null) return;
+      if (state.phase == AuthPhase.needsLogin ||
+          state.phase == AuthPhase.totpRequired) {
+        setState(() => _needsLogin = _requiresServerLogin(state));
+      } else if (state.phase == AuthPhase.authenticated) {
         setState(() => _needsLogin = false);
       }
     });
@@ -271,7 +274,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                 const SizedBox(height: 44),
                 _needsLogin == true
                     ? _buildInlineLogin(context, colors, selected)
-                    : _buildConnecting(context, colors, selected),
+                    : _buildPendingServer(context, colors, selected),
               ],
             ),
           ),
@@ -520,51 +523,38 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     );
   }
 
-  Widget _buildConnecting(
+  Widget _buildPendingServer(
     BuildContext context,
     AppColors colors,
     ServerProfile server,
   ) {
-    return FutureBuilder<ServerProfileData?>(
-      key: ValueKey('server-connecting-${server.id}'),
-      future: _profileFor(server),
-      builder: (context, snapshot) {
-        final profile = snapshot.data;
-        final displayName = profile?.name.trim().isNotEmpty == true
-            ? profile!.name.trim()
-            : server.name;
-        final avatarUrl = profile?.avatarUrl ?? server.avatarUrl;
-        return ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
-          child: Column(
-            children: [
-              Opacity(
-                opacity: _transitionLocked ? 0 : 1,
-                child: _ServerAvatar(
-                  key: _detailAvatarKey,
-                  displayName: displayName,
-                  avatarUrl: avatarUrl,
-                  size: 128,
-                  busy: true,
-                  colors: colors,
-                ),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppText.pageTitle(context).copyWith(fontSize: 24),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '正在验证服务器…',
-                style: AppText.body(context).copyWith(color: colors.muted),
-              ),
-            ],
+    final displayName = _displayNameFor(server);
+    final avatarUrl = _avatarUrlFor(server);
+    return ConstrainedBox(
+      key: ValueKey('server-pending-${server.id}'),
+      constraints: const BoxConstraints(maxWidth: 360),
+      child: Column(
+        children: [
+          Opacity(
+            opacity: _transitionLocked ? 0 : 1,
+            child: _ServerAvatar(
+              key: _detailAvatarKey,
+              displayName: displayName,
+              avatarUrl: avatarUrl,
+              size: 128,
+              busy: false,
+              colors: colors,
+            ),
           ),
-        );
-      },
+          const SizedBox(height: 18),
+          Text(
+            displayName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.pageTitle(context).copyWith(fontSize: 24),
+          ),
+        ],
+      ),
     );
   }
 
@@ -576,6 +566,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       _selectedServerId = server.id;
       _selectingId = server.id;
       _needsLogin = null;
+      _authCheckPending = true;
       _totpRequired = false;
       _error = null;
       _transitionLocked = true;
@@ -594,18 +585,32 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       _transitionFromRect = sourceRect ?? targetRect;
       _transitionToRect = targetRect ?? sourceRect;
     });
-    await _animateTransition(forward: true);
-    if (!mounted) return;
-
+    final selectFuture = ref
+        .read(serverConfigProvider.notifier)
+        .selectServer(server.id);
+    // 配置保存与头像过渡并行，避免动画结束后才开始等待鉴权状态。
+    final authFuture = () async {
+      try {
+        await selectFuture;
+        if (!mounted) return null;
+        ref.invalidate(authControllerProvider);
+        return await ref.read(authControllerProvider.future);
+      } catch (_) {
+        // 启动错误由根路由统一展示；这里保持当前页面不误报切换失败。
+        return null;
+      }
+    }();
     try {
-      await ref.read(serverConfigProvider.notifier).selectServer(server.id);
-      ref.invalidate(authControllerProvider);
+      await _animateTransition(forward: true);
+      await selectFuture;
+      final authState = await authFuture;
       if (mounted) {
         setState(() {
           _selectingId = null;
-          // 不能用本地会话是否存在判断是否需要密码：未开启鉴权的服务器
-          // 同样没有本地会话，必须等待 /auth/status 的明确结果。
-          _needsLogin = null;
+          _authCheckPending = false;
+          _needsLogin = authState == null
+              ? null
+              : _requiresServerLogin(authState);
         });
       }
     } catch (error) {
@@ -627,18 +632,13 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       setState(() {
         _selectedServerId = null;
         _selectingId = null;
+        _authCheckPending = false;
         _needsLogin = null;
         _error = '选择服务器失败：$error';
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('选择服务器失败：$error')),
       );
-    } finally {
-      // 有会话的服务器由 AuthController 继续验证；会话失效时表单会在
-      // 同一页恢复可编辑状态，避免卡在连接中。
-      if (mounted && _selectingId != null) {
-        setState(() => _selectingId = null);
-      }
     }
   }
 
@@ -700,6 +700,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       _transitionAvatarUrl = _avatarUrlFor(server);
       _transitionFromRect = targetRect ?? sourceRect;
       _transitionToRect = sourceRect ?? targetRect;
+      _authCheckPending = false;
     });
     await _animateTransition(forward: false);
     if (!mounted) return;
@@ -764,6 +765,14 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
 
   Future<ServerProfileData?> _profileFor(ServerProfile server) {
     return _profileFutures.putIfAbsent(server.id, () => _loadProfile(server));
+  }
+
+  bool _requiresServerLogin(AuthState state) {
+    final status = state.status;
+    return status?.enabled == true &&
+        status?.configured == true &&
+        (state.phase == AuthPhase.needsLogin ||
+            state.phase == AuthPhase.totpRequired);
   }
 
   Future<ServerProfileData?> _loadProfile(ServerProfile server) async {
