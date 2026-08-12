@@ -56,6 +56,7 @@ class _ActorAssociationSyncSheetState
   ActorAssocPreview? _preview;
   ActorDataSource _source = ActorDataSource.dbonline;
   List<ActorDataSource> _availableSources = const [];
+  Set<String> _selectedAliases = <String>{};
   bool _sourcesLoaded = false;
   bool _applying = false;
 
@@ -77,7 +78,7 @@ class _ActorAssociationSyncSheetState
   }
 
   bool _hasSyncChanges(ActorAssocPreview preview) {
-    return preview.newAliases.isNotEmpty ||
+    return _selectedAliases.isNotEmpty ||
         ActorAssociationsRepository.biographyNeedsSync(
           widget.currentBiography,
           preview.biography,
@@ -111,6 +112,7 @@ class _ActorAssociationSyncSheetState
       if (!mounted || actualSource != _source) return;
       setState(() {
         _preview = p;
+        _selectedAliases = p.newAliases.toSet();
         _loading = false;
       });
     } catch (e) {
@@ -155,12 +157,15 @@ class _ActorAssociationSyncSheetState
       widget.currentBiography,
       preview.biography,
     );
+    final selectedAliases = preview.newAliases
+        .where(_selectedAliases.contains)
+        .toList(growable: false);
     setState(() => _applying = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
       final merged = ActorAssociationsRepository.mergeAliases(
         widget.actor.originalValues,
-        preview.newAliases,
+        selectedAliases,
         preview.mappedValue.isNotEmpty
             ? preview.mappedValue
             : widget.actor.mappedValue ?? '',
@@ -175,8 +180,8 @@ class _ActorAssociationSyncSheetState
           );
       if (!mounted) return;
       final changes = <String>[];
-      if (preview.newAliases.isNotEmpty) {
-        changes.add('添加 ${preview.newAliases.length} 个关联名称');
+      if (selectedAliases.isNotEmpty) {
+        changes.add('添加 ${selectedAliases.length} 个关联名称');
       }
       if (biographyChanged) {
         changes.add('更新演员简介');
@@ -244,6 +249,7 @@ class _ActorAssociationSyncSheetState
                             setState(() {
                               _source = source;
                               _preview = null;
+                              _selectedAliases = <String>{};
                             });
                             unawaited(
                               ActorAssociationsRepository.rememberSource(
@@ -273,7 +279,7 @@ class _ActorAssociationSyncSheetState
                                   children: [
                                     _SummaryRow(
                                       mappedValue: preview.mappedValue,
-                                      newCount: preview.newAliases.length,
+                                      newCount: _selectedAliases.length,
                                     ),
                                     if (ActorAssociationsRepository
                                         .biographyNeedsSync(
@@ -287,11 +293,22 @@ class _ActorAssociationSyncSheetState
                                     ],
                                     const SizedBox(height: 16),
                                     _AliasSection(
-                                      title: '待新增名称',
+                                      title:
+                                          '待新增名称（已选 ${_selectedAliases.length}/${preview.newAliases.length}）',
                                       empty: '没有需要新增的关联名称',
                                       aliases: preview.newAliases,
                                       color: c.accent,
                                       highlight: true,
+                                      selectedAliases: _selectedAliases,
+                                      onToggle: (alias) {
+                                        setState(() {
+                                          if (_selectedAliases.contains(alias)) {
+                                            _selectedAliases.remove(alias);
+                                          } else {
+                                            _selectedAliases.add(alias);
+                                          }
+                                        });
+                                      },
                                     ),
                                     if (preview.existingAliases.isNotEmpty) ...[
                                       const SizedBox(height: 16),
@@ -385,7 +402,7 @@ class _SummaryRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('新增别名', style: AppText.meta(context)),
+              Text('已选新增别名', style: AppText.meta(context)),
               const SizedBox(height: 3),
               Text(
                 '$newCount',
@@ -438,12 +455,16 @@ class _AliasSection extends StatelessWidget {
     required this.aliases,
     required this.color,
     required this.highlight,
+    this.selectedAliases,
+    this.onToggle,
   });
   final String title;
   final String empty;
   final List<String> aliases;
   final Color color;
   final bool highlight;
+  final Set<String>? selectedAliases;
+  final ValueChanged<String>? onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -467,30 +488,50 @@ class _AliasSection extends StatelessWidget {
             runSpacing: 6,
             children: [
               for (final a in aliases)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: highlight
-                        ? color.withValues(alpha: 0.15)
-                        : c.chipBg,
-                    borderRadius: BorderRadius.circular(100),
-                    border: Border.all(
-                      color: highlight
-                          ? color.withValues(alpha: 0.45)
-                          : c.cardBorder,
-                    ),
-                  ),
-                  child: Text(
-                    a,
-                    style: TextStyle(
-                      color: highlight ? color : c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
+                selectedAliases != null && onToggle != null
+                    ? FilterChip(
+                        label: Text(a),
+                        selected: selectedAliases!.contains(a),
+                        showCheckmark: true,
+                        onSelected: (_) => onToggle!(a),
+                        selectedColor: color.withValues(alpha: 0.15),
+                        checkmarkColor: color,
+                        side: BorderSide(
+                          color: selectedAliases!.contains(a)
+                              ? color.withValues(alpha: 0.45)
+                              : c.cardBorder,
+                        ),
+                        labelStyle: TextStyle(
+                          color: selectedAliases!.contains(a) ? color : c.muted,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: highlight
+                              ? color.withValues(alpha: 0.15)
+                              : c.chipBg,
+                          borderRadius: BorderRadius.circular(100),
+                          border: Border.all(
+                            color: highlight
+                                ? color.withValues(alpha: 0.45)
+                                : c.cardBorder,
+                          ),
+                        ),
+                        child: Text(
+                          a,
+                          style: TextStyle(
+                            color: highlight ? color : c.text,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
             ],
           ),
       ],
