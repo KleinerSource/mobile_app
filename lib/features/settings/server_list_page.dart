@@ -157,15 +157,13 @@ class _ServerListCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final line = server.activeLine;
     return Container(
       decoration: settingsCardDecoration(context),
       child: Column(
         children: [
           SettingsTile(
             title: server.name,
-            subtitle:
-                '${server.lines.length} 条线路 · ${line?.baseUrl ?? '未配置'}',
+            subtitle: '${server.lines.length} 条线路',
             leadingIcon: Icons.dns_outlined,
             trailing: active
                 ? _ActiveChip(color: colors.accent)

@@ -81,7 +81,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
                     else
                       for (final line in _lines) ...[
                         _buildLineCard(context, colors, server, line),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                       ],
                   ],
                 ),
@@ -145,6 +145,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     final active = line.id == server.activeLine?.id;
     final testing = _testingIds.contains(line.id);
     final result = _testResults[line.id];
+    final latencyText = _latencyText(line, result, testing);
     final statusColor = testing
         ? colors.accent
         : result?.success == true
@@ -154,112 +155,112 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
                 : colors.muted;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 10, 12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
       decoration: settingsCardDecoration(context),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                active ? Icons.radio_button_checked : Icons.dns_outlined,
-                color: active ? colors.accent : colors.muted,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          Icon(
+            active ? Icons.radio_button_checked : Icons.dns_outlined,
+            color: active ? colors.accent : colors.muted,
+            size: 21,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            line.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppText.cardTitle(context),
-                          ),
-                        ),
-                        if (active) ...[
-                          const SizedBox(width: 8),
-                          _statusChip('当前', colors.accent),
-                        ],
-                      ],
+                    Flexible(
+                      child: Text(
+                        line.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.cardTitle(context),
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      line.baseUrl,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.meta(context),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (testing)
-                          SizedBox(
-                            width: 13,
-                            height: 13,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: statusColor,
-                            ),
-                          )
-                        else
-                          Icon(
-                            result?.success == true
-                                ? Icons.check_circle_outline
-                                : result?.success == false
-                                    ? Icons.error_outline
-                                    : Icons.help_outline,
-                            size: 15,
+                    if (latencyText != null) ...[
+                      const SizedBox(width: 7),
+                      if (testing) ...[
+                        SizedBox(
+                          width: 11,
+                          height: 11,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.8,
                             color: statusColor,
                           ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            _statusText(line, result, testing),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: statusColor,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
                         ),
+                        const SizedBox(width: 4),
                       ],
-                    ),
+                      Text(
+                        latencyText,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                    if (active) ...[
+                      const SizedBox(width: 7),
+                      _statusChip('当前', colors.accent),
+                    ],
+                    if (!line.enabled) ...[
+                      const SizedBox(width: 7),
+                      _statusChip('已禁用', colors.muted),
+                    ],
                   ],
                 ),
-              ),
-              SettingsSwitch(
-                value: line.enabled,
-                onChanged: testing ? null : (value) => _toggle(line, value),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (!active)
-                OutlinedButton.icon(
-                  onPressed: line.enabled && !testing
-                      ? () => _activate(line)
-                      : null,
-                  icon: const Icon(Icons.check_circle_outline, size: 17),
-                  label: const Text('使用此线路'),
+                const SizedBox(height: 3),
+                Text(
+                  line.baseUrl,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.meta(context),
                 ),
-              OutlinedButton.icon(
-                onPressed: testing ? null : () => _editLine(existing: line),
-                icon: const Icon(Icons.edit_outlined, size: 17),
-                label: const Text('编辑'),
+              ],
+            ),
+          ),
+          PopupMenuButton<_LineAction>(
+            enabled: !testing && !_testingAll,
+            tooltip: '线路操作',
+            icon: Icon(Icons.more_horiz, color: colors.muted),
+            onSelected: (action) => _handleLineAction(line, action),
+            itemBuilder: (context) => [
+              if (!active)
+                PopupMenuItem(
+                  value: _LineAction.activate,
+                  enabled: line.enabled,
+                  child: const _LineMenuItem(
+                    icon: Icons.check_circle_outline,
+                    label: '使用此线路',
+                  ),
+                ),
+              const PopupMenuItem(
+                value: _LineAction.edit,
+                child: _LineMenuItem(
+                  icon: Icons.edit_outlined,
+                  label: '编辑',
+                ),
               ),
-              IconButton(
-                tooltip: '删除线路',
-                onPressed: testing ? null : () => _delete(line),
-                icon: Icon(Icons.delete_outline, color: colors.danger),
+              PopupMenuItem(
+                value: _LineAction.toggle,
+                child: _LineMenuItem(
+                  icon: line.enabled
+                      ? Icons.toggle_off_outlined
+                      : Icons.toggle_on_outlined,
+                  label: line.enabled ? '禁用' : '启用',
+                ),
+              ),
+              PopupMenuItem(
+                value: _LineAction.delete,
+                child: _LineMenuItem(
+                  icon: Icons.delete_outline,
+                  label: '删除',
+                  color: colors.danger,
+                ),
               ),
             ],
           ),
@@ -288,16 +289,29 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     );
   }
 
-  String _statusText(
+  String? _latencyText(
     ServerLine line,
     ServerLineProbeResult? result,
     bool testing,
   ) {
-    if (testing) return '测试中...';
+    if (testing) return 'Testing';
     if (result?.success == true) return '${result!.latencyMs} ms';
-    if (result?.success == false) return '测试失败: ${result!.message}';
-    if (line.latencyMs != null) return '上次测试 ${line.latencyMs} ms';
-    return '尚未测试';
+    if (result?.success == false) return 'Failed';
+    if (line.latencyMs != null) return '${line.latencyMs} ms';
+    return null;
+  }
+
+  void _handleLineAction(ServerLine line, _LineAction action) {
+    switch (action) {
+      case _LineAction.activate:
+        unawaited(_activate(line));
+      case _LineAction.edit:
+        unawaited(_editLine(existing: line));
+      case _LineAction.toggle:
+        unawaited(_toggle(line, !line.enabled));
+      case _LineAction.delete:
+        unawaited(_delete(line));
+    }
   }
 
   Future<void> _testAll() async {
@@ -596,6 +610,32 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
+    );
+  }
+}
+
+enum _LineAction { activate, edit, toggle, delete }
+
+class _LineMenuItem extends StatelessWidget {
+  const _LineMenuItem({
+    required this.icon,
+    required this.label,
+    this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = color ?? appColors(context).text;
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: foreground),
+        const SizedBox(width: 10),
+        Text(label, style: TextStyle(color: foreground)),
+      ],
     );
   }
 }
