@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/movie.dart';
+import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
+import '../actor_associations/widgets/actor_association_sync_sheet.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
 
 /// 演员 / 导演详情页 · 大头像 + 作品集 (用 actor_ids filter 反查)
-class PersonDetailPage extends ConsumerWidget {
+class PersonDetailPage extends ConsumerStatefulWidget {
   const PersonDetailPage({
     super.key,
     required this.actorId,
@@ -23,6 +25,37 @@ class PersonDetailPage extends ConsumerWidget {
   final String? actorType;
   final String? biography;
 
+  @override
+  ConsumerState<PersonDetailPage> createState() => _PersonDetailPageState();
+}
+
+class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
+  late String _biography;
+
+  @override
+  void initState() {
+    super.initState();
+    _biography = widget.biography?.trim() ?? '';
+  }
+
+  Future<void> _syncActor() async {
+    final synced = await ActorAssociationSyncSheet.show(
+      context,
+      MappingRule(
+        id: widget.actorId,
+        mappedValue: widget.name,
+        originalValues: [widget.name],
+      ),
+      currentBiography: _biography,
+      onBiographyApplied: (biography) {
+        if (mounted) setState(() => _biography = biography.trim());
+      },
+    );
+    if (synced == true && mounted) {
+      ref.invalidate(_actorMoviesProvider(widget.actorId));
+    }
+  }
+
   static String _initials(String name) {
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.isEmpty) return '?';
@@ -35,12 +68,12 @@ class PersonDetailPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final c = appColors(context);
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
-    final hue = (name.codeUnits.fold(0, (a, b) => a + b) * 31) % 360;
+    final hue = (widget.name.codeUnits.fold(0, (a, b) => a + b) * 31) % 360;
 
-    final movies = ref.watch(_actorMoviesProvider(actorId));
+    final movies = ref.watch(_actorMoviesProvider(widget.actorId));
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -56,6 +89,13 @@ class PersonDetailPage extends ConsumerWidget {
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
+              actions: [
+                IconButton(
+                  tooltip: '数据源同步',
+                  icon: const Icon(Icons.cloud_sync_outlined),
+                  onPressed: _syncActor,
+                ),
+              ],
               flexibleSpace: FlexibleSpaceBar(
                 background: SafeArea(
                   child: Center(
@@ -82,7 +122,7 @@ class PersonDetailPage extends ConsumerWidget {
                           ),
                           alignment: Alignment.center,
                           child: Text(
-                            _initials(name),
+                            _initials(widget.name),
                             style: const TextStyle(
                               color: Colors.white,
                               fontFamily: 'Inter',
@@ -92,11 +132,11 @@ class PersonDetailPage extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        Text(name, style: AppText.pageTitle(context)),
-                        if (actorType != null) ...[
+                        Text(widget.name, style: AppText.pageTitle(context)),
+                        if (widget.actorType != null) ...[
                           const SizedBox(height: 6),
                           Text(
-                            actorType!.toUpperCase(),
+                            widget.actorType!.toUpperCase(),
                             style: TextStyle(
                               color: c.muted,
                               fontFamily: 'Inter',
@@ -112,11 +152,11 @@ class PersonDetailPage extends ConsumerWidget {
                 ),
               ),
             ),
-            if (biography?.trim().isNotEmpty == true)
+            if (_biography.isNotEmpty)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
-                  child: Text(biography!.trim(), style: AppText.body(context)),
+                  child: Text(_biography, style: AppText.body(context)),
                 ),
               ),
             SliverToBoxAdapter(
