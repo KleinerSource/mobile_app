@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api/server_compatibility.dart';
 import 'core/auth/auth_provider.dart';
+import 'core/auth/auth_session.dart';
 import 'core/config/server_config_provider.dart';
 import 'core/diagnostics/crash_log_service.dart';
 import 'core/platform/app_haptics.dart';

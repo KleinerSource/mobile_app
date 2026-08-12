@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/auth/auth_provider.dart';
+import '../../core/auth/auth_session.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';

@@ -22,6 +22,7 @@ import '../privacy/privacy_mask.dart';
 import 'home_providers.dart';
 import 'home_movie_view_state.dart';
 import 'recommend_carousel.dart';
+import 'server_switcher.dart';
 
 /// md_center 首页
 /// 模块顺序 (对齐 frontend_new Dashboard.vue):
@@ -81,15 +82,22 @@ class HomePage extends ConsumerWidget {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-                child: Text(
-                  _greeting(l),
-                  style: TextStyle(
-                    color: c.muted,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                    letterSpacing: 0.24,
-                  ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _greeting(l),
+                        style: TextStyle(
+                          color: c.muted,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          letterSpacing: 0.24,
+                        ),
+                      ),
+                    ),
+                    const HomeServerSwitcher(),
+                  ],
                 ),
               ),
             ),

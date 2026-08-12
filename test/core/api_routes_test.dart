@@ -191,7 +191,7 @@ void main() {
 
     expect(adapter.paths.single, '/api/public/server-profile');
     expect(profile.name, '测试服务器');
-    expect(profile.avatarUrl, 'http://test/api/public/server-profile/avatar');
+    expect(profile.avatarUrl, 'http://test/api/public/avatar');
   });
 
   test('翻译模型请求使用服务器已保存的 API Key', () async {
@@ -292,7 +292,7 @@ class _RouteAdapter implements HttpClientAdapter {
         },
       '/api/public/server-profile' => {
           'name': '测试服务器',
-          'avatar_url': '/api/public/server-profile/avatar',
+          'avatar_url': '/api/public/avatar',
         },
       _ => null,
     };
