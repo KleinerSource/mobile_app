@@ -754,14 +754,14 @@ class _ActorTile extends StatelessWidget {
             ),
             if (hasBiography)
               Positioned(
-                top: 5,
-                right: 5,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: c.accent,
-                    borderRadius: BorderRadius.circular(3),
+                top: 0,
+                right: 0,
+                child: ClipPath(
+                  clipper: _TopRightCornerTriangleClipper(),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: ColoredBox(color: c.accent),
                   ),
                 ),
               ),
@@ -770,6 +770,20 @@ class _ActorTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TopRightCornerTriangleClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    return Path()
+      ..moveTo(size.width, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, 0)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
 
 class _EmptyActors extends StatelessWidget {
