@@ -97,27 +97,37 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                 constraints: const BoxConstraints(maxWidth: 680),
                 child: Column(
                   children: [
-                    _buildBrand(context, colors),
+                    _buildAnimatedBrand(
+                      context,
+                      colors,
+                      compact: selected != null,
+                    ),
                     const SizedBox(height: 44),
                     AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 460),
+                      duration: const Duration(milliseconds: 520),
                       switchInCurve: Curves.easeOutCubic,
                       switchOutCurve: Curves.easeInCubic,
                       transitionBuilder: (child, animation) {
                         final slide = Tween<Offset>(
-                          begin: const Offset(0, 0.08),
+                          begin: const Offset(0, 0.16),
                           end: Offset.zero,
                         ).animate(animation);
                         final scale = Tween<double>(
-                          begin: 0.92,
+                          begin: 0.86,
                           end: 1,
                         ).animate(animation);
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: slide,
-                            child: ScaleTransition(scale: scale, child: child),
-                          ),
+                        return SlideTransition(
+                          position: slide,
+                          child: ScaleTransition(scale: scale, child: child),
+                        );
+                      },
+                      layoutBuilder: (currentChild, previousChildren) {
+                        return Stack(
+                          alignment: Alignment.topCenter,
+                          children: [
+                            ...previousChildren,
+                            if (currentChild != null) currentChild,
+                          ],
                         );
                       },
                       child: selected == null
@@ -143,6 +153,29 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       if (server.id == id) return server;
     }
     return null;
+  }
+
+  Widget _buildAnimatedBrand(
+    BuildContext context,
+    AppColors colors, {
+    required bool compact,
+  }) {
+    return AnimatedOpacity(
+      opacity: compact ? 0 : 1,
+      duration: const Duration(milliseconds: 520),
+      curve: Curves.easeInOutCubic,
+      child: AnimatedSlide(
+        offset: compact ? const Offset(0, -0.18) : Offset.zero,
+        duration: const Duration(milliseconds: 520),
+        curve: Curves.easeInOutCubic,
+        child: AnimatedScale(
+          scale: compact ? 0.82 : 1,
+          duration: const Duration(milliseconds: 520),
+          curve: Curves.easeInOutCubic,
+          child: _buildBrand(context, colors),
+        ),
+      ),
+    );
   }
 
   Widget _buildBrand(BuildContext context, AppColors colors) {
