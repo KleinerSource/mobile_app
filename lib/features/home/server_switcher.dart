@@ -46,14 +46,8 @@ class _HomeServerSwitcherMenu extends ConsumerStatefulWidget {
 
 class _HomeServerSwitcherMenuState
     extends ConsumerState<_HomeServerSwitcherMenu> {
-  late Future<ServerProfileData?> _profileFuture;
+  final _profileFutures = <String, Future<ServerProfileData?>>{};
   String? _selectingId;
-
-  @override
-  void initState() {
-    super.initState();
-    _profileFuture = _loadProfile(widget.activeServer);
-  }
 
   Future<ServerProfileData?> _loadProfile(ServerProfile server) async {
     final line = server.activeLine;
@@ -70,6 +64,10 @@ class _HomeServerSwitcherMenuState
     } catch (_) {
       return null;
     }
+  }
+
+  Future<ServerProfileData?> _profileFor(ServerProfile server) {
+    return _profileFutures.putIfAbsent(server.id, () => _loadProfile(server));
   }
 
   Future<void> _selectServer(String serverId) async {
@@ -93,7 +91,7 @@ class _HomeServerSwitcherMenuState
   Widget build(BuildContext context) {
     final colors = appColors(context);
     return FutureBuilder<ServerProfileData?>(
-      future: _profileFuture,
+      future: _profileFor(widget.activeServer),
       builder: (context, snapshot) {
         final profile = snapshot.data;
         final displayName = profile?.name.trim().isNotEmpty == true
@@ -105,7 +103,7 @@ class _HomeServerSwitcherMenuState
           tooltip: '切换服务器',
           offset: const Offset(0, 46),
           position: PopupMenuPosition.under,
-          color: colors.bg.withValues(alpha: 0.86),
+          color: colors.bg.withValues(alpha: 0.46),
           surfaceTintColor: Colors.transparent,
           elevation: 12,
           shape: RoundedRectangleBorder(
@@ -114,15 +112,12 @@ class _HomeServerSwitcherMenuState
           ),
           onSelected: (serverId) => unawaited(_selectServer(serverId)),
           itemBuilder: (context) => [
-            for (final server in widget.servers)
-              PopupMenuItem<String>(
-                value: server.id,
-                child: _ServerMenuItem(
-                  server: server,
-                  active: server.id == widget.activeServer.id,
-                  busy: server.id == _selectingId,
-                ),
-              ),
+            _ServerMenuEntry(
+              servers: widget.servers,
+              activeServerId: widget.activeServer.id,
+              selectingId: _selectingId,
+              profileFor: _profileFor,
+            ),
           ],
           child: AnimatedScale(
             scale: _selectingId == null ? 1 : 0.94,
@@ -148,61 +143,154 @@ class _HomeServerSwitcherMenuState
   }
 }
 
-class _ServerMenuItem extends StatelessWidget {
-  const _ServerMenuItem({
+class _ServerMenuEntry extends PopupMenuEntry<String> {
+  _ServerMenuEntry({
+    required this.servers,
+    required this.activeServerId,
+    required this.selectingId,
+    required this.profileFor,
+  }) : super(height: servers.length * 48.0 + 12);
+
+  final List<ServerProfile> servers;
+  final String activeServerId;
+  final String? selectingId;
+  final Future<ServerProfileData?> Function(ServerProfile server) profileFor;
+
+  @override
+  bool represents(String? value) => false;
+
+  @override
+  State<_ServerMenuEntry> createState() => _ServerMenuEntryState();
+}
+
+class _ServerMenuEntryState extends State<_ServerMenuEntry> {
+  @override
+  Widget build(BuildContext context) {
+    return _ServerMenuPanel(
+      servers: widget.servers,
+      activeServerId: widget.activeServerId,
+      selectingId: widget.selectingId,
+      profileFor: widget.profileFor,
+    );
+  }
+}
+
+class _ServerMenuPanel extends StatelessWidget {
+  const _ServerMenuPanel({
+    required this.servers,
+    required this.activeServerId,
+    required this.selectingId,
+    required this.profileFor,
+  });
+
+  final List<ServerProfile> servers;
+  final String activeServerId;
+  final String? selectingId;
+  final Future<ServerProfileData?> Function(ServerProfile server) profileFor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return SizedBox(
+      width: 244,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.bg.withValues(alpha: 0.38),
+              border: Border.all(color: colors.cardBorder),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final server in servers)
+                    _ServerMenuRow(
+                      server: server,
+                      profileFuture: profileFor(server),
+                      active: server.id == activeServerId,
+                      busy: server.id == selectingId,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ServerMenuRow extends StatelessWidget {
+  const _ServerMenuRow({
     required this.server,
+    required this.profileFuture,
     required this.active,
     required this.busy,
   });
 
   final ServerProfile server;
+  final Future<ServerProfileData?> profileFuture;
   final bool active;
   final bool busy;
 
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final itemSurface = colors.bg.withValues(alpha: 0.62);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 190, maxWidth: 260),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: DecoratedBox(
-            decoration: BoxDecoration(color: itemSurface),
-            child: Row(
-              children: [
-                _ServerAvatar(
-                  displayName: server.name,
-                  avatarUrl: server.avatarUrl,
-                  size: 32,
-                  colors: colors,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    server.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.body(context).copyWith(
-                          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                        ),
+    return FutureBuilder<ServerProfileData?>(
+      future: profileFuture,
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        final displayName = profile?.name.trim().isNotEmpty == true
+            ? profile!.name.trim()
+            : server.name;
+        final avatarUrl = profile?.avatarUrl ?? server.avatarUrl;
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: busy || active
+                ? null
+                : () => Navigator.of(context).pop(server.id),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+              child: Row(
+                children: [
+                  _ServerAvatar(
+                    displayName: displayName,
+                    avatarUrl: avatarUrl,
+                    size: 34,
+                    colors: colors,
                   ),
-                ),
-                if (busy)
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                else if (active)
-                  Icon(Icons.check_rounded, color: colors.accent, size: 19),
-              ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.body(context).copyWith(
+                            fontWeight:
+                                active ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                    ),
+                  ),
+                  if (busy)
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else if (active)
+                    Icon(Icons.check_rounded, color: colors.accent, size: 19),
+                ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -251,18 +339,18 @@ class _ServerAvatar extends StatelessWidget {
                 ],
               ),
             ),
-            child: avatarUrl == null || avatarUrl!.isEmpty
-                ? fallback
-                : Padding(
-                    padding: EdgeInsets.all(borderWidth),
-                    child: ClipOval(
-                      child: Image.network(
+            child: Padding(
+              padding: EdgeInsets.all(borderWidth),
+              child: ClipOval(
+                child: avatarUrl == null || avatarUrl!.isEmpty
+                    ? fallback
+                    : Image.network(
                         avatarUrl!,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => fallback,
                       ),
-                    ),
-                  ),
+              ),
+            ),
           ),
           IgnorePointer(
             child: DecoratedBox(

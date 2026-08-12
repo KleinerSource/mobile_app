@@ -688,59 +688,78 @@ class _ServerAvatar extends StatelessWidget {
         ),
       ),
     );
+    final borderWidth = size > 110 ? 5.0 : 4.0;
     return AnimatedScale(
       scale: busy ? 0.94 : 1,
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
-      child: Container(
+      child: SizedBox(
         width: size,
         height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              colors.accent.withValues(alpha: 0.95),
-              colors.accent.withValues(alpha: 0.52),
-            ],
-          ),
-          border: Border.all(
-            color: colors.surface.withValues(alpha: 0.9),
-            width: size > 110 ? 5 : 4,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: colors.accent.withValues(alpha: 0.2),
-              blurRadius: size > 110 ? 26 : 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            avatarUrl == null || avatarUrl!.isEmpty
-                ? fallback
-                : Image.network(
-                    avatarUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => fallback,
+            DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    colors.accent.withValues(alpha: 0.95),
+                    colors.accent.withValues(alpha: 0.52),
+                  ],
                   ),
-            if (busy)
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.28),
-                  shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.accent.withValues(alpha: 0.2),
+                    blurRadius: size > 110 ? 26 : 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(borderWidth),
+                child: ClipOval(
+                  child: avatarUrl == null || avatarUrl!.isEmpty
+                      ? fallback
+                      : Image.network(
+                          avatarUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => fallback,
+                        ),
                 ),
-                child: Center(
-                  child: CircularProgressIndicator(
-                    color: colors.surface,
-                    strokeWidth: size > 110 ? 2.8 : 2.5,
+              ),
+            ),
+            if (busy)
+              Padding(
+                padding: EdgeInsets.all(borderWidth),
+                child: ClipOval(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.28),
+                    ),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: colors.surface,
+                        strokeWidth: size > 110 ? 2.8 : 2.5,
+                      ),
+                    ),
                   ),
                 ),
               ),
+            ),
+            IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.94),
+                    width: borderWidth,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
