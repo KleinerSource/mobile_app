@@ -754,24 +754,14 @@ class _ActorTile extends StatelessWidget {
             ),
             if (hasBiography)
               Positioned(
-                top: 0,
-                right: 0,
+                top: 5,
+                right: 5,
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(8, 3, 8, 4),
+                  width: 10,
+                  height: 10,
                   decoration: BoxDecoration(
                     color: c.accent,
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    '简介',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                    ),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 ),
               ),
