@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -104,7 +105,8 @@ class _HomeServerSwitcherMenuState
           tooltip: '切换服务器',
           offset: const Offset(0, 46),
           position: PopupMenuPosition.under,
-          color: colors.surface,
+          color: colors.bg.withValues(alpha: 0.86),
+          surfaceTintColor: Colors.transparent,
           elevation: 12,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -160,36 +162,46 @@ class _ServerMenuItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final itemSurface = colors.bg.withValues(alpha: 0.62);
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 190, maxWidth: 260),
-      child: Row(
-        children: [
-          _ServerAvatar(
-            displayName: server.name,
-            avatarUrl: server.avatarUrl,
-            size: 32,
-            colors: colors,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              server.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppText.body(context).copyWith(
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: DecoratedBox(
+            decoration: BoxDecoration(color: itemSurface),
+            child: Row(
+              children: [
+                _ServerAvatar(
+                  displayName: server.name,
+                  avatarUrl: server.avatarUrl,
+                  size: 32,
+                  colors: colors,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    server.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.body(context).copyWith(
+                          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                        ),
                   ),
+                ),
+                if (busy)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else if (active)
+                  Icon(Icons.check_rounded, color: colors.accent, size: 19),
+              ],
             ),
           ),
-          if (busy)
-            const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else if (active)
-            Icon(Icons.check_rounded, color: colors.accent, size: 19),
-        ],
+        ),
       ),
     );
   }
@@ -210,6 +222,7 @@ class _ServerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final borderWidth = size >= 36 ? 2.2 : 2.0;
     final fallback = Center(
       child: Text(
         _initials(displayName),
@@ -220,29 +233,50 @@ class _ServerAvatar extends StatelessWidget {
         ),
       ),
     );
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colors.accent.withValues(alpha: 0.95),
-            colors.accent.withValues(alpha: 0.52),
-          ],
-        ),
-        border: Border.all(color: colors.surface.withValues(alpha: 0.85)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: avatarUrl == null || avatarUrl!.isEmpty
-          ? fallback
-          : Image.network(
-              avatarUrl!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => fallback,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  colors.accent.withValues(alpha: 0.95),
+                  colors.accent.withValues(alpha: 0.52),
+                ],
+              ),
             ),
+            child: avatarUrl == null || avatarUrl!.isEmpty
+                ? fallback
+                : Padding(
+                    padding: EdgeInsets.all(borderWidth),
+                    child: ClipOval(
+                      child: Image.network(
+                        avatarUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => fallback,
+                      ),
+                    ),
+                  ),
+          ),
+          IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.94),
+                  width: borderWidth,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
