@@ -92,7 +92,7 @@ private final class IOSCrashDiagnostics: NSObject {
       IOSCrashDiagnostics.active?.recordException(exception)
     }
     if #available(iOS 14.0, *) {
-      MXDiagnosticManager.shared.add(self)
+      MXMetricManager.shared.add(self)
     }
   }
 
@@ -199,7 +199,7 @@ private final class IOSCrashDiagnostics: NSObject {
 }
 
 @available(iOS 14.0, *)
-extension IOSCrashDiagnostics: MXDiagnosticManagerSubscriber {
+extension IOSCrashDiagnostics: MXMetricManagerSubscriber {
   func didReceive(_ payloads: [MXDiagnosticPayload]) {
     payloads.forEach(recordMetricPayload)
   }
