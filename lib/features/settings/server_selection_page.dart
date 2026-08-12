@@ -196,16 +196,12 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
           style: AppText.body(context).copyWith(color: colors.muted),
         ),
         const SizedBox(height: 32),
-        _buildServerStrip(context, colors, servers),
+        _buildServerStrip(colors, servers),
       ],
     );
   }
 
-  Widget _buildServerStrip(
-    BuildContext context,
-    AppColors colors,
-    List<ServerProfile> servers,
-  ) {
+  Widget _buildServerStrip(AppColors colors, List<ServerProfile> servers) {
     if (servers.isEmpty) {
       return Text('暂无可用服务器', style: AppText.body(context));
     }
