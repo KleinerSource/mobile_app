@@ -135,7 +135,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
               ),
               if (_currentBiography.isNotEmpty)
                 SliverToBoxAdapter(
-                  child: _ActorBiographyCard(biography: _currentBiography),
+                  child: _ActorBiography(biography: _currentBiography),
                 ),
               SliverToBoxAdapter(
                 child: Padding(
@@ -311,38 +311,16 @@ class _HeroPill extends StatelessWidget {
   }
 }
 
-class _ActorBiographyCard extends StatelessWidget {
-  const _ActorBiographyCard({required this.biography});
+class _ActorBiography extends StatelessWidget {
+  const _ActorBiography({required this.biography});
 
   final String biography;
 
   @override
   Widget build(BuildContext context) {
-    final c = appColors(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 15, 16, 16),
-        decoration: BoxDecoration(
-          color: c.surface,
-          border: Border.all(color: c.cardBorder),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.notes_outlined, color: c.accent, size: 18),
-                const SizedBox(width: 8),
-                Text('简介', style: AppText.cardTitle(context)),
-              ],
-            ),
-            const SizedBox(height: 9),
-            Text(biography, style: AppText.body(context)),
-          ],
-        ),
-      ),
+      padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
+      child: Text(biography, style: AppText.body(context)),
     );
   }
 }
