@@ -25,7 +25,11 @@ Dio buildDio(
       connectTimeout: connectTimeout,
       sendTimeout: sendTimeout,
       receiveTimeout: receiveTimeout,
-      headers: const {'Content-Type': 'application/json'},
+      headers: const {
+        'Content-Type': 'application/json',
+        // 标识移动客户端来源，便于服务端区分 App 登录与 Web 登录（登录日志）。
+        'X-Client-Type': 'app',
+      },
       responseType: ResponseType.json,
     ),
   );
