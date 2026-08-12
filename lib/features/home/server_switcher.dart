@@ -144,7 +144,7 @@ class _HomeServerSwitcherMenuState
 }
 
 class _ServerMenuEntry extends PopupMenuEntry<String> {
-  _ServerMenuEntry({
+  const _ServerMenuEntry({
     required this.servers,
     required this.activeServerId,
     required this.selectingId,
