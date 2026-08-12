@@ -63,6 +63,7 @@ class ActorAssocPreview {
     required this.newAliases,
     this.externalId,
     this.biography = '',
+    this.biographyChanged,
   });
 
   final bool found;
@@ -73,6 +74,7 @@ class ActorAssocPreview {
   final List<String> newAliases;
   final String? externalId;
   final String biography;
+  final bool? biographyChanged;
 
   factory ActorAssocPreview.fromJson(Map<String, dynamic> j) {
     List<String> arr(dynamic v) =>
@@ -88,6 +90,9 @@ class ActorAssocPreview {
           ? null
           : j['external_id']?.toString(),
       biography: (j['biography'] ?? '').toString().trim(),
+      biographyChanged: j['biography_changed'] is bool
+          ? j['biography_changed'] as bool
+          : null,
     );
   }
 }

@@ -31,9 +31,11 @@ void main() {
       'all_aliases': <String>[],
       'existing_aliases': <String>[],
       'new_aliases': <String>[],
+      'biography_changed': false,
     });
 
     expect(preview.biography, '演员简介');
+    expect(preview.biographyChanged, isFalse);
   });
 
   test('演员简介相同或仅换行差异时不需要重复同步', () {
