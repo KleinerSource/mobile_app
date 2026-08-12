@@ -97,44 +97,59 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                 constraints: const BoxConstraints(maxWidth: 680),
                 child: Column(
                   children: [
-                    _buildAnimatedBrand(
-                      context,
-                      colors,
-                      compact: selected != null,
+                    SizedBox(
+                      height: 108,
+                      child: ClipRect(
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: _buildAnimatedBrand(
+                            context,
+                            colors,
+                            compact: selected != null,
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 44),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 520),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, animation) {
-                        final slide = Tween<Offset>(
-                          begin: const Offset(0, 0.16),
-                          end: Offset.zero,
-                        ).animate(animation);
-                        final scale = Tween<double>(
-                          begin: 0.86,
-                          end: 1,
-                        ).animate(animation);
-                        return SlideTransition(
-                          position: slide,
-                          child: ScaleTransition(scale: scale, child: child),
-                        );
-                      },
-                      layoutBuilder: (currentChild, previousChildren) {
-                        return Stack(
-                          alignment: Alignment.topCenter,
-                          children: [
-                            ...previousChildren,
-                            if (currentChild != null) currentChild,
-                          ],
-                        );
-                      },
-                      child: selected == null
-                          ? _buildPicker(context, colors, servers)
-                          : _needsLogin == true
-                              ? _buildInlineLogin(context, colors, selected)
-                              : _buildConnecting(context, colors, selected),
+                    ClipRect(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 520),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) {
+                          final slide = Tween<Offset>(
+                            begin: const Offset(0, 0.16),
+                            end: Offset.zero,
+                          ).animate(animation);
+                          final scale = Tween<double>(
+                            begin: 0.86,
+                            end: 1,
+                          ).animate(animation);
+                          return SlideTransition(
+                            position: slide,
+                            child: ScaleTransition(scale: scale, child: child),
+                          );
+                        },
+                        layoutBuilder: (currentChild, previousChildren) {
+                          return Stack(
+                            clipBehavior: Clip.hardEdge,
+                            alignment: Alignment.topCenter,
+                            children: [
+                              ...previousChildren,
+                              if (currentChild != null) currentChild,
+                            ],
+                          );
+                        },
+                        child: selected == null
+                            ? _buildPicker(context, colors, servers)
+                            : _needsLogin == true
+                                ? _buildInlineLogin(context, colors, selected)
+                                : _buildConnecting(
+                                    context,
+                                    colors,
+                                    selected,
+                                  ),
+                      ),
                     ),
                   ],
                 ),
@@ -748,7 +763,6 @@ class _ServerAvatar extends StatelessWidget {
                   ),
                 ),
               ),
-            ),
             IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
