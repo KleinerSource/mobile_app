@@ -1,7 +1,8 @@
-import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
@@ -32,6 +33,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   final _passwordController = TextEditingController();
   final _totpController = TextEditingController();
   final _profileFutures = <String, Future<ServerProfileData?>>{};
+  final _profiles = <String, ServerProfileData?>{};
 
   String? _selectedServerId;
   String? _selectingId;
@@ -40,11 +42,21 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   bool _totpRequired = false;
   bool _transitionLocked = false;
   String? _error;
+  ServerProfile? _transitionServer;
+  String? _transitionDisplayName;
+  String? _transitionAvatarUrl;
+  Rect? _transitionFromRect;
+  Rect? _transitionToRect;
 
   late final AnimationController _entryController;
   late final Animation<double> _entryOpacity;
   late final Animation<Offset> _entrySlide;
   late final AnimationController _transitionController;
+  late final Animation<double> _pickerOpacity;
+  late final Animation<double> _detailOpacity;
+  final _sceneKey = GlobalKey();
+  final _detailAvatarKey = GlobalKey();
+  final _pickerAvatarKeys = <String, GlobalKey>{};
 
   @override
   void initState() {
@@ -63,8 +75,19 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     ).animate(_entryOpacity);
     _transitionController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 220),
-      reverseDuration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 520),
+    );
+    _pickerOpacity = Tween<double>(begin: 1, end: 0).animate(
+      CurvedAnimation(
+        parent: _transitionController,
+        curve: const Interval(0, 0.42, curve: Curves.easeInCubic),
+      ),
+    );
+    _detailOpacity = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _transitionController,
+        curve: const Interval(0.48, 1, curve: Curves.easeOutCubic),
+      ),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _entryController.forward();
@@ -104,74 +127,153 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
         child: AnimatedBuilder(
           animation: _transitionController,
           builder: (context, child) {
-            final progress = Curves.easeInOutCubicEmphasized.transform(
-              _transitionController.value,
-            );
+            final progress =
+                _transitionController.value.clamp(0.0, 1.0).toDouble();
+            final materialize = 4 * progress * (1 - progress);
             return Stack(
+              key: _sceneKey,
               fit: StackFit.expand,
               children: [
-                Transform.scale(
-                  scale: 1 - (0.025 * progress),
-                  child: ImageFiltered(
-                    imageFilter: ui.ImageFilter.blur(
-                      sigmaX: 10 * progress,
-                      sigmaY: 10 * progress,
-                    ),
-                    child: Opacity(
-                      opacity: 1 - (0.52 * progress),
-                      child: child ?? const SizedBox.shrink(),
-                    ),
-                  ),
-                ),
-                if (progress > 0)
+                child ?? const SizedBox.shrink(),
+                if (materialize > 0)
                   Positioned.fill(
                     child: IgnorePointer(
-                      ignoring: !_transitionLocked,
                       child: ClipRect(
                         child: BackdropFilter(
                           filter: ui.ImageFilter.blur(
-                            sigmaX: 22 * progress,
-                            sigmaY: 22 * progress,
+                            sigmaX: 14 * materialize,
+                            sigmaY: 14 * materialize,
                           ),
                           child: ColoredBox(
                             color: colors.bg.withValues(
-                              alpha: 0.64 * progress,
+                              alpha: 0.12 * materialize,
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
+                if (_transitionFromRect != null &&
+                    _transitionToRect != null &&
+                    _transitionServer != null)
+                  _buildSharedAvatar(colors, progress),
               ],
             );
           },
-          child: SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 42, 24, 42),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 680),
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        height: 108,
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          child: selected == null
-                              ? _buildBrand(context, colors)
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
-                      const SizedBox(height: 44),
-                      selected == null
-                          ? _buildPicker(context, colors, servers)
-                          : _needsLogin == true
-                              ? _buildInlineLogin(context, colors, selected)
-                              : _buildConnecting(context, colors, selected),
-                    ],
-                  ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              IgnorePointer(
+                ignoring: selected != null || _transitionLocked,
+                child: FadeTransition(
+                  opacity: _pickerOpacity,
+                  child: _buildPickerScene(context, colors, servers),
                 ),
               ),
+              if (selected != null)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: _transitionLocked,
+                    child: FadeTransition(
+                      opacity: _detailOpacity,
+                      child: _buildDetailScene(
+                        context,
+                        colors,
+                        selected,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSharedAvatar(AppColors colors, double progress) {
+    final from = _transitionFromRect!;
+    final to = _transitionToRect!;
+    final left = ui.lerpDouble(from.left, to.left, progress)!;
+    final top = ui.lerpDouble(from.top, to.top, progress)!;
+    final width = ui.lerpDouble(from.width, to.width, progress)!;
+    final scale = from.width == 0 ? 1.0 : width / from.width;
+    return Positioned(
+      left: from.left,
+      top: from.top,
+      width: from.width,
+      height: from.height,
+      child: IgnorePointer(
+        child: Transform.translate(
+          offset: Offset(left - from.left, top - from.top),
+          child: Transform.scale(
+            scale: scale,
+            alignment: Alignment.topLeft,
+            child: RepaintBoundary(
+              child: _ServerAvatar(
+                displayName:
+                    _transitionDisplayName ?? _transitionServer!.name,
+                avatarUrl: _transitionAvatarUrl,
+                size: from.width,
+                busy: false,
+                colors: colors,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPickerScene(
+    BuildContext context,
+    AppColors colors,
+    List<ServerProfile> servers,
+  ) {
+    return SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 42, 24, 42),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: Column(
+              children: [
+                SizedBox(
+                  height: 108,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: _buildBrand(context, colors),
+                  ),
+                ),
+                const SizedBox(height: 44),
+                _buildPicker(context, colors, servers),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailScene(
+    BuildContext context,
+    AppColors colors,
+    ServerProfile selected,
+  ) {
+    return SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 42, 24, 42),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: Column(
+              children: [
+                const SizedBox(height: 108),
+                const SizedBox(height: 44),
+                _needsLogin == true
+                    ? _buildInlineLogin(context, colors, selected)
+                    : _buildConnecting(context, colors, selected),
+              ],
             ),
           ),
         ),
@@ -275,9 +377,15 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                       width: itemWidth,
                       child: _ServerAvatarCard(
                         key: ValueKey(servers[index].id),
+                        avatarKey: _pickerAvatarKeys.putIfAbsent(
+                          servers[index].id,
+                          () => GlobalKey(),
+                        ),
                         server: servers[index],
                         profileFuture: _profileFor(servers[index]),
                         busy: _selectingId == servers[index].id,
+                        hideAvatar: _transitionLocked &&
+                            _transitionServer?.id == servers[index].id,
                         onTap: () => _selectServer(servers[index]),
                       ),
                     ),
@@ -323,12 +431,16 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
           constraints: const BoxConstraints(maxWidth: 360),
           child: Column(
             children: [
-              _ServerAvatar(
-                displayName: displayName,
-                avatarUrl: avatarUrl,
-                size: 128,
-                busy: selecting || _loginBusy,
-                colors: colors,
+              Opacity(
+                opacity: _transitionLocked ? 0 : 1,
+                child: _ServerAvatar(
+                  key: _detailAvatarKey,
+                  displayName: displayName,
+                  avatarUrl: avatarUrl,
+                  size: 128,
+                  busy: selecting || _loginBusy,
+                  colors: colors,
+                ),
               ),
               const SizedBox(height: 18),
               Text(
@@ -427,12 +539,16 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
           constraints: const BoxConstraints(maxWidth: 360),
           child: Column(
             children: [
-              _ServerAvatar(
-                displayName: displayName,
-                avatarUrl: avatarUrl,
-                size: 128,
-                busy: true,
-                colors: colors,
+              Opacity(
+                opacity: _transitionLocked ? 0 : 1,
+                child: _ServerAvatar(
+                  key: _detailAvatarKey,
+                  displayName: displayName,
+                  avatarUrl: avatarUrl,
+                  size: 128,
+                  busy: true,
+                  colors: colors,
+                ),
               ),
               const SizedBox(height: 18),
               Text(
@@ -456,21 +572,31 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   Future<void> _selectServer(ServerProfile server) async {
     if (_selectingId != null || _loginBusy || _transitionLocked) return;
     AppHaptics.medium();
-    setState(() => _transitionLocked = true);
-    await _coverForTransition();
-    if (!mounted) return;
+    final sourceRect = _rectFor(_pickerAvatarKeys[server.id]);
     setState(() {
       _selectedServerId = server.id;
       _selectingId = server.id;
       _needsLogin = null;
       _totpRequired = false;
       _error = null;
+      _transitionLocked = true;
+      _transitionServer = server;
+      _transitionDisplayName = _displayNameFor(server);
+      _transitionAvatarUrl = _avatarUrlFor(server);
+      _transitionFromRect = sourceRect;
+      _transitionToRect = sourceRect;
       _passwordController.clear();
       _totpController.clear();
     });
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
-    unawaited(_revealTransition());
+    final targetRect = _rectFor(_detailAvatarKey);
+    setState(() {
+      _transitionFromRect = sourceRect ?? targetRect;
+      _transitionToRect = targetRect ?? sourceRect;
+    });
+    await _animateTransition(forward: true);
+    if (!mounted) return;
 
     try {
       await ref.read(serverConfigProvider.notifier).selectServer(server.id);
@@ -484,6 +610,20 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
         });
       }
     } catch (error) {
+      if (!mounted) return;
+      if (!_transitionLocked) {
+        final sourceRect = _rectFor(_detailAvatarKey);
+        final targetRect = _rectFor(_pickerAvatarKeys[server.id]);
+        setState(() {
+          _transitionLocked = true;
+          _transitionServer = server;
+          _transitionDisplayName = _displayNameFor(server);
+          _transitionAvatarUrl = _avatarUrlFor(server);
+          _transitionFromRect = targetRect ?? sourceRect;
+          _transitionToRect = sourceRect ?? targetRect;
+        });
+      }
+      await _animateTransition(forward: false);
       if (!mounted) return;
       setState(() {
         _selectedServerId = null;
@@ -547,9 +687,22 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
 
   Future<void> _showServerList() async {
     if (_selectingId != null || _loginBusy || _transitionLocked) return;
+    final server = _selectedServerFor(
+      ref.read(serverConfigProvider)?.servers ?? const <ServerProfile>[],
+    );
+    if (server == null) return;
     AppHaptics.selection();
-    setState(() => _transitionLocked = true);
-    await _coverForTransition();
+    final sourceRect = _rectFor(_detailAvatarKey);
+    final targetRect = _rectFor(_pickerAvatarKeys[server.id]);
+    setState(() {
+      _transitionLocked = true;
+      _transitionServer = server;
+      _transitionDisplayName = _displayNameFor(server);
+      _transitionAvatarUrl = _avatarUrlFor(server);
+      _transitionFromRect = targetRect ?? sourceRect;
+      _transitionToRect = sourceRect ?? targetRect;
+    });
+    await _animateTransition(forward: false);
     if (!mounted) return;
     setState(() {
       _selectedServerId = null;
@@ -560,26 +713,54 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       _passwordController.clear();
       _totpController.clear();
     });
-    await WidgetsBinding.instance.endOfFrame;
-    if (!mounted) return;
-    await _revealTransition();
   }
 
-  Future<void> _coverForTransition() async {
-    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
-      _transitionController.value = 1;
-      return;
-    }
-    await _transitionController.forward(from: 0);
-  }
-
-  Future<void> _revealTransition() async {
-    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
-      _transitionController.value = 0;
+  Future<void> _animateTransition({required bool forward}) async {
+    final reducedMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (reducedMotion) {
+      _transitionController.value = forward ? 1 : 0;
     } else {
-      await _transitionController.reverse(from: 1);
+      final target = forward ? 1.0 : 0.0;
+      const spring = SpringDescription(
+        mass: 1,
+        stiffness: 190,
+        damping: 27,
+      );
+      try {
+        await _transitionController
+            .animateWith(
+              SpringSimulation(
+                spring,
+                _transitionController.value,
+                target,
+                _transitionController.velocity,
+              ),
+            )
+            .orCancel;
+      } on TickerCanceled {
+        return;
+      }
+      _transitionController.value = target;
     }
-    if (mounted) setState(() => _transitionLocked = false);
+    if (!mounted) return;
+    setState(() {
+      _transitionLocked = false;
+      _transitionServer = null;
+      _transitionDisplayName = null;
+      _transitionAvatarUrl = null;
+      _transitionFromRect = null;
+      _transitionToRect = null;
+    });
+  }
+
+  Rect? _rectFor(GlobalKey? key) {
+    final scene = _sceneKey.currentContext?.findRenderObject() as RenderBox?;
+    final box = key?.currentContext?.findRenderObject() as RenderBox?;
+    if (scene == null || box == null || !scene.hasSize || !box.hasSize) {
+      return null;
+    }
+    final origin = box.localToGlobal(Offset.zero, ancestor: scene);
+    return origin & box.size;
   }
 
   Future<ServerProfileData?> _profileFor(ServerProfile server) {
@@ -590,7 +771,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     final line = server.activeLine;
     if (line == null) return null;
     try {
-      return await ApiClient.fromConfig(
+      final profile = await ApiClient.fromConfig(
         ServerConfig(
           baseUrl: line.baseUrl,
           lines: [line],
@@ -598,10 +779,22 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
           activeServerId: server.id,
         ),
       ).systemExtended.serverProfile();
+      _profiles[server.id] = profile;
+      return profile;
     } catch (_) {
       // 兼容尚未提供服务器资料接口的旧后端，继续使用本地名称和首字母头像。
+      _profiles[server.id] = null;
       return null;
     }
+  }
+
+  String _displayNameFor(ServerProfile server) {
+    final name = _profiles[server.id]?.name.trim();
+    return name?.isNotEmpty == true ? name! : server.name;
+  }
+
+  String? _avatarUrlFor(ServerProfile server) {
+    return _profiles[server.id]?.avatarUrl ?? server.avatarUrl;
   }
 
   Widget _loginField(
@@ -636,15 +829,19 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
 class _ServerAvatarCard extends StatelessWidget {
   const _ServerAvatarCard({
     super.key,
+    required this.avatarKey,
     required this.server,
     required this.profileFuture,
     required this.busy,
+    required this.hideAvatar,
     required this.onTap,
   });
 
+  final GlobalKey avatarKey;
   final ServerProfile server;
   final Future<ServerProfileData?> profileFuture;
   final bool busy;
+  final bool hideAvatar;
   final VoidCallback onTap;
 
   @override
@@ -672,12 +869,16 @@ class _ServerAvatarCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
                 child: Column(
                   children: [
-                    _ServerAvatar(
-                      displayName: displayName,
-                      avatarUrl: avatarUrl,
-                      size: 104,
-                      busy: busy,
-                      colors: colors,
+                    Opacity(
+                      opacity: hideAvatar ? 0 : 1,
+                      child: _ServerAvatar(
+                        key: avatarKey,
+                        displayName: displayName,
+                        avatarUrl: avatarUrl,
+                        size: 104,
+                        busy: busy,
+                        colors: colors,
+                      ),
                     ),
                     const SizedBox(height: 14),
                     Text(
@@ -725,7 +926,9 @@ class _ServerAvatar extends StatelessWidget {
         ),
       ),
     );
-    final borderWidth = size > 110 ? 5.0 : 4.0;
+    final sizeProgress = ((size - 104) / 24).clamp(0.0, 1.0).toDouble();
+    final borderWidth = 4 + sizeProgress;
+    final shadowBlur = 20 + (6 * sizeProgress);
     return AnimatedScale(
       scale: busy ? 0.94 : 1,
       duration: const Duration(milliseconds: 180),
@@ -750,7 +953,7 @@ class _ServerAvatar extends StatelessWidget {
                 boxShadow: [
                   BoxShadow(
                     color: colors.accent.withValues(alpha: 0.2),
-                    blurRadius: size > 110 ? 26 : 20,
+                    blurRadius: shadowBlur,
                     offset: const Offset(0, 8),
                   ),
                 ],
@@ -779,7 +982,7 @@ class _ServerAvatar extends StatelessWidget {
                     child: Center(
                       child: CircularProgressIndicator(
                         color: colors.surface,
-                        strokeWidth: size > 110 ? 2.8 : 2.5,
+                        strokeWidth: 2.5 + (0.3 * sizeProgress),
                       ),
                     ),
                   ),
