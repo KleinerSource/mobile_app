@@ -423,14 +423,6 @@ class _RecentRow extends ConsumerStatefulWidget {
 }
 
 class _RecentRowState extends ConsumerState<_RecentRow> {
-  late Set<int> _viewedMovieIds;
-
-  @override
-  void initState() {
-    super.initState();
-    _viewedMovieIds = ref.read(homeMovieViewStateProvider).viewedMovieIds();
-  }
-
   Future<void> _acknowledgeResources(MovieListItem movie) async {
     try {
       await ref.read(moviesRepositoryProvider).acknowledgeResources(movie.id);
@@ -440,12 +432,9 @@ class _RecentRowState extends ConsumerState<_RecentRow> {
   }
 
   void _openMovie(MovieListItem movie) {
-    if (_viewedMovieIds.add(movie.id)) {
-      setState(() {});
-      unawaited(
-        ref.read(homeMovieViewStateProvider).markMovieViewed(movie.id),
-      );
-    }
+    unawaited(
+      ref.read(homeMovieViewStateProvider).markMovieViewed(movie.id),
+    );
     if (movie.hasNewResources) {
       unawaited(_acknowledgeResources(movie));
     }
@@ -456,6 +445,7 @@ class _RecentRowState extends ConsumerState<_RecentRow> {
 
   @override
   Widget build(BuildContext context) {
+    final viewedMovieIds = ref.watch(homeMovieViewStateProvider).viewedMovieIds();
     return SizedBox(
       height: 268,
       child: ListView.separated(
@@ -465,7 +455,7 @@ class _RecentRowState extends ConsumerState<_RecentRow> {
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (_, i) {
           final it = widget.items[i];
-          final isNew = isUnreadRecentlyAddedMovie(it, _viewedMovieIds);
+          final isNew = isUnreadRecentlyAddedMovie(it, viewedMovieIds);
           return SizedBox(
             width: 132,
             child: Stack(

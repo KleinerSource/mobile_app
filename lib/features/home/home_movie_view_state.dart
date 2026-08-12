@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,25 +22,31 @@ bool isUnreadRecentlyAddedMovie(
   return age >= Duration.zero && age <= recentlyAddedWindow;
 }
 
-class HomeMovieViewState {
-  HomeMovieViewState(this._prefs);
+class HomeMovieViewState extends ChangeNotifier {
+  HomeMovieViewState(this._prefs) : _viewedIds = _loadViewedIds(_prefs);
 
   final SharedPreferences _prefs;
+  final Set<int> _viewedIds;
 
   Set<int> viewedMovieIds() {
-    final raw = _prefs.getStringList(_viewedMovieIdsKey) ?? const <String>[];
-    return raw.map(int.tryParse).whereType<int>().toSet();
+    return Set<int>.of(_viewedIds);
   }
 
   Future<void> markMovieViewed(int movieId) async {
-    final ids = viewedMovieIds()..add(movieId);
+    if (!_viewedIds.add(movieId)) return;
+    notifyListeners();
     await _prefs.setStringList(
       _viewedMovieIdsKey,
-      ids.map((id) => id.toString()).toList(),
+      _viewedIds.map((id) => id.toString()).toList(),
     );
+  }
+
+  static Set<int> _loadViewedIds(SharedPreferences prefs) {
+    final raw = prefs.getStringList(_viewedMovieIdsKey) ?? const <String>[];
+    return raw.map(int.tryParse).whereType<int>().toSet();
   }
 }
 
-final homeMovieViewStateProvider = Provider<HomeMovieViewState>((ref) {
+final homeMovieViewStateProvider = ChangeNotifierProvider<HomeMovieViewState>((ref) {
   return HomeMovieViewState(ref.watch(sharedPrefsProvider));
 });
