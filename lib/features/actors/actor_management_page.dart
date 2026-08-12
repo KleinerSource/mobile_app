@@ -15,7 +15,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../actor_associations/actor_associations_providers.dart';
 import '../actor_associations/actor_associations_repository.dart';
-import '../person_detail/person_detail_page.dart';
+import '../movie_detail/actor_movies_page.dart';
 import '../settings/settings_common.dart';
 
 /// 演员管理 · 演员信息 CRUD、搜索、排序和作品查看。
@@ -258,12 +258,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                               hue: AppHues.all[index % AppHues.all.length],
                               onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (_) => PersonDetailPage(
-                                    actorId: actor.id,
-                                    name: actor.name,
-                                    actorType: actor.actorType,
-                                    biography: actor.biography,
-                                  ),
+                                  builder: (_) => ActorMoviesPage(actor: actor),
                                 ),
                               ),
                               onEdit: () => _showEditor(
@@ -716,14 +711,17 @@ class _ActorTile extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Tooltip(
-                        message: hasBiography ? '已有简介' : '暂无简介',
-                        child: Icon(
-                          hasBiography
-                              ? Icons.description
-                              : Icons.description_outlined,
-                          size: 16,
-                          color: hasBiography ? c.accent : c.muted2,
+                      Transform.translate(
+                        offset: const Offset(0, 2),
+                        child: Tooltip(
+                          message: hasBiography ? '已有简介' : '暂无简介',
+                          child: Icon(
+                            hasBiography
+                                ? Icons.description
+                                : Icons.description_outlined,
+                            size: 16,
+                            color: hasBiography ? c.accent : c.muted2,
+                          ),
                         ),
                       ),
                     ],
