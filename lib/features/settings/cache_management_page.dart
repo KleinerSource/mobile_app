@@ -29,7 +29,7 @@ class CacheManagementPage extends ConsumerWidget {
                 items: [
                   SettingsTile(
                     title: '缓存大小(Wi-Fi)',
-                    subtitle: '播放时最多保留的缓冲数据，不下载完整视频',
+                    subtitle: '播放数据会保存到本地，超限后优先淘汰旧缓存',
                     leadingIcon: Icons.wifi_outlined,
                     trailing: _ValueLabel(text: settings.wifiLimit.label),
                     onTap: () => _selectLimit(
@@ -41,7 +41,7 @@ class CacheManagementPage extends ConsumerWidget {
                   ),
                   SettingsTile(
                     title: '缓存大小(流量)',
-                    subtitle: '播放时最多保留的缓冲数据，不下载完整视频',
+                    subtitle: '播放数据会保存到本地，超限后优先淘汰旧缓存',
                     leadingIcon: Icons.signal_cellular_alt_outlined,
                     trailing: _ValueLabel(text: settings.mobileLimit.label),
                     onTap: () => _selectLimit(
@@ -61,6 +61,7 @@ class CacheManagementPage extends ConsumerWidget {
                     category: CacheCategory.video,
                     usage: usage,
                     ref: ref,
+                    hint: '播放数据会保留，超过上限后优先淘汰旧缓存',
                   ),
                   _CacheTile(
                     category: CacheCategory.image,
@@ -267,11 +268,13 @@ class _CacheTile extends StatelessWidget {
     required this.category,
     required this.usage,
     required this.ref,
+    this.hint,
   });
 
   final CacheCategory category;
   final AsyncValue<CacheUsage> usage;
   final WidgetRef ref;
+  final String? hint;
 
   @override
   Widget build(BuildContext context) {
@@ -282,7 +285,7 @@ class _CacheTile extends StatelessWidget {
     );
     return SettingsTile(
       title: category.label,
-      subtitle: size,
+      subtitle: hint == null ? size : '$size · $hint',
       leadingIcon: switch (category) {
         CacheCategory.video => Icons.movie_outlined,
         CacheCategory.image => Icons.image_outlined,

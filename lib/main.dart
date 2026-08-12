@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -66,11 +65,11 @@ void _recordCrashSafely(
   StackTrace stack, {
   required String source,
 }) {
-  unawaited(
-    service
-        .recordError(error, stack, source: source)
-        .catchError((_) {}),
-  );
+  try {
+    service.recordErrorSync(error, stack, source: source);
+  } catch (_) {
+    // 崩溃处理器不能因为日志写入失败再次抛错。
+  }
 }
 
 class MdCenterApp extends ConsumerWidget {

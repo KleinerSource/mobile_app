@@ -15,7 +15,7 @@ void main() {
     expect(CacheSizeOption.gb4.label, '4GB');
   });
 
-  test('视频缓存使用播放缓冲策略而不是完整视频下载', () {
+  test('视频缓存按设置启用磁盘缓冲和持久化上限', () {
     final disabled = videoBufferPolicyFor(CacheSizeOption.disabled);
     expect(disabled.diskCacheEnabled, isFalse);
     expect(disabled.bufferSize, defaultVideoBufferBytes);
@@ -50,6 +50,23 @@ void main() {
 
     await service.clear(CacheCategory.video);
     expect((await service.usage()).videoBytes, 0);
+  });
+
+  test('视频持久化缓存会保留到清理或超限淘汰', () async {
+    final root = await Directory.systemTemp.createTemp('md-center-cache-file-');
+    addTearDown(() => root.delete(recursive: true));
+    final service = DiskCacheService(rootDirectory: root);
+    final file = await service.videoCacheFile(movieId: 8, quality: 'original');
+    await file.writeAsString('cached-video');
+
+    expect(await file.exists(), isTrue);
+    expect((await service.usage()).videoBytes, greaterThan(0));
+
+    await service.pruneVideoCache(maxBytes: 1);
+    expect(await file.exists(), isTrue);
+
+    await service.clear(CacheCategory.video);
+    expect(await file.exists(), isFalse);
   });
 
   test('缓存字节格式化使用易读单位', () {

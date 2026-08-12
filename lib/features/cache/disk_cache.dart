@@ -233,7 +233,7 @@ class DiskCacheService {
   Future<Directory> _cacheBaseDirectory() {
     final override = _rootOverride;
     return override == null
-        ? getApplicationCacheDirectory()
+        ? getApplicationSupportDirectory()
         : Future.value(override);
   }
 
@@ -247,15 +247,14 @@ class DiskCacheService {
   Future<CacheUsage> usage() async {
     final root = await _rootDirectory();
     // DefaultCacheManager 仍使用临时目录，图片统计要跟随它的实际位置；
-    // 播放缓冲则使用应用缓存目录，避免两者路径混淆。
+    // 播放缓存使用应用缓存目录，避免与图片缓存路径混淆。
     final imageBase = _rootOverride ?? await getTemporaryDirectory();
     final image = Directory(
       '${imageBase.path}${Platform.pathSeparator}${DefaultCacheManager.key}',
     );
+    final videoDirectories = await _videoCacheDirectories(root: root);
     return CacheUsage(
-      videoBytes: await _directorySize(
-        Directory('${root.path}${Platform.pathSeparator}$_videoDirName'),
-      ),
+      videoBytes: await _sumDirectorySizes(videoDirectories),
       imageBytes: await _directorySize(image),
       otherBytes: await _directorySize(
         Directory('${root.path}${Platform.pathSeparator}$_otherDirName'),
@@ -263,10 +262,70 @@ class DiskCacheService {
     );
   }
 
-  /// media_kit/libmpv 的 `demuxer-cache-dir` 使用此目录写入播放中的临时缓冲。
-  /// 缓冲文件由 mpv 在媒体关闭后自动删除，不会变成完整视频文件。
+  /// media_kit/libmpv 的磁盘缓冲和持久化录制缓存使用此目录。
   Future<Directory> videoBufferDirectory() =>
       _categoryDirectory(_videoDirName);
+
+  /// 为单个影片/画质生成稳定的持久化缓存文件名。
+  ///
+  /// mpv 的 `stream-record` 会在媒体关闭时关闭文件但保留文件内容，
+  /// 因此不能使用临时文件名，否则缓存管理无法跨播放会话工作。
+  Future<File> videoCacheFile({
+    required int movieId,
+    required String quality,
+  }) async {
+    final directory = await videoBufferDirectory();
+    final safeQuality = quality.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    return File(
+      '${directory.path}${Platform.pathSeparator}movie-$movieId-$safeQuality.mkv',
+    );
+  }
+
+  /// 按缓存上限淘汰最旧的持久化视频文件。
+  Future<void> pruneVideoCache({required int maxBytes}) {
+    if (maxBytes <= 0) return Future<void>.value();
+    return _enqueue(() async {
+      final root = await _rootDirectory();
+      final directories = await _videoCacheDirectories(root: root);
+      final files = <File>[];
+      for (final directory in directories) {
+        if (!await directory.exists()) continue;
+        await for (final entity in directory.list(
+          recursive: true,
+          followLinks: false,
+        )) {
+          if (entity is File && entity.path.toLowerCase().endsWith('.mkv')) {
+            files.add(entity);
+          }
+        }
+      }
+      final entries = <({File file, int bytes, DateTime modified})>[];
+      for (final file in files) {
+        try {
+          entries.add((
+            file: file,
+            bytes: await file.length(),
+            modified: await file.lastModified(),
+          ));
+        } on FileSystemException {
+          // 文件可能在播放器或系统清理过程中刚刚被删除。
+        }
+      }
+      entries.sort((a, b) => a.modified.compareTo(b.modified));
+      var total = entries.fold<int>(0, (sum, item) => sum + item.bytes);
+      for (final item in entries) {
+        // 即使单个视频超过上限，也保留最近一次缓存；缓存管理页仍可
+        // 通过“视频缓存”清理它，关闭视频不能把唯一缓存直接删掉。
+        if (total <= maxBytes || entries.length <= 1) break;
+        try {
+          await item.file.delete();
+          total -= item.bytes;
+        } on FileSystemException {
+          // 忽略单个文件删除失败，下一次清理继续处理。
+        }
+      }
+    });
+  }
 
   Future<void> clear(CacheCategory category) {
     return _enqueue(() async {
@@ -274,13 +333,18 @@ class DiskCacheService {
         await DefaultCacheManager().emptyCache();
         return;
       }
-      final name = category == CacheCategory.video
-          ? _videoDirName
-          : _otherDirName;
-      final directory = await _categoryDirectory(name);
-      if (await directory.exists()) {
-        await directory.delete(recursive: true);
+      if (category == CacheCategory.video) {
+        final root = await _rootDirectory();
+        for (final directory in await _videoCacheDirectories(root: root)) {
+          if (await directory.exists()) {
+            await directory.delete(recursive: true);
+          }
+        }
+        await _categoryDirectory(_videoDirName);
+        return;
       }
+      final directory = await _categoryDirectory(_otherDirName);
+      if (await directory.exists()) await directory.delete(recursive: true);
       await directory.create(recursive: true);
     });
   }
@@ -289,8 +353,13 @@ class DiskCacheService {
     return _enqueue(() async {
       await DefaultCacheManager().emptyCache();
       final root = await _rootDirectory();
+      final videoDirectories = await _videoCacheDirectories(root: root);
       if (await root.exists()) await root.delete(recursive: true);
       await root.create(recursive: true);
+      for (final directory in videoDirectories) {
+        if (directory.path == root.path) continue;
+        if (await directory.exists()) await directory.delete(recursive: true);
+      }
     });
   }
 
@@ -308,6 +377,47 @@ class DiskCacheService {
     var total = 0;
     await for (final entity in directory.list(recursive: true, followLinks: false)) {
       if (entity is File) total += await entity.length();
+    }
+    return total;
+  }
+
+  Future<List<Directory>> _videoCacheDirectories({required Directory root}) async {
+    final configured = Directory(
+      '${root.path}${Platform.pathSeparator}$_videoDirName',
+    );
+    if (_rootOverride != null) return [configured];
+
+    // Older media_kit/mpv builds can ignore a runtime demuxer-cache-dir and
+    // fall back to their platform cache directory. Include those locations so
+    // the management page can still show and clear the files.
+    final bases = <Directory>[
+      await getApplicationCacheDirectory(),
+      await getTemporaryDirectory(),
+      await getApplicationSupportDirectory(),
+    ];
+    final candidates = <Directory>[configured];
+    for (final base in bases) {
+      candidates.add(Directory(
+        '${base.path}${Platform.pathSeparator}$_rootName${Platform.pathSeparator}$_videoDirName',
+      ));
+      candidates.add(Directory(
+        '${base.path}${Platform.pathSeparator}mpv',
+      ));
+      candidates.add(Directory(
+        '${base.path}${Platform.pathSeparator}.cache${Platform.pathSeparator}mpv',
+      ));
+    }
+    final seen = <String>{};
+    return [
+      for (final directory in candidates)
+        if (seen.add(directory.path)) directory,
+    ];
+  }
+
+  Future<int> _sumDirectorySizes(Iterable<Directory> directories) async {
+    var total = 0;
+    for (final directory in directories) {
+      total += await _directorySize(directory);
     }
     return total;
   }

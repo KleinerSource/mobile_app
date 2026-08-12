@@ -24,6 +24,7 @@ class PlayerControllerHost {
   int bufferSize;
   bool diskCacheEnabled;
   String? diskCacheDirectory;
+  String? persistentCacheFile;
 
   void _createPlayer() {
     player = Player(
@@ -58,17 +59,27 @@ class PlayerControllerHost {
     try {
       final platform = player.platform;
       if (platform is NativePlayer) {
+        // demuxer-cache-dir 必须在 cache-on-disk 创建文件前设置；否则 mpv
+        // 会继续使用默认目录，缓存管理页统计不到实际文件。
+        if (diskCacheEnabled && diskCacheDirectory != null) {
+          await platform.setProperty('demuxer-cache-dir', diskCacheDirectory!);
+        }
         // mpv 的磁盘缓存只有在显式启用网络缓存后才会生效。
         await platform.setProperty(
           'cache',
           diskCacheEnabled ? 'yes' : 'no',
         );
-        if (diskCacheEnabled && diskCacheDirectory != null) {
-          await platform.setProperty('demuxer-cache-dir', diskCacheDirectory!);
-        }
         await platform.setProperty(
           'cache-on-disk',
           diskCacheEnabled ? 'yes' : 'no',
+        );
+        // demuxer cache 本身是临时的；stream-record 才是由应用管理的
+        // 持久化缓存，必须在打开媒体源前设置。
+        await platform.setProperty(
+          'stream-record',
+          diskCacheEnabled && persistentCacheFile != null
+              ? persistentCacheFile!
+              : '',
         );
       }
     } catch (_) {
@@ -141,15 +152,19 @@ class PlayerControllerHost {
     int? bufferSize,
     bool? diskCacheEnabled,
     String? diskCacheDirectory,
+    String? persistentCacheFile,
   }) async {
     final nextBufferSize = bufferSize ?? this.bufferSize;
     final nextDiskCacheEnabled = diskCacheEnabled ?? this.diskCacheEnabled;
     final nextDiskCacheDirectory =
         diskCacheDirectory ?? this.diskCacheDirectory;
+    final nextPersistentCacheFile =
+        persistentCacheFile ?? this.persistentCacheFile;
     if (hardwareAcceleration == enableHardwareAcceleration &&
         this.bufferSize == nextBufferSize &&
         this.diskCacheEnabled == nextDiskCacheEnabled &&
-        this.diskCacheDirectory == nextDiskCacheDirectory) {
+        this.diskCacheDirectory == nextDiskCacheDirectory &&
+        this.persistentCacheFile == nextPersistentCacheFile) {
       return;
     }
     final previous = player;
@@ -157,6 +172,7 @@ class PlayerControllerHost {
     this.bufferSize = nextBufferSize;
     this.diskCacheEnabled = nextDiskCacheEnabled;
     this.diskCacheDirectory = nextDiskCacheDirectory;
+    this.persistentCacheFile = nextPersistentCacheFile;
     _createPlayer();
     await previous.dispose();
   }

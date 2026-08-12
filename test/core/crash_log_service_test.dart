@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -55,5 +56,44 @@ void main() {
 
     expect(await service.readEntries(), isEmpty);
     expect(await service.logFile.exists(), isTrue);
+  });
+
+  test('fatal 错误可以同步落盘', () async {
+    service.recordErrorSync(
+      StateError('fatal'),
+      StackTrace.fromString('stack'),
+      source: 'platform',
+    );
+
+    final entries = await service.readEntries();
+    expect(entries.single.source, 'platform');
+    expect(entries.single.message, contains('fatal'));
+  });
+
+  test('可以读取并导出 iOS native 报告', () async {
+    await service.nativeLogFile.writeAsString(
+      '${jsonEncode({
+        'timestamp': '2026-08-12T00:00:00.000Z',
+        'source': 'ios-metrickit',
+        'message': 'native crash',
+        'stack': 'SIGABRT',
+        'context': {'kind': 'MXDiagnosticPayload'},
+      })}\n',
+    );
+    final ips = File(
+      '${service.logFile.parent.path}${Platform.pathSeparator}ios-1.ips',
+    );
+    await ips.writeAsString('{"signal":"SIGABRT"}');
+
+    final entries = await service.readEntries();
+    expect(entries.single.source, 'ios-metrickit');
+    expect(
+      (await service.nativeReportFiles()).map((file) => file.path),
+      [ips.path],
+    );
+
+    await service.clear();
+    expect(await service.nativeReportFiles(), isEmpty);
+    expect(await service.nativeLogFile.exists(), isFalse);
   });
 }

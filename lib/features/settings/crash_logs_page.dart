@@ -110,15 +110,23 @@ class _CrashLogsPageState extends ConsumerState<CrashLogsPage> {
   Future<void> _export(BuildContext context) async {
     setState(() => _exporting = true);
     try {
-      final file = ref.read(crashLogServiceProvider).logFile;
+      final service = ref.read(crashLogServiceProvider);
+      final file = service.logFile;
       await file.create(recursive: true);
+      final nativeFiles = await service.nativeReportFiles();
+      final exportFiles = <XFile>[
+        XFile(file.path),
+        if (await service.nativeLogFile.exists())
+          XFile(service.nativeLogFile.path),
+        ...nativeFiles.map((item) => XFile(item.path)),
+      ];
       if (!context.mounted) return;
       final box = context.findRenderObject() as RenderBox?;
       final origin = box == null
           ? null
           : box.localToGlobal(Offset.zero) & box.size;
       await Share.shareXFiles(
-        [XFile(file.path)],
+        exportFiles,
         subject: 'MD Center 崩溃日志',
         sharePositionOrigin: origin,
       );

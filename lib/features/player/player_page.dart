@@ -145,6 +145,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _pictureInPictureRequesting = false;
   bool _isLeaving = false;
   Future<void>? _stopPlayerFuture;
+  int? _activeVideoCacheLimitBytes;
   Future<void> _loadQueue = Future<void>.value();
   bool _orientationInitialized = false;
 
@@ -408,14 +409,25 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (!mounted || generation != _loadGeneration) return;
 
       final bufferPolicy = await _resolveVideoBufferPolicy();
+      final cacheService = ref.read(diskCacheServiceProvider);
       final bufferDirectory = bufferPolicy.diskCacheEnabled
-          ? await ref.read(diskCacheServiceProvider).videoBufferDirectory()
+          ? await cacheService.videoBufferDirectory()
+          : null;
+      final persistentCacheFile = bufferPolicy.diskCacheEnabled
+          ? await cacheService.videoCacheFile(
+              movieId: widget.movieId,
+              quality: selectedQuality,
+            )
+          : null;
+      _activeVideoCacheLimitBytes = bufferPolicy.diskCacheEnabled
+          ? bufferPolicy.bufferSize
           : null;
       await _host.recreate(
         enableHardwareAcceleration: _clientHardwareAcceleration,
         bufferSize: bufferPolicy.bufferSize,
         diskCacheEnabled: bufferPolicy.diskCacheEnabled,
         diskCacheDirectory: bufferDirectory?.path,
+        persistentCacheFile: persistentCacheFile?.path,
       );
       if (!mounted || generation != _loadGeneration) return;
 
@@ -1363,6 +1375,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<void> _stopPlayerInternal() async {
     try {
       await _host.stop();
+    } catch (_) {}
+    final maxBytes = _activeVideoCacheLimitBytes;
+    if (maxBytes == null) return;
+    try {
+      await ref
+          .read(diskCacheServiceProvider)
+          .pruneVideoCache(maxBytes: maxBytes);
     } catch (_) {}
   }
 

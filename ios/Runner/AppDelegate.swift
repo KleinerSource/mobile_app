@@ -2,14 +2,18 @@ import Flutter
 import AVFoundation
 import AVKit
 import Darwin
+import Foundation
+import MetricKit
 import UIKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+  private let crashDiagnostics = IOSCrashDiagnostics()
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    crashDiagnostics.start()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -56,6 +60,148 @@ import UIKit
       binaryMessenger: registrar.messenger()
     )
     deviceLockChannel.setStreamHandler(DeviceLockStreamHandler())
+  }
+}
+
+/// 将 iOS native 崩溃诊断保存到应用沙盒，供下一次启动时 Dart 日志页读取。
+///
+/// iOS 不允许应用直接读取系统 DiagnosticReports 目录中的 `.ips` 文件，
+/// 因此通过 MetricKit 接收系统诊断，并同时保留原始 JSON（`.ips` 扩展名）供导出。
+private final class IOSCrashDiagnostics: NSObject {
+  private static weak var active: IOSCrashDiagnostics?
+  private let fileManager = FileManager.default
+  private let lock = NSLock()
+
+  private var directoryURL: URL {
+    let base = fileManager.urls(
+      for: .applicationSupportDirectory,
+      in: .userDomainMask
+    ).first
+      ?? fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
+      ?? URL(fileURLWithPath: NSTemporaryDirectory())
+    return base.appendingPathComponent("md_center_diagnostics", isDirectory: true)
+  }
+
+  private var nativeLogURL: URL {
+    directoryURL.appendingPathComponent("ios_native_reports.jsonl")
+  }
+
+  func start() {
+    IOSCrashDiagnostics.active = self
+    NSSetUncaughtExceptionHandler { exception in
+      IOSCrashDiagnostics.active?.recordException(exception)
+    }
+    if #available(iOS 14.0, *) {
+      MXDiagnosticManager.shared.add(self)
+    }
+  }
+
+  private func recordException(_ exception: NSException) {
+    let stack = exception.callStackSymbols.joined(separator: "\n")
+    append(
+      source: "ios-native",
+      message: "未捕获的 iOS 异常: \(exception.name.rawValue)",
+      stack: stack,
+      context: [
+        "exception_name": exception.name.rawValue,
+        "reason": exception.reason ?? "",
+      ],
+      rawReport: makeRawExceptionReport(
+        name: exception.name.rawValue,
+        reason: exception.reason ?? "",
+        stack: stack
+      ),
+      locking: false
+    )
+  }
+
+  private func makeRawExceptionReport(
+    name: String,
+    reason: String,
+    stack: String
+  ) -> Data? {
+    try? JSONSerialization.data(
+      withJSONObject: [
+        "type": "uncaught_exception",
+        "name": name,
+        "reason": reason,
+        "stack": stack,
+        "timestamp": ISO8601DateFormatter().string(from: Date()),
+      ],
+      options: [.prettyPrinted, .sortedKeys]
+    )
+  }
+
+  @available(iOS 14.0, *)
+  private func recordMetricPayload(_ payload: MXDiagnosticPayload) {
+    let data = payload.jsonRepresentation()
+    let raw = String(data: data, encoding: .utf8) ?? data.base64EncodedString()
+    let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    append(
+      source: "ios-metrickit",
+      message: "iOS MetricKit 崩溃诊断",
+      stack: raw,
+      context: ["kind": "MXDiagnosticPayload", "payload": object ?? raw],
+      rawReport: data
+    )
+  }
+
+  private func append(
+    source: String,
+    message: String,
+    stack: String,
+    context: [String: Any],
+    rawReport: Data?,
+    locking: Bool = true
+  ) {
+    if locking { lock.lock() }
+    defer {
+      if locking { lock.unlock() }
+    }
+    do {
+      try fileManager.createDirectory(
+        at: directoryURL,
+        withIntermediateDirectories: true
+      )
+      let payload: [String: Any] = [
+        "timestamp": ISO8601DateFormatter().string(from: Date()),
+        "source": source,
+        "message": message,
+        "stack": stack,
+        "context": context,
+      ]
+      let line = try JSONSerialization.data(withJSONObject: payload)
+      var lineWithNewline = line
+      lineWithNewline.append(0x0A)
+      try appendData(lineWithNewline, to: nativeLogURL)
+      if let rawReport {
+        let fileName = "ios-\(UUID().uuidString).ips"
+        try rawReport.write(
+          to: directoryURL.appendingPathComponent(fileName),
+          options: .atomic
+        )
+      }
+    } catch {
+      // 崩溃处理器中不能再抛出异常。
+    }
+  }
+
+  private func appendData(_ data: Data, to url: URL) throws {
+    if !fileManager.fileExists(atPath: url.path) {
+      try data.write(to: url, options: .atomic)
+      return
+    }
+    let handle = try FileHandle(forWritingTo: url)
+    try handle.seekToEnd()
+    try handle.write(contentsOf: data)
+    try handle.close()
+  }
+}
+
+@available(iOS 14.0, *)
+extension IOSCrashDiagnostics: MXDiagnosticManagerSubscriber {
+  func didReceive(_ payloads: [MXDiagnosticPayload]) {
+    payloads.forEach(recordMetricPayload)
   }
 }
 

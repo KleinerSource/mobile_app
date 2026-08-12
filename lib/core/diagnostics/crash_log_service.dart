@@ -19,10 +19,12 @@ class CrashLogEntry {
     return CrashLogEntry(
       timestamp: DateTime.tryParse('${json['timestamp']}') ?? DateTime.now(),
       source: '${json['source'] ?? 'unknown'}',
-      message: '${json['message'] ?? ''}',
-      stack: '${json['stack'] ?? ''}',
+      message: CrashLogService.sanitize('${json['message'] ?? ''}'),
+      stack: CrashLogService.sanitize('${json['stack'] ?? ''}'),
       context: json['context'] is Map
-          ? Map<String, dynamic>.from(json['context'] as Map)
+          ? Map<String, dynamic>.from(
+              CrashLogService._sanitizeValue(json['context']) as Map,
+            )
           : const <String, dynamic>{},
     );
   }
@@ -38,6 +40,7 @@ class CrashLogEntry {
 ///
 /// 日志使用 JSON Lines 格式并限制条数/大小，避免异常循环导致日志无限增长。
 /// 所有写入内容都会经过敏感字段脱敏，不记录 access/refresh token。
+/// iOS MetricKit/native 报告由原生侧写入旁路文件，再由本服务统一读取和导出。
 class CrashLogService {
   CrashLogService._(this._directory);
 
@@ -45,6 +48,8 @@ class CrashLogService {
   static const maxBytes = 512 * 1024;
   static const _directoryName = 'md_center_diagnostics';
   static const _fileName = 'crash_logs.jsonl';
+  static const _nativeFileName = 'ios_native_reports.jsonl';
+  static const _ipsExtension = '.ips';
 
   final Directory _directory;
   Future<void> _writeQueue = Future<void>.value();
@@ -63,6 +68,24 @@ class CrashLogService {
   File get logFile => File(
         '${_directory.path}${Platform.pathSeparator}$_fileName',
       );
+
+  /// iOS native reports are written before Dart starts on the next launch.
+  /// They are kept separate so a native callback cannot race the Dart writer.
+  File get nativeLogFile => File(
+        '${_directory.path}${Platform.pathSeparator}$_nativeFileName',
+      );
+
+  Future<List<File>> nativeReportFiles() async {
+    if (!await _directory.exists()) return const <File>[];
+    final files = <File>[];
+    await for (final entity in _directory.list(followLinks: false)) {
+      if (entity is File && entity.path.toLowerCase().endsWith(_ipsExtension)) {
+        files.add(entity);
+      }
+    }
+    files.sort((a, b) => a.path.compareTo(b.path));
+    return files;
+  }
 
   Future<void> recordError(
     Object error,
@@ -106,30 +129,73 @@ class CrashLogService {
     return result;
   }
 
+  /// 同步写入 fatal error，避免进程退出时异步队列还没有落盘。
+  ///
+  /// 该方法只用于全局错误处理器；普通业务日志仍使用 [recordMessage]，
+  /// 以避免在 UI 线程执行同步文件 IO。
+  void recordErrorSync(
+    Object error,
+    StackTrace stack, {
+    String source = 'unknown',
+    Map<String, Object?> context = const <String, Object?>{},
+  }) {
+    final payload = <String, Object?>{
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+      'source': sanitize(source),
+      'message': sanitize(error.toString()),
+      'stack': sanitize(stack.toString()),
+      'context': _sanitizeValue(context),
+    };
+    logFile.writeAsStringSync(
+      '${jsonEncode(payload)}\n',
+      mode: FileMode.append,
+      flush: true,
+    );
+    _trimSync();
+  }
+
   Future<List<CrashLogEntry>> readEntries() async {
     await _writeQueue;
-    if (!await logFile.exists()) return const <CrashLogEntry>[];
-    final entries = <CrashLogEntry>[];
-    for (final line in (await logFile.readAsLines()).reversed) {
-      if (line.trim().isEmpty) continue;
-      try {
-        final decoded = jsonDecode(line);
-        if (decoded is Map) {
-          entries.add(
-            CrashLogEntry.fromJson(Map<String, dynamic>.from(decoded)),
-          );
+    final entries = <({CrashLogEntry entry, int order})>[];
+    var order = 0;
+    for (final file in [logFile, nativeLogFile]) {
+      if (!await file.exists()) continue;
+      for (final line in await file.readAsLines()) {
+        if (line.trim().isEmpty) continue;
+        try {
+          final decoded = jsonDecode(line);
+          if (decoded is Map) {
+            entries.add((
+              entry: CrashLogEntry.fromJson(Map<String, dynamic>.from(decoded)),
+              order: order++,
+            ));
+          }
+        } on FormatException {
+          // 忽略被进程异常中断时留下的不完整行。
         }
-      } on FormatException {
-        // 忽略被进程异常中断时留下的不完整行。
       }
     }
-    return entries;
+    entries.sort((a, b) {
+      final timestamp = b.entry.timestamp.compareTo(a.entry.timestamp);
+      return timestamp == 0 ? b.order.compareTo(a.order) : timestamp;
+    });
+    if (entries.length > maxEntries) {
+      return entries
+          .sublist(0, maxEntries)
+          .map((item) => item.entry)
+          .toList(growable: false);
+    }
+    return entries.map((item) => item.entry).toList(growable: false);
   }
 
   Future<void> clear() {
     final result = _writeQueue.then<void>((_) async {
       if (await logFile.exists()) await logFile.delete();
       await logFile.create(recursive: true);
+      if (await nativeLogFile.exists()) await nativeLogFile.delete();
+      for (final file in await nativeReportFiles()) {
+        await file.delete();
+      }
     });
     _writeQueue = result.then<void>(
       (_) {},
@@ -151,6 +217,22 @@ class CrashLogService {
       kept = kept.sublist(1);
     }
     await logFile.writeAsString(
+      kept.isEmpty ? '' : '${kept.join('\n')}\n',
+      flush: true,
+    );
+  }
+
+  void _trimSync() {
+    final lines = logFile.readAsLinesSync();
+    if (lines.length <= maxEntries && logFile.lengthSync() <= maxBytes) return;
+    var kept = lines.length > maxEntries
+        ? lines.sublist(lines.length - maxEntries)
+        : lines;
+    while (kept.length > 1 &&
+        utf8.encode('${kept.join('\n')}\n').length > maxBytes) {
+      kept = kept.sublist(1);
+    }
+    logFile.writeAsStringSync(
       kept.isEmpty ? '' : '${kept.join('\n')}\n',
       flush: true,
     );
