@@ -14,10 +14,12 @@ import '../libraries/libraries_providers.dart';
 import '../libraries/library_movies_page.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../movies/movies_page.dart';
+import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
 import '../player/player_page.dart';
 import '../privacy/privacy_mask.dart';
 import 'home_providers.dart';
+import 'home_movie_view_state.dart';
 import 'recommend_carousel.dart';
 
 /// md_center 首页
@@ -140,7 +142,13 @@ class HomePage extends ConsumerWidget {
                       onPressed: () => unawaited(
                         Navigator.of(context).push<void>(
                           MaterialPageRoute<void>(
-                            builder: (_) => const MoviesPage(),
+                            builder: (_) => const MoviesPage(
+                              initialFilter: MovieFilter(
+                                sortBy: 'created_at',
+                                sortOrder: 'desc',
+                              ),
+                              maxItems: 30,
+                            ),
                           ),
                         ),
                       ),
@@ -415,20 +423,31 @@ class _RecentRow extends ConsumerStatefulWidget {
 }
 
 class _RecentRowState extends ConsumerState<_RecentRow> {
-  final Set<int> _dismissedNewMovies = <int>{};
+  late Set<int> _viewedMovieIds;
 
-  Future<void> _acknowledge(MovieListItem movie) async {
+  @override
+  void initState() {
+    super.initState();
+    _viewedMovieIds = ref.read(homeMovieViewStateProvider).viewedMovieIds();
+  }
+
+  Future<void> _acknowledgeResources(MovieListItem movie) async {
     try {
       await ref.read(moviesRepositoryProvider).acknowledgeResources(movie.id);
     } catch (_) {
-      // 详情页仍可正常打开，下一次刷新会重新以服务端状态为准。
+      // 新资源确认失败不应阻止用户打开影片详情。
     }
   }
 
   void _openMovie(MovieListItem movie) {
+    if (_viewedMovieIds.add(movie.id)) {
+      setState(() {});
+      unawaited(
+        ref.read(homeMovieViewStateProvider).markMovieViewed(movie.id),
+      );
+    }
     if (movie.hasNewResources) {
-      setState(() => _dismissedNewMovies.add(movie.id));
-      unawaited(_acknowledge(movie));
+      unawaited(_acknowledgeResources(movie));
     }
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
@@ -446,6 +465,7 @@ class _RecentRowState extends ConsumerState<_RecentRow> {
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (_, i) {
           final it = widget.items[i];
+          final isNew = isUnreadRecentlyAddedMovie(it, _viewedMovieIds);
           return SizedBox(
             width: 132,
             child: Stack(
@@ -455,8 +475,7 @@ class _RecentRowState extends ConsumerState<_RecentRow> {
                   posterUrlBuilder: widget.urlBuilder,
                   onTap: () => _openMovie(it),
                 ),
-                if (it.hasNewResources &&
-                    !_dismissedNewMovies.contains(it.id))
+                if (isNew)
                   Positioned(
                     top: 8,
                     left: 8,
@@ -495,7 +514,8 @@ class _CollectionsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final all = libraries.take(4).toList();
+    final cardWidth =
+        (MediaQuery.sizeOf(context).width * 0.64).clamp(220.0, 300.0).toDouble();
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
       child: Column(
@@ -504,21 +524,21 @@ class _CollectionsSection extends StatelessWidget {
           Text(AppL10n.of(context).homeYourLibraries,
               style: AppText.sectionTitle(context)),
           const SizedBox(height: 14),
-          LayoutBuilder(builder: (ctx, cons) {
-            const gap = 10.0;
-            final w = (cons.maxWidth - gap) / 2;
-            return Wrap(
-              spacing: gap,
-              runSpacing: gap,
-              children: List.generate(all.length, (i) {
-                final hue = AppHues.all[i % AppHues.all.length];
-                return SizedBox(
-                  width: w,
-                  child: _LibraryCard(library: all[i], hue: hue),
-                );
-              }),
-            );
-          }),
+          SizedBox(
+            height: cardWidth / (5 / 3),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: libraries.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (_, i) => SizedBox(
+                width: cardWidth,
+                child: _LibraryCard(
+                  library: libraries[i],
+                  hue: AppHues.all[i % AppHues.all.length],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

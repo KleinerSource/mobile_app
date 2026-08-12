@@ -31,6 +31,36 @@ void main() {
     expect(api.lastQuery!['sort_by'], 'created_at');
   });
 
+  test('compact list 请求携带紧凑响应参数', () async {
+    final api = _StubMoviesApi({
+      'success': true,
+      'message': 'ok',
+      'data': {
+        'items': [
+          {
+            'id': 7,
+            'title': 'A',
+            'movie_created_at': '2026-08-12T00:00:00Z',
+          },
+        ],
+        'total_count': 1,
+        'limit': 1,
+        'offset': 0,
+      }
+    });
+    final repo = MoviesRepository(api, _StubFavoritesApi(), _StubSystemApi());
+
+    final paged = await repo.list(
+      const MovieFilter(),
+      limit: 1,
+      offset: 0,
+      compact: true,
+    );
+
+    expect(api.lastQuery!['compact'], true);
+    expect(paged.items.first.movieCreatedAt, isNotNull);
+  });
+
   test('detail 解 StdEnvelope', () async {
     final api = _StubMoviesApi({}, detail: {
       'success': true,

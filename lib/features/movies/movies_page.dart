@@ -28,7 +28,14 @@ import 'resource_scan_progress_sheet.dart';
 enum _ViewMode { grid, list }
 
 class MoviesPage extends ConsumerStatefulWidget {
-  const MoviesPage({super.key});
+  const MoviesPage({
+    super.key,
+    this.initialFilter = const MovieFilter(),
+    this.maxItems,
+  });
+
+  final MovieFilter initialFilter;
+  final int? maxItems;
 
   @override
   ConsumerState<MoviesPage> createState() => _MoviesPageState();
@@ -38,7 +45,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   static const _pageSize = 50;
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
   final _searchController = TextEditingController();
-  MovieFilter _currentFilter = const MovieFilter();
+  late MovieFilter _currentFilter;
   _ViewMode _viewMode = _ViewMode.grid;
   int _totalCount = 0;
 
@@ -51,6 +58,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   @override
   void initState() {
     super.initState();
+    _currentFilter = widget.initialFilter;
     _controller.addPageRequestListener(_fetch);
   }
 
@@ -64,14 +72,31 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
   Future<void> _fetch(int offset) async {
     try {
+      final maxItems = widget.maxItems;
+      if (maxItems != null && offset >= maxItems) {
+        _controller.appendLastPage(const <MovieListItem>[]);
+        return;
+      }
       final repo = ref.read(moviesRepositoryProvider);
-      final page = await repo.list(_currentFilter, limit: _pageSize, offset: offset);
-      _totalCount = page.totalCount;
-      final nextOffset = offset + page.items.length;
-      if (nextOffset >= page.totalCount || page.items.isEmpty) {
-        _controller.appendLastPage(page.items);
+      final requestLimit = maxItems == null
+          ? _pageSize
+          : (maxItems - offset).clamp(1, _pageSize).toInt();
+      final page = await repo.list(
+        _currentFilter,
+        limit: requestLimit,
+        offset: offset,
+      );
+      final items = maxItems == null
+          ? page.items
+          : page.items.take(maxItems - offset).toList();
+      _totalCount = maxItems == null
+          ? page.totalCount
+          : page.totalCount.clamp(0, maxItems).toInt();
+      final nextOffset = offset + items.length;
+      if (nextOffset >= _totalCount || items.isEmpty) {
+        _controller.appendLastPage(items);
       } else {
-        _controller.appendPage(page.items, nextOffset);
+        _controller.appendPage(items, nextOffset);
       }
       if (offset == 0) _completeRefresh();
       if (mounted) setState(() {});

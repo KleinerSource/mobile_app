@@ -22,6 +22,7 @@ abstract class MovieListItem with _$MovieListItem {
     @JsonKey(name: 'fanart_uuid') String? fanartUuid,
     @JsonKey(name: 'thumb_uuid') String? thumbUuid,
     @JsonKey(name: 'series_name') String? seriesName,
+    @JsonKey(name: 'movie_created_at') DateTime? movieCreatedAt,
     @JsonKey(name: 'is_favorited') @Default(false) bool isFavorited,
     @JsonKey(name: 'is_updated') @Default(false) bool isUpdated,
     @JsonKey(name: 'has_new_resources') @Default(false) bool hasNewResources,

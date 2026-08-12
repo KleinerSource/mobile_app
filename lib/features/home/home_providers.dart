@@ -12,6 +12,7 @@ final recentlyAddedProvider = FutureProvider<PagedResult<MovieListItem>>((ref) a
     const MovieFilter(sortBy: 'created_at', sortOrder: 'desc'),
     limit: 12,
     offset: 0,
+    compact: true,
   );
 });
 

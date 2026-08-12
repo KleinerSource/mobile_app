@@ -29,8 +29,11 @@ class MoviesRepository {
     MovieFilter filter, {
     required int limit,
     required int offset,
+    bool compact = false,
   }) async {
-    final raw = await _api.getMovies(filter.toQuery(limit: limit, offset: offset));
+    final query = filter.toQuery(limit: limit, offset: offset);
+    if (compact) query['compact'] = true;
+    final raw = await _api.getMovies(query);
     return unwrapMovieList<MovieListItem>(raw, MovieListItem.fromJson);
   }
 

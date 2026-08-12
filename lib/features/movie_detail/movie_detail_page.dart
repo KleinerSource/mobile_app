@@ -24,14 +24,28 @@ import 'resources_sheet.dart';
 import '../resources/resources_repository.dart';
 import 'movie_editor_sheet.dart';
 import 'thunder_subtitle_sheet.dart';
+import '../home/home_movie_view_state.dart';
 
-class MovieDetailPage extends ConsumerWidget {
+class MovieDetailPage extends ConsumerStatefulWidget {
   const MovieDetailPage({super.key, required this.movieId});
   final int movieId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final asyncDetail = ref.watch(movieDetailProvider(movieId));
+  ConsumerState<MovieDetailPage> createState() => _MovieDetailPageState();
+}
+
+class _MovieDetailPageState extends ConsumerState<MovieDetailPage> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      ref.read(homeMovieViewStateProvider).markMovieViewed(widget.movieId),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final asyncDetail = ref.watch(movieDetailProvider(widget.movieId));
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
     final c = appColors(context);
 
