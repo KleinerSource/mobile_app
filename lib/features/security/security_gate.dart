@@ -12,7 +12,7 @@ import 'security_pin_pad.dart';
 import 'security_providers.dart';
 import 'security_repository.dart';
 
-/// 在主界面外层提供本地应用锁，不影响服务端登录会话。
+/// 在应用内容外层提供本地应用锁，不影响服务端登录会话。
 class SecurityGate extends ConsumerStatefulWidget {
   const SecurityGate({super.key, required this.child, this.onReady});
 

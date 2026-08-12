@@ -8,8 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api/server_compatibility.dart';
 import 'core/auth/auth_provider.dart';
-import 'core/auth/auth_session.dart';
-import 'core/auth/auth_session_provider.dart';
 import 'core/config/server_config_provider.dart';
 import 'core/diagnostics/crash_log_service.dart';
 import 'core/platform/app_haptics.dart';
@@ -19,6 +17,7 @@ import 'features/i18n/theme_provider.dart';
 import 'features/main/main_shell.dart';
 import 'features/privacy/privacy_shield.dart';
 import 'features/security/security_gate.dart';
+import 'features/security/security_providers.dart';
 import 'features/settings/app_update_startup_gate.dart';
 import 'features/settings/server_setup_page.dart';
 import 'features/settings/server_selection_page.dart';
@@ -84,13 +83,13 @@ class MdCenterApp extends ConsumerWidget {
     final appLocale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
 
-    Future<void> changeServer() async {
-      await ref.read(authSessionRepositoryProvider).clear();
+    Future<void> changeServer() {
       if (cfg?.hasMultipleServers == true) {
         ref.read(serverConfigProvider.notifier).showServerSelection();
       } else {
         ref.read(serverConfigProvider.notifier).beginEdit();
       }
+      return Future<void>.value();
     }
 
     return MaterialApp(
@@ -105,57 +104,49 @@ class MdCenterApp extends ConsumerWidget {
       builder: (context, child) {
         return PrivacyShield(child: child ?? const SizedBox.shrink());
       },
-      home: cfg == null
-          ? const ServerSetupPage()
-          : auth.when(
-              loading: () => const _StartupLoading(),
-              error: (error, _) => _StartupError(
-                    message: error.toString(),
-                    serverUrl: cfg.baseUrl,
-                    incompatible: error is ServerCompatibilityException,
-                    onRetry: () => ref.invalidate(authControllerProvider),
-                    onChangeServer: changeServer,
-                  ),
-              data: (state) => switch (state.phase) {
-                AuthPhase.needsLogin || AuthPhase.totpRequired =>
-                  const LoginPage(),
-                AuthPhase.serverSelection => const ServerSelectionPage(),
-                AuthPhase.incompatible || AuthPhase.unavailable =>
-                  _StartupError(
-                    message: state.message ?? '服务器不可用',
-                    serverUrl: cfg.baseUrl,
-                    incompatible: state.phase == AuthPhase.incompatible,
-                    onRetry: () => ref.invalidate(authControllerProvider),
-                    onChangeServer: changeServer,
-                  ),
-                _ => const _AuthenticatedHome(),
-              },
-            ),
+      home: SecurityGate(
+        onReady: () {
+          ref.read(securityGateReadyProvider.notifier).state = true;
+        },
+        child: cfg == null
+            ? const ServerSetupPage()
+            : auth.when(
+                loading: () => const _StartupLoading(),
+                error: (error, _) => _StartupError(
+                      message: error.toString(),
+                      serverUrl: cfg.baseUrl,
+                      incompatible: error is ServerCompatibilityException,
+                      onRetry: () => ref.invalidate(authControllerProvider),
+                      onChangeServer: changeServer,
+                    ),
+                data: (state) => switch (state.phase) {
+                  AuthPhase.needsLogin || AuthPhase.totpRequired =>
+                    const LoginPage(),
+                  AuthPhase.serverSelection => const ServerSelectionPage(),
+                  AuthPhase.incompatible || AuthPhase.unavailable =>
+                    _StartupError(
+                      message: state.message ?? '服务器不可用',
+                      serverUrl: cfg.baseUrl,
+                      incompatible: state.phase == AuthPhase.incompatible,
+                      onRetry: () => ref.invalidate(authControllerProvider),
+                      onChangeServer: changeServer,
+                    ),
+                  _ => const _AuthenticatedHome(),
+                },
+              ),
+      ),
     );
   }
 }
 
-class _AuthenticatedHome extends StatefulWidget {
+class _AuthenticatedHome extends ConsumerWidget {
   const _AuthenticatedHome();
 
   @override
-  State<_AuthenticatedHome> createState() => _AuthenticatedHomeState();
-}
-
-class _AuthenticatedHomeState extends State<_AuthenticatedHome> {
-  bool _securityReady = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return SecurityGate(
-      onReady: () {
-        if (!mounted || _securityReady) return;
-        setState(() => _securityReady = true);
-      },
-      child: StartupUpdateGate(
-        enabled: _securityReady,
-        child: const MainShell(),
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return StartupUpdateGate(
+      enabled: ref.watch(securityGateReadyProvider),
+      child: const MainShell(),
     );
   }
 }

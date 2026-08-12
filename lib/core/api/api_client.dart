@@ -50,10 +50,14 @@ class ApiClient {
     AuthSessionRepository? sessionRepository,
     void Function()? onSessionExpired,
   }) {
+    sessionRepository?.setActiveServerId(config.activeServerId);
+    final scopedSessionRepository = sessionRepository?.forServer(
+      config.activeServerId,
+    );
     return ApiClient(
       buildDio(
         config,
-        sessionRepository: sessionRepository,
+        sessionRepository: scopedSessionRepository,
         onSessionExpired: onSessionExpired,
       ),
       config: config,

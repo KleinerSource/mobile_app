@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/auth/auth_provider.dart';
-import '../../core/auth/auth_session.dart';
-import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
@@ -76,7 +74,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      await ref.read(authSessionRepositoryProvider).clear();
       final config = ref.read(serverConfigProvider);
       if (config?.hasMultipleServers == true) {
         ref.read(serverConfigProvider.notifier).showServerSelection();
@@ -109,67 +106,81 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(28, 36, 28, 36),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('AUTHENTICATE', style: AppText.eyebrow(context)),
-                    const SizedBox(height: 6),
-                    Text('登录 MD Center', style: AppText.pageTitle(context)),
-                    const SizedBox(height: 12),
-                    Text(
-                      status?.totpConfigured == true
-                          ? '此服务器需要密码和 TOTP 验证码。'
-                          : '请输入服务器密码继续。',
-                      style: AppText.body(context),
-                    ),
-                    const SizedBox(height: 28),
-                    _input(
-                      context,
-                      controller: _passwordController,
-                      label: '密码',
-                      obscureText: true,
-                      onSubmitted: (_) => _login(),
-                    ),
-                    if (requiresTotp) ...[
-                      const SizedBox(height: 14),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 420),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, child) => Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 18 * (1 - value)),
+                    child: child,
+                  ),
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('AUTHENTICATE', style: AppText.eyebrow(context)),
+                      const SizedBox(height: 6),
+                      Text('登录 MD Center', style: AppText.pageTitle(context)),
+                      const SizedBox(height: 12),
+                      Text(
+                        status?.totpConfigured == true
+                            ? '此服务器需要密码和 TOTP 验证码。'
+                            : '请输入服务器密码继续。',
+                        style: AppText.body(context),
+                      ),
+                      const SizedBox(height: 28),
                       _input(
                         context,
-                        controller: _totpController,
-                        label: 'TOTP 验证码',
-                        keyboardType: TextInputType.number,
+                        controller: _passwordController,
+                        label: '密码',
+                        obscureText: true,
                         onSubmitted: (_) => _login(),
                       ),
-                    ],
-                    if (visibleError != null) ...[
-                      const SizedBox(height: 12),
-                      Text(visibleError, style: TextStyle(color: c.danger)),
-                    ],
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: _busy ? null : _login,
-                        icon: _busy
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.login),
-                        label: Text(_busy ? '登录中...' : '登录'),
+                      if (requiresTotp) ...[
+                        const SizedBox(height: 14),
+                        _input(
+                          context,
+                          controller: _totpController,
+                          label: 'TOTP 验证码',
+                          keyboardType: TextInputType.number,
+                          onSubmitted: (_) => _login(),
+                        ),
+                      ],
+                      if (visibleError != null) ...[
+                        const SizedBox(height: 12),
+                        Text(visibleError, style: TextStyle(color: c.danger)),
+                      ],
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: _busy ? null : _login,
+                          icon: _busy
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.login),
+                          label: Text(_busy ? '登录中...' : '登录'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Center(
-                      child: TextButton.icon(
-                        onPressed: _busy ? null : () => _changeServer(),
-                        icon: const Icon(Icons.arrow_back),
-                        label: const Text('返回服务器地址编辑'),
+                      const SizedBox(height: 10),
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: _busy ? null : () => _changeServer(),
+                          icon: const Icon(Icons.arrow_back),
+                          label: const Text('返回服务器地址编辑'),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

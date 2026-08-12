@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/auth/auth_provider.dart';
-import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
@@ -20,8 +19,38 @@ class ServerSelectionPage extends ConsumerStatefulWidget {
       _ServerSelectionPageState();
 }
 
-class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
+class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
+    with SingleTickerProviderStateMixin {
   String? _selectingId;
+  late final AnimationController _entryController;
+  late final Animation<double> _entryOpacity;
+  late final Animation<Offset> _entrySlide;
+
+  @override
+  void initState() {
+    super.initState();
+    _entryController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    );
+    _entryOpacity = CurvedAnimation(
+      parent: _entryController,
+      curve: Curves.easeOutCubic,
+    );
+    _entrySlide = Tween<Offset>(
+      begin: const Offset(0, 0.08),
+      end: Offset.zero,
+    ).animate(_entryOpacity);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _entryController.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _entryController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +77,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '选择要连接的服务器，进入后会自动选择可用线路',
+                      '选择要连接的服务器',
                       textAlign: TextAlign.center,
                       style: AppText.body(context).copyWith(color: colors.muted),
                     ),
@@ -116,11 +145,17 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
             for (final server in servers)
               SizedBox(
                 width: width,
-                child: _ServerAvatarCard(
-                  key: ValueKey(server.id),
-                  server: server,
-                  busy: _selectingId == server.id,
-                  onTap: () => _selectServer(server),
+                child: FadeTransition(
+                  opacity: _entryOpacity,
+                  child: SlideTransition(
+                    position: _entrySlide,
+                    child: _ServerAvatarCard(
+                      key: ValueKey(server.id),
+                      server: server,
+                      busy: _selectingId == server.id,
+                      onTap: () => _selectServer(server),
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -134,7 +169,6 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     setState(() => _selectingId = server.id);
     AppHaptics.medium();
     try {
-      await ref.read(authSessionRepositoryProvider).clear();
       await ref.read(serverConfigProvider.notifier).selectServer(server.id);
       ref.invalidate(authControllerProvider);
     } catch (error) {
@@ -193,7 +227,6 @@ class _ServerAvatarCardState extends State<_ServerAvatarCard> {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final line = widget.server.activeLine;
     return FutureBuilder<ServerProfileData?>(
       future: _profileFuture,
       builder: (context, snapshot) {
@@ -216,66 +249,60 @@ class _ServerAvatarCardState extends State<_ServerAvatarCard> {
                 padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
                 child: Column(
                   children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
+                    AnimatedScale(
+                      scale: widget.busy ? 0.96 : 1,
+                      duration: const Duration(milliseconds: 180),
                       curve: Curves.easeOutCubic,
-                      width: 104,
-                      height: 104,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            colors.accent.withValues(alpha: 0.95),
-                            colors.accent.withValues(alpha: 0.52),
+                      child: Container(
+                        width: 104,
+                        height: 104,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              colors.accent.withValues(alpha: 0.95),
+                              colors.accent.withValues(alpha: 0.52),
+                            ],
+                          ),
+                          border: Border.all(
+                            color: colors.surface.withValues(alpha: 0.9),
+                            width: 4,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: colors.accent.withValues(alpha: 0.2),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
                           ],
                         ),
-                        border: Border.all(
-                          color: colors.surface.withValues(alpha: 0.9),
-                          width: 4,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colors.accent.withValues(alpha: 0.2),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: widget.busy
-                          ? CircularProgressIndicator(
-                              color: colors.surface,
-                              strokeWidth: 2.5,
-                            )
-                          : avatarUrl == null || avatarUrl.isEmpty
-                              ? Text(
-                                  _initials(displayName),
-                                  style: TextStyle(
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            _buildAvatar(
+                              colors,
+                              displayName,
+                              avatarUrl,
+                            ),
+                            if (widget.busy)
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.28),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: CircularProgressIndicator(
                                     color: colors.surface,
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                )
-                              : ClipOval(
-                                  child: Image.network(
-                                    avatarUrl,
-                                    width: 104,
-                                    height: 104,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Center(
-                                      child: Text(
-                                        _initials(displayName),
-                                        style: TextStyle(
-                                          color: colors.surface,
-                                          fontSize: 32,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
+                                    strokeWidth: 2.5,
                                   ),
                                 ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 14),
                     Text(
@@ -285,19 +312,6 @@ class _ServerAvatarCardState extends State<_ServerAvatarCard> {
                       textAlign: TextAlign.center,
                       style: AppText.cardTitle(context),
                     ),
-                    const SizedBox(height: 5),
-                    Text(
-                      line?.baseUrl ?? '没有可用线路',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: AppText.meta(context),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '${widget.server.lines.length} 条线路',
-                      style: AppText.meta(context),
-                    ),
                   ],
                 ),
               ),
@@ -305,6 +319,56 @@ class _ServerAvatarCardState extends State<_ServerAvatarCard> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAvatar(
+    AppColors colors,
+    String displayName,
+    String? avatarUrl,
+  ) {
+    if (avatarUrl == null || avatarUrl.isEmpty) {
+      return Center(
+        child: Text(
+          _initials(displayName),
+          style: TextStyle(
+            color: colors.surface,
+            fontSize: 32,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+    return ClipOval(
+      child: Image.network(
+        avatarUrl,
+        width: 104,
+        height: 104,
+        fit: BoxFit.cover,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded || frame != null) return child;
+          return Center(
+            child: Text(
+              _initials(displayName),
+              style: TextStyle(
+                color: colors.surface,
+                fontSize: 32,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          );
+        },
+        errorBuilder: (_, __, ___) => Center(
+          child: Text(
+            _initials(displayName),
+            style: TextStyle(
+              color: colors.surface,
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
     );
   }
 

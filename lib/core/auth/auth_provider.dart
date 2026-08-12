@@ -23,6 +23,10 @@ class AuthController extends AsyncNotifier<AuthState> {
       return const AuthState(phase: AuthPhase.unconfigured);
     }
 
+    ref
+        .read(authSessionRepositoryProvider)
+        .setActiveServerId(config.activeServerId);
+
     if (config.hasMultipleServers &&
         !ref.watch(serverSelectionReadyProvider)) {
       return const AuthState(phase: AuthPhase.serverSelection);
@@ -78,12 +82,26 @@ class AuthController extends AsyncNotifier<AuthState> {
       status = await client.auth.status();
     } catch (error) {
       final exception = toApiException(error);
-      return AuthState(
-        phase: exception.status == 401 || exception.status == 404
-            ? AuthPhase.incompatible
-            : AuthPhase.unavailable,
-        message: exception.message,
-      );
+      if (exception.status == 401 && await _refresh(client)) {
+        try {
+          status = await client.auth.status();
+        } catch (retryError) {
+          final retryException = toApiException(retryError);
+          return AuthState(
+            phase: retryException.status == 401 || retryException.status == 404
+                ? AuthPhase.incompatible
+                : AuthPhase.unavailable,
+            message: retryException.message,
+          );
+        }
+      } else {
+        return AuthState(
+          phase: exception.status == 401 || exception.status == 404
+              ? AuthPhase.incompatible
+              : AuthPhase.unavailable,
+          message: exception.message,
+        );
+      }
     }
 
     if (!status.enabled) {

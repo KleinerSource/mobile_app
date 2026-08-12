@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/api/server_compatibility.dart';
-import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_haptics.dart';
@@ -61,9 +60,6 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       final existing = _savedConfig ??
           ref.read(serverConfigProvider) ??
           ref.read(serverConfigRepoProvider).load();
-      if (existing != null && existing.baseUrl != normalized) {
-        await ref.read(authSessionRepositoryProvider).clear();
-      }
       final config = ServerConfig(
         baseUrl: normalized,
         lines: existing?.baseUrl == normalized ? existing!.lines : const [],

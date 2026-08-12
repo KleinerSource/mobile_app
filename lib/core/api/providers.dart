@@ -8,6 +8,7 @@ import 'api_client.dart';
 final apiClientProvider = Provider<ApiClient?>((ref) {
   final cfg = ref.watch(serverConfigProvider);
   if (cfg == null) return null;
+  ref.read(authSessionRepositoryProvider).setActiveServerId(cfg.activeServerId);
   return ApiClient.fromConfig(
     cfg,
     sessionRepository: ref.read(authSessionRepositoryProvider),
