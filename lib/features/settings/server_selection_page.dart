@@ -5,7 +5,6 @@ import '../../core/api/api_client.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/auth/auth_session.dart';
-import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
@@ -78,11 +77,13 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     final selected = _selectedServerFor(servers);
     ref.listen<AsyncValue<AuthState>>(authControllerProvider, (_, next) {
       final phase = next.valueOrNull?.phase;
-      if (!mounted || _selectedServerId == null || _needsLogin == true) {
+      if (!mounted || _selectedServerId == null) {
         return;
       }
       if (phase == AuthPhase.needsLogin || phase == AuthPhase.totpRequired) {
         setState(() => _needsLogin = true);
+      } else if (phase == AuthPhase.authenticated) {
+        setState(() => _needsLogin = false);
       }
     });
 
@@ -472,16 +473,14 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     });
 
     try {
-      final savedSession = await ref
-          .read(authSessionRepositoryProvider)
-          .forServer(server.id)
-          .current();
       await ref.read(serverConfigProvider.notifier).selectServer(server.id);
       ref.invalidate(authControllerProvider);
       if (mounted) {
         setState(() {
           _selectingId = null;
-          _needsLogin = savedSession == null;
+          // 不能用本地会话是否存在判断是否需要密码：未开启鉴权的服务器
+          // 同样没有本地会话，必须等待 /auth/status 的明确结果。
+          _needsLogin = null;
         });
       }
     } catch (error) {
