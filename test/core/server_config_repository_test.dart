@@ -77,6 +77,7 @@ void main() {
     const home = ServerProfile(
       id: 'home',
       name: '家庭服务器',
+      avatarUrl: 'https://media.example/avatar.png',
       lines: [
         ServerLine(
           id: 'home-lan',
@@ -100,7 +101,7 @@ void main() {
     );
 
     await repo.save(
-      const ServerConfig(
+      ServerConfig(
         baseUrl: 'http://192.168.1.10:8001',
         lines: home.lines,
         servers: [home, remote],
@@ -113,6 +114,7 @@ void main() {
     expect(config?.activeServerId, 'home');
     expect(config?.baseUrl, 'http://192.168.1.10:8001');
     expect(config?.servers[1].lines.single.baseUrl, 'https://media.example');
+    expect(config?.servers[0].avatarUrl, 'https://media.example/avatar.png');
 
     await repo.save(
       config!.copyWith(
@@ -125,6 +127,35 @@ void main() {
     expect(config?.activeServerId, 'remote');
     expect(config?.baseUrl, 'https://media.example');
     expect(config?.servers[0].lines.single.baseUrl, 'http://192.168.1.10:8001');
+  });
+
+  test('服务器头像地址会随本地配置保存并恢复', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repo = ServerConfigRepository(prefs);
+    const server = ServerProfile(
+      id: 'server',
+      name: '服务器',
+      avatarUrl: 'https://media.example/avatar.png',
+      lines: [
+        ServerLine(
+          id: 'line',
+          name: '主线路',
+          baseUrl: 'https://media.example',
+        ),
+      ],
+      activeLineId: 'line',
+    );
+
+    await repo.save(
+      ServerConfig(
+        baseUrl: 'https://media.example',
+        lines: server.lines,
+        servers: [server],
+        activeServerId: 'server',
+      ),
+    );
+
+    expect(repo.load()?.activeServer?.avatarUrl, server.avatarUrl);
   });
 
   test('normalize 去除末尾斜杠', () {

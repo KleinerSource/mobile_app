@@ -92,12 +92,14 @@ class ServerProfile {
     required this.name,
     required this.lines,
     this.activeLineId,
+    this.avatarUrl,
   });
 
   final String id;
   final String name;
   final List<ServerLine> lines;
   final String? activeLineId;
+  final String? avatarUrl;
 
   factory ServerProfile.fromJson(Map<String, dynamic> json) {
     final id = json['id']?.toString().trim() ?? '';
@@ -115,6 +117,7 @@ class ServerProfile {
       name: name.isNotEmpty ? name : '服务器',
       lines: lines,
       activeLineId: json['active_line_id']?.toString(),
+      avatarUrl: _optionalString(json['avatar_url']),
     );
   }
 
@@ -123,6 +126,7 @@ class ServerProfile {
         'name': name,
         'lines': lines.map((line) => line.toJson()).toList(),
         if (activeLineId != null) 'active_line_id': activeLineId,
+        if (avatarUrl != null && avatarUrl!.isNotEmpty) 'avatar_url': avatarUrl,
       };
 
   ServerLine? get activeLine {
@@ -141,12 +145,14 @@ class ServerProfile {
     String? name,
     List<ServerLine>? lines,
     String? activeLineId,
+    String? avatarUrl,
   }) {
     return ServerProfile(
       id: id ?? this.id,
       name: name ?? this.name,
       lines: lines ?? this.lines,
       activeLineId: activeLineId ?? this.activeLineId,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
     );
   }
 
@@ -157,7 +163,8 @@ class ServerProfile {
           other.id == id &&
           other.name == name &&
           listEquals(other.lines, lines) &&
-          other.activeLineId == activeLineId;
+          other.activeLineId == activeLineId &&
+          other.avatarUrl == avatarUrl;
 
   @override
   int get hashCode => Object.hash(
@@ -165,7 +172,13 @@ class ServerProfile {
         name,
         Object.hashAll(lines),
         activeLineId,
+        avatarUrl,
       );
+}
+
+String? _optionalString(Object? value) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? null : text;
 }
 
 @immutable

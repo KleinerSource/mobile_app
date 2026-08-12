@@ -201,6 +201,7 @@ class ServerConfigRepository {
           name: server.name.trim().isEmpty
               ? '服务器 ${servers.length + 1}'
               : server.name.trim(),
+          avatarUrl: server.avatarUrl,
           lines: lines,
           activeLineId: activeLineId,
         ),

@@ -588,7 +588,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
             lines: lines,
             activeLineId: selectedLine.id,
           ),
-          select: config.activeServerId == server.id,
+          select: config?.activeServerId == server.id,
         );
     if (mounted) setState(() => _lines = List<ServerLine>.of(lines));
   }

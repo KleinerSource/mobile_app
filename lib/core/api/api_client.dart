@@ -24,10 +24,10 @@ import 'services/tags_api.dart';
 import 'services/translation_api.dart';
 
 class ApiClient {
-  ApiClient(this.dio)
+  ApiClient(this.dio, {this.config})
       : auth = AuthApi(dio),
         system = SystemApi(dio),
-        systemExtended = SystemExtendedApi(dio),
+        systemExtended = SystemExtendedApi(dio, config: config),
         movies = MoviesApi(dio),
         moviesExtended = MoviesExtendedApi(dio),
         playback = PlaybackApi(dio),
@@ -56,10 +56,12 @@ class ApiClient {
         sessionRepository: sessionRepository,
         onSessionExpired: onSessionExpired,
       ),
+      config: config,
     );
   }
 
   final Dio dio;
+  final ServerConfig? config;
   final AuthApi auth;
   final SystemApi system;
   final MoviesApi movies;

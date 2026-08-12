@@ -1,13 +1,33 @@
 import 'package:dio/dio.dart';
 
+import '../../config/server_config.dart';
 import '../../models/system.dart';
 import '../envelope.dart';
+import '../url_resolver.dart';
 
 /// 非 Retrofit 的系统扩展接口，覆盖 FFmpeg、定时任务和下载代理。
 class SystemExtendedApi {
-  SystemExtendedApi(this._dio);
+  SystemExtendedApi(this._dio, {this.config});
 
   final Dio _dio;
+  final ServerConfig? config;
+
+  Future<ServerProfileData> serverProfile() async {
+    final response = await _dio.get<dynamic>('/public/server-profile');
+    return unwrapStd<ServerProfileData>(
+      response.data,
+      (data) {
+        final json = Map<String, dynamic>.from(data as Map);
+        final avatar = json['avatar_url']?.toString().trim() ?? '';
+        return ServerProfileData(
+          name: json['name']?.toString().trim() ?? '',
+          avatarUrl: config == null || avatar.isEmpty
+              ? null
+              : resolveServerUrl(config!, avatar),
+        );
+      },
+    );
+  }
 
   Future<ScheduleStatus> schedule() async {
     final response = await _dio.get<dynamic>('/schedule');

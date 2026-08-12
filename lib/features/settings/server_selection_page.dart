@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/api_client.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/models/system.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
-import 'settings_common.dart';
 
 /// 多服务器启动选择页，采用类似 macOS 登录界面的居中头像选择布局。
 class ServerSelectionPage extends ConsumerStatefulWidget {
@@ -116,6 +117,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
               SizedBox(
                 width: width,
                 child: _ServerAvatarCard(
+                  key: ValueKey(server.id),
                   server: server,
                   busy: _selectingId == server.id,
                   onTap: () => _selectServer(server),
@@ -147,7 +149,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   }
 }
 
-class _ServerAvatarCard extends StatelessWidget {
+class _ServerAvatarCard extends StatefulWidget {
   const _ServerAvatarCard({
     required this.server,
     required this.busy,
@@ -159,89 +161,149 @@ class _ServerAvatarCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_ServerAvatarCard> createState() => _ServerAvatarCardState();
+}
+
+class _ServerAvatarCardState extends State<_ServerAvatarCard> {
+  late Future<ServerProfileData?> _profileFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileFuture = _loadProfile();
+  }
+
+  Future<ServerProfileData?> _loadProfile() async {
+    final line = widget.server.activeLine;
+    if (line == null) return null;
+    try {
+      return await ApiClient.fromConfig(
+        ServerConfig(
+          baseUrl: line.baseUrl,
+          lines: [line],
+        ),
+      ).systemExtended.serverProfile();
+    } catch (_) {
+      // 兼容尚未提供服务器资料接口的旧后端，继续使用本地名称。
+      return null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final line = server.activeLine;
-    final initials = _initials(server.name);
-    return Semantics(
-      button: true,
-      label: '选择${server.name}',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: busy ? null : onTap,
-          borderRadius: BorderRadius.circular(22),
-          splashColor: colors.accent.withValues(alpha: 0.12),
-          highlightColor: colors.accent.withValues(alpha: 0.06),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-            child: Column(
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  width: 104,
-                  height: 104,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        colors.accent.withValues(alpha: 0.95),
-                        colors.accent.withValues(alpha: 0.52),
-                      ],
-                    ),
-                    border: Border.all(
-                      color: colors.surface.withValues(alpha: 0.9),
-                      width: 4,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: colors.accent.withValues(alpha: 0.2),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: busy
-                      ? CircularProgressIndicator(
-                          color: colors.surface,
-                          strokeWidth: 2.5,
-                        )
-                      : Text(
-                          initials,
-                          style: TextStyle(
-                            color: colors.surface,
-                            fontSize: 32,
-                            fontWeight: FontWeight.w700,
-                          ),
+    final line = widget.server.activeLine;
+    return FutureBuilder<ServerProfileData?>(
+      future: _profileFuture,
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        final displayName = profile?.name.trim().isNotEmpty == true
+            ? profile!.name.trim()
+            : widget.server.name;
+        final avatarUrl = profile?.avatarUrl ?? widget.server.avatarUrl;
+        return Semantics(
+          button: true,
+          label: '选择$displayName',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.busy ? null : widget.onTap,
+              borderRadius: BorderRadius.circular(22),
+              splashColor: colors.accent.withValues(alpha: 0.12),
+              highlightColor: colors.accent.withValues(alpha: 0.06),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                child: Column(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      width: 104,
+                      height: 104,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            colors.accent.withValues(alpha: 0.95),
+                            colors.accent.withValues(alpha: 0.52),
+                          ],
                         ),
+                        border: Border.all(
+                          color: colors.surface.withValues(alpha: 0.9),
+                          width: 4,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colors.accent.withValues(alpha: 0.2),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: widget.busy
+                          ? CircularProgressIndicator(
+                              color: colors.surface,
+                              strokeWidth: 2.5,
+                            )
+                          : avatarUrl == null || avatarUrl.isEmpty
+                              ? Text(
+                                  _initials(displayName),
+                                  style: TextStyle(
+                                    color: colors.surface,
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                )
+                              : ClipOval(
+                                  child: Image.network(
+                                    avatarUrl,
+                                    width: 104,
+                                    height: 104,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Center(
+                                      child: Text(
+                                        _initials(displayName),
+                                        style: TextStyle(
+                                          color: colors.surface,
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: AppText.cardTitle(context),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      line?.baseUrl ?? '没有可用线路',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: AppText.meta(context),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${widget.server.lines.length} 条线路',
+                      style: AppText.meta(context),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 14),
-                Text(
-                  server.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: AppText.cardTitle(context),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  line?.baseUrl ?? '没有可用线路',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: AppText.meta(context),
-                ),
-                const SizedBox(height: 3),
-                Text('${server.lines.length} 条线路', style: AppText.meta(context)),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

@@ -1,6 +1,14 @@
 import 'package:flutter/foundation.dart';
 
 @immutable
+class ServerProfileData {
+  const ServerProfileData({required this.name, this.avatarUrl});
+
+  final String name;
+  final String? avatarUrl;
+}
+
+@immutable
 class ScheduleStatus {
   const ScheduleStatus({
     required this.enabled,
