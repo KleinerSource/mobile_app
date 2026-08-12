@@ -2,7 +2,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
@@ -901,6 +900,7 @@ class _ServerAvatarCard extends StatelessWidget {
 
 class _ServerAvatar extends StatelessWidget {
   const _ServerAvatar({
+    super.key,
     required this.displayName,
     required this.avatarUrl,
     required this.size,
