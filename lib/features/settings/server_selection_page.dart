@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -25,7 +28,7 @@ class ServerSelectionPage extends ConsumerStatefulWidget {
 }
 
 class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _passwordController = TextEditingController();
   final _totpController = TextEditingController();
   final _profileFutures = <String, Future<ServerProfileData?>>{};
@@ -35,11 +38,13 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   bool? _needsLogin;
   bool _loginBusy = false;
   bool _totpRequired = false;
+  bool _transitionLocked = false;
   String? _error;
 
   late final AnimationController _entryController;
   late final Animation<double> _entryOpacity;
   late final Animation<Offset> _entrySlide;
+  late final AnimationController _transitionController;
 
   @override
   void initState() {
@@ -56,6 +61,11 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       begin: const Offset(0, 0.08),
       end: Offset.zero,
     ).animate(_entryOpacity);
+    _transitionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+      reverseDuration: const Duration(milliseconds: 300),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _entryController.forward();
     });
@@ -66,6 +76,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     _passwordController.dispose();
     _totpController.dispose();
     _entryController.dispose();
+    _transitionController.dispose();
     super.dispose();
   }
 
@@ -90,69 +101,75 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     return Scaffold(
       backgroundColor: colors.bg,
       body: GlowBackground(
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 42, 24, 42),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 680),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      height: 108,
+        child: AnimatedBuilder(
+          animation: _transitionController,
+          builder: (context, child) {
+            final progress = Curves.easeInOutCubicEmphasized.transform(
+              _transitionController.value,
+            );
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                Transform.scale(
+                  scale: 1 - (0.025 * progress),
+                  child: ImageFiltered(
+                    imageFilter: ui.ImageFilter.blur(
+                      sigmaX: 10 * progress,
+                      sigmaY: 10 * progress,
+                    ),
+                    child: Opacity(
+                      opacity: 1 - (0.52 * progress),
+                      child: child ?? const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+                if (progress > 0)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      ignoring: !_transitionLocked,
                       child: ClipRect(
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          child: _buildAnimatedBrand(
-                            context,
-                            colors,
-                            compact: selected != null,
+                        child: BackdropFilter(
+                          filter: ui.ImageFilter.blur(
+                            sigmaX: 22 * progress,
+                            sigmaY: 22 * progress,
+                          ),
+                          child: ColoredBox(
+                            color: colors.bg.withValues(
+                              alpha: 0.64 * progress,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 44),
-                    ClipRect(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 520),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: (child, animation) {
-                          final slide = Tween<Offset>(
-                            begin: const Offset(0, 0.16),
-                            end: Offset.zero,
-                          ).animate(animation);
-                          final scale = Tween<double>(
-                            begin: 0.86,
-                            end: 1,
-                          ).animate(animation);
-                          return SlideTransition(
-                            position: slide,
-                            child: ScaleTransition(scale: scale, child: child),
-                          );
-                        },
-                        layoutBuilder: (currentChild, previousChildren) {
-                          return Stack(
-                            clipBehavior: Clip.hardEdge,
-                            alignment: Alignment.topCenter,
-                            children: [
-                              ...previousChildren,
-                              if (currentChild != null) currentChild,
-                            ],
-                          );
-                        },
-                        child: selected == null
-                            ? _buildPicker(context, colors, servers)
-                            : _needsLogin == true
-                                ? _buildInlineLogin(context, colors, selected)
-                                : _buildConnecting(
-                                    context,
-                                    colors,
-                                    selected,
-                                  ),
+                  ),
+              ],
+            );
+          },
+          child: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 42, 24, 42),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 680),
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 108,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: selected == null
+                              ? _buildBrand(context, colors)
+                              : const SizedBox.shrink(),
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 44),
+                      selected == null
+                          ? _buildPicker(context, colors, servers)
+                          : _needsLogin == true
+                              ? _buildInlineLogin(context, colors, selected)
+                              : _buildConnecting(context, colors, selected),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -169,29 +186,6 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       if (server.id == id) return server;
     }
     return null;
-  }
-
-  Widget _buildAnimatedBrand(
-    BuildContext context,
-    AppColors colors, {
-    required bool compact,
-  }) {
-    return AnimatedOpacity(
-      opacity: compact ? 0 : 1,
-      duration: const Duration(milliseconds: 520),
-      curve: Curves.easeInOutCubic,
-      child: AnimatedSlide(
-        offset: compact ? const Offset(0, -0.18) : Offset.zero,
-        duration: const Duration(milliseconds: 520),
-        curve: Curves.easeInOutCubic,
-        child: AnimatedScale(
-          scale: compact ? 0.82 : 1,
-          duration: const Duration(milliseconds: 520),
-          curve: Curves.easeInOutCubic,
-          child: _buildBrand(context, colors),
-        ),
-      ),
-    );
   }
 
   Widget _buildBrand(BuildContext context, AppColors colors) {
@@ -460,8 +454,11 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   }
 
   Future<void> _selectServer(ServerProfile server) async {
-    if (_selectingId != null || _loginBusy) return;
+    if (_selectingId != null || _loginBusy || _transitionLocked) return;
     AppHaptics.medium();
+    setState(() => _transitionLocked = true);
+    await _coverForTransition();
+    if (!mounted) return;
     setState(() {
       _selectedServerId = server.id;
       _selectingId = server.id;
@@ -471,6 +468,9 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       _passwordController.clear();
       _totpController.clear();
     });
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    unawaited(_revealTransition());
 
     try {
       await ref.read(serverConfigProvider.notifier).selectServer(server.id);
@@ -545,9 +545,12 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     }
   }
 
-  void _showServerList() {
-    if (_selectingId != null || _loginBusy) return;
+  Future<void> _showServerList() async {
+    if (_selectingId != null || _loginBusy || _transitionLocked) return;
     AppHaptics.selection();
+    setState(() => _transitionLocked = true);
+    await _coverForTransition();
+    if (!mounted) return;
     setState(() {
       _selectedServerId = null;
       _selectingId = null;
@@ -557,6 +560,26 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       _passwordController.clear();
       _totpController.clear();
     });
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    await _revealTransition();
+  }
+
+  Future<void> _coverForTransition() async {
+    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
+      _transitionController.value = 1;
+      return;
+    }
+    await _transitionController.forward(from: 0);
+  }
+
+  Future<void> _revealTransition() async {
+    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
+      _transitionController.value = 0;
+    } else {
+      await _transitionController.reverse(from: 1);
+    }
+    if (mounted) setState(() => _transitionLocked = false);
   }
 
   Future<ServerProfileData?> _profileFor(ServerProfile server) {
