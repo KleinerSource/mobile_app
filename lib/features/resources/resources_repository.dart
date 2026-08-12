@@ -121,14 +121,24 @@ class ResourcesRepository {
   Future<OptionsResult<ResourceItem>> options(
     ResourceKind kind, {
     String? search,
+    int offset = 0,
+    int? limit,
   }) async {
-    final q = <String, dynamic>{};
+    final q = <String, dynamic>{'offset': offset};
     final keyword = search?.trim() ?? '';
     if (keyword.isNotEmpty) q['search'] = keyword;
+    if (limit != null && limit > 0) q['limit'] = limit;
 
     try {
       final raw = await _options(kind, q);
-      return unwrapOptions<ResourceItem>(raw, ResourceItem.fromJson);
+      final result = unwrapOptions<ResourceItem>(raw, ResourceItem.fromJson);
+      // 旧服务可能不返回 offset；客户端以本次请求的偏移为准，避免第二页重复请求第一页。
+      return OptionsResult<ResourceItem>(
+        items: result.items,
+        hasMore: result.hasMore,
+        limit: result.limit,
+        offset: offset,
+      );
     } catch (error) {
       // 新接口是增量能力；老服务没有路由时继续使用原列表接口。
       final status = toApiException(error).status;
@@ -138,7 +148,7 @@ class ResourcesRepository {
       final page = await list(
         kind,
         limit: fallbackLimit,
-        offset: 0,
+        offset: offset,
         search: keyword.isEmpty ? null : keyword,
         sortBy: 'name',
         sortOrder: 'asc',
@@ -147,6 +157,7 @@ class ResourcesRepository {
         items: page.items,
         hasMore: page.hasMore,
         limit: page.limit,
+        offset: offset,
       );
     }
   }

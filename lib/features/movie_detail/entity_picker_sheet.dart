@@ -383,14 +383,17 @@ class _ResourceList extends ConsumerStatefulWidget {
 }
 
 class _ResourceListState extends ConsumerState<_ResourceList> {
-  OptionsResult<ResourceItem>? _data;
-  bool _loading = false;
-  Object? _error;
-  int _requestSerial = 0;
-  bool? _localPinyinMode;
+  final _scrollController = ScrollController();
+  List<ResourceItem> _items = const [];
   List<ResourceItem> _localItems = const [];
   Map<int, PinyinSearchTokens> _pinyinIndex = {};
   final _knownNames = <int, String>{};
+  bool _loading = false;
+  Object? _error;
+  int _requestSerial = 0;
+  int _nextOffset = 0;
+  bool _hasMore = false;
+  bool? _localPinyinMode;
 
   bool get _supportsLocalPinyin =>
       widget.kind == ResourceKind.genre || widget.kind == ResourceKind.tag;
@@ -399,7 +402,14 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
   void initState() {
     super.initState();
     _knownNames.addAll(widget.selectedNames);
-    _load();
+    _scrollController.addListener(_onScroll);
+    _loadPage(reset: true);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -408,32 +418,59 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
     _knownNames.addAll(widget.selectedNames);
     if (oldWidget.kind != widget.kind) {
       _localPinyinMode = null;
-      _data = null;
-      _load();
+      _localItems = const [];
+      _pinyinIndex = {};
+      _loadPage(reset: true);
     } else if (oldWidget.search != widget.search && _localPinyinMode == true) {
       setState(() {});
     } else if (oldWidget.search != widget.search) {
-      _load();
+      if (_supportsLocalPinyin &&
+          (widget.search == null || widget.search!.isEmpty)) {
+        _localPinyinMode = null;
+        _localItems = const [];
+        _pinyinIndex = {};
+      }
+      _loadPage(reset: true);
     }
   }
 
-  Future<void> _load() async {
-    final requestSerial = ++_requestSerial;
-    final search = widget.search;
+  void _onScroll() {
+    if (!_scrollController.hasClients ||
+        _scrollController.position.extentAfter > 240 ||
+        _error != null) {
+      return;
+    }
+    _loadPage(reset: false);
+  }
+
+  Future<void> _loadPage({required bool reset}) async {
     if (_localPinyinMode == true) {
       if (mounted) setState(() {});
       return;
     }
+    if (!reset && (_loading || !_hasMore)) return;
+
+    final requestSerial = reset ? ++_requestSerial : _requestSerial;
+    final search = widget.search;
+    final offset = reset ? 0 : _nextOffset;
     setState(() {
       _loading = true;
       _error = null;
+      if (reset) {
+        _items = const [];
+        _nextOffset = 0;
+        _hasMore = false;
+      }
     });
     try {
       final repository = ref.read(resourcesRepositoryProvider);
       OptionsResult<ResourceItem>? probe;
-      if (_localPinyinMode == null && _supportsLocalPinyin) {
+      if (reset &&
+          _localPinyinMode == null &&
+          _supportsLocalPinyin &&
+          (search == null || search.isEmpty)) {
         // 选项接口只读取 id/name，不触发资源管理页的影片计数聚合。
-        probe = await repository.options(widget.kind);
+        probe = await repository.options(widget.kind, offset: 0);
         if (!mounted || requestSerial != _requestSerial) return;
         if (shouldUseLocalTaxonomySearch(
           hasMore: probe.hasMore,
@@ -450,7 +487,7 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
           }
           setState(() {
             _loading = false;
-            _data = null;
+            _hasMore = false;
           });
           return;
         }
@@ -461,13 +498,21 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
 
       final result = probe != null && (search == null || search.isEmpty)
           ? probe
-          : await repository.options(widget.kind, search: search);
+          : await repository.options(
+              widget.kind,
+              search: search,
+              offset: offset,
+            );
       if (!mounted || requestSerial != _requestSerial) return;
       for (final item in result.items) {
         _knownNames[item.id] = item.name;
       }
+      final ids = _items.map((item) => item.id).toSet();
+      final newItems = result.items.where((item) => ids.add(item.id)).toList();
       setState(() {
-        _data = result;
+        _items = [..._items, ...newItems];
+        _nextOffset = offset + result.items.length;
+        _hasMore = result.hasMore && newItems.isNotEmpty;
         _loading = false;
       });
     } catch (e) {
@@ -488,7 +533,7 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
               tokens: _pinyinIndex[item.id],
             ),
           )
-        : (_data?.items ?? const <ResourceItem>[]);
+        : _items;
     final byId = <int, ResourceItem>{
       for (final item in source)
         if (widget.allowedIds == null || widget.allowedIds!.contains(item.id))
@@ -514,10 +559,10 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading && _data == null) {
+    if (_loading && _visibleItems().isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_error != null) {
+    if (_error != null && _visibleItems().isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -535,13 +580,39 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
 
     return Column(
       children: [
-        if (_localPinyinMode != true && _data?.hasMore == true)
-          const _OptionsMoreHint(),
         Expanded(
           child: ListView.builder(
+            controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
-            itemCount: items.length,
+            itemCount: items.length +
+                (_localPinyinMode != true && _hasMore ? 1 : 0),
             itemBuilder: (ctx, i) {
+              if (i >= items.length) {
+                if (_error != null) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Center(
+                      child: TextButton(
+                        onPressed: () => _loadPage(reset: false),
+                        child: const Text('加载更多失败，点击重试'),
+                      ),
+                    ),
+                  );
+                }
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _loadPage(reset: false);
+                });
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                );
+              }
               final r = items[i];
               final isSel = widget.selected.contains(r.id);
               return _PickerTile(
@@ -580,36 +651,67 @@ class _ActorList extends ConsumerStatefulWidget {
 }
 
 class _ActorListState extends ConsumerState<_ActorList> {
-  OptionsResult<ResourceItem>? _data;
+  static const _pageSize = 100;
+
+  final _scrollController = ScrollController();
+  List<ResourceItem> _items = const [];
   Object? _error;
   bool _loading = false;
   int _requestSerial = 0;
+  int _nextOffset = 0;
+  bool _hasMore = false;
   final _knownNames = <int, String>{};
 
   @override
   void initState() {
     super.initState();
     _knownNames.addAll(widget.selectedNames);
-    _fetch();
+    _scrollController.addListener(_onScroll);
+    _fetch(reset: true);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
   void didUpdateWidget(covariant _ActorList old) {
     super.didUpdateWidget(old);
     _knownNames.addAll(widget.selectedNames);
-    if (old.search != widget.search) _fetch();
+    if (old.search != widget.search) _fetch(reset: true);
   }
 
-  Future<void> _fetch() async {
-    final requestSerial = ++_requestSerial;
+  void _onScroll() {
+    if (!_scrollController.hasClients ||
+        _scrollController.position.extentAfter > 240 ||
+        _error != null) {
+      return;
+    }
+    _fetch(reset: false);
+  }
+
+  Future<void> _fetch({required bool reset}) async {
+    if (!reset && (_loading || !_hasMore)) return;
+
+    final requestSerial = reset ? ++_requestSerial : _requestSerial;
     final search = widget.search;
+    final offset = reset ? 0 : _nextOffset;
     setState(() {
       _loading = true;
       _error = null;
+      if (reset) {
+        _items = const [];
+        _nextOffset = 0;
+        _hasMore = false;
+      }
     });
     try {
       final api = ref.read(requiredApiClientProvider).actors;
       final q = <String, dynamic>{
+        'limit': _pageSize,
+        'offset': offset,
         if (search != null && search.isNotEmpty) 'search': search,
       };
       OptionsResult<ResourceItem> result;
@@ -621,8 +723,8 @@ class _ActorListState extends ConsumerState<_ActorList> {
         // 老服务没有 /options 路由时，/options 可能会命中 /:id 并返回 400。
         if (status != 404 && status != 400) rethrow;
         final raw = await api.list({
-          'limit': 100,
-          'offset': 0,
+          'limit': _pageSize,
+          'offset': offset,
           'sort_by': 'movie_count',
           'sort_order': 'desc',
           if (search != null && search.isNotEmpty) 'search': search,
@@ -635,13 +737,20 @@ class _ActorListState extends ConsumerState<_ActorList> {
           items: page.items,
           hasMore: page.hasMore,
           limit: page.limit,
+          offset: offset,
         );
       }
       if (!mounted || requestSerial != _requestSerial) return;
       for (final item in result.items) {
         _knownNames[item.id] = item.name;
       }
-      setState(() => _data = result);
+      final ids = _items.map((item) => item.id).toSet();
+      final newItems = result.items.where((item) => ids.add(item.id)).toList();
+      setState(() {
+        _items = [..._items, ...newItems];
+        _nextOffset = offset + result.items.length;
+        _hasMore = result.hasMore && newItems.isNotEmpty;
+      });
     } catch (e) {
       if (!mounted || requestSerial != _requestSerial) return;
       setState(() => _error = e);
@@ -654,7 +763,7 @@ class _ActorListState extends ConsumerState<_ActorList> {
 
   List<ResourceItem> _visibleItems() {
     final byId = <int, ResourceItem>{
-      for (final item in _data?.items ?? const <ResourceItem>[]) item.id: item,
+      for (final item in _items) item.id: item,
     };
     for (final id in widget.selected) {
       if (byId.containsKey(id)) continue;
@@ -668,10 +777,10 @@ class _ActorListState extends ConsumerState<_ActorList> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading && _data == null) {
+    if (_loading && _visibleItems().isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_error != null) {
+    if (_error != null && _visibleItems().isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -688,12 +797,38 @@ class _ActorListState extends ConsumerState<_ActorList> {
     }
     return Column(
       children: [
-        if (_data?.hasMore == true) const _OptionsMoreHint(),
         Expanded(
           child: ListView.builder(
+            controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
-            itemCount: items.length,
+            itemCount: items.length + (_hasMore ? 1 : 0),
             itemBuilder: (ctx, i) {
+              if (i >= items.length) {
+                if (_error != null) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Center(
+                      child: TextButton(
+                        onPressed: () => _fetch(reset: false),
+                        child: const Text('加载更多失败，点击重试'),
+                      ),
+                    ),
+                  );
+                }
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _fetch(reset: false);
+                });
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                );
+              }
               final r = items[i];
               final isSel = widget.selected.contains(r.id);
               return _PickerTile(
@@ -710,24 +845,6 @@ class _ActorListState extends ConsumerState<_ActorList> {
         ),
         if (_loading) const LinearProgressIndicator(minHeight: 2),
       ],
-    );
-  }
-}
-
-class _OptionsMoreHint extends StatelessWidget {
-  const _OptionsMoreHint();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 2, 22, 6),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          '结果较多，请继续输入关键词缩小范围',
-          style: AppText.meta(context),
-        ),
-      ),
     );
   }
 }

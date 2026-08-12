@@ -23,9 +23,11 @@ class OptionsResult<T> {
     required this.items,
     required this.hasMore,
     required this.limit,
+    this.offset = 0,
   });
 
   final List<T> items;
   final bool hasMore;
   final int limit;
+  final int offset;
 }

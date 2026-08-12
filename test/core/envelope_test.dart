@@ -75,11 +75,13 @@ void main() {
         ],
         'has_more': true,
         'limit': 100,
+        'offset': 200,
       },
       (item) => item['id'] as int,
     );
     expect(out.items, [1]);
     expect(out.hasMore, isTrue);
     expect(out.limit, 100);
+    expect(out.offset, 200);
   });
 }

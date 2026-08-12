@@ -591,6 +591,8 @@ class _SingleSeriesPicker extends ConsumerStatefulWidget {
 }
 
 class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
+  static const _pageSize = 100;
+
   bool _loading = true;
   List<ResourceItem> _all = const [];
   bool _hasMore = false;
@@ -605,7 +607,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
     try {
       final result = await ref
           .read(resourcesRepositoryProvider)
-          .options(ResourceKind.series);
+          .options(ResourceKind.series, limit: _pageSize);
       if (!mounted) return;
       setState(() {
         _all = result.items;
@@ -624,6 +626,8 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
     var q = '';
     var items = List<ResourceItem>.of(_all);
     var hasMore = _hasMore;
+    var loadingMore = false;
+    var nextOffset = items.length;
     var searching = false;
     String? searchError;
     Timer? debounce;
@@ -632,6 +636,9 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
 
     Future<void> searchSeries(String value, StateSetter setS) async {
       final serial = ++requestSerial;
+      items = [];
+      hasMore = false;
+      nextOffset = 0;
       setS(() {
         searching = true;
         searchError = null;
@@ -639,10 +646,15 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
       try {
         final result = await ref
             .read(resourcesRepositoryProvider)
-            .options(ResourceKind.series, search: value);
+            .options(
+              ResourceKind.series,
+              search: value,
+              limit: _pageSize,
+            );
         if (!active || serial != requestSerial) return;
         items = result.items;
         hasMore = result.hasMore;
+        nextOffset = result.offset + result.items.length;
       } catch (_) {
         if (!active || serial != requestSerial) return;
         searchError = '搜索系列失败，请稍后重试';
@@ -650,6 +662,35 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
         if (active && serial == requestSerial) {
           setS(() => searching = false);
         }
+      }
+    }
+
+    Future<void> loadMoreSeries(StateSetter setS) async {
+      if (loadingMore || !hasMore || searching) return;
+      final serial = requestSerial;
+      loadingMore = true;
+      setS(() {});
+      try {
+        final result = await ref.read(resourcesRepositoryProvider).options(
+              ResourceKind.series,
+              search: q.isEmpty ? null : q,
+              offset: nextOffset,
+              limit: _pageSize,
+            );
+        if (!active || serial != requestSerial) return;
+        final ids = items.map((item) => item.id).toSet();
+        final newItems = result.items.where((item) => ids.add(item.id)).toList();
+        items = [...items, ...newItems];
+        nextOffset = result.offset + result.items.length;
+        hasMore = result.hasMore && newItems.isNotEmpty;
+        searchError = null;
+      } catch (_) {
+        if (active && serial == requestSerial) {
+          searchError = '加载更多系列失败，请稍后重试';
+        }
+      } finally {
+        loadingMore = false;
+        if (active) setS(() {});
       }
     }
 
@@ -699,17 +740,6 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
                       ),
                     ),
                   ),
-                if (hasMore)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 6),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '结果较多，请继续输入关键词缩小范围',
-                        style: TextStyle(color: c.muted, fontSize: 12),
-                      ),
-                    ),
-                  ),
                 Expanded(
                   child: searching
                       ? const Center(child: CircularProgressIndicator())
@@ -720,25 +750,63 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
                                 style: AppText.body(ctx),
                               ),
                             )
-                          : ListView.builder(
-                              itemCount: items.length,
-                              itemBuilder: (ctx, i) {
-                                final r = items[i];
-                                final isSel = widget.selected == r.id;
-                                return ListTile(
-                                  dense: true,
-                                  leading: Icon(
-                                    isSel
-                                        ? Icons.radio_button_checked
-                                        : Icons.radio_button_unchecked,
-                                    size: 18,
-                                    color: isSel ? c.accent : c.muted,
-                                  ),
-                                  title: Text(r.name),
-                                  onTap: () => Navigator.of(ctx)
-                                      .pop((id: r.id, clear: false)),
-                                );
+                          : NotificationListener<ScrollNotification>(
+                              onNotification: (notification) {
+                                if (notification.metrics.extentAfter < 240 &&
+                                    searchError == null) {
+                                  loadMoreSeries(setS);
+                                }
+                                return false;
                               },
+                              child: ListView.builder(
+                                itemCount: items.length + (hasMore ? 1 : 0),
+                                itemBuilder: (ctx, i) {
+                                  if (i >= items.length) {
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      child: Center(
+                                        child: searchError != null &&
+                                                !loadingMore
+                                            ? TextButton(
+                                                onPressed: () {
+                                                  searchError = null;
+                                                  loadMoreSeries(setS);
+                                                },
+                                                child: const Text(
+                                                  '加载更多失败，点击重试',
+                                                ),
+                                              )
+                                            : loadingMore
+                                                ? const SizedBox(
+                                                    width: 18,
+                                                    height: 18,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                                  )
+                                                : const SizedBox.shrink(),
+                                      ),
+                                    );
+                                  }
+                                  final r = items[i];
+                                  final isSel = widget.selected == r.id;
+                                  return ListTile(
+                                    dense: true,
+                                    leading: Icon(
+                                      isSel
+                                          ? Icons.radio_button_checked
+                                          : Icons.radio_button_unchecked,
+                                      size: 18,
+                                      color: isSel ? c.accent : c.muted,
+                                    ),
+                                    title: Text(r.name),
+                                    onTap: () => Navigator.of(ctx)
+                                        .pop((id: r.id, clear: false)),
+                                  );
+                                },
+                              ),
                             ),
                 ),
                 SafeArea(

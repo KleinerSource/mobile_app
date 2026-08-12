@@ -4,12 +4,15 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:md_center/core/api/services/actors_api.dart';
 import 'package:md_center/core/api/services/configs_extended_api.dart';
+import 'package:md_center/core/api/services/genres_api.dart';
 import 'package:md_center/core/api/services/libraries_api.dart';
 import 'package:md_center/core/api/services/libraries_extended_api.dart';
 import 'package:md_center/core/api/services/mappings_api.dart';
 import 'package:md_center/core/api/services/movies_api.dart';
 import 'package:md_center/core/api/services/movies_extended_api.dart';
 import 'package:md_center/core/api/services/playback_api.dart';
+import 'package:md_center/core/api/services/series_api.dart';
+import 'package:md_center/core/api/services/tags_api.dart';
 import 'package:md_center/core/api/services/translation_api.dart';
 import 'package:md_center/core/models/playback.dart';
 import 'package:md_center/features/libraries/libraries_repository.dart';
@@ -54,11 +57,36 @@ void main() {
   });
 
   test('影片编辑器选项接口传递搜索关键词', () async {
-    final adapter = _RouteAdapter();
-    await ActorsApi(_dio(adapter)).options({'search': '演员'});
+    final cases = <(String, Future<dynamic> Function(Dio))>[
+      ('/api/actors/options', (dio) => ActorsApi(dio).options({
+            'search': '演员',
+            'offset': 100,
+            'limit': 50,
+          })),
+      ('/api/genres/options', (dio) => GenresApi(dio).options({
+            'search': '分类',
+            'offset': 100,
+            'limit': 50,
+          })),
+      ('/api/tags/options', (dio) => TagsApi(dio).options({
+            'search': '标签',
+            'offset': 100,
+            'limit': 50,
+          })),
+      ('/api/series/options', (dio) => SeriesApi(dio).options({
+            'search': '系列',
+            'offset': 100,
+            'limit': 50,
+          })),
+    ];
 
-    expect(adapter.paths.single, '/api/actors/options');
-    expect(adapter.queries.single['search'], '演员');
+    for (final (path, request) in cases) {
+      final adapter = _RouteAdapter();
+      await request(_dio(adapter));
+      expect(adapter.paths.single, path);
+      expect(adapter.queries.single['offset'], '100');
+      expect(adapter.queries.single['limit'], '50');
+    }
   });
 
   test('数据源和 FFmpeg 配置接口使用后端路径', () async {

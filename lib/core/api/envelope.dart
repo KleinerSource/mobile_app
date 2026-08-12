@@ -98,5 +98,6 @@ OptionsResult<T> unwrapOptions<T>(
     items: items,
     hasMore: raw['has_more'] == true,
     limit: (raw['limit'] as num?)?.toInt() ?? items.length,
+    offset: (raw['offset'] as num?)?.toInt() ?? 0,
   );
 }
