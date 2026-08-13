@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:dio_smart_retry/dio_smart_retry.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../auth/auth_session.dart';
 import '../auth/auth_session_repository.dart';
@@ -10,6 +11,18 @@ import '../config/server_config.dart';
 import 'api_exception.dart';
 import 'envelope.dart';
 import 'error_mapper.dart';
+
+// 缓存的 User-Agent：形如 mdcenter/0.10.6，避免每个请求都读取 PackageInfo。
+String? _cachedUserAgent;
+
+Future<String> _appUserAgent() async {
+  final cached = _cachedUserAgent;
+  if (cached != null) return cached;
+  final info = await PackageInfo.fromPlatform();
+  final ua = 'mdcenter/${info.version}';
+  _cachedUserAgent = ua;
+  return ua;
+}
 
 Dio buildDio(
   ServerConfig config, {
@@ -74,6 +87,7 @@ Dio buildDio(
 
   dio.interceptors.add(InterceptorsWrapper(
     onRequest: (options, handler) async {
+      options.headers['User-Agent'] = await _appUserAgent();
       if (options.extra['skipAuth'] != true && sessionRepository != null) {
         final token = await sessionRepository.accessToken();
         if (token != null && token.isNotEmpty) {
