@@ -58,6 +58,34 @@ void main() {
     expect(adapter.requestBodies.single['biography'], '演员简介');
   });
 
+  test('演员数据源应用会传递头像地址', () async {
+    final adapter = _RouteAdapter();
+    await MappingsApi(_dio(adapter)).actorExternalSyncApply({
+      'mapped_value': '演员 A',
+      'original_values': <String>[],
+      'source': 'dbonline',
+      'avatar_url': 'https://example.com/avatar.jpg',
+    });
+
+    expect(adapter.paths.single, '/api/mappings/actors/external-sync/apply');
+    expect(
+      adapter.requestBodies.single['avatar_url'],
+      'https://example.com/avatar.jpg',
+    );
+  });
+
+  test('演员头像预览使用鉴权二进制接口', () async {
+    final adapter = _RouteAdapter();
+    final response = await ActorsApi(_dio(adapter)).previewAvatar({
+      'avatar_url': 'https://example.com/avatar.jpg',
+    });
+
+    expect(adapter.paths.single, '/api/actors/avatar/preview');
+    expect(adapter.requestBodies.single['avatar_url'],
+        'https://example.com/avatar.jpg');
+    expect(response.data, isNotEmpty);
+  });
+
   test('影片编辑器选项接口传递搜索关键词', () async {
     final cases = <(String, Future<dynamic> Function(Dio))>[
       ('/api/actors/options', (dio) => ActorsApi(dio).options({
@@ -243,6 +271,14 @@ class _RouteAdapter implements HttpClientAdapter {
         })}\n\n',
         200,
         headers: {Headers.contentTypeHeader: ['text/event-stream']},
+      );
+    }
+
+    if (path == '/api/actors/avatar/preview') {
+      return ResponseBody.fromBytes(
+        <int>[0xFF, 0xD8, 0xFF, 0xD9],
+        200,
+        headers: {Headers.contentTypeHeader: ['image/jpeg']},
       );
     }
 

@@ -12,4 +12,11 @@ abstract class ActorsApi {
 
   @GET('/actors/options')
   Future<dynamic> options(@Queries() Map<String, dynamic> q);
+
+  /// 获取外部数据源头像预览图片。
+  @POST('/actors/avatar/preview')
+  @DioResponseType(ResponseType.bytes)
+  Future<HttpResponse<List<int>>> previewAvatar(
+    @Body() Map<String, dynamic> body,
+  );
 }

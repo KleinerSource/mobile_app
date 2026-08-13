@@ -38,6 +38,22 @@ void main() {
     expect(preview.biographyChanged, isFalse);
   });
 
+  test('演员同步预览解析头像地址和本地存在状态', () {
+    final preview = ActorAssocPreview.fromJson({
+      'found': true,
+      'actor_name': '演员 A',
+      'mapped_value': '演员 A',
+      'all_aliases': <String>[],
+      'existing_aliases': <String>[],
+      'new_aliases': <String>[],
+      'avatar_url': '  https://example.com/avatar.jpg  ',
+      'avatar_exists': true,
+    });
+
+    expect(preview.avatarUrl, 'https://example.com/avatar.jpg');
+    expect(preview.avatarExists, isTrue);
+  });
+
   test('演员简介相同或仅换行差异时不需要重复同步', () {
     expect(
       ActorAssociationsRepository.biographyNeedsSync(

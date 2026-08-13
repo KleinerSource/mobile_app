@@ -49,11 +49,11 @@ abstract class MappingsApi {
 
   // ===== 演员关联数据源同步 =====
 
-  /// 预览数据源返回的别名 · body: { actor_name, source? }
+  /// 预览数据源返回的别名、简介和头像 · body: { actor_name, source? }
   @POST('/mappings/actors/external-sync/preview')
   Future<dynamic> actorExternalSyncPreview(@Body() Map<String, dynamic> body);
 
-  /// 应用数据源同步结果 · body: { mapped_value, original_values }
+  /// 应用数据源同步结果 · body: { mapped_value, original_values, biography?, avatar_url? }
   @POST('/mappings/actors/external-sync/apply')
   Future<dynamic> actorExternalSyncApply(@Body() Map<String, dynamic> body);
 

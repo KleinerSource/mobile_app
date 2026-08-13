@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,6 +60,9 @@ class _ActorAssociationSyncSheetState
   Set<String> _selectedAliases = <String>{};
   bool _sourcesLoaded = false;
   bool _applying = false;
+  Uint8List? _avatarBytes;
+  bool _avatarLoading = false;
+  bool _avatarLoadFailed = false;
 
   String get _actorName =>
       widget.actor.mappedValue?.trim().isNotEmpty == true
@@ -79,7 +83,15 @@ class _ActorAssociationSyncSheetState
 
   bool _hasSyncChanges(ActorAssocPreview preview) {
     return _selectedAliases.isNotEmpty ||
-        _biographyNeedsSync(preview);
+        _biographyNeedsSync(preview) ||
+        _canSyncAvatar(preview);
+  }
+
+  bool _canSyncAvatar(ActorAssocPreview preview) {
+    return !preview.avatarExists &&
+        preview.avatarUrl.isNotEmpty &&
+        _avatarBytes != null &&
+        !_avatarLoadFailed;
   }
 
   bool _biographyNeedsSync(ActorAssocPreview preview) {
@@ -98,6 +110,9 @@ class _ActorAssociationSyncSheetState
     setState(() {
       _loading = true;
       _error = null;
+      _avatarBytes = null;
+      _avatarLoading = false;
+      _avatarLoadFailed = false;
     });
     try {
       if (!_sourcesLoaded) {
@@ -123,11 +138,41 @@ class _ActorAssociationSyncSheetState
         _selectedAliases = p.newAliases.toSet();
         _loading = false;
       });
+      unawaited(_loadAvatarPreview(p, actualSource));
     } catch (e) {
       if (!mounted || (source != null && selectedSource != _source)) return;
       setState(() {
         _error = toApiException(e).message;
         _loading = false;
+      });
+    }
+  }
+
+  Future<void> _loadAvatarPreview(
+    ActorAssocPreview preview,
+    ActorDataSource source,
+  ) async {
+    if (preview.avatarExists || preview.avatarUrl.isEmpty) return;
+    if (!mounted || _preview != preview || _source != source) return;
+    setState(() {
+      _avatarLoading = true;
+      _avatarLoadFailed = false;
+      _avatarBytes = null;
+    });
+    try {
+      final bytes = await ref
+          .read(actorAssociationsRepositoryProvider)
+          .previewAvatar(preview.avatarUrl);
+      if (!mounted || _preview != preview || _source != source) return;
+      setState(() {
+        _avatarBytes = Uint8List.fromList(bytes);
+        _avatarLoading = false;
+      });
+    } catch (_) {
+      if (!mounted || _preview != preview || _source != source) return;
+      setState(() {
+        _avatarLoading = false;
+        _avatarLoadFailed = true;
       });
     }
   }
@@ -162,6 +207,7 @@ class _ActorAssociationSyncSheetState
     if (!_hasSyncChanges(preview)) return;
 
     final biographyChanged = _biographyNeedsSync(preview);
+    final avatarChanged = _canSyncAvatar(preview);
     final selectedAliases = preview.newAliases
         .where(_selectedAliases.contains)
         .toList(growable: false);
@@ -182,6 +228,7 @@ class _ActorAssociationSyncSheetState
             originalValues: merged,
             source: _source,
             biography: biographyChanged ? preview.biography : null,
+            avatarUrl: avatarChanged ? preview.avatarUrl : null,
           );
       if (!mounted) return;
       final changes = <String>[];
@@ -191,6 +238,9 @@ class _ActorAssociationSyncSheetState
       if (biographyChanged) {
         changes.add('更新演员简介');
         widget.onBiographyApplied?.call(preview.biography.trim());
+      }
+      if (avatarChanged) {
+        changes.add('同步演员头像');
       }
       messenger.showSnackBar(
         SnackBar(content: Text('同步完成：${changes.join('，')}')),
@@ -255,6 +305,9 @@ class _ActorAssociationSyncSheetState
                               _source = source;
                               _preview = null;
                               _selectedAliases = <String>{};
+                              _avatarBytes = null;
+                              _avatarLoading = false;
+                              _avatarLoadFailed = false;
                             });
                             unawaited(
                               ActorAssociationsRepository.rememberSource(
@@ -286,6 +339,16 @@ class _ActorAssociationSyncSheetState
                                       mappedValue: preview.mappedValue,
                                       newCount: _selectedAliases.length,
                                     ),
+                                    if (preview.avatarUrl.isNotEmpty ||
+                                        preview.avatarExists) ...[
+                                      const SizedBox(height: 16),
+                                      _AvatarSection(
+                                        avatarExists: preview.avatarExists,
+                                        bytes: _avatarBytes,
+                                        loading: _avatarLoading,
+                                        loadFailed: _avatarLoadFailed,
+                                      ),
+                                    ],
                                     if (_biographyNeedsSync(preview)) ...[
                                       const SizedBox(height: 16),
                                       _BiographySection(
@@ -416,6 +479,90 @@ class _SummaryRow extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AvatarSection extends StatelessWidget {
+  const _AvatarSection({
+    required this.avatarExists,
+    required this.bytes,
+    required this.loading,
+    required this.loadFailed,
+  });
+
+  final bool avatarExists;
+  final Uint8List? bytes;
+  final bool loading;
+  final bool loadFailed;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final hasPreview = bytes != null && bytes!.isNotEmpty;
+    final status = avatarExists
+        ? '本地已有头像'
+        : loading
+            ? '正在获取头像...'
+            : loadFailed
+                ? '头像获取失败，不会同步头像'
+                : hasPreview
+                    ? '将同步头像'
+                    : '数据源未提供头像';
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: c.surface,
+        border: Border.all(color: c.cardBorder),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          ClipOval(
+            child: SizedBox(
+              width: 58,
+              height: 58,
+              child: hasPreview
+                  ? Image.memory(bytes!, fit: BoxFit.cover)
+                  : DecoratedBox(
+                      decoration: BoxDecoration(color: c.chipBg),
+                      child: Icon(
+                        avatarExists
+                            ? Icons.account_circle_outlined
+                            : Icons.person_outline,
+                        color: c.muted,
+                        size: 30,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('演员头像', style: AppText.cardTitle(context)),
+                const SizedBox(height: 4),
+                Text(
+                  status,
+                  style: TextStyle(
+                    color: loadFailed ? c.danger : c.muted,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (loading)
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else if (hasPreview)
+            Icon(Icons.check_circle, color: c.accent, size: 20),
         ],
       ),
     );

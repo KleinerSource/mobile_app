@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/api/envelope.dart';
+import '../../core/api/services/actors_api.dart';
 import '../../core/api/services/mappings_api.dart';
 import '../../core/models/avdb_config.dart';
 import '../../core/models/dbo_config.dart';
@@ -64,6 +65,8 @@ class ActorAssocPreview {
     this.externalId,
     this.biography = '',
     this.biographyChanged,
+    this.avatarUrl = '',
+    this.avatarExists = false,
   });
 
   final bool found;
@@ -75,6 +78,8 @@ class ActorAssocPreview {
   final String? externalId;
   final String biography;
   final bool? biographyChanged;
+  final String avatarUrl;
+  final bool avatarExists;
 
   factory ActorAssocPreview.fromJson(Map<String, dynamic> j) {
     List<String> arr(dynamic v) =>
@@ -93,13 +98,17 @@ class ActorAssocPreview {
       biographyChanged: j['biography_changed'] is bool
           ? j['biography_changed'] as bool
           : null,
+      avatarUrl: (j['avatar_url'] ?? '').toString().trim(),
+      avatarExists: j['avatar_exists'] == true,
     );
   }
 }
 
 class ActorAssociationsRepository {
-  ActorAssociationsRepository(this._api);
+  ActorAssociationsRepository(this._api, {ActorsApi? actorsApi})
+      : _actorsApi = actorsApi;
   final MappingsApi _api;
+  final ActorsApi? _actorsApi;
 
   static const lastSourceKey = 'actor_association_source';
 
@@ -270,6 +279,7 @@ class ActorAssociationsRepository {
     required List<String> originalValues,
     ActorDataSource source = ActorDataSource.dbonline,
     String? biography,
+    String? avatarUrl,
   }) async {
     final body = <String, dynamic>{
       'mapped_value': mappedValue,
@@ -280,7 +290,28 @@ class ActorAssociationsRepository {
     if (trimmedBiography.isNotEmpty) {
       body['biography'] = trimmedBiography;
     }
+    final trimmedAvatarUrl = avatarUrl?.trim() ?? '';
+    if (trimmedAvatarUrl.isNotEmpty) {
+      body['avatar_url'] = trimmedAvatarUrl;
+    }
     final raw = await _api.actorExternalSyncApply(body);
     unwrapStd<void>(raw, (_) {});
+  }
+
+  /// 获取外部头像的二进制预览。失败时由调用方决定是否继续同步其他字段。
+  Future<List<int>> previewAvatar(String avatarUrl) async {
+    final api = _actorsApi;
+    if (api == null) {
+      throw ApiException('头像预览接口不可用');
+    }
+    final url = avatarUrl.trim();
+    if (url.isEmpty) {
+      throw ApiException('头像地址为空');
+    }
+    final response = await api.previewAvatar({'avatar_url': url});
+    if (response.data.isEmpty) {
+      throw ApiException('头像内容为空');
+    }
+    return response.data;
   }
 }
