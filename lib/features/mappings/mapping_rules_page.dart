@@ -7,6 +7,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/filter_chip.dart';
 import '../../shared/glow_background.dart';
 import '../settings/settings_common.dart';
 import 'mappings_providers.dart';
@@ -154,11 +155,26 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 22),
                     child: Row(
                       children: [
-                        _statusChip('全部', 'all'),
+                        CompactFilterButton(
+                          label: '全部',
+                          icon: Icons.filter_list_rounded,
+                          active: _status == 'all',
+                          onTap: () => setState(() => _status = 'all'),
+                        ),
                         const SizedBox(width: 7),
-                        _statusChip('映射规则', 'convert'),
+                        CompactFilterButton(
+                          label: '映射规则',
+                          icon: Icons.swap_horiz_rounded,
+                          active: _status == 'convert',
+                          onTap: () => setState(() => _status = 'convert'),
+                        ),
                         const SizedBox(width: 7),
-                        _statusChip('删除规则', 'delete'),
+                        CompactFilterButton(
+                          label: '删除规则',
+                          icon: Icons.delete_outline_rounded,
+                          active: _status == 'delete',
+                          onTap: () => setState(() => _status = 'delete'),
+                        ),
                       ],
                     ),
                   ),
@@ -204,30 +220,6 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _statusChip(String label, String value) {
-    final c = appColors(context);
-    final active = _status == value;
-    return GestureDetector(
-      onTap: () => setState(() => _status = value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? c.chipBgActive : c.chipBg,
-          borderRadius: BorderRadius.circular(100),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: active ? c.chipTextActive : c.text2,
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
           ),
         ),
       ),

@@ -11,6 +11,7 @@ import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
+import '../../shared/filter_chip.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/poster.dart';
@@ -224,7 +225,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                       ),
                     ),
                     const SizedBox(width: 7),
-                    _QuickChip(
+                    CompactFilterButton(
                       label: '新资源',
                       icon: Icons.fiber_new_rounded,
                       active: _currentFilter.hasNewResources == true,
@@ -239,7 +240,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                       },
                     ),
                     const SizedBox(width: 7),
-                    _QuickChip(
+                    CompactFilterButton(
                       label: '重复番号',
                       icon: Icons.copy_all_outlined,
                       active: _currentFilter.duplicateNum,
@@ -250,7 +251,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                       ),
                     ),
                     const SizedBox(width: 7),
-                    _QuickChip(
+                    CompactFilterButton(
                       label: _resourceScanStarting ? '扫描中' : '扫描资源',
                       icon: _resourceScanStarting
                           ? Icons.sync_rounded
@@ -864,61 +865,6 @@ class _SortButton extends StatelessWidget {
                   : Icons.arrow_downward_rounded,
               size: 12,
               color: c.muted,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickChip extends StatelessWidget {
-  const _QuickChip({
-    required this.label,
-    required this.icon,
-    required this.active,
-    required this.onTap,
-  });
-  final String label;
-  final IconData icon;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    final fg = active ? c.accent : c.text;
-    final iconColor = active ? c.accent : c.muted;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: active ? c.accent.withValues(alpha: 0.15) : c.chipBg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: active ? c.accent.withValues(alpha: 0.5) : c.cardBorder,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 15, color: iconColor),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              strutStyle: const StrutStyle(
-                fontSize: 11.5,
-                height: 1.0,
-                forceStrutHeight: true,
-              ),
-              style: TextStyle(
-                color: fg,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 11.5,
-              ),
             ),
           ],
         ),

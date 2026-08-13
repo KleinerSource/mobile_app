@@ -7,6 +7,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/filter_chip.dart';
 import '../../shared/glow_background.dart';
 import '../settings/settings_common.dart';
 import 'resource_movies_page.dart';
@@ -174,27 +175,24 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 22),
                       children: [
-                        _SortChip(
+                        CompactSortButton(
                           label: '名称',
-                          field: 'name',
-                          activeField: _sortBy,
-                          order: _sortOrder,
+                          active: _sortBy == 'name',
+                          ascending: _sortOrder == 'asc',
                           onTap: () => _setSort('name'),
                         ),
                         const SizedBox(width: 7),
-                        _SortChip(
+                        CompactSortButton(
                           label: '影片数',
-                          field: 'movie_count',
-                          activeField: _sortBy,
-                          order: _sortOrder,
+                          active: _sortBy == 'movie_count',
+                          ascending: _sortOrder == 'asc',
                           onTap: () => _setSort('movie_count'),
                         ),
                         const SizedBox(width: 7),
-                        _SortChip(
+                        CompactSortButton(
                           label: '创建时间',
-                          field: 'created_at',
-                          activeField: _sortBy,
-                          order: _sortOrder,
+                          active: _sortBy == 'created_at',
+                          ascending: _sortOrder == 'asc',
                           onTap: () => _setSort('created_at'),
                         ),
                       ],
@@ -474,62 +472,6 @@ class _Empty extends StatelessWidget {
           const SizedBox(height: 4),
           Text('点击右上 + 添加按钮创建第一个', style: AppText.meta(context)),
         ],
-      ),
-    );
-  }
-}
-
-// ============ Sort chip ============
-
-class _SortChip extends StatelessWidget {
-  const _SortChip({
-    required this.label,
-    required this.field,
-    required this.activeField,
-    required this.order,
-    required this.onTap,
-  });
-
-  final String label;
-  final String field;
-  final String activeField;
-  final String order;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    final active = field == activeField;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? c.chipBgActive : c.chipBg,
-          borderRadius: BorderRadius.circular(100),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: active ? c.chipTextActive : c.text2,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-            if (active) ...[
-              const SizedBox(width: 4),
-              Icon(
-                order == 'asc' ? Icons.arrow_upward : Icons.arrow_downward,
-                size: 12,
-                color: c.chipTextActive,
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }

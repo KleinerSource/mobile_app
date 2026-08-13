@@ -13,6 +13,7 @@ import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/actor_avatar.dart';
+import '../../shared/filter_chip.dart';
 import '../actor_associations/actor_associations_providers.dart';
 import '../actor_associations/actor_associations_repository.dart';
 import '../person_detail/person_detail_page.dart';
@@ -248,27 +249,24 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 22),
                           children: [
-                            _ActorSortChip(
+                            CompactSortButton(
                               label: '影片数',
-                              field: 'movie_count',
-                              activeField: _sortBy,
-                              order: _sortOrder,
+                              active: _sortBy == 'movie_count',
+                              ascending: _sortOrder == 'asc',
                               onTap: () => _setSort('movie_count'),
                             ),
                             const SizedBox(width: 7),
-                            _ActorSortChip(
+                            CompactSortButton(
                               label: '名称',
-                              field: 'name',
-                              activeField: _sortBy,
-                              order: _sortOrder,
+                              active: _sortBy == 'name',
+                              ascending: _sortOrder == 'asc',
                               onTap: () => _setSort('name'),
                             ),
                             const SizedBox(width: 7),
-                            _ActorSortChip(
+                            CompactSortButton(
                               label: '创建时间',
-                              field: 'created_at',
-                              activeField: _sortBy,
-                              order: _sortOrder,
+                              active: _sortBy == 'created_at',
+                              ascending: _sortOrder == 'asc',
                               onTap: () => _setSort('created_at'),
                             ),
                           ],
@@ -681,60 +679,6 @@ class _ActorAssociationData {
 }
 
 enum _ActorMenuAction { edit, delete }
-
-class _ActorSortChip extends StatelessWidget {
-  const _ActorSortChip({
-    required this.label,
-    required this.field,
-    required this.activeField,
-    required this.order,
-    required this.onTap,
-  });
-
-  final String label;
-  final String field;
-  final String activeField;
-  final String order;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    final active = field == activeField;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? c.chipBgActive : c.chipBg,
-          borderRadius: BorderRadius.circular(100),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: active ? c.chipTextActive : c.text2,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
-            if (active) ...[
-              const SizedBox(width: 4),
-              Icon(
-                order == 'asc' ? Icons.arrow_upward : Icons.arrow_downward,
-                size: 12,
-                color: c.chipTextActive,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _ActorTile extends StatelessWidget {
   const _ActorTile({
