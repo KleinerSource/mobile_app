@@ -236,7 +236,6 @@ class _FloatingTabBar extends StatelessWidget {
 
 class _TabItem extends StatelessWidget {
   const _TabItem({
-    super.key,
     required this.spec,
     required this.active,
     required this.onTap,
