@@ -35,7 +35,6 @@ void main() {
           find.byType(SettingsFixedHeaderLayout),
         );
     layoutState.handleStatusBarTap();
-    await tester.pump(const Duration(milliseconds: 1000));
 
     expect(scrollable.position.pixels, 0);
   });

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../core/platform/app_haptics.dart';
@@ -483,13 +481,9 @@ class _SettingsFixedHeaderLayoutState extends State<SettingsFixedHeaderLayout>
     if ((route != null && !route.isCurrent) || !_controller.hasClients) {
       return;
     }
-    unawaited(
-      _controller.animateTo(
-        0,
-        duration: const Duration(milliseconds: 1000),
-        curve: Curves.easeOutCirc,
-      ),
-    );
+    // 状态栏回顶是一次明确的系统操作，直接归零可以避免与用户当前的
+    // 拖动/惯性动画竞争，也保证所有设置页都能可靠回到内容起点。
+    _controller.jumpTo(0);
   }
 
   @override
