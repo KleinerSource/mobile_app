@@ -279,12 +279,11 @@ class _AppUpdateSettingsPageState
             ],
           ),
         ),
-        if (candidate.release.body.isNotEmpty)
+        if (candidate.release.updateNotes.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: SelectableText(
-              candidate.release.body,
-              maxLines: 8,
+              '本次构建包含以下更新：\n\n${candidate.release.updateNotes}',
               style: AppText.body(context),
             ),
           ),

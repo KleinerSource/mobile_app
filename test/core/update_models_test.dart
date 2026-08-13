@@ -130,4 +130,35 @@ void main() {
       const AppReleaseVersion(major: 0, minor: 1, patch: 73, build: 80),
     );
   });
+
+  test('更新说明会移除滚动构建元数据并保留实际内容', () {
+    final release = GitHubRelease.fromJson(const {
+      'tag_name': 'latest',
+      'body': '''未签名 iOS 构建产物（自动滚动更新）
+
+版本: 0.12.5+204
+
+本次构建包含以下更新：
+
+fix: 修复服务器切换卡住
+ - 增加快速鉴权路径
+
+commit: [d1081e5](https://github.com/example/mobile_app/commit/d1081e5)
+run: [308](https://github.com/example/mobile_app/actions/runs/123)''',
+    });
+
+    expect(
+      release.updateNotes,
+      'fix: 修复服务器切换卡住\n - 增加快速鉴权路径',
+    );
+  });
+
+  test('没有更新说明时返回空内容', () {
+    final release = GitHubRelease.fromJson(const {
+      'tag_name': 'latest',
+      'body': '本次构建包含以下更新：\n\ncommit: abc\nrun: 1',
+    });
+
+    expect(release.updateNotes, isEmpty);
+  });
 }

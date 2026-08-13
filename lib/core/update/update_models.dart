@@ -187,6 +187,31 @@ class GitHubRelease {
   final bool draft;
   final DateTime? publishedAt;
 
+  /// 返回面向用户的更新内容，隐藏自动构建脚本添加的元数据。
+  ///
+  /// 滚动 Release 会在正文中包含构建标题、版本号、commit 和 run 信息。
+  /// 这些内容不应挤占弹窗首次展示的更新内容区域。
+  String get updateNotes {
+    final normalizedBody = body.replaceAll('\r\n', '\n').trim();
+    if (normalizedBody.isEmpty) return '';
+
+    final heading = RegExp(
+      r'^\s*本次构建包含以下更新[：:]?\s*$',
+      multiLine: true,
+    ).firstMatch(normalizedBody);
+    final notes = heading == null
+        ? normalizedBody
+        : normalizedBody.substring(heading.end).trim();
+
+    return notes
+        .split('\n')
+        .where((line) =>
+            !RegExp(r'^\s*(commit|run):\s*', caseSensitive: false)
+                .hasMatch(line))
+        .join('\n')
+        .trim();
+  }
+
   factory GitHubRelease.fromJson(Map<String, dynamic> json) {
     final rawAssets = json['assets'];
     return GitHubRelease(

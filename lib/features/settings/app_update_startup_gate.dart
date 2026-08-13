@@ -316,6 +316,8 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
     final colors = appColors(context);
     final release = widget.result.candidate.release;
     final releaseTitle = release.name.isEmpty ? release.tagName : release.name;
+    final updateNotes = release.updateNotes;
+    final maxContentHeight = MediaQuery.sizeOf(context).height * 0.55;
     return AlertDialog(
       title: Row(
         children: [
@@ -324,43 +326,51 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
           const Expanded(child: Text('发现新版本')),
         ],
       ),
-      content: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              widget.result.candidate.version.display,
-              style: AppText.sectionTitle(context),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxContentHeight),
+        child: Scrollbar(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.result.candidate.version.display,
+                  style: AppText.sectionTitle(context),
+                ),
+                const SizedBox(height: 6),
+                Text(releaseTitle, style: AppText.body(context)),
+                const SizedBox(height: 14),
+                Text(
+                  '本次构建包含以下更新：',
+                  style: AppText.body(context).copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  updateNotes.isEmpty ? '暂无更新说明' : updateNotes,
+                  style: AppText.meta(context),
+                ),
+                if (_progress != null) ...[
+                  const SizedBox(height: 16),
+                  LinearProgressIndicator(value: _progress),
+                  const SizedBox(height: 6),
+                  Text(
+                    '正在下载更新 ${(100 * _progress!).round()}%',
+                    style: AppText.meta(context),
+                  ),
+                ],
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _error!,
+                    style: TextStyle(color: colors.danger),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 6),
-            Text(releaseTitle, style: AppText.body(context)),
-            if (release.body.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                release.body,
-                maxLines: 6,
-                overflow: TextOverflow.ellipsis,
-                style: AppText.meta(context),
-              ),
-            ],
-            if (_progress != null) ...[
-              const SizedBox(height: 16),
-              LinearProgressIndicator(value: _progress),
-              const SizedBox(height: 6),
-              Text(
-                '正在下载更新 ${(100 * _progress!).round()}%',
-                style: AppText.meta(context),
-              ),
-            ],
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                style: TextStyle(color: colors.danger),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
       actions: [
