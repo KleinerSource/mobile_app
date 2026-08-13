@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/auth/auth_provider.dart';
+import '../../core/auth/auth_session.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/config/server_profile_cache_repository.dart';
@@ -510,7 +511,7 @@ class _ServerSwitchTransitionOverlayState
         ),
         const SizedBox(height: 18),
         Text(
-          '无法连接 ${name}',
+          '无法连接 $name',
           textAlign: TextAlign.center,
           style: AppText.pageTitle(context).copyWith(fontSize: 23),
         ),
