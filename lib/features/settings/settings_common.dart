@@ -480,7 +480,7 @@ class _SettingsFixedHeaderLayoutState extends State<SettingsFixedHeaderLayout>
   void handleStatusBarTap() {
     super.handleStatusBarTap();
     final route = ModalRoute.of(context);
-    if (route == null || !route.isCurrent || !_controller.hasClients) {
+    if ((route != null && !route.isCurrent) || !_controller.hasClients) {
       return;
     }
     unawaited(
