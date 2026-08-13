@@ -1381,6 +1381,8 @@ class _MoreMenuButton extends ConsumerWidget {
     final c = appColors(context);
     return PopupMenuButton<String>(
       tooltip: '更多',
+      position: PopupMenuPosition.under,
+      offset: const Offset(0, 8),
       color: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
