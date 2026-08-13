@@ -74,26 +74,22 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: Column(
-            children: [
-              const SettingsSubPageHeader(
-                eyebrow: '工具',
-                title: '视频扩展名',
-                subtitle: '配置媒体库扫描时识别的视频文件后缀',
-              ),
-              Expanded(
-                child: async.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text('加载失败: $e', style: AppText.body(context)),
-                    ),
-                  ),
-                  data: (extensions) => _buildBody(c, extensions),
+          child: SettingsFixedHeaderLayout(
+            header: const SettingsSubPageHeader(
+              eyebrow: '工具',
+              title: '视频扩展名',
+              subtitle: '配置媒体库扫描时识别的视频文件后缀',
+            ),
+            body: async.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text('加载失败: $e', style: AppText.body(context)),
                 ),
               ),
-            ],
+              data: (extensions) => _buildBody(c, extensions),
+            ),
           ),
         ),
       ),
@@ -102,6 +98,7 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
 
   Widget _buildBody(AppColors c, List<String> extensions) {
     return ListView(
+      primary: true,
       padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
       children: [
         // 添加输入

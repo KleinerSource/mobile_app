@@ -63,30 +63,27 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: Column(
-            children: [
-              SettingsSubPageHeader(
-                eyebrow: '服务器 · ${server.name}',
-                title: '服务器线路',
-                subtitle: '当前服务器可配置多条线路，自动选择最快可用线路',
-              ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 30),
-                  children: [
-                    _buildActions(),
-                    const SizedBox(height: 16),
-                    if (_lines.isEmpty)
-                      _buildEmpty(colors)
-                    else
-                      for (final line in _lines) ...[
-                        _buildLineCard(context, colors, server, line),
-                        const SizedBox(height: 8),
-                      ],
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: '服务器 · ${server.name}',
+              title: '服务器线路',
+              subtitle: '当前服务器可配置多条线路，自动选择最快可用线路',
+            ),
+            body: ListView(
+              primary: true,
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 30),
+              children: [
+                _buildActions(),
+                const SizedBox(height: 16),
+                if (_lines.isEmpty)
+                  _buildEmpty(colors)
+                else
+                  for (final line in _lines) ...[
+                    _buildLineCard(context, colors, server, line),
+                    const SizedBox(height: 8),
                   ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

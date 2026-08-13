@@ -41,6 +41,7 @@ class BadgePositionPage extends ConsumerWidget {
                 title: l.settingsBadgePositions,
               ),
             body: ListView(
+              primary: true,
               children: [
               // 预览区
               Padding(

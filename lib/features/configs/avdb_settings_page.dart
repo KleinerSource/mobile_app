@@ -98,18 +98,17 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
   }
 
   Widget _buildForm(AppColors c) {
-    return Column(
-      children: [
-        const SettingsSubPageHeader(
-          eyebrow: '工具',
-          title: 'AVDB 数据源',
-          subtitle: '用于演员关联同步。请先配置并启用 AVDB 数据源。',
-        ),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-            children: [
-              _sectionLabel('启用状态'),
+    return SettingsFixedHeaderLayout(
+      header: const SettingsSubPageHeader(
+        eyebrow: '工具',
+        title: 'AVDB 数据源',
+        subtitle: '用于演员关联同步。请先配置并启用 AVDB 数据源。',
+      ),
+      body: ListView(
+        primary: true,
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+        children: [
+          _sectionLabel('启用状态'),
               _switchCard(
                 c,
                 title: '启用 AVDB 数据源',
@@ -151,10 +150,8 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
                 onPressed: _save,
                 saving: _saving,
               ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

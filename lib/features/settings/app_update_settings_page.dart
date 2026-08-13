@@ -81,6 +81,7 @@ class _AppUpdateSettingsPageState
                 subtitle: '填写 GitHub 仓库地址，自动检查对应平台的安装包',
               ),
             body: ListView(
+              primary: true,
               children: [
               SettingsGroup(
                 title: '更新源',

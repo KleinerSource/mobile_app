@@ -416,24 +416,72 @@ class SettingsSubPageHeader extends StatelessWidget {
   }
 }
 
-/// 设置页固定头部布局，内容区域独立滚动。
-class SettingsFixedHeaderLayout extends StatelessWidget {
+/// 设置页固定头部布局，统一管理内容滚动与 iOS 状态栏回顶。
+///
+/// [body] 中的纵向滚动视图应设置 `primary: true`，这样所有使用该
+/// 布局的页面都会连接到同一个 [PrimaryScrollController]。分页页面可以
+/// 通过 [scrollController] 注入自己的控制器，同时保留分页监听逻辑。
+class SettingsFixedHeaderLayout extends StatefulWidget {
   const SettingsFixedHeaderLayout({
     super.key,
     required this.header,
     required this.body,
+    this.scrollController,
   });
 
   final Widget header;
   final Widget body;
+  final ScrollController? scrollController;
+
+  @override
+  State<SettingsFixedHeaderLayout> createState() =>
+      _SettingsFixedHeaderLayoutState();
+}
+
+class _SettingsFixedHeaderLayoutState
+    extends State<SettingsFixedHeaderLayout> {
+  ScrollController? _ownedController;
+
+  ScrollController get _controller =>
+      widget.scrollController ?? _ownedController!;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.scrollController == null) {
+      _ownedController = ScrollController();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant SettingsFixedHeaderLayout oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController == null &&
+        widget.scrollController != null) {
+      _ownedController?.dispose();
+      _ownedController = null;
+    } else if (oldWidget.scrollController != null &&
+        widget.scrollController == null) {
+      _ownedController = ScrollController();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ownedController?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        header,
-        Expanded(child: body),
-      ],
+    return PrimaryScrollController(
+      controller: _controller,
+      child: Column(
+        children: [
+          widget.header,
+          Expanded(child: widget.body),
+        ],
+      ),
     );
   }
 }

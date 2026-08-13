@@ -24,6 +24,7 @@ class CacheManagementPage extends ConsumerWidget {
                 title: '缓存管理',
               ),
             body: ListView(
+              primary: true,
               children: [
               SettingsGroup(
                 title: '磁盘缓存',

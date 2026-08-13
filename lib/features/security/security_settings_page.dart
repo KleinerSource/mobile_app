@@ -53,6 +53,7 @@ class _SecuritySettingsContent extends ConsumerWidget {
           subtitle: '配置进入 MD Center 时使用的本地验证方式',
         ),
       body: ListView(
+        primary: true,
         children: [
         SettingsGroup(
           title: '解锁方式',

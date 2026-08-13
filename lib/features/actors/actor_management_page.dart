@@ -158,225 +158,220 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: PrimaryScrollController(
-            controller: _scrollController,
-            child: SettingsFixedHeaderLayout(
-              header: SettingsSubPageHeader(
-                eyebrow: l.settingsGroupLibrary,
-                title: l.settingsActors,
-                trailing: SettingsAddButton(
-                  onPressed: () => _showEditor(context),
-                ),
+          child: SettingsFixedHeaderLayout(
+            scrollController: _scrollController,
+            header: SettingsSubPageHeader(
+              eyebrow: l.settingsGroupLibrary,
+              title: l.settingsActors,
+              trailing: SettingsAddButton(
+                onPressed: () => _showEditor(context),
               ),
-              body: RefreshIndicator(
-                color: c.accent,
-                onRefresh: _refresh,
-                child: CustomScrollView(
-                  primary: true,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+            ),
+            body: RefreshIndicator(
+              color: c.accent,
+              onRefresh: _refresh,
+              child: CustomScrollView(
+                primary: true,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            _hasLoaded ? '$_totalCount' : '—',
+                            style: AppText.pageTitle(context),
+                          ),
+                          const SizedBox(width: 8),
+                          Text('位演员', style: AppText.meta(context)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: c.surface,
+                          border: Border.all(color: c.cardBorder),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                         child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Text(
-                              _hasLoaded
-                                  ? '$_totalCount'
-                                  : '—',
-                              style: AppText.pageTitle(context),
+                            const SizedBox(width: 14),
+                            Icon(Icons.search, size: 18, color: c.muted),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextField(
+                                controller: _searchController,
+                                onChanged: _onSearchChanged,
+                                decoration: const InputDecoration(
+                                  hintText: '搜索演员名称',
+                                  isCollapsed: true,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  border: InputBorder.none,
+                                ),
+                                style: TextStyle(
+                                  color: c.text,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                            Text('位演员', style: AppText.meta(context)),
+                            if (_searchController.text.isNotEmpty)
+                              IconButton(
+                                icon: Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: c.muted,
+                                ),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  _onSearchChanged('');
+                                },
+                              ),
                           ],
                         ),
                       ),
                     ),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: c.surface,
-                            border: Border.all(color: c.cardBorder),
-                            borderRadius: BorderRadius.circular(14),
+                  ),
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 36,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 22),
+                        children: [
+                          CompactSortButton(
+                            label: '影片数',
+                            active: _sortBy == 'movie_count',
+                            ascending: _sortOrder == 'asc',
+                            onTap: () => _setSort('movie_count'),
                           ),
-                          child: Row(
+                          const SizedBox(width: 7),
+                          CompactSortButton(
+                            label: '名称',
+                            active: _sortBy == 'name',
+                            ascending: _sortOrder == 'asc',
+                            onTap: () => _setSort('name'),
+                          ),
+                          const SizedBox(width: 7),
+                          CompactSortButton(
+                            label: '创建时间',
+                            active: _sortBy == 'created_at',
+                            ascending: _sortOrder == 'asc',
+                            onTap: () => _setSort('created_at'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                  if (_loading && !_hasLoaded)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_error != null && items.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              const SizedBox(width: 14),
-                              Icon(Icons.search, size: 18, color: c.muted),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: TextField(
-                                  controller: _searchController,
-                                  onChanged: _onSearchChanged,
-                                  decoration: const InputDecoration(
-                                    hintText: '搜索演员名称',
-                                    isCollapsed: true,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                    border: InputBorder.none,
-                                  ),
-                                  style: TextStyle(
-                                    color: c.text,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
+                              Text(
+                                '加载失败: ${toApiException(_error!).message}',
+                                style: AppText.body(context),
+                                textAlign: TextAlign.center,
                               ),
-                              if (_searchController.text.isNotEmpty)
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.close,
-                                    size: 16,
-                                    color: c.muted,
-                                  ),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    _onSearchChanged('');
-                                  },
-                                ),
+                              const SizedBox(height: 10),
+                              TextButton(
+                                onPressed: () => unawaited(_fetch(reset: true)),
+                                child: const Text('点击重试'),
+                              ),
                             ],
                           ),
                         ),
                       ),
-                    ),
-                    SliverToBoxAdapter(
-                      child: SizedBox(
-                        height: 36,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 22),
-                          children: [
-                            CompactSortButton(
-                              label: '影片数',
-                              active: _sortBy == 'movie_count',
-                              ascending: _sortOrder == 'asc',
-                              onTap: () => _setSort('movie_count'),
-                            ),
-                            const SizedBox(width: 7),
-                            CompactSortButton(
-                              label: '名称',
-                              active: _sortBy == 'name',
-                              ascending: _sortOrder == 'asc',
-                              onTap: () => _setSort('name'),
-                            ),
-                            const SizedBox(width: 7),
-                            CompactSortButton(
-                              label: '创建时间',
-                              active: _sortBy == 'created_at',
-                              ascending: _sortOrder == 'asc',
-                              onTap: () => _setSort('created_at'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 10)),
-                    if (_loading && !_hasLoaded)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else if (_error != null && items.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  '加载失败: ${toApiException(_error!).message}',
-                                  style: AppText.body(context),
-                                  textAlign: TextAlign.center,
+                    )
+                  else if (items.isEmpty && _hasLoaded)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _EmptyActors(),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
+                      sliver: SliverList.builder(
+                        itemCount: items.length + (_hasMore ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (index >= items.length) {
+                            if (_error != null) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
                                 ),
-                                const SizedBox(height: 10),
-                                TextButton(
-                                  onPressed: () =>
-                                      unawaited(_fetch(reset: true)),
-                                  child: const Text('点击重试'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      )
-                    else if (items.isEmpty && _hasLoaded)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _EmptyActors(),
-                      )
-                    else
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
-                        sliver: SliverList.builder(
-                          itemCount: items.length + (_hasMore ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index >= items.length) {
-                              if (_error != null) {
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  child: Center(
-                                    child: TextButton(
-                                      onPressed: () =>
-                                          unawaited(_fetch(reset: false)),
-                                      child: const Text('加载更多失败，点击重试'),
-                                    ),
-                                  ),
-                                );
-                              }
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
                                 child: Center(
-                                  child: SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
+                                  child: TextButton(
+                                    onPressed: () =>
+                                        unawaited(_fetch(reset: false)),
+                                    child: const Text('加载更多失败，点击重试'),
                                   ),
                                 ),
                               );
                             }
-                            final actor = items[index];
-                            return _ActorTile(
-                              actor: actor,
-                              hue: AppHues.all[index % AppHues.all.length],
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => PersonDetailPage(
-                                    actorId: actor.id,
-                                    name: actor.name,
-                                    actorType: actor.actorType,
-                                    biography: actor.biography,
-                                    avatarPath: actor.avatarPath,
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
                                   ),
                                 ),
                               ),
-                              onEdit: () => _showEditor(
-                                context,
-                                actor: actor,
-                              ),
-                              onDelete: () => _confirmDelete(
-                                context,
-                                actor,
-                              ),
                             );
-                          },
-                        ),
+                          }
+                          final actor = items[index];
+                          return _ActorTile(
+                            actor: actor,
+                            hue: AppHues.all[index % AppHues.all.length],
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => PersonDetailPage(
+                                  actorId: actor.id,
+                                  name: actor.name,
+                                  actorType: actor.actorType,
+                                  biography: actor.biography,
+                                  avatarPath: actor.avatarPath,
+                                ),
+                              ),
+                            ),
+                            onEdit: () => _showEditor(
+                              context,
+                              actor: actor,
+                            ),
+                            onDelete: () => _confirmDelete(
+                              context,
+                              actor,
+                            ),
+                          );
+                        },
                       ),
-                    if (_loading && _hasLoaded)
-                      const SliverToBoxAdapter(
-                        child: LinearProgressIndicator(minHeight: 2),
-                      ),
-                  ],
-                ),
+                    ),
+                  if (_loading && _hasLoaded)
+                    const SliverToBoxAdapter(
+                      child: LinearProgressIndicator(minHeight: 2),
+                    ),
+                ],
               ),
             ),
           ),

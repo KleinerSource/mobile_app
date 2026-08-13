@@ -48,6 +48,7 @@ class _CrashLogsPageState extends ConsumerState<CrashLogsPage> {
             body: RefreshIndicator(
               onRefresh: _reload,
               child: ListView(
+                primary: true,
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                 entries.when(

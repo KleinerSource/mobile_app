@@ -131,18 +131,17 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
   }
 
   Widget _buildForm(AppColors c) {
-    return Column(
-      children: [
-        const SettingsSubPageHeader(
-          eyebrow: '工具',
-          title: 'DB Online 数据源',
-          subtitle: 'Base URL + API Key,用于影片信息、资源和演员关联同步',
-        ),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-            children: [
-              _label('启用', _enabled ? '已启用 · 所有 DBO 功能可用' : '已停用 · 所有 DBO 功能将被屏蔽'),
+    return SettingsFixedHeaderLayout(
+      header: const SettingsSubPageHeader(
+        eyebrow: '工具',
+        title: 'DB Online 数据源',
+        subtitle: 'Base URL + API Key,用于影片信息、资源和演员关联同步',
+      ),
+      body: ListView(
+        primary: true,
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+        children: [
+          _label('启用', _enabled ? '已启用 · 所有 DBO 功能可用' : '已停用 · 所有 DBO 功能将被屏蔽'),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                 decoration: settingsCardDecoration(context),
@@ -301,10 +300,8 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
                 onPressed: _save,
                 saving: _saving,
               ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

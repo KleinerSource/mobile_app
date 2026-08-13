@@ -168,28 +168,27 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: Column(
-            children: [
-              SettingsSubPageHeader(
-                eyebrow: '媒体库',
-                title: _isEdit ? '编辑媒体库' : '新建媒体库',
-                trailing: TextButton(
-                  onPressed: _saving ? null : _save,
-                  child: Text(
-                    _isEdit ? '保存' : '创建',
-                    style: TextStyle(
-                      color: c.accent,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14.5,
-                    ),
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: '媒体库',
+              title: _isEdit ? '编辑媒体库' : '新建媒体库',
+              trailing: TextButton(
+                onPressed: _saving ? null : _save,
+                child: Text(
+                  _isEdit ? '保存' : '创建',
+                  style: TextStyle(
+                    color: c.accent,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14.5,
                   ),
                 ),
               ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-                  children: [
+            ),
+            body: ListView(
+              primary: true,
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+              children: [
                     // 名称
                     Text('NAME', style: AppText.eyebrow(context)),
                     const SizedBox(height: 8),
@@ -244,9 +243,9 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
                                   '关闭后不参与扫描,首页隐藏',
                                   style: AppText.meta(context),
                                 ),
-                              ],
-                            ),
-                          ),
+              ],
+            ),
+          ),
                           SettingsSwitch(
                             value: _enabled,
                             onChanged: (v) => setState(() => _enabled = v),
@@ -325,7 +324,6 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
                   ],
                 ),
               ),
-            ],
           ),
         ),
       ),

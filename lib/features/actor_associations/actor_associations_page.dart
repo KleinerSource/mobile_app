@@ -148,45 +148,47 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SettingsSubPageHeader(
-                eyebrow: '媒体库',
-                title: '演员关联管理',
-                trailing: SettingsAddButton(onPressed: _create),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                child: _SearchBar(
-                  controller: _searchCtl,
-                  onChanged: _onSearchChanged,
-                ),
-              ),
-              Expanded(
-                child: PagedListView<int, MappingRule>(
-                  pagingController: _controller,
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 96),
-                  builderDelegate: PagedChildBuilderDelegate<MappingRule>(
-                    itemBuilder: (ctx, item, _) => _AssocCard(
-                      rule: item,
-                      onSync: () => _sync(item),
-                      onAppend: () => _append(item),
-                      onEdit: () => _edit(item),
-                      onDelete: () => _delete(item),
-                    ),
-                    firstPageProgressIndicatorBuilder: (_) =>
-                        const Center(child: CupertinoActivityIndicator()),
-                    firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                      message: _controller.error?.toString() ?? '加载失败',
-                      onRetry: () => _controller.refresh(),
-                    ),
-                    noItemsFoundIndicatorBuilder: (_) =>
-                        const EmptyView(message: '没有演员关联记录'),
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: '媒体库',
+              title: '演员关联管理',
+              trailing: SettingsAddButton(onPressed: _create),
+            ),
+            body: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                  child: _SearchBar(
+                    controller: _searchCtl,
+                    onChanged: _onSearchChanged,
                   ),
                 ),
-              ),
-            ],
+                Expanded(
+                  child: PagedListView<int, MappingRule>(
+                    primary: true,
+                    pagingController: _controller,
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 96),
+                    builderDelegate: PagedChildBuilderDelegate<MappingRule>(
+                      itemBuilder: (ctx, item, _) => _AssocCard(
+                        rule: item,
+                        onSync: () => _sync(item),
+                        onAppend: () => _append(item),
+                        onEdit: () => _edit(item),
+                        onDelete: () => _delete(item),
+                      ),
+                      firstPageProgressIndicatorBuilder: (_) =>
+                          const Center(child: CupertinoActivityIndicator()),
+                      firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                        message: _controller.error?.toString() ?? '加载失败',
+                        onRetry: () => _controller.refresh(),
+                      ),
+                      noItemsFoundIndicatorBuilder: (_) =>
+                          const EmptyView(message: '没有演员关联记录'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

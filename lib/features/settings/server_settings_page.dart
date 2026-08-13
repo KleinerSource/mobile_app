@@ -41,6 +41,7 @@ class ServerSettingsPage extends ConsumerWidget {
                 title: l.settingsServerSettings,
               ),
             body: ListView(
+              primary: true,
               children: [
               SettingsGroup(
                 title: l.settingsGroupServer,

@@ -39,6 +39,7 @@ class SubtitleSettingsPage extends ConsumerWidget {
               title: '字幕设置',
             ),
             body: ListView(
+              primary: true,
               children: [
             SettingsGroup(
               title: '样式预览',

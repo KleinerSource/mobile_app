@@ -334,17 +334,16 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
             ? '保存并启用后，未登录访问将被拦截。'
             : '设置至少一个登录凭据后即可启用访问控制。';
 
-    return Column(
-      children: [
-        const SettingsSubPageHeader(
-          eyebrow: '系统配置',
-          title: '访问控制',
-          subtitle: '配置登录凭据与会话策略；关闭时保持开放访问。',
-        ),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-            children: [
+    return SettingsFixedHeaderLayout(
+      header: const SettingsSubPageHeader(
+        eyebrow: '系统配置',
+        title: '访问控制',
+        subtitle: '配置登录凭据与会话策略；关闭时保持开放访问。',
+      ),
+      body: ListView(
+        primary: true,
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+        children: [
               _statusCard(
                 c,
                 title: statusTitle,
@@ -407,10 +406,8 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                 onPressed: _save,
                 saving: _saving,
               ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

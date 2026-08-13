@@ -33,6 +33,7 @@ class PlayerSettingsPage extends ConsumerWidget {
                 title: '播放器设置',
               ),
             body: ListView(
+              primary: true,
               children: [
               SettingsGroup(
                 title: '播放器设置',

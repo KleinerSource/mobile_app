@@ -21,44 +21,41 @@ class ServerListPage extends ConsumerWidget {
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: Column(
-            children: [
-              SettingsSubPageHeader(
-                eyebrow: '服务器',
-                title: '服务器列表',
-                subtitle: '每台服务器可单独配置线路，启动时选择服务器。',
-                trailing: SettingsAddButton(
-                  onPressed: () => _showServerEditor(context, ref),
-                ),
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: '服务器',
+              title: '服务器列表',
+              subtitle: '每台服务器可单独配置线路，启动时选择服务器。',
+              trailing: SettingsAddButton(
+                onPressed: () => _showServerEditor(context, ref),
               ),
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
-                  itemCount: servers.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final server = servers[index];
-                    return _ServerListCard(
-                      server: server,
-                      active: server.id == config?.activeServerId,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ServerLinesPage(serverId: server.id),
-                        ),
-                      ),
-                      onEdit: () => _showServerEditor(
-                        context,
-                        ref,
-                        existing: server,
-                      ),
-                      onDelete: servers.length <= 1
-                          ? null
-                          : () => _deleteServer(context, ref, server),
-                    );
-                  },
-                ),
-              ),
-            ],
+            ),
+            body: ListView.separated(
+              primary: true,
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+              itemCount: servers.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final server = servers[index];
+                return _ServerListCard(
+                  server: server,
+                  active: server.id == config?.activeServerId,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ServerLinesPage(serverId: server.id),
+                    ),
+                  ),
+                  onEdit: () => _showServerEditor(
+                    context,
+                    ref,
+                    existing: server,
+                  ),
+                  onDelete: servers.length <= 1
+                      ? null
+                      : () => _deleteServer(context, ref, server),
+                );
+              },
+            ),
           ),
         ),
       ),

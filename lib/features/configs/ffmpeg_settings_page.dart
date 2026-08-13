@@ -95,18 +95,17 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
   }
 
   Widget _buildForm(AppColors c) {
-    return Column(
-      children: [
-        const SettingsSubPageHeader(
-          eyebrow: '工具',
-          title: 'FFmpeg 与硬解',
-          subtitle: '配置服务端转码、硬件解码和硬解失败回退策略。',
-        ),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-            children: [
-              _sectionLabel('硬件解码'),
+    return SettingsFixedHeaderLayout(
+      header: const SettingsSubPageHeader(
+        eyebrow: '工具',
+        title: 'FFmpeg 与硬解',
+        subtitle: '配置服务端转码、硬件解码和硬解失败回退策略。',
+      ),
+      body: ListView(
+        primary: true,
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+        children: [
+          _sectionLabel('硬件解码'),
               _switchCard(
                 c,
                 title: '启用硬件解码',
@@ -167,10 +166,8 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
                 onPressed: _save,
                 saving: _saving,
               ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

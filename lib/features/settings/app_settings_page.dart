@@ -37,6 +37,7 @@ class AppSettingsPage extends ConsumerWidget {
                 title: l.settingsAppSettings,
               ),
             body: ListView(
+              primary: true,
               children: [
               SettingsGroup(
                 title: l.settingsGroupPrivacy,

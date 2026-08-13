@@ -37,6 +37,7 @@ class SettingsPage extends ConsumerWidget {
                 title: l.settingsPreferences,
               ),
             body: ListView(
+              primary: true,
               children: [
               SettingsGroup(
                 title: l.settingsPreferences,

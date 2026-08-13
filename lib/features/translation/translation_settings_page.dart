@@ -246,35 +246,34 @@ class _TranslationSettingsPageState
   }
 
   Widget _buildForm(AppColors c) {
-    return Column(
-      children: [
-        const SettingsSubPageHeader(
-          eyebrow: '系统配置',
-          title: '翻译配置',
-          subtitle: '配置 ChatGPT API 翻译功能',
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
-          child: Container(
-            decoration: settingsCardDecoration(context),
-            child: SettingsTile(
-              title: '启用翻译',
-              subtitle: _enabled
-                  ? '已启用 · 翻译功能可用'
-                  : '已禁用 · 保存后不调用翻译服务',
-              leadingIcon: Icons.translate_outlined,
-              trailing: SettingsSwitch(
-                value: _enabled,
-                onChanged: (v) => setState(() => _enabled = v),
+    return SettingsFixedHeaderLayout(
+      header: const SettingsSubPageHeader(
+        eyebrow: '系统配置',
+        title: '翻译配置',
+        subtitle: '配置 ChatGPT API 翻译功能',
+      ),
+      body: ListView(
+        primary: true,
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Container(
+              decoration: settingsCardDecoration(context),
+              child: SettingsTile(
+                title: '启用翻译',
+                subtitle: _enabled
+                    ? '已启用 · 翻译功能可用'
+                    : '已禁用 · 保存后不调用翻译服务',
+                leadingIcon: Icons.translate_outlined,
+                trailing: SettingsSwitch(
+                  value: _enabled,
+                  onChanged: (v) => setState(() => _enabled = v),
+                ),
               ),
             ),
           ),
-        ),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-            children: [
-              _label('API URL', '支持 OpenAI / OpenRouter 等兼容服务'),
+          _label('API URL', '支持 OpenAI / OpenRouter 等兼容服务'),
               _input(_apiUrl, hint: 'https://api.openai.com/v1'),
               const SizedBox(height: 18),
               _label('API Key', _hasSavedKey ? '已配置 · 留空则保留' : 'sk-...'),
@@ -401,10 +400,8 @@ class _TranslationSettingsPageState
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

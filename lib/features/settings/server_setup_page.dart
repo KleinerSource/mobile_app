@@ -95,22 +95,19 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: Column(
-            children: [
-              SettingsSubPageHeader(
-                eyebrow: '服务器',
-                title: editing ? '更换服务器' : '连接到 MD Center',
-                subtitle: editing
-                    ? '修改服务器地址后重新测试连接。'
-                    : '输入服务器地址，包含协议和端口。\n例：http://192.168.1.10:8001',
-                showBackButton: Navigator.of(context).canPop(),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 30),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: '服务器',
+              title: editing ? '更换服务器' : '连接到 MD Center',
+              subtitle: editing
+                  ? '修改服务器地址后重新测试连接。'
+                  : '输入服务器地址，包含协议和端口。\n例：http://192.168.1.10:8001',
+              showBackButton: Navigator.of(context).canPop(),
+            ),
+            body: ListView(
+              primary: true,
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 30),
+              children: [
                       GlassPanel(
                         borderRadius: BorderRadius.circular(20),
                         child: Padding(
@@ -235,11 +232,8 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                         saving: _busy,
                         label: '测试并保存',
                       ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
