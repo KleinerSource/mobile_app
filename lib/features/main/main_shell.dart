@@ -82,7 +82,7 @@ class _TabSpec {
 
 enum _TabIcon { home, library, search, you }
 
-/// 悬浮胶囊 TabBar · 设计稿样式 · 16px margin + blur + active inset pill
+/// 悬浮胶囊 TabBar · 毛玻璃材质 · 16px margin + blur + active inset pill
 class _FloatingTabBar extends StatelessWidget {
   const _FloatingTabBar({
     required this.tabs,
@@ -97,6 +97,9 @@ class _FloatingTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final glassTint = c.tabBg.withValues(alpha: isDark ? 0.56 : 0.68);
+    final glassBorder = Colors.white.withValues(alpha: isDark ? 0.18 : 0.52);
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -107,13 +110,13 @@ class _FloatingTabBar extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(100),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+          filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
           child: Container(
             height: 60,
             padding: const EdgeInsets.symmetric(horizontal: 6),
             decoration: BoxDecoration(
-              color: c.tabBg,
-              border: Border.all(color: c.tabBorder, width: 1),
+              color: glassTint,
+              border: Border.all(color: glassBorder, width: 1),
               borderRadius: BorderRadius.circular(100),
               boxShadow: [
                 BoxShadow(
@@ -123,6 +126,17 @@ class _FloatingTabBar extends StatelessWidget {
                   offset: const Offset(0, 10),
                 ),
               ],
+            ),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(100),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white.withValues(alpha: isDark ? 0.08 : 0.20),
+                  Colors.transparent,
+                ],
+              ),
             ),
             child: Row(
               children: [
