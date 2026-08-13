@@ -10,7 +10,7 @@ import '../../core/models/resource.dart';
 import '../../core/models/actor.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/filter_chip.dart';
-import '../../shared/glass.dart';
+import '../../shared/glass_menu.dart';
 import '../../shared/poster.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../favorites/favorites_providers.dart';
@@ -1379,18 +1379,13 @@ class _MoreMenuButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
-    return PopupMenuButton<String>(
+    return GlassMenuAnchor<String>(
+      width: 244,
+      entries: _movieMoreEntries(c),
       tooltip: '更多',
-      position: PopupMenuPosition.under,
       offset: const Offset(0, 8),
-      color: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      shadowColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      icon: Container(
+      placement: GlassMenuPlacement.below,
+      child: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: c.surface.withValues(alpha: 0.6),
@@ -1443,9 +1438,78 @@ class _MoreMenuButton extends ConsumerWidget {
             break;
         }
       },
-      itemBuilder: (_) => [_MovieMoreMenuEntry(dangerColor: c.danger)],
     );
   }
+
+  List<GlassMenuEntry<String>> _movieMoreEntries(AppColors c) => [
+        GlassMenuEntry<String>.action(
+          value: 'edit',
+          builder: (context, selected, onTap) => GlassMenuRow(
+            icon: Icons.edit_outlined,
+            label: '编辑',
+            selected: selected,
+            onTap: onTap,
+          ),
+        ),
+        GlassMenuEntry<String>.action(
+          value: 'subtitle',
+          builder: (context, selected, onTap) => GlassMenuRow(
+            icon: Icons.subtitles_outlined,
+            label: '字幕下载',
+            selected: selected,
+            onTap: onTap,
+          ),
+        ),
+        GlassMenuEntry<String>.divider(dividerColor: c.divider),
+        GlassMenuEntry<String>.action(
+          value: 'dbo_meta',
+          builder: (context, selected, onTap) => GlassMenuRow(
+            icon: Icons.cloud_download_outlined,
+            label: '从 DBO 拉元数据',
+            selected: selected,
+            onTap: onTap,
+          ),
+        ),
+        GlassMenuEntry<String>.action(
+          value: 'resources',
+          builder: (context, selected, onTap) => GlassMenuRow(
+            icon: Icons.link,
+            label: '在线资源 (磁力/ED2K)',
+            selected: selected,
+            onTap: onTap,
+          ),
+        ),
+        GlassMenuEntry<String>.divider(dividerColor: c.divider),
+        GlassMenuEntry<String>.action(
+          value: 'sync_nfo',
+          builder: (context, selected, onTap) => GlassMenuRow(
+            icon: Icons.upload_outlined,
+            label: '同步到 NFO',
+            selected: selected,
+            onTap: onTap,
+          ),
+        ),
+        GlassMenuEntry<String>.action(
+          value: 'refresh_nfo',
+          builder: (context, selected, onTap) => GlassMenuRow(
+            icon: Icons.refresh,
+            label: 'NFO 重载',
+            selected: selected,
+            onTap: onTap,
+          ),
+        ),
+        GlassMenuEntry<String>.divider(dividerColor: c.divider),
+        GlassMenuEntry<String>.action(
+          value: 'delete',
+          builder: (context, selected, onTap) => GlassMenuRow(
+            icon: Icons.delete_outline,
+            label: '删除',
+            foregroundColor: c.danger,
+            selected: selected,
+            onTap: onTap,
+          ),
+        ),
+      ];
 
   Future<void> _confirmAndRun(
     BuildContext context,
@@ -1527,159 +1591,5 @@ class _MoreMenuButton extends ConsumerWidget {
         SnackBar(content: Text('删除失败: ${toApiException(e).message}')),
       );
     }
-  }
-}
-
-class _MovieMoreMenuEntry extends PopupMenuEntry<String> {
-  const _MovieMoreMenuEntry({required this.dangerColor});
-
-  final Color dangerColor;
-
-  @override
-  double get height => 7 * 44.0 + 3 * 10.0 + 12.0;
-
-  @override
-  bool represents(String? value) => false;
-
-  @override
-  State<_MovieMoreMenuEntry> createState() => _MovieMoreMenuEntryState();
-}
-
-class _MovieMoreMenuEntryState extends State<_MovieMoreMenuEntry> {
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return SizedBox(
-      width: 244,
-      child: GlassPanel(
-        borderRadius: BorderRadius.circular(16),
-        sigma: 24,
-        tint: c.bg.withValues(alpha: 0.46),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _MovieMoreMenuRow(
-                icon: Icons.edit_outlined,
-                label: '编辑',
-                onTap: () => _select('edit'),
-              ),
-              _MovieMoreMenuRow(
-                icon: Icons.subtitles_outlined,
-                label: '字幕下载',
-                onTap: () => _select('subtitle'),
-              ),
-              _MovieMoreMenuDivider(color: c.divider),
-              _MovieMoreMenuRow(
-                icon: Icons.cloud_download_outlined,
-                label: '从 DBO 拉元数据',
-                onTap: () => _select('dbo_meta'),
-              ),
-              _MovieMoreMenuRow(
-                icon: Icons.link,
-                label: '在线资源 (磁力/ED2K)',
-                onTap: () => _select('resources'),
-              ),
-              _MovieMoreMenuDivider(color: c.divider),
-              _MovieMoreMenuRow(
-                icon: Icons.upload_outlined,
-                label: '同步到 NFO',
-                onTap: () => _select('sync_nfo'),
-              ),
-              _MovieMoreMenuRow(
-                icon: Icons.refresh,
-                label: 'NFO 重载',
-                onTap: () => _select('refresh_nfo'),
-              ),
-              _MovieMoreMenuDivider(color: c.divider),
-              _MovieMoreMenuRow(
-                icon: Icons.delete_outline,
-                label: '删除',
-                color: widget.dangerColor,
-                onTap: () => _select('delete'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _select(String value) {
-    Navigator.of(context).pop(value);
-  }
-}
-
-class _MovieMoreMenuRow extends StatelessWidget {
-  const _MovieMoreMenuRow({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    final foreground = color ?? c.text;
-    return SizedBox(
-      height: 44,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10),
-          splashColor: c.accent.withValues(alpha: 0.12),
-          highlightColor: c.accent.withValues(alpha: 0.06),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Row(
-              children: [
-                Icon(icon, size: 18, color: foreground),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.body(context).copyWith(
-                          color: foreground,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MovieMoreMenuDivider extends StatelessWidget {
-  const _MovieMoreMenuDivider({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 10,
-      child: Center(
-        child: Divider(
-          height: 1,
-          thickness: 0.6,
-          color: color.withValues(alpha: 0.55),
-        ),
-      ),
-    );
   }
 }

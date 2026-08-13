@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -10,8 +9,8 @@ import '../../core/auth/auth_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
-import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass_menu.dart';
 
 /// 首页右上角的服务器切换入口，只显示服务器头像和名称，不暴露线路地址。
 class HomeServerSwitcher extends ConsumerWidget {
@@ -81,7 +80,6 @@ class _HomeServerSwitcherMenuState
   Future<void> _selectServer(String serverId) async {
     if (_selectingId != null || serverId == widget.activeServer.id) return;
     setState(() => _selectingId = serverId);
-    AppHaptics.selection();
     try {
       await ref.read(serverConfigProvider.notifier).selectServer(serverId);
       ref.invalidate(authControllerProvider);
@@ -107,27 +105,28 @@ class _HomeServerSwitcherMenuState
             ? profile!.name.trim()
             : widget.activeServer.name;
         final avatarUrl = profile?.avatarUrl ?? widget.activeServer.avatarUrl;
-        return PopupMenuButton<String>(
+        return GlassMenuAnchor<String>(
+          width: _serverMenuWidth(widget.servers),
           enabled: _selectingId == null,
           tooltip: '切换服务器',
           offset: const Offset(0, 4),
-          position: PopupMenuPosition.under,
-          color: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          placement: GlassMenuPlacement.below,
           onSelected: (serverId) => unawaited(_selectServer(serverId)),
-          itemBuilder: (context) => [
-            _ServerMenuEntry(
-              servers: widget.servers,
-              activeServerId: widget.activeServer.id,
-              selectingId: _selectingId,
-              profileFor: _profileFor,
-              cachedProfileFor: _cachedProfileFor,
-            ),
+          initialSelection: widget.activeServer.id,
+          entries: [
+            for (final server in widget.servers)
+              GlassMenuEntry<String>.action(
+                value: server.id,
+                builder: (context, selected, onTap) => _ServerMenuRow(
+                  server: server,
+                  profileFuture: _profileFor(server),
+                  cachedProfile: _cachedProfileFor(server),
+                  active: server.id == widget.activeServer.id,
+                  selected: selected,
+                  busy: server.id == _selectingId,
+                  onTap: onTap,
+                ),
+              ),
           ],
           child: AnimatedScale(
             scale: _selectingId == null ? 1 : 0.94,
@@ -153,97 +152,6 @@ class _HomeServerSwitcherMenuState
   }
 }
 
-class _ServerMenuEntry extends PopupMenuEntry<String> {
-  const _ServerMenuEntry({
-    required this.servers,
-    required this.activeServerId,
-    required this.selectingId,
-    required this.profileFor,
-    required this.cachedProfileFor,
-  });
-
-  final List<ServerProfile> servers;
-  final String activeServerId;
-  final String? selectingId;
-  final Future<ServerProfileData?> Function(ServerProfile server) profileFor;
-  final ServerProfileData? Function(ServerProfile server) cachedProfileFor;
-
-  @override
-  double get height => servers.length * 48.0 + 12;
-
-  @override
-  bool represents(String? value) => false;
-
-  @override
-  State<_ServerMenuEntry> createState() => _ServerMenuEntryState();
-}
-
-class _ServerMenuEntryState extends State<_ServerMenuEntry> {
-  @override
-  Widget build(BuildContext context) {
-    return _ServerMenuPanel(
-      servers: widget.servers,
-      activeServerId: widget.activeServerId,
-      selectingId: widget.selectingId,
-      profileFor: widget.profileFor,
-      cachedProfileFor: widget.cachedProfileFor,
-    );
-  }
-}
-
-class _ServerMenuPanel extends StatelessWidget {
-  const _ServerMenuPanel({
-    required this.servers,
-    required this.activeServerId,
-    required this.selectingId,
-    required this.profileFor,
-    required this.cachedProfileFor,
-  });
-
-  final List<ServerProfile> servers;
-  final String activeServerId;
-  final String? selectingId;
-  final Future<ServerProfileData?> Function(ServerProfile server) profileFor;
-  final ServerProfileData? Function(ServerProfile server) cachedProfileFor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    final menuWidth = _serverMenuWidth(servers);
-    return SizedBox(
-      width: menuWidth,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: colors.bg.withValues(alpha: 0.38),
-              border: Border.all(color: colors.cardBorder),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final server in servers)
-                    _ServerMenuRow(
-                      server: server,
-                      profileFuture: profileFor(server),
-                      cachedProfile: cachedProfileFor(server),
-                      active: server.id == activeServerId,
-                      busy: server.id == selectingId,
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 double _serverMenuWidth(List<ServerProfile> servers) {
   var maxNameLength = 0;
   for (final server in servers) {
@@ -261,14 +169,18 @@ class _ServerMenuRow extends StatelessWidget {
     required this.profileFuture,
     required this.cachedProfile,
     required this.active,
+    required this.selected,
     required this.busy,
+    required this.onTap,
   });
 
   final ServerProfile server;
   final Future<ServerProfileData?> profileFuture;
   final ServerProfileData? cachedProfile;
   final bool active;
+  final bool selected;
   final bool busy;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -282,47 +194,25 @@ class _ServerMenuRow extends StatelessWidget {
             ? profile!.name.trim()
             : server.name;
         final avatarUrl = profile?.avatarUrl ?? server.avatarUrl;
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: busy || active
-                ? null
-                : () => Navigator.of(context).pop(server.id),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-              child: Row(
-                children: [
-                  _ServerAvatar(
-                    displayName: displayName,
-                    avatarUrl: avatarUrl,
-                    size: 34,
-                    colors: colors,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.body(context).copyWith(
-                            fontWeight:
-                                active ? FontWeight.w700 : FontWeight.w500,
-                          ),
-                    ),
-                  ),
-                  if (busy)
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else if (active)
-                    Icon(Icons.check_rounded, color: colors.accent, size: 19),
-                ],
-              ),
-            ),
+        return GlassMenuRow(
+          label: displayName,
+          leading: _ServerAvatar(
+            displayName: displayName,
+            avatarUrl: avatarUrl,
+            size: 34,
+            colors: colors,
           ),
+          selected: selected,
+          onTap: busy || active ? null : onTap,
+          trailing: busy
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : active
+                  ? Icon(Icons.check_rounded, color: colors.accent, size: 19)
+                  : null,
         );
       },
     );
