@@ -18,12 +18,13 @@ class CacheManagementPage extends ConsumerWidget {
       backgroundColor: appColors(context).bg,
       body: GlowBackground(
         child: SafeArea(
-          child: ListView(
-            children: [
-              const SettingsSubPageHeader(
+          child: SettingsFixedHeaderLayout(
+            header: const SettingsSubPageHeader(
                 eyebrow: '应用设置',
                 title: '缓存管理',
               ),
+            body: ListView(
+              children: [
               SettingsGroup(
                 title: '磁盘缓存',
                 items: [
@@ -101,7 +102,8 @@ class CacheManagementPage extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 80),
-            ],
+              ],
+            ),
           ),
         ),
       ),

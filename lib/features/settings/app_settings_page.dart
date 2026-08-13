@@ -31,12 +31,13 @@ class AppSettingsPage extends ConsumerWidget {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: ListView(
-            children: [
-              SettingsSubPageHeader(
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
                 eyebrow: l.settingsTitle,
                 title: l.settingsAppSettings,
               ),
+            body: ListView(
+              children: [
               SettingsGroup(
                 title: l.settingsGroupPrivacy,
                 items: [
@@ -117,7 +118,8 @@ class AppSettingsPage extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 80),
-            ],
+              ],
+            ),
           ),
         ),
       ),

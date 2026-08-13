@@ -155,25 +155,26 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     final items = _items;
 
     return Scaffold(
-          backgroundColor: c.bg,
-          body: GlowBackground(
-            child: SafeArea(
-              child: RefreshIndicator(
+      backgroundColor: c.bg,
+      body: GlowBackground(
+        child: SafeArea(
+          child: PrimaryScrollController(
+            controller: _scrollController,
+            child: SettingsFixedHeaderLayout(
+              header: SettingsSubPageHeader(
+                eyebrow: l.settingsGroupLibrary,
+                title: l.settingsActors,
+                trailing: SettingsAddButton(
+                  onPressed: () => _showEditor(context),
+                ),
+              ),
+              body: RefreshIndicator(
                 color: c.accent,
                 onRefresh: _refresh,
                 child: CustomScrollView(
-                  controller: _scrollController,
+                  primary: true,
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
-                    SliverToBoxAdapter(
-                      child: SettingsSubPageHeader(
-                        eyebrow: l.settingsGroupLibrary,
-                        title: l.settingsActors,
-                        trailing: SettingsAddButton(
-                          onPressed: () => _showEditor(context),
-                        ),
-                      ),
-                    ),
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
@@ -379,7 +380,9 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
               ),
             ),
           ),
-        );
+        ),
+      ),
+    );
   }
 
   Future<void> _showEditor(

@@ -415,3 +415,25 @@ class SettingsSubPageHeader extends StatelessWidget {
     );
   }
 }
+
+/// 设置页固定头部布局，内容区域独立滚动。
+class SettingsFixedHeaderLayout extends StatelessWidget {
+  const SettingsFixedHeaderLayout({
+    super.key,
+    required this.header,
+    required this.body,
+  });
+
+  final Widget header;
+  final Widget body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        header,
+        Expanded(child: body),
+      ],
+    );
+  }
+}

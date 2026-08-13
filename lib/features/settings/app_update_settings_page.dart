@@ -74,13 +74,14 @@ class _AppUpdateSettingsPageState
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: ListView(
-            children: [
-              const SettingsSubPageHeader(
+          child: SettingsFixedHeaderLayout(
+            header: const SettingsSubPageHeader(
                 eyebrow: '应用设置',
                 title: '应用更新',
                 subtitle: '填写 GitHub 仓库地址，自动检查对应平台的安装包',
               ),
+            body: ListView(
+              children: [
               SettingsGroup(
                 title: '更新源',
                 items: [
@@ -183,7 +184,8 @@ class _AppUpdateSettingsPageState
                 _buildError(context, _error!),
               if (_result != null) _buildResult(context, _result!),
               const SizedBox(height: 80),
-            ],
+              ],
+            ),
           ),
         ),
       ),

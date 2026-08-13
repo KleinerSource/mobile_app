@@ -35,12 +35,13 @@ class BadgePositionPage extends ConsumerWidget {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: ListView(
-            children: [
-              SettingsSubPageHeader(
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
                 eyebrow: l.settingsAppSettings,
                 title: l.settingsBadgePositions,
               ),
+            body: ListView(
+              children: [
               // 预览区
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
@@ -159,7 +160,8 @@ class BadgePositionPage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 80),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -33,12 +33,13 @@ class SubtitleSettingsPage extends ConsumerWidget {
       backgroundColor: appColors(context).bg,
       body: GlowBackground(
         child: SafeArea(
-          child: ListView(
-            children: [
-            const SettingsSubPageHeader(
+          child: SettingsFixedHeaderLayout(
+            header: const SettingsSubPageHeader(
               eyebrow: '应用设置',
               title: '字幕设置',
             ),
+            body: ListView(
+              children: [
             SettingsGroup(
               title: '样式预览',
               items: [
@@ -174,7 +175,8 @@ class SubtitleSettingsPage extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 80),
-            ],
+              ],
+            ),
           ),
         ),
       ),

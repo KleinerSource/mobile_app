@@ -27,12 +27,13 @@ class PlayerSettingsPage extends ConsumerWidget {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: ListView(
-            children: [
-              SettingsSubPageHeader(
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
                 eyebrow: l.settingsAppSettings,
                 title: '播放器设置',
               ),
+            body: ListView(
+              children: [
               SettingsGroup(
                 title: '播放器设置',
                 items: [
@@ -228,7 +229,8 @@ class PlayerSettingsPage extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 80),
-            ],
+              ],
+            ),
           ),
         ),
       ),

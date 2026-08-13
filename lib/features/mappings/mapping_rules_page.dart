@@ -56,31 +56,30 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: RefreshIndicator(
-            color: c.accent,
-            onRefresh: () =>
-                ref.refresh(mappingsListProvider(_key).future).then((_) {}),
-            child: CustomScrollView(
-              slivers: [
-                // 顶栏 + 添加
-                SliverToBoxAdapter(
-                  child: SettingsSubPageHeader(
-                    eyebrow: '映射规则',
-                    title: '${widget.type.label}映射',
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (widget.type == MappingType.actor)
-                          IconButton(
-                            tooltip: '同步演员映射',
-                            icon: Icon(Icons.sync, color: c.muted),
-                            onPressed: _syncActors,
-                          ),
-                        SettingsAddButton(onPressed: () => _showEditor()),
-                      ],
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: '映射规则',
+              title: '${widget.type.label}映射',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.type == MappingType.actor)
+                    IconButton(
+                      tooltip: '同步演员映射',
+                      icon: Icon(Icons.sync, color: c.muted),
+                      onPressed: _syncActors,
                     ),
-                  ),
-                ),
+                  SettingsAddButton(onPressed: () => _showEditor()),
+                ],
+              ),
+            ),
+            body: RefreshIndicator(
+              color: c.accent,
+              onRefresh: () =>
+                  ref.refresh(mappingsListProvider(_key).future).then((_) {}),
+              child: CustomScrollView(
+                primary: true,
+                slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
@@ -218,7 +217,8 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                     );
                   },
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

@@ -35,12 +35,13 @@ class ServerSettingsPage extends ConsumerWidget {
       backgroundColor: appColors(context).bg,
       body: GlowBackground(
         child: SafeArea(
-          child: ListView(
-            children: [
-              SettingsSubPageHeader(
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
                 eyebrow: l.settingsTitle,
                 title: l.settingsServerSettings,
               ),
+            body: ListView(
+              children: [
               SettingsGroup(
                 title: l.settingsGroupServer,
                 items: [
@@ -255,7 +256,8 @@ class ServerSettingsPage extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 80),
-            ],
+              ],
+            ),
           ),
         ),
       ),

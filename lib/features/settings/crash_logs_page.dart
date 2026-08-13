@@ -28,12 +28,8 @@ class _CrashLogsPageState extends ConsumerState<CrashLogsPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: RefreshIndicator(
-            onRefresh: _reload,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                SettingsSubPageHeader(
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
                   eyebrow: '通用',
                   title: '崩溃日志',
                   subtitle: '日志已自动脱敏，仅保留最近记录。',
@@ -49,6 +45,11 @@ class _CrashLogsPageState extends ConsumerState<CrashLogsPage> {
                         : const Icon(Icons.ios_share_outlined),
                   ),
                 ),
+            body: RefreshIndicator(
+              onRefresh: _reload,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
                 entries.when(
                   loading: () => const Padding(
                     padding: EdgeInsets.all(48),
@@ -61,7 +62,8 @@ class _CrashLogsPageState extends ConsumerState<CrashLogsPage> {
                   data: (items) => _buildContent(context, items),
                 ),
                 const SizedBox(height: 80),
-              ],
+                ],
+              ),
             ),
           ),
         ),

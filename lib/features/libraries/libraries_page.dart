@@ -37,62 +37,62 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: RefreshIndicator(
-            color: c.accent,
-            onRefresh: () => ref.refresh(librariesAllProvider.future),
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: SettingsSubPageHeader(
-                    eyebrow: '媒体库',
-                    title: '媒体库管理',
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: _batchScanStarting
-                              ? null
-                              : _showBatchScanActions,
-                          icon: _batchScanStarting
-                              ? SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: c.text,
-                                  ),
-                                )
-                              : const Icon(Icons.sync_rounded, size: 18),
-                          label: Text(
-                            _batchScanStarting ? '提交中' : '扫描',
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: '媒体库',
+              title: '媒体库管理',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _batchScanStarting
+                        ? null
+                        : _showBatchScanActions,
+                    icon: _batchScanStarting
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: c.text,
                             ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: c.text,
-                            side: BorderSide(color: c.cardBorder),
-                            shape: const StadiumBorder(),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 13,
-                              vertical: 8,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        SettingsAddButton(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const LibraryEditorPage(),
-                            ),
-                          ),
-                        ),
-                      ],
+                          )
+                        : const Icon(Icons.sync_rounded, size: 18),
+                    label: Text(
+                      _batchScanStarting ? '提交中' : '扫描',
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: c.text,
+                      side: BorderSide(color: c.cardBorder),
+                      shape: const StadiumBorder(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 13,
+                        vertical: 8,
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  SettingsAddButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const LibraryEditorPage(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            body: RefreshIndicator(
+              color: c.accent,
+              onRefresh: () => ref.refresh(librariesAllProvider.future),
+              child: CustomScrollView(
+                primary: true,
+                slivers: [
                 async.when(
                   loading: () => const SliverFillRemaining(
                     hasScrollBody: false,
@@ -135,7 +135,8 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
                     );
                   },
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

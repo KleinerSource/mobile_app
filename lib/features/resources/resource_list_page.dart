@@ -79,22 +79,21 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: RefreshIndicator(
-            color: c.accent,
-            onRefresh: () =>
-                ref.refresh(resourceListProvider(_key).future).then((_) {}),
-            child: CustomScrollView(
-              slivers: [
-                // 顶部
-                SliverToBoxAdapter(
-                  child: SettingsSubPageHeader(
-                    eyebrow: '媒体库',
-                    title: widget.kind.plural,
-                    trailing: SettingsAddButton(
-                      onPressed: () => _showEditor(context),
-                    ),
-                  ),
-                ),
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: '媒体库',
+              title: widget.kind.plural,
+              trailing: SettingsAddButton(
+                onPressed: () => _showEditor(context),
+              ),
+            ),
+            body: RefreshIndicator(
+              color: c.accent,
+              onRefresh: () =>
+                  ref.refresh(resourceListProvider(_key).future).then((_) {}),
+              child: CustomScrollView(
+                primary: true,
+                slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
@@ -253,7 +252,8 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                     );
                   },
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

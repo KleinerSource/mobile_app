@@ -46,13 +46,14 @@ class _SecuritySettingsContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ListView(
-      children: [
-        const SettingsSubPageHeader(
+    return SettingsFixedHeaderLayout(
+      header: const SettingsSubPageHeader(
           eyebrow: '应用设置',
           title: '安全设置',
           subtitle: '配置进入 MD Center 时使用的本地验证方式',
         ),
+      body: ListView(
+        children: [
         SettingsGroup(
           title: '解锁方式',
           items: [
@@ -90,7 +91,8 @@ class _SecuritySettingsContent extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 80),
-      ],
+        ],
+      ),
     );
   }
 
