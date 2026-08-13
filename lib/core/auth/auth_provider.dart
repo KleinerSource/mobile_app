@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
@@ -112,7 +114,10 @@ class AuthController extends AsyncNotifier<AuthState> {
 
     if (!status.enabled || !status.configured) {
       // 鉴权关闭或尚未配置时清除历史会话，避免任务 WebSocket 继续携带旧 token。
-      await ref.read(authSessionRepositoryProvider).clear();
+      // Keychain/安全存储清理不应阻塞未配置鉴权服务器的切换流程。
+      unawaited(
+        ref.read(authSessionRepositoryProvider).clear().catchError((_) {}),
+      );
       return AuthState(phase: AuthPhase.authenticated, status: status);
     }
     if (status.authenticated) {

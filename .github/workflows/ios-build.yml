@@ -25,6 +25,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: subosito/flutter-action@v2
         timeout-minutes: 10
@@ -171,26 +173,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          commit_subject="$(git show -s --format=%s "${GITHUB_SHA}")"
-          commit_body="$(git show -s --format=%b "${GITHUB_SHA}")"
-          if [ -z "${commit_body//[[:space:]]/}" ]; then
-            commit_body="$(git diff-tree --no-commit-id --name-status -r "${GITHUB_SHA}" | sed 's/^/- /')"
-          fi
-          short_sha="${GITHUB_SHA:0:7}"
           version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
-          run_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          commit_url="https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
-          notes="$(printf '%s\n\n版本: %s\n\n%s\n\ncommit: [%s](%s)\nrun: [%s](%s)' \
-            '未签名 iOS 构建产物（自动滚动更新）' \
-            "${version}" \
-            "$(printf '%s\n%s' "${commit_subject}" "${commit_body}")" \
-            "${short_sha}" \
-            "${commit_url}" \
-            "${GITHUB_RUN_NUMBER}" \
-            "${run_url}")"
+          notes_file="$(mktemp)"
+          trap 'rm -f "${notes_file}"' EXIT
+          bash tool/generate_release_notes.sh \
+            latest "${version}" "${notes_file}" \
+            '未签名 iOS 构建产物（自动滚动更新）'
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest "${{ steps.ios_artifact.outputs.path }}" \
             --prerelease \
             --target "$GITHUB_SHA" \
             --title "Latest unsigned iOS build" \
-            --notes "$notes"
+            --notes-file "${notes_file}"

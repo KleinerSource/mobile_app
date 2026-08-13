@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -212,7 +213,9 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
 
   Future<void> _completeAuthenticatedSwitch(int operation) async {
     if (!_isCurrent(operation)) return;
-    await refreshHomeProviders(
+    // 鉴权状态已经确认后立即解除遮罩。首页刷新在后台启动，避免未配置鉴权
+    // 的服务器在清理旧会话或某个首页区块响应较慢时一直停留在检查状态。
+    final refresh = refreshHomeProviders(
       refreshRecentlyAdded: () => ref.refresh(recentlyAddedProvider.future),
       refreshContinueWatching: () => ref.refresh(continueWatchingProvider.future),
       refreshLibraries: () => ref.refresh(librariesProvider.future),
@@ -222,6 +225,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     if (_isCurrent(operation)) {
       state = const ServerSwitchState.idle();
     }
+    unawaited(refresh);
   }
 
   Future<void> switchTo(
