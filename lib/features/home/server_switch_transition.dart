@@ -80,6 +80,8 @@ final serverSwitchTransitionProvider = NotifierProvider<
 class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   int _operation = 0;
 
+  static const _authCheckTimeout = Duration(seconds: 12);
+
   @override
   ServerSwitchState build() => const ServerSwitchState.idle();
 
@@ -149,8 +151,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     try {
       await ref.read(serverConfigProvider.notifier).selectServer(previousServerId);
       if (!_isCurrent(operation)) return;
-      ref.invalidate(authControllerProvider);
-      final auth = await ref.read(authControllerProvider.future);
+      final auth = await _refreshAuthState();
       if (!_isCurrent(operation)) return;
       if (auth.phase == AuthPhase.authenticated) {
         await _completeAuthenticatedSwitch(operation);
@@ -249,8 +250,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         await ref.read(serverConfigProvider.notifier).selectServer(serverId);
       }
       if (!_isCurrent(operation)) return;
-      ref.invalidate(authControllerProvider);
-      final auth = await ref.read(authControllerProvider.future);
+      final auth = await _refreshAuthState();
       if (!_isCurrent(operation)) return;
       await _applyAuthResult(
         auth,
@@ -272,6 +272,25 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   }
 
   bool _isCurrent(int operation) => operation == _operation;
+
+  /// 强制读取服务器切换后的新鉴权状态。
+  ///
+  /// 配置切换会同时触发 [authControllerProvider] 重建；只调用
+  /// `invalidate` 后再读取 `.future` 可能仍然接到上一轮异步构建的 Future，
+  /// 让切换遮罩一直停留在检查状态。`refresh` 会确保等待本次服务器对应的
+  /// 状态；超时则转成可重试错误，避免网络异常造成无限等待。
+  Future<AuthState> _refreshAuthState() async {
+    try {
+      return await ref.read(authControllerProvider.notifier)
+          .refreshCurrentServer()
+          .timeout(_authCheckTimeout);
+    } on TimeoutException {
+      return const AuthState(
+        phase: AuthPhase.unavailable,
+        message: '检查服务器鉴权状态超时，请检查网络后重试',
+      );
+    }
+  }
 }
 
 /// 首页服务器切换的全屏材质层。底层主界面保持不变，目标服务器的探测和登录

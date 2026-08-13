@@ -596,8 +596,10 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       try {
         await selectFuture;
         if (!mounted) return null;
-        ref.invalidate(authControllerProvider);
-        return await ref.read(authControllerProvider.future);
+        return await ref
+            .read(authControllerProvider.notifier)
+            .refreshCurrentServer()
+            .timeout(const Duration(seconds: 12));
       } catch (_) {
         // 启动错误由根路由统一展示；这里保持当前页面不误报切换失败。
         return null;

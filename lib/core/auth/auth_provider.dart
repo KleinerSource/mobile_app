@@ -142,6 +142,41 @@ class AuthController extends AsyncNotifier<AuthState> {
     return AuthState(phase: AuthPhase.needsLogin, status: status);
   }
 
+  /// 在服务器切换后直接检查当前配置对应的服务器。
+  ///
+  /// 切换服务器会让本 Provider 同时触发一次自动重建。切换界面不能再
+  /// 等待那次旧的异步构建，否则目标服务器未启用鉴权时也可能一直停留在
+  /// “检查服务器鉴权状态”。直接复用当前客户端的 bootstrap 流程，完成后
+  /// 同步 Provider 状态，避免重复的线路探测和旧 Future 竞争。
+  Future<AuthState> refreshCurrentServer() async {
+    final config = ref.read(serverConfigProvider);
+    if (config == null) {
+      const result = AuthState(phase: AuthPhase.unconfigured);
+      state = const AsyncData(result);
+      return result;
+    }
+
+    ref
+        .read(authSessionRepositoryProvider)
+        .setActiveServerId(config.activeServerId);
+    if (config.hasMultipleServers &&
+        !ref.read(serverSelectionReadyProvider)) {
+      const result = AuthState(phase: AuthPhase.serverSelection);
+      state = const AsyncData(result);
+      return result;
+    }
+
+    state = const AsyncLoading();
+    final client = ApiClient.fromConfig(
+      config,
+      sessionRepository: ref.read(authSessionRepositoryProvider),
+      onSessionExpired: () => ref.read(authExpiryProvider.notifier).state++,
+    );
+    final result = await _bootstrap(client);
+    state = AsyncData(result);
+    return result;
+  }
+
   Future<bool> login({required String password, String? totpCode}) async {
     final client = ref.read(requiredApiClientProvider);
     final current = state.valueOrNull;
