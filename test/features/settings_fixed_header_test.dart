@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:md_center/features/settings/settings_common.dart';
 
@@ -31,8 +30,12 @@ void main() {
     await tester.pump();
     expect(scrollable.position.pixels, 500);
 
-    await SystemChannels.statusBar.invokeMethod<void>('handleScrollToTop');
-    await tester.pumpAndSettle();
+    final dynamic layoutState =
+        tester.state<State<StatefulWidget>>(
+          find.byType(SettingsFixedHeaderLayout),
+        );
+    layoutState.handleStatusBarTap();
+    await tester.pump(const Duration(milliseconds: 1000));
 
     expect(scrollable.position.pixels, 0);
   });
