@@ -27,6 +27,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+  final _youTabKey = GlobalKey();
 
   void _selectTab(int index) {
     if (index == _index) return;
@@ -36,72 +37,57 @@ class _MainShellState extends State<MainShell> {
 
   Future<void> _showYouQuickMenu() async {
     AppHaptics.medium();
-    final action = await showModalBottomSheet<_YouQuickAction>(
+    final anchorContext = _youTabKey.currentContext;
+    final anchorRenderObject = anchorContext?.findRenderObject();
+    final overlay = Overlay.of(context, rootOverlay: true);
+    final overlayRenderObject = overlay.context.findRenderObject();
+    if (anchorRenderObject is! RenderBox ||
+        overlayRenderObject is! RenderBox) {
+      return;
+    }
+    final anchorBox = anchorRenderObject;
+    final overlayBox = overlayRenderObject;
+
+    final anchorOffset = anchorBox.localToGlobal(
+      Offset.zero,
+      ancestor: overlayBox,
+    );
+    final anchorRect = anchorOffset & anchorBox.size;
+    final overlayRect = Offset.zero & overlayBox.size;
+    final l = AppL10n.of(context);
+    final action = await showMenu<_YouQuickAction>(
       context: context,
-      backgroundColor: Colors.transparent,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        final c = appColors(sheetContext);
-        final l = AppL10n.of(sheetContext);
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Material(
-              color: c.bg,
-              elevation: 10,
-              shadowColor: Colors.black.withValues(alpha: 0.28),
-              borderRadius: BorderRadius.circular(24),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                    child: Row(
-                      children: [
-                        Icon(Icons.bolt_rounded, color: c.accent, size: 20),
-                        const SizedBox(width: 10),
-                        Text(
-                          '快捷管理',
-                          style: AppText.cardTitle(sheetContext).copyWith(
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Divider(height: 1, color: c.divider),
-                  _YouQuickMenuItem(
-                    icon: Icons.video_library_outlined,
-                    label: l.settingsLibraries,
-                    onTap: () => Navigator.of(sheetContext)
-                        .pop(_YouQuickAction.libraries),
-                  ),
-                  _YouQuickMenuItem(
-                    icon: Icons.label_outline,
-                    label: l.settingsTags,
-                    onTap: () => Navigator.of(sheetContext)
-                        .pop(_YouQuickAction.tags),
-                  ),
-                  _YouQuickMenuItem(
-                    icon: Icons.category_outlined,
-                    label: l.settingsGenres,
-                    onTap: () => Navigator.of(sheetContext)
-                        .pop(_YouQuickAction.genres),
-                  ),
-                  _YouQuickMenuItem(
-                    icon: Icons.people_outline,
-                    label: l.settingsActors,
-                    onTap: () => Navigator.of(sheetContext)
-                        .pop(_YouQuickAction.actors),
-                  ),
-                  const SizedBox(height: 6),
-                ],
-              ),
+      position: RelativeRect.fromRect(anchorRect, overlayRect),
+      color: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      items: [
+        _YouQuickMenuEntry(
+          items: [
+            _YouQuickMenuAction(
+              icon: Icons.video_library_outlined,
+              label: l.settingsLibraries,
+              value: _YouQuickAction.libraries,
             ),
-          ),
-        );
-      },
+            _YouQuickMenuAction(
+              icon: Icons.label_outline,
+              label: l.settingsTags,
+              value: _YouQuickAction.tags,
+            ),
+            _YouQuickMenuAction(
+              icon: Icons.category_outlined,
+              label: l.settingsGenres,
+              value: _YouQuickAction.genres,
+            ),
+            _YouQuickMenuAction(
+              icon: Icons.people_outline,
+              label: l.settingsActors,
+              value: _YouQuickAction.actors,
+            ),
+          ],
+        ),
+      ],
     );
     if (!mounted || action == null) return;
 
@@ -158,6 +144,7 @@ class _MainShellState extends State<MainShell> {
         tabs: tabs,
         active: _index,
         onTap: _selectTab,
+        youTabKey: _youTabKey,
         onLongPress: (index) {
           if (index == 3) unawaited(_showYouQuickMenu());
         },
@@ -182,12 +169,14 @@ class _FloatingTabBar extends StatelessWidget {
     required this.tabs,
     required this.active,
     required this.onTap,
+    required this.youTabKey,
     this.onLongPress,
   });
 
   final List<_TabSpec> tabs;
   final int active;
   final ValueChanged<int> onTap;
+  final GlobalKey youTabKey;
   final ValueChanged<int>? onLongPress;
 
   @override
@@ -239,6 +228,7 @@ class _FloatingTabBar extends StatelessWidget {
                 for (var i = 0; i < tabs.length; i++)
                   Expanded(
                     child: _TabItem(
+                      key: i == 3 ? youTabKey : null,
                       spec: tabs[i],
                       active: i == active,
                       onTap: () => onTap(i),
@@ -311,33 +301,148 @@ class _TabItem extends StatelessWidget {
   }
 }
 
-class _YouQuickMenuItem extends StatelessWidget {
-  const _YouQuickMenuItem({
+class _YouQuickMenuAction {
+  const _YouQuickMenuAction({
     required this.icon,
     required this.label,
-    required this.onTap,
+    required this.value,
   });
 
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+  final _YouQuickAction value;
+}
+
+class _YouQuickMenuEntry extends PopupMenuEntry<_YouQuickAction> {
+  const _YouQuickMenuEntry({required this.items});
+
+  static const menuWidth = 224.0;
+  static const verticalPadding = 6.0;
+  static const headerHeight = 42.0;
+  static const rowHeight = 46.0;
+
+  final List<_YouQuickMenuAction> items;
+
+  @override
+  double get height =>
+      verticalPadding * 2 + headerHeight + 1 + items.length * rowHeight;
+
+  @override
+  bool represents(_YouQuickAction? value) => false;
+
+  @override
+  State<_YouQuickMenuEntry> createState() => _YouQuickMenuEntryState();
+}
+
+class _YouQuickMenuEntryState extends State<_YouQuickMenuEntry> {
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SizedBox(
+      width: _YouQuickMenuEntry.menuWidth,
+      height: widget.height,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: c.bg.withValues(alpha: isDark ? 0.70 : 0.76),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: isDark ? 0.18 : 0.56),
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.42 : 0.16),
+                  blurRadius: 28,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: _YouQuickMenuEntry.verticalPadding,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    height: _YouQuickMenuEntry.headerHeight,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Icon(Icons.bolt_rounded, color: c.accent, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            '快捷管理',
+                            style: AppText.cardTitle(context).copyWith(
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    height: 1,
+                    child: ColoredBox(color: c.divider),
+                  ),
+                  for (final item in widget.items)
+                    SizedBox(
+                      height: _YouQuickMenuEntry.rowHeight,
+                      child: _YouQuickMenuItem(item: item),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _YouQuickMenuItem extends StatelessWidget {
+  const _YouQuickMenuItem({required this.item});
+
+  final _YouQuickMenuAction item;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return ListTile(
-      leading: Icon(icon, color: c.text),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: c.text,
-          fontFamily: 'Inter',
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => Navigator.of(context).pop(item.value),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Row(
+            children: [
+              Icon(item.icon, color: c.text, size: 21),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: c.text,
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right_rounded, color: c.muted, size: 20),
+            ],
+          ),
         ),
       ),
-      trailing: Icon(Icons.chevron_right_rounded, color: c.muted),
-      onTap: onTap,
     );
   }
 }
