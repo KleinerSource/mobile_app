@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -28,6 +29,10 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
   final _youTabKey = GlobalKey();
+  OverlayEntry? _quickMenuEntry;
+  ValueNotifier<_YouQuickAction?>? _quickMenuSelection;
+  Rect? _quickMenuRect;
+  List<_YouQuickMenuAction>? _quickMenuItems;
 
   void _selectTab(int index) {
     if (index == _index) return;
@@ -35,63 +40,161 @@ class _MainShellState extends State<MainShell> {
     setState(() => _index = index);
   }
 
-  Future<void> _showYouQuickMenu() async {
-    AppHaptics.medium();
+  List<_YouQuickMenuAction> _quickMenuActions(BuildContext context) {
+    final l = AppL10n.of(context);
+    return [
+      _YouQuickMenuAction(
+        icon: Icons.video_library_outlined,
+        label: l.settingsLibraries,
+        value: _YouQuickAction.libraries,
+      ),
+      _YouQuickMenuAction(
+        icon: Icons.label_outline,
+        label: l.settingsTags,
+        value: _YouQuickAction.tags,
+      ),
+      _YouQuickMenuAction(
+        icon: Icons.category_outlined,
+        label: l.settingsGenres,
+        value: _YouQuickAction.genres,
+      ),
+      _YouQuickMenuAction(
+        icon: Icons.people_outline,
+        label: l.settingsActors,
+        value: _YouQuickAction.actors,
+      ),
+    ];
+  }
+
+  Rect? _quickMenuGeometry() {
     final anchorContext = _youTabKey.currentContext;
     final anchorRenderObject = anchorContext?.findRenderObject();
     final overlay = Overlay.of(context, rootOverlay: true);
     final overlayRenderObject = overlay.context.findRenderObject();
     if (anchorRenderObject is! RenderBox ||
         overlayRenderObject is! RenderBox) {
-      return;
+      return null;
     }
+
     final anchorBox = anchorRenderObject;
     final overlayBox = overlayRenderObject;
-
-    final anchorOffset = anchorBox.localToGlobal(
-      Offset.zero,
-      ancestor: overlayBox,
+    final anchorTopLeft = anchorBox.localToGlobal(Offset.zero);
+    final anchorRect = anchorTopLeft & anchorBox.size;
+    final overlayTopLeft = overlayBox.localToGlobal(Offset.zero);
+    final overlaySize = overlayBox.size;
+    final horizontalInset = 12.0;
+    final rawLeft = anchorRect.center.dx - _YouQuickMenuPanel.width / 2;
+    final minLeft = overlayTopLeft.dx + horizontalInset;
+    final maxLeft = math.max(
+      minLeft,
+      overlayTopLeft.dx + overlaySize.width -
+          _YouQuickMenuPanel.width -
+          horizontalInset,
     );
-    final anchorRect = anchorOffset & anchorBox.size;
-    final overlayRect = Offset.zero & overlayBox.size;
-    final l = AppL10n.of(context);
-    final action = await showMenu<_YouQuickAction>(
-      context: context,
-      position: RelativeRect.fromRect(anchorRect, overlayRect),
-      color: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      shadowColor: Colors.transparent,
-      items: [
-        _YouQuickMenuEntry(
-          items: [
-            _YouQuickMenuAction(
-              icon: Icons.video_library_outlined,
-              label: l.settingsLibraries,
-              value: _YouQuickAction.libraries,
+    final left = rawLeft.clamp(minLeft, maxLeft).toDouble();
+
+    // 菜单从“我的”按钮上方出现，底部预留间距，避免遮挡底部导航按钮。
+    final rawTop = anchorRect.top - 10 - _YouQuickMenuPanel.height;
+    final minTop =
+        overlayTopLeft.dy + MediaQuery.of(context).padding.top + 12;
+    final maxTop = math.max(
+      minTop,
+      overlayTopLeft.dy + overlaySize.height -
+          _YouQuickMenuPanel.height -
+          12,
+    );
+    final top = rawTop.clamp(minTop, maxTop).toDouble();
+    return Rect.fromLTWH(
+      left,
+      top,
+      _YouQuickMenuPanel.width,
+      _YouQuickMenuPanel.height,
+    );
+  }
+
+  _YouQuickAction? _quickActionAt(Offset position) {
+    final rect = _quickMenuRect;
+    final items = _quickMenuItems;
+    if (rect == null || items == null || !rect.contains(position)) return null;
+    final y = position.dy - rect.top - _YouQuickMenuPanel.verticalPadding;
+    if (y < 0) return null;
+    final index = y ~/ _YouQuickMenuPanel.rowHeight;
+    if (index < 0 || index >= items.length) return null;
+    return items[index].value;
+  }
+
+  void _startYouQuickMenu(GestureLongPressStartDetails details) {
+    _removeYouQuickMenu();
+    final rect = _quickMenuGeometry();
+    if (rect == null) return;
+
+    AppHaptics.medium();
+    final items = _quickMenuActions(context);
+    final overlay = Overlay.of(context, rootOverlay: true);
+    final overlayRenderObject = overlay.context.findRenderObject();
+    if (overlayRenderObject is! RenderBox) {
+      return;
+    }
+    final overlayBox = overlayRenderObject;
+    final localTopLeft = overlayBox.globalToLocal(rect.topLeft);
+    final selection = ValueNotifier<_YouQuickAction?>(null);
+    _quickMenuRect = rect;
+    _quickMenuItems = items;
+    _quickMenuSelection = selection;
+    final entry = OverlayEntry(
+      builder: (context) => Positioned(
+        left: localTopLeft.dx,
+        top: localTopLeft.dy,
+        width: _YouQuickMenuPanel.width,
+        height: _YouQuickMenuPanel.height,
+        child: IgnorePointer(
+          child: ValueListenableBuilder<_YouQuickAction?>(
+            valueListenable: selection,
+            builder: (context, selected, _) => _YouQuickMenuPanel(
+              items: items,
+              selected: selected,
             ),
-            _YouQuickMenuAction(
-              icon: Icons.label_outline,
-              label: l.settingsTags,
-              value: _YouQuickAction.tags,
-            ),
-            _YouQuickMenuAction(
-              icon: Icons.category_outlined,
-              label: l.settingsGenres,
-              value: _YouQuickAction.genres,
-            ),
-            _YouQuickMenuAction(
-              icon: Icons.people_outline,
-              label: l.settingsActors,
-              value: _YouQuickAction.actors,
-            ),
-          ],
+          ),
         ),
-      ],
+      ),
     );
-    if (!mounted || action == null) return;
+    _quickMenuEntry = entry;
+    overlay.insert(entry);
+    _updateYouQuickMenu(details.globalPosition);
+  }
 
+  void _updateYouQuickMenu(Offset position) {
+    final selection = _quickMenuSelection;
+    if (selection == null) return;
+    final next = _quickActionAt(position);
+    if (next == selection.value) return;
+    selection.value = next;
+    if (next != null) AppHaptics.selection();
+  }
+
+  void _finishYouQuickMenu(GestureLongPressEndDetails details) {
+    final action = _quickActionAt(details.globalPosition);
+    _removeYouQuickMenu();
+    if (action == null || !mounted) return;
     AppHaptics.selection();
+    unawaited(_openYouQuickAction(action));
+  }
+
+  void _cancelYouQuickMenu() {
+    _removeYouQuickMenu();
+  }
+
+  void _removeYouQuickMenu() {
+    _quickMenuEntry?.remove();
+    _quickMenuEntry = null;
+    _quickMenuRect = null;
+    _quickMenuItems = null;
+    _quickMenuSelection?.dispose();
+    _quickMenuSelection = null;
+  }
+
+  Future<void> _openYouQuickAction(_YouQuickAction action) async {
+    if (!mounted) return;
     final page = switch (action) {
       _YouQuickAction.libraries => const LibrariesPage(),
       _YouQuickAction.tags => const ResourceListPage(kind: ResourceKind.tag),
@@ -145,11 +248,19 @@ class _MainShellState extends State<MainShell> {
         active: _index,
         onTap: _selectTab,
         youTabKey: _youTabKey,
-        onLongPress: (index) {
-          if (index == 3) unawaited(_showYouQuickMenu());
-        },
+        onLongPressStart: _startYouQuickMenu,
+        onLongPressMoveUpdate: (details) =>
+            _updateYouQuickMenu(details.globalPosition),
+        onLongPressEnd: _finishYouQuickMenu,
+        onLongPressCancel: _cancelYouQuickMenu,
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _removeYouQuickMenu();
+    super.dispose();
   }
 }
 
@@ -170,14 +281,20 @@ class _FloatingTabBar extends StatelessWidget {
     required this.active,
     required this.onTap,
     required this.youTabKey,
-    this.onLongPress,
+    this.onLongPressStart,
+    this.onLongPressMoveUpdate,
+    this.onLongPressEnd,
+    this.onLongPressCancel,
   });
 
   final List<_TabSpec> tabs;
   final int active;
   final ValueChanged<int> onTap;
   final GlobalKey youTabKey;
-  final ValueChanged<int>? onLongPress;
+  final GestureLongPressStartCallback? onLongPressStart;
+  final GestureLongPressMoveUpdateCallback? onLongPressMoveUpdate;
+  final GestureLongPressEndCallback? onLongPressEnd;
+  final GestureLongPressCancelCallback? onLongPressCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -232,9 +349,12 @@ class _FloatingTabBar extends StatelessWidget {
                       spec: tabs[i],
                       active: i == active,
                       onTap: () => onTap(i),
-                      onLongPress: i == 3 && onLongPress != null
-                          ? () => onLongPress!(i)
-                          : null,
+                      onLongPressStart:
+                          i == 3 ? onLongPressStart : null,
+                      onLongPressMoveUpdate:
+                          i == 3 ? onLongPressMoveUpdate : null,
+                      onLongPressEnd: i == 3 ? onLongPressEnd : null,
+                      onLongPressCancel: i == 3 ? onLongPressCancel : null,
                     ),
                   ),
               ],
@@ -252,12 +372,18 @@ class _TabItem extends StatelessWidget {
     required this.spec,
     required this.active,
     required this.onTap,
-    this.onLongPress,
+    this.onLongPressStart,
+    this.onLongPressMoveUpdate,
+    this.onLongPressEnd,
+    this.onLongPressCancel,
   });
   final _TabSpec spec;
   final bool active;
   final VoidCallback onTap;
-  final VoidCallback? onLongPress;
+  final GestureLongPressStartCallback? onLongPressStart;
+  final GestureLongPressMoveUpdateCallback? onLongPressMoveUpdate;
+  final GestureLongPressEndCallback? onLongPressEnd;
+  final GestureLongPressCancelCallback? onLongPressCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -265,7 +391,10 @@ class _TabItem extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      onLongPress: onLongPress,
+      onLongPressStart: onLongPressStart,
+      onLongPressMoveUpdate: onLongPressMoveUpdate,
+      onLongPressEnd: onLongPressEnd,
+      onLongPressCancel: onLongPressCancel,
       child: Center(
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -314,35 +443,27 @@ class _YouQuickMenuAction {
   final _YouQuickAction value;
 }
 
-class _YouQuickMenuEntry extends PopupMenuEntry<_YouQuickAction> {
-  const _YouQuickMenuEntry({required this.items});
+class _YouQuickMenuPanel extends StatelessWidget {
+  const _YouQuickMenuPanel({
+    required this.items,
+    required this.selected,
+  });
 
-  static const menuWidth = 224.0;
+  static const width = 224.0;
   static const verticalPadding = 6.0;
-  static const headerHeight = 42.0;
-  static const rowHeight = 46.0;
+  static const rowHeight = 48.0;
+  static const height = verticalPadding * 2 + rowHeight * 4;
 
   final List<_YouQuickMenuAction> items;
+  final _YouQuickAction? selected;
 
-  @override
-  double get height =>
-      verticalPadding * 2 + headerHeight + 1 + items.length * rowHeight;
-
-  @override
-  bool represents(_YouQuickAction? value) => false;
-
-  @override
-  State<_YouQuickMenuEntry> createState() => _YouQuickMenuEntryState();
-}
-
-class _YouQuickMenuEntryState extends State<_YouQuickMenuEntry> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
-      width: _YouQuickMenuEntry.menuWidth,
-      height: widget.height,
+      width: width,
+      height: height,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
         child: BackdropFilter(
@@ -354,47 +475,18 @@ class _YouQuickMenuEntryState extends State<_YouQuickMenuEntry> {
                 color: Colors.white.withValues(alpha: isDark ? 0.18 : 0.56),
               ),
               borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.42 : 0.16),
-                  blurRadius: 28,
-                  offset: const Offset(0, 10),
-                ),
-              ],
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                vertical: _YouQuickMenuEntry.verticalPadding,
-              ),
+              padding: const EdgeInsets.symmetric(vertical: verticalPadding),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  SizedBox(
-                    height: _YouQuickMenuEntry.headerHeight,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: [
-                          Icon(Icons.bolt_rounded, color: c.accent, size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            '快捷管理',
-                            style: AppText.cardTitle(context).copyWith(
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    height: 1,
-                    child: ColoredBox(color: c.divider),
-                  ),
-                  for (final item in widget.items)
+                  for (final item in items)
                     SizedBox(
-                      height: _YouQuickMenuEntry.rowHeight,
-                      child: _YouQuickMenuItem(item: item),
+                      height: rowHeight,
+                      child: _YouQuickMenuItem(
+                        item: item,
+                        selected: item.value == selected,
+                      ),
                     ),
                 ],
               ),
@@ -407,41 +499,51 @@ class _YouQuickMenuEntryState extends State<_YouQuickMenuEntry> {
 }
 
 class _YouQuickMenuItem extends StatelessWidget {
-  const _YouQuickMenuItem({required this.item});
+  const _YouQuickMenuItem({
+    required this.item,
+    required this.selected,
+  });
 
   final _YouQuickMenuAction item;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: () => Navigator.of(context).pop(item.value),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Row(
-            children: [
-              Icon(item.icon, color: c.text, size: 21),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  item.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.text,
-                    fontFamily: 'Inter',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 90),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? c.tabActiveBg.withValues(alpha: 0.86)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              item.icon,
+              color: selected ? c.tabActiveText : c.text,
+              size: 21,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: selected ? c.tabActiveText : c.text,
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: 8),
-              Icon(Icons.chevron_right_rounded, color: c.muted, size: 20),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
