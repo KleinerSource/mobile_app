@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'server_config.dart';
 import 'server_config_repository.dart';
+import 'server_profile_cache_repository.dart';
 
 final sharedPrefsProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('在 main.dart 用 overrideWithValue 注入');
@@ -10,6 +11,11 @@ final sharedPrefsProvider = Provider<SharedPreferences>((ref) {
 
 final serverConfigRepoProvider = Provider<ServerConfigRepository>((ref) {
   return ServerConfigRepository(ref.watch(sharedPrefsProvider));
+});
+
+final serverProfileCacheRepoProvider =
+    Provider<ServerProfileCacheRepository>((ref) {
+  return ServerProfileCacheRepository(ref.watch(sharedPrefsProvider));
 });
 
 /// 多服务器启动选择只在当前进程首次进入时显示一次。
@@ -114,6 +120,15 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
       );
       return;
     }
+    ServerProfile? previousServer;
+    for (final item in current.servers) {
+      if (item.id == server.id) {
+        previousServer = item;
+        break;
+      }
+    }
+    final previousBaseUrl = previousServer?.activeLine?.baseUrl;
+    final updatedServerBaseUrl = server.activeLine?.baseUrl;
     final servers = current.servers
         .map((item) => item.id == server.id ? server : item)
         .toList();
@@ -135,6 +150,11 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     );
     final repository = ref.read(serverConfigRepoProvider);
     await repository.save(next);
+    if (previousBaseUrl != null &&
+        updatedServerBaseUrl != null &&
+        previousBaseUrl != updatedServerBaseUrl) {
+      await ref.read(serverProfileCacheRepoProvider).remove(server.id);
+    }
     state = repository.load();
     if (select) {
       ref.read(serverSelectionReadyProvider.notifier).state = true;
@@ -162,6 +182,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     );
     final repository = ref.read(serverConfigRepoProvider);
     await repository.save(next);
+    await ref.read(serverProfileCacheRepoProvider).remove(serverId);
     state = repository.load();
   }
 
@@ -171,6 +192,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
 
   Future<void> clear() async {
     await ref.read(serverConfigRepoProvider).clear();
+    await ref.read(serverProfileCacheRepoProvider).clear();
     ref.read(serverSelectionReadyProvider.notifier).state = false;
     state = null;
   }

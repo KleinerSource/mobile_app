@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -50,10 +51,11 @@ class _HomeServerSwitcherMenuState
   String? _selectingId;
 
   Future<ServerProfileData?> _loadProfile(ServerProfile server) async {
+    final cached = _cachedProfileFor(server);
     final line = server.activeLine;
-    if (line == null) return null;
+    if (line == null) return cached;
     try {
-      return await ApiClient.fromConfig(
+      final profile = await ApiClient.fromConfig(
         ServerConfig(
           baseUrl: line.baseUrl,
           lines: [line],
@@ -61,9 +63,15 @@ class _HomeServerSwitcherMenuState
           activeServerId: server.id,
         ),
       ).systemExtended.serverProfile();
+      await ref.read(serverProfileCacheRepoProvider).save(server.id, profile);
+      return profile;
     } catch (_) {
-      return null;
+      return cached;
     }
+  }
+
+  ServerProfileData? _cachedProfileFor(ServerProfile server) {
+    return ref.read(serverProfileCacheRepoProvider).load(server.id);
   }
 
   Future<ServerProfileData?> _profileFor(ServerProfile server) {
@@ -92,6 +100,7 @@ class _HomeServerSwitcherMenuState
     final colors = appColors(context);
     return FutureBuilder<ServerProfileData?>(
       future: _profileFor(widget.activeServer),
+      initialData: _cachedProfileFor(widget.activeServer),
       builder: (context, snapshot) {
         final profile = snapshot.data;
         final displayName = profile?.name.trim().isNotEmpty == true
@@ -117,6 +126,7 @@ class _HomeServerSwitcherMenuState
               activeServerId: widget.activeServer.id,
               selectingId: _selectingId,
               profileFor: _profileFor,
+              cachedProfileFor: _cachedProfileFor,
             ),
           ],
           child: AnimatedScale(
@@ -149,12 +159,14 @@ class _ServerMenuEntry extends PopupMenuEntry<String> {
     required this.activeServerId,
     required this.selectingId,
     required this.profileFor,
+    required this.cachedProfileFor,
   });
 
   final List<ServerProfile> servers;
   final String activeServerId;
   final String? selectingId;
   final Future<ServerProfileData?> Function(ServerProfile server) profileFor;
+  final ServerProfileData? Function(ServerProfile server) cachedProfileFor;
 
   @override
   double get height => servers.length * 48.0 + 12;
@@ -174,6 +186,7 @@ class _ServerMenuEntryState extends State<_ServerMenuEntry> {
       activeServerId: widget.activeServerId,
       selectingId: widget.selectingId,
       profileFor: widget.profileFor,
+      cachedProfileFor: widget.cachedProfileFor,
     );
   }
 }
@@ -184,12 +197,14 @@ class _ServerMenuPanel extends StatelessWidget {
     required this.activeServerId,
     required this.selectingId,
     required this.profileFor,
+    required this.cachedProfileFor,
   });
 
   final List<ServerProfile> servers;
   final String activeServerId;
   final String? selectingId;
   final Future<ServerProfileData?> Function(ServerProfile server) profileFor;
+  final ServerProfileData? Function(ServerProfile server) cachedProfileFor;
 
   @override
   Widget build(BuildContext context) {
@@ -215,6 +230,7 @@ class _ServerMenuPanel extends StatelessWidget {
                     _ServerMenuRow(
                       server: server,
                       profileFuture: profileFor(server),
+                      cachedProfile: cachedProfileFor(server),
                       active: server.id == activeServerId,
                       busy: server.id == selectingId,
                     ),
@@ -243,12 +259,14 @@ class _ServerMenuRow extends StatelessWidget {
   const _ServerMenuRow({
     required this.server,
     required this.profileFuture,
+    required this.cachedProfile,
     required this.active,
     required this.busy,
   });
 
   final ServerProfile server;
   final Future<ServerProfileData?> profileFuture;
+  final ServerProfileData? cachedProfile;
   final bool active;
   final bool busy;
 
@@ -257,6 +275,7 @@ class _ServerMenuRow extends StatelessWidget {
     final colors = appColors(context);
     return FutureBuilder<ServerProfileData?>(
       future: profileFuture,
+      initialData: cachedProfile,
       builder: (context, snapshot) {
         final profile = snapshot.data;
         final displayName = profile?.name.trim().isNotEmpty == true
@@ -362,10 +381,11 @@ class _ServerAvatar extends StatelessWidget {
               child: ClipOval(
                 child: avatarUrl == null || avatarUrl!.isEmpty
                     ? fallback
-                    : Image.network(
-                        avatarUrl!,
+                    : CachedNetworkImage(
+                        imageUrl: avatarUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => fallback,
+                        placeholder: (_, __) => fallback,
+                        errorWidget: (_, __, ___) => fallback,
                       ),
               ),
             ),

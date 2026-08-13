@@ -6,6 +6,21 @@ class ServerProfileData {
 
   final String name;
   final String? avatarUrl;
+
+  factory ServerProfileData.fromJson(Map<String, dynamic> json) {
+    final name = json['name']?.toString().trim() ?? '';
+    final avatar = json['avatar_url']?.toString().trim() ?? '';
+    return ServerProfileData(
+      name: name,
+      avatarUrl: avatar.isEmpty ? null : avatar,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        if (avatarUrl != null && avatarUrl!.isNotEmpty)
+          'avatar_url': avatarUrl,
+      };
 }
 
 @immutable

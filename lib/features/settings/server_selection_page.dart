@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -385,6 +386,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                         ),
                         server: servers[index],
                         profileFuture: _profileFor(servers[index]),
+                        cachedProfile: _cachedProfileFor(servers[index]),
                         busy: _selectingId == servers[index].id,
                         hideAvatar: _transitionLocked &&
                             _transitionServer?.id == servers[index].id,
@@ -421,6 +423,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     return FutureBuilder<ServerProfileData?>(
       key: ValueKey('server-login-${server.id}'),
       future: _profileFor(server),
+      initialData: _cachedProfileFor(server),
       builder: (context, snapshot) {
         final profile = snapshot.data;
         final displayName = profile?.name.trim().isNotEmpty == true
@@ -767,6 +770,10 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     return _profileFutures.putIfAbsent(server.id, () => _loadProfile(server));
   }
 
+  ServerProfileData? _cachedProfileFor(ServerProfile server) {
+    return ref.read(serverProfileCacheRepoProvider).load(server.id);
+  }
+
   bool _requiresServerLogin(AuthState state) {
     final status = state.status;
     return status?.enabled == true &&
@@ -776,8 +783,12 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   }
 
   Future<ServerProfileData?> _loadProfile(ServerProfile server) async {
+    final cached = _cachedProfileFor(server);
     final line = server.activeLine;
-    if (line == null) return null;
+    if (line == null) {
+      _profiles[server.id] = cached;
+      return cached;
+    }
     try {
       final profile = await ApiClient.fromConfig(
         ServerConfig(
@@ -787,22 +798,25 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
           activeServerId: server.id,
         ),
       ).systemExtended.serverProfile();
+      await ref.read(serverProfileCacheRepoProvider).save(server.id, profile);
       _profiles[server.id] = profile;
       return profile;
     } catch (_) {
       // 兼容尚未提供服务器资料接口的旧后端，继续使用本地名称和首字母头像。
-      _profiles[server.id] = null;
-      return null;
+      _profiles[server.id] = cached;
+      return cached;
     }
   }
 
   String _displayNameFor(ServerProfile server) {
-    final name = _profiles[server.id]?.name.trim();
+    final profile = _profiles[server.id] ?? _cachedProfileFor(server);
+    final name = profile?.name.trim();
     return name?.isNotEmpty == true ? name! : server.name;
   }
 
   String? _avatarUrlFor(ServerProfile server) {
-    return _profiles[server.id]?.avatarUrl ?? server.avatarUrl;
+    return (_profiles[server.id] ?? _cachedProfileFor(server))?.avatarUrl ??
+        server.avatarUrl;
   }
 
   Widget _loginField(
@@ -840,6 +854,7 @@ class _ServerAvatarCard extends StatelessWidget {
     required this.avatarKey,
     required this.server,
     required this.profileFuture,
+    required this.cachedProfile,
     required this.busy,
     required this.hideAvatar,
     required this.onTap,
@@ -848,6 +863,7 @@ class _ServerAvatarCard extends StatelessWidget {
   final GlobalKey avatarKey;
   final ServerProfile server;
   final Future<ServerProfileData?> profileFuture;
+  final ServerProfileData? cachedProfile;
   final bool busy;
   final bool hideAvatar;
   final VoidCallback onTap;
@@ -857,6 +873,7 @@ class _ServerAvatarCard extends StatelessWidget {
     final colors = appColors(context);
     return FutureBuilder<ServerProfileData?>(
       future: profileFuture,
+      initialData: cachedProfile,
       builder: (context, snapshot) {
         final profile = snapshot.data;
         final displayName = profile?.name.trim().isNotEmpty == true
@@ -975,10 +992,11 @@ class _ServerAvatar extends StatelessWidget {
                 child: ClipOval(
                   child: avatarUrl == null || avatarUrl!.isEmpty
                       ? fallback
-                      : Image.network(
-                          avatarUrl!,
+                      : CachedNetworkImage(
+                          imageUrl: avatarUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => fallback,
+                          placeholder: (_, __) => fallback,
+                          errorWidget: (_, __, ___) => fallback,
                         ),
                 ),
               ),
