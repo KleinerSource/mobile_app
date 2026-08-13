@@ -117,13 +117,15 @@ class _MainShellState extends State<MainShell> {
     final items = _quickMenuItems;
     if (rect == null || items == null || !rect.contains(position)) return null;
     final y = position.dy - rect.top - _YouQuickMenuPanel.verticalPadding;
-    if (y < 0) return null;
+    if (y < 0 || y >= items.length * _YouQuickMenuPanel.rowHeight) {
+      return null;
+    }
     final index = y ~/ _YouQuickMenuPanel.rowHeight;
     if (index < 0 || index >= items.length) return null;
     return items[index].value;
   }
 
-  void _startYouQuickMenu(GestureLongPressStartDetails details) {
+  void _startYouQuickMenu(LongPressStartDetails details) {
     _removeYouQuickMenu();
     final rect = _quickMenuGeometry();
     if (rect == null) return;
@@ -172,16 +174,12 @@ class _MainShellState extends State<MainShell> {
     if (next != null) AppHaptics.selection();
   }
 
-  void _finishYouQuickMenu(GestureLongPressEndDetails details) {
+  void _finishYouQuickMenu(LongPressEndDetails details) {
     final action = _quickActionAt(details.globalPosition);
     _removeYouQuickMenu();
     if (action == null || !mounted) return;
     AppHaptics.selection();
     unawaited(_openYouQuickAction(action));
-  }
-
-  void _cancelYouQuickMenu() {
-    _removeYouQuickMenu();
   }
 
   void _removeYouQuickMenu() {
@@ -252,7 +250,6 @@ class _MainShellState extends State<MainShell> {
         onLongPressMoveUpdate: (details) =>
             _updateYouQuickMenu(details.globalPosition),
         onLongPressEnd: _finishYouQuickMenu,
-        onLongPressCancel: _cancelYouQuickMenu,
       ),
     );
   }
@@ -284,7 +281,6 @@ class _FloatingTabBar extends StatelessWidget {
     this.onLongPressStart,
     this.onLongPressMoveUpdate,
     this.onLongPressEnd,
-    this.onLongPressCancel,
   });
 
   final List<_TabSpec> tabs;
@@ -294,7 +290,6 @@ class _FloatingTabBar extends StatelessWidget {
   final GestureLongPressStartCallback? onLongPressStart;
   final GestureLongPressMoveUpdateCallback? onLongPressMoveUpdate;
   final GestureLongPressEndCallback? onLongPressEnd;
-  final GestureLongPressCancelCallback? onLongPressCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -354,7 +349,6 @@ class _FloatingTabBar extends StatelessWidget {
                       onLongPressMoveUpdate:
                           i == 3 ? onLongPressMoveUpdate : null,
                       onLongPressEnd: i == 3 ? onLongPressEnd : null,
-                      onLongPressCancel: i == 3 ? onLongPressCancel : null,
                     ),
                   ),
               ],
@@ -375,7 +369,6 @@ class _TabItem extends StatelessWidget {
     this.onLongPressStart,
     this.onLongPressMoveUpdate,
     this.onLongPressEnd,
-    this.onLongPressCancel,
   });
   final _TabSpec spec;
   final bool active;
@@ -383,7 +376,6 @@ class _TabItem extends StatelessWidget {
   final GestureLongPressStartCallback? onLongPressStart;
   final GestureLongPressMoveUpdateCallback? onLongPressMoveUpdate;
   final GestureLongPressEndCallback? onLongPressEnd;
-  final GestureLongPressCancelCallback? onLongPressCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -394,7 +386,6 @@ class _TabItem extends StatelessWidget {
       onLongPressStart: onLongPressStart,
       onLongPressMoveUpdate: onLongPressMoveUpdate,
       onLongPressEnd: onLongPressEnd,
-      onLongPressCancel: onLongPressCancel,
       child: Center(
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
