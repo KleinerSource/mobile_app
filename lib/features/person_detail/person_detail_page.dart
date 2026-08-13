@@ -34,6 +34,7 @@ class PersonDetailPage extends ConsumerStatefulWidget {
 
 class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
   late String _biography;
+  String? _avatarCacheBust;
 
   @override
   void initState() {
@@ -52,6 +53,13 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
       currentBiography: _biography,
       onBiographyApplied: (biography) {
         if (mounted) setState(() => _biography = biography.trim());
+      },
+      onAvatarApplied: () {
+        if (mounted) {
+          setState(() {
+            _avatarCacheBust = DateTime.now().microsecondsSinceEpoch.toString();
+          });
+        }
       },
     );
     if (synced == true && mounted) {
@@ -111,6 +119,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                             hue: hue,
                             size: 110,
                             avatarPath: widget.avatarPath,
+                            cacheBust: _avatarCacheBust,
                           ),
                         ),
                         const SizedBox(height: 14),

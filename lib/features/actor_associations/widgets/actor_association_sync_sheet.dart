@@ -21,16 +21,19 @@ class ActorAssociationSyncSheet extends ConsumerStatefulWidget {
     required this.actor,
     this.currentBiography,
     this.onBiographyApplied,
+    this.onAvatarApplied,
   });
   final MappingRule actor;
   final String? currentBiography;
   final ValueChanged<String>? onBiographyApplied;
+  final VoidCallback? onAvatarApplied;
 
   static Future<bool?> show(
     BuildContext context,
     MappingRule actor, {
     String? currentBiography,
     ValueChanged<String>? onBiographyApplied,
+    VoidCallback? onAvatarApplied,
   }) {
     return showModalBottomSheet<bool>(
       context: context,
@@ -41,6 +44,7 @@ class ActorAssociationSyncSheet extends ConsumerStatefulWidget {
         actor: actor,
         currentBiography: currentBiography,
         onBiographyApplied: onBiographyApplied,
+        onAvatarApplied: onAvatarApplied,
       ),
     );
   }
@@ -152,7 +156,7 @@ class _ActorAssociationSyncSheetState
     ActorAssocPreview preview,
     ActorDataSource source,
   ) async {
-    if (preview.avatarExists || preview.avatarUrl.isEmpty) return;
+    if (preview.avatarUrl.isEmpty) return;
     if (!mounted || _preview != preview || _source != source) return;
     setState(() {
       _avatarLoading = true;
@@ -241,6 +245,7 @@ class _ActorAssociationSyncSheetState
       }
       if (avatarChanged) {
         changes.add('同步演员头像');
+        widget.onAvatarApplied?.call();
       }
       messenger.showSnackBar(
         SnackBar(content: Text('同步完成：${changes.join('，')}')),
@@ -335,9 +340,8 @@ class _ActorAssociationSyncSheetState
                                   padding: const EdgeInsets.fromLTRB(
                                       22, 14, 22, 14),
                                   children: [
-                                    _SummaryRow(
+                                    _ActorNameSection(
                                       mappedValue: preview.mappedValue,
-                                      newCount: _selectedAliases.length,
                                     ),
                                     if (preview.avatarUrl.isNotEmpty ||
                                         preview.avatarExists) ...[
@@ -428,10 +432,9 @@ class _ActorAssociationSyncSheetState
   }
 }
 
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.mappedValue, required this.newCount});
+class _ActorNameSection extends StatelessWidget {
+  const _ActorNameSection({required this.mappedValue});
   final String mappedValue;
-  final int newCount;
 
   @override
   Widget build(BuildContext context) {
@@ -443,41 +446,19 @@ class _SummaryRow extends StatelessWidget {
         border: Border.all(color: c.cardBorder),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('标准演员', style: AppText.meta(context)),
-                const SizedBox(height: 3),
-                Text(
-                  mappedValue.isEmpty ? '-' : mappedValue,
-                  style: TextStyle(
-                    color: c.text,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
+          Text('标准演员', style: AppText.meta(context)),
+          const SizedBox(height: 3),
+          Text(
+            mappedValue.isEmpty ? '-' : mappedValue,
+            style: TextStyle(
+              color: c.text,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('已选新增别名', style: AppText.meta(context)),
-              const SizedBox(height: 3),
-              Text(
-                '$newCount',
-                style: TextStyle(
-                  color: c.accent,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -502,10 +483,14 @@ class _AvatarSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final hasPreview = bytes != null && bytes!.isNotEmpty;
-    final status = avatarExists
-        ? '本地已有头像'
-        : loading
-            ? '正在获取头像...'
+    final status = loading
+        ? avatarExists
+            ? '正在获取数据源头像，不会覆盖本地'
+            : '正在获取头像...'
+        : avatarExists
+            ? hasPreview
+                ? '数据源头像预览（本地已有头像，不覆盖）'
+                : '本地已有头像'
             : loadFailed
                 ? '头像获取失败，不会同步头像'
                 : hasPreview
@@ -562,7 +547,11 @@ class _AvatarSection extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           else if (hasPreview)
-            Icon(Icons.check_circle, color: c.accent, size: 20),
+            Icon(
+              avatarExists ? Icons.visibility_outlined : Icons.check_circle,
+              color: avatarExists ? c.muted : c.accent,
+              size: 20,
+            ),
         ],
       ),
     );

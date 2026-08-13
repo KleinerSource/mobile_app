@@ -54,6 +54,21 @@ void main() {
     expect(preview.avatarExists, isTrue);
   });
 
+  test('演员同步预览没有头像地址时保持空头像状态', () {
+    final preview = ActorAssocPreview.fromJson({
+      'found': true,
+      'actor_name': '演员 A',
+      'mapped_value': '演员 A',
+      'all_aliases': <String>[],
+      'existing_aliases': <String>[],
+      'new_aliases': <String>[],
+      'avatar_exists': false,
+    });
+
+    expect(preview.avatarUrl, isEmpty);
+    expect(preview.avatarExists, isFalse);
+  });
+
   test('演员简介相同或仅换行差异时不需要重复同步', () {
     expect(
       ActorAssociationsRepository.biographyNeedsSync(

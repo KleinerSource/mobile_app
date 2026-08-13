@@ -32,6 +32,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
   int? _totalCount;
   late String _currentBiography;
+  String? _avatarCacheBust;
 
   @override
   void initState() {
@@ -82,6 +83,13 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
       onBiographyApplied: (biography) {
         if (mounted) setState(() => _currentBiography = biography);
       },
+      onAvatarApplied: () {
+        if (mounted) {
+          setState(() {
+            _avatarCacheBust = DateTime.now().microsecondsSinceEpoch.toString();
+          });
+        }
+      },
     );
     if (synced == true && mounted) {
       _controller.refresh();
@@ -131,6 +139,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
                     actor: widget.actor,
                     hue: _hue,
                     count: _totalCount,
+                    cacheBust: _avatarCacheBust,
                   ),
                 ),
               ),
@@ -201,10 +210,16 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
 }
 
 class _ActorHero extends StatelessWidget {
-  const _ActorHero({required this.actor, required this.hue, this.count});
+  const _ActorHero({
+    required this.actor,
+    required this.hue,
+    this.count,
+    this.cacheBust,
+  });
   final ActorItem actor;
   final int hue;
   final int? count;
+  final String? cacheBust;
 
   @override
   Widget build(BuildContext context) {
@@ -254,6 +269,7 @@ class _ActorHero extends StatelessWidget {
                 hue: hue,
                 size: 78,
                 avatarPath: actor.avatarPath,
+                cacheBust: cacheBust,
               ),
             ),
           ),
