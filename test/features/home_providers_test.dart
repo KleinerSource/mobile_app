@@ -32,4 +32,31 @@ void main() {
       isFalse,
     );
   });
+
+  test('首页刷新不会因单个区块失败而跳过其它区块', () async {
+    final refreshed = <String>[];
+
+    await refreshHomeProviders(
+      refreshRecentlyAdded: () async {
+        refreshed.add('recent');
+        throw StateError('recent failed');
+      },
+      refreshContinueWatching: () async {
+        refreshed.add('continue');
+      },
+      refreshLibraries: () async {
+        refreshed.add('libraries');
+      },
+      refreshRecommendCarousel: () async {
+        refreshed.add('carousel');
+      },
+    );
+
+    expect(refreshed, containsAll(<String>[
+      'recent',
+      'continue',
+      'libraries',
+      'carousel',
+    ]));
+  });
 }

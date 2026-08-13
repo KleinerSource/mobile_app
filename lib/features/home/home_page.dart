@@ -42,22 +42,15 @@ class HomePage extends ConsumerWidget {
     return l.greetingNight;
   }
 
-  Future<void> _waitForRefresh(Future<Object?> future) async {
-    try {
-      await future;
-    } catch (_) {
-      // 各区块保留自己的错误状态，下拉刷新本身仍应正常结束。
-    }
-  }
-
   Future<void> _refreshHome(WidgetRef ref) async {
     refreshImageCache(ref);
-    await Future.wait<void>([
-      _waitForRefresh(ref.refresh(recentlyAddedProvider.future)),
-      _waitForRefresh(ref.refresh(continueWatchingProvider.future)),
-      _waitForRefresh(ref.refresh(librariesProvider.future)),
-    ]);
-    await _waitForRefresh(ref.refresh(recommendCarouselProvider.future));
+    await refreshHomeProviders(
+      refreshRecentlyAdded: () => ref.refresh(recentlyAddedProvider.future),
+      refreshContinueWatching: () => ref.refresh(continueWatchingProvider.future),
+      refreshLibraries: () => ref.refresh(librariesProvider.future),
+      refreshRecommendCarousel: () =>
+          ref.refresh(recommendCarouselProvider.future),
+    );
   }
 
   @override

@@ -11,6 +11,8 @@ import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_theme.dart';
+import '../libraries/libraries_providers.dart';
+import 'home_providers.dart';
 
 enum ServerSwitchPhase {
   idle,
@@ -98,7 +100,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
           );
       if (!_isCurrent(operation)) return;
       if (authenticated) {
-        state = const ServerSwitchState.idle();
+        await _completeAuthenticatedSwitch(operation);
         return;
       }
       final auth = ref.read(authControllerProvider).valueOrNull;
@@ -150,7 +152,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       final auth = await ref.read(authControllerProvider.future);
       if (!_isCurrent(operation)) return;
       if (auth.phase == AuthPhase.authenticated) {
-        state = const ServerSwitchState.idle();
+        await _completeAuthenticatedSwitch(operation);
       } else {
         state = ServerSwitchState.error(
           targetServerId: previousServerId,
@@ -169,15 +171,15 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     }
   }
 
-  void _applyAuthResult(
+  Future<void> _applyAuthResult(
     AuthState auth, {
     required String targetServerId,
     required String? previousServerId,
+    required int operation,
   }) {
     switch (auth.phase) {
       case AuthPhase.authenticated:
-        state = const ServerSwitchState.idle();
-        break;
+        return _completeAuthenticatedSwitch(operation);
       case AuthPhase.needsLogin:
       case AuthPhase.totpRequired:
         state = ServerSwitchState.needsLogin(
@@ -205,6 +207,21 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         );
         break;
     }
+    return Future<void>.value();
+  }
+
+  Future<void> _completeAuthenticatedSwitch(int operation) async {
+    if (!_isCurrent(operation)) return;
+    await refreshHomeProviders(
+      refreshRecentlyAdded: () => ref.refresh(recentlyAddedProvider.future),
+      refreshContinueWatching: () => ref.refresh(continueWatchingProvider.future),
+      refreshLibraries: () => ref.refresh(librariesProvider.future),
+      refreshRecommendCarousel: () =>
+          ref.refresh(recommendCarouselProvider.future),
+    );
+    if (_isCurrent(operation)) {
+      state = const ServerSwitchState.idle();
+    }
   }
 
   Future<void> switchTo(
@@ -231,10 +248,11 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       ref.invalidate(authControllerProvider);
       final auth = await ref.read(authControllerProvider.future);
       if (!_isCurrent(operation)) return;
-      _applyAuthResult(
+      await _applyAuthResult(
         auth,
         targetServerId: serverId,
         previousServerId: previousServerId,
+        operation: operation,
       );
     } catch (error) {
       if (!_isCurrent(operation)) return;
