@@ -340,19 +340,13 @@ class _ActorAssociationSyncSheetState
                                   padding: const EdgeInsets.fromLTRB(
                                       22, 14, 22, 14),
                                   children: [
-                                    _ActorNameSection(
+                                    _ActorIdentitySection(
                                       mappedValue: preview.mappedValue,
+                                      avatarExists: preview.avatarExists,
+                                      bytes: _avatarBytes,
+                                      loading: _avatarLoading,
+                                      loadFailed: _avatarLoadFailed,
                                     ),
-                                    if (preview.avatarUrl.isNotEmpty ||
-                                        preview.avatarExists) ...[
-                                      const SizedBox(height: 16),
-                                      _AvatarSection(
-                                        avatarExists: preview.avatarExists,
-                                        bytes: _avatarBytes,
-                                        loading: _avatarLoading,
-                                        loadFailed: _avatarLoadFailed,
-                                      ),
-                                    ],
                                     if (_biographyNeedsSync(preview)) ...[
                                       const SizedBox(height: 16),
                                       _BiographySection(
@@ -432,48 +426,16 @@ class _ActorAssociationSyncSheetState
   }
 }
 
-class _ActorNameSection extends StatelessWidget {
-  const _ActorNameSection({required this.mappedValue});
-  final String mappedValue;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.cardBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('标准演员', style: AppText.meta(context)),
-          const SizedBox(height: 3),
-          Text(
-            mappedValue.isEmpty ? '-' : mappedValue,
-            style: TextStyle(
-              color: c.text,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AvatarSection extends StatelessWidget {
-  const _AvatarSection({
+class _ActorIdentitySection extends StatelessWidget {
+  const _ActorIdentitySection({
+    required this.mappedValue,
     required this.avatarExists,
     required this.bytes,
     required this.loading,
     required this.loadFailed,
   });
 
+  final String mappedValue;
   final bool avatarExists;
   final Uint8List? bytes;
   final bool loading;
@@ -507,8 +469,8 @@ class _AvatarSection extends StatelessWidget {
         children: [
           ClipOval(
             child: SizedBox(
-              width: 58,
-              height: 58,
+              width: 62,
+              height: 62,
               child: hasPreview
                   ? Image.memory(bytes!, fit: BoxFit.cover)
                   : DecoratedBox(
@@ -518,20 +480,34 @@ class _AvatarSection extends StatelessWidget {
                             ? Icons.account_circle_outlined
                             : Icons.person_outline,
                         color: c.muted,
-                        size: 30,
+                        size: 32,
                       ),
                     ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 13),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('演员头像', style: AppText.cardTitle(context)),
-                const SizedBox(height: 4),
+                Text('标准演员', style: AppText.meta(context)),
+                const SizedBox(height: 3),
+                Text(
+                  mappedValue.isEmpty ? '-' : mappedValue,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: c.text,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 5),
                 Text(
                   status,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: loadFailed ? c.danger : c.muted,
                     fontSize: 12,
