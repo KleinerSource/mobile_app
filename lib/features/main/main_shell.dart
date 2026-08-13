@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -5,9 +6,13 @@ import 'package:flutter/material.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../actors/actor_management_page.dart';
 import '../favorites/favorites_page.dart';
 import '../home/home_page.dart';
+import '../libraries/libraries_page.dart';
 import '../movies/movies_page.dart';
+import '../resources/resource_list_page.dart';
+import '../resources/resources_repository.dart';
 import '../search/search_page.dart';
 
 /// md_center 主框架 · 设计稿 4 Tab 悬浮胶囊
@@ -27,6 +32,90 @@ class _MainShellState extends State<MainShell> {
     if (index == _index) return;
     AppHaptics.selection();
     setState(() => _index = index);
+  }
+
+  Future<void> _showYouQuickMenu() async {
+    AppHaptics.medium();
+    final action = await showModalBottomSheet<_YouQuickAction>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final c = appColors(sheetContext);
+        final l = AppL10n.of(sheetContext);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Material(
+              color: c.bg,
+              elevation: 10,
+              shadowColor: Colors.black.withValues(alpha: 0.28),
+              borderRadius: BorderRadius.circular(24),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.bolt_rounded, color: c.accent, size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          '快捷管理',
+                          style: AppText.cardTitle(sheetContext).copyWith(
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(height: 1, color: c.divider),
+                  _YouQuickMenuItem(
+                    icon: Icons.video_library_outlined,
+                    label: l.settingsLibraries,
+                    onTap: () => Navigator.of(sheetContext)
+                        .pop(_YouQuickAction.libraries),
+                  ),
+                  _YouQuickMenuItem(
+                    icon: Icons.label_outline,
+                    label: l.settingsTags,
+                    onTap: () => Navigator.of(sheetContext)
+                        .pop(_YouQuickAction.tags),
+                  ),
+                  _YouQuickMenuItem(
+                    icon: Icons.category_outlined,
+                    label: l.settingsGenres,
+                    onTap: () => Navigator.of(sheetContext)
+                        .pop(_YouQuickAction.genres),
+                  ),
+                  _YouQuickMenuItem(
+                    icon: Icons.people_outline,
+                    label: l.settingsActors,
+                    onTap: () => Navigator.of(sheetContext)
+                        .pop(_YouQuickAction.actors),
+                  ),
+                  const SizedBox(height: 6),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    if (!mounted || action == null) return;
+
+    AppHaptics.selection();
+    final page = switch (action) {
+      _YouQuickAction.libraries => const LibrariesPage(),
+      _YouQuickAction.tags => const ResourceListPage(kind: ResourceKind.tag),
+      _YouQuickAction.genres =>
+        const ResourceListPage(kind: ResourceKind.genre),
+      _YouQuickAction.actors => const ActorManagementPage(),
+    };
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => page),
+    );
   }
 
   List<_TabSpec> _tabsFor(BuildContext context) {
@@ -69,10 +158,15 @@ class _MainShellState extends State<MainShell> {
         tabs: tabs,
         active: _index,
         onTap: _selectTab,
+        onLongPress: (index) {
+          if (index == 3) unawaited(_showYouQuickMenu());
+        },
       ),
     );
   }
 }
+
+enum _YouQuickAction { libraries, tags, genres, actors }
 
 class _TabSpec {
   const _TabSpec({required this.label, required this.icon});
@@ -88,11 +182,13 @@ class _FloatingTabBar extends StatelessWidget {
     required this.tabs,
     required this.active,
     required this.onTap,
+    this.onLongPress,
   });
 
   final List<_TabSpec> tabs;
   final int active;
   final ValueChanged<int> onTap;
+  final ValueChanged<int>? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -146,6 +242,9 @@ class _FloatingTabBar extends StatelessWidget {
                       spec: tabs[i],
                       active: i == active,
                       onTap: () => onTap(i),
+                      onLongPress: i == 3 && onLongPress != null
+                          ? () => onLongPress!(i)
+                          : null,
                     ),
                   ),
               ],
@@ -162,10 +261,12 @@ class _TabItem extends StatelessWidget {
     required this.spec,
     required this.active,
     required this.onTap,
+    this.onLongPress,
   });
   final _TabSpec spec;
   final bool active;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +274,7 @@ class _TabItem extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Center(
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -205,6 +307,37 @@ class _TabItem extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _YouQuickMenuItem extends StatelessWidget {
+  const _YouQuickMenuItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return ListTile(
+      leading: Icon(icon, color: c.text),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: c.text,
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      trailing: Icon(Icons.chevron_right_rounded, color: c.muted),
+      onTap: onTap,
     );
   }
 }
