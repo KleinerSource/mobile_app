@@ -326,11 +326,14 @@ class _ServerAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderWidth = size >= 36 ? 2.2 : 2.0;
+    final fallbackForeground = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : colors.surface;
     final fallback = Center(
       child: Text(
         _initials(displayName),
         style: TextStyle(
-          color: colors.surface,
+          color: fallbackForeground,
           fontSize: size * 0.38,
           fontWeight: FontWeight.w700,
         ),
