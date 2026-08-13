@@ -15,13 +15,19 @@ import 'error_mapper.dart';
 // 缓存的 User-Agent：形如 mdcenter/0.10.6，避免每个请求都读取 PackageInfo。
 String? _cachedUserAgent;
 
-Future<String> _appUserAgent() async {
+Future<String?> _appUserAgent() async {
   final cached = _cachedUserAgent;
   if (cached != null) return cached;
-  final info = await PackageInfo.fromPlatform();
-  final ua = 'mdcenter/${info.version}';
-  _cachedUserAgent = ua;
-  return ua;
+  try {
+    final info = await PackageInfo.fromPlatform();
+    final ua = 'mdcenter/${info.version}';
+    _cachedUserAgent = ua;
+    return ua;
+  } catch (_) {
+    // 单元测试和部分非原生运行环境没有注册 package_info_plus 插件。
+    // User-Agent 不是请求成立的前置条件，读取失败时继续使用默认请求头。
+    return null;
+  }
 }
 
 Dio buildDio(
@@ -87,7 +93,10 @@ Dio buildDio(
 
   dio.interceptors.add(InterceptorsWrapper(
     onRequest: (options, handler) async {
-      options.headers['User-Agent'] = await _appUserAgent();
+      final userAgent = await _appUserAgent();
+      if (userAgent != null) {
+        options.headers['User-Agent'] = userAgent;
+      }
       if (options.extra['skipAuth'] != true && sessionRepository != null) {
         final token = await sessionRepository.accessToken();
         if (token != null && token.isNotEmpty) {
