@@ -1,0 +1,39 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:md_center/features/settings/settings_common.dart';
+
+void main() {
+  testWidgets('设置页响应 iOS 状态栏点击并滚动到顶部', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SettingsFixedHeaderLayout(
+            header: const SizedBox(height: 64),
+            body: ListView(
+              primary: true,
+              children: List.generate(
+                40,
+                (index) => SizedBox(
+                  height: 60,
+                  child: Text('$index'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+    scrollable.position.jumpTo(500);
+    await tester.pump();
+    expect(scrollable.position.pixels, 500);
+
+    await SystemChannels.statusBar.invokeMethod<void>('handleScrollToTop');
+    await tester.pumpAndSettle();
+
+    expect(scrollable.position.pixels, 0);
+  });
+}

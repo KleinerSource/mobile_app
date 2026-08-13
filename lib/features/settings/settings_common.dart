@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/platform/app_haptics.dart';
@@ -438,8 +440,8 @@ class SettingsFixedHeaderLayout extends StatefulWidget {
       _SettingsFixedHeaderLayoutState();
 }
 
-class _SettingsFixedHeaderLayoutState
-    extends State<SettingsFixedHeaderLayout> {
+class _SettingsFixedHeaderLayoutState extends State<SettingsFixedHeaderLayout>
+    with WidgetsBindingObserver {
   ScrollController? _ownedController;
 
   ScrollController get _controller =>
@@ -448,6 +450,7 @@ class _SettingsFixedHeaderLayoutState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.scrollController == null) {
       _ownedController = ScrollController();
     }
@@ -468,8 +471,25 @@ class _SettingsFixedHeaderLayoutState
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ownedController?.dispose();
     super.dispose();
+  }
+
+  @override
+  void handleStatusBarTap() {
+    super.handleStatusBarTap();
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent || !_controller.hasClients) {
+      return;
+    }
+    unawaited(
+      _controller.animateTo(
+        0,
+        duration: const Duration(milliseconds: 1000),
+        curve: Curves.easeOutCirc,
+      ),
+    );
   }
 
   @override
