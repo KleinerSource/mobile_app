@@ -21,6 +21,7 @@ abstract class ActorItem with _$ActorItem {
     required String name,
     String? biography,
     @JsonKey(name: 'actor_type') String? actorType,
+    @JsonKey(name: 'avatar_path') String? avatarPath,
     @JsonKey(name: 'movie_count') @Default(0) int movieCount,
   }) = _ActorItem;
 

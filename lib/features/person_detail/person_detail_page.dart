@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/movie.dart';
 import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/actor_avatar.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../actor_associations/widgets/actor_association_sync_sheet.dart';
@@ -18,12 +19,14 @@ class PersonDetailPage extends ConsumerStatefulWidget {
     required this.name,
     this.actorType,
     this.biography,
+    this.avatarPath,
   });
 
   final int actorId;
   final String name;
   final String? actorType;
   final String? biography;
+  final String? avatarPath;
 
   @override
   ConsumerState<PersonDetailPage> createState() => _PersonDetailPageState();
@@ -54,17 +57,6 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
     if (synced == true && mounted) {
       ref.invalidate(_actorMoviesProvider(widget.actorId));
     }
-  }
-
-  static String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) {
-      return parts.first.characters.take(2).toString().toUpperCase();
-    }
-    return (parts.first.characters.first.toString() +
-            parts.last.characters.first.toString())
-        .toUpperCase();
   }
 
   @override
@@ -102,16 +94,9 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
-                          width: 110,
-                          height: 110,
+                        DecoratedBox(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [AppHues.top(hue), AppHues.bottom(hue)],
-                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: AppHues.top(hue).withValues(alpha: 0.4),
@@ -120,15 +105,12 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                               ),
                             ],
                           ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            _initials(widget.name),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w800,
-                              fontSize: 32,
-                            ),
+                          child: ActorAvatar(
+                            actorId: widget.actorId,
+                            name: widget.name,
+                            hue: hue,
+                            size: 110,
+                            avatarPath: widget.avatarPath,
                           ),
                         ),
                         const SizedBox(height: 14),

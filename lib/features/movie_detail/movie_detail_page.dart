@@ -12,6 +12,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/glass_menu.dart';
 import '../../shared/poster.dart';
+import '../../shared/actor_avatar.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../favorites/favorites_providers.dart';
 import '../lists/add_to_list_sheet.dart';
@@ -1001,16 +1002,9 @@ class _CastSection extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     child: Column(
                     children: [
-                      Container(
-                        width: 76,
-                        height: 76,
+                      DecoratedBox(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [AppHues.top(hue), AppHues.bottom(hue)],
-                          ),
                           boxShadow: [
                             BoxShadow(
                               color: AppHues.top(hue).withValues(alpha: 0.35),
@@ -1019,15 +1013,12 @@ class _CastSection extends StatelessWidget {
                             ),
                           ],
                         ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          _initials(a.name),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w800,
-                            fontSize: 20,
-                          ),
+                        child: ActorAvatar(
+                          actorId: a.id,
+                          name: a.name,
+                          hue: hue,
+                          size: 76,
+                          avatarPath: a.avatarPath,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -1056,16 +1047,6 @@ class _CastSection extends StatelessWidget {
     );
   }
 
-  String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) {
-      return parts.first.characters.take(2).toString().toUpperCase();
-    }
-    return (parts.first.characters.first.toString() +
-            parts.last.characters.first.toString())
-        .toUpperCase();
-  }
 }
 
 /// 单类 taxonomy 分组 (系列 / 分类 / 标签),带 label + Wrap 多彩 chips。

@@ -12,6 +12,7 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/actor_avatar.dart';
 import '../actor_associations/actor_associations_providers.dart';
 import '../actor_associations/actor_associations_repository.dart';
 import '../person_detail/person_detail_page.dart';
@@ -355,6 +356,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                                     name: actor.name,
                                     actorType: actor.actorType,
                                     biography: actor.biography,
+                                    avatarPath: actor.avatarPath,
                                   ),
                                 ),
                               ),
@@ -770,27 +772,12 @@ class _ActorTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [AppHues.top(hue), AppHues.bottom(hue)],
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      actor.name.isNotEmpty ? actor.name.characters.first : '·',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                      ),
-                    ),
+                  ActorAvatar(
+                    actorId: actor.id,
+                    name: actor.name,
+                    hue: hue,
+                    size: 42,
+                    avatarPath: actor.avatarPath,
                   ),
                   const SizedBox(width: 12),
                   Expanded(

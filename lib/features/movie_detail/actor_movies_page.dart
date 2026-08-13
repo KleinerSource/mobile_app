@@ -12,6 +12,7 @@ import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/actor_avatar.dart';
 import '../actor_associations/widgets/actor_association_sync_sheet.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
@@ -226,6 +227,33 @@ class _ActorHero extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: AppHues.highlight(hue),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 52,
+            right: 22,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.45),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: ActorAvatar(
+                actorId: actor.id,
+                name: actor.name,
+                hue: hue,
+                size: 78,
+                avatarPath: actor.avatarPath,
               ),
             ),
           ),
