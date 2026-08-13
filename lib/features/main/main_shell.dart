@@ -196,6 +196,14 @@ class _MainShellState extends State<MainShell> {
 
   void _finishYouQuickMenu(LongPressEndDetails details) {
     if (_quickMenuEntry == null) return;
+    final action = _quickActionAt(details.globalPosition);
+    if (action != null) {
+      _removeYouQuickMenu();
+      if (!mounted) return;
+      AppHaptics.selection();
+      unawaited(_openYouQuickAction(action));
+      return;
+    }
     _updateYouQuickMenu(details.globalPosition);
     _quickMenuInteractive = true;
     _quickMenuEntry?.markNeedsBuild();
