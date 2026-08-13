@@ -326,7 +326,6 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
               ),
           ),
         ),
-      ),
     );
   }
 }
