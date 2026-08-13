@@ -43,12 +43,15 @@ void main() {
       },
       refreshContinueWatching: () async {
         refreshed.add('continue');
+        return null;
       },
       refreshLibraries: () async {
         refreshed.add('libraries');
+        return null;
       },
       refreshRecommendCarousel: () async {
         refreshed.add('carousel');
+        return null;
       },
     );
 

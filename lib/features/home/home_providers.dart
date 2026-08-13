@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/movie.dart';
 import '../../core/models/paged_result.dart';
-import '../libraries/libraries_providers.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
 
