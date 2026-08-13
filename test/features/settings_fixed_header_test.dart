@@ -36,6 +36,11 @@ void main() {
         );
     layoutState.handleStatusBarTap();
 
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(scrollable.position.pixels, greaterThan(0));
+    expect(scrollable.position.pixels, lessThan(500));
+
+    await tester.pumpAndSettle();
     expect(scrollable.position.pixels, 0);
   });
 }

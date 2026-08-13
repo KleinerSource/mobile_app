@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/platform/app_haptics.dart';
@@ -481,9 +483,19 @@ class _SettingsFixedHeaderLayoutState extends State<SettingsFixedHeaderLayout>
     if ((route != null && !route.isCurrent) || !_controller.hasClients) {
       return;
     }
-    // 状态栏回顶是一次明确的系统操作，直接归零可以避免与用户当前的
-    // 拖动/惯性动画竞争，也保证所有设置页都能可靠回到内容起点。
-    _controller.jumpTo(0);
+    final position = _controller.position;
+    if (position.pixels <= position.minScrollExtent) {
+      return;
+    }
+    // 与影片库保持一致，从当前位置连续滚回顶部；animateTo 会中止当前
+    // 的惯性滚动，避免先闪回再开始动画。
+    unawaited(
+      _controller.animateTo(
+        position.minScrollExtent,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   @override
