@@ -15,6 +15,7 @@ import 'core/platform/app_haptics.dart';
 import 'core/platform/app_theme.dart';
 import 'features/i18n/locale_providers.dart';
 import 'features/i18n/theme_provider.dart';
+import 'features/home/server_switch_transition.dart';
 import 'features/main/main_shell.dart';
 import 'features/privacy/privacy_shield.dart';
 import 'features/security/security_gate.dart';
@@ -81,6 +82,7 @@ class MdCenterApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cfg = ref.watch(serverConfigProvider);
     final auth = ref.watch(authControllerProvider);
+    final serverSwitch = ref.watch(serverSwitchTransitionProvider);
     final serverSelectionReady = ref.watch(serverSelectionReadyProvider);
     final appLocale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
@@ -112,35 +114,55 @@ class MdCenterApp extends ConsumerWidget {
         },
         child: cfg == null
             ? const ServerSetupPage()
-            : auth.when(
-                loading: () => cfg.hasMultipleServers && serverSelectionReady
-                    ? const ServerSelectionPage()
-                    : const _StartupLoading(),
-                error: (error, _) => _StartupError(
-                      message: error.toString(),
-                      serverUrl: cfg.baseUrl,
-                      incompatible: error is ServerCompatibilityException,
-                      onRetry: () => ref.invalidate(authControllerProvider),
-                      onChangeServer: changeServer,
-                    ),
-                data: (state) => switch (state.phase) {
-                  AuthPhase.needsLogin || AuthPhase.totpRequired =>
-                    cfg.hasMultipleServers && serverSelectionReady
+            : serverSwitch.isActive
+                ? const _AuthenticatedHomeWithServerSwitch()
+                : auth.when(
+                    loading: () => cfg.hasMultipleServers && serverSelectionReady
                         ? const ServerSelectionPage()
-                        : const LoginPage(),
-                  AuthPhase.serverSelection => const ServerSelectionPage(),
-                  AuthPhase.incompatible || AuthPhase.unavailable =>
-                    _StartupError(
-                      message: state.message ?? '服务器不可用',
-                      serverUrl: cfg.baseUrl,
-                      incompatible: state.phase == AuthPhase.incompatible,
-                      onRetry: () => ref.invalidate(authControllerProvider),
-                      onChangeServer: changeServer,
-                    ),
-                  _ => const _AuthenticatedHome(),
-                },
-              ),
+                        : const _StartupLoading(),
+                    error: (error, _) => _StartupError(
+                          message: error.toString(),
+                          serverUrl: cfg.baseUrl,
+                          incompatible: error is ServerCompatibilityException,
+                          onRetry: () => ref.invalidate(authControllerProvider),
+                          onChangeServer: changeServer,
+                        ),
+                    data: (state) => switch (state.phase) {
+                      AuthPhase.needsLogin || AuthPhase.totpRequired =>
+                        cfg.hasMultipleServers && serverSelectionReady
+                            ? const ServerSelectionPage()
+                            : const LoginPage(),
+                      AuthPhase.serverSelection =>
+                        const ServerSelectionPage(),
+                      AuthPhase.incompatible || AuthPhase.unavailable =>
+                        _StartupError(
+                          message: state.message ?? '服务器不可用',
+                          serverUrl: cfg.baseUrl,
+                          incompatible:
+                              state.phase == AuthPhase.incompatible,
+                          onRetry: () =>
+                              ref.invalidate(authControllerProvider),
+                          onChangeServer: changeServer,
+                        ),
+                      _ => const _AuthenticatedHome(),
+                    },
+                  ),
       ),
+    );
+  }
+}
+
+class _AuthenticatedHomeWithServerSwitch extends StatelessWidget {
+  const _AuthenticatedHomeWithServerSwitch();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Stack(
+      fit: StackFit.expand,
+      children: [
+        _AuthenticatedHome(),
+        ServerSwitchTransitionOverlay(),
+      ],
     );
   }
 }

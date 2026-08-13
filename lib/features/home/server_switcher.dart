@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
-import '../../core/auth/auth_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass_menu.dart';
+import 'server_switch_transition.dart';
 
 /// 首页右上角的服务器切换入口，只显示服务器头像和名称，不暴露线路地址。
 class HomeServerSwitcher extends ConsumerWidget {
@@ -47,7 +47,6 @@ class _HomeServerSwitcherMenu extends ConsumerStatefulWidget {
 class _HomeServerSwitcherMenuState
     extends ConsumerState<_HomeServerSwitcherMenu> {
   final _profileFutures = <String, Future<ServerProfileData?>>{};
-  String? _selectingId;
 
   Future<ServerProfileData?> _loadProfile(ServerProfile server) async {
     final cached = _cachedProfileFor(server);
@@ -78,24 +77,14 @@ class _HomeServerSwitcherMenuState
   }
 
   Future<void> _selectServer(String serverId) async {
-    if (_selectingId != null || serverId == widget.activeServer.id) return;
-    setState(() => _selectingId = serverId);
-    try {
-      await ref.read(serverConfigProvider.notifier).selectServer(serverId);
-      ref.invalidate(authControllerProvider);
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('切换服务器失败：$error')),
-      );
-    } finally {
-      if (mounted) setState(() => _selectingId = null);
-    }
+    await ref.read(serverSwitchTransitionProvider.notifier).switchTo(serverId);
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final transition = ref.watch(serverSwitchTransitionProvider);
+    final selectingId = transition.isActive ? transition.targetServerId : null;
     return FutureBuilder<ServerProfileData?>(
       future: _profileFor(widget.activeServer),
       initialData: _cachedProfileFor(widget.activeServer),
@@ -107,7 +96,7 @@ class _HomeServerSwitcherMenuState
         final avatarUrl = profile?.avatarUrl ?? widget.activeServer.avatarUrl;
         return GlassMenuAnchor<String>(
           width: _serverMenuWidth(widget.servers),
-          enabled: _selectingId == null,
+          enabled: !transition.isActive,
           tooltip: '切换服务器',
           offset: const Offset(0, 4),
           placement: GlassMenuPlacement.below,
@@ -123,13 +112,13 @@ class _HomeServerSwitcherMenuState
                   cachedProfile: _cachedProfileFor(server),
                   active: server.id == widget.activeServer.id,
                   selected: selected,
-                  busy: server.id == _selectingId,
+                  busy: server.id == selectingId,
                   onTap: onTap,
                 ),
               ),
           ],
           child: AnimatedScale(
-            scale: _selectingId == null ? 1 : 0.94,
+            scale: transition.isActive ? 0.94 : 1,
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             child: Row(
