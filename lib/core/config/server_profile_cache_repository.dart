@@ -11,6 +11,7 @@ class ServerProfileCacheRepository {
   static const _key = 'server.profile_cache.v1';
 
   final SharedPreferences _prefs;
+  Future<void> _writeQueue = Future<void>.value();
 
   ServerProfileData? load(String serverId) {
     final id = serverId.trim();
@@ -29,21 +30,33 @@ class ServerProfileCacheRepository {
   Future<void> save(String serverId, ServerProfileData profile) async {
     final id = serverId.trim();
     if (id.isEmpty) return;
-    final values = _readAll();
-    values[id] = profile.toJson();
-    await _prefs.setString(_key, jsonEncode(values));
+    await _enqueueWrite(() async {
+      final values = _readAll();
+      values[id] = profile.toJson();
+      await _prefs.setString(_key, jsonEncode(values));
+    });
   }
 
   Future<void> remove(String serverId) async {
     final id = serverId.trim();
     if (id.isEmpty) return;
-    final values = _readAll();
-    if (values.remove(id) != null) {
-      await _prefs.setString(_key, jsonEncode(values));
-    }
+    await _enqueueWrite(() async {
+      final values = _readAll();
+      if (values.remove(id) != null) {
+        await _prefs.setString(_key, jsonEncode(values));
+      }
+    });
   }
 
-  Future<void> clear() => _prefs.remove(_key);
+  Future<void> clear() => _enqueueWrite(() async {
+        await _prefs.remove(_key);
+      });
+
+  Future<void> _enqueueWrite(Future<void> Function() operation) {
+    final result = _writeQueue.then((_) => operation());
+    _writeQueue = result.then<void>((_) {}, onError: (_, __) {});
+    return result;
+  }
 
   Map<String, dynamic> _readAll() {
     final raw = _prefs.getString(_key);

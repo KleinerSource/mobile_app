@@ -27,6 +27,19 @@ void main() {
     expect(repository.load('missing'), isNull);
   });
 
+  test('并发保存多台服务器资料不会互相覆盖', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ServerProfileCacheRepository(prefs);
+
+    await Future.wait([
+      repository.save('home', const ServerProfileData(name: '家庭服务器')),
+      repository.save('remote', const ServerProfileData(name: '公网服务器')),
+    ]);
+
+    expect(repository.load('home')?.name, '家庭服务器');
+    expect(repository.load('remote')?.name, '公网服务器');
+  });
+
   test('可以删除单台服务器资料并清空全部缓存', () async {
     final prefs = await SharedPreferences.getInstance();
     final repository = ServerProfileCacheRepository(prefs);
