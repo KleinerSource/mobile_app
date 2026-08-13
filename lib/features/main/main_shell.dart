@@ -33,6 +33,7 @@ class _MainShellState extends State<MainShell> {
   ValueNotifier<_YouQuickAction?>? _quickMenuSelection;
   Rect? _quickMenuRect;
   List<_YouQuickMenuAction>? _quickMenuItems;
+  bool _quickMenuInteractive = false;
 
   void _selectTab(int index) {
     if (index == _index) return;
@@ -140,23 +141,41 @@ class _MainShellState extends State<MainShell> {
     final overlayBox = overlayRenderObject;
     final localTopLeft = overlayBox.globalToLocal(rect.topLeft);
     final selection = ValueNotifier<_YouQuickAction?>(null);
+    _quickMenuInteractive = false;
     _quickMenuRect = rect;
     _quickMenuItems = items;
     _quickMenuSelection = selection;
     final entry = OverlayEntry(
-      builder: (context) => Positioned(
-        left: localTopLeft.dx,
-        top: localTopLeft.dy,
-        width: _YouQuickMenuPanel.width,
-        height: _YouQuickMenuPanel.height,
-        child: IgnorePointer(
-          child: ValueListenableBuilder<_YouQuickAction?>(
-            valueListenable: selection,
-            builder: (context, selected, _) => _YouQuickMenuPanel(
-              items: items,
-              selected: selected,
+      builder: (context) => Positioned.fill(
+        child: Stack(
+          children: [
+            if (_quickMenuInteractive)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _removeYouQuickMenu,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            Positioned(
+              left: localTopLeft.dx,
+              top: localTopLeft.dy,
+              width: _YouQuickMenuPanel.width,
+              height: _YouQuickMenuPanel.height,
+              child: ValueListenableBuilder<_YouQuickAction?>(
+                valueListenable: selection,
+                builder: (context, selected, _) {
+                  final panel = _YouQuickMenuPanel(
+                    items: items,
+                    selected: selected,
+                    onSelect: _selectYouQuickAction,
+                  );
+                  return _quickMenuInteractive
+                      ? panel
+                      : IgnorePointer(child: panel);
+                },
+              ),
             ),
-          ),
         ),
       ),
     );
@@ -175,9 +194,16 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _finishYouQuickMenu(LongPressEndDetails details) {
-    final action = _quickActionAt(details.globalPosition);
+    if (_quickMenuEntry == null) return;
+    _updateYouQuickMenu(details.globalPosition);
+    _quickMenuInteractive = true;
+    _quickMenuEntry?.markNeedsBuild();
+  }
+
+  void _selectYouQuickAction(_YouQuickAction action) {
+    if (!_quickMenuInteractive) return;
     _removeYouQuickMenu();
-    if (action == null || !mounted) return;
+    if (!mounted) return;
     AppHaptics.selection();
     unawaited(_openYouQuickAction(action));
   }
@@ -187,6 +213,7 @@ class _MainShellState extends State<MainShell> {
     _quickMenuEntry = null;
     _quickMenuRect = null;
     _quickMenuItems = null;
+    _quickMenuInteractive = false;
     _quickMenuSelection?.dispose();
     _quickMenuSelection = null;
   }
@@ -438,6 +465,7 @@ class _YouQuickMenuPanel extends StatelessWidget {
   const _YouQuickMenuPanel({
     required this.items,
     required this.selected,
+    required this.onSelect,
   });
 
   static const width = 224.0;
@@ -447,6 +475,7 @@ class _YouQuickMenuPanel extends StatelessWidget {
 
   final List<_YouQuickMenuAction> items;
   final _YouQuickAction? selected;
+  final ValueChanged<_YouQuickAction> onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -477,6 +506,7 @@ class _YouQuickMenuPanel extends StatelessWidget {
                       child: _YouQuickMenuItem(
                         item: item,
                         selected: item.value == selected,
+                        onTap: () => onSelect(item.value),
                       ),
                     ),
                 ],
@@ -493,48 +523,58 @@ class _YouQuickMenuItem extends StatelessWidget {
   const _YouQuickMenuItem({
     required this.item,
     required this.selected,
+    required this.onTap,
   });
 
   final _YouQuickMenuAction item;
   final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 90),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: selected
-              ? c.tabActiveBg.withValues(alpha: 0.86)
-              : Colors.transparent,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(11),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              item.icon,
-              color: selected ? c.tabActiveText : c.text,
-              size: 21,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 90),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: selected
+                  ? c.tabActiveBg.withValues(alpha: 0.86)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(11),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                item.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+            child: Row(
+              children: [
+                Icon(
+                  item.icon,
                   color: selected ? c.tabActiveText : c.text,
-                  fontFamily: 'Inter',
-                  fontSize: 14,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  size: 21,
                 ),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: selected ? c.tabActiveText : c.text,
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
