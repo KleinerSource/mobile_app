@@ -160,7 +160,6 @@ void main() {
     expect(repository.appliedAvatarOverwrite, isFalse);
 
     applyCompletion.complete();
-    avatarPreview.complete(<int>[1, 2, 3]);
     await tester.pumpAndSettle();
   });
 }
