@@ -87,6 +87,23 @@ void main() {
     expect(running.preview?.found, isTrue);
     expect(running.preview?.externalIds['avdb'], '290438');
 
+    // 完成态：AVDB 命中、DB Online 未命中；未命中渠道结构化返回，不写入 warnings
+    final merged = MixedActorPreviewSession.fromJson({
+      'status': 'complete',
+      'pending_sources': [],
+      'preview': {
+        'found': true,
+        'mapped_value': '演员 A',
+        'actor_name': '演员 A',
+        'external_ids': {'avdb': '290438'},
+        'not_found_sources': ['dbonline'],
+        'warnings': [],
+      },
+    });
+    expect(merged.complete, isTrue);
+    expect(merged.preview?.notFoundSources, ['dbonline']);
+    expect(merged.preview?.warnings, isEmpty);
+
     final failed = MixedActorPreviewSession.fromJson({
       'status': 'failed',
       'error': '混合渠道查询失败：dbo down；avdb down',

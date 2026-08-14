@@ -522,20 +522,15 @@ class _ActorAssociationSyncSheetState
                 : null,
           );
       if (!mounted) return;
-      final changes = <String>[];
-      if (selectedAliases.isNotEmpty) {
-        changes.add('添加 ${selectedAliases.length} 个关联名称');
-      }
+      // 成功只提示结果，详细情况仅在失败时展示；回调仍需驱动外部状态刷新
       if (biographyChanged) {
-        changes.add('更新演员简介');
         widget.onBiographyApplied?.call(preview.biography.trim());
       }
       if (avatarChanged) {
-        changes.add(preview.avatarExists ? '替换演员头像' : '同步演员头像');
         widget.onAvatarApplied?.call();
       }
       messenger.showSnackBar(
-        SnackBar(content: Text('同步完成：${changes.join('，')}')),
+        const SnackBar(content: Text('同步完成')),
       );
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -557,16 +552,29 @@ class _ActorAssociationSyncSheetState
     return _pendingSources.map((s) => labels[s] ?? s).join('、');
   }
 
+  /// 混合渠道未命中的渠道显示名（请求成功但没有匹配演员）
+  List<String> get _notFoundSources =>
+      _preview?.notFoundSources ?? const <String>[];
+
+  String _notFoundLabel() {
+    const labels = {
+      'dbonline': 'DB Online',
+      'avdb': 'AVDB',
+      'mixed': '混合渠道',
+    };
+    return _notFoundSources.map((s) => labels[s] ?? s).join('、');
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
     final mq = MediaQuery.of(context);
     final preview = _preview;
-    // 渐进补齐期间禁用应用：混合渠道需等全部渠道合并完成再写入双身份
+    // 渐进补齐不阻止应用：允许按已合并的数据先行同步（未返回渠道的身份可后续再补）
     final supplementing = _pendingSources.isNotEmpty;
+    final notFoundLabel = _notFoundLabel();
     final canApply = preview != null &&
         preview.found &&
-        !supplementing &&
         _hasSyncChanges(preview) &&
         !_applying;
     return SizedBox(
@@ -596,20 +604,31 @@ class _ActorAssociationSyncSheetState
                 ],
               ),
             ),
-            if (supplementing)
+            // 补齐/未命中信息以紧凑横幅展示（未命中不占独立警告卡片）
+            if (supplementing || notFoundLabel.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
                 child: Row(
                   children: [
-                    const SizedBox(
-                      width: 13,
-                      height: 13,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    const SizedBox(width: 8),
+                    if (supplementing) ...[
+                      const SizedBox(
+                        width: 13,
+                        height: 13,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 8),
+                    ] else ...[
+                      Icon(Icons.search, size: 14, color: c.muted),
+                      const SizedBox(width: 8),
+                    ],
                     Expanded(
                       child: Text(
-                        '等待${_pendingSourceLabel()}补齐，先到的渠道数据已展示...',
+                        [
+                          if (supplementing)
+                            '等待${_pendingSourceLabel()}补齐，先到的渠道数据已展示',
+                          if (notFoundLabel.isNotEmpty)
+                            '$notFoundLabel未找到匹配',
+                        ].join('；'),
                         style: AppText.meta(context),
                       ),
                     ),

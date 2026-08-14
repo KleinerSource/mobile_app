@@ -126,13 +126,13 @@ void main() {
     await tester.pump();
     expect(find.text('混合渠道部分结果'), findsOneWidget);
     expect(find.textContaining('等待DB Online补齐'), findsOneWidget);
-    // 补齐期间应用按钮禁用，避免写入半合并的身份数据
+    // 补齐期间仍可确认同步：允许按已合并的数据先行应用
     final pendingButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, '确认添加'),
     );
-    expect(pendingButton.onPressed, isNull);
+    expect(pendingButton.onPressed, isNotNull);
 
-    // DB Online 到达后补齐：双渠道合并完成，应用恢复可用
+    // DB Online 返回未命中：补齐完成，未命中渠道在横幅中紧凑展示
     mixedFinal.complete(const MixedActorPreviewSession(
       status: 'complete',
       pendingSources: [],
@@ -143,7 +143,8 @@ void main() {
         allAliases: [],
         existingAliases: [],
         newAliases: ['新别名'],
-        externalIds: {'dbonline': 'MW44', 'avdb': '290438'},
+        externalIds: {'avdb': '290438'},
+        notFoundSources: ['dbonline'],
       ),
     ));
     await tester.pump(const Duration(milliseconds: 400));
@@ -151,6 +152,7 @@ void main() {
     expect(find.text('混合渠道完整结果'), findsOneWidget);
     expect(find.text('混合渠道部分结果'), findsNothing);
     expect(find.textContaining('等待'), findsNothing);
+    expect(find.textContaining('DB Online未找到匹配'), findsOneWidget);
     expect(find.text('新别名'), findsOneWidget);
     final readyButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, '确认添加'),

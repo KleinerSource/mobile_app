@@ -96,6 +96,7 @@ class ActorAssocPreview {
     required this.newAliases,
     this.externalId,
     this.externalIds = const {},
+    this.notFoundSources = const [],
     this.biography = '',
     this.biographyChanged,
     this.avatarUrl = '',
@@ -114,13 +115,16 @@ class ActorAssocPreview {
 
   /// 混合渠道：source → external_id，apply 时一次事务保存多来源身份
   final Map<String, String> externalIds;
+
+  /// 混合渠道：请求成功但未命中演员的渠道（在补齐横幅位置展示，不占警告卡片）
+  final List<String> notFoundSources;
   final String biography;
   final bool? biographyChanged;
   final String avatarUrl;
   final bool avatarExists;
   final List<ActorAssociationAvatarChoice> avatarChoices;
 
-  /// 混合渠道：单渠道失败/未命中的降级提示
+  /// 混合渠道：渠道请求失败等需卡片提示的警告
   final List<String> warnings;
 
   factory ActorAssocPreview.fromJson(Map<String, dynamic> j) {
@@ -150,6 +154,7 @@ class ActorAssocPreview {
           ? null
           : j['external_id']?.toString(),
       externalIds: externalIds,
+      notFoundSources: arr(j['not_found_sources']),
       biography: (j['biography'] ?? '').toString().trim(),
       biographyChanged: j['biography_changed'] is bool
           ? j['biography_changed'] as bool
