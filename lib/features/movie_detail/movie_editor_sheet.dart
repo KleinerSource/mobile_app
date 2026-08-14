@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,8 +9,11 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/filter_chip.dart';
 import '../movies/movies_providers.dart';
+import '../resources/resources_providers.dart';
+import '../resources/resources_repository.dart';
 import '../translation/translation_providers.dart';
 import 'entity_picker_sheet.dart';
+import 'movie_quick_flag.dart';
 import 'poster_crop_controller.dart';
 
 /// 影片元数据编辑 bottom sheet (全功能)
@@ -46,8 +51,8 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
   // 选择器状态 (id list/single)
   int? _seriesId;
   String? _seriesName;
-  late List<({int id, String name})> _genres;
-  late List<({int id, String name})> _tags;
+  late List<MovieQuickEntity> _genres;
+  late List<MovieQuickEntity> _tags;
   late List<({int id, String name})> _actors;
 
   // 封面裁剪 · 4 个水印快捷操作
@@ -57,6 +62,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
   bool _exsub = false;
   bool _crack = false;
   bool _uhd = false;
+  bool _flagUpdating = false;
 
   bool get _anyFlagOn => _subtitle || _exsub || _crack || _uhd;
 
@@ -85,6 +91,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     _genres = m.genres.map((e) => (id: e.id, name: e.name)).toList();
     _tags = m.tags.map((e) => (id: e.id, name: e.name)).toList();
     _actors = m.actors.map((e) => (id: e.id, name: e.name)).toList();
+    _syncQuickFlagsFromSelections();
   }
 
   @override
@@ -107,6 +114,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
   }
 
   Future<void> _save() async {
+    if (_saving || _flagUpdating) return;
     final body = <String, dynamic>{
       'title': _title.text.trim(),
       'original_title': _originalTitle.text.trim(),
@@ -221,7 +229,118 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
         case EntityPickerKind.series:
           break;
       }
+      if (kind == EntityPickerKind.genre || kind == EntityPickerKind.tag) {
+        _syncQuickFlagsFromSelections();
+      }
     });
+  }
+
+  void _syncQuickFlagsFromSelections() {
+    final hasSubtitle = hasMovieQuickFlag(
+      flag: MovieQuickFlag.subtitle,
+      tags: _tags,
+      genres: _genres,
+    );
+    if (!hasSubtitle) _exsub = false;
+    _subtitle = hasSubtitle && !_exsub;
+    _crack = hasMovieQuickFlag(
+      flag: MovieQuickFlag.crack,
+      tags: _tags,
+      genres: _genres,
+    );
+    _uhd = hasMovieQuickFlag(
+      flag: MovieQuickFlag.uhd,
+      tags: _tags,
+      genres: _genres,
+    );
+  }
+
+  Future<MovieQuickEntity> _ensureQuickResource(
+    ResourceKind kind,
+    String name,
+    List<MovieQuickEntity> current,
+  ) async {
+    final normalized = name.trim().toLowerCase();
+    for (final item in current) {
+      if (item.name.trim().toLowerCase() == normalized) return item;
+    }
+
+    final repository = ref.read(resourcesRepositoryProvider);
+    final result = await repository.options(kind, search: name);
+    for (final item in result.items) {
+      if (item.name.trim().toLowerCase() == normalized) {
+        return (id: item.id, name: item.name);
+      }
+    }
+
+    final created = await repository.create(kind, name: name);
+    return (id: created.id, name: created.name);
+  }
+
+  void _setQuickFlagValue(MovieQuickFlag flag, bool enabled) {
+    switch (flag) {
+      case MovieQuickFlag.subtitle:
+        _subtitle = enabled;
+        if (enabled) _exsub = false;
+        break;
+      case MovieQuickFlag.exsub:
+        _exsub = enabled;
+        if (enabled) _subtitle = false;
+        break;
+      case MovieQuickFlag.crack:
+        _crack = enabled;
+        break;
+      case MovieQuickFlag.uhd:
+        _uhd = enabled;
+        break;
+    }
+  }
+
+  Future<void> _changeQuickFlag(MovieQuickFlag flag, bool enabled) async {
+    if (_saving || _flagUpdating) return;
+    setState(() => _flagUpdating = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      if (enabled) {
+        final canonicalName = movieQuickFlagConfig(flag).canonicalName;
+        final resources = await Future.wait<MovieQuickEntity>([
+          _ensureQuickResource(ResourceKind.tag, canonicalName, _tags),
+          _ensureQuickResource(ResourceKind.genre, canonicalName, _genres),
+        ]);
+        if (!mounted) return;
+        setState(() {
+          final selections = addMovieQuickFlagSelections(
+            tags: _tags,
+            genres: _genres,
+            tag: resources[0],
+            genre: resources[1],
+          );
+          _tags = selections.tags;
+          _genres = selections.genres;
+          _setQuickFlagValue(flag, true);
+          _cropDirty = true;
+        });
+      } else {
+        setState(() {
+          final selections = removeMovieQuickFlagSelections(
+            flag: flag,
+            tags: _tags,
+            genres: _genres,
+          );
+          _tags = selections.tags;
+          _genres = selections.genres;
+          _setQuickFlagValue(flag, false);
+          _cropDirty = true;
+        });
+      }
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('快捷操作失败: ${toApiException(error).message}')),
+      );
+    } finally {
+      if (mounted) setState(() => _flagUpdating = false);
+    }
   }
 
   @override
@@ -260,7 +379,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                       style: AppText.sectionTitle(context)),
                 ),
                 TextButton(
-                  onPressed: _saving ? null : _save,
+                  onPressed: _saving || _flagUpdating ? null : _save,
                   child: Text(
                     '保存',
                     style: TextStyle(
@@ -283,23 +402,27 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                 children: [
                   // ===== 海报裁剪 + 快捷操作 =====
                   if (_fanartUrl != null) ...[
-                    _label('封面水印 · 快捷操作'),
+                    _label(
+                      '封面水印 · 快捷操作',
+                      trailing: _flagUpdating
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : null,
+                    ),
                     const SizedBox(height: 4),
-                    _FlagsRow(
-                      subtitle: _subtitle,
-                      exsub: _exsub,
-                      crack: _crack,
-                      uhd: _uhd,
-                      onChanged: ({sub, ex, ck, uh}) {
-                        setState(() {
-                          if (sub != null) _subtitle = sub;
-                          if (ex != null) _exsub = ex;
-                          if (ck != null) _crack = ck;
-                          if (uh != null) _uhd = uh;
-                          // 任一开启 → 标记裁剪 dirty
-                          if (_anyFlagOn) _cropDirty = true;
-                        });
-                      },
+                    IgnorePointer(
+                      ignoring: _flagUpdating,
+                      child: _FlagsRow(
+                        subtitle: _subtitle,
+                        exsub: _exsub,
+                        crack: _crack,
+                        uhd: _uhd,
+                        onChanged: (flag, value) =>
+                            unawaited(_changeQuickFlag(flag, value)),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     _label('封面裁剪 (Fanart)'),
@@ -801,22 +924,26 @@ class _FlagsRow extends StatelessWidget {
   final bool exsub;
   final bool crack;
   final bool uhd;
-  final void Function({bool? sub, bool? ex, bool? ck, bool? uh}) onChanged;
+  final void Function(MovieQuickFlag flag, bool value) onChanged;
 
   @override
   Widget build(BuildContext context) {
     final items = [
-      ('字幕', subtitle, (bool v) => onChanged(sub: v)),
-      ('外挂字幕', exsub, (bool v) => onChanged(ex: v)),
-      ('破解', crack, (bool v) => onChanged(ck: v)),
-      ('UHD', uhd, (bool v) => onChanged(uh: v)),
+      (MovieQuickFlag.subtitle, '字幕', subtitle),
+      (MovieQuickFlag.exsub, '外挂字幕', exsub),
+      (MovieQuickFlag.crack, '破解', crack),
+      (MovieQuickFlag.uhd, 'UHD', uhd),
     ];
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
-        for (final (label, value, setter) in items)
-          _FlagChip(label: label, value: value, onChanged: setter),
+        for (final (flag, label, value) in items)
+          _FlagChip(
+            label: label,
+            value: value,
+            onChanged: (next) => onChanged(flag, next),
+          ),
       ],
     );
   }

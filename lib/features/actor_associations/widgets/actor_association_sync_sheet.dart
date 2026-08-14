@@ -67,6 +67,7 @@ class _ActorAssociationSyncSheetState
   Uint8List? _avatarBytes;
   bool _avatarLoading = false;
   bool _avatarLoadFailed = false;
+  int _loadRequestId = 0;
 
   String get _actorName =>
       widget.actor.mappedValue?.trim().isNotEmpty == true
@@ -125,6 +126,7 @@ class _ActorAssociationSyncSheetState
   }
 
   Future<void> _load({ActorDataSource? source}) async {
+    final requestId = ++_loadRequestId;
     final selectedSource = source ?? _source;
     setState(() {
       _loading = true;
@@ -136,22 +138,28 @@ class _ActorAssociationSyncSheetState
     try {
       if (!_sourcesLoaded) {
         final available = await _loadAvailableSources();
-        if (!mounted) return;
-        _availableSources = available;
-        _sourcesLoaded = true;
-        if (_availableSources.isEmpty) {
+        if (!mounted || requestId != _loadRequestId) return;
+        if (available.isEmpty) {
           throw StateError('请先在服务器设置中配置并启用 DB Online 或 AVDB 数据源');
         }
-        if (!_availableSources.contains(_source)) {
-          _source = _availableSources.first;
-        }
+        setState(() {
+          _availableSources = available;
+          _sourcesLoaded = true;
+          if (!_availableSources.contains(_source)) {
+            _source = _availableSources.first;
+          }
+        });
       }
       final actualSource = _availableSources.contains(selectedSource)
           ? selectedSource
           : _source;
       final repo = ref.read(actorAssociationsRepositoryProvider);
       final p = await repo.previewSource(_actorName, source: actualSource);
-      if (!mounted || actualSource != _source) return;
+      if (!mounted ||
+          requestId != _loadRequestId ||
+          actualSource != _source) {
+        return;
+      }
       setState(() {
         _preview = p;
         _selectedAliases = p.newAliases.toSet();
@@ -159,7 +167,7 @@ class _ActorAssociationSyncSheetState
       });
       unawaited(_loadAvatarPreview(p, actualSource));
     } catch (e) {
-      if (!mounted || (source != null && selectedSource != _source)) return;
+      if (!mounted || requestId != _loadRequestId) return;
       setState(() {
         _error = toApiException(e).message;
         _loading = false;
@@ -218,6 +226,25 @@ class _ActorAssociationSyncSheetState
       dbonline: configs[0] as DboConfig?,
       avdb: configs[1] as AvdbConfig?,
     );
+  }
+
+  void _selectSource(ActorDataSource source) {
+    if (_applying || source == _source) return;
+    setState(() {
+      _source = source;
+      _preview = null;
+      _selectedAliases = <String>{};
+      _avatarBytes = null;
+      _avatarLoading = false;
+      _avatarLoadFailed = false;
+    });
+    unawaited(
+      ActorAssociationsRepository.rememberSource(
+        ref.read(sharedPrefsProvider),
+        source,
+      ),
+    );
+    unawaited(_load(source: source));
   }
 
   Future<void> _apply() async {
@@ -302,41 +329,11 @@ class _ActorAssociationSyncSheetState
                   Text('从选定数据源拉取演员别名预览',
                       style: AppText.meta(context)),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<ActorDataSource>(
-                    initialValue: _source,
-                    decoration: const InputDecoration(
-                      labelText: '数据源',
-                      prefixIcon: Icon(Icons.cloud_outlined),
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: [
-                      for (final source in _availableSources)
-                        DropdownMenuItem(
-                          value: source,
-                          child: Text(source.label),
-                        ),
-                    ],
-                    onChanged: _loading || _applying
-                        ? null
-                        : (source) {
-                            if (source == null || source == _source) return;
-                            setState(() {
-                              _source = source;
-                              _preview = null;
-                              _selectedAliases = <String>{};
-                              _avatarBytes = null;
-                              _avatarLoading = false;
-                              _avatarLoadFailed = false;
-                            });
-                            unawaited(
-                              ActorAssociationsRepository.rememberSource(
-                                ref.read(sharedPrefsProvider),
-                                source,
-                              ),
-                            );
-                            unawaited(_load(source: source));
-                          },
+                  _ActorDataSourceSelector(
+                    sources: _availableSources,
+                    selectedSource: _source,
+                    enabled: !_applying,
+                    onChanged: _selectSource,
                   ),
                 ],
               ),
@@ -441,6 +438,118 @@ class _ActorAssociationSyncSheetState
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActorDataSourceSelector extends StatelessWidget {
+  const _ActorDataSourceSelector({
+    super.key,
+    required this.sources,
+    required this.selectedSource,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  final List<ActorDataSource> sources;
+  final ActorDataSource selectedSource;
+  final ValueChanged<ActorDataSource> onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    if (sources.isEmpty) {
+      return Text('正在加载数据源...', style: AppText.meta(context));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.cloud_outlined, size: 18, color: c.muted),
+            const SizedBox(width: 6),
+            Text('数据源', style: AppText.meta(context)),
+          ],
+        ),
+        const SizedBox(height: 7),
+        Row(
+          children: [
+            for (var i = 0; i < sources.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(
+                child: _ActorDataSourceCheckbox(
+                  source: sources[i],
+                  selected: sources[i] == selectedSource,
+                  enabled: enabled,
+                  onChanged: onChanged,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ActorDataSourceCheckbox extends StatelessWidget {
+  const _ActorDataSourceCheckbox({
+    required this.source,
+    required this.selected,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final ActorDataSource source;
+  final bool selected;
+  final bool enabled;
+  final ValueChanged<ActorDataSource> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    void select() {
+      if (enabled && !selected) onChanged(source);
+    }
+
+    return Material(
+      color: selected ? c.accent.withValues(alpha: 0.10) : c.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: selected ? c.accent : c.cardBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: enabled ? select : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Checkbox(
+                value: selected,
+                onChanged: enabled ? (_) => select() : null,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  source.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: enabled ? c.text : c.muted,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
