@@ -446,7 +446,6 @@ class _ActorAssociationSyncSheetState
 
 class _ActorDataSourceSelector extends StatelessWidget {
   const _ActorDataSourceSelector({
-    super.key,
     required this.sources,
     required this.selectedSource,
     required this.onChanged,
