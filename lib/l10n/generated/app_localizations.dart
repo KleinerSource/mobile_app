@@ -790,7 +790,7 @@ abstract class AppL10n {
   /// No description provided for @settingsActorAssociationsSub.
   ///
   /// In zh, this message translates to:
-    /// **'标准名 + 别名维护, 支持数据源同步'**
+    /// **'标准名 + 别名维护, 支持同步演员关联'**
   String get settingsActorAssociationsSub;
 
   /// No description provided for @settingsDbo.
@@ -802,7 +802,7 @@ abstract class AppL10n {
   /// No description provided for @settingsDboSub.
   ///
   /// In zh, this message translates to:
-  /// **'影片下载 / 演员关联同步'**
+  /// **'影片下载 / 同步演员关联'**
   String get settingsDboSub;
 
   /// No description provided for @settingsExtensions.

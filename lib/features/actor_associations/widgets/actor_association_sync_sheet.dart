@@ -14,7 +14,7 @@ import '../../configs/configs_providers.dart';
 import '../actor_associations_providers.dart';
 import '../actor_associations_repository.dart';
 
-/// 演员关联数据源同步 sheet · 选择数据源预览, 用户确认后应用
+/// 同步演员关联 sheet · 选择数据源预览, 用户确认后应用
 class ActorAssociationSyncSheet extends ConsumerStatefulWidget {
   const ActorAssociationSyncSheet({
     super.key,
@@ -326,7 +326,7 @@ class _ActorAssociationSyncSheetState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('数据源同步: $_actorName',
+                  Text('同步演员关联: $_actorName',
                       style: AppText.sectionTitle(context)),
                   const SizedBox(height: 2),
                   Text('从选定数据源拉取演员别名预览',

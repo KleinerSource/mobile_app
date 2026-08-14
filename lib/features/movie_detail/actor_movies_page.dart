@@ -129,7 +129,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
                 ),
                 actions: [
                   IconButton(
-                    tooltip: '数据源同步',
+                    tooltip: '同步演员关联',
                     icon: const Icon(Icons.cloud_sync_outlined),
                     onPressed: _syncActor,
                   ),

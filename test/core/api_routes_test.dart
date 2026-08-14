@@ -30,7 +30,7 @@ void main() {
     expect(adapter.queries.single['limit'], '20');
   });
 
-  test('演员数据源同步会传递所选渠道', () async {
+  test('同步演员关联会传递所选渠道', () async {
     final adapter = _RouteAdapter();
     await MappingsApi(_dio(adapter)).actorExternalSyncPreview({
       'actor_name': '演员 A',

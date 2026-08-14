@@ -373,13 +373,13 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get settingsActorAssociationsSub =>
-      'Canonical name + aliases, with data source sync';
+      'Canonical name + aliases, sync actor associations';
 
   @override
   String get settingsDbo => 'DB Online data source';
 
   @override
-  String get settingsDboSub => 'Movie download / actor sync';
+  String get settingsDboSub => 'Movie download / sync actor associations';
 
   @override
   String get settingsExtensions => 'Video extensions';

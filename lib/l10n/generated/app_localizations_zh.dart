@@ -369,13 +369,13 @@ class AppL10nZh extends AppL10n {
   String get settingsActorAssociations => '演员关联';
 
   @override
-  String get settingsActorAssociationsSub => '标准名 + 别名维护, 支持数据源同步';
+  String get settingsActorAssociationsSub => '标准名 + 别名维护, 支持同步演员关联';
 
   @override
   String get settingsDbo => 'DB Online 数据源';
 
   @override
-  String get settingsDboSub => '影片下载 / 演员关联同步';
+  String get settingsDboSub => '影片下载 / 同步演员关联';
 
   @override
   String get settingsExtensions => '视频扩展名';

@@ -248,7 +248,7 @@ class ActorAssociationsRepository {
     unwrapStd<void>(raw, (_) {});
   }
 
-  // ===== 数据源同步 =====
+  // ===== 同步演员关联 =====
 
   Future<ActorAssocPreview> previewSource(
     String actorName, {
@@ -273,7 +273,7 @@ class ActorAssociationsRepository {
     });
   }
 
-  /// 应用数据源同步结果 (mapped_value + 合并后的所有别名)
+  /// 应用同步演员关联结果 (mapped_value + 合并后的所有别名)
   Future<void> applySource({
     required String mappedValue,
     required List<String> originalValues,
