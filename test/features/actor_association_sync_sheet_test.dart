@@ -64,9 +64,15 @@ void main() {
 
     expect(find.byType(DropdownButtonFormField<ActorDataSource>), findsNothing);
     expect(find.byType(Checkbox), findsNothing);
+    // 两渠道均启用时三个来源选项并排显示（含混合渠道）
+    expect(find.text('混合渠道'), findsOneWidget);
     expect(
       tester.getCenter(find.text('DB Online')).dy,
       tester.getCenter(find.text('AVDB')).dy,
+    );
+    expect(
+      tester.getCenter(find.text('混合渠道')).dy,
+      tester.getCenter(find.text('DB Online')).dy,
     );
     expect(repository.requests, [ActorDataSource.dbonline]);
 
@@ -96,6 +102,60 @@ void main() {
 
     expect(find.text('当前 DB Online 结果'), findsOneWidget);
     expect(find.text('过期 AVDB 结果'), findsNothing);
+
+    // 切换到混合渠道：走渐进会话（先部分上屏、后补齐），不再调用 previewSource
+    final mixedPartial = repository.enqueueMixedSession();
+    final mixedFinal = repository.enqueueMixedSession();
+    await tester.tap(find.text('混合渠道'));
+    await tester.pump();
+    expect(repository.requests.last, ActorDataSource.mixed);
+
+    // 首个渠道（AVDB）先完成：立即上屏，等待 DB Online 补齐
+    mixedPartial.complete(const MixedActorPreviewSession(
+      status: 'running',
+      pendingSources: ['dbonline'],
+      preview: ActorAssocPreview(
+        found: true,
+        mappedValue: '混合渠道部分结果',
+        actorName: '演员 A',
+        allAliases: [],
+        existingAliases: [],
+        newAliases: [],
+      ),
+    ));
+    await tester.pump();
+    expect(find.text('混合渠道部分结果'), findsOneWidget);
+    expect(find.textContaining('等待DB Online补齐'), findsOneWidget);
+    // 补齐期间应用按钮禁用，避免写入半合并的身份数据
+    final pendingButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '确认添加'),
+    );
+    expect(pendingButton.onPressed, isNull);
+
+    // DB Online 到达后补齐：双渠道合并完成，应用恢复可用
+    mixedFinal.complete(const MixedActorPreviewSession(
+      status: 'complete',
+      pendingSources: [],
+      preview: ActorAssocPreview(
+        found: true,
+        mappedValue: '混合渠道完整结果',
+        actorName: '演员 A',
+        allAliases: [],
+        existingAliases: [],
+        newAliases: ['新别名'],
+        externalIds: {'dbonline': 'MW44', 'avdb': '290438'},
+      ),
+    ));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(find.text('混合渠道完整结果'), findsOneWidget);
+    expect(find.text('混合渠道部分结果'), findsNothing);
+    expect(find.textContaining('等待'), findsNothing);
+    expect(find.text('新别名'), findsOneWidget);
+    final readyButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '确认添加'),
+    );
+    expect(readyButton.onPressed, isNotNull);
   });
 
   testWidgets('头像预览未完成时仍提交上游头像地址', (tester) async {
@@ -182,11 +242,20 @@ class _PendingPreviewRepository extends ActorAssociationsRepository {
   final Map<ActorDataSource, List<Completer<ActorAssocPreview>>> _pending = {
     ActorDataSource.dbonline: [],
     ActorDataSource.avdb: [],
+    ActorDataSource.mixed: [],
   };
+  // 混合渠道渐进会话：每次轮询消费一个快照（running→complete 依次出队）
+  final List<Completer<MixedActorPreviewSession>> _mixedSessions = [];
 
   Completer<ActorAssocPreview> enqueue(ActorDataSource source) {
     final completer = Completer<ActorAssocPreview>();
     _pending[source]!.add(completer);
+    return completer;
+  }
+
+  Completer<MixedActorPreviewSession> enqueueMixedSession() {
+    final completer = Completer<MixedActorPreviewSession>();
+    _mixedSessions.add(completer);
     return completer;
   }
 
@@ -197,6 +266,20 @@ class _PendingPreviewRepository extends ActorAssociationsRepository {
   }) {
     requests.add(source);
     return _pending[source]!.removeAt(0).future;
+  }
+
+  @override
+  Future<String> startMixedPreviewSession(String actorName) {
+    requests.add(ActorDataSource.mixed);
+    return Future.value('mixed-task-${_mixedSessions.length}');
+  }
+
+  @override
+  Future<MixedActorPreviewSession> getMixedPreviewSession(String taskId) {
+    if (_mixedSessions.isEmpty) {
+      return Future.error(StateError('没有待返回的混合渠道会话快照'));
+    }
+    return _mixedSessions.removeAt(0).future;
   }
 }
 
@@ -245,6 +328,8 @@ class _AvatarPreviewRepository extends ActorAssociationsRepository {
     String? biography,
     String? avatarUrl,
     bool avatarOverwrite = false,
+    String? avatarSource,
+    Map<String, String>? externalIds,
   }) async {
     appliedAvatarUrl = avatarUrl;
     appliedAvatarOverwrite = avatarOverwrite;

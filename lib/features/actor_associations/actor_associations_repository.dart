@@ -11,17 +11,20 @@ import '../../core/models/mapping_rule.dart';
 enum ActorDataSource {
   dbonline,
   avdb,
+  mixed,
 }
 
 extension ActorDataSourceX on ActorDataSource {
   String get value => switch (this) {
         ActorDataSource.dbonline => 'dbonline',
         ActorDataSource.avdb => 'avdb',
+        ActorDataSource.mixed => 'mixed',
       };
 
   String get label => switch (this) {
         ActorDataSource.dbonline => 'DB Online',
         ActorDataSource.avdb => 'AVDB',
+        ActorDataSource.mixed => '混合渠道',
   };
 }
 
@@ -29,26 +32,33 @@ ActorDataSource? actorDataSourceFromValue(String? value) {
   return switch (value?.trim().toLowerCase()) {
     'dbonline' => ActorDataSource.dbonline,
     'avdb' => ActorDataSource.avdb,
+    'mixed' => ActorDataSource.mixed,
     _ => null,
   };
 }
 
 /// 只有服务端配置中同时存在启用状态、地址和 API Key 的来源才允许同步。
 /// API Key 不随演员同步请求下发，实际请求由后端从数据源配置读取。
+/// 混合渠道（mixed）并行采集所有已启用渠道并合并资料，需要各渠道同时可用。
 List<ActorDataSource> configuredActorDataSources({
   DboConfig? dbonline,
   AvdbConfig? avdb,
 }) {
   final result = <ActorDataSource>[];
-  if (dbonline?.enabled == true &&
+  final dbonlineReady = dbonline?.enabled == true &&
       dbonline!.baseUrl.trim().isNotEmpty &&
-      dbonline.hasApiKey) {
+      dbonline.hasApiKey;
+  final avdbReady = avdb?.enabled == true &&
+      avdb!.baseUrl.trim().isNotEmpty &&
+      avdb.hasApiKey;
+  if (dbonlineReady) {
     result.add(ActorDataSource.dbonline);
   }
-  if (avdb?.enabled == true &&
-      avdb!.baseUrl.trim().isNotEmpty &&
-      avdb.hasApiKey) {
+  if (avdbReady) {
     result.add(ActorDataSource.avdb);
+  }
+  if (dbonlineReady && avdbReady) {
+    result.add(ActorDataSource.mixed);
   }
   return result;
 }
@@ -58,15 +68,20 @@ class ActorAssociationAvatarChoice {
   const ActorAssociationAvatarChoice({
     required this.downloadUrl,
     this.sourceUrl = '',
+    this.source = '',
   });
 
   final String downloadUrl;
   final String sourceUrl;
 
+  /// 候选所属渠道（dbonline/avdb）；混合渠道时代理下载按此选择下载方式
+  final String source;
+
   factory ActorAssociationAvatarChoice.fromJson(Map<String, dynamic> json) {
     return ActorAssociationAvatarChoice(
       downloadUrl: (json['download_url'] ?? '').toString().trim(),
       sourceUrl: (json['source_url'] ?? '').toString().trim(),
+      source: (json['source'] ?? '').toString().trim(),
     );
   }
 }
@@ -80,11 +95,13 @@ class ActorAssocPreview {
     required this.existingAliases,
     required this.newAliases,
     this.externalId,
+    this.externalIds = const {},
     this.biography = '',
     this.biographyChanged,
     this.avatarUrl = '',
     this.avatarExists = false,
     this.avatarChoices = const [],
+    this.warnings = const [],
   });
 
   final bool found;
@@ -94,11 +111,17 @@ class ActorAssocPreview {
   final List<String> existingAliases;
   final List<String> newAliases;
   final String? externalId;
+
+  /// 混合渠道：source → external_id，apply 时一次事务保存多来源身份
+  final Map<String, String> externalIds;
   final String biography;
   final bool? biographyChanged;
   final String avatarUrl;
   final bool avatarExists;
   final List<ActorAssociationAvatarChoice> avatarChoices;
+
+  /// 混合渠道：单渠道失败/未命中的降级提示
+  final List<String> warnings;
 
   factory ActorAssocPreview.fromJson(Map<String, dynamic> j) {
     List<String> arr(dynamic v) =>
@@ -112,6 +135,10 @@ class ActorAssocPreview {
                 .where((item) => item.downloadUrl.isNotEmpty)
                 .toList(growable: false)
             : const <ActorAssociationAvatarChoice>[]);
+    final externalIds = j['external_ids'] is Map
+        ? (j['external_ids'] as Map)
+            .map((k, v) => MapEntry(k.toString(), v.toString()))
+        : const <String, String>{};
     return ActorAssocPreview(
       found: j['found'] == true,
       mappedValue: (j['mapped_value'] ?? '').toString(),
@@ -122,6 +149,7 @@ class ActorAssocPreview {
       externalId: (j['external_id'] as String?)?.trim().isEmpty == true
           ? null
           : j['external_id']?.toString(),
+      externalIds: externalIds,
       biography: (j['biography'] ?? '').toString().trim(),
       biographyChanged: j['biography_changed'] is bool
           ? j['biography_changed'] as bool
@@ -129,6 +157,41 @@ class ActorAssocPreview {
       avatarUrl: (j['avatar_url'] ?? '').toString().trim(),
       avatarExists: j['avatar_exists'] == true,
       avatarChoices: avatarChoices,
+      warnings: arr(j['warnings']),
+    );
+  }
+}
+
+/// 混合渠道渐进预览会话快照：渠道在后台并行采集，每完成一个即增量合并。
+/// status=running 时 preview 为当前合并结果（可能只含部分渠道），pending_sources 为仍在采集的渠道。
+class MixedActorPreviewSession {
+  const MixedActorPreviewSession({
+    required this.status,
+    required this.pendingSources,
+    this.preview,
+    this.error = '',
+  });
+
+  final String status; // running | complete | failed
+  final List<String> pendingSources;
+  final ActorAssocPreview? preview;
+  final String error;
+
+  bool get running => status == 'running';
+  bool get complete => status == 'complete';
+  bool get failed => status == 'failed';
+
+  factory MixedActorPreviewSession.fromJson(Map<String, dynamic> j) {
+    List<String> arr(dynamic v) =>
+        (v is List ? v.whereType<String>().toList() : const <String>[]);
+    return MixedActorPreviewSession(
+      status: (j['status'] ?? 'running').toString(),
+      pendingSources: arr(j['pending_sources']),
+      preview: j['preview'] is Map
+          ? ActorAssocPreview.fromJson(
+              Map<String, dynamic>.from(j['preview'] as Map))
+          : null,
+      error: (j['error'] ?? '').toString(),
     );
   }
 }
@@ -302,7 +365,38 @@ class ActorAssociationsRepository {
     });
   }
 
+  // ===== 混合渠道渐进预览 =====
+
+  /// 启动混合渠道渐进预览会话，返回任务 ID；轮询 [getMixedPreviewSession]
+  /// 先渲染先到的渠道数据，后到的补齐（不必等待全部渠道完成）。
+  Future<String> startMixedPreviewSession(String actorName) async {
+    final raw = await _api.mixedExternalSyncPreviewStart({
+      'actor_name': actorName.trim(),
+    });
+    return unwrapStd<String>(raw, (d) {
+      if (d is Map) {
+        final taskId = d['task_id']?.toString() ?? '';
+        if (taskId.isNotEmpty) return taskId;
+      }
+      throw ApiException('预览任务创建失败');
+    });
+  }
+
+  /// 轮询混合渠道预览会话进度。
+  Future<MixedActorPreviewSession> getMixedPreviewSession(String taskId) async {
+    final raw = await _api.mixedExternalSyncPreviewSession(taskId);
+    return unwrapStd<MixedActorPreviewSession>(raw, (d) {
+      if (d is Map) {
+        return MixedActorPreviewSession.fromJson(Map<String, dynamic>.from(d));
+      }
+      throw ApiException('预览任务状态无效');
+    });
+  }
+
   /// 应用同步演员关联结果 (mapped_value + 合并后的所有别名)
+  ///
+  /// 混合渠道：avatarSource 为所选头像候选的来源（决定下载方式），
+  /// externalIds 为预览返回的 source → ID 映射（一次事务保存多来源身份）。
   Future<void> applySource({
     required String mappedValue,
     required List<String> originalValues,
@@ -310,6 +404,8 @@ class ActorAssociationsRepository {
     String? biography,
     String? avatarUrl,
     bool avatarOverwrite = false,
+    String? avatarSource,
+    Map<String, String>? externalIds,
   }) async {
     final body = <String, dynamic>{
       'mapped_value': mappedValue,
@@ -324,6 +420,15 @@ class ActorAssociationsRepository {
     if (trimmedAvatarUrl.isNotEmpty) {
       body['avatar_url'] = trimmedAvatarUrl;
       body['avatar_overwrite'] = avatarOverwrite;
+    }
+    if (source == ActorDataSource.mixed) {
+      final trimmedAvatarSource = avatarSource?.trim() ?? '';
+      if (trimmedAvatarSource.isNotEmpty) {
+        body['avatar_source'] = trimmedAvatarSource;
+      }
+      if (externalIds != null && externalIds.isNotEmpty) {
+        body['external_ids'] = externalIds;
+      }
     }
     final raw = await _api.actorExternalSyncApply(body);
     unwrapStd<void>(raw, (_) {});

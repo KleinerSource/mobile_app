@@ -22,6 +22,113 @@ void main() {
     );
   });
 
+  test('两渠道均可用时提供混合渠道来源', () {
+    expect(
+      configuredActorDataSources(
+        dbonline: const DboConfig(
+          enabled: true,
+          baseUrl: 'https://dbo.example',
+          apiKey: '***key',
+        ),
+        avdb: const AvdbConfig(
+          enabled: true,
+          baseUrl: 'https://avdb.example',
+          apiKey: '***key',
+        ),
+      ),
+      [
+        ActorDataSource.dbonline,
+        ActorDataSource.avdb,
+        ActorDataSource.mixed,
+      ],
+    );
+    // 单渠道可用时不提供混合渠道
+    expect(
+      configuredActorDataSources(
+        dbonline: const DboConfig(
+          enabled: true,
+          baseUrl: 'https://dbo.example',
+          apiKey: '***key',
+        ),
+      ),
+      [ActorDataSource.dbonline],
+    );
+  });
+
+  test('混合来源序列化与反序列化', () {
+    expect(ActorDataSource.mixed.value, 'mixed');
+    expect(ActorDataSource.mixed.label, '混合渠道');
+    expect(actorDataSourceFromValue(' mixed '), ActorDataSource.mixed);
+    expect(actorDataSourceFromValue('unknown'), isNull);
+  });
+
+  test('混合渠道渐进会话快照解析状态、待补齐渠道与预览', () {
+    const preview = ActorAssocPreview(
+      found: true,
+      mappedValue: '演员 A',
+      actorName: '演员 A',
+      allAliases: [],
+      existingAliases: [],
+      newAliases: [],
+      externalIds: {'avdb': '290438'},
+    );
+    final running = MixedActorPreviewSession.fromJson({
+      'status': 'running',
+      'pending_sources': ['dbonline'],
+      'preview': {
+        'found': true,
+        'mapped_value': '演员 A',
+        'actor_name': '演员 A',
+        'external_ids': {'avdb': '290438'},
+      },
+    });
+    expect(running.running, isTrue);
+    expect(running.pendingSources, ['dbonline']);
+    expect(running.preview?.found, isTrue);
+    expect(running.preview?.externalIds['avdb'], '290438');
+
+    final failed = MixedActorPreviewSession.fromJson({
+      'status': 'failed',
+      'error': '混合渠道查询失败：dbo down；avdb down',
+    });
+    expect(failed.failed, isTrue);
+    expect(failed.preview, isNull);
+    expect(failed.error, contains('dbo down'));
+
+    const complete = MixedActorPreviewSession(
+      status: 'complete',
+      pendingSources: [],
+      preview: preview,
+    );
+    expect(complete.complete, isTrue);
+    expect(complete.pendingSources, isEmpty);
+  });
+
+  test('演员同步预览解析混合渠道的多来源身份与警告', () {
+    final preview = ActorAssocPreview.fromJson({
+      'found': true,
+      'actor_name': '演员 A',
+      'mapped_value': '演员 A',
+      'all_aliases': <String>[],
+      'existing_aliases': <String>[],
+      'new_aliases': <String>[],
+      'external_ids': {'dbonline': 'MW44', 'avdb': '290438'},
+      'warnings': ['DB Online 渠道未找到匹配演员'],
+      'avatar_choices': [
+        {
+          'source_url': '/api/image?url=a.png',
+          'download_url': '/api/image?url=a.png',
+          'source': 'dbonline',
+        },
+      ],
+    });
+
+    expect(preview.externalIds['dbonline'], 'MW44');
+    expect(preview.externalIds['avdb'], '290438');
+    expect(preview.warnings, ['DB Online 渠道未找到匹配演员']);
+    expect(preview.avatarChoices.first.source, 'dbonline');
+  });
+
   test('演员同步预览解析 AVDB 简介', () {
     final preview = ActorAssocPreview.fromJson({
       'found': true,

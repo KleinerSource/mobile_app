@@ -64,6 +64,8 @@ class _ActorAssociationSyncSheetState
   Set<String> _selectedAliases = <String>{};
   bool _sourcesLoaded = false;
   bool _applying = false;
+  // 混合渠道渐进预览仍在采集的渠道；非空时禁用应用，避免写入半合并的身份数据
+  List<String> _pendingSources = const [];
   final Map<String, Uint8List> _avatarChoiceBytes = <String, Uint8List>{};
   final Set<String> _avatarChoiceLoading = <String>{};
   final Set<String> _avatarChoiceFailed = <String>{};
@@ -95,6 +97,29 @@ class _ActorAssociationSyncSheetState
       return choices[index].downloadUrl;
     }
     return preview.avatarUrl;
+  }
+
+  /// 混合渠道的候选携带具体来源（dbonline/avdb），代理下载按候选来源选择下载方式；
+  /// 单渠道或无来源标记时回退当前数据源。
+  ActorDataSource _avatarDownloadSource(String url) {
+    final preview = _preview;
+    if (preview == null || _source != ActorDataSource.mixed) return _source;
+    for (final choice in _avatarChoicesFor(preview)) {
+      if (choice.downloadUrl == url && choice.source.isNotEmpty) {
+        return actorDataSourceFromValue(choice.source) ?? _source;
+      }
+    }
+    return _source;
+  }
+
+  /// 混合渠道 apply 时提交所选候选的来源；单渠道返回 null（后端按 source 下载）。
+  String? _activeAvatarSourceFor(ActorAssocPreview preview) {
+    if (_source != ActorDataSource.mixed) return null;
+    final choices = _avatarChoicesFor(preview);
+    if (choices.isEmpty) return null;
+    final index = _avatarChoiceIndex < choices.length ? _avatarChoiceIndex : 0;
+    final source = choices[index].source;
+    return source.isEmpty ? null : source;
   }
 
   Uint8List? get _activeAvatarBytes {
@@ -170,6 +195,7 @@ class _ActorAssociationSyncSheetState
     setState(() {
       _loading = true;
       _error = null;
+      _pendingSources = const [];
       _avatarChoiceBytes.clear();
       _avatarChoiceLoading.clear();
       _avatarChoiceFailed.clear();
@@ -197,6 +223,10 @@ class _ActorAssociationSyncSheetState
       final actualSource = _availableSources.contains(selectedSource)
           ? selectedSource
           : _source;
+      if (actualSource == ActorDataSource.mixed) {
+        await _loadMixedPreview(requestId, actualSource);
+        return;
+      }
       final repo = ref.read(actorAssociationsRepositoryProvider);
       final p = await repo.previewSource(_actorName, source: actualSource);
       if (!mounted ||
@@ -216,6 +246,78 @@ class _ActorAssociationSyncSheetState
         _error = toApiException(e).message;
         _loading = false;
       });
+    }
+  }
+
+  /// 混合渠道渐进预览：先完成的渠道立即上屏（提前结束 loading），后到的渠道补齐。
+  /// 轮询循环由 _loadRequestId / _source / mounted 变化自然终止。
+  Future<void> _loadMixedPreview(int requestId, ActorDataSource source) async {
+    final repo = ref.read(actorAssociationsRepositoryProvider);
+    final taskId = await repo.startMixedPreviewSession(_actorName);
+    if (!mounted || requestId != _loadRequestId || source != _source) return;
+
+    var rendered = false;
+    var lastChoiceCount = -1;
+    final startedAt = DateTime.now();
+    while (mounted && requestId == _loadRequestId && source == _source) {
+      final session = await repo.getMixedPreviewSession(taskId);
+      if (!mounted || requestId != _loadRequestId || source != _source) return;
+
+      final p = session.preview;
+      if (p != null && p.found) {
+        final choiceCount = _avatarChoicesFor(p).length;
+        setState(() {
+          _preview = p;
+          _selectedAliases = p.newAliases.toSet();
+          _pendingSources = session.pendingSources;
+          if (!rendered) {
+            rendered = true;
+            _loading = false;
+          }
+        });
+        // 仅在新候选出现时补拉头像，避免每次轮询重复入队
+        if (choiceCount != lastChoiceCount) {
+          lastChoiceCount = choiceCount;
+          unawaited(_loadAvatarPreviews(p, source));
+        }
+        // 当前停留的候选此前已失败，且补齐引入了新的可加载候选时自动切换
+        final activeUrl = _activeAvatarUrlFor(p);
+        if (activeUrl.isNotEmpty && _avatarChoiceFailed.contains(activeUrl)) {
+          _advancePastFailedAvatar(p);
+        }
+      }
+      if (session.complete) {
+        setState(() {
+          _preview = session.preview;
+          _selectedAliases =
+              session.preview?.newAliases.toSet() ?? <String>{};
+          _pendingSources = const [];
+          _loading = false;
+        });
+        final finalPreview = session.preview;
+        if (finalPreview != null && finalPreview.found) {
+          final choiceCount = _avatarChoicesFor(finalPreview).length;
+          if (choiceCount != lastChoiceCount) {
+            unawaited(_loadAvatarPreviews(finalPreview, source));
+          }
+          final activeUrl = _activeAvatarUrlFor(finalPreview);
+          if (activeUrl.isNotEmpty &&
+              _avatarChoiceFailed.contains(activeUrl)) {
+            _advancePastFailedAvatar(finalPreview);
+          }
+        }
+        return;
+      }
+      if (session.failed) {
+        throw StateError(
+          session.error.isEmpty ? '混合渠道查询失败' : session.error,
+        );
+      }
+      if (DateTime.now().difference(startedAt) >
+          const Duration(seconds: 90)) {
+        throw StateError('混合渠道预览超时');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 400));
     }
   }
 
@@ -245,7 +347,9 @@ class _ActorAssociationSyncSheetState
     String avatarUrl,
   ) async {
     final url = avatarUrl.trim();
-    if (url.isEmpty || !mounted || _preview != preview || _source != source) {
+    // 不比较 _preview 对象身份：渐进补齐会替换 preview 对象，但按 URL 缓存的
+    // 头像字节仍然有效；仅以数据源切换/组件销毁判定过期。
+    if (url.isEmpty || !mounted || _source != source) {
       return;
     }
     if (_avatarChoiceBytes.containsKey(url) ||
@@ -257,10 +361,11 @@ class _ActorAssociationSyncSheetState
       _avatarChoiceFailed.remove(url);
     });
     try {
-      final bytes = await ref
-          .read(actorAssociationsRepositoryProvider)
-          .previewAvatar(url, source: source);
-      if (!mounted || _preview != preview || _source != source) return;
+      final bytes = await ref.read(actorAssociationsRepositoryProvider).previewAvatar(
+            url,
+            source: _avatarDownloadSource(url),
+          );
+      if (!mounted || _source != source) return;
       if (bytes.isEmpty) throw StateError('头像内容为空');
       setState(() {
         _avatarChoiceBytes[url] = Uint8List.fromList(bytes);
@@ -268,11 +373,29 @@ class _ActorAssociationSyncSheetState
         _avatarChoiceFailed.remove(url);
       });
     } catch (_) {
-      if (!mounted || _preview != preview || _source != source) return;
+      if (!mounted || _source != source) return;
       setState(() {
         _avatarChoiceLoading.remove(url);
         _avatarChoiceFailed.add(url);
       });
+      // 加载失败的候选不占主位：自动切到下一张未失败候选（全部失败时保持原位由状态文案兜底）
+      final current = _preview;
+      if (current != null) {
+        _advancePastFailedAvatar(current);
+      }
+    }
+  }
+
+  void _advancePastFailedAvatar(ActorAssocPreview preview) {
+    final choices = _avatarChoicesFor(preview);
+    for (var i = 0; i < choices.length; i++) {
+      if (i == _avatarChoiceIndex) continue;
+      final url = choices[i].downloadUrl;
+      if (url.isNotEmpty && !_avatarChoiceFailed.contains(url)) {
+        setState(() => _avatarChoiceIndex = i);
+        unawaited(_loadAvatarPreview(preview, _source, url));
+        return;
+      }
     }
   }
 
@@ -346,6 +469,7 @@ class _ActorAssociationSyncSheetState
       _source = source;
       _preview = null;
       _selectedAliases = <String>{};
+      _pendingSources = const [];
       _avatarChoiceBytes.clear();
       _avatarChoiceLoading.clear();
       _avatarChoiceFailed.clear();
@@ -391,6 +515,11 @@ class _ActorAssociationSyncSheetState
             biography: biographyChanged ? preview.biography : null,
             avatarUrl: avatarChanged ? activeAvatarUrl : null,
             avatarOverwrite: avatarChanged && preview.avatarExists,
+            avatarSource: avatarChanged ? _activeAvatarSourceFor(preview) : null,
+            externalIds: _source == ActorDataSource.mixed &&
+                    preview.externalIds.isNotEmpty
+                ? preview.externalIds
+                : null,
           );
       if (!mounted) return;
       final changes = <String>[];
@@ -418,13 +547,26 @@ class _ActorAssociationSyncSheetState
     }
   }
 
+  /// 混合渠道渐进补齐中仍在等待的渠道显示名
+  String _pendingSourceLabel() {
+    const labels = {
+      'dbonline': 'DB Online',
+      'avdb': 'AVDB',
+      'mixed': '混合渠道',
+    };
+    return _pendingSources.map((s) => labels[s] ?? s).join('、');
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
     final mq = MediaQuery.of(context);
     final preview = _preview;
+    // 渐进补齐期间禁用应用：混合渠道需等全部渠道合并完成再写入双身份
+    final supplementing = _pendingSources.isNotEmpty;
     final canApply = preview != null &&
         preview.found &&
+        !supplementing &&
         _hasSyncChanges(preview) &&
         !_applying;
     return SizedBox(
@@ -454,6 +596,26 @@ class _ActorAssociationSyncSheetState
                 ],
               ),
             ),
+            if (supplementing)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 13,
+                      height: 13,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '等待${_pendingSourceLabel()}补齐，先到的渠道数据已展示...',
+                        style: AppText.meta(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             const Divider(height: 1),
             Expanded(
               child: _loading
@@ -463,11 +625,23 @@ class _ActorAssociationSyncSheetState
                       : preview == null
                           ? const Center(child: Text('无数据'))
                           : !preview.found
-                              ? _EmptyView(actorName: _actorName)
+                              ? Column(
+                                  children: [
+                                    Expanded(
+                                      child: _EmptyView(actorName: _actorName),
+                                    ),
+                                    if (preview.warnings.isNotEmpty)
+                                      _WarningsSection(warnings: preview.warnings),
+                                  ],
+                                )
                               : ListView(
                                   padding: const EdgeInsets.fromLTRB(
                                       22, 14, 22, 14),
                                   children: [
+                                    if (preview.warnings.isNotEmpty) ...[
+                                      _WarningsSection(warnings: preview.warnings),
+                                      const SizedBox(height: 16),
+                                    ],
                                     _ActorIdentitySection(
                                       mappedValue: preview.mappedValue,
                                       avatarExists: preview.avatarExists,
@@ -900,6 +1074,13 @@ class _AvatarChoicePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final height = MediaQuery.of(context).size.height * 0.58;
+    // 加载失败的候选滞后到末尾展示，不占靠前的位置；保留原始索引供选中回传
+    final ordered = <(int, ActorAssociationAvatarChoice)>[
+      for (var i = 0; i < choices.length; i++)
+        if (!avatarLoadFailed.contains(choices[i].downloadUrl)) (i, choices[i]),
+      for (var i = 0; i < choices.length; i++)
+        if (avatarLoadFailed.contains(choices[i].downloadUrl)) (i, choices[i]),
+    ];
     return SafeArea(
       child: SizedBox(
         height: height,
@@ -914,7 +1095,8 @@ class _AvatarChoicePicker extends StatelessWidget {
                   Text('选择演员头像', style: AppText.sectionTitle(context)),
                   const SizedBox(height: 3),
                   Text(
-                    '${mappedValue.isEmpty ? '演员' : mappedValue} · 共 ${choices.length} 张候选',
+                    '${mappedValue.isEmpty ? '演员' : mappedValue} · 共 ${choices.length} 张候选'
+                    '${avatarLoadFailed.isEmpty ? '' : '（${avatarLoadFailed.length} 张加载失败已后置）'}',
                     style: AppText.meta(context),
                   ),
                 ],
@@ -930,9 +1112,9 @@ class _AvatarChoicePicker extends StatelessWidget {
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
-                itemCount: choices.length,
-                itemBuilder: (context, index) {
-                  final choice = choices[index];
+                itemCount: ordered.length,
+                itemBuilder: (context, slot) {
+                  final (index, choice) = ordered[slot];
                   final url = choice.downloadUrl;
                   final bytes = avatarBytes[url];
                   final loading = avatarLoading.contains(url);
@@ -1037,6 +1219,46 @@ class _AvatarChoicePicker extends StatelessWidget {
   }
 }
 
+class _WarningsSection extends StatelessWidget {
+  const _WarningsSection({required this.warnings});
+
+  final List<String> warnings;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
+      decoration: BoxDecoration(
+        color: c.surface,
+        border: Border.all(color: c.cardBorder),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < warnings.length; i++) ...[
+            if (i > 0) const SizedBox(height: 5),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.warning_amber_rounded, size: 16, color: c.muted),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    warnings[i],
+                    style: TextStyle(color: c.muted, fontSize: 12.5),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _BiographySection extends StatelessWidget {
   const _BiographySection({required this.biography});
 
@@ -1055,7 +1277,7 @@ class _BiographySection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('演员简介（AVDB）', style: AppText.cardTitle(context)),
+          Text('演员简介', style: AppText.cardTitle(context)),
           const SizedBox(height: 7),
           Text(biography, style: AppText.body(context)),
         ],

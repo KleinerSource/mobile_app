@@ -76,6 +76,50 @@ void main() {
     expect(adapter.requestBodies.single['avatar_overwrite'], isTrue);
   });
 
+  test('混合渠道预览与应用传递 source 与多来源身份', () async {
+    final previewAdapter = _RouteAdapter();
+    await MappingsApi(_dio(previewAdapter)).actorExternalSyncPreview({
+      'actor_name': '演员 A',
+      'source': 'mixed',
+    });
+    expect(
+      previewAdapter.paths.single,
+      '/api/mappings/actors/external-sync/preview',
+    );
+    expect(previewAdapter.requestBodies.single['source'], 'mixed');
+
+    final applyAdapter = _RouteAdapter();
+    await MappingsApi(_dio(applyAdapter)).actorExternalSyncApply({
+      'mapped_value': '演员 A',
+      'original_values': <String>[],
+      'source': 'mixed',
+      'biography': '演员简介',
+      'avatar_url': '/api/image?url=a.png',
+      'avatar_source': 'dbonline',
+      'external_ids': {'dbonline': 'MW44', 'avdb': '290438'},
+    });
+    expect(applyAdapter.requestBodies.single['source'], 'mixed');
+    expect(applyAdapter.requestBodies.single['avatar_source'], 'dbonline');
+    expect(applyAdapter.requestBodies.single['external_ids'], {
+      'dbonline': 'MW44',
+      'avdb': '290438',
+    });
+  });
+
+  test('混合渠道渐进预览会话使用独立启动与轮询接口', () async {
+    final adapter = _RouteAdapter();
+    final api = MappingsApi(_dio(adapter));
+
+    await api.mixedExternalSyncPreviewStart({'actor_name': '演员 A'});
+    await api.mixedExternalSyncPreviewSession('task-1');
+
+    expect(adapter.paths, <String>[
+      '/api/mappings/actors/external-sync/preview/mixed',
+      '/api/mappings/actors/external-sync/preview/mixed/task-1',
+    ]);
+    expect(adapter.requestBodies.single, {'actor_name': '演员 A'});
+  });
+
   test('演员头像预览使用鉴权二进制接口', () async {
     final adapter = _RouteAdapter();
     final response = await ActorsApi(_dio(adapter)).previewAvatar({
