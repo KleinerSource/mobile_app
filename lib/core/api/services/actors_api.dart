@@ -14,6 +14,7 @@ abstract class ActorsApi {
   Future<dynamic> options(@Queries() Map<String, dynamic> q);
 
   /// 获取外部数据源头像预览图片。
+  /// body: { avatar_url, source? }，source=avdb 时按 AVDB 配置下载。
   @POST('/actors/avatar/preview')
   @DioResponseType(ResponseType.bytes)
   Future<HttpResponse<List<int>>> previewAvatar(

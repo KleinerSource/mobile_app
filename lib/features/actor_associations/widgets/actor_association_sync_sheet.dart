@@ -64,9 +64,11 @@ class _ActorAssociationSyncSheetState
   Set<String> _selectedAliases = <String>{};
   bool _sourcesLoaded = false;
   bool _applying = false;
-  Uint8List? _avatarBytes;
-  bool _avatarLoading = false;
-  bool _avatarLoadFailed = false;
+  final Map<String, Uint8List> _avatarChoiceBytes = <String, Uint8List>{};
+  final Set<String> _avatarChoiceLoading = <String>{};
+  final Set<String> _avatarChoiceFailed = <String>{};
+  int _avatarChoiceIndex = 0;
+  bool _avatarManuallySelected = false;
   int _loadRequestId = 0;
 
   String get _actorName =>
@@ -75,6 +77,43 @@ class _ActorAssociationSyncSheetState
           : (widget.actor.originalValues.isNotEmpty
               ? widget.actor.originalValues.first
               : '');
+
+  List<ActorAssociationAvatarChoice> _avatarChoicesFor(
+    ActorAssocPreview preview,
+  ) {
+    final seen = <String>{};
+    return preview.avatarChoices
+        .where((choice) =>
+            choice.proxyUrl.isNotEmpty && seen.add(choice.proxyUrl))
+        .toList(growable: false);
+  }
+
+  String _activeAvatarUrlFor(ActorAssocPreview preview) {
+    final choices = _avatarChoicesFor(preview);
+    if (choices.isNotEmpty) {
+      final index = _avatarChoiceIndex < choices.length ? _avatarChoiceIndex : 0;
+      return choices[index].proxyUrl;
+    }
+    return preview.avatarUrl;
+  }
+
+  Uint8List? get _activeAvatarBytes {
+    final preview = _preview;
+    if (preview == null) return null;
+    return _avatarChoiceBytes[_activeAvatarUrlFor(preview)];
+  }
+
+  bool get _activeAvatarLoading {
+    final preview = _preview;
+    return preview != null &&
+        _avatarChoiceLoading.contains(_activeAvatarUrlFor(preview));
+  }
+
+  bool get _activeAvatarLoadFailed {
+    final preview = _preview;
+    return preview != null &&
+        _avatarChoiceFailed.contains(_activeAvatarUrlFor(preview));
+  }
 
   @override
   void initState() {
@@ -93,10 +132,11 @@ class _ActorAssociationSyncSheetState
   }
 
   bool _canSyncAvatar(ActorAssocPreview preview) {
-    return !preview.avatarExists &&
-        preview.avatarUrl.isNotEmpty &&
-        _avatarBytes != null &&
-        !_avatarLoadFailed;
+    final canReplace = !preview.avatarExists || _avatarManuallySelected;
+    return canReplace &&
+        _activeAvatarUrlFor(preview).isNotEmpty &&
+        _activeAvatarBytes != null &&
+        !_activeAvatarLoadFailed;
   }
 
   bool _allAliasesSelected(ActorAssocPreview preview) {
@@ -131,9 +171,11 @@ class _ActorAssociationSyncSheetState
     setState(() {
       _loading = true;
       _error = null;
-      _avatarBytes = null;
-      _avatarLoading = false;
-      _avatarLoadFailed = false;
+      _avatarChoiceBytes.clear();
+      _avatarChoiceLoading.clear();
+      _avatarChoiceFailed.clear();
+      _avatarChoiceIndex = 0;
+      _avatarManuallySelected = false;
     });
     try {
       if (!_sourcesLoaded) {
@@ -168,7 +210,7 @@ class _ActorAssociationSyncSheetState
         _selectedAliases = p.newAliases.toSet();
         _loading = false;
       });
-      unawaited(_loadAvatarPreview(p, actualSource));
+      unawaited(_loadAvatarPreviews(p, actualSource));
     } catch (e) {
       if (!mounted || requestId != _loadRequestId) return;
       setState(() {
@@ -178,33 +220,77 @@ class _ActorAssociationSyncSheetState
     }
   }
 
-  Future<void> _loadAvatarPreview(
+  Future<void> _loadAvatarPreviews(
     ActorAssocPreview preview,
     ActorDataSource source,
   ) async {
-    if (preview.avatarUrl.isEmpty) return;
-    if (!mounted || _preview != preview || _source != source) return;
+    final choices = _avatarChoicesFor(preview);
+    final urls = choices.isNotEmpty
+        ? choices.map((choice) => choice.proxyUrl)
+        : <String>[preview.avatarUrl];
+    if (urls.isEmpty) return;
+    var cursor = 0;
+    Future<void> worker() async {
+      while (cursor < urls.length) {
+        final url = urls.elementAt(cursor++);
+        await _loadAvatarPreview(preview, source, url);
+      }
+    }
+    final workerCount = urls.length < 4 ? urls.length : 4;
+    await Future.wait(List.generate(workerCount, (_) => worker()));
+  }
+
+  Future<void> _loadAvatarPreview(
+    ActorAssocPreview preview,
+    ActorDataSource source,
+    String avatarUrl,
+  ) async {
+    final url = avatarUrl.trim();
+    if (url.isEmpty || !mounted || _preview != preview || _source != source) {
+      return;
+    }
+    if (_avatarChoiceBytes.containsKey(url) ||
+        _avatarChoiceLoading.contains(url)) {
+      return;
+    }
     setState(() {
-      _avatarLoading = true;
-      _avatarLoadFailed = false;
-      _avatarBytes = null;
+      _avatarChoiceLoading.add(url);
+      _avatarChoiceFailed.remove(url);
     });
     try {
       final bytes = await ref
           .read(actorAssociationsRepositoryProvider)
-          .previewAvatar(preview.avatarUrl);
+          .previewAvatar(url, source: source);
       if (!mounted || _preview != preview || _source != source) return;
+      if (bytes.isEmpty) throw StateError('头像内容为空');
       setState(() {
-        _avatarBytes = Uint8List.fromList(bytes);
-        _avatarLoading = false;
+        _avatarChoiceBytes[url] = Uint8List.fromList(bytes);
+        _avatarChoiceLoading.remove(url);
+        _avatarChoiceFailed.remove(url);
       });
     } catch (_) {
       if (!mounted || _preview != preview || _source != source) return;
       setState(() {
-        _avatarLoading = false;
-        _avatarLoadFailed = true;
+        _avatarChoiceLoading.remove(url);
+        _avatarChoiceFailed.add(url);
       });
     }
+  }
+
+  void _selectAvatarChoice(int index) {
+    final preview = _preview;
+    if (_applying || preview == null) return;
+    final choices = _avatarChoicesFor(preview);
+    if (index < 0 || index >= choices.length || index == _avatarChoiceIndex) {
+      return;
+    }
+    setState(() {
+      _avatarChoiceIndex = index;
+      _avatarManuallySelected = true;
+    });
+    unawaited(
+      _loadAvatarPreview(preview, _source, choices[index].proxyUrl),
+    );
   }
 
   Future<List<ActorDataSource>> _loadAvailableSources() async {
@@ -237,9 +323,11 @@ class _ActorAssociationSyncSheetState
       _source = source;
       _preview = null;
       _selectedAliases = <String>{};
-      _avatarBytes = null;
-      _avatarLoading = false;
-      _avatarLoadFailed = false;
+      _avatarChoiceBytes.clear();
+      _avatarChoiceLoading.clear();
+      _avatarChoiceFailed.clear();
+      _avatarChoiceIndex = 0;
+      _avatarManuallySelected = false;
     });
     unawaited(
       ActorAssociationsRepository.rememberSource(
@@ -257,6 +345,7 @@ class _ActorAssociationSyncSheetState
 
     final biographyChanged = _biographyNeedsSync(preview);
     final avatarChanged = _canSyncAvatar(preview);
+    final activeAvatarUrl = _activeAvatarUrlFor(preview);
     final selectedAliases = preview.newAliases
         .where(_selectedAliases.contains)
         .toList(growable: false);
@@ -277,7 +366,8 @@ class _ActorAssociationSyncSheetState
             originalValues: merged,
             source: _source,
             biography: biographyChanged ? preview.biography : null,
-            avatarUrl: avatarChanged ? preview.avatarUrl : null,
+            avatarUrl: avatarChanged ? activeAvatarUrl : null,
+            avatarOverwrite: avatarChanged && preview.avatarExists,
           );
       if (!mounted) return;
       final changes = <String>[];
@@ -289,7 +379,7 @@ class _ActorAssociationSyncSheetState
         widget.onBiographyApplied?.call(preview.biography.trim());
       }
       if (avatarChanged) {
-        changes.add('同步演员头像');
+        changes.add(preview.avatarExists ? '替换演员头像' : '同步演员头像');
         widget.onAvatarApplied?.call();
       }
       messenger.showSnackBar(
@@ -358,9 +448,19 @@ class _ActorAssociationSyncSheetState
                                     _ActorIdentitySection(
                                       mappedValue: preview.mappedValue,
                                       avatarExists: preview.avatarExists,
-                                      bytes: _avatarBytes,
-                                      loading: _avatarLoading,
-                                      loadFailed: _avatarLoadFailed,
+                                      avatarChoices: _avatarChoicesFor(preview),
+                                      selectedChoiceIndex: _avatarChoiceIndex,
+                                      avatarBytes: _avatarChoiceBytes,
+                                      avatarLoading: _avatarChoiceLoading,
+                                      avatarLoadFailed: _avatarChoiceFailed,
+                                      activeBytes: _activeAvatarBytes,
+                                      activeLoading: _activeAvatarLoading,
+                                      activeLoadFailed: _activeAvatarLoadFailed,
+                                      avatarManuallySelected:
+                                          _avatarManuallySelected,
+                                      onChoiceSelected: _applying
+                                          ? null
+                                          : _selectAvatarChoice,
                                     ),
                                     if (_biographyNeedsSync(preview)) ...[
                                       const SizedBox(height: 16),
@@ -567,104 +667,233 @@ class _ActorIdentitySection extends StatelessWidget {
   const _ActorIdentitySection({
     required this.mappedValue,
     required this.avatarExists,
-    required this.bytes,
-    required this.loading,
-    required this.loadFailed,
+    required this.avatarChoices,
+    required this.selectedChoiceIndex,
+    required this.avatarBytes,
+    required this.avatarLoading,
+    required this.avatarLoadFailed,
+    required this.activeBytes,
+    required this.activeLoading,
+    required this.activeLoadFailed,
+    required this.avatarManuallySelected,
+    this.onChoiceSelected,
   });
 
   final String mappedValue;
   final bool avatarExists;
-  final Uint8List? bytes;
-  final bool loading;
-  final bool loadFailed;
+  final List<ActorAssociationAvatarChoice> avatarChoices;
+  final int selectedChoiceIndex;
+  final Map<String, Uint8List> avatarBytes;
+  final Set<String> avatarLoading;
+  final Set<String> avatarLoadFailed;
+  final Uint8List? activeBytes;
+  final bool activeLoading;
+  final bool activeLoadFailed;
+  final bool avatarManuallySelected;
+  final ValueChanged<int>? onChoiceSelected;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final hasPreview = bytes != null && bytes!.isNotEmpty;
-    final status = loading
+    final hasPreview = activeBytes != null && activeBytes!.isNotEmpty;
+    final status = activeLoading
         ? avatarExists
-            ? '正在获取数据源头像，不会覆盖本地'
+            ? '正在获取数据源头像，可选择后替换本地'
             : '正在获取头像...'
         : avatarExists
-            ? hasPreview
-                ? '数据源头像预览（本地已有头像，不覆盖）'
-                : '本地已有头像'
-            : loadFailed
+            ? avatarManuallySelected && hasPreview
+                ? '已选择数据源头像，将替换本地头像'
+                : hasPreview
+                    ? '数据源头像预览（本地已有头像，不覆盖）'
+                    : '本地已有头像，可选择候选替换'
+            : activeLoadFailed
                 ? '头像获取失败，不会同步头像'
                 : hasPreview
                     ? '将同步头像'
                     : '数据源未提供头像';
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       decoration: BoxDecoration(
         color: c.surface,
         border: Border.all(color: c.cardBorder),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipOval(
-            child: SizedBox(
-              width: 62,
-              height: 62,
-              child: hasPreview
-                  ? Image.memory(bytes!, fit: BoxFit.cover)
-                  : DecoratedBox(
-                      decoration: BoxDecoration(color: c.chipBg),
-                      child: Icon(
-                        avatarExists
-                            ? Icons.account_circle_outlined
-                            : Icons.person_outline,
-                        color: c.muted,
-                        size: 32,
+          Row(
+            children: [
+              ClipOval(
+                child: SizedBox(
+                  width: 62,
+                  height: 62,
+                  child: activeLoading
+                      ? DecoratedBox(
+                          decoration: BoxDecoration(color: c.chipBg),
+                          child: const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        )
+                      : hasPreview
+                          ? Image.memory(activeBytes!, fit: BoxFit.cover)
+                          : DecoratedBox(
+                              decoration: BoxDecoration(color: c.chipBg),
+                              child: Icon(
+                                avatarExists
+                                    ? Icons.account_circle_outlined
+                                    : Icons.person_outline,
+                                color: c.muted,
+                                size: 32,
+                              ),
+                            ),
+                ),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('标准演员', style: AppText.meta(context)),
+                    const SizedBox(height: 3),
+                    Text(
+                      mappedValue.isEmpty ? '-' : mappedValue,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: c.text,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
                       ),
                     ),
-            ),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('标准演员', style: AppText.meta(context)),
-                const SizedBox(height: 3),
-                Text(
-                  mappedValue.isEmpty ? '-' : mappedValue,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.text,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                  ),
+                    const SizedBox(height: 5),
+                    Text(
+                      status,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: activeLoadFailed ? c.danger : c.muted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  status,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: loadFailed ? c.danger : c.muted,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              if (activeLoading)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else if (hasPreview)
+                Icon(
+                  avatarExists && !avatarManuallySelected
+                      ? Icons.visibility_outlined
+                      : Icons.check_circle,
+                  color: avatarExists && !avatarManuallySelected
+                      ? c.muted
+                      : c.accent,
+                  size: 20,
+                )
+              else if (activeLoadFailed)
+                Icon(Icons.error_outline, color: c.danger, size: 20),
+            ],
           ),
-          if (loading)
-            const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else if (hasPreview)
-            Icon(
-              avatarExists ? Icons.visibility_outlined : Icons.check_circle,
-              color: avatarExists ? c.muted : c.accent,
-              size: 20,
+          if (avatarChoices.length > 1) ...[
+            const SizedBox(height: 12),
+            Text('候选头像 · 点击选择', style: AppText.meta(context)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 92,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: avatarChoices.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final choice = avatarChoices[index];
+                  final url = choice.proxyUrl;
+                  final bytes = avatarBytes[url];
+                  final selected = index == selectedChoiceIndex;
+                  final loading = avatarLoading.contains(url);
+                  final failed = avatarLoadFailed.contains(url);
+                  return Semantics(
+                    button: true,
+                    selected: selected,
+                    label: '候选头像 ${index + 1}',
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: onChoiceSelected == null
+                            ? null
+                            : () => onChoiceSelected!(index),
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          width: 70,
+                          height: 92,
+                          decoration: BoxDecoration(
+                            color: c.chipBg,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: selected ? c.accent : c.cardBorder,
+                              width: selected ? 2 : 1,
+                            ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (bytes != null && bytes.isNotEmpty)
+                                Image.memory(bytes, fit: BoxFit.cover)
+                              else if (loading)
+                                const Center(
+                                  child: SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                )
+                              else
+                                Center(
+                                  child: Icon(
+                                    failed
+                                        ? Icons.broken_image_outlined
+                                        : Icons.person_outline,
+                                    color: failed ? c.danger : c.muted,
+                                    size: 24,
+                                  ),
+                                ),
+                              if (selected)
+                                Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: c.accent,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.check,
+                                      color: c.chipTextActive,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
+          ],
         ],
       ),
     );

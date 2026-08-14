@@ -65,6 +65,7 @@ void main() {
       'original_values': <String>[],
       'source': 'dbonline',
       'avatar_url': 'https://example.com/avatar.jpg',
+      'avatar_overwrite': true,
     });
 
     expect(adapter.paths.single, '/api/mappings/actors/external-sync/apply');
@@ -72,17 +73,20 @@ void main() {
       adapter.requestBodies.single['avatar_url'],
       'https://example.com/avatar.jpg',
     );
+    expect(adapter.requestBodies.single['avatar_overwrite'], isTrue);
   });
 
   test('演员头像预览使用鉴权二进制接口', () async {
     final adapter = _RouteAdapter();
     final response = await ActorsApi(_dio(adapter)).previewAvatar({
       'avatar_url': 'https://example.com/avatar.jpg',
+      'source': 'avdb',
     });
 
     expect(adapter.paths.single, '/api/actors/avatar/preview');
     expect(adapter.requestBodies.single['avatar_url'],
         'https://example.com/avatar.jpg');
+    expect(adapter.requestBodies.single['source'], 'avdb');
     expect(response.data, isNotEmpty);
   });
 

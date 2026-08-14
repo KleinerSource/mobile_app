@@ -50,7 +50,7 @@ abstract class MappingsApi {
   @POST('/mappings/actors/external-sync/preview')
   Future<dynamic> actorExternalSyncPreview(@Body() Map<String, dynamic> body);
 
-  /// 应用同步演员关联结果 · body: { mapped_value, original_values, biography?, avatar_url? }
+  /// 应用同步演员关联结果 · body: { mapped_value, original_values, biography?, avatar_url?, avatar_overwrite? }
   @POST('/mappings/actors/external-sync/apply')
   Future<dynamic> actorExternalSyncApply(@Body() Map<String, dynamic> body);
 

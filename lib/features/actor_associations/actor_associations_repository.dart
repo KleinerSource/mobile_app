@@ -54,6 +54,23 @@ List<ActorDataSource> configuredActorDataSources({
 }
 
 /// 数据源预览结果
+class ActorAssociationAvatarChoice {
+  const ActorAssociationAvatarChoice({
+    required this.proxyUrl,
+    this.sourceUrl = '',
+  });
+
+  final String proxyUrl;
+  final String sourceUrl;
+
+  factory ActorAssociationAvatarChoice.fromJson(Map<String, dynamic> json) {
+    return ActorAssociationAvatarChoice(
+      proxyUrl: (json['proxy_url'] ?? '').toString().trim(),
+      sourceUrl: (json['source_url'] ?? '').toString().trim(),
+    );
+  }
+}
+
 class ActorAssocPreview {
   const ActorAssocPreview({
     required this.found,
@@ -67,6 +84,7 @@ class ActorAssocPreview {
     this.biographyChanged,
     this.avatarUrl = '',
     this.avatarExists = false,
+    this.avatarChoices = const [],
   });
 
   final bool found;
@@ -80,10 +98,20 @@ class ActorAssocPreview {
   final bool? biographyChanged;
   final String avatarUrl;
   final bool avatarExists;
+  final List<ActorAssociationAvatarChoice> avatarChoices;
 
   factory ActorAssocPreview.fromJson(Map<String, dynamic> j) {
     List<String> arr(dynamic v) =>
         (v is List ? v.whereType<String>().toList() : const <String>[]);
+    final avatarChoices = (j['avatar_choices'] is List
+            ? (j['avatar_choices'] as List)
+                .whereType<Map>()
+                .map((item) => ActorAssociationAvatarChoice.fromJson(
+                      Map<String, dynamic>.from(item),
+                    ))
+                .where((item) => item.proxyUrl.isNotEmpty)
+                .toList(growable: false)
+            : const <ActorAssociationAvatarChoice>[]);
     return ActorAssocPreview(
       found: j['found'] == true,
       mappedValue: (j['mapped_value'] ?? '').toString(),
@@ -100,6 +128,7 @@ class ActorAssocPreview {
           : null,
       avatarUrl: (j['avatar_url'] ?? '').toString().trim(),
       avatarExists: j['avatar_exists'] == true,
+      avatarChoices: avatarChoices,
     );
   }
 }
@@ -280,6 +309,7 @@ class ActorAssociationsRepository {
     ActorDataSource source = ActorDataSource.dbonline,
     String? biography,
     String? avatarUrl,
+    bool avatarOverwrite = false,
   }) async {
     final body = <String, dynamic>{
       'mapped_value': mappedValue,
@@ -293,13 +323,17 @@ class ActorAssociationsRepository {
     final trimmedAvatarUrl = avatarUrl?.trim() ?? '';
     if (trimmedAvatarUrl.isNotEmpty) {
       body['avatar_url'] = trimmedAvatarUrl;
+      body['avatar_overwrite'] = avatarOverwrite;
     }
     final raw = await _api.actorExternalSyncApply(body);
     unwrapStd<void>(raw, (_) {});
   }
 
   /// 获取外部头像的二进制预览。失败时由调用方决定是否继续同步其他字段。
-  Future<List<int>> previewAvatar(String avatarUrl) async {
+  Future<List<int>> previewAvatar(
+    String avatarUrl, {
+    ActorDataSource source = ActorDataSource.dbonline,
+  }) async {
     final api = _actorsApi;
     if (api == null) {
       throw ApiException('头像预览接口不可用');
@@ -308,7 +342,10 @@ class ActorAssociationsRepository {
     if (url.isEmpty) {
       throw ApiException('头像地址为空');
     }
-    final response = await api.previewAvatar({'avatar_url': url});
+    final response = await api.previewAvatar({
+      'avatar_url': url,
+      'source': source.value,
+    });
     if (response.data.isEmpty) {
       throw ApiException('头像内容为空');
     }

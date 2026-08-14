@@ -48,10 +48,28 @@ void main() {
       'new_aliases': <String>[],
       'avatar_url': '  https://example.com/avatar.jpg  ',
       'avatar_exists': true,
+      'avatar_choices': [
+        {
+          'source_url': 'https://avdb.example/one.jpg',
+          'proxy_url': ' /api/actors/avatar/one ',
+        },
+        {
+          'source_url': 'https://avdb.example/two.jpg',
+          'proxy_url': '/api/actors/avatar/two',
+        },
+        {
+          'source_url': 'https://avdb.example/two.jpg',
+          'proxy_url': '/api/actors/avatar/two',
+        },
+      ],
     });
 
     expect(preview.avatarUrl, 'https://example.com/avatar.jpg');
     expect(preview.avatarExists, isTrue);
+    expect(preview.avatarChoices, hasLength(3));
+    expect(preview.avatarChoices.first.proxyUrl, '/api/actors/avatar/one');
+    expect(preview.avatarChoices[1].sourceUrl,
+        'https://avdb.example/two.jpg');
   });
 
   test('演员同步预览没有头像地址时保持空头像状态', () {
