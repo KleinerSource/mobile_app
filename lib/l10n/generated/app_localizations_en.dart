@@ -366,9 +366,6 @@ class AppL10nEn extends AppL10n {
   String get settingsMappingSeries => 'Series mapping';
 
   @override
-  String get settingsMappingActors => 'Actors mapping';
-
-  @override
   String get settingsMappingSub => 'Rename / delete rules';
 
   @override

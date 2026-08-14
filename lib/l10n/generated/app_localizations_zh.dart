@@ -363,9 +363,6 @@ class AppL10nZh extends AppL10n {
   String get settingsMappingSeries => '系列映射';
 
   @override
-  String get settingsMappingActors => '演员映射';
-
-  @override
   String get settingsMappingSub => '重命名 / 删除规则';
 
   @override

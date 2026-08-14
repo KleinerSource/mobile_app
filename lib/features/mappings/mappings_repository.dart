@@ -2,12 +2,11 @@ import '../../core/api/envelope.dart';
 import '../../core/api/services/mappings_api.dart';
 import '../../core/models/mapping_rule.dart';
 
-/// 映射规则类型 · 与后端路径 /mappings/type/{type} 一致
+/// 普通映射规则类型 · 与后端路径 /mappings/type/{type} 一致
 enum MappingType {
   tag(value: 'tags', label: '标签'),
   genre(value: 'genres', label: '分类'),
-  series(value: 'series', label: '系列'),
-  actor(value: 'actors', label: '演员');
+  series(value: 'series', label: '系列');
 
   const MappingType({required this.value, required this.label});
   final String value;
@@ -76,8 +75,4 @@ class MappingsRepository {
     unwrapStd<void>(raw, (_) {});
   }
 
-  Future<void> syncActors() async {
-    final raw = await _api.syncActors();
-    unwrapStd<void>(raw, (_) {});
-  }
 }

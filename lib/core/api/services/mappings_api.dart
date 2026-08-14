@@ -7,7 +7,7 @@ part 'mappings_api.g.dart';
 abstract class MappingsApi {
   factory MappingsApi(Dio dio, {String baseUrl}) = _MappingsApi;
 
-  /// 列出某类型 mappings · type ∈ {tags, genres, series, actors}
+  /// 列出普通映射 · type ∈ {tags, genres, series}
   @GET('/mappings/type/{type}')
   Future<dynamic> list(
     @Path('type') String type,
@@ -43,9 +43,6 @@ abstract class MappingsApi {
 
   @GET('/mappings/type/{type}/export')
   Future<dynamic> export(@Path('type') String type);
-
-  @POST('/mappings/actors/sync')
-  Future<dynamic> syncActors();
 
   // ===== 演员关联数据源同步 =====
 

@@ -197,18 +197,6 @@ class ServerSettingsPage extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  SettingsTile(
-                    title: l.settingsMappingActors,
-                    subtitle: l.settingsMappingSub,
-                    leadingIcon: Icons.swap_horiz,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const MappingRulesPage(
-                          type: MappingType.actor,
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
               SettingsGroup(

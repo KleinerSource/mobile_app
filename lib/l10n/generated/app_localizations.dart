@@ -775,12 +775,6 @@ abstract class AppL10n {
   /// **'系列映射'**
   String get settingsMappingSeries;
 
-  /// No description provided for @settingsMappingActors.
-  ///
-  /// In zh, this message translates to:
-  /// **'演员映射'**
-  String get settingsMappingActors;
-
   /// No description provided for @settingsMappingSub.
   ///
   /// In zh, this message translates to:

@@ -13,7 +13,7 @@ import '../settings/settings_common.dart';
 import 'mappings_providers.dart';
 import 'mappings_repository.dart';
 
-/// 通用映射规则管理页 (tags/genres/series/actors 共用)
+/// 通用映射规则管理页 (tags/genres/series 共用)
 class MappingRulesPage extends ConsumerStatefulWidget {
   const MappingRulesPage({super.key, required this.type});
   final MappingType type;
@@ -63,12 +63,6 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (widget.type == MappingType.actor)
-                    IconButton(
-                      tooltip: '同步演员映射',
-                      icon: Icon(Icons.sync, color: c.muted),
-                      onPressed: _syncActors,
-                    ),
                   SettingsAddButton(onPressed: () => _showEditor()),
                 ],
               ),
@@ -460,24 +454,6 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     }
   }
 
-  Future<void> _syncActors() async {
-    if (!context.mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await ref.read(mappingsRepositoryProvider).syncActors();
-      AppHaptics.medium();
-      messenger.showSnackBar(const SnackBar(
-        content: Text('同步已启动'),
-        duration: Duration(seconds: 1),
-      ));
-      // ignore: unused_result
-      ref.refresh(mappingsListProvider(_key));
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('同步失败: ${toApiException(e).message}')),
-      );
-    }
-  }
 }
 
 // ============ Empty ============
