@@ -20,6 +20,7 @@ class PersonDetailPage extends ConsumerStatefulWidget {
     this.actorType,
     this.biography,
     this.avatarPath,
+    this.onUpdated,
   });
 
   final int actorId;
@@ -27,6 +28,7 @@ class PersonDetailPage extends ConsumerStatefulWidget {
   final String? actorType;
   final String? biography;
   final String? avatarPath;
+  final Future<void> Function()? onUpdated;
 
   @override
   ConsumerState<PersonDetailPage> createState() => _PersonDetailPageState();
@@ -62,9 +64,9 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
         }
       },
     );
-    if (synced == true && mounted) {
-      ref.invalidate(_actorMoviesProvider(widget.actorId));
-    }
+    if (synced != true || !mounted) return;
+    ref.invalidate(_actorMoviesProvider(widget.actorId));
+    await widget.onUpdated?.call();
   }
 
   @override

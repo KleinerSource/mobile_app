@@ -352,6 +352,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                                   actorType: actor.actorType,
                                   biography: actor.biography,
                                   avatarPath: actor.avatarPath,
+                                  onUpdated: _refresh,
                                 ),
                               ),
                             ),
