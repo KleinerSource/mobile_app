@@ -765,9 +765,9 @@ class _ActorTile extends StatelessWidget {
       size: 42,
       avatarPath: actor.avatarPath,
     );
-    // 有关联成员的主行：头像边缘发光提示，点击头像单独展开/收起子行。
-    final glowAvatar = row.hasMembers && onToggleExpand != null
-        ? _GlowAvatar(
+    // 有关联成员的主行：头像边框提示可展开，点击头像单独展开/收起子行。
+    final expandableAvatar = row.hasMembers && onToggleExpand != null
+        ? _ExpandableAvatar(
             expanded: isExpanded,
             color: c.accent,
             onTap: onToggleExpand!,
@@ -802,7 +802,7 @@ class _ActorTile extends StatelessWidget {
                         scope: PrivacyScope.actor,
                         radius: 21,
                         icon: false,
-                        child: glowAvatar,
+                        child: expandableAvatar,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -888,9 +888,9 @@ class _ActorTile extends StatelessWidget {
   }
 }
 
-/// 有关联成员的主行头像：圆形光环提示可展开，点击切换子行展开状态。
-class _GlowAvatar extends StatelessWidget {
-  const _GlowAvatar({
+/// 有关联成员的主行头像：强调色边框提示可展开，点击切换子行展开状态。
+class _ExpandableAvatar extends StatelessWidget {
+  const _ExpandableAvatar({
     required this.child,
     required this.color,
     required this.onTap,
@@ -906,18 +906,17 @@ class _GlowAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutCubic,
         width: 46,
         height: 46,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: expanded ? 0.38 : 0.8),
-              blurRadius: expanded ? 5 : 9,
-              spreadRadius: expanded ? 1 : 2,
-            ),
-          ],
+          border: Border.all(
+            color: color.withValues(alpha: expanded ? 1 : 0.62),
+            width: 2,
+          ),
         ),
         child: Center(child: child),
       ),
@@ -939,14 +938,8 @@ class _ActorMemberList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(56, 0, 14, 12),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: c.cardBorder),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(56, 0, 14, 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
