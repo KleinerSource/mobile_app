@@ -6,10 +6,35 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/platform/app_theme.dart';
 import 'privacy_providers.dart';
 
+/// 隐私揭示的数据域 · 各域的实体 id 互不相关,揭示状态按域隔离
+enum PrivacyScope {
+  /// 影片 (key = 影片 id)
+  movie,
+
+  /// 演员 (key = 演员 id)
+  actor,
+
+  /// 演员关联 (key = 关联规则 id)
+  actorAssociation,
+}
+
+NotifierProvider<RevealedIdsNotifier, Set<int>> _revealedProviderFor(
+  PrivacyScope scope,
+) {
+  return switch (scope) {
+    PrivacyScope.movie => revealedMoviesProvider,
+    PrivacyScope.actor => revealedActorsProvider,
+    PrivacyScope.actorAssociation => revealedActorAssociationsProvider,
+  };
+}
+
 /// 影片内容隐私遮罩 helper
 ///
 /// 用法 (海报/封面):
 ///   PrivacyMask(movieId: id, child: Poster(...))
+///
+/// 演员等非影片内容通过 scope 指定揭示域:
+///   PrivacyMask(movieId: actorId, scope: PrivacyScope.actor, child: ...)
 ///
 /// 隐私模式开启 + 未揭开 → 显示 blur + 暗罩 + 锁图标; 否则透传 child。
 class PrivacyMask extends ConsumerWidget {
@@ -17,11 +42,13 @@ class PrivacyMask extends ConsumerWidget {
     super.key,
     required this.movieId,
     required this.child,
+    this.scope = PrivacyScope.movie,
     this.radius = 10,
     this.icon = true,
   });
 
   final int movieId;
+  final PrivacyScope scope;
   final Widget child;
   final double radius;
   final bool icon;
@@ -29,7 +56,8 @@ class PrivacyMask extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final enabled = ref.watch(privacyShieldProvider);
-    final revealed = ref.watch(revealedMoviesProvider).contains(movieId);
+    final revealed =
+        ref.watch(_revealedProviderFor(scope)).contains(movieId);
     if (!enabled || revealed) return child;
 
     return ClipRRect(
@@ -70,11 +98,13 @@ class PrivacyText extends ConsumerWidget {
     required this.movieId,
     required this.text,
     required this.style,
+    this.scope = PrivacyScope.movie,
     this.maxLines,
     this.overflow,
   });
 
   final int movieId;
+  final PrivacyScope scope;
   final String text;
   final TextStyle style;
   final int? maxLines;
@@ -83,7 +113,8 @@ class PrivacyText extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final enabled = ref.watch(privacyShieldProvider);
-    final revealed = ref.watch(revealedMoviesProvider).contains(movieId);
+    final revealed =
+        ref.watch(_revealedProviderFor(scope)).contains(movieId);
     if (!enabled || revealed) {
       return Text(
         text,
@@ -93,7 +124,7 @@ class PrivacyText extends ConsumerWidget {
       );
     }
     // 用纯 ▆ 替换字符保留宽度感
-    final masked = '▆▆▆▆▆▆';
+    final masked = '▆▆▆▆▆';
     return Text(
       masked,
       style: style.copyWith(color: appColors(context).muted2),
@@ -111,11 +142,13 @@ class PrivacyAwareInkWell extends ConsumerWidget {
     required this.movieId,
     required this.onTap,
     required this.child,
+    this.scope = PrivacyScope.movie,
     this.onLongPress,
     this.borderRadius = 10,
   });
 
   final int movieId;
+  final PrivacyScope scope;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final Widget child;
@@ -127,9 +160,10 @@ class PrivacyAwareInkWell extends ConsumerWidget {
       borderRadius: BorderRadius.circular(borderRadius),
       onTap: () {
         final enabled = ref.read(privacyShieldProvider);
-        final revealed = ref.read(revealedMoviesProvider).contains(movieId);
+        final revealed =
+            ref.read(_revealedProviderFor(scope)).contains(movieId);
         if (enabled && !revealed) {
-          ref.read(revealedMoviesProvider.notifier).reveal(movieId);
+          ref.read(_revealedProviderFor(scope).notifier).reveal(movieId);
           return;
         }
         onTap?.call();

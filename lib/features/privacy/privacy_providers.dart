@@ -20,6 +20,8 @@ class PrivacyShieldNotifier extends Notifier<bool> {
     // 关闭隐私模式时,清空已揭开的列表
     // 开启时,所有先前揭开的也应重置 → 用户重新进入需再次揭
     ref.read(revealedMoviesProvider.notifier).clearAll();
+    ref.read(revealedActorsProvider.notifier).clearAll();
+    ref.read(revealedActorAssociationsProvider.notifier).clearAll();
   }
 }
 
@@ -44,9 +46,12 @@ class PrivacyShakeNotifier extends Notifier<bool> {
 final privacyShakeProvider =
     NotifierProvider<PrivacyShakeNotifier, bool>(PrivacyShakeNotifier.new);
 
-/// 当前 session 内被临时揭开的影片 id 集合 · 不持久化
-/// 隐私模式开启时,海报与标题被遮罩盖住,点击单卡片揭开该张
-class RevealedMoviesNotifier extends Notifier<Set<int>> {
+/// 当前 session 内被临时揭开的实体 id 集合 · 不持久化
+/// 隐私模式开启时,内容被遮罩盖住,点击单卡片揭开该张
+///
+/// 每个数据域各一份实例:影片/演员/演员关联的自增 id 互不相关,
+/// 共用一个集合会让"揭开影片 5"连带揭开"演员 5"。
+class RevealedIdsNotifier extends Notifier<Set<int>> {
   @override
   Set<int> build() => const {};
 
@@ -73,6 +78,18 @@ class RevealedMoviesNotifier extends Notifier<Set<int>> {
 }
 
 final revealedMoviesProvider =
-    NotifierProvider<RevealedMoviesNotifier, Set<int>>(
-  RevealedMoviesNotifier.new,
+    NotifierProvider<RevealedIdsNotifier, Set<int>>(
+  RevealedIdsNotifier.new,
+);
+
+/// 演员域 · 演员管理页的揭示集合 (key 为演员 id)
+final revealedActorsProvider =
+    NotifierProvider<RevealedIdsNotifier, Set<int>>(
+  RevealedIdsNotifier.new,
+);
+
+/// 演员关联域 · 演员关联页的揭示集合 (key 为关联规则 id)
+final revealedActorAssociationsProvider =
+    NotifierProvider<RevealedIdsNotifier, Set<int>>(
+  RevealedIdsNotifier.new,
 );

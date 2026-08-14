@@ -17,6 +17,7 @@ import '../../shared/filter_chip.dart';
 import '../actor_associations/actor_associations_providers.dart';
 import '../actor_associations/actor_associations_repository.dart';
 import '../person_detail/person_detail_page.dart';
+import '../privacy/privacy_mask.dart';
 import '../settings/settings_common.dart';
 
 /// 演员管理 · 演员信息 CRUD、搜索、排序和作品查看。
@@ -715,9 +716,11 @@ class _ActorTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final hasBiography = actor.biography?.trim().isNotEmpty == true;
-    return InkWell(
+    return PrivacyAwareInkWell(
+      movieId: actor.id,
+      scope: PrivacyScope.actor,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: 14,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
@@ -732,12 +735,18 @@ class _ActorTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
-                  ActorAvatar(
-                    actorId: actor.id,
-                    name: actor.name,
-                    hue: hue,
-                    size: 42,
-                    avatarPath: actor.avatarPath,
+                  PrivacyMask(
+                    movieId: actor.id,
+                    scope: PrivacyScope.actor,
+                    radius: 21,
+                    icon: false,
+                    child: ActorAvatar(
+                      actorId: actor.id,
+                      name: actor.name,
+                      hue: hue,
+                      size: 42,
+                      avatarPath: actor.avatarPath,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -745,16 +754,18 @@ class _ActorTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          actor.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        PrivacyText(
+                          movieId: actor.id,
+                          scope: PrivacyScope.actor,
+                          text: actor.name,
                           style: TextStyle(
                             color: c.text,
                             fontFamily: 'Inter',
                             fontWeight: FontWeight.w700,
                             fontSize: 14.5,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 3),
                         Text(

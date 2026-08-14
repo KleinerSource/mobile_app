@@ -11,6 +11,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
+import '../privacy/privacy_mask.dart';
 import '../settings/settings_common.dart';
 import 'actor_associations_providers.dart';
 import 'widgets/actor_association_editor_sheet.dart';
@@ -254,134 +255,145 @@ class _AssocCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.cardBorder),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(Icons.person_outline, color: c.accent, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  rule.mappedValue?.trim().isNotEmpty == true
-                      ? rule.mappedValue!
-                      : '-',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.text,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
+    return PrivacyAwareInkWell(
+      // 卡片本身无跳转,InkWell 仅用于隐私模式下的"点击揭示"
+      movieId: rule.id,
+      scope: PrivacyScope.actorAssociation,
+      onTap: null,
+      borderRadius: 14,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
+        decoration: BoxDecoration(
+          color: c.surface,
+          border: Border.all(color: c.cardBorder),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(Icons.person_outline, color: c.accent, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: PrivacyText(
+                    movieId: rule.id,
+                    scope: PrivacyScope.actorAssociation,
+                    text: rule.mappedValue?.trim().isNotEmpty == true
+                        ? rule.mappedValue!
+                        : '-',
+                    style: TextStyle(
+                      color: c.text,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: c.accent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: Text(
-                  '${rule.originalValues.length}',
-                  style: TextStyle(
-                    color: c.accent,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 11,
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: c.accent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(
+                    '${rule.originalValues.length}',
+                    style: TextStyle(
+                      color: c.accent,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
+              ],
+            ),
+            if (rule.originalValues.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final v in rule.originalValues.take(8))
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: c.chipBg,
+                        borderRadius: BorderRadius.circular(100),
+                        border: Border.all(color: c.cardBorder),
+                      ),
+                      child: PrivacyText(
+                        movieId: rule.id,
+                        scope: PrivacyScope.actorAssociation,
+                        text: v,
+                        style: TextStyle(
+                          color: c.text,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ),
+                  if (rule.originalValues.length > 8)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: c.chipBg,
+                        borderRadius: BorderRadius.circular(100),
+                        border: Border.all(color: c.cardBorder),
+                      ),
+                      child: Text(
+                        '+${rule.originalValues.length - 8}',
+                        style: TextStyle(
+                          color: c.muted,
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ],
-          ),
-          if (rule.originalValues.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                for (final v in rule.originalValues.take(8))
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: c.chipBg,
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(color: c.cardBorder),
-                    ),
-                    child: Text(
-                      v,
-                      style: TextStyle(
-                        color: c.text,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                  ),
-                if (rule.originalValues.length > 8)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: c.chipBg,
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(color: c.cardBorder),
-                    ),
-                    child: Text(
-                      '+${rule.originalValues.length - 8}',
-                      style: TextStyle(
-                        color: c.muted,
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                  ),
+                _ActionBtn(
+                  tooltip: '同步演员关联',
+                  icon: Icons.cloud_download_outlined,
+                  color: c.accent,
+                  onTap: onSync,
+                ),
+                _ActionBtn(
+                  tooltip: '追加别名',
+                  icon: Icons.add_rounded,
+                  color: c.accent,
+                  onTap: onAppend,
+                ),
+                _ActionBtn(
+                  tooltip: '编辑',
+                  icon: Icons.edit_outlined,
+                  color: c.text,
+                  onTap: onEdit,
+                ),
+                _ActionBtn(
+                  tooltip: '删除',
+                  icon: Icons.delete_outline,
+                  color: c.danger,
+                  onTap: onDelete,
+                ),
               ],
             ),
           ],
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              _ActionBtn(
-                tooltip: '同步演员关联',
-                icon: Icons.cloud_download_outlined,
-                color: c.accent,
-                onTap: onSync,
-              ),
-              _ActionBtn(
-                tooltip: '追加别名',
-                icon: Icons.add_rounded,
-                color: c.accent,
-                onTap: onAppend,
-              ),
-              _ActionBtn(
-                tooltip: '编辑',
-                icon: Icons.edit_outlined,
-                color: c.text,
-                onTap: onEdit,
-              ),
-              _ActionBtn(
-                tooltip: '删除',
-                icon: Icons.delete_outline,
-                color: c.danger,
-                onTap: onDelete,
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
