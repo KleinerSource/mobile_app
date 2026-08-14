@@ -149,6 +149,9 @@ class _ActorAssociationSyncSheetState
             _source = _availableSources.first;
           }
         });
+        // 先让数据源选择器完成一帧渲染，再开始预览请求，避免加载状态与选择器状态竞态。
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted || requestId != _loadRequestId) return;
       }
       final actualSource = _availableSources.contains(selectedSource)
           ? selectedSource
