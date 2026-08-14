@@ -19,6 +19,7 @@ import '../actor_associations/actor_associations_repository.dart';
 import '../person_detail/person_detail_page.dart';
 import '../privacy/privacy_mask.dart';
 import '../settings/settings_common.dart';
+import 'actor_row.dart';
 
 /// 演员管理 · 演员信息 CRUD、搜索、排序和作品查看。
 class ActorManagementPage extends ConsumerStatefulWidget {
@@ -38,7 +39,9 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   String? _search;
   String _sortBy = 'movie_count';
   String _sortOrder = 'desc';
-  List<ActorItem> _items = const [];
+  List<ActorRow> _items = const [];
+  // 折叠关联演员：已展开的主行 id，各行的展开状态相互独立。
+  final Set<int> _expandedIds = <int>{};
   int _totalCount = 0;
   int _nextOffset = 0;
   bool _hasMore = false;
@@ -85,6 +88,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       'offset': offset,
       'sort_by': _sortBy,
       'sort_order': _sortOrder,
+      // 折叠关联演员：列表只保留关联组的标准演员行，成员折叠为子行。
+      'collapse_associations': true,
       if (_search != null) 'search': _search,
     };
     setState(() {
@@ -104,18 +109,17 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       final page = unwrapTopLevelList<ActorItem>(raw, ActorItem.fromJson);
       if (!mounted || requestSerial != _requestSerial) return;
 
+      final rows = ActorRow.parseRows(raw, page.items);
       final refreshedById = {
-        for (final item in page.items) item.id: item,
+        for (final row in rows) row.id: row,
       };
-      final existingIds = _items.map((item) => item.id).toSet();
-      final newItems = page.items
-          .where((item) => existingIds.add(item.id))
-          .toList();
+      final existingIds = _items.map((row) => row.id).toSet();
+      final newRows = rows.where((row) => existingIds.add(row.id)).toList();
       final items = keepExistingItems
           ? [
-              for (final item in _items) refreshedById[item.id] ?? item,
+              for (final row in _items) refreshedById[row.id] ?? row,
             ]
-          : [..._items, ...newItems];
+          : [..._items, ...newRows];
       final nextOffset = keepExistingItems && _nextOffset > page.items.length
           ? _nextOffset
           : offset + page.items.length;
@@ -125,7 +129,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         _nextOffset = nextOffset;
         _hasMore = keepExistingItems
             ? _nextOffset < page.totalCount
-            : page.hasMore && newItems.isNotEmpty;
+            : page.hasMore && newRows.isNotEmpty;
         _loading = false;
         _hasLoaded = true;
       });
@@ -164,6 +168,15 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
 
   Future<void> _refresh() async {
     await _fetch(reset: true, preserveScroll: true);
+  }
+
+  void _toggleExpand(int actorId) {
+    setState(() {
+      if (!_expandedIds.remove(actorId)) {
+        _expandedIds.add(actorId);
+      }
+    });
+    AppHaptics.selection();
   }
 
   @override
@@ -358,10 +371,13 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                               ),
                             );
                           }
-                          final actor = items[index];
+                          final row = items[index];
+                          final actor = row.actor;
                           return _ActorTile(
-                            actor: actor,
+                            row: row,
                             hue: AppHues.all[index % AppHues.all.length],
+                            isExpanded: _expandedIds.contains(row.id),
+                            onToggleExpand: () => _toggleExpand(row.id),
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => PersonDetailPage(
@@ -381,6 +397,15 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                             onDelete: () => _confirmDelete(
                               context,
                               actor,
+                            ),
+                            onEditMember: (member) => _showEditor(
+                              context,
+                              actor: member.asActorItem,
+                            ),
+                            onDeleteMember: (member) => _confirmDelete(
+                              context,
+                              member.asActorItem,
+                              force: true,
                             ),
                           );
                         },
@@ -616,8 +641,13 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   String _normalizeActorName(String? value) =>
       (value ?? '').trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
 
-  Future<void> _confirmDelete(BuildContext context, ActorItem actor) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    ActorItem actor, {
+    bool force = false,
+  }) async {
     final hasMovies = actor.movieCount > 0;
+    final willForce = force || hasMovies;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -625,7 +655,9 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         content: Text(
           hasMovies
               ? '「${actor.name}」关联了 ${actor.movieCount} 部影片。强制删除将解除关联,影片本身不会被删除。'
-              : '确定删除「${actor.name}」?',
+              : force
+                  ? '「${actor.name}」是关联名称,删除将解除其影片关联,影片本身不会被删除。'
+                  : '确定删除「${actor.name}」?',
         ),
         actions: [
           TextButton(
@@ -634,7 +666,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(hasMovies ? '强制删除' : '删除'),
+            child: Text(willForce ? '强制删除' : '删除'),
           ),
         ],
       ),
@@ -646,7 +678,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       final raw = await ref.read(requiredApiClientProvider).catalog.deleteActors(
         {
           'ids': [actor.id],
-          'force': hasMovies,
+          'force': willForce,
         },
       );
       unwrapStd<void>(raw, (_) {});
@@ -699,23 +731,49 @@ enum _ActorMenuAction { edit, delete }
 
 class _ActorTile extends StatelessWidget {
   const _ActorTile({
-    required this.actor,
+    required this.row,
     required this.hue,
+    required this.isExpanded,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
+    required this.onEditMember,
+    required this.onDeleteMember,
+    this.onToggleExpand,
   });
 
-  final ActorItem actor;
+  final ActorRow row;
   final int hue;
+  final bool isExpanded;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final void Function(ActorAssociationMember member) onEditMember;
+  final void Function(ActorAssociationMember member) onDeleteMember;
+  final VoidCallback? onToggleExpand;
+
+  ActorItem get actor => row.actor;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
     final hasBiography = actor.biography?.trim().isNotEmpty == true;
+    final avatar = ActorAvatar(
+      actorId: actor.id,
+      name: actor.name,
+      hue: hue,
+      size: 42,
+      avatarPath: actor.avatarPath,
+    );
+    // 有关联成员的主行：头像边缘发光提示，点击头像单独展开/收起子行。
+    final glowAvatar = row.hasMembers && onToggleExpand != null
+        ? _GlowAvatar(
+            expanded: isExpanded,
+            color: c.accent,
+            onTap: onToggleExpand!,
+            child: avatar,
+          )
+        : avatar;
     return PrivacyAwareInkWell(
       movieId: actor.id,
       scope: PrivacyScope.actor,
@@ -731,78 +789,84 @@ class _ActorTile extends StatelessWidget {
         clipBehavior: Clip.hardEdge,
         child: Stack(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Row(
-                children: [
-                  PrivacyMask(
-                    movieId: actor.id,
-                    scope: PrivacyScope.actor,
-                    radius: 21,
-                    icon: false,
-                    child: ActorAvatar(
-                      actorId: actor.id,
-                      name: actor.name,
-                      hue: hue,
-                      size: 42,
-                      avatarPath: actor.avatarPath,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        PrivacyText(
-                          movieId: actor.id,
-                          scope: PrivacyScope.actor,
-                          text: actor.name,
-                          style: TextStyle(
-                            color: c.text,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14.5,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${actor.movieCount} 部影片',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.meta(context),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuButton<_ActorMenuAction>(
-                    tooltip: '更多操作',
-                    icon: Icon(Icons.more_horiz, color: c.muted),
-                    onSelected: (action) {
-                      switch (action) {
-                        case _ActorMenuAction.edit:
-                          onEdit();
-                          return;
-                        case _ActorMenuAction.delete:
-                          onDelete();
-                          return;
-                      }
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: _ActorMenuAction.edit,
-                        child: Text('编辑'),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Row(
+                    children: [
+                      PrivacyMask(
+                        movieId: actor.id,
+                        scope: PrivacyScope.actor,
+                        radius: 21,
+                        icon: false,
+                        child: glowAvatar,
                       ),
-                      PopupMenuItem(
-                        value: _ActorMenuAction.delete,
-                        child: Text('删除'),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            PrivacyText(
+                              movieId: actor.id,
+                              scope: PrivacyScope.actor,
+                              text: actor.name,
+                              style: TextStyle(
+                                color: c.text,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14.5,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${actor.movieCount} 部影片',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppText.meta(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuButton<_ActorMenuAction>(
+                        tooltip: '更多操作',
+                        icon: Icon(Icons.more_horiz, color: c.muted),
+                        onSelected: (action) {
+                          switch (action) {
+                            case _ActorMenuAction.edit:
+                              onEdit();
+                              return;
+                            case _ActorMenuAction.delete:
+                              onDelete();
+                              return;
+                          }
+                        },
+                        itemBuilder: (context) => const [
+                          PopupMenuItem(
+                            value: _ActorMenuAction.edit,
+                            child: Text('编辑'),
+                          ),
+                          PopupMenuItem(
+                            value: _ActorMenuAction.delete,
+                            child: Text('删除'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                if (row.hasMembers && isExpanded)
+                  _ActorMemberList(
+                    members: row.members,
+                    onEdit: onEditMember,
+                    onDelete: onDeleteMember,
+                  ),
+              ],
             ),
             if (hasBiography)
               Positioned(
@@ -819,6 +883,165 @@ class _ActorTile extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 有关联成员的主行头像：圆形光环提示可展开，点击切换子行展开状态。
+class _GlowAvatar extends StatelessWidget {
+  const _GlowAvatar({
+    required this.child,
+    required this.color,
+    required this.onTap,
+    required this.expanded,
+  });
+
+  final Widget child;
+  final Color color;
+  final VoidCallback onTap;
+  final bool expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(expanded ? 0.38 : 0.8),
+              blurRadius: expanded ? 5 : 9,
+              spreadRadius: expanded ? 1 : 2,
+            ),
+          ],
+        ),
+        child: Center(child: child),
+      ),
+    );
+  }
+}
+
+/// 展开后的关联成员列表：仅名称 + 关联徽章 + 编辑/删除，不显示头像与影片数。
+class _ActorMemberList extends StatelessWidget {
+  const _ActorMemberList({
+    required this.members,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final List<ActorAssociationMember> members;
+  final void Function(ActorAssociationMember member) onEdit;
+  final void Function(ActorAssociationMember member) onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(56, 0, 14, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: c.cardBorder),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final member in members)
+            _ActorMemberRow(
+              member: member,
+              onEdit: () => onEdit(member),
+              onDelete: () => onDelete(member),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActorMemberRow extends StatelessWidget {
+  const _ActorMemberRow({
+    required this.member,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final ActorAssociationMember member;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: c.accent),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: PrivacyText(
+              movieId: member.id,
+              scope: PrivacyScope.actor,
+              text: member.name,
+              style: TextStyle(
+                color: c.text,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: c.accent.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '关联',
+              style: TextStyle(
+                color: c.accent,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          PopupMenuButton<_ActorMenuAction>(
+            tooltip: '关联演员操作',
+            icon: Icon(Icons.more_horiz, size: 18, color: c.muted),
+            onSelected: (action) {
+              switch (action) {
+                case _ActorMenuAction.edit:
+                  onEdit();
+                  return;
+                case _ActorMenuAction.delete:
+                  onDelete();
+                  return;
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: _ActorMenuAction.edit,
+                child: Text('编辑'),
+              ),
+              PopupMenuItem(
+                value: _ActorMenuAction.delete,
+                child: Text('删除'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
