@@ -913,7 +913,7 @@ class _GlowAvatar extends StatelessWidget {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(expanded ? 0.38 : 0.8),
+              color: color.withValues(alpha: expanded ? 0.38 : 0.8),
               blurRadius: expanded ? 5 : 9,
               spreadRadius: expanded ? 1 : 2,
             ),
@@ -1005,7 +1005,7 @@ class _ActorMemberRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: c.accent.withOpacity(0.12),
+              color: c.accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
