@@ -293,6 +293,30 @@ class _ActorAssociationSyncSheetState
     );
   }
 
+  Future<void> _openAvatarPicker() async {
+    final preview = _preview;
+    if (_applying || preview == null) return;
+    final choices = _avatarChoicesFor(preview);
+    if (choices.length <= 1) return;
+
+    final selectedIndex = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: appColors(context).bg,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _AvatarChoicePicker(
+        mappedValue: preview.mappedValue,
+        choices: choices,
+        selectedIndex: _avatarChoiceIndex,
+        avatarBytes: _avatarChoiceBytes,
+        avatarLoading: _avatarChoiceLoading,
+        avatarLoadFailed: _avatarChoiceFailed,
+      ),
+    );
+    if (!mounted || selectedIndex == null) return;
+    _selectAvatarChoice(selectedIndex);
+  }
+
   Future<List<ActorDataSource>> _loadAvailableSources() async {
     Future<DboConfig?> loadDbo() async {
       try {
@@ -449,18 +473,14 @@ class _ActorAssociationSyncSheetState
                                       mappedValue: preview.mappedValue,
                                       avatarExists: preview.avatarExists,
                                       avatarChoices: _avatarChoicesFor(preview),
-                                      selectedChoiceIndex: _avatarChoiceIndex,
-                                      avatarBytes: _avatarChoiceBytes,
-                                      avatarLoading: _avatarChoiceLoading,
-                                      avatarLoadFailed: _avatarChoiceFailed,
                                       activeBytes: _activeAvatarBytes,
                                       activeLoading: _activeAvatarLoading,
                                       activeLoadFailed: _activeAvatarLoadFailed,
                                       avatarManuallySelected:
                                           _avatarManuallySelected,
-                                      onChoiceSelected: _applying
+                                      onAvatarTap: _applying
                                           ? null
-                                          : _selectAvatarChoice,
+                                          : () => unawaited(_openAvatarPicker()),
                                     ),
                                     if (_biographyNeedsSync(preview)) ...[
                                       const SizedBox(height: 16),
@@ -668,29 +688,21 @@ class _ActorIdentitySection extends StatelessWidget {
     required this.mappedValue,
     required this.avatarExists,
     required this.avatarChoices,
-    required this.selectedChoiceIndex,
-    required this.avatarBytes,
-    required this.avatarLoading,
-    required this.avatarLoadFailed,
     required this.activeBytes,
     required this.activeLoading,
     required this.activeLoadFailed,
     required this.avatarManuallySelected,
-    this.onChoiceSelected,
+    this.onAvatarTap,
   });
 
   final String mappedValue;
   final bool avatarExists;
   final List<ActorAssociationAvatarChoice> avatarChoices;
-  final int selectedChoiceIndex;
-  final Map<String, Uint8List> avatarBytes;
-  final Set<String> avatarLoading;
-  final Set<String> avatarLoadFailed;
   final Uint8List? activeBytes;
   final bool activeLoading;
   final bool activeLoadFailed;
   final bool avatarManuallySelected;
-  final ValueChanged<int>? onChoiceSelected;
+  final VoidCallback? onAvatarTap;
 
   @override
   Widget build(BuildContext context) {
@@ -723,33 +735,92 @@ class _ActorIdentitySection extends StatelessWidget {
         children: [
           Row(
             children: [
-              ClipOval(
-                child: SizedBox(
-                  width: 62,
-                  height: 62,
-                  child: activeLoading
-                      ? DecoratedBox(
-                          decoration: BoxDecoration(color: c.chipBg),
-                          child: const Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
+              Semantics(
+                button: onAvatarTap != null,
+                label: avatarChoices.length > 1 ? '选择候选头像' : '演员头像',
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onAvatarTap,
+                    customBorder: const CircleBorder(),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        ClipOval(
+                          child: SizedBox(
+                            width: 62,
+                            height: 62,
+                            child: activeLoading
+                                ? DecoratedBox(
+                                    decoration:
+                                        BoxDecoration(color: c.chipBg),
+                                    child: const Center(
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : hasPreview
+                                    ? Image.memory(
+                                        activeBytes!,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : DecoratedBox(
+                                        decoration:
+                                            BoxDecoration(color: c.chipBg),
+                                        child: Icon(
+                                          avatarExists
+                                              ? Icons.account_circle_outlined
+                                              : Icons.person_outline,
+                                          color: c.muted,
+                                          size: 32,
+                                        ),
+                                      ),
                           ),
-                        )
-                      : hasPreview
-                          ? Image.memory(activeBytes!, fit: BoxFit.cover)
-                          : DecoratedBox(
-                              decoration: BoxDecoration(color: c.chipBg),
-                              child: Icon(
-                                avatarExists
-                                    ? Icons.account_circle_outlined
-                                    : Icons.person_outline,
-                                color: c.muted,
-                                size: 32,
+                        ),
+                        if (avatarChoices.length > 1)
+                          Positioned(
+                            right: -5,
+                            bottom: -5,
+                            child: Container(
+                              constraints: const BoxConstraints(minWidth: 27),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: c.accent,
+                                border: Border.all(color: c.surface, width: 2),
+                                borderRadius: BorderRadius.circular(100),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.collections_outlined,
+                                    color: c.chipTextActive,
+                                    size: 12,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    '${avatarChoices.length}',
+                                    style: TextStyle(
+                                      color: c.chipTextActive,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 13),
@@ -803,87 +874,154 @@ class _ActorIdentitySection extends StatelessWidget {
                 Icon(Icons.error_outline, color: c.danger, size: 20),
             ],
           ),
-          if (avatarChoices.length > 1) ...[
-            const SizedBox(height: 12),
-            Text('候选头像 · 点击选择', style: AppText.meta(context)),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 92,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: avatarChoices.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _AvatarChoicePicker extends StatelessWidget {
+  const _AvatarChoicePicker({
+    required this.mappedValue,
+    required this.choices,
+    required this.selectedIndex,
+    required this.avatarBytes,
+    required this.avatarLoading,
+    required this.avatarLoadFailed,
+  });
+
+  final String mappedValue;
+  final List<ActorAssociationAvatarChoice> choices;
+  final int selectedIndex;
+  final Map<String, Uint8List> avatarBytes;
+  final Set<String> avatarLoading;
+  final Set<String> avatarLoadFailed;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final height = MediaQuery.of(context).size.height * 0.58;
+    return SafeArea(
+      child: SizedBox(
+        height: height,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 4, 22, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('选择演员头像', style: AppText.sectionTitle(context)),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${mappedValue.isEmpty ? '演员' : mappedValue} · 共 ${choices.length} 张候选',
+                    style: AppText.meta(context),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: c.divider),
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.fromLTRB(22, 14, 22, 22),
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 120,
+                  childAspectRatio: 0.78,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: choices.length,
                 itemBuilder: (context, index) {
-                  final choice = avatarChoices[index];
+                  final choice = choices[index];
                   final url = choice.proxyUrl;
                   final bytes = avatarBytes[url];
-                  final selected = index == selectedChoiceIndex;
                   final loading = avatarLoading.contains(url);
                   final failed = avatarLoadFailed.contains(url);
+                  final selected = selectedIndex == index;
                   return Semantics(
                     button: true,
                     selected: selected,
-                    label: '候选头像 ${index + 1}',
+                    label: '选择第 ${index + 1} 张演员头像',
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: onChoiceSelected == null
-                            ? null
-                            : () => onChoiceSelected!(index),
-                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => Navigator.of(context).pop(index),
+                        borderRadius: BorderRadius.circular(12),
                         child: Container(
-                          width: 70,
-                          height: 92,
                           decoration: BoxDecoration(
-                            color: c.chipBg,
-                            borderRadius: BorderRadius.circular(10),
+                            color: c.surface,
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: selected ? c.accent : c.cardBorder,
                               width: selected ? 2 : 1,
                             ),
                           ),
                           clipBehavior: Clip.antiAlias,
-                          child: Stack(
-                            fit: StackFit.expand,
+                          child: Column(
                             children: [
-                              if (bytes != null && bytes.isNotEmpty)
-                                Image.memory(bytes, fit: BoxFit.cover)
-                              else if (loading)
-                                const Center(
-                                  child: SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                )
-                              else
-                                Center(
-                                  child: Icon(
+                              Expanded(
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    if (bytes != null && bytes.isNotEmpty)
+                                      Image.memory(bytes, fit: BoxFit.cover)
+                                    else if (loading)
+                                      const Center(
+                                        child: SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      )
+                                    else
+                                      Center(
+                                        child: Icon(
+                                          failed
+                                              ? Icons.broken_image_outlined
+                                              : Icons.person_outline,
+                                          color: failed ? c.danger : c.muted,
+                                          size: 28,
+                                        ),
+                                      ),
+                                    if (selected)
+                                      Positioned(
+                                        top: 6,
+                                        right: 6,
+                                        child: DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            color: c.accent,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Icons.check,
+                                            color: c.chipTextActive,
+                                            size: 16,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(
+                                height: 30,
+                                child: Center(
+                                  child: Text(
                                     failed
-                                        ? Icons.broken_image_outlined
-                                        : Icons.person_outline,
-                                    color: failed ? c.danger : c.muted,
-                                    size: 24,
-                                  ),
-                                ),
-                              if (selected)
-                                Positioned(
-                                  top: 4,
-                                  right: 4,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: c.accent,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.check,
-                                      color: c.chipTextActive,
-                                      size: 14,
+                                        ? '点击重试'
+                                        : selected
+                                            ? '当前头像'
+                                            : '候选 ${index + 1}',
+                                    style: TextStyle(
+                                      color: failed ? c.danger : c.muted,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                 ),
+                              ),
                             ],
                           ),
                         ),
@@ -894,7 +1032,7 @@ class _ActorIdentitySection extends StatelessWidget {
               ),
             ),
           ],
-        ],
+        ),
       ),
     );
   }
