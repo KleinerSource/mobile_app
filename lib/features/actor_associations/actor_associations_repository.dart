@@ -56,16 +56,16 @@ List<ActorDataSource> configuredActorDataSources({
 /// 数据源预览结果
 class ActorAssociationAvatarChoice {
   const ActorAssociationAvatarChoice({
-    required this.proxyUrl,
+    required this.downloadUrl,
     this.sourceUrl = '',
   });
 
-  final String proxyUrl;
+  final String downloadUrl;
   final String sourceUrl;
 
   factory ActorAssociationAvatarChoice.fromJson(Map<String, dynamic> json) {
     return ActorAssociationAvatarChoice(
-      proxyUrl: (json['proxy_url'] ?? '').toString().trim(),
+      downloadUrl: (json['download_url'] ?? '').toString().trim(),
       sourceUrl: (json['source_url'] ?? '').toString().trim(),
     );
   }
@@ -109,7 +109,7 @@ class ActorAssocPreview {
                 .map((item) => ActorAssociationAvatarChoice.fromJson(
                       Map<String, dynamic>.from(item),
                     ))
-                .where((item) => item.proxyUrl.isNotEmpty)
+                .where((item) => item.downloadUrl.isNotEmpty)
                 .toList(growable: false)
             : const <ActorAssociationAvatarChoice>[]);
     return ActorAssocPreview(

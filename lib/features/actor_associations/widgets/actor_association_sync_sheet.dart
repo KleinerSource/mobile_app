@@ -84,7 +84,7 @@ class _ActorAssociationSyncSheetState
     final seen = <String>{};
     return preview.avatarChoices
         .where((choice) =>
-            choice.proxyUrl.isNotEmpty && seen.add(choice.proxyUrl))
+            choice.downloadUrl.isNotEmpty && seen.add(choice.downloadUrl))
         .toList(growable: false);
   }
 
@@ -92,7 +92,7 @@ class _ActorAssociationSyncSheetState
     final choices = _avatarChoicesFor(preview);
     if (choices.isNotEmpty) {
       final index = _avatarChoiceIndex < choices.length ? _avatarChoiceIndex : 0;
-      return choices[index].proxyUrl;
+      return choices[index].downloadUrl;
     }
     return preview.avatarUrl;
   }
@@ -135,7 +135,6 @@ class _ActorAssociationSyncSheetState
     final canReplace = !preview.avatarExists || _avatarManuallySelected;
     return canReplace &&
         _activeAvatarUrlFor(preview).isNotEmpty &&
-        _activeAvatarBytes != null &&
         !_activeAvatarLoadFailed;
   }
 
@@ -226,7 +225,7 @@ class _ActorAssociationSyncSheetState
   ) async {
     final choices = _avatarChoicesFor(preview);
     final urls = choices.isNotEmpty
-        ? choices.map((choice) => choice.proxyUrl)
+        ? choices.map((choice) => choice.downloadUrl)
         : <String>[preview.avatarUrl];
     if (urls.isEmpty) return;
     var cursor = 0;
@@ -289,7 +288,7 @@ class _ActorAssociationSyncSheetState
       _avatarManuallySelected = true;
     });
     unawaited(
-      _loadAvatarPreview(preview, _source, choices[index].proxyUrl),
+      _loadAvatarPreview(preview, _source, choices[index].downloadUrl),
     );
   }
 
@@ -934,7 +933,7 @@ class _AvatarChoicePicker extends StatelessWidget {
                 itemCount: choices.length,
                 itemBuilder: (context, index) {
                   final choice = choices[index];
-                  final url = choice.proxyUrl;
+                  final url = choice.downloadUrl;
                   final bytes = avatarBytes[url];
                   final loading = avatarLoading.contains(url);
                   final failed = avatarLoadFailed.contains(url);

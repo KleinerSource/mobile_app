@@ -97,6 +97,71 @@ void main() {
     expect(find.text('当前 DB Online 结果'), findsOneWidget);
     expect(find.text('过期 AVDB 结果'), findsNothing);
   });
+
+  testWidgets('头像预览未完成时仍提交上游头像地址', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final avatarPreview = Completer<List<int>>();
+    final applyCompletion = Completer<void>();
+    final repository = _AvatarPreviewRepository(
+      avatarPreview.future,
+      applyCompletion,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          dboConfigProvider.overrideWith(
+            (ref) async => const DboConfig(
+              enabled: true,
+              baseUrl: 'https://dbo.example',
+              apiKey: 'dbo-key',
+            ),
+          ),
+          avdbConfigProvider.overrideWith(
+            (ref) async => const AvdbConfig(
+              enabled: false,
+              baseUrl: '',
+              apiKey: '',
+            ),
+          ),
+          actorAssociationsRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: ActorAssociationSyncSheet(
+              actor: MappingRule(
+                id: 2,
+                mappedValue: '演员 B',
+                originalValues: ['演员 B'],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    for (var i = 0; i < 10 && !repository.avatarPreviewRequested; i++) {
+      await tester.pump();
+    }
+
+    expect(repository.avatarPreviewRequested, isTrue);
+    final applyButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '确认添加'),
+    );
+    expect(applyButton.onPressed, isNotNull);
+
+    await tester.tap(find.text('确认添加'));
+    await tester.pump();
+
+    expect(repository.appliedAvatarUrl, 'https://dbo.example/avatar.jpg');
+    expect(repository.appliedAvatarOverwrite, isFalse);
+
+    applyCompletion.complete();
+    avatarPreview.complete(<int>[1, 2, 3]);
+    await tester.pumpAndSettle();
+  });
 }
 
 ActorAssocPreview _preview(String mappedValue) {
@@ -132,5 +197,58 @@ class _PendingPreviewRepository extends ActorAssociationsRepository {
   }) {
     requests.add(source);
     return _pending[source]!.removeAt(0).future;
+  }
+}
+
+class _AvatarPreviewRepository extends ActorAssociationsRepository {
+  _AvatarPreviewRepository(this.avatarPreviewFuture, this.applyCompletion)
+      : super(MappingsApi(Dio()));
+
+  final Future<List<int>> avatarPreviewFuture;
+  final Completer<void> applyCompletion;
+  bool avatarPreviewRequested = false;
+  String? appliedAvatarUrl;
+  bool? appliedAvatarOverwrite;
+
+  @override
+  Future<ActorAssocPreview> previewSource(
+    String actorName, {
+    ActorDataSource source = ActorDataSource.dbonline,
+  }) {
+    return Future.value(
+      const ActorAssocPreview(
+        found: true,
+        mappedValue: '演员 B',
+        actorName: '演员 B',
+        allAliases: [],
+        existingAliases: [],
+        newAliases: [],
+        avatarUrl: 'https://dbo.example/avatar.jpg',
+      ),
+    );
+  }
+
+  @override
+  Future<List<int>> previewAvatar(
+    String avatarUrl, {
+    ActorDataSource source = ActorDataSource.dbonline,
+  }) {
+    avatarPreviewRequested = true;
+    return avatarPreviewFuture;
+  }
+
+  @override
+  Future<bool> applySource({
+    required String mappedValue,
+    required List<String> originalValues,
+    ActorDataSource source = ActorDataSource.dbonline,
+    String? biography,
+    String? avatarUrl,
+    bool avatarOverwrite = false,
+  }) async {
+    appliedAvatarUrl = avatarUrl;
+    appliedAvatarOverwrite = avatarOverwrite;
+    await applyCompletion.future;
+    return true;
   }
 }

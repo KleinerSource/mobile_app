@@ -51,15 +51,15 @@ void main() {
       'avatar_choices': [
         {
           'source_url': 'https://avdb.example/one.jpg',
-          'proxy_url': ' /api/actors/avatar/one ',
+          'download_url': ' https://cdn.example/actors/avatar/one ',
         },
         {
           'source_url': 'https://avdb.example/two.jpg',
-          'proxy_url': '/api/actors/avatar/two',
+          'download_url': 'https://cdn.example/actors/avatar/two',
         },
         {
           'source_url': 'https://avdb.example/two.jpg',
-          'proxy_url': '/api/actors/avatar/two',
+          'download_url': 'https://cdn.example/actors/avatar/two',
         },
       ],
     });
@@ -67,7 +67,8 @@ void main() {
     expect(preview.avatarUrl, 'https://example.com/avatar.jpg');
     expect(preview.avatarExists, isTrue);
     expect(preview.avatarChoices, hasLength(3));
-    expect(preview.avatarChoices.first.proxyUrl, '/api/actors/avatar/one');
+    expect(preview.avatarChoices.first.downloadUrl,
+        'https://cdn.example/actors/avatar/one');
     expect(preview.avatarChoices[1].sourceUrl,
         'https://avdb.example/two.jpg');
   });
