@@ -98,6 +98,21 @@ class _ActorAssociationSyncSheetState
         !_avatarLoadFailed;
   }
 
+  bool _allAliasesSelected(ActorAssocPreview preview) {
+    return preview.newAliases.isNotEmpty &&
+        preview.newAliases.every(_selectedAliases.contains);
+  }
+
+  void _toggleAllAliases(ActorAssocPreview preview) {
+    setState(() {
+      if (_allAliasesSelected(preview)) {
+        _selectedAliases.clear();
+      } else {
+        _selectedAliases.addAll(preview.newAliases);
+      }
+    });
+  }
+
   bool _biographyNeedsSync(ActorAssocPreview preview) {
     if (preview.biographyChanged != null) {
       return preview.biographyChanged!;
@@ -362,7 +377,13 @@ class _ActorAssociationSyncSheetState
                                       color: c.accent,
                                       highlight: true,
                                       selectedAliases: _selectedAliases,
+                                      allSelected: _allAliasesSelected(preview),
+                                      onToggleAll: _applying ||
+                                              preview.newAliases.isEmpty
+                                          ? null
+                                          : () => _toggleAllAliases(preview),
                                       onToggle: (alias) {
+                                        if (_applying) return;
                                         setState(() {
                                           if (_selectedAliases.contains(alias)) {
                                             _selectedAliases.remove(alias);
@@ -569,6 +590,8 @@ class _AliasSection extends StatelessWidget {
     required this.color,
     required this.highlight,
     this.selectedAliases,
+    this.allSelected = false,
+    this.onToggleAll,
     this.onToggle,
   });
   final String title;
@@ -577,6 +600,8 @@ class _AliasSection extends StatelessWidget {
   final Color color;
   final bool highlight;
   final Set<String>? selectedAliases;
+  final bool allSelected;
+  final VoidCallback? onToggleAll;
   final ValueChanged<String>? onToggle;
 
   @override
@@ -585,13 +610,34 @@ class _AliasSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title,
-            style: TextStyle(
-              color: c.text,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-            )),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(title,
+                  style: TextStyle(
+                    color: c.text,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  )),
+            ),
+            if (onToggleAll != null)
+              TextButton.icon(
+                onPressed: onToggleAll,
+                icon: Icon(
+                  allSelected ? Icons.deselect : Icons.select_all,
+                  size: 16,
+                ),
+                label: Text(allSelected ? '取消全选' : '全选'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  minimumSize: const Size(0, 30),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+          ],
+        ),
         const SizedBox(height: 8),
         if (aliases.isEmpty)
           Text(empty, style: AppText.meta(context))
