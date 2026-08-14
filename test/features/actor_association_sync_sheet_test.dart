@@ -120,7 +120,7 @@ void main() {
         actorName: '演员 A',
         allAliases: [],
         existingAliases: [],
-        newAliases: [],
+        newAliases: ['部分新别名'],
       ),
     ));
     await tester.pump();
