@@ -16,7 +16,7 @@ import 'package:md_center/features/configs/configs_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('数据源以并排 Checkbox 显示且预览请求中可快速往返切换',
+  testWidgets('数据源以并排选项卡显示且预览请求中可快速往返切换',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -63,7 +63,7 @@ void main() {
     }
 
     expect(find.byType(DropdownButtonFormField<ActorDataSource>), findsNothing);
-    expect(find.byType(Checkbox), findsNWidgets(2));
+    expect(find.byType(Checkbox), findsNothing);
     expect(
       tester.getCenter(find.text('DB Online')).dy,
       tester.getCenter(find.text('AVDB')).dy,
@@ -83,11 +83,7 @@ void main() {
         ActorDataSource.dbonline,
       ],
     );
-    final checkboxes = tester
-        .widgetList<Checkbox>(find.byType(Checkbox))
-        .map((checkbox) => checkbox.value)
-        .toList(growable: false);
-    expect(checkboxes, [true, false]);
+    expect(find.byType(Checkbox), findsNothing);
 
     oldDbo.complete(_preview('过期 DB Online 结果'));
     await tester.pump();

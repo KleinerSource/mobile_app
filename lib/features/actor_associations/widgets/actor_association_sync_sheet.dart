@@ -482,7 +482,7 @@ class _ActorDataSourceSelector extends StatelessWidget {
             for (var i = 0; i < sources.length; i++) ...[
               if (i > 0) const SizedBox(width: 8),
               Expanded(
-                child: _ActorDataSourceCheckbox(
+                child: _ActorDataSourceOption(
                   source: sources[i],
                   selected: sources[i] == selectedSource,
                   enabled: enabled,
@@ -497,8 +497,8 @@ class _ActorDataSourceSelector extends StatelessWidget {
   }
 }
 
-class _ActorDataSourceCheckbox extends StatelessWidget {
-  const _ActorDataSourceCheckbox({
+class _ActorDataSourceOption extends StatelessWidget {
+  const _ActorDataSourceOption({
     required this.source,
     required this.selected,
     required this.enabled,
@@ -517,40 +517,45 @@ class _ActorDataSourceCheckbox extends StatelessWidget {
       if (enabled && !selected) onChanged(source);
     }
 
-    return Material(
-      color: selected ? c.accent.withValues(alpha: 0.10) : c.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: selected ? c.accent : c.cardBorder),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: enabled ? select : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Checkbox(
-                value: selected,
-                onChanged: enabled ? (_) => select() : null,
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              const SizedBox(width: 4),
-              Flexible(
+    return Semantics(
+      button: true,
+      selected: selected,
+      enabled: enabled,
+      label: source.label,
+      child: Material(
+        color: selected ? c.accent.withValues(alpha: 0.10) : c.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(
+            color: selected ? c.accent : c.cardBorder,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: enabled ? select : null,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 40),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 child: Text(
                   source.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: enabled ? c.text : c.muted,
-                    fontWeight: FontWeight.w700,
+                    color: enabled
+                        ? (selected ? c.accent : c.text)
+                        : c.muted,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
                     fontSize: 13,
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
