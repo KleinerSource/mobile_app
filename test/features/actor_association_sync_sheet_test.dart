@@ -147,6 +147,7 @@ void main() {
     }
 
     expect(repository.avatarPreviewRequested, isTrue);
+    await tester.pump();
     final applyButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, '确认添加'),
     );
