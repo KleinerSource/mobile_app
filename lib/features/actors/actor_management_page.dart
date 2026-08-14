@@ -70,9 +70,13 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     unawaited(_fetch(reset: false));
   }
 
-  Future<void> _fetch({required bool reset}) async {
+  Future<void> _fetch({
+    required bool reset,
+    bool preserveScroll = false,
+  }) async {
     if (!reset && (_loading || !_hasMore)) return;
 
+    final keepExistingItems = reset && preserveScroll && _items.isNotEmpty;
     final requestSerial = reset ? ++_requestSerial : _requestSerial;
     final offset = reset ? 0 : _nextOffset;
     final query = <String, dynamic>{
@@ -85,7 +89,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     setState(() {
       _loading = true;
       _error = null;
-      if (reset) {
+      if (reset && !keepExistingItems) {
         _items = const [];
         _totalCount = 0;
         _nextOffset = 0;
@@ -99,15 +103,28 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       final page = unwrapTopLevelList<ActorItem>(raw, ActorItem.fromJson);
       if (!mounted || requestSerial != _requestSerial) return;
 
+      final refreshedById = {
+        for (final item in page.items) item.id: item,
+      };
       final existingIds = _items.map((item) => item.id).toSet();
       final newItems = page.items
           .where((item) => existingIds.add(item.id))
           .toList();
+      final items = keepExistingItems
+          ? [
+              for (final item in _items) refreshedById[item.id] ?? item,
+            ]
+          : [..._items, ...newItems];
+      final nextOffset = keepExistingItems && _nextOffset > page.items.length
+          ? _nextOffset
+          : offset + page.items.length;
       setState(() {
-        _items = [..._items, ...newItems];
+        _items = items;
         _totalCount = page.totalCount;
-        _nextOffset = offset + page.items.length;
-        _hasMore = page.hasMore && newItems.isNotEmpty;
+        _nextOffset = nextOffset;
+        _hasMore = keepExistingItems
+            ? _nextOffset < page.totalCount
+            : page.hasMore && newItems.isNotEmpty;
         _loading = false;
         _hasLoaded = true;
       });
@@ -145,7 +162,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   }
 
   Future<void> _refresh() async {
-    await _fetch(reset: true);
+    await _fetch(reset: true, preserveScroll: true);
   }
 
   @override
