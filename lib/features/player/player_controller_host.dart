@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import 'player_prefetch_policy.dart';
 import 'player_subtitle_track_resolver.dart';
 
 /// media_kit 内核封装 · libmpv (内置 ffmpeg 软解 + VideoToolbox 硬解)
@@ -25,6 +26,7 @@ class PlayerControllerHost {
   bool diskCacheEnabled;
   String? diskCacheDirectory;
   String? persistentCacheFile;
+  int _openGeneration = 0;
 
   void _createPlayer() {
     player = Player(
@@ -56,8 +58,10 @@ class PlayerControllerHost {
     Duration? startAt,
     Map<String, String>? headers,
   }) async {
+    final openGeneration = ++_openGeneration;
+    final targetPlayer = player;
     try {
-      final platform = player.platform;
+      final platform = targetPlayer.platform;
       if (platform is NativePlayer) {
         // demuxer-cache-dir 必须在 cache-on-disk 创建文件前设置；否则 mpv
         // 会继续使用默认目录，缓存管理页统计不到实际文件。
@@ -73,6 +77,12 @@ class PlayerControllerHost {
           'cache-on-disk',
           diskCacheEnabled ? 'yes' : 'no',
         );
+        // 先使用极小的安全预载值，等媒体时长就绪后再收敛到总时长的 15%，
+        // 避免播放器在时长未知时按字节缓存过多内容。
+        await platform.setProperty(
+          'cache-secs',
+          playerInitialPrefetchSeconds.toStringAsFixed(3),
+        );
         // demuxer cache 本身是临时的；stream-record 才是由应用管理的
         // 持久化缓存，必须在打开媒体源前设置。
         await platform.setProperty(
@@ -85,10 +95,32 @@ class PlayerControllerHost {
     } catch (_) {
       // 部分平台的 mpv 构建不允许运行时修改缓存选项，仍继续正常播放。
     }
-    await player.open(
+    await targetPlayer.open(
       Media(url, start: startAt, httpHeaders: headers),
       play: true,
     );
+    unawaited(_applyPrefetchLimit(targetPlayer, openGeneration));
+  }
+
+  Future<void> _applyPrefetchLimit(Player targetPlayer, int generation) async {
+    try {
+      var duration = targetPlayer.state.duration;
+      if (duration <= Duration.zero) {
+        duration = await targetPlayer.stream.duration
+            .firstWhere((value) => value > Duration.zero)
+            .timeout(const Duration(seconds: 5));
+      }
+      if (generation != _openGeneration) return;
+      final platform = targetPlayer.platform;
+      if (platform is NativePlayer) {
+        await platform.setProperty(
+          'cache-secs',
+          playerPrefetchSecondsFor(duration).toStringAsFixed(3),
+        );
+      }
+    } catch (_) {
+      // 部分流媒体无法及时提供总时长或不支持 cache-secs，继续使用安全初始值播放。
+    }
   }
 
   Future<void> setSubtitleUrl(

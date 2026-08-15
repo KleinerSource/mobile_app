@@ -1122,29 +1122,42 @@ class _ActorRelatedMoviesSection extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
             child: Text('演员关联影片', style: AppText.sectionTitle(context)),
           ),
-          SizedBox(
-            height: 268,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              itemCount: relatedMovies.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (ctx, index) {
-                final related = relatedMovies[index];
-                return SizedBox(
-                  width: 132,
-                  child: MovieCard(
-                    movie: _toMovieListItem(related),
-                    posterUrlBuilder: urlBuilder,
-                    onTap: () => Navigator.of(ctx).push(
-                      MaterialPageRoute(
-                        builder: (_) => MovieDetailPage(movieId: related.id),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // 与影片库三列网格保持相同的横向内边距、间距和宽高比。
+              const columns = 3;
+              const horizontalPadding = 44.0;
+              const crossAxisSpacing = 10.0;
+              const childAspectRatio = 0.55;
+              final cardWidth =
+                  (constraints.maxWidth - horizontalPadding -
+                          crossAxisSpacing * (columns - 1)) /
+                      columns;
+              return SizedBox(
+                height: cardWidth / childAspectRatio,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  itemCount: relatedMovies.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (ctx, index) {
+                    final related = relatedMovies[index];
+                    return SizedBox(
+                      width: cardWidth,
+                      child: MovieCard(
+                        movie: _toMovieListItem(related),
+                        posterUrlBuilder: urlBuilder,
+                        onTap: () => Navigator.of(ctx).push(
+                          MaterialPageRoute(
+                            builder: (_) => MovieDetailPage(movieId: related.id),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
+                    );
+                  },
+                ),
+              );
+            },
           ),
         ],
       ),
