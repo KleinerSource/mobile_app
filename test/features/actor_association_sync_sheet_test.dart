@@ -9,6 +9,7 @@ import 'package:md_center/core/config/server_config_provider.dart';
 import 'package:md_center/core/models/avdb_config.dart';
 import 'package:md_center/core/models/dbo_config.dart';
 import 'package:md_center/core/models/mapping_rule.dart';
+import 'package:md_center/core/platform/app_theme.dart';
 import 'package:md_center/features/actor_associations/actor_associations_providers.dart';
 import 'package:md_center/features/actor_associations/actor_associations_repository.dart';
 import 'package:md_center/features/actor_associations/widgets/actor_association_sync_sheet.dart';
@@ -154,14 +155,38 @@ void main() {
     expect(find.text('混合渠道完整结果'), findsOneWidget);
     expect(find.text('混合渠道部分结果'), findsNothing);
     expect(find.textContaining('等待'), findsNothing);
-    expect(find.textContaining('DB Online未找到匹配'), findsNothing);
-    expect(find.text('DB Online 未找到匹配'), findsOneWidget);
-    expect(find.byIcon(Icons.error_outline), findsOneWidget);
+    expect(find.textContaining('DB Online 无匹配'), findsNothing);
+    expect(find.text('DB Online 无匹配'), findsOneWidget);
+    final notFoundIcon = tester.widget<Icon>(find.byIcon(Icons.error_outline));
+    expect(notFoundIcon.color, AppColors.light.muted);
     expect(find.text('新别名'), findsOneWidget);
     final readyButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, '确认添加'),
     );
     expect(readyButton.onPressed, isNotNull);
+
+    final failedDbo = repository.enqueue(ActorDataSource.dbonline);
+    await tester.tap(find.text('DB Online'));
+    await tester.pump();
+    failedDbo.complete(const ActorAssocPreview(
+      found: false,
+      mappedValue: '',
+      actorName: '演员 A',
+      allAliases: [],
+      existingAliases: [],
+      newAliases: [],
+      warnings: ['DB Online 渠道查询失败: 请求超时'],
+    ));
+    await tester.pumpAndSettle();
+
+    final failedIcons = tester.widgetList<Icon>(
+      find.byIcon(Icons.error_outline),
+    );
+    expect(failedIcons, isNotEmpty);
+    expect(
+      failedIcons.every((icon) => icon.color == AppColors.light.danger),
+      isTrue,
+    );
   });
 
   testWidgets('头像预览未完成时仍提交上游头像地址', (tester) async {

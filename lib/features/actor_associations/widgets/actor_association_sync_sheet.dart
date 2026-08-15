@@ -821,8 +821,8 @@ class _ActorDataSourceOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final hasError = notFound || failed;
-    final statusLabel = notFound ? '未找到匹配' : '请求失败';
+    final hasStatus = notFound || failed;
+    final statusLabel = failed ? '请求失败' : '无匹配';
     void select() {
       if (enabled && !selected) onChanged(source);
     }
@@ -831,7 +831,7 @@ class _ActorDataSourceOption extends StatelessWidget {
       button: true,
       selected: selected,
       enabled: enabled,
-      label: hasError ? '${source.label}，$statusLabel' : source.label,
+      label: hasStatus ? '${source.label}，$statusLabel' : source.label,
       child: Material(
         color: selected ? c.accent.withValues(alpha: 0.10) : c.surface,
         shape: RoundedRectangleBorder(
@@ -882,14 +882,14 @@ class _ActorDataSourceOption extends StatelessWidget {
                               : c.muted,
                         ),
                       ),
-                    ] else if (hasError) ...[
+                    ] else if (hasStatus) ...[
                       const SizedBox(width: 6),
                       Tooltip(
                         message: statusLabel,
                         child: Icon(
                           Icons.error_outline,
                           size: 16,
-                          color: c.danger,
+                          color: failed ? c.danger : c.muted,
                         ),
                       ),
                     ],
@@ -1329,13 +1329,13 @@ class _ActorChannelStatusSummary extends StatelessWidget {
       notFoundSources,
       icon: Icons.search_off_rounded,
       color: c.muted,
-      suffix: '未找到匹配',
+      suffix: '无匹配',
     );
     addStatus(
       pendingSources,
       icon: Icons.sync,
       color: c.warning,
-      suffix: '等待补齐',
+      suffix: '查询中...',
     );
 
     if (statuses.isEmpty) return const SizedBox.shrink();
