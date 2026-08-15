@@ -561,6 +561,7 @@ class _ActorAssociationSyncSheetState
 
   @override
   Widget build(BuildContext context) {
+    final c = appColors(context);
     final mq = MediaQuery.of(context);
     final preview = _preview;
     final canApply = preview != null &&
