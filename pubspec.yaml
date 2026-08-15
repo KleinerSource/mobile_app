@@ -1,7 +1,7 @@
 name: md_center
 description: md_center 移动端 (iOS + Android)
 publish_to: 'none'
-version: 0.20.2+267
+version: 0.20.3+268
 environment:
   sdk: '>=3.8.0 <4.0.0'
 
