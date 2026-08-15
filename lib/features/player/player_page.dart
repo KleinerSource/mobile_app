@@ -16,7 +16,6 @@ import '../../core/api/url_resolver.dart';
 import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
-import '../../core/diagnostics/crash_log_service.dart';
 import '../../core/models/playback.dart' as playback_models;
 import '../../core/models/watch_record.dart';
 import '../../core/platform/app_theme.dart';
@@ -503,8 +502,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       setState(() => _loading = false);
       _schedulePlaybackFailureReset();
       _restartHideTimer();
-    } catch (error, stack) {
-      _recordPlaybackError(error, stack, phase: 'load');
+    } catch (error) {
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _error = toApiException(error).message;
@@ -636,11 +634,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _onPlayerError(String message) {
-    _recordPlaybackError(
-      StateError(message),
-      StackTrace.current,
-      phase: 'player',
-    );
     if (!mounted ||
         _isLeaving ||
         _loading ||
@@ -703,11 +696,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _stopAfterPlaybackFailure(String message) async {
-    _recordPlaybackError(
-      StateError(message),
-      StackTrace.current,
-      phase: 'retry-exhausted',
-    );
     try {
       await _host.stop();
       await _stopTranscodeSession();
@@ -718,33 +706,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           '${toApiException(message).message}';
       _loading = false;
     });
-  }
-
-  void _recordPlaybackError(
-    Object error,
-    StackTrace stack, {
-    required String phase,
-  }) {
-    try {
-      unawaited(
-        ref.read(crashLogServiceProvider).recordError(
-              error,
-              stack,
-              source: 'player',
-              context: {
-                'phase': phase,
-                'movie_id': widget.movieId,
-                'quality': _quality,
-                'using_hls': _usingHls,
-                'hardware_acceleration': _clientHardwareAcceleration,
-                'position_seconds': _lastPositionSec,
-                'duration_seconds': _lastDurationSec,
-              },
-            ).catchError((_) {}),
-      );
-    } catch (_) {
-      // 日志服务不可用时不能影响播放器的错误处理。
-    }
   }
 
   void _schedulePlaybackFailureReset() {

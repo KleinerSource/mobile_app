@@ -27,7 +27,6 @@ dependencies:
   connectivity_plus: ^7.3.1
   sensors_plus: ^7.1.0
   package_info_plus: ^9.0.1
-  share_plus: ^10.1.4
   url_launcher: ^6.3.2
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1

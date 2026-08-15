@@ -13,7 +13,6 @@ import '../privacy/privacy_providers.dart';
 import '../security/security_settings_page.dart';
 import 'badge_position_page.dart';
 import 'cache_management_page.dart';
-import 'crash_logs_page.dart';
 import 'haptic_settings.dart';
 import 'player_settings_page.dart';
 import 'settings_common.dart';
@@ -62,16 +61,6 @@ class AppSettingsPage extends ConsumerWidget {
                   const _LanguageTile(),
                   const _ThemeTile(),
                   const _HapticIntensityTile(),
-                  SettingsTile(
-                    title: '崩溃日志',
-                    subtitle: '查看并导出应用与播放错误记录',
-                    leadingIcon: Icons.bug_report_outlined,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const CrashLogsPage(),
-                      ),
-                    ),
-                  ),
                   SettingsTile(
                     title: l.settingsBadgePositions,
                     subtitle: l.settingsBadgePositionsSub,
