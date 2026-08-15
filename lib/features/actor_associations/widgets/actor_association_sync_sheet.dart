@@ -593,7 +593,6 @@ class _ActorAssociationSyncSheetState
                   const SizedBox(height: 12),
                   _ActorDataSourceSelector(
                     sources: _availableSources,
-                    pendingSources: _pendingSources,
                     notFoundSources: _notFoundSources,
                     failedSources: _failedSources,
                     selectedSource: _source,
@@ -743,7 +742,6 @@ class _ActorAssociationSyncSheetState
 class _ActorDataSourceSelector extends StatelessWidget {
   const _ActorDataSourceSelector({
     required this.sources,
-    required this.pendingSources,
     required this.notFoundSources,
     required this.failedSources,
     required this.selectedSource,
@@ -752,7 +750,6 @@ class _ActorDataSourceSelector extends StatelessWidget {
   });
 
   final List<ActorDataSource> sources;
-  final List<String> pendingSources;
   final List<String> notFoundSources;
   final Set<String> failedSources;
   final ActorDataSource selectedSource;
@@ -783,7 +780,6 @@ class _ActorDataSourceSelector extends StatelessWidget {
               Expanded(
                 child: _ActorDataSourceOption(
                   source: sources[i],
-                  loading: pendingSources.contains(sources[i].value),
                   notFound: notFoundSources.contains(sources[i].value),
                   failed: failedSources.contains(sources[i].value),
                   selected: sources[i] == selectedSource,
@@ -802,7 +798,6 @@ class _ActorDataSourceSelector extends StatelessWidget {
 class _ActorDataSourceOption extends StatelessWidget {
   const _ActorDataSourceOption({
     required this.source,
-    required this.loading,
     required this.notFound,
     required this.failed,
     required this.selected,
@@ -811,7 +806,6 @@ class _ActorDataSourceOption extends StatelessWidget {
   });
 
   final ActorDataSource source;
-  final bool loading;
   final bool notFound;
   final bool failed;
   final bool selected;
@@ -870,29 +864,6 @@ class _ActorDataSourceOption extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (loading) ...[
-                      const SizedBox(width: 6),
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: enabled
-                              ? (selected ? c.accent : c.muted)
-                              : c.muted,
-                        ),
-                      ),
-                    ] else if (hasStatus) ...[
-                      const SizedBox(width: 6),
-                      Tooltip(
-                        message: statusLabel,
-                        child: Icon(
-                          Icons.error_outline,
-                          size: 16,
-                          color: failed ? c.danger : c.muted,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -1305,6 +1276,7 @@ class _ActorChannelStatusSummary extends StatelessWidget {
       required IconData icon,
       required Color color,
       required String suffix,
+      bool spinning = false,
     }) {
       for (final source in sources) {
         if (!added.add(source)) continue;
@@ -1314,6 +1286,7 @@ class _ActorChannelStatusSummary extends StatelessWidget {
             icon: icon,
             color: color,
             label: '$label $suffix',
+            spinning: spinning,
           ),
         );
       }
@@ -1335,7 +1308,8 @@ class _ActorChannelStatusSummary extends StatelessWidget {
       pendingSources,
       icon: Icons.sync,
       color: c.warning,
-      suffix: '查询中...',
+      suffix: '查询中',
+      spinning: true,
     );
 
     if (statuses.isEmpty) return const SizedBox.shrink();
@@ -1347,35 +1321,77 @@ class _ActorChannelStatusSummary extends StatelessWidget {
   }
 }
 
-class _ActorChannelStatusPill extends StatelessWidget {
+class _ActorChannelStatusPill extends StatefulWidget {
   const _ActorChannelStatusPill({
     required this.icon,
     required this.color,
     required this.label,
+    this.spinning = false,
   });
 
   final IconData icon;
   final Color color;
   final String label;
+  final bool spinning;
+
+  @override
+  State<_ActorChannelStatusPill> createState() =>
+      _ActorChannelStatusPillState();
+}
+
+class _ActorChannelStatusPillState extends State<_ActorChannelStatusPill>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _rotationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    if (widget.spinning) _rotationController.repeat();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ActorChannelStatusPill oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.spinning == oldWidget.spinning) return;
+    if (widget.spinning) {
+      _rotationController.repeat();
+    } else {
+      _rotationController.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final icon = Icon(widget.icon, size: 13, color: widget.color);
+    final iconView = widget.spinning
+        ? RotationTransition(turns: _rotationController, child: icon)
+        : icon;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
+        color: widget.color.withValues(alpha: 0.10),
+        border: Border.all(color: widget.color.withValues(alpha: 0.35)),
         borderRadius: BorderRadius.circular(100),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: color),
+          iconView,
           const SizedBox(width: 5),
           Text(
-            label,
+            widget.label,
             style: TextStyle(
-              color: color,
+              color: widget.color,
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
             ),
