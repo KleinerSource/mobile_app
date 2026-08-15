@@ -40,7 +40,8 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
     );
 
     _overlayEntry?.remove();
-    final overlay = widget.navigatorKey.currentState?.overlay ??
+    final messenger = widget as TopSnackBarMessenger;
+    final overlay = messenger.navigatorKey.currentState?.overlay ??
         Overlay.maybeOf(context, rootOverlay: true);
     if (overlay == null) {
       return controller;
