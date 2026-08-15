@@ -33,7 +33,6 @@ import 'playback_decision.dart';
 import 'player_resume.dart';
 import 'player_settings.dart';
 import 'player_status_overlay.dart';
-import 'playback_retry_policy.dart';
 import 'subtitle_adjustment_sheet.dart';
 import 'subtitle_rendering.dart';
 import 'subtitle_settings.dart';
@@ -132,12 +131,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   double? _restoreBrightness;
   bool _wasPlayingBeforePause = false;
   Duration _backgroundPosition = Duration.zero;
-  bool _handlingPlaybackError = false;
   bool _playbackErrorReported = false;
-  final PlaybackRetryPolicy _playbackRetryPolicy = PlaybackRetryPolicy();
   String? _pendingPlaybackError;
   Timer? _rateChangeGraceTimer;
-  Timer? _playbackFailureResetTimer;
   bool _isLandscape = true;
   bool _isRateBoosting = false;
   double _playbackRate = 1.0;
@@ -280,7 +276,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _progressReportTimer?.cancel();
     _hideTimer?.cancel();
     _rateChangeGraceTimer?.cancel();
-    _playbackFailureResetTimer?.cancel();
     _onRateBoostEnd();
     _indicatorTimer?.cancel();
     unawaited(SystemChrome.setPreferredOrientations(DeviceOrientation.values));
@@ -341,15 +336,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<void> _load({
     String? quality,
     Duration? resume,
-    bool forceSoftware = false,
-    bool automaticRecovery = false,
   }) {
-    if (!automaticRecovery) {
-      _playbackFailureResetTimer?.cancel();
-      _playbackFailureResetTimer = null;
-      _playbackRetryPolicy.reset();
-      _playbackErrorReported = false;
-    }
+    _rateChangeGraceTimer?.cancel();
+    _rateChangeGraceTimer = null;
+    _pendingPlaybackError = null;
+    _playbackErrorReported = false;
     final generation = ++_loadGeneration;
 
     final next = _loadQueue.then<void>(
@@ -357,7 +348,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         generation: generation,
         quality: quality,
         resume: resume,
-        forceSoftware: forceSoftware,
       ),
     );
     _loadQueue = next.catchError((_) {});
@@ -368,7 +358,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     required int generation,
     String? quality,
     Duration? resume,
-    bool forceSoftware = false,
   }) async {
     if (_isLeaving || generation != _loadGeneration) return;
     final selectedQuality = quality ?? _quality;
@@ -396,12 +385,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       final token = await ref.read(authSessionRepositoryProvider).accessToken();
       if (!mounted || generation != _loadGeneration) return;
 
-      if (forceSoftware) {
-        if (_clientHardwareAcceleration) {
-          await _host.recreate(enableHardwareAcceleration: false);
-        }
-        _clientHardwareAcceleration = false;
-      } else if (!_clientHardwareAcceleration && quality != null) {
+      if (!_clientHardwareAcceleration && quality != null) {
         await _host.recreate(enableHardwareAcceleration: true);
         _clientHardwareAcceleration = true;
       }
@@ -500,14 +484,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         _startTranscodeMonitoring(selectedQuality);
       }
       setState(() => _loading = false);
-      _schedulePlaybackFailureReset();
       _restartHideTimer();
     } catch (error) {
       if (!mounted || generation != _loadGeneration) return;
+      _playbackErrorReported = true;
+      _loadGeneration++;
       setState(() {
         _error = toApiException(error).message;
         _loading = false;
       });
+      unawaited(_stopAfterPlaybackError());
     }
   }
 
@@ -636,8 +622,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   void _onPlayerError(String message) {
     if (!mounted ||
         _isLeaving ||
-        _loading ||
-        _handlingPlaybackError ||
         _playbackErrorReported) {
       return;
     }
@@ -645,81 +629,29 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _pendingPlaybackError = message;
       return;
     }
-    _handlePlaybackFailure(message);
+    _showPlaybackError(message);
   }
 
-  void _handlePlaybackFailure(String message) {
-    if (!mounted ||
-        _isLeaving ||
-        _loading ||
-        _handlingPlaybackError ||
-        _playbackErrorReported) {
-      return;
-    }
-    _playbackFailureResetTimer?.cancel();
-    _playbackFailureResetTimer = null;
-    if (!_playbackRetryPolicy.recordFailure()) {
-      _playbackErrorReported = true;
-      unawaited(_stopAfterPlaybackFailure(message));
-      return;
-    }
-    _beginPlaybackErrorRecovery(message);
+  void _showPlaybackError(String message) {
+    if (!mounted || _isLeaving || _playbackErrorReported) return;
+    _playbackErrorReported = true;
+    _rateChangeGraceTimer?.cancel();
+    _rateChangeGraceTimer = null;
+    _pendingPlaybackError = null;
+    // 让当前加载/播放任务失效，避免停止播放器后旧请求又把页面改回播放状态。
+    _loadGeneration++;
+    setState(() {
+      _error = toApiException(message).message;
+      _loading = false;
+    });
+    unawaited(_stopAfterPlaybackError());
   }
 
-  void _beginPlaybackErrorRecovery(String message) {
-    if (!mounted || _isLeaving || _loading || _handlingPlaybackError) return;
-    _handlingPlaybackError = true;
-    final resume = _host.position;
-    unawaited(_recoverFromPlayerError(message, resume));
-  }
-
-  Future<void> _recoverFromPlayerError(String message, Duration resume) async {
-    try {
-      if (_usingHls && _clientHardwareAcceleration) {
-        await _load(
-          resume: resume,
-          forceSoftware: true,
-          automaticRecovery: true,
-        );
-      } else if (!_usingHls) {
-        // 自动画质下只重开当前直传源，不能把播放器错误升级成服务端转码。
-        await _load(resume: resume, automaticRecovery: true);
-      } else if (mounted) {
-        setState(() {
-          _error = toApiException(message).message;
-          _loading = false;
-        });
-      }
-    } finally {
-      _handlingPlaybackError = false;
-    }
-  }
-
-  Future<void> _stopAfterPlaybackFailure(String message) async {
+  Future<void> _stopAfterPlaybackError() async {
     try {
       await _host.stop();
       await _stopTranscodeSession();
     } catch (_) {}
-    if (!mounted || _isLeaving) return;
-    setState(() {
-      _error = '播放失败，已连续尝试 ${_playbackRetryPolicy.maxFailures} 次：'
-          '${toApiException(message).message}';
-      _loading = false;
-    });
-  }
-
-  void _schedulePlaybackFailureReset() {
-    _playbackFailureResetTimer?.cancel();
-    _playbackFailureResetTimer = Timer(const Duration(seconds: 10), () {
-      _playbackFailureResetTimer = null;
-      if (!mounted ||
-          _isLeaving ||
-          _handlingPlaybackError ||
-          _playbackErrorReported) {
-        return;
-      }
-      _playbackRetryPolicy.reset();
-    });
   }
 
   Future<void> _onQualityChanged(String quality) async {
@@ -1060,7 +992,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _rateChangeGraceTimer = null;
       final pending = _pendingPlaybackError;
       _pendingPlaybackError = null;
-      if (pending != null) _handlePlaybackFailure(pending);
+      if (pending != null) _showPlaybackError(pending);
     });
     unawaited(_setPlaybackRateInternal(rate));
   }
@@ -1242,7 +1174,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _loadGeneration++;
     _hideTimer?.cancel();
     _onRateBoostEnd();
-    await _reportProgress();
+    if (_loading) {
+      // 初次加载时没有可上报的播放进度，不能让退出按钮等待网络请求。
+      unawaited(_reportProgress());
+    } else {
+      await _reportProgress();
+    }
     try {
       await _stopPlayer();
       await _stopTranscodeSession();
@@ -1401,14 +1338,22 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final settings = ref.watch(playerSettingsProvider);
     final subtitleSettings = ref.watch(subtitleSettingsProvider);
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: Colors.white));
+      return _LoadingView(onExit: () => unawaited(_exitPlayer()));
     }
     if (_error != null) {
-      return _ErrorView(message: _error!, onRetry: _load);
+      return _ErrorView(
+        message: _error!,
+        onRetry: _load,
+        onExit: () => unawaited(_exitPlayer()),
+      );
     }
     final decision = _decision;
     if (decision == null) {
-      return _ErrorView(message: '播放决策为空', onRetry: _load);
+      return _ErrorView(
+        message: '播放决策为空',
+        onRetry: _load,
+        onExit: () => unawaited(_exitPlayer()),
+      );
     }
     return Stack(
       children: [
@@ -1524,6 +1469,45 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 }
 
+class _LoadingView extends StatelessWidget {
+  const _LoadingView({required this.onExit});
+
+  final VoidCallback onExit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: Colors.white),
+              SizedBox(height: 12),
+              Text('正在加载影片…', style: TextStyle(color: Colors.white)),
+            ],
+          ),
+        ),
+        Positioned(
+          top: 8,
+          right: 8,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: Colors.black54,
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              onPressed: onExit,
+              tooltip: '退出播放',
+              icon: const Icon(Icons.close, color: Colors.white),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _PictureInPictureSource {
   const _PictureInPictureSource({
     required this.url,
@@ -1537,10 +1521,15 @@ class _PictureInPictureSource {
 }
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
+  const _ErrorView({
+    required this.message,
+    required this.onRetry,
+    required this.onExit,
+  });
 
   final String message;
   final VoidCallback onRetry;
+  final VoidCallback onExit;
 
   @override
   Widget build(BuildContext context) {
@@ -1559,14 +1548,27 @@ class _ErrorView extends StatelessWidget {
               style: const TextStyle(color: Colors.white),
             ),
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('重试'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white54),
-              ),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('重试'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white54),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: onExit,
+                  icon: const Icon(Icons.close, size: 16),
+                  label: const Text('退出播放'),
+                  style: TextButton.styleFrom(foregroundColor: Colors.white),
+                ),
+              ],
             ),
           ],
         ),
