@@ -559,6 +559,11 @@ class _ActorAssociationSyncSheetState
     return result;
   }
 
+  bool get _hasChannelStatuses =>
+      _pendingSources.isNotEmpty ||
+      _notFoundSources.isNotEmpty ||
+      _failedSources.isNotEmpty;
+
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
@@ -605,13 +610,23 @@ class _ActorAssociationSyncSheetState
                   : _error != null
                       ? _ErrorView(message: _error!, onRetry: _load)
                       : preview == null
-                          ? const Center(child: Text('无数据'))
+                          ? const _NoPreviewView()
                           : !preview.found
                               ? Column(
                                   children: [
                                     Expanded(
                                       child: _EmptyView(actorName: _actorName),
                                     ),
+                                    if (_hasChannelStatuses)
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                            22, 0, 22, 12),
+                                        child: _ActorChannelStatusSummary(
+                                          pendingSources: _pendingSources,
+                                          notFoundSources: _notFoundSources,
+                                          failedSources: _failedSources,
+                                        ),
+                                      ),
                                     if (preview.warnings.isNotEmpty)
                                       _WarningsSection(warnings: preview.warnings),
                                   ],
@@ -633,6 +648,9 @@ class _ActorAssociationSyncSheetState
                                       activeLoadFailed: _activeAvatarLoadFailed,
                                       avatarManuallySelected:
                                           _avatarManuallySelected,
+                                      pendingSources: _pendingSources,
+                                      notFoundSources: _notFoundSources,
+                                      failedSources: _failedSources,
                                       onAvatarTap: _applying
                                           ? null
                                           : () => unawaited(_openAvatarPicker()),
@@ -895,6 +913,9 @@ class _ActorIdentitySection extends StatelessWidget {
     required this.activeLoading,
     required this.activeLoadFailed,
     required this.avatarManuallySelected,
+    required this.pendingSources,
+    required this.notFoundSources,
+    required this.failedSources,
     this.onAvatarTap,
   });
 
@@ -905,6 +926,9 @@ class _ActorIdentitySection extends StatelessWidget {
   final bool activeLoading;
   final bool activeLoadFailed;
   final bool avatarManuallySelected;
+  final List<String> pendingSources;
+  final List<String> notFoundSources;
+  final Set<String> failedSources;
   final VoidCallback? onAvatarTap;
 
   @override
@@ -1077,6 +1101,16 @@ class _ActorIdentitySection extends StatelessWidget {
                 Icon(Icons.error_outline, color: c.danger, size: 20),
             ],
           ),
+          if (pendingSources.isNotEmpty ||
+              notFoundSources.isNotEmpty ||
+              failedSources.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _ActorChannelStatusSummary(
+              pendingSources: pendingSources,
+              notFoundSources: notFoundSources,
+              failedSources: failedSources,
+            ),
+          ),
         ],
       ),
     );
@@ -1244,6 +1278,109 @@ class _AvatarChoicePicker extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ActorChannelStatusSummary extends StatelessWidget {
+  const _ActorChannelStatusSummary({
+    required this.pendingSources,
+    required this.notFoundSources,
+    required this.failedSources,
+  });
+
+  final List<String> pendingSources;
+  final List<String> notFoundSources;
+  final Set<String> failedSources;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final statuses = <Widget>[];
+    final added = <String>{};
+
+    void addStatus(
+      Iterable<String> sources, {
+      required IconData icon,
+      required Color color,
+      required String suffix,
+    }) {
+      for (final source in sources) {
+        if (!added.add(source)) continue;
+        final label = actorDataSourceFromValue(source)?.label ?? source;
+        statuses.add(
+          _ActorChannelStatusPill(
+            icon: icon,
+            color: color,
+            label: '$label $suffix',
+          ),
+        );
+      }
+    }
+
+    addStatus(
+      failedSources,
+      icon: Icons.error_outline,
+      color: c.danger,
+      suffix: '请求失败',
+    );
+    addStatus(
+      notFoundSources,
+      icon: Icons.search_off_rounded,
+      color: c.muted,
+      suffix: '未找到匹配',
+    );
+    addStatus(
+      pendingSources,
+      icon: Icons.sync,
+      color: c.warning,
+      suffix: '等待补齐',
+    );
+
+    if (statuses.isEmpty) return const SizedBox.shrink();
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: statuses,
+    );
+  }
+}
+
+class _ActorChannelStatusPill extends StatelessWidget {
+  const _ActorChannelStatusPill({
+    required this.icon,
+    required this.color,
+    required this.label,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1453,6 +1590,40 @@ class _AliasPill extends StatelessWidget {
   }
 }
 
+class _NoPreviewView extends StatelessWidget {
+  const _NoPreviewView();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_download_outlined, color: c.muted, size: 36),
+            const SizedBox(height: 8),
+            Text(
+              '暂无预览数据',
+              style: TextStyle(
+                color: c.text,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '完成数据源请求后，外部接口返回的演员信息会显示在这里。',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: c.muted, fontSize: 12.5),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.message, required this.onRetry});
   final String message;
@@ -1469,9 +1640,19 @@ class _ErrorView extends StatelessWidget {
           children: [
             Icon(Icons.error_outline, color: c.danger, size: 32),
             const SizedBox(height: 8),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: c.danger)),
+            Text(
+              '请求失败',
+              style: TextStyle(
+                color: c.danger,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: c.muted, fontSize: 12.5),
+            ),
             const SizedBox(height: 12),
             OutlinedButton(onPressed: onRetry, child: const Text('重试')),
           ],
@@ -1496,9 +1677,19 @@ class _EmptyView extends StatelessWidget {
           children: [
             Icon(Icons.search_off_rounded, color: c.muted, size: 36),
             const SizedBox(height: 8),
-            Text('数据源没有找到匹配演员: $actorName',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: c.muted)),
+            Text(
+              '未找到匹配演员',
+              style: TextStyle(
+                color: c.text,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '外部数据源没有找到“$actorName”的匹配结果。',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: c.muted, fontSize: 12.5),
+            ),
           ],
         ),
       ),
