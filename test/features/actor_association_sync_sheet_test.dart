@@ -110,7 +110,7 @@ void main() {
     await tester.pump();
     expect(repository.requests.last, ActorDataSource.mixed);
 
-    // 首个渠道（AVDB）先完成：立即上屏，等待 DB Online 补齐
+    // 首个渠道（AVDB）先完成：立即上屏，DB Online 按钮显示补齐状态
     mixedPartial.complete(const MixedActorPreviewSession(
       status: 'running',
       pendingSources: ['dbonline'],
@@ -125,7 +125,8 @@ void main() {
     ));
     await tester.pump();
     expect(find.text('混合渠道部分结果'), findsOneWidget);
-    expect(find.textContaining('等待DB Online补齐'), findsOneWidget);
+    expect(find.textContaining('等待DB Online补齐'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
     // 补齐期间仍可确认同步：允许按已合并的数据先行应用
     final pendingButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, '确认添加'),

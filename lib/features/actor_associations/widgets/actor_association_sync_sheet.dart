@@ -542,16 +542,6 @@ class _ActorAssociationSyncSheetState
     }
   }
 
-  /// 混合渠道渐进补齐中仍在等待的渠道显示名
-  String _pendingSourceLabel() {
-    const labels = {
-      'dbonline': 'DB Online',
-      'avdb': 'AVDB',
-      'mixed': '混合渠道',
-    };
-    return _pendingSources.map((s) => labels[s] ?? s).join('、');
-  }
-
   /// 混合渠道未命中的渠道显示名（请求成功但没有匹配演员）
   List<String> get _notFoundSources =>
       _preview?.notFoundSources ?? const <String>[];
@@ -570,8 +560,6 @@ class _ActorAssociationSyncSheetState
     final c = appColors(context);
     final mq = MediaQuery.of(context);
     final preview = _preview;
-    // 渐进补齐不阻止应用：允许按已合并的数据先行同步（未返回渠道的身份可后续再补）
-    final supplementing = _pendingSources.isNotEmpty;
     final notFoundLabel = _notFoundLabel();
     final canApply = preview != null &&
         preview.found &&
@@ -597,6 +585,7 @@ class _ActorAssociationSyncSheetState
                   const SizedBox(height: 12),
                   _ActorDataSourceSelector(
                     sources: _availableSources,
+                    pendingSources: _pendingSources,
                     selectedSource: _source,
                     enabled: !_applying,
                     onChanged: _selectSource,
@@ -604,31 +593,17 @@ class _ActorAssociationSyncSheetState
                 ],
               ),
             ),
-            // 补齐/未命中信息以紧凑横幅展示（未命中不占独立警告卡片）
-            if (supplementing || notFoundLabel.isNotEmpty)
+            // 未命中信息以紧凑横幅展示（补齐状态显示在对应渠道按钮内）
+            if (notFoundLabel.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
                 child: Row(
                   children: [
-                    if (supplementing) ...[
-                      const SizedBox(
-                        width: 13,
-                        height: 13,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      const SizedBox(width: 8),
-                    ] else ...[
-                      Icon(Icons.search, size: 14, color: c.muted),
-                      const SizedBox(width: 8),
-                    ],
+                    Icon(Icons.search, size: 14, color: c.muted),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        [
-                          if (supplementing)
-                            '等待${_pendingSourceLabel()}补齐，先到的渠道数据已展示',
-                          if (notFoundLabel.isNotEmpty)
-                            '$notFoundLabel未找到匹配',
-                        ].join('；'),
+                        '$notFoundLabel未找到匹配',
                         style: AppText.meta(context),
                       ),
                     ),
@@ -762,12 +737,14 @@ class _ActorAssociationSyncSheetState
 class _ActorDataSourceSelector extends StatelessWidget {
   const _ActorDataSourceSelector({
     required this.sources,
+    required this.pendingSources,
     required this.selectedSource,
     required this.onChanged,
     this.enabled = true,
   });
 
   final List<ActorDataSource> sources;
+  final List<String> pendingSources;
   final ActorDataSource selectedSource;
   final ValueChanged<ActorDataSource> onChanged;
   final bool enabled;
@@ -796,6 +773,7 @@ class _ActorDataSourceSelector extends StatelessWidget {
               Expanded(
                 child: _ActorDataSourceOption(
                   source: sources[i],
+                  loading: pendingSources.contains(sources[i].value),
                   selected: sources[i] == selectedSource,
                   enabled: enabled,
                   onChanged: onChanged,
@@ -812,12 +790,14 @@ class _ActorDataSourceSelector extends StatelessWidget {
 class _ActorDataSourceOption extends StatelessWidget {
   const _ActorDataSourceOption({
     required this.source,
+    required this.loading,
     required this.selected,
     required this.enabled,
     required this.onChanged,
   });
 
   final ActorDataSource source;
+  final bool loading;
   final bool selected;
   final bool enabled;
   final ValueChanged<ActorDataSource> onChanged;
@@ -854,17 +834,38 @@ class _ActorDataSourceOption extends StatelessWidget {
                   horizontal: 12,
                   vertical: 8,
                 ),
-                child: Text(
-                  source.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: enabled
-                        ? (selected ? c.accent : c.text)
-                        : c.muted,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
-                    fontSize: 13,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (loading) ...[
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: enabled
+                              ? (selected ? c.accent : c.muted)
+                              : c.muted,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Flexible(
+                      child: Text(
+                        source.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: enabled
+                              ? (selected ? c.accent : c.text)
+                              : c.muted,
+                          fontWeight:
+                              selected ? FontWeight.w800 : FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
