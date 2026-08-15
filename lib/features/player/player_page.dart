@@ -26,6 +26,7 @@ import 'player_controls.dart';
 import 'player_decode_status.dart';
 import 'player_device_stats.dart';
 import 'player_gesture_layer.dart';
+import 'ksplayer_page.dart';
 import 'player_overlay_indicators.dart';
 import 'player_platform.dart';
 import 'player_queue.dart';
@@ -65,12 +66,29 @@ class PlayerPage extends ConsumerStatefulWidget {
   }) {
     return Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => PlayerPage(
-          movieId: movieId,
-          title: title,
-          startPositionSec: startPositionSec,
-          queue: queue,
-          queueIndex: queueIndex,
+        builder: (_) => Consumer(
+          builder: (_, ref, __) {
+            final useKsPlayer =
+                Platform.isIOS &&
+                ref.watch(playerSettingsProvider).kernel ==
+                    PlayerKernel.ksPlayer;
+            if (useKsPlayer) {
+              return KsPlayerPage(
+                movieId: movieId,
+                title: title,
+                startPositionSec: startPositionSec,
+                queue: queue,
+                queueIndex: queueIndex,
+              );
+            }
+            return PlayerPage(
+              movieId: movieId,
+              title: title,
+              startPositionSec: startPositionSec,
+              queue: queue,
+              queueIndex: queueIndex,
+            );
+          },
         ),
       ),
     );

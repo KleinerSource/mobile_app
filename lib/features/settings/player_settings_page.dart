@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,6 +50,23 @@ class PlayerSettingsPage extends ConsumerWidget {
                   ),
                 ],
               ),
+              if (Platform.isIOS)
+                SettingsGroup(
+                  title: '播放器内核',
+                  items: [
+                    _PlayerOptionTile<PlayerKernel>(
+                      title: '播放内核',
+                      subtitle: '下次打开影片生效',
+                      icon: Icons.memory_outlined,
+                      value: settings.kernel,
+                      options: PlayerKernel.values,
+                      optionLabel: (value) => value.label,
+                      onChanged: (value) => update(
+                        settings.copyWith(kernel: value),
+                      ),
+                    ),
+                  ],
+                ),
               SettingsGroup(
                 title: '屏幕方向',
                 items: [
@@ -273,6 +291,7 @@ class _PlayerOptionTile<T> extends StatelessWidget {
     required this.options,
     required this.optionLabel,
     required this.onChanged,
+    this.subtitle,
   });
 
   final String title;
@@ -281,6 +300,7 @@ class _PlayerOptionTile<T> extends StatelessWidget {
   final List<T> options;
   final String Function(T) optionLabel;
   final ValueChanged<T> onChanged;
+  final String? subtitle;
 
   Future<void> _pick(BuildContext context) async {
     final c = appColors(context);
@@ -329,7 +349,9 @@ class _PlayerOptionTile<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return SettingsTile(
       title: title,
-      subtitle: optionLabel(value),
+      subtitle: subtitle == null
+          ? optionLabel(value)
+          : '$subtitle · ${optionLabel(value)}',
       leadingIcon: icon,
       onTap: () => _pick(context),
     );

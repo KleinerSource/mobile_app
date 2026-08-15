@@ -22,6 +22,10 @@ import UIKit
     guard let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MdCenterPlayer") else {
       return
     }
+    registrar.register(
+      KSPlayerPlatformViewFactory(messenger: registrar.messenger()),
+      withId: ksPlayerViewType
+    )
     let statsChannel = FlutterMethodChannel(
       name: "md_center/player_stats",
       binaryMessenger: registrar.messenger()

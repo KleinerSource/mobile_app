@@ -4,6 +4,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/server_config_provider.dart';
 
+enum PlayerKernel {
+  mediaKit('media_kit', 'media_kit / libmpv'),
+  ksPlayer('ksplayer', 'KSPlayer (iOS)');
+
+  const PlayerKernel(this.value, this.label);
+
+  final String value;
+  final String label;
+
+  static PlayerKernel fromValue(String? value) {
+    return values.firstWhere(
+      (item) => item.value == value,
+      orElse: () => PlayerKernel.mediaKit,
+    );
+  }
+}
+
 enum PlayerLandscapeSide {
   cameraLeft('camera_left', '摄像头在左侧'),
   cameraRight('camera_right', '摄像头在右侧');
@@ -42,6 +59,7 @@ enum PlayerEntryOrientation {
 @immutable
 class PlayerSettings {
   const PlayerSettings({
+    this.kernel = PlayerKernel.mediaKit,
     this.resumeFromLastPosition = true,
     this.landscapeSide = PlayerLandscapeSide.cameraRight,
     this.entryOrientation = PlayerEntryOrientation.forceLandscape,
@@ -63,6 +81,7 @@ class PlayerSettings {
     this.showMediaSwitchButton = true,
   });
 
+  final PlayerKernel kernel;
   final bool resumeFromLastPosition;
   final PlayerLandscapeSide landscapeSide;
   final PlayerEntryOrientation entryOrientation;
@@ -84,6 +103,7 @@ class PlayerSettings {
   final bool showMediaSwitchButton;
 
   PlayerSettings copyWith({
+    PlayerKernel? kernel,
     bool? resumeFromLastPosition,
     PlayerLandscapeSide? landscapeSide,
     PlayerEntryOrientation? entryOrientation,
@@ -105,6 +125,7 @@ class PlayerSettings {
     bool? showMediaSwitchButton,
   }) {
     return PlayerSettings(
+      kernel: kernel ?? this.kernel,
       resumeFromLastPosition:
           resumeFromLastPosition ?? this.resumeFromLastPosition,
       landscapeSide: landscapeSide ?? this.landscapeSide,
@@ -135,6 +156,7 @@ class PlayerSettingsRepository {
   PlayerSettingsRepository(this._prefs);
 
   static const _resumeKey = 'player.resume_from_last_position';
+  static const _kernelKey = 'player.kernel';
   static const _landscapeSideKey = 'player.landscape_side';
   static const _entryOrientationKey = 'player.entry_orientation';
   static const _doubleTapCenterKey = 'player.double_tap_center';
@@ -159,6 +181,7 @@ class PlayerSettingsRepository {
 
   PlayerSettings load() {
     return PlayerSettings(
+      kernel: PlayerKernel.fromValue(_prefs.getString(_kernelKey)),
       resumeFromLastPosition: _prefs.getBool(_resumeKey) ?? true,
       landscapeSide: PlayerLandscapeSide.fromValue(
         _prefs.getString(_landscapeSideKey),
@@ -190,6 +213,7 @@ class PlayerSettingsRepository {
 
   Future<void> save(PlayerSettings settings) async {
     await Future.wait([
+      _prefs.setString(_kernelKey, settings.kernel.value),
       _prefs.setBool(_resumeKey, settings.resumeFromLastPosition),
       _prefs.setString(_landscapeSideKey, settings.landscapeSide.value),
       _prefs.setString(

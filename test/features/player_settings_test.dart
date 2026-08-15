@@ -9,6 +9,7 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final settings = PlayerSettingsRepository(prefs).load();
 
+    expect(settings.kernel, PlayerKernel.mediaKit);
     expect(settings.resumeFromLastPosition, isTrue);
     expect(settings.landscapeSide, PlayerLandscapeSide.cameraRight);
     expect(settings.entryOrientation, PlayerEntryOrientation.forceLandscape);
@@ -50,11 +51,25 @@ void main() {
     );
   });
 
+  test('播放器内核未知值回退为 media_kit', () async {
+    SharedPreferences.setMockInitialValues({
+      'player.kernel': 'unsupported',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    expect(
+      PlayerSettingsRepository(prefs).load().kernel,
+      PlayerKernel.mediaKit,
+    );
+    expect(PlayerKernel.fromValue('ksplayer'), PlayerKernel.ksPlayer);
+  });
+
   test('播放器设置可以持久化并恢复', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final repository = PlayerSettingsRepository(prefs);
     const expected = PlayerSettings(
+      kernel: PlayerKernel.ksPlayer,
       resumeFromLastPosition: false,
       landscapeSide: PlayerLandscapeSide.cameraRight,
       entryOrientation: PlayerEntryOrientation.forcePortrait,
@@ -79,6 +94,7 @@ void main() {
     await repository.save(expected);
     final actual = repository.load();
 
+    expect(actual.kernel, PlayerKernel.ksPlayer);
     expect(actual.resumeFromLastPosition, isFalse);
     expect(actual.landscapeSide, PlayerLandscapeSide.cameraRight);
     expect(actual.entryOrientation, PlayerEntryOrientation.forcePortrait);

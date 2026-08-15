@@ -45,10 +45,41 @@ ios/*
 ios/Runner/*
 !ios/Runner/Info.plist
 !ios/Runner/AppDelegate.swift
+!ios/Runner/SceneDelegate.swift
+!ios/Runner/Runner-Bridging-Header.h
+!ios/Runner/KSPlayerPlatformView.swift
+!ios/Runner/Base.lproj/
+!ios/Runner/Base.lproj/**
 !ios/Runner/Assets.xcassets/
 ios/Runner/Assets.xcassets/*
 !ios/Runner/Assets.xcassets/AppIcon.appiconset/
 !ios/Runner/Assets.xcassets/AppIcon.appiconset/**
+
+# Keep the native Xcode project and Swift Package resolution for the iOS build.
+!ios/Runner.xcodeproj/
+!ios/Runner.xcodeproj/project.pbxproj
+!ios/Runner.xcodeproj/project.xcworkspace/
+!ios/Runner.xcodeproj/project.xcworkspace/**
+!ios/Runner.xcodeproj/xcshareddata/
+!ios/Runner.xcodeproj/xcshareddata/**
+!ios/Runner.xcworkspace/
+!ios/Runner.xcworkspace/contents.xcworkspacedata
+!ios/Runner.xcworkspace/xcshareddata/
+!ios/Runner.xcworkspace/xcshareddata/**
+!ios/Podfile
+!ios/RunnerTests/
+!ios/RunnerTests/RunnerTests.swift
+!ios/Flutter/
+!ios/Flutter/AppFrameworkInfo.plist
+!ios/Flutter/Debug.xcconfig
+!ios/Flutter/Release.xcconfig
+
+# Ignore Xcode/Flutter-generated iOS metadata while keeping the project,
+# scheme, workspace and Swift Package resolution files above.
+ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/
+ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/**
+ios/Runner.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+ios/Runner.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings
 
 # Keep the Android minimum SDK required by flutter_secure_storage in source control.
 !android/

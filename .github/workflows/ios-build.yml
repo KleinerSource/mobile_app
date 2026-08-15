@@ -42,8 +42,13 @@ jobs:
         timeout-minutes: 2
         run: |
           set -euo pipefail
-          commit_message="$(git log -1 --format=%B "${GITHUB_SHA}")"
-          version="$(dart tool/bump_app_version.dart --auto --commit-message "${commit_message}")"
+          if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
+            # Dev 构建只递增 build，避免开发分支消耗正式版本号。
+            version="$(dart tool/bump_app_version.dart --build-only)"
+          else
+            commit_message="$(git log -1 --format=%B "${GITHUB_SHA}")"
+            version="$(dart tool/bump_app_version.dart --auto --commit-message "${commit_message}")"
+          fi
           echo "构建版本: ${version}"
           if { [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/master" ]; } || \
              { [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && [ "${GITHUB_REF}" = "refs/heads/master" ]; }; then
@@ -71,11 +76,10 @@ jobs:
               --org com.mdcenter \
               --project-name md_center \
               --description "md_center 移动端"
-            # iOS deployment target 16.0
-            sed -i '' "s/# platform :ios, '12.0'/platform :ios, '16.0'/" ios/Podfile || true
-            sed -i '' "s/platform :ios, '12.0'/platform :ios, '16.0'/" ios/Podfile || true
-            sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/IPHONEOS_DEPLOYMENT_TARGET = 16.0;/g" ios/Runner.xcodeproj/project.pbxproj || true
-            sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/IPHONEOS_DEPLOYMENT_TARGET = 16.0;/g" ios/Runner.xcodeproj/project.pbxproj || true
+            # iOS deployment target 13.0 (KSPlayer 2.3.4 supports iOS 13+).
+            sed -i '' "s/# platform :ios, '12.0'/platform :ios, '13.0'/" ios/Podfile || true
+            sed -i '' "s/platform :ios, '12.0'/platform :ios, '13.0'/" ios/Podfile || true
+            sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/g" ios/Runner.xcodeproj/project.pbxproj || true
           else
             echo "ios/Runner.xcodeproj exists, skipping bootstrap"
           fi
@@ -97,10 +101,10 @@ jobs:
         run: |
           set -euo pipefail
           if [ -f ios/Podfile ]; then
-            sed -i '' "s/# platform :ios.*/platform :ios, '16.0'/" ios/Podfile || true
-            sed -i '' "s/platform :ios, '[0-9.]*'/platform :ios, '16.0'/" ios/Podfile || true
+            sed -i '' "s/# platform :ios.*/platform :ios, '13.0'/" ios/Podfile || true
+            sed -i '' "s/platform :ios, '[0-9.]*'/platform :ios, '13.0'/" ios/Podfile || true
             if ! grep -q "platform :ios" ios/Podfile; then
-              printf "platform :ios, '16.0'\n%s\n" "$(cat ios/Podfile)" > ios/Podfile
+              printf "platform :ios, '13.0'\n%s\n" "$(cat ios/Podfile)" > ios/Podfile
             fi
             echo "---- ios/Podfile ----"; cat ios/Podfile
           else
@@ -165,23 +169,34 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # 仅 master 分支 push 时滚动发布 latest 预发布
-      - name: 发布到 GitHub Release (latest)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      # master 与 dev 使用独立的滚动 Release，避免开发包覆盖正式 latest。
+      - name: 发布到 GitHub Release (latest / latest-ios-dev)
+        if: >-
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
         timeout-minutes: 5
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
+          if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
+            release_tag="latest-ios-dev"
+            release_title="Latest unsigned iOS dev build"
+            notes_title="未签名 iOS Dev 构建产物（自动滚动更新）"
+          else
+            release_tag="latest"
+            release_title="Latest unsigned iOS build"
+            notes_title="未签名 iOS 构建产物（自动滚动更新）"
+          fi
           notes_file="$(mktemp)"
           trap 'rm -f "${notes_file}"' EXIT
           bash tool/generate_release_notes.sh \
-            latest "${version}" "${notes_file}" \
-            '未签名 iOS 构建产物（自动滚动更新）'
-          gh release delete latest --yes --cleanup-tag || true
-          gh release create latest "${{ steps.ios_artifact.outputs.path }}" \
+            "${release_tag}" "${version}" "${notes_file}" \
+            "${notes_title}"
+          gh release delete "${release_tag}" --yes --cleanup-tag || true
+          gh release create "${release_tag}" "${{ steps.ios_artifact.outputs.path }}" \
             --prerelease \
             --target "$GITHUB_SHA" \
-            --title "Latest unsigned iOS build" \
+            --title "${release_title}" \
             --notes-file "${notes_file}"
