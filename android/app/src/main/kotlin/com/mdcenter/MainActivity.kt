@@ -26,6 +26,8 @@ class MainActivity : FlutterFragmentActivity() {
         private const val CAPABILITIES_CHANNEL = "md_center/player_capabilities"
         private const val UPDATE_CHANNEL = "md_center/app_update"
         private const val DEVICE_LOCK_CHANNEL = "md_center/device_lock"
+        // Android SDK 未在所有版本暴露 NETWORK_TYPE_LTE_CA，但其标准值为 19。
+        private const val NETWORK_TYPE_LTE_CA = 19
     }
 
     private var previousRxBytes: Long? = null
@@ -212,7 +214,7 @@ class MainActivity : FlutterFragmentActivity() {
         return when (networkType) {
             TelephonyManager.NETWORK_TYPE_NR -> "5g"
             TelephonyManager.NETWORK_TYPE_LTE,
-            TelephonyManager.NETWORK_TYPE_LTE_CA -> "4g"
+            NETWORK_TYPE_LTE_CA -> "4g"
             else -> "mobile"
         }
     }
