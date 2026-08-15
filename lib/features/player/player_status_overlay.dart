@@ -72,8 +72,9 @@ class _PlayerStatusOverlayState extends State<PlayerStatusOverlay> {
             if (widget.showNetworkSpeed)
               _item(
                 _networkIcon(widget.stats.networkType),
-                '${widget.stats.networkType.label} '
-                '${formatPlayerNetworkRate(widget.stats.downloadBytesPerSecond)}',
+                formatPlayerNetworkRate(widget.stats.downloadBytesPerSecond),
+                semanticLabel: '${widget.stats.networkType.label} '
+                    '${formatPlayerNetworkRate(widget.stats.downloadBytesPerSecond)}',
               ),
             Expanded(
               child: Padding(
@@ -94,6 +95,9 @@ class _PlayerStatusOverlayState extends State<PlayerStatusOverlay> {
               _item(
                 Icons.memory,
                 widget.stats.cpuPercent == null
+                    ? '--'
+                    : '${widget.stats.cpuPercent!.clamp(0, 100).toStringAsFixed(0)}%',
+                semanticLabel: widget.stats.cpuPercent == null
                     ? 'CPU --'
                     : 'CPU ${widget.stats.cpuPercent!.clamp(0, 100).toStringAsFixed(0)}%',
               ),
@@ -105,26 +109,30 @@ class _PlayerStatusOverlayState extends State<PlayerStatusOverlay> {
     );
   }
 
-  Widget _item(IconData? icon, String label) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, color: Colors.white, size: 15),
-            const SizedBox(width: 4),
+  Widget _item(IconData? icon, String label, {String? semanticLabel}) {
+    return Semantics(
+      label: semanticLabel ?? label,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, color: Colors.white, size: 15),
+              if (label.isNotEmpty) const SizedBox(width: 4),
+            ],
+            if (label.isNotEmpty)
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
           ],
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              fontFeatures: [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
