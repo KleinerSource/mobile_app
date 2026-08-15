@@ -25,6 +25,7 @@ import 'dbo_diff_sheet.dart';
 import 'resources_sheet.dart';
 import '../resources/resources_repository.dart';
 import 'movie_editor_sheet.dart';
+import 'movie_detail_formatters.dart';
 import 'thunder_subtitle_sheet.dart';
 import '../home/home_movie_view_state.dart';
 
@@ -420,6 +421,11 @@ class _ActionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
+    final startPositionSec = _startPositionSec;
+    final playLabel = startPositionSec > 0
+        ? '${l.detailPlay} (${formatResumePosition(startPositionSec)})'
+        : l.detailPlay;
     final playerQueue = _playerQueue;
     final playerQueueIndex =
         playerQueue.indexWhere((item) => item.movieId == movie.id);
@@ -432,7 +438,7 @@ class _ActionRow extends StatelessWidget {
               context,
               movieId: movie.id,
               title: movie.title,
-              startPositionSec: _startPositionSec,
+              startPositionSec: startPositionSec,
               queue: playerQueue,
               queueIndex: playerQueueIndex < 0 ? 0 : playerQueueIndex,
             ),
@@ -448,7 +454,7 @@ class _ActionRow extends StatelessWidget {
               children: [
                 const Icon(Icons.play_arrow, size: 18),
                 const SizedBox(width: 6),
-                Text(AppL10n.of(context).detailPlay,
+                Text(playLabel,
                     style: const TextStyle(
                         fontFamily: 'Inter',
                         fontWeight: FontWeight.w700,
