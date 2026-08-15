@@ -1102,7 +1102,7 @@ class _ActorRelatedMoviesSection extends StatelessWidget {
       year: item.year,
       rating: item.rating,
       runtime: item.runtime,
-      posterUuid: item.posterUuid,
+      posterUuid: item.posterUuid ?? item.thumbUuid ?? item.fanartUuid,
       thumbUuid: item.thumbUuid,
       fanartUuid: item.fanartUuid,
     );
