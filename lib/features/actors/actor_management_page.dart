@@ -170,6 +170,39 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     await _fetch(reset: true, preserveScroll: true);
   }
 
+  void _removeDeletedActor(int actorId) {
+    var changed = false;
+    var removedMainRow = false;
+    final nextItems = <ActorRow>[];
+
+    for (final row in _items) {
+      if (row.id == actorId) {
+        changed = true;
+        removedMainRow = true;
+        continue;
+      }
+
+      final remainingMembers = row.members
+          .where((member) => member.id != actorId)
+          .toList(growable: false);
+      if (remainingMembers.length != row.members.length) {
+        changed = true;
+        nextItems.add(
+          ActorRow(actor: row.actor, members: remainingMembers),
+        );
+      } else {
+        nextItems.add(row);
+      }
+    }
+
+    if (!changed || !mounted) return;
+    setState(() {
+      _items = nextItems;
+      if (removedMainRow && _totalCount > 0) _totalCount -= 1;
+      _expandedIds.remove(actorId);
+    });
+  }
+
   void _toggleExpand(int actorId) {
     setState(() {
       if (!_expandedIds.remove(actorId)) {
@@ -682,6 +715,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         },
       );
       unwrapStd<void>(raw, (_) {});
+      _removeDeletedActor(actor.id);
       AppHaptics.medium();
       messenger.showSnackBar(const SnackBar(content: Text('演员已删除')));
       await _refresh();
