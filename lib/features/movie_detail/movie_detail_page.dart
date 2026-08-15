@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -6,12 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
+import '../../core/models/related_movie.dart';
 import '../../core/models/resource.dart';
 import '../../core/models/actor.dart';
 import '../../core/models/watch_record.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/glass_menu.dart';
+import '../../shared/movie_card.dart';
 import '../../shared/poster.dart';
 import '../../shared/actor_avatar.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -187,6 +190,12 @@ class _DetailBody extends ConsumerWidget {
           SliverToBoxAdapter(
             child: _CastSection(actors: movie.actors),
           ),
+        SliverToBoxAdapter(
+          child: _ActorRelatedMoviesSection(
+            movie: movie,
+            urlBuilder: urlBuilder,
+          ),
+        ),
         // 分组显示 series / genres / tags
         if (movie.series != null)
           SliverToBoxAdapter(
@@ -1063,6 +1072,84 @@ class _CastSection extends StatelessWidget {
     );
   }
 
+}
+
+class _ActorRelatedMoviesSection extends StatelessWidget {
+  const _ActorRelatedMoviesSection({
+    required this.movie,
+    required this.urlBuilder,
+  });
+
+  final MovieDetail movie;
+  final String Function(String) urlBuilder;
+
+  List<RelatedMovie> _randomMovies() {
+    final seen = <int>{};
+    final candidates = movie.actorRelatedMovies.where((item) {
+      final isCurrentMovie = item.id == movie.id;
+      final isPartMovie = item.moviePart?.trim().isNotEmpty == true;
+      return !isCurrentMovie && !isPartMovie && seen.add(item.id);
+    }).toList()
+      ..shuffle(Random(movie.id));
+    return candidates.take(5).toList(growable: false);
+  }
+
+  MovieListItem _toMovieListItem(RelatedMovie item) {
+    return MovieListItem(
+      id: item.id,
+      title: item.title,
+      num: item.num,
+      year: item.year,
+      rating: item.rating,
+      runtime: item.runtime,
+      posterUuid: item.posterUuid,
+      thumbUuid: item.thumbUuid,
+      fanartUuid: item.fanartUuid,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final relatedMovies = _randomMovies();
+    if (relatedMovies.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+            child: Text('演员关联影片', style: AppText.sectionTitle(context)),
+          ),
+          SizedBox(
+            height: 268,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              itemCount: relatedMovies.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (ctx, index) {
+                final related = relatedMovies[index];
+                return SizedBox(
+                  width: 132,
+                  child: MovieCard(
+                    movie: _toMovieListItem(related),
+                    posterUrlBuilder: urlBuilder,
+                    onTap: () => Navigator.of(ctx).push(
+                      MaterialPageRoute(
+                        builder: (_) => MovieDetailPage(movieId: related.id),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// 单类 taxonomy 分组 (系列 / 分类 / 标签),带 label + Wrap 多彩 chips。
