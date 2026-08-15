@@ -444,70 +444,92 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   Widget _progressSlider() {
     return StreamBuilder<Duration>(
-      stream: widget.player.stream.position,
-      initialData: widget.player.state.position,
-      builder: (context, snap) {
-        final dur = widget.player.state.duration.inMilliseconds;
-        final pos = (snap.data ?? Duration.zero).inMilliseconds;
-        final max = dur > 0 ? dur.toDouble() : 1.0;
-        final live = pos.clamp(0, max.toInt()).toDouble();
-        final value = _dragValue ?? live;
-        final previewPosition = _framePreviewPosition;
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final fraction = max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
-            final maxLeft = (constraints.maxWidth - _framePreviewWidth)
-                .clamp(0.0, double.infinity)
-                .toDouble();
-            final previewLeft = (constraints.maxWidth * fraction -
-                    _framePreviewWidth / 2)
-                .clamp(0.0, maxLeft)
-                .toDouble();
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 3,
-                    thumbShape:
-                        const RoundSliderThumbShape(enabledThumbRadius: 5),
-                    overlayShape:
-                        const RoundSliderOverlayShape(overlayRadius: 14),
-                    activeTrackColor: Colors.white,
-                    inactiveTrackColor: Colors.white30,
-                    thumbColor: Colors.white,
-                    overlayColor: Colors.white24,
-                  ),
-                  child: Slider(
-                    min: 0,
-                    max: max,
-                    value: value.clamp(0, max),
-                    onChangeStart: dur <= 0
-                        ? null
-                        : (v) => _beginSliderDrag(v),
-                    onChanged: dur <= 0
-                        ? null
-                        : (v) => _updateSliderDrag(v),
-                    onChangeEnd: dur <= 0
-                        ? null
-                        : (v) => _endSliderDrag(v),
-                  ),
-                ),
-                if (_sliderDragging &&
-                    previewPosition != null &&
-                    _framePreview != null)
-                  Positioned(
-                    left: previewLeft,
-                    bottom: 38,
-                    child: IgnorePointer(
-                      child: _SliderFramePreview(
-                        frame: _framePreview,
-                        position: previewPosition,
-                        unavailable: _framePreviewUnavailable,
+      stream: widget.player.stream.buffer,
+      initialData: widget.player.state.buffer,
+      builder: (context, bufferSnapshot) {
+        return StreamBuilder<Duration>(
+          stream: widget.player.stream.position,
+          initialData: widget.player.state.position,
+          builder: (context, snap) {
+            final dur = widget.player.state.duration.inMilliseconds;
+            final pos = (snap.data ?? Duration.zero).inMilliseconds;
+            final buffer =
+                (bufferSnapshot.data ?? Duration.zero).inMilliseconds;
+            final max = dur > 0 ? dur.toDouble() : 1.0;
+            final live = pos.clamp(0, max.toInt()).toDouble();
+            final buffered = buffer.clamp(0, max.toInt()).toDouble();
+            final value = _dragValue ?? live;
+            final previewPosition = _framePreviewPosition;
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final fraction =
+                    max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
+                final maxLeft = (constraints.maxWidth - _framePreviewWidth)
+                    .clamp(0.0, double.infinity)
+                    .toDouble();
+                final previewLeft = (constraints.maxWidth * fraction -
+                        _framePreviewWidth / 2)
+                    .clamp(0.0, maxLeft)
+                    .toDouble();
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 3,
+                        thumbShape:
+                            const RoundSliderThumbShape(enabledThumbRadius: 5),
+                        overlayShape:
+                            const RoundSliderOverlayShape(overlayRadius: 14),
+                        activeTrackColor: Colors.white,
+                        secondaryActiveTrackColor: Colors.white60,
+                        inactiveTrackColor: Colors.white30,
+                        thumbColor: Colors.white,
+                        overlayColor: Colors.white24,
+                      ),
+                      child: Slider(
+                        min: 0,
+                        max: max,
+                        value: value.clamp(0, max),
+                        secondaryTrackValue: buffered,
+                        semanticFormatterCallback: (sliderValue) {
+                          final current = Duration(
+                            milliseconds: sliderValue.round(),
+                          );
+                          final cached = Duration(
+                            milliseconds: buffered.round(),
+                          );
+                          return '当前播放 ${formatDuration(current)}，'
+                              '已缓冲 ${formatDuration(cached)}';
+                        },
+                        onChangeStart: dur <= 0
+                            ? null
+                            : (v) => _beginSliderDrag(v),
+                        onChanged: dur <= 0
+                            ? null
+                            : (v) => _updateSliderDrag(v),
+                        onChangeEnd: dur <= 0
+                            ? null
+                            : (v) => _endSliderDrag(v),
                       ),
                     ),
-                  ),
-              ],
+                    if (_sliderDragging &&
+                        previewPosition != null &&
+                        _framePreview != null)
+                      Positioned(
+                        left: previewLeft,
+                        bottom: 38,
+                        child: IgnorePointer(
+                          child: _SliderFramePreview(
+                            frame: _framePreview,
+                            position: previewPosition,
+                            unavailable: _framePreviewUnavailable,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             );
           },
         );
