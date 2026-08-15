@@ -1110,7 +1110,7 @@ class _ActorIdentitySection extends StatelessWidget {
               notFoundSources: notFoundSources,
               failedSources: failedSources,
             ),
-          ),
+          ],
         ],
       ),
     );
