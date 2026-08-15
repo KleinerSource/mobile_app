@@ -396,6 +396,19 @@ class _ActionRow extends ConsumerWidget {
     return (runtimeMin * 60 * r).round();
   }
 
+  double _progressRatio(WatchRecord? watchRecord) {
+    if (watchRecord != null) {
+      if (watchRecord.completed || watchRecord.durationSec <= 0) return 0;
+      return (watchRecord.lastPositionSec / watchRecord.durationSec)
+          .clamp(0.0, 1.0)
+          .toDouble();
+    }
+
+    final summary = movie.watchRecord;
+    if (summary == null || summary.completed) return 0;
+    return summary.progressRatio.clamp(0.0, 1.0).toDouble();
+  }
+
   List<PlayerQueueItem> _playerQueue(int startPositionSec) {
     final items = <PlayerQueueItem>[
       PlayerQueueItem(
@@ -437,6 +450,7 @@ class _ActionRow extends ConsumerWidget {
     final watchRecord =
         ref.watch(movieWatchRecordProvider(movie.id)).valueOrNull;
     final startPositionSec = _startPositionSec(watchRecord);
+    final progressRatio = _progressRatio(watchRecord);
     final playLabel = startPositionSec > 0
         ? '${l.detailPlay} (${formatResumePosition(startPositionSec)})'
         : l.detailPlay;
@@ -447,38 +461,67 @@ class _ActionRow extends ConsumerWidget {
       children: [
         Expanded(
           flex: 2,
-          child: ElevatedButton(
-            onPressed: () async {
-              await PlayerPage.open(
-                context,
-                movieId: movie.id,
-                title: movie.title,
-                startPositionSec: startPositionSec,
-                queue: playerQueue,
-                queueIndex: playerQueueIndex < 0 ? 0 : playerQueueIndex,
-              );
-              if (context.mounted) {
-                ref.invalidate(movieWatchRecordProvider(movie.id));
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: c.text,
-              foregroundColor: c.bg,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(vertical: 14),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: c.text,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.play_arrow, size: 18),
-                const SizedBox(width: 6),
-                Text(playLabel,
-                    style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14)),
-              ],
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                fit: StackFit.passthrough,
+                children: [
+                  if (progressRatio > 0)
+                    Positioned.fill(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: progressRatio,
+                          heightFactor: 1,
+                          child: ColoredBox(
+                            color: c.bg.withValues(alpha: 0.16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await PlayerPage.open(
+                        context,
+                        movieId: movie.id,
+                        title: movie.title,
+                        startPositionSec: startPositionSec,
+                        queue: playerQueue,
+                        queueIndex: playerQueueIndex < 0 ? 0 : playerQueueIndex,
+                      );
+                      if (context.mounted) {
+                        ref.invalidate(movieWatchRecordProvider(movie.id));
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: c.bg,
+                      shadowColor: Colors.transparent,
+                      surfaceTintColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.play_arrow, size: 18),
+                        const SizedBox(width: 6),
+                        Text(playLabel,
+                            style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
