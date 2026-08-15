@@ -69,8 +69,16 @@ class MdCenterApp extends ConsumerWidget {
       localizationsDelegates: AppL10n.localizationsDelegates,
       supportedLocales: AppL10n.supportedLocales,
       builder: (context, child) {
-        return TopSnackBarMessenger(
-          child: PrivacyShield(child: child ?? const SizedBox.shrink()),
+        return Overlay(
+          initialEntries: [
+            OverlayEntry(
+              builder: (_) => TopSnackBarMessenger(
+                child: PrivacyShield(
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          ],
         );
       },
       home: SecurityGate(

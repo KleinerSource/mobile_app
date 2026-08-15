@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 
 /// 保持现有 ScaffoldMessenger 调用方式不变，但把 SnackBar 显示在顶部。
 ///
-/// ScaffoldMessengerState 没有顶部 SnackBar 布局选项，顶部通知由
-/// MaterialBanner 实现；底部仅放置一个透明的短生命周期 SnackBar，保证
-/// 既有调用方拿到的控制器类型和关闭语义仍然有效。
+/// ScaffoldMessengerState 没有悬浮顶部 SnackBar 布局选项，因此通知使用
+/// MaterialBanner 外观并放入应用根 Overlay，避免参与 Scaffold 布局。
+/// 底部仅放置一个透明的短生命周期 SnackBar，保证既有调用方拿到的
+/// 控制器类型和关闭语义仍然有效。
 class TopSnackBarMessenger extends ScaffoldMessenger {
   const TopSnackBarMessenger({super.key, required super.child});
 
@@ -16,6 +17,7 @@ class TopSnackBarMessenger extends ScaffoldMessenger {
 
 class TopSnackBarMessengerState extends ScaffoldMessengerState {
   int _topNoticeSequence = 0;
+  OverlayEntry? _overlayEntry;
 
   @override
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showSnackBar(
@@ -31,8 +33,26 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
       snackBarAnimationStyle: snackBarAnimationStyle,
     );
 
-    clearMaterialBanners();
-    showMaterialBanner(_buildBanner(snackBar, sequence));
+    _overlayEntry?.remove();
+    final overlay = Overlay.of(context, rootOverlay: true);
+    final entry = OverlayEntry(
+      builder: (_) => Positioned(
+        top: 0,
+        left: 0,
+        right: 0,
+        child: SafeArea(
+          bottom: false,
+          child: _buildBanner(snackBar, sequence),
+        ),
+      ),
+    );
+    _overlayEntry = entry;
+    overlay.insert(entry);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && sequence == _topNoticeSequence) {
+        snackBar.onVisible?.call();
+      }
+    });
     unawaited(_dismissAfter(snackBar.duration, sequence));
     return controller;
   }
@@ -101,7 +121,6 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
       elevation: 0,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       margin: EdgeInsets.zero,
-      onVisible: snackBar.onVisible,
     );
   }
 
@@ -112,6 +131,14 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
 
   void _dismissTopNotice(int sequence) {
     if (!mounted || sequence != _topNoticeSequence) return;
-    removeCurrentMaterialBanner();
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  @override
+  void dispose() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    super.dispose();
   }
 }
