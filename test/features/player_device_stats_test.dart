@@ -42,7 +42,7 @@ void main() {
         home: Scaffold(
           body: PlayerStatusOverlay(
             title: '测试影片',
-            stats: const PlayerDeviceStats(
+            stats: PlayerDeviceStats(
               cpuPercent: 42.5,
               downloadBytesPerSecond: 2048,
               networkType: PlayerNetworkType.wifi,
