@@ -837,19 +837,6 @@ class _ActorDataSourceOption extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (loading) ...[
-                      SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: enabled
-                              ? (selected ? c.accent : c.muted)
-                              : c.muted,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                    ],
                     Flexible(
                       child: Text(
                         source.label,
@@ -865,6 +852,19 @@ class _ActorDataSourceOption extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (loading) ...[
+                      const SizedBox(width: 6),
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: enabled
+                              ? (selected ? c.accent : c.muted)
+                              : c.muted,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
