@@ -184,7 +184,7 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('字幕下载', style: AppText.sectionTitle(context)),
+                        Text('下载字幕', style: AppText.sectionTitle(context)),
                         if (_keyword.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text('关键词: $_keyword',

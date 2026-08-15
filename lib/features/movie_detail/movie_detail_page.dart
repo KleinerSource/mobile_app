@@ -1427,7 +1427,7 @@ class _MoreMenuButton extends ConsumerWidget {
           value: 'edit',
           builder: (context, selected, onTap) => GlassMenuRow(
             icon: Icons.edit_outlined,
-            label: '编辑',
+            label: '编辑影片',
             selected: selected,
             onTap: onTap,
           ),
@@ -1436,7 +1436,7 @@ class _MoreMenuButton extends ConsumerWidget {
           value: 'subtitle',
           builder: (context, selected, onTap) => GlassMenuRow(
             icon: Icons.subtitles_outlined,
-            label: '字幕下载',
+            label: '下载字幕',
             selected: selected,
             onTap: onTap,
           ),
@@ -1446,7 +1446,7 @@ class _MoreMenuButton extends ConsumerWidget {
           value: 'dbo_meta',
           builder: (context, selected, onTap) => GlassMenuRow(
             icon: Icons.cloud_download_outlined,
-            label: '从 DBO 拉元数据',
+            label: '获取元数据',
             selected: selected,
             onTap: onTap,
           ),
@@ -1455,7 +1455,7 @@ class _MoreMenuButton extends ConsumerWidget {
           value: 'resources',
           builder: (context, selected, onTap) => GlassMenuRow(
             icon: Icons.link,
-            label: '在线资源 (磁力/ED2K)',
+            label: '获取在线资源',
             selected: selected,
             onTap: onTap,
           ),
@@ -1474,7 +1474,7 @@ class _MoreMenuButton extends ConsumerWidget {
           value: 'refresh_nfo',
           builder: (context, selected, onTap) => GlassMenuRow(
             icon: Icons.refresh,
-            label: 'NFO 重载',
+            label: '从 NFO 重载',
             selected: selected,
             onTap: onTap,
           ),
