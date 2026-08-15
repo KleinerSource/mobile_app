@@ -133,7 +133,7 @@ void main() {
     );
     expect(pendingButton.onPressed, isNotNull);
 
-    // DB Online 返回未命中：补齐完成，未命中渠道在横幅中紧凑展示
+    // DB Online 返回未命中：补齐完成，渠道按钮显示错误图标
     mixedFinal.complete(const MixedActorPreviewSession(
       status: 'complete',
       pendingSources: [],
@@ -153,7 +153,8 @@ void main() {
     expect(find.text('混合渠道完整结果'), findsOneWidget);
     expect(find.text('混合渠道部分结果'), findsNothing);
     expect(find.textContaining('等待'), findsNothing);
-    expect(find.textContaining('DB Online未找到匹配'), findsOneWidget);
+    expect(find.textContaining('DB Online未找到匹配'), findsNothing);
+    expect(find.byIcon(Icons.error_outline), findsOneWidget);
     expect(find.text('新别名'), findsOneWidget);
     final readyButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, '确认添加'),

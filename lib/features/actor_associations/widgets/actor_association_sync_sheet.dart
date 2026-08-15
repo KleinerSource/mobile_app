@@ -546,21 +546,23 @@ class _ActorAssociationSyncSheetState
   List<String> get _notFoundSources =>
       _preview?.notFoundSources ?? const <String>[];
 
-  String _notFoundLabel() {
-    const labels = {
-      'dbonline': 'DB Online',
-      'avdb': 'AVDB',
-      'mixed': '混合渠道',
-    };
-    return _notFoundSources.map((s) => labels[s] ?? s).join('、');
+  /// 后端当前以“渠道名称 + 渠道查询失败”前缀返回混合渠道错误警告。
+  Set<String> get _failedSources {
+    final result = <String>{};
+    for (final warning in _preview?.warnings ?? const <String>[]) {
+      if (warning.startsWith('DB Online 渠道查询失败')) {
+        result.add('dbonline');
+      } else if (warning.startsWith('AVDB 渠道查询失败')) {
+        result.add('avdb');
+      }
+    }
+    return result;
   }
 
   @override
   Widget build(BuildContext context) {
-    final c = appColors(context);
     final mq = MediaQuery.of(context);
     final preview = _preview;
-    final notFoundLabel = _notFoundLabel();
     final canApply = preview != null &&
         preview.found &&
         _hasSyncChanges(preview) &&
@@ -586,6 +588,8 @@ class _ActorAssociationSyncSheetState
                   _ActorDataSourceSelector(
                     sources: _availableSources,
                     pendingSources: _pendingSources,
+                    notFoundSources: _notFoundSources,
+                    failedSources: _failedSources,
                     selectedSource: _source,
                     enabled: !_applying,
                     onChanged: _selectSource,
@@ -593,23 +597,6 @@ class _ActorAssociationSyncSheetState
                 ],
               ),
             ),
-            // 未命中信息以紧凑横幅展示（补齐状态显示在对应渠道按钮内）
-            if (notFoundLabel.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
-                child: Row(
-                  children: [
-                    Icon(Icons.search, size: 14, color: c.muted),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '$notFoundLabel未找到匹配',
-                        style: AppText.meta(context),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             const Divider(height: 1),
             Expanded(
               child: _loading
@@ -738,6 +725,8 @@ class _ActorDataSourceSelector extends StatelessWidget {
   const _ActorDataSourceSelector({
     required this.sources,
     required this.pendingSources,
+    required this.notFoundSources,
+    required this.failedSources,
     required this.selectedSource,
     required this.onChanged,
     this.enabled = true,
@@ -745,6 +734,8 @@ class _ActorDataSourceSelector extends StatelessWidget {
 
   final List<ActorDataSource> sources;
   final List<String> pendingSources;
+  final List<String> notFoundSources;
+  final Set<String> failedSources;
   final ActorDataSource selectedSource;
   final ValueChanged<ActorDataSource> onChanged;
   final bool enabled;
@@ -774,6 +765,8 @@ class _ActorDataSourceSelector extends StatelessWidget {
                 child: _ActorDataSourceOption(
                   source: sources[i],
                   loading: pendingSources.contains(sources[i].value),
+                  notFound: notFoundSources.contains(sources[i].value),
+                  failed: failedSources.contains(sources[i].value),
                   selected: sources[i] == selectedSource,
                   enabled: enabled,
                   onChanged: onChanged,
@@ -791,6 +784,8 @@ class _ActorDataSourceOption extends StatelessWidget {
   const _ActorDataSourceOption({
     required this.source,
     required this.loading,
+    required this.notFound,
+    required this.failed,
     required this.selected,
     required this.enabled,
     required this.onChanged,
@@ -798,6 +793,8 @@ class _ActorDataSourceOption extends StatelessWidget {
 
   final ActorDataSource source;
   final bool loading;
+  final bool notFound;
+  final bool failed;
   final bool selected;
   final bool enabled;
   final ValueChanged<ActorDataSource> onChanged;
@@ -805,6 +802,8 @@ class _ActorDataSourceOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final hasError = notFound || failed;
+    final statusLabel = notFound ? '未找到匹配' : '请求失败';
     void select() {
       if (enabled && !selected) onChanged(source);
     }
@@ -813,7 +812,7 @@ class _ActorDataSourceOption extends StatelessWidget {
       button: true,
       selected: selected,
       enabled: enabled,
-      label: source.label,
+      label: hasError ? '${source.label}，$statusLabel' : source.label,
       child: Material(
         color: selected ? c.accent.withValues(alpha: 0.10) : c.surface,
         shape: RoundedRectangleBorder(
@@ -862,6 +861,16 @@ class _ActorDataSourceOption extends StatelessWidget {
                           color: enabled
                               ? (selected ? c.accent : c.muted)
                               : c.muted,
+                        ),
+                      ),
+                    ] else if (hasError) ...[
+                      const SizedBox(width: 6),
+                      Tooltip(
+                        message: statusLabel,
+                        child: Icon(
+                          Icons.error_outline,
+                          size: 16,
+                          color: c.danger,
                         ),
                       ),
                     ],
