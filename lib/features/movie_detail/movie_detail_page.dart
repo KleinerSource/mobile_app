@@ -8,6 +8,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
 import '../../core/models/resource.dart';
 import '../../core/models/actor.dart';
+import '../../core/models/watch_record.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/glass_menu.dart';
@@ -370,12 +371,14 @@ class _TitleBlock extends StatelessWidget {
   }
 }
 
-class _ActionRow extends StatelessWidget {
+class _ActionRow extends ConsumerWidget {
   const _ActionRow({required this.movie});
 
   final MovieDetail movie;
 
-  int get _startPositionSec {
+  int _startPositionSec(WatchRecord? watchRecord) {
+    if (watchRecord != null) return watchRecord.resumePositionSec;
+
     final wr = movie.watchRecord;
     if (wr == null || wr.completed) return 0;
     final r = wr.progressRatio.clamp(0.0, 1.0);
@@ -384,12 +387,12 @@ class _ActionRow extends StatelessWidget {
     return (runtimeMin * 60 * r).round();
   }
 
-  List<PlayerQueueItem> get _playerQueue {
+  List<PlayerQueueItem> _playerQueue(int startPositionSec) {
     final items = <PlayerQueueItem>[
       PlayerQueueItem(
         movieId: movie.id,
         title: movie.title,
-        startPositionSec: _startPositionSec,
+        startPositionSec: startPositionSec,
         part: movie.moviePart,
       ),
       for (final related in movie.partMovies)
@@ -419,14 +422,16 @@ class _ActionRow extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final startPositionSec = _startPositionSec;
+    final watchRecord =
+        ref.watch(movieWatchRecordProvider(movie.id)).valueOrNull;
+    final startPositionSec = _startPositionSec(watchRecord);
     final playLabel = startPositionSec > 0
         ? '${l.detailPlay} (${formatResumePosition(startPositionSec)})'
         : l.detailPlay;
-    final playerQueue = _playerQueue;
+    final playerQueue = _playerQueue(startPositionSec);
     final playerQueueIndex =
         playerQueue.indexWhere((item) => item.movieId == movie.id);
     return Row(
@@ -434,14 +439,19 @@ class _ActionRow extends StatelessWidget {
         Expanded(
           flex: 2,
           child: ElevatedButton(
-            onPressed: () => PlayerPage.open(
-              context,
-              movieId: movie.id,
-              title: movie.title,
-              startPositionSec: startPositionSec,
-              queue: playerQueue,
-              queueIndex: playerQueueIndex < 0 ? 0 : playerQueueIndex,
-            ),
+            onPressed: () async {
+              await PlayerPage.open(
+                context,
+                movieId: movie.id,
+                title: movie.title,
+                startPositionSec: startPositionSec,
+                queue: playerQueue,
+                queueIndex: playerQueueIndex < 0 ? 0 : playerQueueIndex,
+              );
+              if (context.mounted) {
+                ref.invalidate(movieWatchRecordProvider(movie.id));
+              }
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: c.text,
               foregroundColor: c.bg,

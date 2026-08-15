@@ -80,9 +80,16 @@ void main() {
         'success': true,
         'message': 'ok',
         'data': {
-          'last_position_sec': 123.4,
-          'duration_sec': 600,
+          'id': 1303,
+          'created_at': '2026-08-15T09:31:33.9252514+08:00',
+          'updated_at': '2026-08-15T22:01:06.7510243+08:00',
+          'movie_id': 2015,
+          'quality': 'auto',
+          'last_position_sec': 1457,
+          'duration_sec': 7915,
+          'subtitle_sub_id': null,
           'completed': false,
+          'last_watched_at': '2026-08-15T22:01:06.7510243+08:00',
         },
       },
     );
@@ -90,8 +97,8 @@ void main() {
 
     final record = await repo.watchRecord(9);
 
-    expect(record?.resumePositionSec, 123);
-    expect(record?.durationSec, 600);
+    expect(record?.resumePositionSec, 1457);
+    expect(record?.durationSec, 7915);
   });
 
   test('upsertWatchRecord 使用后端观看记录字段', () async {

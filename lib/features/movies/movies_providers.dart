@@ -6,6 +6,7 @@ import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/media_info.dart';
 import '../../core/models/movie.dart';
+import '../../core/models/watch_record.dart';
 import 'movie_filter.dart';
 import 'movies_repository.dart';
 
@@ -57,6 +58,12 @@ final imageUrlBuilderProvider = Provider<String Function(String uuid)>((ref) {
 final movieDetailProvider = FutureProvider.autoDispose
     .family<MovieDetail, int>((ref, id) async {
   return ref.read(moviesRepositoryProvider).detail(id);
+});
+
+/// 影片详情页使用完整观看记录，获取服务端保存的精确续播秒数。
+final movieWatchRecordProvider = FutureProvider.autoDispose
+    .family<WatchRecord?, int>((ref, id) async {
+  return ref.read(moviesRepositoryProvider).watchRecord(id);
 });
 
 final extraFanartsProvider = FutureProvider.autoDispose
