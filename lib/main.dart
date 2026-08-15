@@ -25,6 +25,9 @@ import 'shared/glass.dart';
 import 'shared/glow_background.dart';
 import 'shared/top_snack_bar.dart';
 
+final GlobalKey<NavigatorState> _rootNavigatorKey =
+    GlobalKey<NavigatorState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
@@ -62,6 +65,7 @@ class MdCenterApp extends ConsumerWidget {
     return MaterialApp(
       title: 'MD Center',
       debugShowCheckedModeBanner: false,
+      navigatorKey: _rootNavigatorKey,
       theme: buildAppTheme(Brightness.light),
       darkTheme: buildAppTheme(Brightness.dark),
       themeMode: themeMode.toMaterial(),
@@ -69,16 +73,9 @@ class MdCenterApp extends ConsumerWidget {
       localizationsDelegates: AppL10n.localizationsDelegates,
       supportedLocales: AppL10n.supportedLocales,
       builder: (context, child) {
-        return Overlay(
-          initialEntries: [
-            OverlayEntry(
-              builder: (_) => TopSnackBarMessenger(
-                child: PrivacyShield(
-                  child: child ?? const SizedBox.shrink(),
-                ),
-              ),
-            ),
-          ],
+        return TopSnackBarMessenger(
+          navigatorKey: _rootNavigatorKey,
+          child: PrivacyShield(child: child ?? const SizedBox.shrink()),
         );
       },
       home: SecurityGate(

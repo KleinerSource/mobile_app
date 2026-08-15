@@ -5,16 +5,13 @@ import 'package:md_center/shared/top_snack_bar.dart';
 void main() {
   testWidgets('SnackBar 兼容调用会以悬浮 MaterialBanner 显示', (tester) async {
     const bodyKey = ValueKey<String>('body');
+    final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
       MaterialApp(
-        builder: (context, child) => Overlay(
-          initialEntries: [
-            OverlayEntry(
-              builder: (_) => TopSnackBarMessenger(
-                child: child ?? const SizedBox.shrink(),
-              ),
-            ),
-          ],
+        navigatorKey: navigatorKey,
+        builder: (context, child) => TopSnackBarMessenger(
+          navigatorKey: navigatorKey,
+          child: child ?? const SizedBox.shrink(),
         ),
         home: Scaffold(
           appBar: AppBar(title: const Text('页面')),

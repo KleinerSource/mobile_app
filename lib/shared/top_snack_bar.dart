@@ -9,7 +9,13 @@ import 'package:flutter/material.dart';
 /// 底部仅放置一个透明的短生命周期 SnackBar，保证既有调用方拿到的
 /// 控制器类型和关闭语义仍然有效。
 class TopSnackBarMessenger extends ScaffoldMessenger {
-  const TopSnackBarMessenger({super.key, required super.child});
+  const TopSnackBarMessenger({
+    super.key,
+    required super.child,
+    required this.navigatorKey,
+  });
+
+  final GlobalKey<NavigatorState> navigatorKey;
 
   @override
   TopSnackBarMessengerState createState() => TopSnackBarMessengerState();
@@ -34,7 +40,11 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
     );
 
     _overlayEntry?.remove();
-    final overlay = Overlay.of(context, rootOverlay: true);
+    final overlay = navigatorKey.currentState?.overlay ??
+        Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay == null) {
+      return controller;
+    }
     final entry = OverlayEntry(
       builder: (_) => Positioned(
         top: 0,
