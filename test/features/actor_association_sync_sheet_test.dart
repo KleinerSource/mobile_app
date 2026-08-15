@@ -155,7 +155,7 @@ void main() {
     expect(find.text('混合渠道完整结果'), findsOneWidget);
     expect(find.text('混合渠道部分结果'), findsNothing);
     expect(find.textContaining('等待'), findsNothing);
-    expect(find.textContaining('DB Online 无匹配'), findsNothing);
+    expect(find.textContaining('DB Online未找到匹配'), findsNothing);
     expect(find.text('DB Online 无匹配'), findsOneWidget);
     final notFoundIcon = tester.widget<Icon>(find.byIcon(Icons.error_outline));
     expect(notFoundIcon.color, AppColors.light.muted);
