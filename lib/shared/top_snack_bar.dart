@@ -53,9 +53,8 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
     final backgroundColor = snackBar.backgroundColor ??
         snackBarTheme.backgroundColor ??
         theme.colorScheme.inverseSurface;
-    final contentTextStyle = snackBar.contentTextStyle ??
-        snackBarTheme.contentTextStyle ??
-        theme.textTheme.bodyMedium!;
+    final contentTextStyle =
+        snackBarTheme.contentTextStyle ?? theme.textTheme.bodyMedium!;
     final actionColor = action?.textColor ??
         snackBarTheme.actionTextColor ??
         theme.colorScheme.primary;
