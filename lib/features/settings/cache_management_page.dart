@@ -31,7 +31,7 @@ class CacheManagementPage extends ConsumerWidget {
                 items: [
                   SettingsTile(
                     title: '缓存大小(Wi-Fi)',
-                    subtitle: '播放数据会保存到本地，超限后优先淘汰旧缓存',
+                    subtitle: '播放数据会保存到本地',
                     leadingIcon: Icons.wifi_outlined,
                     trailing: _ValueLabel(text: settings.wifiLimit.label),
                     onTap: () => _selectLimit(
@@ -43,7 +43,7 @@ class CacheManagementPage extends ConsumerWidget {
                   ),
                   SettingsTile(
                     title: '缓存大小(流量)',
-                    subtitle: '播放数据会保存到本地，超限后优先淘汰旧缓存',
+                    subtitle: '播放数据会保存到本地',
                     leadingIcon: Icons.signal_cellular_alt_outlined,
                     trailing: _ValueLabel(text: settings.mobileLimit.label),
                     onTap: () => _selectLimit(
@@ -63,7 +63,7 @@ class CacheManagementPage extends ConsumerWidget {
                     category: CacheCategory.video,
                     usage: usage,
                     ref: ref,
-                    hint: '播放数据会保留，超过上限后优先淘汰旧缓存',
+                    hint: '播放数据',
                   ),
                   _CacheTile(
                     category: CacheCategory.image,

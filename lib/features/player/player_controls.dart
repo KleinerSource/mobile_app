@@ -556,6 +556,9 @@ class _PlayerControlsState extends State<PlayerControls> {
     _cancelFramePreview();
     setState(() => _dragValue = null);
     _lastSliderHapticBucket = null;
+    // 预览播放器使用独立的 native 解码器和视频纹理，拖动结束后立即释放，
+    // 避免它在整个播放页生命周期内持续占用 iOS VideoToolbox/Metal 资源。
+    unawaited(_disposeFramePreviewPlayer());
     widget.onInteraction();
     unawaited(_commitSliderSeek(position, commitSeek));
   }
