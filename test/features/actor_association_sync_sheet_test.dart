@@ -128,13 +128,13 @@ void main() {
     expect(find.text('混合渠道部分结果'), findsOneWidget);
     expect(find.textContaining('等待DB Online补齐'), findsNothing);
     expect(find.text('DB Online 查询中'), findsOneWidget);
-    expect(
+    final spinningIcon = tester.widget<RotationTransition>(
       find.ancestor(
         of: find.byIcon(Icons.sync),
         matching: find.byType(RotationTransition),
       ),
-      findsOneWidget,
     );
+    expect(spinningIcon.turns, isA<ReverseAnimation>());
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.byIcon(Icons.error_outline), findsNothing);
     // 补齐期间仍可确认同步：允许按已合并的数据先行应用

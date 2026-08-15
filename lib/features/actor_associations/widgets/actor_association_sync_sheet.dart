@@ -1374,7 +1374,12 @@ class _ActorChannelStatusPillState extends State<_ActorChannelStatusPill>
   Widget build(BuildContext context) {
     final icon = Icon(widget.icon, size: 13, color: widget.color);
     final iconView = widget.spinning
-        ? RotationTransition(turns: _rotationController, child: icon)
+        // Icons.sync 的箭头为逆时针循环，反向使用控制器才能让箭头朝向
+        // 与实际旋转方向保持一致。
+        ? RotationTransition(
+            turns: ReverseAnimation(_rotationController),
+            child: icon,
+          )
         : icon;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
