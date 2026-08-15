@@ -127,7 +127,7 @@ void main() {
     await tester.pump();
     expect(find.text('混合渠道部分结果'), findsOneWidget);
     expect(find.textContaining('等待DB Online补齐'), findsNothing);
-    expect(find.text('DB Online 等待补齐'), findsOneWidget);
+    expect(find.text('DB Online 查询中...'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     // 补齐期间仍可确认同步：允许按已合并的数据先行应用
     final pendingButton = tester.widget<FilledButton>(
