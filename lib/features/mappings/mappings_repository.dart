@@ -2,6 +2,12 @@ import '../../core/api/envelope.dart';
 import '../../core/api/services/mappings_api.dart';
 import '../../core/models/mapping_rule.dart';
 
+String normalizeMappingStatus(String status) => switch (status) {
+      'convert' => 'active',
+      'delete' => 'empty',
+      _ => status,
+    };
+
 /// 普通映射规则类型 · 与后端路径 /mappings/type/{type} 一致
 enum MappingType {
   tag(value: 'tags', label: '标签'),
@@ -20,12 +26,14 @@ class MappingsRepository {
   Future<List<MappingRule>> list(
     MappingType type, {
     String? search,
-    /// 'all' / 'convert' / 'delete'
+    /// UI values are 'all' / 'convert' / 'delete'; the API expects
+    /// 'active' / 'empty' for the latter two.
     String status = 'all',
   }) async {
     final q = <String, dynamic>{};
     if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
-    if (status != 'all') q['status'] = status;
+    final apiStatus = normalizeMappingStatus(status);
+    if (apiStatus != 'all') q['status'] = apiStatus;
     final raw = await _api.list(type.value, q);
     if (raw is! Map || raw['success'] != true) return const [];
     final data = raw['data'];
