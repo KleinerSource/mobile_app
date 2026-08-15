@@ -5,10 +5,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Build
 import android.os.SystemClock
 import android.net.TrafficStats
+import android.telephony.TelephonyManager
 import android.util.Rational
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterFragmentActivity
@@ -169,7 +172,49 @@ class MainActivity : FlutterFragmentActivity() {
             "battery_percent" to readBatteryPercent(),
             "download_bps" to download,
             "upload_bps" to upload,
+            "network_type" to readNetworkType(),
         )
+    }
+
+    private fun readNetworkType(): String {
+        val connectivity =
+            getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                ?: return "unknown"
+        val network = connectivity.activeNetwork ?: return "offline"
+        val capabilities = connectivity.getNetworkCapabilities(network)
+            ?: return "offline"
+
+        return when {
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ->
+                readCellularNetworkType()
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ->
+                "ethernet"
+            else -> "unknown"
+        }
+    }
+
+    private fun readCellularNetworkType(): String {
+        val telephony =
+            getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+                ?: return "mobile"
+        val networkType = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                telephony.dataNetworkType
+            } else {
+                @Suppress("DEPRECATION")
+                telephony.networkType
+            }
+        } catch (_: SecurityException) {
+            return "mobile"
+        }
+
+        return when (networkType) {
+            TelephonyManager.NETWORK_TYPE_NR -> "5g"
+            TelephonyManager.NETWORK_TYPE_LTE,
+            TelephonyManager.NETWORK_TYPE_LTE_CA -> "4g"
+            else -> "mobile"
+        }
     }
 
     private fun bytesPerSecond(

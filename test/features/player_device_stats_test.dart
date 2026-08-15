@@ -9,12 +9,22 @@ void main() {
       'battery_percent': 87,
       'download_bps': 1536,
       'upload_bps': 512,
+      'network_type': '5g',
     });
 
     expect(stats.cpuPercent, 42.5);
     expect(stats.batteryPercent, 87);
     expect(stats.downloadBytesPerSecond, 1536);
     expect(stats.uploadBytesPerSecond, 512);
+    expect(stats.networkType, PlayerNetworkType.cellular5G);
+  });
+
+  test('网络类型可以区分 Wi-Fi、4G 和流量兜底状态', () {
+    expect(PlayerNetworkType.fromValue('wifi'), PlayerNetworkType.wifi);
+    expect(PlayerNetworkType.fromValue('lte'), PlayerNetworkType.cellular4G);
+    expect(PlayerNetworkType.fromValue('mobile'), PlayerNetworkType.mobile);
+    expect(PlayerNetworkType.fromValue('unsupported'),
+        PlayerNetworkType.unknown);
   });
 
   test('网速格式化按可读单位输出', () {

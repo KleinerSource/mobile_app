@@ -1,8 +1,10 @@
 import Flutter
 import AVFoundation
 import AVKit
+import CoreTelephony
 import Darwin
 import Foundation
+import Network
 import UIKit
 
 @main
@@ -402,9 +404,29 @@ private struct PictureInPictureRequest {
 }
 
 private final class PlayerStatsReader {
+  private let pathMonitor = NWPathMonitor()
+  private let pathMonitorQueue = DispatchQueue(label: "md_center.player_stats.network")
+  private let pathLock = NSLock()
+  private var latestPath: NWPath?
+  private let telephonyInfo = CTTelephonyNetworkInfo()
+
   private var previousNetwork: (rx: UInt64, tx: UInt64)?
   private var previousNetworkAt: TimeInterval?
   private var previousCpu: (total: UInt64, idle: UInt64)?
+
+  init() {
+    pathMonitor.pathUpdateHandler = { [weak self] path in
+      guard let self else { return }
+      self.pathLock.lock()
+      self.latestPath = path
+      self.pathLock.unlock()
+    }
+    pathMonitor.start(queue: pathMonitorQueue)
+  }
+
+  deinit {
+    pathMonitor.cancel()
+  }
 
   func read() -> [String: Any] {
     let now = Date().timeIntervalSince1970
@@ -430,7 +452,35 @@ private final class PlayerStatsReader {
     if let battery = readBatteryPercent() { result["battery_percent"] = battery }
     if let download = download { result["download_bps"] = download }
     if let upload = upload { result["upload_bps"] = upload }
+    result["network_type"] = readNetworkType()
     return result
+  }
+
+  private func readNetworkType() -> String {
+    pathLock.lock()
+    let path = latestPath
+    pathLock.unlock()
+
+    guard let path else { return "unknown" }
+    guard path.status == .satisfied else { return "offline" }
+    if path.usesInterfaceType(.wifi) { return "wifi" }
+    if path.usesInterfaceType(.cellular) { return readCellularNetworkType() }
+    if path.usesInterfaceType(.wiredEthernet) { return "ethernet" }
+    return "unknown"
+  }
+
+  private func readCellularNetworkType() -> String {
+    let technologies = telephonyInfo.serviceCurrentRadioAccessTechnology
+      .map { Array($0.values) } ?? []
+    if #available(iOS 14.1, *),
+       technologies.contains(CTRadioAccessTechnologyNR) ||
+       technologies.contains(CTRadioAccessTechnologyNRNSA) {
+      return "5g"
+    }
+    if technologies.contains(CTRadioAccessTechnologyLTE) {
+      return "4g"
+    }
+    return "mobile"
   }
 
   private func rate(

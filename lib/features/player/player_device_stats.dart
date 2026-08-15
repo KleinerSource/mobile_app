@@ -3,6 +3,34 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+enum PlayerNetworkType {
+  wifi('wifi', 'Wi-Fi'),
+  cellular4G('4g', '4G'),
+  cellular5G('5g', '5G'),
+  mobile('mobile', '流量'),
+  ethernet('ethernet', '以太网'),
+  offline('offline', '离线'),
+  unknown('unknown', '网络');
+
+  const PlayerNetworkType(this.value, this.label);
+
+  final String value;
+  final String label;
+
+  static PlayerNetworkType fromValue(String? value) {
+    final normalized = value?.trim().toLowerCase();
+    return switch (normalized) {
+      'wifi' => PlayerNetworkType.wifi,
+      '4g' || 'lte' => PlayerNetworkType.cellular4G,
+      '5g' || 'nr' => PlayerNetworkType.cellular5G,
+      'mobile' || 'cellular' => PlayerNetworkType.mobile,
+      'ethernet' => PlayerNetworkType.ethernet,
+      'offline' || 'none' => PlayerNetworkType.offline,
+      _ => PlayerNetworkType.unknown,
+    };
+  }
+}
+
 @immutable
 class PlayerDeviceStats {
   const PlayerDeviceStats({
@@ -10,12 +38,14 @@ class PlayerDeviceStats {
     this.batteryPercent,
     this.downloadBytesPerSecond,
     this.uploadBytesPerSecond,
+    this.networkType = PlayerNetworkType.unknown,
   });
 
   final double? cpuPercent;
   final int? batteryPercent;
   final int? downloadBytesPerSecond;
   final int? uploadBytesPerSecond;
+  final PlayerNetworkType networkType;
 
   factory PlayerDeviceStats.fromMap(Map<Object?, Object?> map) {
     return PlayerDeviceStats(
@@ -23,6 +53,9 @@ class PlayerDeviceStats {
       batteryPercent: _asInt(map['battery_percent']),
       downloadBytesPerSecond: _asInt(map['download_bps']),
       uploadBytesPerSecond: _asInt(map['upload_bps']),
+      networkType: PlayerNetworkType.fromValue(
+        map['network_type']?.toString(),
+      ),
     );
   }
 

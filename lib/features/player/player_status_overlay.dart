@@ -71,8 +71,9 @@ class _PlayerStatusOverlayState extends State<PlayerStatusOverlay> {
               _item(null, _formatClock(_now)),
             if (widget.showNetworkSpeed)
               _item(
-                Icons.wifi,
-                formatPlayerNetworkRate(widget.stats.downloadBytesPerSecond),
+                _networkIcon(widget.stats.networkType),
+                '${widget.stats.networkType.label} '
+                '${formatPlayerNetworkRate(widget.stats.downloadBytesPerSecond)}',
               ),
             Expanded(
               child: Padding(
@@ -138,6 +139,18 @@ class _PlayerStatusOverlayState extends State<PlayerStatusOverlay> {
     if (value <= 15) return Icons.battery_alert;
     if (value >= 85) return Icons.battery_full;
     return Icons.battery_std;
+  }
+
+  IconData _networkIcon(PlayerNetworkType type) {
+    return switch (type) {
+      PlayerNetworkType.wifi => Icons.wifi,
+      PlayerNetworkType.cellular4G ||
+      PlayerNetworkType.cellular5G ||
+      PlayerNetworkType.mobile ||
+      PlayerNetworkType.offline => Icons.signal_cellular_alt,
+      PlayerNetworkType.ethernet => Icons.settings_ethernet,
+      PlayerNetworkType.unknown => Icons.network_check,
+    };
   }
 
   String _formatClock(DateTime value) {
