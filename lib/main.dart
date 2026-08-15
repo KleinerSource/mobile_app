@@ -23,6 +23,7 @@ import 'features/settings/login_page.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'shared/glass.dart';
 import 'shared/glow_background.dart';
+import 'shared/top_snack_bar.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,7 +69,9 @@ class MdCenterApp extends ConsumerWidget {
       localizationsDelegates: AppL10n.localizationsDelegates,
       supportedLocales: AppL10n.supportedLocales,
       builder: (context, child) {
-        return PrivacyShield(child: child ?? const SizedBox.shrink());
+        return TopSnackBarMessenger(
+          child: PrivacyShield(child: child ?? const SizedBox.shrink()),
+        );
       },
       home: SecurityGate(
         onReady: () {

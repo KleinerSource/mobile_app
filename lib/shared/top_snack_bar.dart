@@ -1,0 +1,118 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+/// 保持现有 ScaffoldMessenger 调用方式不变，但把 SnackBar 显示在顶部。
+///
+/// ScaffoldMessengerState 没有顶部 SnackBar 布局选项，顶部通知由
+/// MaterialBanner 实现；底部仅放置一个透明的短生命周期 SnackBar，保证
+/// 既有调用方拿到的控制器类型和关闭语义仍然有效。
+class TopSnackBarMessenger extends ScaffoldMessenger {
+  const TopSnackBarMessenger({super.key, required super.child});
+
+  @override
+  TopSnackBarMessengerState createState() => TopSnackBarMessengerState();
+}
+
+class TopSnackBarMessengerState extends ScaffoldMessengerState {
+  int _topNoticeSequence = 0;
+
+  @override
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showSnackBar(
+    SnackBar snackBar, {
+    AnimationStyle? snackBarAnimationStyle,
+  }) {
+    final sequence = ++_topNoticeSequence;
+
+    // 清理承载兼容控制器的透明 SnackBar，避免连续通知累积到底部队列。
+    super.clearSnackBars();
+    final controller = super.showSnackBar(
+      _hiddenSnackBar,
+      snackBarAnimationStyle: snackBarAnimationStyle,
+    );
+
+    clearMaterialBanners();
+    showMaterialBanner(_buildBanner(snackBar, sequence));
+    unawaited(_dismissAfter(snackBar.duration, sequence));
+    return controller;
+  }
+
+  static const SnackBar _hiddenSnackBar = SnackBar(
+    content: SizedBox.shrink(),
+    duration: Duration(milliseconds: 1),
+    padding: EdgeInsets.zero,
+    backgroundColor: Colors.transparent,
+    elevation: 0,
+    behavior: SnackBarBehavior.floating,
+  );
+
+  MaterialBanner _buildBanner(SnackBar snackBar, int sequence) {
+    final theme = Theme.of(context);
+    final snackBarTheme = SnackBarTheme.of(context);
+    final action = snackBar.action;
+    final backgroundColor = snackBar.backgroundColor ??
+        snackBarTheme.backgroundColor ??
+        theme.colorScheme.inverseSurface;
+    final contentTextStyle = snackBar.contentTextStyle ??
+        snackBarTheme.contentTextStyle ??
+        theme.textTheme.bodyMedium!;
+    final actionColor = action?.textColor ??
+        snackBarTheme.actionTextColor ??
+        theme.colorScheme.primary;
+
+    return MaterialBanner(
+      content: Material(
+        color: backgroundColor,
+        elevation: snackBar.elevation ?? snackBarTheme.elevation ?? 6,
+        shape: snackBar.shape ??
+            snackBarTheme.shape ??
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: snackBar.padding ??
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: DefaultTextStyle(
+                  style: contentTextStyle,
+                  child: snackBar.content,
+                ),
+              ),
+              if (action != null) ...[
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () {
+                    action.onPressed();
+                    _dismissTopNotice(sequence);
+                  },
+                  style: TextButton.styleFrom(foregroundColor: actionColor),
+                  child: Text(action.label),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: const [SizedBox.shrink()],
+      minActionBarHeight: 0,
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      dividerColor: Colors.transparent,
+      elevation: 0,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      margin: EdgeInsets.zero,
+      onVisible: snackBar.onVisible,
+    );
+  }
+
+  Future<void> _dismissAfter(Duration duration, int sequence) async {
+    await Future<void>.delayed(duration);
+    _dismissTopNotice(sequence);
+  }
+
+  void _dismissTopNotice(int sequence) {
+    if (!mounted || sequence != _topNoticeSequence) return;
+    removeCurrentMaterialBanner();
+  }
+}
