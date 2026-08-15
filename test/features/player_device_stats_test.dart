@@ -38,7 +38,7 @@ void main() {
 
   testWidgets('网络和 CPU OSD 使用图标并保留数值', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: Scaffold(
           body: PlayerStatusOverlay(
             title: '测试影片',
