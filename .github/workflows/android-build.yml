@@ -208,8 +208,7 @@ jobs:
           notes_file="$(mktemp)"
           trap 'rm -f "${notes_file}"' EXIT
           bash tool/generate_release_notes.sh \
-            latest-android "${version}" "${notes_file}" \
-            '未签名 Android 构建产物（自动滚动更新）'
+            latest-android "${version}" "${notes_file}"'
           gh release delete latest-android --yes --cleanup-tag || true
           gh release create latest-android "${{ steps.android_artifact.outputs.path }}" \
             --prerelease \

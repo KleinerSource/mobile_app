@@ -177,8 +177,7 @@ jobs:
           notes_file="$(mktemp)"
           trap 'rm -f "${notes_file}"' EXIT
           bash tool/generate_release_notes.sh \
-            latest "${version}" "${notes_file}" \
-            '未签名 iOS 构建产物（自动滚动更新）'
+            latest "${version}" "${notes_file}"'
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest "${{ steps.ios_artifact.outputs.path }}" \
             --prerelease \
