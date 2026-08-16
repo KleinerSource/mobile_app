@@ -1445,9 +1445,6 @@ class _MediaInfoSection extends ConsumerWidget {
                 : '${m}m ${sec.toString().padLeft(2, '0')}s'
           ]);
         }
-        if (detail.bitRate != null && detail.bitRate! > 0) {
-          rows.add(['码率', '${(detail.bitRate! / 1000).round()} kbps']);
-        }
         if (detail.fileSize != null && detail.fileSize! > 0) {
           rows.add(['大小', _formatBytes(detail.fileSize!)]);
         }

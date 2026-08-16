@@ -18,7 +18,12 @@ class MediaStreamCards extends StatelessWidget {
     final streams = detail.streams;
     final cards = <Widget>[];
     if (streams.video != null) {
-      cards.add(_VideoStreamCard(video: streams.video!));
+      cards.add(
+        _VideoStreamCard(
+          video: streams.video!,
+          fallbackBitRate: detail.bitRate,
+        ),
+      );
     }
     for (var i = 0; i < streams.audioStreams.length; i++) {
       cards.add(
@@ -186,9 +191,12 @@ class _CardBadge extends StatelessWidget {
 // ============ 视频卡 ============
 
 class _VideoStreamCard extends StatelessWidget {
-  const _VideoStreamCard({required this.video});
+  const _VideoStreamCard({required this.video, this.fallbackBitRate});
 
   final VideoStreamInfo video;
+
+  /// 流级码率缺失且后端未能推导时，退回文件级总码率。
+  final int? fallbackBitRate;
 
   @override
   Widget build(BuildContext context) {
@@ -228,7 +236,7 @@ class _VideoStreamCard extends StatelessWidget {
             video.bitDepth != null ? '${video.bitDepth}-bit' : '-',
           ),
           _CardRow('像素格式', video.pixFmt ?? '-'),
-          _CardRow('码率', formatBitrate(video.bitRate)),
+          _CardRow('码率', formatBitrate(video.bitRate ?? fallbackBitRate)),
         ],
       ),
     );
