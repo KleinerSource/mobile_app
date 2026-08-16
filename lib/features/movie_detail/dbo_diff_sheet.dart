@@ -433,19 +433,42 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
                                                       color: c.accent),
                                                   const SizedBox(width: 4),
                                                   Expanded(
-                                                    child: Text(
-                                                      item.remoteText,
-                                                      maxLines: 3,
-                                                      overflow:
-                                                          TextOverflow
-                                                              .ellipsis,
-                                                      style: TextStyle(
-                                                        color: c.accent,
-                                                        fontFamily: 'Inter',
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        fontSize: 13,
-                                                      ),
+                                                    child: Row(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(
+                                                            item.remoteText,
+                                                            maxLines: 3,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style: TextStyle(
+                                                              color: c.accent,
+                                                              fontFamily:
+                                                                  'Inter',
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w700,
+                                                              fontSize: 13,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        if (item.section ==
+                                                                DboMetadataDiffSection
+                                                                    .actors &&
+                                                            item.gender
+                                                                    ?.trim()
+                                                                    .isNotEmpty ==
+                                                                true) ...[
+                                                          const SizedBox(width: 8),
+                                                          _DboGenderBadge(
+                                                            gender: item.gender!,
+                                                          ),
+                                                        ],
+                                                      ],
                                                     ),
                                                   ),
                                                 ],
@@ -513,6 +536,61 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DboGenderBadge extends StatelessWidget {
+  const _DboGenderBadge({required this.gender});
+
+  final String gender;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final normalized = gender.trim().toLowerCase();
+    final isFemale = normalized == '♀' || normalized == '女' || normalized == 'female';
+    final isMale = normalized == '♂' || normalized == '男' || normalized == 'male';
+    final color = isFemale
+        ? const Color(0xFFE875A8)
+        : isMale
+            ? const Color(0xFF69A7F8)
+            : colors.muted;
+    final label = isFemale
+        ? '女'
+        : isMale
+            ? '男'
+            : gender.trim();
+    final icon = isFemale
+        ? Icons.female
+        : isMale
+            ? Icons.male
+            : Icons.person_outline;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontFamily: 'Inter',
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
+          ),
+        ],
       ),
     );
   }
