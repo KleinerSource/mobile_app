@@ -87,8 +87,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   ];
 
   final PlayerControllerHost _host = PlayerControllerHost();
-  final PlayerDeviceStatsReader _deviceStatsReader =
-      PlayerDeviceStatsReader();
+  final PlayerDeviceStatsReader _deviceStatsReader = PlayerDeviceStatsReader();
 
   bool _loading = true;
   String? _error;
@@ -128,7 +127,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Timer? _indicatorTimer;
   double _brightness = 0.5;
   double _volume = 0.5;
-  double? _restoreBrightness;
+  Future<void> _brightnessOperations = Future<void>.value();
+  bool _brightnessScopeStarted = false;
+  bool _brightnessReady = false;
   bool _wasPlayingBeforePause = false;
   Duration _backgroundPosition = Duration.zero;
   bool _playbackErrorReported = false;
@@ -157,7 +158,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     FlutterVolumeController.updateShowSystemUI(false);
     // ignore: discarded_futures
     WakelockPlus.enable();
-    _initLevels();
+    unawaited(_initLevels());
     _startDeviceStatsPolling();
     _load();
   }
@@ -180,8 +181,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final orientations = switch (settings.entryOrientation) {
       PlayerEntryOrientation.unchanged => null,
       PlayerEntryOrientation.forceLandscape => [
-          _landscapeOrientation(settings.landscapeSide),
-        ],
+        _landscapeOrientation(settings.landscapeSide),
+      ],
       PlayerEntryOrientation.forcePortrait => _portraitOrientations,
     };
     if (orientations == null) return;
@@ -195,13 +196,40 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _initLevels() async {
-    try {
-      _restoreBrightness = await ScreenBrightness.instance.application;
-      _brightness = _restoreBrightness ?? 0.5;
-    } catch (_) {}
+    _brightnessScopeStarted = true;
+    await _queueBrightnessOperation(() async {
+      try {
+        final currentBrightness = await ScreenBrightness.instance.application;
+        if (!_isLeaving) {
+          _brightness = currentBrightness;
+        }
+      } catch (_) {}
+      _brightnessReady = true;
+    });
     try {
       _volume = await FlutterVolumeController.getVolume() ?? 0.5;
     } catch (_) {}
+  }
+
+  Future<void> _queueBrightnessOperation(Future<void> Function() operation) {
+    final next = _brightnessOperations.then<void>((_) async {
+      try {
+        await operation();
+      } catch (_) {}
+    });
+    _brightnessOperations = next;
+    return next;
+  }
+
+  void _resetApplicationBrightness() {
+    if (!_brightnessScopeStarted) return;
+    // The plugin owns app background/foreground restoration. This reset is
+    // only for leaving the player route, including an initialization race.
+    unawaited(
+      _queueBrightnessOperation(
+        ScreenBrightness.instance.resetApplicationScreenBrightness,
+      ),
+    );
   }
 
   void _startDeviceStatsPolling() {
@@ -284,10 +312,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       overlays: SystemUiOverlay.values,
     );
     FlutterVolumeController.updateShowSystemUI(true);
-    if (_restoreBrightness != null) {
-      // ignore: discarded_futures
-      ScreenBrightness.instance.resetApplicationScreenBrightness();
-    }
+    _resetApplicationBrightness();
     unawaited(_reportProgress());
     if (_transcodeSessionActive) {
       _transcodeSessionActive = false;
@@ -319,7 +344,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (durationSec <= 0 || positionSec <= 0) return;
 
       try {
-        await ref.read(moviesRepositoryProvider).upsertWatchRecord(
+        await ref
+            .read(moviesRepositoryProvider)
+            .upsertWatchRecord(
               widget.movieId,
               positionSec: positionSec,
               durationSec: durationSec,
@@ -333,10 +360,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     return next;
   }
 
-  Future<void> _load({
-    String? quality,
-    Duration? resume,
-  }) {
+  Future<void> _load({String? quality, Duration? resume}) {
     _rateChangeGraceTimer?.cancel();
     _rateChangeGraceTimer = null;
     _pendingPlaybackError = null;
@@ -414,7 +438,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       );
       if (!mounted || generation != _loadGeneration) return;
 
-      final decision = cachedDecision ??
+      final decision =
+          cachedDecision ??
           await client.playback.decision(
             widget.movieId,
             _clientCaps(selectedQuality),
@@ -428,8 +453,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           ? PlayerDecodeStatus.server(engine: decision.hwAccel)
           : null;
 
-      final resumeFromLastPosition =
-          ref.read(playerSettingsProvider).resumeFromLastPosition;
+      final resumeFromLastPosition = ref
+          .read(playerSettingsProvider)
+          .resumeFromLastPosition;
       WatchRecord? savedRecord;
       if (quality == null &&
           resume == null &&
@@ -448,7 +474,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         explicitPositionSec: widget.startPositionSec,
         record: savedRecord,
       );
-      final startAt = resume ??
+      final startAt =
+          resume ??
           (resumePositionSec > 0 ? Duration(seconds: resumePositionSec) : null);
       final direct = !useServerRoute;
       if (direct) {
@@ -503,20 +530,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     Map<String, String>? headers,
   }) async {
     try {
-      await _host.open(
-        url,
-        startAt: startAt,
-        headers: headers,
-      );
+      await _host.open(url, startAt: startAt, headers: headers);
     } catch (_) {
       if (!_clientHardwareAcceleration) rethrow;
       await _host.recreate(enableHardwareAcceleration: false);
       _clientHardwareAcceleration = false;
-      await _host.open(
-        url,
-        startAt: startAt,
-        headers: headers,
-      );
+      await _host.open(url, startAt: startAt, headers: headers);
     }
     _usingHls = false;
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
@@ -611,18 +630,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       }
     });
     _errorSub = _host.errorStream.listen(_onPlayerError);
-    _progressReportTimer = Timer.periodic(
-      const Duration(seconds: 10),
-      (_) {
-        if (!_isLeaving) unawaited(_reportProgress());
-      },
-    );
+    _progressReportTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (!_isLeaving) unawaited(_reportProgress());
+    });
   }
 
   void _onPlayerError(String message) {
-    if (!mounted ||
-        _isLeaving ||
-        _playbackErrorReported) {
+    if (!mounted || _isLeaving || _playbackErrorReported) {
       return;
     }
     if (_rateChangeGraceTimer != null) {
@@ -725,9 +739,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     }
   }
 
-  Future<void> _onSubtitleChanged(
-    playback_models.SubtitleTrack? track,
-  ) async {
+  Future<void> _onSubtitleChanged(playback_models.SubtitleTrack? track) async {
     final cfg = ref.read(serverConfigProvider);
     if (cfg == null) return;
     try {
@@ -739,10 +751,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         cfg,
         token,
         track,
-        embeddedOrdinal:
-            track == null ? null : _embeddedSubtitleOrdinal(track),
+        embeddedOrdinal: track == null ? null : _embeddedSubtitleOrdinal(track),
       );
-      if (loaded && ref.read(subtitleSettingsProvider).rememberSelectedSubtitle) {
+      if (loaded &&
+          ref.read(subtitleSettingsProvider).rememberSelectedSubtitle) {
         final key = track == null
             ? subtitleDisabledSelectionKey
             : subtitleSelectionKey(track);
@@ -816,7 +828,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<void> _showSubtitleSettings() async {
     if (!mounted || _isLeaving) return;
     final wasPlaying = _host.player.state.playing;
-    final initial = _subtitleOffsetBounds.clampAdjustments(_subtitleAdjustments);
+    final initial = _subtitleOffsetBounds.clampAdjustments(
+      _subtitleAdjustments,
+    );
     if (initial.verticalOffset != _subtitleAdjustments.verticalOffset) {
       _updateSubtitleAdjustments(initial);
     }
@@ -839,7 +853,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _stopTranscodeSession() async {
@@ -858,11 +874,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _eventsSub?.cancel();
     _transcodePollTimer?.cancel();
     final api = ref.read(requiredApiClientProvider).playback;
-    _eventsSub = api.events(widget.movieId, quality: quality).listen(
-      _applyTranscodeStatus,
-      onError: (_) => _startTranscodePolling(quality),
-      onDone: () => _startTranscodePolling(quality),
-    );
+    _eventsSub = api
+        .events(widget.movieId, quality: quality)
+        .listen(
+          _applyTranscodeStatus,
+          onError: (_) => _startTranscodePolling(quality),
+          onDone: () => _startTranscodePolling(quality),
+        );
     _transcodePollTimer = Timer.periodic(
       const Duration(seconds: 3),
       (_) => _pollTranscodeStatus(quality),
@@ -901,12 +919,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     });
   }
 
-  List<PlayerDecodeStatus> get _decodeStatuses =>
-      PlayerDecodeStatus.primary(
-        usingHls: _usingHls,
-        localHardware: _clientHardwareAcceleration,
-        serverStatus: _serverDecodeStatus,
-      );
+  List<PlayerDecodeStatus> get _decodeStatuses => PlayerDecodeStatus.primary(
+    usingHls: _usingHls,
+    localHardware: _clientHardwareAcceleration,
+    serverStatus: _serverDecodeStatus,
+  );
 
   Future<VideoBufferPolicy> _resolveVideoBufferPolicy() async {
     final settings = ref.read(diskPrecacheSettingsProvider);
@@ -924,11 +941,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     return {'Authorization': 'Bearer $value'};
   }
 
-  String _fallbackHlsUrl(
-    ServerConfig cfg,
-    String? token,
-    String quality,
-  ) {
+  String _fallbackHlsUrl(ServerConfig cfg, String? token, String quality) {
     final selected = quality == 'original' ? 'auto' : quality;
     final path =
         '/api/movies/id/${widget.movieId}/stream.m3u8?quality=$selected';
@@ -1031,9 +1044,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _enterPictureInPicture() async {
-    if (_isLeaving ||
-        _pictureInPictureRequesting ||
-        _pictureInPictureActive) {
+    if (_isLeaving || _pictureInPictureRequesting || _pictureInPictureActive) {
       return;
     }
     _pictureInPictureRequesting = true;
@@ -1207,9 +1218,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     try {
       final side = ref.read(playerSettingsProvider).landscapeSide;
       await SystemChrome.setPreferredOrientations(
-        nextIsLandscape
-            ? [_landscapeOrientation(side)]
-            : _portraitOrientations,
+        nextIsLandscape ? [_landscapeOrientation(side)] : _portraitOrientations,
       );
     } catch (_) {
       if (mounted) setState(() => _isLandscape = !nextIsLandscape);
@@ -1236,9 +1245,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _onBrightnessDelta(double delta) {
+    if (!_brightnessReady || _isLeaving) return;
     _brightness = (_brightness + delta).clamp(0.0, 1.0);
-    // ignore: discarded_futures
-    ScreenBrightness.instance.setApplicationScreenBrightness(_brightness);
+    final brightness = _brightness;
+    unawaited(
+      _queueBrightnessOperation(
+        () => ScreenBrightness.instance.setApplicationScreenBrightness(
+          brightness,
+        ),
+      ),
+    );
     _showIndicator(PlayerIndicator.brightness(_brightness), autoHide: false);
   }
 
@@ -1324,11 +1340,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       child: Scaffold(
         backgroundColor: Colors.black,
         body: SafeArea(
-          child: Stack(
-            children: [
-              Positioned.fill(child: _body()),
-            ],
-          ),
+          child: Stack(children: [Positioned.fill(child: _body())]),
         ),
       ),
     );
@@ -1443,8 +1455,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 showOrientationButton: settings.showOrientationButton,
                 showMediaSwitchButton: settings.showMediaSwitchButton,
                 playbackRate: _playbackRate,
-                onPictureInPicture: () =>
-                    unawaited(_enterPictureInPicture()),
+                onPictureInPicture: () => unawaited(_enterPictureInPicture()),
                 onPreviousMedia: widget.queueIndex > 0
                     ? () => unawaited(_switchMedia(widget.queueIndex - 1))
                     : null,
