@@ -41,7 +41,19 @@ format_commit() {
 
   body="$(git show -s --format=%b "$commit_sha" | sed 's/\r$//')"
   if [ -n "$(printf '%s' "$body" | tr -d '[:space:]')" ]; then
-    printf '%s\n' "$body" | sed 's/^/ - /'
+    # 提交正文可能已经使用 Markdown 列表，统一归一化为单个短横线。
+    printf '%s\n' "$body" | awk '
+      {
+        line = $0
+        sub(/^[[:space:]]+/, "", line)
+        sub(/^-[[:space:]]*/, "", line)
+        if (line == "") {
+          print ""
+        } else {
+          print " - " line
+        }
+      }
+    '
   fi
   printf '\n'
 }
