@@ -30,6 +30,7 @@ import 'resources_sheet.dart';
 import '../resources/resources_repository.dart';
 import 'movie_editor_sheet.dart';
 import 'movie_detail_formatters.dart';
+import 'cover_badges.dart';
 import 'media_stream_cards.dart';
 import 'thunder_subtitle_sheet.dart';
 import '../home/home_movie_view_state.dart';
@@ -242,18 +243,26 @@ class _DetailBody extends ConsumerWidget {
   }
 }
 
-class _HeroHeader extends StatelessWidget {
+class _HeroHeader extends ConsumerWidget {
   const _HeroHeader({required this.movie, required this.urlBuilder});
   final MovieDetail movie;
   final String Function(String) urlBuilder;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
     // fanart fallback poster fallback thumb
     final heroUuid = movie.fanartUuid?.isNotEmpty == true
         ? movie.fanartUuid
         : (movie.posterUuid?.isNotEmpty == true ? movie.posterUuid : null);
+
+    // 技术徽章(编码/HDR/字幕/破解/UHD...)基于媒体探测 + 文件名后缀
+    final video = ref.watch(mediaInfoProvider(movie.id)).value?.streams.video;
+    final badges = buildCoverBadges(
+      filePath: movie.filePath,
+      fileSize: movie.fileSize,
+      video: video,
+    );
 
     return Stack(
       fit: StackFit.expand,
@@ -300,6 +309,15 @@ class _HeroHeader extends StatelessWidget {
             ),
           ),
         ),
+        // ---------- 底部技术徽章 ----------
+        if (badges.isNotEmpty)
+          Align(
+            alignment: Alignment.bottomLeft,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: CoverBadgeRow(badges: badges),
+            ),
+          ),
       ],
     );
   }
