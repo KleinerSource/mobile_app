@@ -24,6 +24,7 @@ class TopSnackBarMessenger extends ScaffoldMessenger {
 class TopSnackBarMessengerState extends ScaffoldMessengerState {
   int _topNoticeSequence = 0;
   OverlayEntry? _overlayEntry;
+  Timer? _topNoticeDismissTimer;
 
   @override
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showSnackBar(
@@ -34,6 +35,8 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
 
     // 清理承载兼容控制器的透明 SnackBar，避免连续通知累积到底部队列。
     super.clearSnackBars();
+    _topNoticeDismissTimer?.cancel();
+    _topNoticeDismissTimer = null;
     final controller = super.showSnackBar(
       _hiddenSnackBar,
       snackBarAnimationStyle: snackBarAnimationStyle,
@@ -53,7 +56,22 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
         right: 0,
         child: SafeArea(
           bottom: false,
-          child: _buildBanner(snackBar, sequence),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: _TopNoticeDismissible(
+                    onDismiss: () => _dismissTopNotice(sequence),
+                    child: _buildBanner(snackBar, sequence),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -64,7 +82,10 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
         snackBar.onVisible?.call();
       }
     });
-    unawaited(_dismissAfter(snackBar.duration, sequence));
+    _topNoticeDismissTimer = Timer(
+      snackBar.duration,
+      () => _dismissTopNotice(sequence),
+    );
     return controller;
   }
 
@@ -135,21 +156,69 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
     );
   }
 
-  Future<void> _dismissAfter(Duration duration, int sequence) async {
-    await Future<void>.delayed(duration);
-    _dismissTopNotice(sequence);
-  }
-
   void _dismissTopNotice(int sequence) {
     if (!mounted || sequence != _topNoticeSequence) return;
+    _topNoticeDismissTimer?.cancel();
+    _topNoticeDismissTimer = null;
     _overlayEntry?.remove();
     _overlayEntry = null;
   }
 
   @override
   void dispose() {
+    _topNoticeDismissTimer?.cancel();
+    _topNoticeDismissTimer = null;
     _overlayEntry?.remove();
     _overlayEntry = null;
     super.dispose();
+  }
+}
+
+class _TopNoticeDismissible extends StatefulWidget {
+  const _TopNoticeDismissible({required this.onDismiss, required this.child});
+
+  final VoidCallback onDismiss;
+  final Widget child;
+
+  @override
+  State<_TopNoticeDismissible> createState() => _TopNoticeDismissibleState();
+}
+
+class _TopNoticeDismissibleState extends State<_TopNoticeDismissible> {
+  static const _swipeDistance = 24.0;
+  static const _swipeVelocity = -150.0;
+
+  double _upwardDragDistance = 0;
+
+  void _resetDrag() {
+    _upwardDragDistance = 0;
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    final delta = details.primaryDelta;
+    if (delta != null && delta < 0) {
+      _upwardDragDistance += -delta;
+    }
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (_upwardDragDistance >= _swipeDistance || velocity <= _swipeVelocity) {
+      widget.onDismiss();
+    }
+    _resetDrag();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onDismiss,
+      onVerticalDragStart: (_) => _resetDrag(),
+      onVerticalDragUpdate: _handleDragUpdate,
+      onVerticalDragEnd: _handleDragEnd,
+      onVerticalDragCancel: _resetDrag,
+      child: widget.child,
+    );
   }
 }
