@@ -912,12 +912,12 @@ class _ActorIdentitySection extends StatelessWidget {
             : '正在获取头像...'
         : avatarExists
             ? avatarManuallySelected && hasPreview
-                ? '已选择数据源头像，将替换本地头像'
+                ? '将替换本地头像'
                 : hasPreview
-                    ? '数据源头像预览（本地已有头像，不覆盖）'
-                    : '本地已有头像，可选择候选替换'
+                    ? '本地已有头像（不覆盖）'
+                    : '本地已有头像，可替换'
             : activeLoadFailed
-                ? '头像获取失败，不会同步头像'
+                ? '头像获取失败'
                 : hasPreview
                     ? '将同步头像'
                     : '数据源未提供头像';
