@@ -53,6 +53,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
 
   final _searchController = TextEditingController();
   final _controller = PagingController<int, ResourceItem>(firstPageKey: 0);
+  final _scrollController = ScrollController();
   Timer? _debounce;
   String? _search;
   String _sortBy = 'name';
@@ -60,6 +61,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   int? _totalCount;
   int _requestSerial = 0;
   Completer<void>? _refreshCompleter;
+  double? _pendingScrollOffset;
 
   @override
   void initState() {
@@ -76,6 +78,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     _completeRefresh();
     _debounce?.cancel();
     _controller.dispose();
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -132,6 +135,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       } else {
         _controller.appendPage(page.items, nextOffset);
       }
+      _restorePendingScrollOffset();
       _completeRefresh();
     } catch (error) {
       if (!mounted || requestSerial != _requestSerial) return;
@@ -140,9 +144,33 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     }
   }
 
-  void _reload() {
+  void _reload({double? preserveScrollOffset}) {
     _requestSerial++;
+    _pendingScrollOffset = preserveScrollOffset;
     _controller.refresh();
+  }
+
+  void _restorePendingScrollOffset() {
+    final target = _pendingScrollOffset;
+    if (target == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      if (_pendingScrollOffset != target) return;
+
+      final position = _scrollController.position;
+      final restored = target
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      if ((position.pixels - restored).abs() > 0.5) {
+        _scrollController.jumpTo(restored);
+      }
+
+      if (target <= position.maxScrollExtent ||
+          _controller.nextPageKey == null) {
+        _pendingScrollOffset = null;
+      }
+    });
   }
 
   Future<void> _refresh() {
@@ -170,6 +198,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
+            scrollController: _scrollController,
             header: SettingsSubPageHeader(
               eyebrow: '媒体库',
               title: widget.kind.plural,
@@ -181,7 +210,8 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
               color: c.accent,
               onRefresh: _refresh,
               child: CustomScrollView(
-                primary: true,
+                controller: _scrollController,
+                primary: false,
                 slivers: [
                   SliverToBoxAdapter(
                     child: Padding(
@@ -602,7 +632,11 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
         ),
       );
       // ignore: unused_result
-      _reload();
+      _reload(
+        preserveScrollOffset: isEdit && _scrollController.hasClients
+            ? _scrollController.offset
+            : null,
+      );
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('操作失败: ${toApiException(e).message}')),
