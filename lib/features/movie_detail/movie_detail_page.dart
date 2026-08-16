@@ -400,16 +400,16 @@ class _PlotSection extends StatelessWidget {
   final String plot;
 
   Future<void> _showFullPlot(BuildContext context) {
+    final normalizedPlot = normalizeMoviePlot(plot);
     return showGlassDialog<void>(
       context: context,
       title: const Text('影片简介'),
-      content: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.58,
-        ),
+      content: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.58,
         child: SingleChildScrollView(
+          padding: const EdgeInsets.only(right: 8),
           child: Text(
-            plot,
+            normalizedPlot,
             style: AppText.body(context).copyWith(height: 1.55),
           ),
         ),
@@ -426,6 +426,7 @@ class _PlotSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final normalizedPlot = normalizeMoviePlot(plot);
 
     return Semantics(
       button: true,
@@ -440,7 +441,7 @@ class _PlotSection extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: Text(
-              plot,
+              normalizedPlot,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: AppText.body(context).copyWith(height: 1.55),
