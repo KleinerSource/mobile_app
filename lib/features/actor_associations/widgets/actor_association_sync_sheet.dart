@@ -1,6 +1,5 @@
 import 'dart:async';
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -69,6 +68,7 @@ class _ActorAssociationSyncSheetState
   final Map<String, Uint8List> _avatarChoiceBytes = <String, Uint8List>{};
   final Set<String> _avatarChoiceLoading = <String>{};
   final Set<String> _avatarChoiceFailed = <String>{};
+  final ValueNotifier<int> _avatarPickerRevision = ValueNotifier<int>(0);
   int _avatarChoiceIndex = 0;
   bool _avatarManuallySelected = false;
   int _loadRequestId = 0;
@@ -148,6 +148,12 @@ class _ActorAssociationSyncSheetState
         ) ??
         ActorDataSource.dbonline;
     unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _avatarPickerRevision.dispose();
+    super.dispose();
   }
 
   bool _hasSyncChanges(ActorAssocPreview preview) {
@@ -360,6 +366,7 @@ class _ActorAssociationSyncSheetState
       _avatarChoiceLoading.add(url);
       _avatarChoiceFailed.remove(url);
     });
+    _avatarPickerRevision.value++;
     try {
       final bytes = await ref.read(actorAssociationsRepositoryProvider).previewAvatar(
             url,
@@ -372,12 +379,14 @@ class _ActorAssociationSyncSheetState
         _avatarChoiceLoading.remove(url);
         _avatarChoiceFailed.remove(url);
       });
+      _avatarPickerRevision.value++;
     } catch (_) {
       if (!mounted || _source != source) return;
       setState(() {
         _avatarChoiceLoading.remove(url);
         _avatarChoiceFailed.add(url);
       });
+      _avatarPickerRevision.value++;
       // 加载失败的候选不占主位：自动切到下一张未失败候选（全部失败时保持原位由状态文案兜底）
       final current = _preview;
       if (current != null) {
@@ -433,6 +442,7 @@ class _ActorAssociationSyncSheetState
         avatarBytes: _avatarChoiceBytes,
         avatarLoading: _avatarChoiceLoading,
         avatarLoadFailed: _avatarChoiceFailed,
+        revision: _avatarPickerRevision,
       ),
     );
     if (!mounted || selectedIndex == null) return;
@@ -1096,6 +1106,7 @@ class _AvatarChoicePicker extends StatelessWidget {
     required this.avatarBytes,
     required this.avatarLoading,
     required this.avatarLoadFailed,
+    required this.revision,
   });
 
   final String mappedValue;
@@ -1104,9 +1115,17 @@ class _AvatarChoicePicker extends StatelessWidget {
   final Map<String, Uint8List> avatarBytes;
   final Set<String> avatarLoading;
   final Set<String> avatarLoadFailed;
+  final ValueListenable<int> revision;
 
   @override
   Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: revision,
+      builder: (context, _, __) => _buildPicker(context),
+    );
+  }
+
+  Widget _buildPicker(BuildContext context) {
     final c = appColors(context);
     final height = MediaQuery.of(context).size.height * 0.58;
     // 加载失败的候选滞后到末尾展示，不占靠前的位置；保留原始索引供选中回传
