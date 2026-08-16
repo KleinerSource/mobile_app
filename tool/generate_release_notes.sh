@@ -4,7 +4,6 @@ set -euo pipefail
 release_tag="${1:?缺少 Release tag}"
 version="${2:?缺少应用版本号}"
 output_file="${3:?缺少说明输出文件}"
-title="${4:-未签名构建产物（自动滚动更新）}"
 repository="${GITHUB_REPOSITORY:?缺少 GITHUB_REPOSITORY}"
 current_sha="${GITHUB_SHA:?缺少 GITHUB_SHA}"
 
@@ -65,7 +64,7 @@ is_build_metadata_commit() {
 
 commit_count=0
 {
-  printf '%s\n\n' "$title"
+  # 保留旧工作流的第四个参数兼容性，但不再输出构建产物标题。
   printf '版本: %s\n\n' "$version"
   printf '本次构建包含以下更新：\n\n'
 
