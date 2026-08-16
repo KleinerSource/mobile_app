@@ -2,13 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/pagination_footer.dart';
 import '../settings/settings_common.dart';
 import 'mappings_providers.dart';
 import 'mappings_repository.dart';
@@ -23,16 +26,30 @@ class MappingRulesPage extends ConsumerStatefulWidget {
 }
 
 class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
+  static const _pageSize = 50;
+
   final _searchCtrl = TextEditingController();
+  final _controller = PagingController<int, MappingRule>(firstPageKey: 0);
   Timer? _debounce;
   String? _search;
   String _status = 'all';
+  int? _totalCount;
+  int _requestSerial = 0;
+  Completer<void>? _refreshCompleter;
 
   @override
   void dispose() {
+    _completeRefresh();
     _debounce?.cancel();
+    _controller.dispose();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addPageRequestListener(_fetch);
   }
 
   void _onSearch(String v) {
@@ -40,17 +57,78 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     _debounce = Timer(const Duration(milliseconds: 320), () {
       if (mounted) {
         setState(() => _search = v.trim().isEmpty ? null : v.trim());
+        _reload();
       }
     });
   }
 
-  MappingsListKey get _key =>
-      MappingsListKey(type: widget.type, search: _search, status: _status);
+  void _clearSearch() {
+    _debounce?.cancel();
+    _searchCtrl.clear();
+    if (_search == null) return;
+    setState(() => _search = null);
+    _reload();
+  }
+
+  void _setStatus(String status) {
+    if (_status == status) return;
+    setState(() => _status = status);
+    _reload();
+  }
+
+  Future<void> _fetch(int offset) async {
+    final requestSerial = _requestSerial;
+    try {
+      final page = await ref
+          .read(mappingsRepositoryProvider)
+          .listPage(
+            widget.type,
+            limit: _pageSize,
+            offset: offset,
+            search: _search,
+            status: _status,
+          );
+      if (!mounted || requestSerial != _requestSerial) return;
+
+      setState(() => _totalCount = page.totalCount);
+      final nextOffset = offset + page.items.length;
+      if (nextOffset >= page.totalCount || page.items.isEmpty) {
+        _controller.appendLastPage(page.items);
+      } else {
+        _controller.appendPage(page.items, nextOffset);
+      }
+      _completeRefresh();
+    } catch (error) {
+      if (!mounted || requestSerial != _requestSerial) return;
+      _controller.error = toApiException(error).message;
+      _completeRefresh();
+    }
+  }
+
+  void _reload() {
+    _requestSerial++;
+    _controller.refresh();
+  }
+
+  Future<void> _refresh() {
+    final pending = _refreshCompleter;
+    if (pending != null) return pending.future;
+
+    final completer = Completer<void>();
+    _refreshCompleter = completer;
+    _reload();
+    return completer.future;
+  }
+
+  void _completeRefresh() {
+    final completer = _refreshCompleter;
+    _refreshCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final async = ref.watch(mappingsListProvider(_key));
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -62,155 +140,144 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
               title: '${widget.type.label}映射',
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  SettingsAddButton(onPressed: () => _showEditor()),
-                ],
+                children: [SettingsAddButton(onPressed: () => _showEditor())],
               ),
             ),
             body: RefreshIndicator(
               color: c.accent,
-              onRefresh: () =>
-                  ref.refresh(mappingsListProvider(_key).future).then((_) {}),
+              onRefresh: _refresh,
               child: CustomScrollView(
                 primary: true,
                 slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          async.maybeWhen(
-                            data: (list) => '${list.length}',
-                            orElse: () => '—',
-                          ),
-                          style: AppText.pageTitle(context),
-                        ),
-                        const SizedBox(width: 8),
-                        Text('条规则', style: AppText.meta(context)),
-                      ],
-                    ),
-                  ),
-                ),
-                // 搜索栏
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: c.surface,
-                        border: Border.all(color: c.cardBorder),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
                         children: [
-                          const SizedBox(width: 14),
-                          Icon(Icons.search, size: 18, color: c.muted),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: TextField(
-                              controller: _searchCtrl,
-                              onChanged: _onSearch,
-                              decoration: InputDecoration(
-                                hintText: '搜索原始值或映射值',
-                                hintStyle: TextStyle(
-                                    color: c.muted,
-                                    fontWeight: FontWeight.w500),
-                                isCollapsed: true,
-                                contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 14),
-                                border: InputBorder.none,
-                              ),
-                              style: TextStyle(
-                                  color: c.text, fontWeight: FontWeight.w500),
-                            ),
+                          Text(
+                            _totalCount == null ? '—' : '$_totalCount',
+                            style: AppText.pageTitle(context),
                           ),
-                          if (_searchCtrl.text.isNotEmpty)
-                            IconButton(
-                              icon: Icon(Icons.close,
-                                  size: 16, color: c.muted),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                setState(() => _search = null);
-                              },
-                            ),
+                          const SizedBox(width: 8),
+                          Text('条规则', style: AppText.meta(context)),
                         ],
                       ),
                     ),
                   ),
-                ),
-                // status chips
-                SliverToBoxAdapter(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
-                    child: Row(
-                      children: [
-                        CompactFilterButton(
-                          label: '全部',
-                          icon: Icons.filter_list_rounded,
-                          active: _status == 'all',
-                          onTap: () => setState(() => _status = 'all'),
+                  // 搜索栏
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: c.surface,
+                          border: Border.all(color: c.cardBorder),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        const SizedBox(width: 7),
-                        CompactFilterButton(
-                          label: '映射规则',
-                          icon: Icons.swap_horiz_rounded,
-                          active: _status == 'convert',
-                          onTap: () => setState(() => _status = 'convert'),
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 14),
+                            Icon(Icons.search, size: 18, color: c.muted),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: TextField(
+                                controller: _searchCtrl,
+                                onChanged: _onSearch,
+                                decoration: InputDecoration(
+                                  hintText: '搜索原始值或映射值',
+                                  hintStyle: TextStyle(
+                                    color: c.muted,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  isCollapsed: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  border: InputBorder.none,
+                                ),
+                                style: TextStyle(
+                                  color: c.text,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            if (_searchCtrl.text.isNotEmpty)
+                              IconButton(
+                                icon: Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: c.muted,
+                                ),
+                                onPressed: () {
+                                  _clearSearch();
+                                },
+                              ),
+                          ],
                         ),
-                        const SizedBox(width: 7),
-                        CompactFilterButton(
-                          label: '删除规则',
-                          icon: Icons.delete_outline_rounded,
-                          active: _status == 'delete',
-                          onTap: () => setState(() => _status = 'delete'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 10)),
-
-                async.when(
-                  loading: () => const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                  error: (e, _) => SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child:
-                            Text('加载失败: $e', style: AppText.body(context)),
                       ),
                     ),
                   ),
-                  data: (list) {
-                    if (list.isEmpty) {
-                      return SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _Empty(type: widget.type),
-                      );
-                    }
-                    return SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (ctx, i) => _RuleTile(
-                            rule: list[i],
-                            onEdit: () => _showEditor(rule: list[i]),
-                            onDelete: () => _confirmDelete(list[i]),
+                  // status chips
+                  SliverToBoxAdapter(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      child: Row(
+                        children: [
+                          CompactFilterButton(
+                            label: '全部',
+                            icon: Icons.filter_list_rounded,
+                            active: _status == 'all',
+                            onTap: () => _setStatus('all'),
                           ),
-                          childCount: list.length,
-                        ),
+                          const SizedBox(width: 7),
+                          CompactFilterButton(
+                            label: '映射规则',
+                            icon: Icons.swap_horiz_rounded,
+                            active: _status == 'convert',
+                            onTap: () => _setStatus('convert'),
+                          ),
+                          const SizedBox(width: 7),
+                          CompactFilterButton(
+                            label: '删除规则',
+                            icon: Icons.delete_outline_rounded,
+                            active: _status == 'delete',
+                            onTap: () => _setStatus('delete'),
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 10)),
+
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
+                    sliver: PagedSliverList<int, MappingRule>(
+                      pagingController: _controller,
+                      builderDelegate: PagedChildBuilderDelegate<MappingRule>(
+                        itemBuilder: (ctx, rule, _) => _RuleTile(
+                          rule: rule,
+                          onEdit: () => _showEditor(rule: rule),
+                          onDelete: () => _confirmDelete(rule),
+                        ),
+                        firstPageProgressIndicatorBuilder: (_) =>
+                            const Center(child: CircularProgressIndicator()),
+                        firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                          message: _controller.error?.toString() ?? '加载失败',
+                          onRetry: _controller.refresh,
+                        ),
+                        newPageErrorIndicatorBuilder: (_) => PaginationRetry(
+                          onRetry: _controller.retryLastFailedRequest,
+                        ),
+                        noItemsFoundIndicatorBuilder: (_) =>
+                            _Empty(type: widget.type),
+                        noMoreItemsIndicatorBuilder: (_) =>
+                            const NoMoreContent(),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -222,174 +289,184 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
 
   Future<void> _showEditor({MappingRule? rule}) async {
     final originalCtrl = TextEditingController(
-        text: rule == null ? '' : rule.originalValues.join('\n'));
-    final mappedCtrl =
-        TextEditingController(text: rule?.mappedValue ?? '');
+      text: rule == null ? '' : rule.originalValues.join('\n'),
+    );
+    final mappedCtrl = TextEditingController(text: rule?.mappedValue ?? '');
     bool isDelete = rule?.isDelete ?? false;
 
     final c = appColors(context);
-    final result = await showModalBottomSheet<({
-      List<String> originals,
-      String? mapped,
-    })>(
-      context: context,
-      backgroundColor: c.bg,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) {
-        return StatefulBuilder(builder: (sctx, setSt) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 22,
-              right: 22,
-              top: 4,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 22,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  rule == null
-                      ? '新建${widget.type.label}映射'
-                      : '编辑${widget.type.label}映射',
-                  style: AppText.sectionTitle(ctx),
-                ),
-                const SizedBox(height: 16),
-                Text('ORIGINAL VALUES',
-                    style: AppText.eyebrow(ctx)),
-                const SizedBox(height: 2),
-                Text('多个值用换行分隔', style: AppText.meta(ctx)),
-                const SizedBox(height: 6),
-                Container(
-                  decoration: BoxDecoration(
-                    color: c.surface,
-                    border: Border.all(color: c.cardBorder),
-                    borderRadius: BorderRadius.circular(12),
+    final result =
+        await showModalBottomSheet<({List<String> originals, String? mapped})>(
+          context: context,
+          backgroundColor: c.bg,
+          isScrollControlled: true,
+          showDragHandle: true,
+          builder: (ctx) {
+            return StatefulBuilder(
+              builder: (sctx, setSt) {
+                return Padding(
+                  padding: EdgeInsets.only(
+                    left: 22,
+                    right: 22,
+                    top: 4,
+                    bottom: MediaQuery.of(ctx).viewInsets.bottom + 22,
                   ),
-                  child: TextField(
-                    controller: originalCtrl,
-                    minLines: 2,
-                    maxLines: 5,
-                    autofocus: rule == null,
-                    decoration: const InputDecoration(
-                      hintText: '原始值1\n原始值2',
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                    ),
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        rule == null
+                            ? '新建${widget.type.label}映射'
+                            : '编辑${widget.type.label}映射',
+                        style: AppText.sectionTitle(ctx),
+                      ),
+                      const SizedBox(height: 16),
+                      Text('ORIGINAL VALUES', style: AppText.eyebrow(ctx)),
+                      const SizedBox(height: 2),
+                      Text('多个值用换行分隔', style: AppText.meta(ctx)),
+                      const SizedBox(height: 6),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: c.surface,
+                          border: Border.all(color: c.cardBorder),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TextField(
+                          controller: originalCtrl,
+                          minLines: 2,
+                          maxLines: 5,
+                          autofocus: rule == null,
+                          decoration: const InputDecoration(
+                            hintText: '原始值1\n原始值2',
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                          ),
+                          style: TextStyle(
+                            color: c.text,
+                            fontFamily: 'monospace',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
                         children: [
-                          Text('MAPPED VALUE',
-                              style: AppText.eyebrow(ctx)),
-                          const SizedBox(height: 2),
-                          Text(
-                              isDelete
-                                  ? '删除规则 · 扫描时丢弃这些值'
-                                  : '映射为新值',
-                              style: AppText.meta(ctx)),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'MAPPED VALUE',
+                                  style: AppText.eyebrow(ctx),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  isDelete ? '删除规则 · 扫描时丢弃这些值' : '映射为新值',
+                                  style: AppText.meta(ctx),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              Text(
+                                '删除规则',
+                                style: TextStyle(
+                                  color: c.muted,
+                                  fontFamily: 'Inter',
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              SettingsSwitch(
+                                value: isDelete,
+                                onChanged: (v) {
+                                  setSt(() {
+                                    isDelete = v;
+                                    if (v) mappedCtrl.clear();
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                    ),
-                    Row(
-                      children: [
-                        Text('删除规则',
+                      if (!isDelete) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: c.surface,
+                            border: Border.all(color: c.cardBorder),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: TextField(
+                            controller: mappedCtrl,
+                            decoration: const InputDecoration(
+                              hintText: '目标值',
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                            ),
                             style: TextStyle(
-                              color: c.muted,
+                              color: c.text,
                               fontFamily: 'Inter',
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              fontSize: 11,
-                            )),
-                        SettingsSwitch(
-                          value: isDelete,
-                          onChanged: (v) {
-                            setSt(() {
-                              isDelete = v;
-                              if (v) mappedCtrl.clear();
-                            });
-                          },
+                            ),
+                          ),
                         ),
                       ],
-                    ),
-                  ],
-                ),
-                if (!isDelete) ...[
-                  const SizedBox(height: 6),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: c.surface,
-                      border: Border.all(color: c.cardBorder),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: TextField(
-                      controller: mappedCtrl,
-                      decoration: const InputDecoration(
-                        hintText: '目标值',
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: () {
+                            final originals = originalCtrl.text
+                                .split('\n')
+                                .map((s) => s.trim())
+                                .where((s) => s.isNotEmpty)
+                                .toList();
+                            if (originals.isEmpty) return;
+                            if (!isDelete && mappedCtrl.text.trim().isEmpty) {
+                              return;
+                            }
+                            Navigator.pop(ctx, (
+                              originals: originals,
+                              mapped: isDelete ? null : mappedCtrl.text.trim(),
+                            ));
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: c.text,
+                            foregroundColor: c.bg,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            rule == null ? '创建' : '保存',
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
                       ),
-                      style: TextStyle(
-                        color: c.text,
-                        fontFamily: 'Inter',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    ],
                   ),
-                ],
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () {
-                      final originals = originalCtrl.text
-                          .split('\n')
-                          .map((s) => s.trim())
-                          .where((s) => s.isNotEmpty)
-                          .toList();
-                      if (originals.isEmpty) return;
-                      if (!isDelete && mappedCtrl.text.trim().isEmpty) return;
-                      Navigator.pop(ctx, (
-                        originals: originals,
-                        mapped: isDelete ? null : mappedCtrl.text.trim(),
-                      ));
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: c.text,
-                      foregroundColor: c.bg,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: Text(
-                      rule == null ? '创建' : '保存',
-                      style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        });
-      },
-    );
+                );
+              },
+            );
+          },
+        );
 
     originalCtrl.dispose();
     mappedCtrl.dispose();
@@ -399,19 +476,28 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     try {
       final repo = ref.read(mappingsRepositoryProvider);
       if (rule == null) {
-        await repo.create(widget.type,
-            originalValues: result.originals, mappedValue: result.mapped);
+        await repo.create(
+          widget.type,
+          originalValues: result.originals,
+          mappedValue: result.mapped,
+        );
       } else {
-        await repo.update(widget.type, rule.id,
-            originalValues: result.originals, mappedValue: result.mapped);
+        await repo.update(
+          widget.type,
+          rule.id,
+          originalValues: result.originals,
+          mappedValue: result.mapped,
+        );
       }
       AppHaptics.medium();
-      messenger.showSnackBar(SnackBar(
-        content: Text(rule == null ? '已创建' : '已保存'),
-        duration: const Duration(seconds: 1),
-      ));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(rule == null ? '已创建' : '已保存'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
       // ignore: unused_result
-      ref.refresh(mappingsListProvider(_key));
+      _reload();
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('操作失败: ${toApiException(e).message}')),
@@ -427,11 +513,13 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
         content: Text('删除规则「${r.originalDisplay}」?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('删除')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
         ],
       ),
     );
@@ -441,19 +529,17 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     try {
       await ref.read(mappingsRepositoryProvider).delete(widget.type, [r.id]);
       AppHaptics.medium();
-      messenger.showSnackBar(const SnackBar(
-        content: Text('已删除'),
-        duration: Duration(seconds: 1),
-      ));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('已删除'), duration: Duration(seconds: 1)),
+      );
       // ignore: unused_result
-      ref.refresh(mappingsListProvider(_key));
+      _reload();
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('删除失败: ${toApiException(e).message}')),
       );
     }
   }
-
 }
 
 // ============ Empty ============
@@ -470,12 +556,12 @@ class _Empty extends StatelessWidget {
         children: [
           Icon(Icons.swap_horiz, size: 40, color: c.muted),
           const SizedBox(height: 14),
-          Text('还没有${type.label}映射规则',
-              style:
-                  AppText.body(context).copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            '还没有${type.label}映射规则',
+            style: AppText.body(context).copyWith(fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 4),
-          Text('点击右上 + 添加按钮创建第一条规则',
-              style: AppText.meta(context)),
+          Text('点击右上 + 添加按钮创建第一条规则', style: AppText.meta(context)),
         ],
       ),
     );
@@ -507,9 +593,7 @@ class _RuleTile extends StatelessWidget {
     final hue = isDelete ? AppHues.coral : AppHues.lavender;
     final firstLine = originals.join(' · ');
     // 摘要文字 (放第二行 muted)
-    final summary = isDelete
-        ? '丢弃'
-        : (rule.mappedValue ?? '');
+    final summary = isDelete ? '丢弃' : (rule.mappedValue ?? '');
     return InkWell(
       onTap: onEdit,
       borderRadius: BorderRadius.circular(14),
@@ -615,19 +699,23 @@ class _RuleTile extends StatelessWidget {
               itemBuilder: (_) => [
                 const PopupMenuItem(
                   value: 'edit',
-                  child: Row(children: [
-                    Icon(Icons.edit_outlined, size: 16),
-                    SizedBox(width: 8),
-                    Text('编辑'),
-                  ]),
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_outlined, size: 16),
+                      SizedBox(width: 8),
+                      Text('编辑'),
+                    ],
+                  ),
                 ),
                 PopupMenuItem(
                   value: 'delete',
-                  child: Row(children: [
-                    Icon(Icons.delete_outline, size: 16, color: c.danger),
-                    const SizedBox(width: 8),
-                    Text('删除', style: TextStyle(color: c.danger)),
-                  ]),
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, size: 16, color: c.danger),
+                      const SizedBox(width: 8),
+                      Text('删除', style: TextStyle(color: c.danger)),
+                    ],
+                  ),
                 ),
               ],
             ),

@@ -11,6 +11,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/pagination_footer.dart';
 import '../../shared/poster.dart';
 import '../../shared/collection_card_layout.dart';
 import '../lists/list_detail_page.dart';
@@ -135,7 +136,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
     setState(() => _resourceScanStarting = true);
     try {
-      final result = await ref.read(moviesRepositoryProvider).startResourceScan(
+      final result = await ref
+          .read(moviesRepositoryProvider)
+          .startResourceScan(
             filter: MovieFilter(
               hasNewResources: _newResourcesOnly ? true : null,
               sortBy: _sort.sortBy,
@@ -201,10 +204,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       _controller.itemList = list;
       _totalCount = (_totalCount - 1).clamp(0, 1 << 30);
       if (mounted) setState(() {});
-      messenger.showSnackBar(SnackBar(
-        content: Text('已移除「${m.title}」'),
-        duration: const Duration(seconds: 1),
-      ));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('已移除「${m.title}」'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('移除失败: $e')));
     }
@@ -221,11 +226,13 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         content: Text('从收藏夹移除 ${ids.length} 部影片?\n影片本身不会被删除。'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('移除')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('移除'),
+          ),
         ],
       ),
     );
@@ -241,10 +248,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       _totalCount = (_totalCount - ids.length).clamp(0, 1 << 30);
       _selected.clear();
       if (mounted) setState(() {});
-      messenger.showSnackBar(SnackBar(
-        content: Text('已移除 ${ids.length} 部'),
-        duration: const Duration(seconds: 1),
-      ));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('已移除 ${ids.length} 部'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('批量移除失败: $e')));
     }
@@ -264,9 +273,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
                 child: Row(
-                  children: [
-                    Text('排序方式', style: AppText.sectionTitle(ctx)),
-                  ],
+                  children: [Text('排序方式', style: AppText.sectionTitle(ctx))],
                 ),
               ),
               for (final s in FavoritesSort.values)
@@ -323,11 +330,15 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(AppL10n.of(context).tabYou.toUpperCase(),
-                                      style: AppText.eyebrow(context)),
+                                  Text(
+                                    AppL10n.of(context).tabYou.toUpperCase(),
+                                    style: AppText.eyebrow(context),
+                                  ),
                                   const SizedBox(height: 3),
-                                  Text(AppL10n.of(context).favoritesTitle,
-                                      style: AppText.pageTitle(context)),
+                                  Text(
+                                    AppL10n.of(context).favoritesTitle,
+                                    style: AppText.pageTitle(context),
+                                  ),
                                 ],
                               ),
                             ),
@@ -355,7 +366,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                       ),
                               ),
                               tooltip: '扫描资源',
-                              onPressed: _resourceScanStarting || _totalCount <= 0
+                              onPressed:
+                                  _resourceScanStarting || _totalCount <= 0
                                   ? null
                                   : _startResourceScan,
                             ),
@@ -367,12 +379,16 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                   color: c.surface,
                                   border: Border.all(color: c.cardBorder),
                                 ),
-                                child:
-                                    Icon(Icons.settings, size: 18, color: c.text),
+                                child: Icon(
+                                  Icons.settings,
+                                  size: 18,
+                                  color: c.text,
+                                ),
                               ),
                               onPressed: () => Navigator.of(context).push(
                                 MaterialPageRoute(
-                                    builder: (_) => const SettingsPage()),
+                                  builder: (_) => const SettingsPage(),
+                                ),
                               ),
                             ),
                           ],
@@ -395,7 +411,10 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                  child: Text(AppL10n.of(context).yourLists, style: AppText.sectionTitle(context)),
+                  child: Text(
+                    AppL10n.of(context).yourLists,
+                    style: AppText.sectionTitle(context),
+                  ),
                 ),
               ),
               SliverToBoxAdapter(
@@ -415,11 +434,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('全部收藏',
-                                style: AppText.eyebrow(context)),
+                            Text('全部收藏', style: AppText.eyebrow(context)),
                             const SizedBox(height: 3),
-                            Text('$_totalCount 部影片',
-                                style: AppText.sectionTitle(context)),
+                            Text(
+                              '$_totalCount 部影片',
+                              style: AppText.sectionTitle(context),
+                            ),
                           ],
                         ),
                       ),
@@ -459,11 +479,11 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                         pagingController: _controller,
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          childAspectRatio: 0.5,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 14,
-                        ),
+                              crossAxisCount: 3,
+                              childAspectRatio: 0.5,
+                              crossAxisSpacing: 10,
+                              mainAxisSpacing: 14,
+                            ),
                         builderDelegate: _buildGridDelegate(urlBuilder),
                       )
                     : PagedSliverList<int, MovieListItem>(
@@ -506,6 +526,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         onRetry: () => _controller.refresh(),
       ),
       noItemsFoundIndicatorBuilder: (_) => _EmptyState(),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
     );
   }
 
@@ -537,6 +558,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         onRetry: () => _controller.refresh(),
       ),
       noItemsFoundIndicatorBuilder: (_) => _EmptyState(),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
     );
   }
 }
@@ -550,14 +572,20 @@ class _EmptyState extends StatelessWidget {
       child: Center(
         child: Column(
           children: [
-            Icon(Icons.favorite_border, size: 36, color: appColors(context).muted),
+            Icon(
+              Icons.favorite_border,
+              size: 36,
+              color: appColors(context).muted,
+            ),
             const SizedBox(height: 10),
-            Text('还没有收藏的影片',
-                style: AppText.body(context)
-                    .copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              '还没有收藏的影片',
+              style: AppText.body(
+                context,
+              ).copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 4),
-            Text('在影片详情页点击 ♡ 加入收藏',
-                style: AppText.meta(context)),
+            Text('在影片详情页点击 ♡ 加入收藏', style: AppText.meta(context)),
           ],
         ),
       ),
@@ -615,7 +643,11 @@ class _SelectionBar extends StatelessWidget {
               ),
             ),
             TextButton.icon(
-              icon: const Icon(Icons.delete_outline, color: Colors.white, size: 18),
+              icon: const Icon(
+                Icons.delete_outline,
+                color: Colors.white,
+                size: 18,
+              ),
               label: const Text(
                 '移除',
                 style: TextStyle(
@@ -799,7 +831,9 @@ class _GridCell extends StatelessWidget {
               height: 22,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: selected ? c.accent : Colors.black.withValues(alpha: 0.5),
+                color: selected
+                    ? c.accent
+                    : Colors.black.withValues(alpha: 0.5),
                 border: Border.all(color: Colors.white, width: 1.5),
               ),
               alignment: Alignment.center,
@@ -838,91 +872,97 @@ class _ListRow extends StatelessWidget {
     final c = appColors(context);
     // 多选模式下走原 InkWell (点击切换勾选), 其他情况下走 PrivacyAwareInkWell
     final inner = Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
-          children: [
-            if (selecting) ...[
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: selected ? c.accent : Colors.transparent,
-                  border: Border.all(
-                      color: selected ? c.accent : c.muted2, width: 1.5),
-                ),
-                alignment: Alignment.center,
-                child: selected
-                    ? const Icon(Icons.check, color: Colors.white, size: 14)
-                    : null,
-              ),
-              const SizedBox(width: 14),
-            ],
-            SizedBox(
-              width: 52,
-              child: PrivacyMask(
-                movieId: movie.id,
-                radius: 8,
-                child: Poster(
-                  url: movie.posterUuid != null
-                      ? urlBuilder(movie.posterUuid!)
-                      : null,
-                  title: movie.title,
-                  year: movie.year,
-                  radius: 8,
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          if (selecting) ...[
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? c.accent : Colors.transparent,
+                border: Border.all(
+                  color: selected ? c.accent : c.muted2,
+                  width: 1.5,
                 ),
               ),
+              alignment: Alignment.center,
+              child: selected
+                  ? const Icon(Icons.check, color: Colors.white, size: 14)
+                  : null,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  PrivacyText(
-                    movieId: movie.id,
-                    text: movie.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    [
-                      if (movie.year != null) '${movie.year}',
-                      if (movie.runtime != null && movie.runtime! > 0)
-                        '${movie.runtime}m',
-                      if (movie.rating != null && movie.rating! > 0)
-                        '★ ${movie.rating!.toStringAsFixed(1)}',
-                    ].join(' · '),
-                    style: AppText.meta(context),
-                  ),
-                ],
-              ),
-            ),
-            if (!selecting)
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFFF6B9D), Color(0xFF9F6BFF)],
-                  ),
-                ),
-                child: const Icon(Icons.play_arrow, size: 16, color: Colors.white),
-              ),
+            const SizedBox(width: 14),
           ],
-        ),
-      );
+          SizedBox(
+            width: 52,
+            child: PrivacyMask(
+              movieId: movie.id,
+              radius: 8,
+              child: Poster(
+                url: movie.posterUuid != null
+                    ? urlBuilder(movie.posterUuid!)
+                    : null,
+                title: movie.title,
+                year: movie.year,
+                radius: 8,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PrivacyText(
+                  movieId: movie.id,
+                  text: movie.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: c.text,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  [
+                    if (movie.year != null) '${movie.year}',
+                    if (movie.runtime != null && movie.runtime! > 0)
+                      '${movie.runtime}m',
+                    if (movie.rating != null && movie.rating! > 0)
+                      '★ ${movie.rating!.toStringAsFixed(1)}',
+                  ].join(' · '),
+                  style: AppText.meta(context),
+                ),
+              ],
+            ),
+          ),
+          if (!selecting)
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFFF6B9D), Color(0xFF9F6BFF)],
+                ),
+              ),
+              child: const Icon(
+                Icons.play_arrow,
+                size: 16,
+                color: Colors.white,
+              ),
+            ),
+        ],
+      ),
+    );
 
     final row = selecting
         ? InkWell(
@@ -961,12 +1001,15 @@ class _ListRow extends StatelessWidget {
           children: [
             Icon(Icons.delete_outline, color: Colors.white, size: 18),
             SizedBox(width: 6),
-            Text('移除',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13)),
+            Text(
+              '移除',
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
           ],
         ),
       ),
@@ -986,10 +1029,7 @@ class _ListRow extends StatelessWidget {
 
 // ============ Stats + Lists 复用 ============
 class _StatsCard extends StatelessWidget {
-  const _StatsCard({
-    required this.totalCount,
-    required this.items,
-  });
+  const _StatsCard({required this.totalCount, required this.items});
   final int totalCount;
   final List<MovieListItem> items;
 
@@ -1045,8 +1085,11 @@ class _StatsCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          cell('已收藏', totalCount > 0 ? '$totalCount' : '${items.length}',
-              first: true),
+          cell(
+            '已收藏',
+            totalCount > 0 ? '$totalCount' : '${items.length}',
+            first: true,
+          ),
           cell('已看', '${localStats.watchedCount}'),
           cell('分钟', '${localStats.watchedMinutes}'),
         ],
@@ -1059,30 +1102,29 @@ class _ListsGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final lists = ref.watch(listsProvider);
-    return LayoutBuilder(builder: (ctx, cons) {
-      final cardWidth = collectionCardWidth(cons.maxWidth);
-      return SizedBox(
-        height: cardWidth / (5 / 3),
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: lists.length + 1,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
-          itemBuilder: (_, index) {
-            if (index == lists.length) {
-              // "+ 新建集合" 卡片
+    return LayoutBuilder(
+      builder: (ctx, cons) {
+        final cardWidth = collectionCardWidth(cons.maxWidth);
+        return SizedBox(
+          height: cardWidth / (5 / 3),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: lists.length + 1,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (_, index) {
+              if (index == lists.length) {
+                // "+ 新建集合" 卡片
+                return SizedBox(width: cardWidth, child: _NewListCard());
+              }
               return SizedBox(
                 width: cardWidth,
-                child: _NewListCard(),
+                child: _ListCard(list: lists[index]),
               );
-            }
-            return SizedBox(
-              width: cardWidth,
-              child: _ListCard(list: lists[index]),
-            );
-          },
-        ),
-      );
-    });
+            },
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -1144,7 +1186,9 @@ class _ListCard extends StatelessWidget {
                           if (list.locked)
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 2),
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.black.withValues(alpha: 0.35),
                                 borderRadius: BorderRadius.circular(5),
@@ -1293,8 +1337,9 @@ class _NewListCard extends ConsumerWidget {
                           boxShadow: on
                               ? [
                                   BoxShadow(
-                                    color:
-                                        AppHues.top(hue).withValues(alpha: 0.4),
+                                    color: AppHues.top(
+                                      hue,
+                                    ).withValues(alpha: 0.4),
                                     blurRadius: 8,
                                   ),
                                 ]
@@ -1309,10 +1354,13 @@ class _NewListCard extends ConsumerWidget {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-                child: const Text('创建')),
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('创建'),
+            ),
           ],
         );
       },

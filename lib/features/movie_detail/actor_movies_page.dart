@@ -12,6 +12,7 @@ import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/pagination_footer.dart';
 import '../../shared/actor_avatar.dart';
 import '../actor_associations/widgets/actor_association_sync_sheet.dart';
 import '../movies/movie_filter.dart';
@@ -161,10 +162,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
                         ),
                       ),
                       if (_totalCount != null)
-                        Text(
-                          '${_totalCount!} 部',
-                          style: AppText.meta(context),
-                        ),
+                        Text('${_totalCount!} 部', style: AppText.meta(context)),
                     ],
                   ),
                 ),
@@ -173,8 +171,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
                 padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
                 sliver: PagedSliverGrid<int, MovieListItem>(
                   pagingController: _controller,
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
                     childAspectRatio: 0.55,
                     crossAxisSpacing: 10,
@@ -198,6 +195,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
                     ),
                     noItemsFoundIndicatorBuilder: (_) =>
                         const EmptyView(message: '没有该演员的影片'),
+                    noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                   ),
                 ),
               ),

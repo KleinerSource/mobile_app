@@ -10,17 +10,13 @@ import '../../core/models/paged_result.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/pinyin_search.dart';
+import '../../shared/pagination_footer.dart';
 import '../../shared/taxonomy_search_policy.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
 
 /// 资源选择器类型 · 比 ResourceKind 多个 actor
-enum EntityPickerKind {
-  genre,
-  tag,
-  series,
-  actor,
-}
+enum EntityPickerKind { genre, tag, series, actor }
 
 extension on EntityPickerKind {
   String get label {
@@ -39,10 +35,7 @@ extension on EntityPickerKind {
   bool get multi => this != EntityPickerKind.series;
 }
 
-typedef EntityPickerSelection = ({
-  List<int> ids,
-  Map<int, String> names,
-});
+typedef EntityPickerSelection = ({List<int> ids, Map<int, String> names});
 
 /// 实体选择 sheet · multi-select (series 单选)
 ///
@@ -125,8 +118,7 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
   final _searchCtrl = TextEditingController();
   Timer? _debounce;
   String? _search;
-  late final Set<int> _selected =
-      widget.initialSelectedIds.toSet();
+  late final Set<int> _selected = widget.initialSelectedIds.toSet();
   final Map<int, String> _selectedNames = {};
 
   bool get _isMulti => widget.allowMultiple || widget.kind.multi;
@@ -191,8 +183,9 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overlayBg =
-        isDark ? const Color(0xFF1B1A24) : const Color(0xFFFAFAFA);
+    final overlayBg = isDark
+        ? const Color(0xFF1B1A24)
+        : const Color(0xFFFAFAFA);
 
     final mediaQuery = MediaQuery.of(context);
     final height = mediaQuery.size.height * 0.85;
@@ -204,10 +197,9 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         border: Border(
           top: BorderSide(
-              color: isDark
-                  ? const Color(0x33FFFFFF)
-                  : const Color(0x1F000000),
-              width: 1),
+            color: isDark ? const Color(0x33FFFFFF) : const Color(0x1F000000),
+            width: 1,
+          ),
         ),
       ),
       child: SafeArea(
@@ -250,8 +242,7 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () =>
-                        Navigator.of(context).pop(_selection()),
+                    onPressed: () => Navigator.of(context).pop(_selection()),
                     child: Text(
                       _isMulti ? '完成' : '使用',
                       style: TextStyle(
@@ -283,16 +274,18 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
                         controller: _searchCtrl,
                         onChanged: _onSearchChanged,
                         decoration: InputDecoration(
-                          hintText: widget.kind == EntityPickerKind.genre ||
+                          hintText:
+                              widget.kind == EntityPickerKind.genre ||
                                   widget.kind == EntityPickerKind.tag
                               ? '搜索名称'
                               : widget.kind == EntityPickerKind.actor
-                                  ? '搜索名称 / 别名'
-                                  : '搜索名称',
+                              ? '搜索名称 / 别名'
+                              : '搜索名称',
                           border: InputBorder.none,
                           isCollapsed: true,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                          ),
                         ),
                       ),
                     ),
@@ -584,19 +577,13 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
           child: ListView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
-            itemCount: items.length +
-                (_localPinyinMode != true && _hasMore ? 1 : 0),
+            itemCount:
+                items.length + (_localPinyinMode != true && _hasMore ? 1 : 0),
             itemBuilder: (ctx, i) {
               if (i >= items.length) {
                 if (_error != null) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Center(
-                      child: TextButton(
-                        onPressed: () => _loadPage(reset: false),
-                        child: const Text('加载更多失败，点击重试'),
-                      ),
-                    ),
+                  return PaginationRetry(
+                    onRetry: () => _loadPage(reset: false),
                   );
                 }
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -627,6 +614,7 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
             },
           ),
         ),
+        if (!_loading && !_hasMore && items.isNotEmpty) const NoMoreContent(),
         if (_loading) const LinearProgressIndicator(minHeight: 2),
       ],
     );
@@ -762,9 +750,7 @@ class _ActorListState extends ConsumerState<_ActorList> {
   }
 
   List<ResourceItem> _visibleItems() {
-    final byId = <int, ResourceItem>{
-      for (final item in _items) item.id: item,
-    };
+    final byId = <int, ResourceItem>{for (final item in _items) item.id: item};
     for (final id in widget.selected) {
       if (byId.containsKey(id)) continue;
       final name = _knownNames[id];
@@ -805,15 +791,7 @@ class _ActorListState extends ConsumerState<_ActorList> {
             itemBuilder: (ctx, i) {
               if (i >= items.length) {
                 if (_error != null) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Center(
-                      child: TextButton(
-                        onPressed: () => _fetch(reset: false),
-                        child: const Text('加载更多失败，点击重试'),
-                      ),
-                    ),
-                  );
+                  return PaginationRetry(onRetry: () => _fetch(reset: false));
                 }
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) _fetch(reset: false);
@@ -843,6 +821,7 @@ class _ActorListState extends ConsumerState<_ActorList> {
             },
           ),
         ),
+        if (!_loading && !_hasMore && items.isNotEmpty) const NoMoreContent(),
         if (_loading) const LinearProgressIndicator(minHeight: 2),
       ],
     );
@@ -939,8 +918,7 @@ class _PickerTile extends StatelessWidget {
                   ),
                 ),
                 child: selected
-                    ? const Icon(Icons.check,
-                        color: Colors.white, size: 14)
+                    ? const Icon(Icons.check, color: Colors.white, size: 14)
                     : null,
               )
             else

@@ -14,6 +14,7 @@ import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/pagination_footer.dart';
 import '../../shared/poster.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../privacy/privacy_mask.dart';
@@ -157,200 +158,206 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
           if (!didPop && _selectionMode) _exitSelection();
         },
         child: GlowBackground(
-        child: SafeArea(
-          bottom: false,
-        child: Stack(
-          children: [
-            RefreshIndicator(
-              onRefresh: _refreshMovies,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(AppL10n.of(context).libraryTitle.toUpperCase(),
-                        style: AppText.eyebrow(context)),
-                    const SizedBox(height: 3),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          _totalCount > 0 ? '$_totalCount' : '—',
-                          style: AppText.pageTitle(context),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          AppL10n.of(context).libraryCountSuffix,
-                          style: TextStyle(
-                            color: c.muted,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
+          child: SafeArea(
+            bottom: false,
+            child: Stack(
+              children: [
+                RefreshIndicator(
+                  onRefresh: _refreshMovies,
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                AppL10n.of(context).libraryTitle.toUpperCase(),
+                                style: AppText.eyebrow(context),
+                              ),
+                              const SizedBox(height: 3),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.baseline,
+                                textBaseline: TextBaseline.alphabetic,
+                                children: [
+                                  Text(
+                                    _totalCount > 0 ? '$_totalCount' : '—',
+                                    style: AppText.pageTitle(context),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    AppL10n.of(context).libraryCountSuffix,
+                                    style: TextStyle(
+                                      color: c.muted,
+                                      fontFamily: 'Inter',
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                child: _SearchBar(
-                  controller: _searchController,
-                  onSubmitted: (v) => _applyFilter(_currentFilter.copyWith(search: v)),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 36,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 22),
-                  children: [
-                    _UpdatedDropdownChip(
-                      value: _currentFilter.isUpdated,
-                      onChanged: (v) => _applyFilter(
-                        _currentFilter.copyWith(
-                          isUpdated: v,
-                          clearIsUpdated: v == null,
-                        ),
                       ),
-                    ),
-                    const SizedBox(width: 7),
-                    CompactFilterButton(
-                      label: '新资源',
-                      icon: Icons.fiber_new_rounded,
-                      active: _currentFilter.hasNewResources == true,
-                      onTap: () {
-                        final enabled = _currentFilter.hasNewResources == true;
-                        _applyFilter(
-                          _currentFilter.copyWith(
-                            hasNewResources: enabled ? null : true,
-                            clearHasNewResources: enabled,
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                          child: _SearchBar(
+                            controller: _searchController,
+                            onSubmitted: (v) => _applyFilter(
+                              _currentFilter.copyWith(search: v),
+                            ),
                           ),
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 7),
-                    CompactFilterButton(
-                      label: '重复番号',
-                      icon: Icons.copy_all_outlined,
-                      active: _currentFilter.duplicateNum,
-                      onTap: () => _applyFilter(
-                        _currentFilter.copyWith(
-                          duplicateNum: !_currentFilter.duplicateNum,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 7),
-                    CompactFilterButton(
-                      label: _resourceScanStarting ? '扫描中' : '扫描资源',
-                      icon: _resourceScanStarting
-                          ? Icons.sync_rounded
-                          : Icons.cloud_download_outlined,
-                      active: _resourceScanStarting,
-                      onTap: _resourceScanStarting
-                          ? () {}
-                          : () => _startResourceScan(),
-                    ),
-                  ],
+                      SliverToBoxAdapter(
+                        child: SizedBox(
+                          height: 36,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 22),
+                            children: [
+                              _UpdatedDropdownChip(
+                                value: _currentFilter.isUpdated,
+                                onChanged: (v) => _applyFilter(
+                                  _currentFilter.copyWith(
+                                    isUpdated: v,
+                                    clearIsUpdated: v == null,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 7),
+                              CompactFilterButton(
+                                label: '新资源',
+                                icon: Icons.fiber_new_rounded,
+                                active: _currentFilter.hasNewResources == true,
+                                onTap: () {
+                                  final enabled =
+                                      _currentFilter.hasNewResources == true;
+                                  _applyFilter(
+                                    _currentFilter.copyWith(
+                                      hasNewResources: enabled ? null : true,
+                                      clearHasNewResources: enabled,
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(width: 7),
+                              CompactFilterButton(
+                                label: '重复番号',
+                                icon: Icons.copy_all_outlined,
+                                active: _currentFilter.duplicateNum,
+                                onTap: () => _applyFilter(
+                                  _currentFilter.copyWith(
+                                    duplicateNum: !_currentFilter.duplicateNum,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 7),
+                              CompactFilterButton(
+                                label: _resourceScanStarting ? '扫描中' : '扫描资源',
+                                icon: _resourceScanStarting
+                                    ? Icons.sync_rounded
+                                    : Icons.cloud_download_outlined,
+                                active: _resourceScanStarting,
+                                onTap: _resourceScanStarting
+                                    ? () {}
+                                    : () => _startResourceScan(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  AppL10n.of(context).sortedByOnly(
+                                    _sortLabel(context, _currentFilter.sortBy),
+                                  ),
+                                  style: TextStyle(
+                                    color: c.muted,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                              ),
+                              _SortButton(
+                                sortBy: _currentFilter.sortBy,
+                                sortOrder: _currentFilter.sortOrder,
+                                onChanged: (sortBy, sortOrder) => _applyFilter(
+                                  _currentFilter.copyWith(
+                                    sortBy: sortBy,
+                                    sortOrder: sortOrder,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _FilterButton(
+                                activeCount: _currentFilter.activeAdvancedCount,
+                                onTap: _openAdvancedFilter,
+                              ),
+                              const SizedBox(width: 8),
+                              _ViewModeToggle(
+                                mode: _viewMode,
+                                onChanged: (m) => setState(() => _viewMode = m),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
+                        sliver: _viewMode == _ViewMode.grid
+                            ? PagedSliverGrid<int, MovieListItem>(
+                                pagingController: _controller,
+                                gridDelegate:
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: crossAxisCount,
+                                      childAspectRatio: 0.5,
+                                      mainAxisSpacing: 14,
+                                      crossAxisSpacing: 10,
+                                    ),
+                                builderDelegate: _buildDelegate(urlBuilder),
+                              )
+                            : PagedSliverList<int, MovieListItem>(
+                                pagingController: _controller,
+                                builderDelegate: _buildListDelegate(urlBuilder),
+                              ),
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        AppL10n.of(context).sortedByOnly(
-                          _sortLabel(context, _currentFilter.sortBy),
-                        ),
-                        style: TextStyle(
-                          color: c.muted,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
+                if (_selectionMode)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: _BatchActionBar(
+                      selectedCount: _selectedIds.length,
+                      canMergeOrCompare: _canMergeOrCompare,
+                      onSelectAll: _selectAllLoaded,
+                      onClear: () => setState(() => _selectedIds.clear()),
+                      onClose: _exitSelection,
+                      onEdit: _onBatchEdit,
+                      onDownload: _onBatchDownload,
+                      onResourceScan: _onBatchResourceScan,
+                      onCompare: _onBatchCompareNfo,
+                      onMerge: _onBatchMerge,
                     ),
-                    _SortButton(
-                      sortBy: _currentFilter.sortBy,
-                      sortOrder: _currentFilter.sortOrder,
-                      onChanged: (sortBy, sortOrder) => _applyFilter(
-                        _currentFilter.copyWith(
-                          sortBy: sortBy,
-                          sortOrder: sortOrder,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _FilterButton(
-                      activeCount: _currentFilter.activeAdvancedCount,
-                      onTap: _openAdvancedFilter,
-                    ),
-                    const SizedBox(width: 8),
-                    _ViewModeToggle(
-                      mode: _viewMode,
-                      onChanged: (m) => setState(() => _viewMode = m),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
-              sliver: _viewMode == _ViewMode.grid
-                  ? PagedSliverGrid<int, MovieListItem>(
-                      pagingController: _controller,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        childAspectRatio: 0.5,
-                        mainAxisSpacing: 14,
-                        crossAxisSpacing: 10,
-                      ),
-                      builderDelegate: _buildDelegate(urlBuilder),
-                    )
-                  : PagedSliverList<int, MovieListItem>(
-                      pagingController: _controller,
-                      builderDelegate: _buildListDelegate(urlBuilder),
-                    ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 120)),
-                ],
-              ),
-            ),
-        if (_selectionMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _BatchActionBar(
-              selectedCount: _selectedIds.length,
-              canMergeOrCompare: _canMergeOrCompare,
-              onSelectAll: _selectAllLoaded,
-              onClear: () => setState(() => _selectedIds.clear()),
-              onClose: _exitSelection,
-              onEdit: _onBatchEdit,
-              onDownload: _onBatchDownload,
-              onResourceScan: _onBatchResourceScan,
-              onCompare: _onBatchCompareNfo,
-              onMerge: _onBatchMerge,
+                  ),
+              ],
             ),
           ),
-          ],
-        ),
-        ),
         ),
       ),
     );
@@ -372,7 +379,8 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
           } else {
             Navigator.of(ctx).push(
               MaterialPageRoute(
-                  builder: (_) => MovieDetailPage(movieId: item.id)),
+                builder: (_) => MovieDetailPage(movieId: item.id),
+              ),
             );
           }
         },
@@ -390,6 +398,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         ),
       ),
       noItemsFoundIndicatorBuilder: (_) => EmptyView(message: l.noResultFound),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
     );
@@ -413,6 +422,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         onRetry: () => _controller.refresh(),
       ),
       noItemsFoundIndicatorBuilder: (_) => EmptyView(message: l.noResultFound),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
     );
@@ -493,9 +503,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     final selected = movieIds != null && movieIds.isNotEmpty;
     final count = selected ? movieIds.length : _totalCount;
     if (count <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('当前没有可扫描的影片')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('当前没有可扫描的影片')));
       return;
     }
 
@@ -524,7 +534,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
     setState(() => _resourceScanStarting = true);
     try {
-      final result = await ref.read(moviesRepositoryProvider).startResourceScan(
+      final result = await ref
+          .read(moviesRepositoryProvider)
+          .startResourceScan(
             movieIds: selected ? movieIds : null,
             filter: _currentFilter,
           );
@@ -555,9 +567,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
   Future<void> _onBatchMerge() async {
     if (!_canMergeOrCompare) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('需选择 2 部以上相同番号影片')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('需选择 2 部以上相同番号影片')));
       return;
     }
     final ok = await BatchMergeSheet.show(context, _selectedIds.toList());
@@ -569,13 +581,15 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
   Future<void> _onBatchCompareNfo() async {
     if (!_canMergeOrCompare) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('需选择 2 部以上相同番号影片')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('需选择 2 部以上相同番号影片')));
       return;
     }
     final ok = await BatchDuplicateNfoCompareSheet.show(
-        context, _selectedIds.toList());
+      context,
+      _selectedIds.toList(),
+    );
     if (ok == true) {
       _exitSelection();
       _controller.refresh();
@@ -639,7 +653,10 @@ class _SearchBar extends StatelessWidget {
               controller: controller,
               decoration: InputDecoration(
                 hintText: AppL10n.of(context).searchHintAll,
-                hintStyle: TextStyle(color: c.muted, fontWeight: FontWeight.w500),
+                hintStyle: TextStyle(
+                  color: c.muted,
+                  fontWeight: FontWeight.w500,
+                ),
                 isCollapsed: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 border: InputBorder.none,
@@ -679,7 +696,7 @@ class _ViewModeToggle extends StatelessWidget {
                       color: Color(0x14000000),
                       blurRadius: 3,
                       offset: Offset(0, 1),
-                    )
+                    ),
                   ]
                 : null,
           ),
@@ -777,9 +794,7 @@ class _SortButton extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Text('排序', style: AppText.sectionTitle(ctx)),
-                  ),
+                  Expanded(child: Text('排序', style: AppText.sectionTitle(ctx))),
                   // 升降序 toggle
                   GestureDetector(
                     onTap: () {
@@ -789,7 +804,9 @@ class _SortButton extends StatelessWidget {
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: c.chipBg,
                         borderRadius: BorderRadius.circular(8),
@@ -880,10 +897,10 @@ class _UpdatedDropdownChip extends StatelessWidget {
   final ValueChanged<bool?> onChanged;
 
   String get _label => switch (value) {
-        true => '已更新',
-        false => '未更新',
-        _ => '更新状态',
-      };
+    true => '已更新',
+    false => '未更新',
+    _ => '更新状态',
+  };
 
   Future<void> _openMenu(BuildContext context) async {
     final c = appColors(context);
@@ -998,9 +1015,10 @@ class _ListRow extends StatelessWidget {
       onTap: selectionMode
           ? onSelectionTap
           : () => Navigator.of(context).push(
-                MaterialPageRoute(
-                    builder: (_) => MovieDetailPage(movieId: movie.id)),
+              MaterialPageRoute(
+                builder: (_) => MovieDetailPage(movieId: movie.id),
               ),
+            ),
       onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1185,7 +1203,9 @@ class _BatchActionBar extends StatelessWidget {
                     onPressed: onSelectAll,
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
@@ -1195,7 +1215,9 @@ class _BatchActionBar extends StatelessWidget {
                     onPressed: onClear,
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       foregroundColor: c.danger,
@@ -1207,8 +1229,10 @@ class _BatchActionBar extends StatelessWidget {
                     onPressed: onClose,
                     icon: Icon(Icons.close, size: 18, color: c.muted),
                     padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                   ),
                 ],
               ),

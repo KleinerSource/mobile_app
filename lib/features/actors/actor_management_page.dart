@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/api/envelope.dart';
@@ -13,7 +14,9 @@ import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/actor_avatar.dart';
+import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
+import '../../shared/pagination_footer.dart';
 import '../actor_associations/actor_associations_providers.dart';
 import '../actor_associations/actor_associations_repository.dart';
 import '../person_detail/person_detail_page.dart';
@@ -34,55 +37,35 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   static const _pageSize = 100;
 
   final _searchController = TextEditingController();
-  final _scrollController = ScrollController();
+  final _controller = PagingController<int, ActorRow>(firstPageKey: 0);
   Timer? _searchDebounce;
   String? _search;
   String _sortBy = 'movie_count';
   String _sortOrder = 'desc';
-  List<ActorRow> _items = const [];
   // 折叠关联演员：已展开的主行 id，各行的展开状态相互独立。
   final Set<int> _expandedIds = <int>{};
   int _totalCount = 0;
-  int _nextOffset = 0;
-  bool _hasMore = false;
-  bool _loading = false;
   bool _hasLoaded = false;
-  Object? _error;
   int _requestSerial = 0;
+  Completer<void>? _refreshCompleter;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
-    unawaited(_fetch(reset: true));
+    _controller.addPageRequestListener(_fetch);
   }
 
   @override
   void dispose() {
+    _completeRefresh();
     _searchDebounce?.cancel();
-    _scrollController.dispose();
+    _controller.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  void _onScroll() {
-    if (!_scrollController.hasClients ||
-        _scrollController.position.extentAfter > 280 ||
-        _error != null) {
-      return;
-    }
-    unawaited(_fetch(reset: false));
-  }
-
-  Future<void> _fetch({
-    required bool reset,
-    bool preserveScroll = false,
-  }) async {
-    if (!reset && (_loading || !_hasMore)) return;
-
-    final keepExistingItems = reset && preserveScroll && _items.isNotEmpty;
-    final requestSerial = reset ? ++_requestSerial : _requestSerial;
-    final offset = reset ? 0 : _nextOffset;
+  Future<void> _fetch(int offset) async {
+    final requestSerial = _requestSerial;
     final query = <String, dynamic>{
       'limit': _pageSize,
       'offset': offset,
@@ -92,17 +75,6 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       'collapse_associations': true,
       if (_search != null) 'search': _search,
     };
-    setState(() {
-      _loading = true;
-      _error = null;
-      if (reset && !keepExistingItems) {
-        _items = const [];
-        _totalCount = 0;
-        _nextOffset = 0;
-        _hasMore = false;
-        _hasLoaded = false;
-      }
-    });
 
     try {
       final raw = await ref.read(requiredApiClientProvider).actors.list(query);
@@ -110,36 +82,49 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       if (!mounted || requestSerial != _requestSerial) return;
 
       final rows = ActorRow.parseRows(raw, page.items);
-      final refreshedById = {
-        for (final row in rows) row.id: row,
-      };
-      final existingIds = _items.map((row) => row.id).toSet();
-      final newRows = rows.where((row) => existingIds.add(row.id)).toList();
-      final items = keepExistingItems
-          ? [
-              for (final row in _items) refreshedById[row.id] ?? row,
-            ]
-          : [..._items, ...newRows];
-      final nextOffset = keepExistingItems && _nextOffset > page.items.length
-          ? _nextOffset
-          : offset + page.items.length;
       setState(() {
-        _items = items;
         _totalCount = page.totalCount;
-        _nextOffset = nextOffset;
-        _hasMore = keepExistingItems
-            ? _nextOffset < page.totalCount
-            : page.hasMore && newRows.isNotEmpty;
-        _loading = false;
         _hasLoaded = true;
       });
+      final nextOffset = offset + page.items.length;
+      if (nextOffset >= page.totalCount || page.items.isEmpty) {
+        _controller.appendLastPage(rows);
+      } else {
+        _controller.appendPage(rows, nextOffset);
+      }
+      _completeRefresh();
     } catch (error) {
       if (!mounted || requestSerial != _requestSerial) return;
+      _controller.error = toApiException(error).message;
+      _completeRefresh();
+    }
+  }
+
+  void _reload() {
+    _requestSerial++;
+    if (mounted) {
       setState(() {
-        _error = error;
-        _loading = false;
+        _hasLoaded = false;
+        _totalCount = 0;
       });
     }
+    _controller.refresh();
+  }
+
+  Future<void> _refresh() {
+    final pending = _refreshCompleter;
+    if (pending != null) return pending.future;
+
+    final completer = Completer<void>();
+    _refreshCompleter = completer;
+    _reload();
+    return completer.future;
+  }
+
+  void _completeRefresh() {
+    final completer = _refreshCompleter;
+    _refreshCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
   }
 
   void _onSearchChanged(String value) {
@@ -149,7 +134,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       setState(() {
         _search = value.trim().isEmpty ? null : value.trim();
       });
-      unawaited(_fetch(reset: true));
+      _reload();
     });
   }
 
@@ -162,12 +147,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         _sortOrder = field == 'movie_count' ? 'desc' : 'asc';
       }
     });
-    unawaited(_fetch(reset: true));
+    _reload();
     AppHaptics.selection();
-  }
-
-  Future<void> _refresh() async {
-    await _fetch(reset: true, preserveScroll: true);
   }
 
   void _removeDeletedActor(int actorId) {
@@ -175,7 +156,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     var removedMainRow = false;
     final nextItems = <ActorRow>[];
 
-    for (final row in _items) {
+    for (final row in _controller.itemList ?? const <ActorRow>[]) {
       if (row.id == actorId) {
         changed = true;
         removedMainRow = true;
@@ -187,17 +168,15 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
           .toList(growable: false);
       if (remainingMembers.length != row.members.length) {
         changed = true;
-        nextItems.add(
-          ActorRow(actor: row.actor, members: remainingMembers),
-        );
+        nextItems.add(ActorRow(actor: row.actor, members: remainingMembers));
       } else {
         nextItems.add(row);
       }
     }
 
     if (!changed || !mounted) return;
+    _controller.itemList = nextItems;
     setState(() {
-      _items = nextItems;
       if (removedMainRow && _totalCount > 0) _totalCount -= 1;
       _expandedIds.remove(actorId);
     });
@@ -216,14 +195,12 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final items = _items;
 
     return Scaffold(
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
-            scrollController: _scrollController,
             header: SettingsSubPageHeader(
               eyebrow: l.settingsGroupLibrary,
               title: l.settingsActors,
@@ -336,75 +313,12 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                     ),
                   ),
                   const SliverToBoxAdapter(child: SizedBox(height: 10)),
-                  if (_loading && !_hasLoaded)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (_error != null && items.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '加载失败: ${toApiException(_error!).message}',
-                                style: AppText.body(context),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 10),
-                              TextButton(
-                                onPressed: () => unawaited(_fetch(reset: true)),
-                                child: const Text('点击重试'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    )
-                  else if (items.isEmpty && _hasLoaded)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: _EmptyActors(),
-                    )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
-                      sliver: SliverList.builder(
-                        itemCount: items.length + (_hasMore ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index >= items.length) {
-                            if (_error != null) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                child: Center(
-                                  child: TextButton(
-                                    onPressed: () =>
-                                        unawaited(_fetch(reset: false)),
-                                    child: const Text('加载更多失败，点击重试'),
-                                  ),
-                                ),
-                              );
-                            }
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              child: Center(
-                                child: SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-                          final row = items[index];
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
+                    sliver: PagedSliverList<int, ActorRow>(
+                      pagingController: _controller,
+                      builderDelegate: PagedChildBuilderDelegate<ActorRow>(
+                        itemBuilder: (context, row, index) {
                           final actor = row.actor;
                           return _ActorTile(
                             row: row,
@@ -423,18 +337,10 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                                 ),
                               ),
                             ),
-                            onEdit: () => _showEditor(
-                              context,
-                              actor: actor,
-                            ),
-                            onDelete: () => _confirmDelete(
-                              context,
-                              actor,
-                            ),
-                            onEditMember: (member) => _showEditor(
-                              context,
-                              actor: member.asActorItem,
-                            ),
+                            onEdit: () => _showEditor(context, actor: actor),
+                            onDelete: () => _confirmDelete(context, actor),
+                            onEditMember: (member) =>
+                                _showEditor(context, actor: member.asActorItem),
                             onDeleteMember: (member) => _confirmDelete(
                               context,
                               member.asActorItem,
@@ -442,12 +348,22 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                             ),
                           );
                         },
+                        firstPageProgressIndicatorBuilder: (_) =>
+                            const Center(child: CircularProgressIndicator()),
+                        firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                          message: _controller.error?.toString() ?? '加载失败',
+                          onRetry: _controller.refresh,
+                        ),
+                        newPageErrorIndicatorBuilder: (_) => PaginationRetry(
+                          onRetry: _controller.retryLastFailedRequest,
+                        ),
+                        noItemsFoundIndicatorBuilder: (_) =>
+                            const _EmptyActors(),
+                        noMoreItemsIndicatorBuilder: (_) =>
+                            const NoMoreContent(),
                       ),
                     ),
-                  if (_loading && _hasLoaded)
-                    const SliverToBoxAdapter(
-                      child: LinearProgressIndicator(minHeight: 2),
-                    ),
+                  ),
                 ],
               ),
             ),
@@ -457,10 +373,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     );
   }
 
-  Future<void> _showEditor(
-    BuildContext context, {
-    ActorItem? actor,
-  }) async {
+  Future<void> _showEditor(BuildContext context, {ActorItem? actor}) async {
     final associationData = actor == null
         ? const _ActorAssociationData.empty()
         : await _loadActorAssociation(actor.name);
@@ -468,10 +381,12 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
 
     final c = appColors(context);
     final nameController = TextEditingController(text: actor?.name ?? '');
-    final biographyController =
-        TextEditingController(text: actor?.biography ?? '');
-    final associationController =
-        TextEditingController(text: associationData.aliases.join('\n'));
+    final biographyController = TextEditingController(
+      text: actor?.biography ?? '',
+    );
+    final associationController = TextEditingController(
+      text: associationData.aliases.join('\n'),
+    );
     final isEdit = actor != null;
 
     final draft = await showModalBottomSheet<_ActorDraft>(
@@ -608,11 +523,11 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
 
   Future<_ActorAssociationData> _loadActorAssociation(String actorName) async {
     try {
-      final rules = (await ref.read(actorAssociationsRepositoryProvider).list(
-            limit: 100,
-            search: actorName,
-          ))
-          .items;
+      final rules =
+          (await ref
+                  .read(actorAssociationsRepositoryProvider)
+                  .list(limit: 100, search: actorName))
+              .items;
       final normalizedName = _normalizeActorName(actorName);
       MappingRule? rule;
       for (final item in rules) {
@@ -690,8 +605,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
           hasMovies
               ? '「${actor.name}」关联了 ${actor.movieCount} 部影片。强制删除将解除关联,影片本身不会被删除。'
               : force
-                  ? '「${actor.name}」是关联名称,删除将解除其影片关联,影片本身不会被删除。'
-                  : '确定删除「${actor.name}」?',
+              ? '「${actor.name}」是关联名称,删除将解除其影片关联,影片本身不会被删除。'
+              : '确定删除「${actor.name}」?',
         ),
         actions: [
           TextButton(
@@ -709,12 +624,13 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
 
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final raw = await ref.read(requiredApiClientProvider).catalog.deleteActors(
-        {
-          'ids': [actor.id],
-          'force': willForce,
-        },
-      );
+      final raw = await ref
+          .read(requiredApiClientProvider)
+          .catalog
+          .deleteActors({
+            'ids': [actor.id],
+            'force': willForce,
+          });
       unwrapStd<void>(raw, (_) {});
       _removeDeletedActor(actor.id);
       AppHaptics.medium();
@@ -750,11 +666,9 @@ class _ActorAssociationData {
 
   const _ActorAssociationData.empty() : this(loaded: true);
 
-  const _ActorAssociationData.loaded()
-      : this(loaded: true);
+  const _ActorAssociationData.loaded() : this(loaded: true);
 
-  const _ActorAssociationData.unavailable()
-      : this(loaded: false);
+  const _ActorAssociationData.unavailable() : this(loaded: false);
 
   final MappingRule? rule;
   final bool isCanonical;
@@ -829,7 +743,10 @@ class _ActorTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   child: Row(
                     children: [
                       PrivacyMask(
@@ -1059,14 +976,8 @@ class _ActorMemberRow extends StatelessWidget {
               }
             },
             itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: _ActorMenuAction.edit,
-                child: Text('编辑'),
-              ),
-              PopupMenuItem(
-                value: _ActorMenuAction.delete,
-                child: Text('删除'),
-              ),
+              PopupMenuItem(value: _ActorMenuAction.edit, child: Text('编辑')),
+              PopupMenuItem(value: _ActorMenuAction.delete, child: Text('删除')),
             ],
           ),
         ],
