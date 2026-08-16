@@ -634,6 +634,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         rule: rule,
         isCanonical: isCanonical,
         aliases: List<String>.from(rule.originalValues),
+        loaded: true,
       );
     } catch (_) {
       // 演员资料仍可编辑；关联接口不可用时不覆盖已有规则。
@@ -744,10 +745,10 @@ class _ActorAssociationData {
     this.rule,
     this.isCanonical = true,
     this.aliases = const <String>[],
-    this.loaded = true,
+    required this.loaded,
   });
 
-  const _ActorAssociationData.empty() : this();
+  const _ActorAssociationData.empty() : this(loaded: true);
 
   const _ActorAssociationData.loaded()
       : this(loaded: true);
