@@ -1,0 +1,74 @@
+import 'dart:convert';
+
+import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:md_center/core/api/api_client.dart';
+import 'package:md_center/features/resources/resources_repository.dart';
+
+void main() {
+  test('资源编辑请求携带自动映射开关', () async {
+    final adapter = _ResourceAdapter();
+    final repository = ResourcesRepository(ApiClient(_dio(adapter)));
+
+    await repository.update(
+      ResourceKind.tag,
+      7,
+      name: '睡觉',
+      description: '',
+      autoMapping: true,
+    );
+    await repository.update(
+      ResourceKind.series,
+      8,
+      name: '系列 B',
+      description: '',
+    );
+
+    expect(adapter.paths, <String>['/api/tags/7', '/api/series/8']);
+    expect(adapter.requestBodies[0]['auto_mapping'], isTrue);
+    expect(adapter.requestBodies[1]['auto_mapping'], isFalse);
+  });
+}
+
+Dio _dio(_ResourceAdapter adapter) {
+  return Dio(BaseOptions(baseUrl: 'http://test/api'))
+    ..httpClientAdapter = adapter;
+}
+
+class _ResourceAdapter implements HttpClientAdapter {
+  final paths = <String>[];
+  final requestBodies = <Map<String, dynamic>>[];
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    paths.add(options.uri.path);
+    if (options.data is Map) {
+      requestBodies.add(Map<String, dynamic>.from(options.data as Map));
+    }
+
+    final id = options.uri.path.split('/').last;
+    return ResponseBody.fromString(
+      jsonEncode({
+        'success': true,
+        'message': 'ok',
+        'data': {
+          'id': int.parse(id),
+          'name': options.data['name'],
+          'description': options.data['description'],
+          'movie_count': 0,
+        },
+      }),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+}

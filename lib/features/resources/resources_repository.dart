@@ -183,10 +183,12 @@ class ResourcesRepository {
     int id, {
     String? name,
     String? description,
+    bool autoMapping = false,
   }) async {
     final body = <String, dynamic>{};
     if (name != null) body['name'] = name;
     if (description != null) body['description'] = description;
+    body['auto_mapping'] = autoMapping;
     final raw = await _update(kind, id, body);
     return unwrapStd<ResourceItem>(
       raw,

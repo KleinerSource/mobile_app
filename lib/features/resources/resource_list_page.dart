@@ -17,6 +17,9 @@ import 'resource_movies_page.dart';
 import 'resources_providers.dart';
 import 'resources_repository.dart';
 
+String _normalizeResourceName(String value) =>
+    value.trim().replaceAll(RegExp(r'\s+'), ' ');
+
 /// 通用资源列表页 · genre / tag / series 共用
 ///
 /// - 顶部: 计数 + 标题 + 添加按钮
@@ -333,118 +336,200 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     final nameCtrl = TextEditingController(text: edit?.name ?? '');
     final descCtrl = TextEditingController(text: edit?.description ?? '');
     final isEdit = edit != null;
+    final originalName = _normalizeResourceName(edit?.name ?? '');
+    var autoMapping = false;
 
-    final result = await showModalBottomSheet<({String name, String? desc})>(
-      context: context,
-      backgroundColor: c.bg,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 22,
-            right: 22,
-            top: 4,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 22,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isEdit ? '编辑${widget.kind.label}' : '新建${widget.kind.label}',
-                style: AppText.sectionTitle(ctx),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                decoration: BoxDecoration(
-                  color: c.surface,
-                  border: Border.all(color: c.cardBorder),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: TextField(
-                  controller: nameCtrl,
-                  autofocus: !isEdit,
-                  decoration: InputDecoration(
-                    hintText: '${widget.kind.label}名称',
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
+    bool nameChanged(String value) {
+      if (!isEdit) return false;
+      return _normalizeResourceName(value) != originalName;
+    }
+
+    final result =
+        await showModalBottomSheet<
+          ({String name, String? desc, bool autoMapping})
+        >(
+          context: context,
+          backgroundColor: c.bg,
+          isScrollControlled: true,
+          showDragHandle: true,
+          builder: (ctx) {
+            return StatefulBuilder(
+              builder: (ctx, setSheetState) {
+                final canAutoMap = nameChanged(nameCtrl.text);
+                final mappingActive = autoMapping && canAutoMap;
+
+                return Padding(
+                  padding: EdgeInsets.only(
+                    left: 22,
+                    right: 22,
+                    top: 4,
+                    bottom: MediaQuery.of(ctx).viewInsets.bottom + 22,
                   ),
-                  style: TextStyle(
-                    color: c.text,
-                    fontFamily: 'Inter',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isEdit
+                            ? '编辑${widget.kind.label}'
+                            : '新建${widget.kind.label}',
+                        style: AppText.sectionTitle(ctx),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: c.surface,
+                          border: Border.all(color: c.cardBorder),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TextField(
+                          controller: nameCtrl,
+                          autofocus: !isEdit,
+                          onChanged: (_) {
+                            final changed = nameChanged(nameCtrl.text);
+                            setSheetState(() {
+                              if (!changed) autoMapping = false;
+                            });
+                          },
+                          decoration: InputDecoration(
+                            hintText: '${widget.kind.label}名称',
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          style: TextStyle(
+                            color: c.text,
+                            fontFamily: 'Inter',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: c.surface,
+                          border: Border.all(color: c.cardBorder),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TextField(
+                          controller: descCtrl,
+                          maxLines: 3,
+                          minLines: 2,
+                          decoration: const InputDecoration(
+                            hintText: '描述 (可选)',
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          style: TextStyle(
+                            color: c.text,
+                            fontFamily: 'Inter',
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      if (isEdit) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: canAutoMap
+                                ? () => setSheetState(
+                                    () => autoMapping = !autoMapping,
+                                  )
+                                : null,
+                            style: OutlinedButton.styleFrom(
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              foregroundColor: mappingActive
+                                  ? c.accent
+                                  : c.text,
+                              backgroundColor: mappingActive
+                                  ? c.accent.withValues(alpha: 0.1)
+                                  : c.surface,
+                              side: BorderSide(
+                                color: mappingActive ? c.accent : c.cardBorder,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                IgnorePointer(
+                                  child: Checkbox(
+                                    value: mappingActive,
+                                    onChanged: canAutoMap ? (_) {} : null,
+                                    activeColor: c.accent,
+                                    checkColor: c.bg,
+                                    visualDensity: VisualDensity.compact,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '自动映射',
+                                  style: TextStyle(
+                                    color: canAutoMap ? c.text : c.muted,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: () {
+                            final name = nameCtrl.text.trim();
+                            if (name.isEmpty) return;
+                            Navigator.pop(ctx, (
+                              name: name,
+                              desc: descCtrl.text.trim().isEmpty
+                                  ? null
+                                  : descCtrl.text.trim(),
+                              autoMapping: autoMapping && nameChanged(name),
+                            ));
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: c.text,
+                            foregroundColor: c.bg,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            isEdit ? '保存' : '创建',
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                decoration: BoxDecoration(
-                  color: c.surface,
-                  border: Border.all(color: c.cardBorder),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: TextField(
-                  controller: descCtrl,
-                  maxLines: 3,
-                  minLines: 2,
-                  decoration: const InputDecoration(
-                    hintText: '描述 (可选)',
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                  ),
-                  style: TextStyle(
-                    color: c.text,
-                    fontFamily: 'Inter',
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () {
-                    final name = nameCtrl.text.trim();
-                    if (name.isEmpty) return;
-                    Navigator.pop(ctx, (
-                      name: name,
-                      desc: descCtrl.text.trim().isEmpty
-                          ? null
-                          : descCtrl.text.trim(),
-                    ));
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: c.text,
-                    foregroundColor: c.bg,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    isEdit ? '保存' : '创建',
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+                );
+              },
+            );
+          },
         );
-      },
-    );
 
     nameCtrl.dispose();
     descCtrl.dispose();
@@ -461,6 +546,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
           edit.id,
           name: result.name,
           description: result.desc ?? '',
+          autoMapping: result.autoMapping,
         );
       } else {
         await repo.create(
