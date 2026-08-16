@@ -54,9 +54,9 @@ void main() {
 
     expect(find.text('HEVC'), findsOneWidget);
 
-    final switchFinder = find.byType(Switch).first;
+    final switchFinder = find.byType(Switch);
     await tester.scrollUntilVisible(switchFinder, 300);
-    await tester.tap(switchFinder);
+    await tester.tap(switchFinder.first);
     await tester.pump();
 
     expect(find.text('HEVC'), findsNothing);
