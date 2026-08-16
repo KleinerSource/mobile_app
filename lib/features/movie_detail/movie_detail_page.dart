@@ -404,13 +404,18 @@ class _PlotSection extends StatelessWidget {
     return showGlassDialog<void>(
       context: context,
       title: const Text('影片简介'),
-      content: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.58,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(right: 8),
-          child: Text(
-            normalizedPlot,
-            style: AppText.body(context).copyWith(height: 1.55),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.58,
+        ),
+        child: Scrollbar(
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(right: 8),
+            child: Text(
+              normalizedPlot,
+              style: AppText.body(context).copyWith(height: 1.55),
+            ),
           ),
         ),
       ),
