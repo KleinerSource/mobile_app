@@ -11,6 +11,15 @@ class CoverBadgeSpec {
   final String label;
   final Color color;
   final String? tooltip;
+
+  IconData get icon => switch (kind) {
+        PosterBadgeKind.codec => Icons.memory_outlined,
+        PosterBadgeKind.hdr => Icons.hdr_on,
+        PosterBadgeKind.strm => Icons.link_outlined,
+        PosterBadgeKind.subtitle => Icons.closed_caption_outlined,
+        PosterBadgeKind.crack => Icons.lock_open_rounded,
+        PosterBadgeKind.resolution => Icons.tv_rounded,
+      };
 }
 
 // 番号后缀正则 · 规则与 core/models/movie.dart (MovieListItemX) 及
@@ -50,11 +59,11 @@ List<CoverBadgeSpec> buildCoverBadges({
   final codec = (video?.codec ?? '').trim().toLowerCase();
   if (codec.isNotEmpty) {
     final (label, color) = switch (codec) {
-      'h264' || 'avc' || 'avc1' => ('H264', const Color(0xFF9AD2FF)),
-      'hevc' || 'h265' => ('HEVC', const Color(0xFF8DF0BE)),
-      'av1' => ('AV1', const Color(0xFFD0B0FF)),
-      'vp9' => ('VP9', const Color(0xFFFFCF8A)),
-      _ => (codec.toUpperCase(), const Color(0xFFD7DCE6)),
+      'h264' || 'avc' || 'avc1' => ('H264', const Color(0xFF2563EB)),
+      'hevc' || 'h265' => ('HEVC', const Color(0xFF059669)),
+      'av1' => ('AV1', const Color(0xFF7C3AED)),
+      'vp9' => ('VP9', const Color(0xFFD97706)),
+      _ => (codec.toUpperCase(), const Color(0xFF475569)),
     };
     badges.add(CoverBadgeSpec(
       PosterBadgeKind.codec,
@@ -70,7 +79,7 @@ List<CoverBadgeSpec> buildCoverBadges({
       badges.add(const CoverBadgeSpec(
         PosterBadgeKind.hdr,
         'Dolby Vision',
-        Color(0xFFC084FC),
+        Color(0xFF7C3AED),
         '动态范围: Dolby Vision',
       ));
     } else {
@@ -79,14 +88,14 @@ List<CoverBadgeSpec> buildCoverBadges({
           badges.add(const CoverBadgeSpec(
             PosterBadgeKind.hdr,
             'HDR10',
-            Color(0xFFFFB454),
+            Color(0xFFEA580C),
             '动态范围: HDR10 (PQ)',
           ));
         case 'arib-std-b67':
           badges.add(const CoverBadgeSpec(
             PosterBadgeKind.hdr,
             'HLG',
-            Color(0xFF4ADE80),
+            Color(0xFF16A34A),
             '动态范围: HLG',
           ));
       }
@@ -99,7 +108,7 @@ List<CoverBadgeSpec> buildCoverBadges({
     badges.add(const CoverBadgeSpec(
       PosterBadgeKind.strm,
       'STRM',
-      Color(0xFFE2E8F0),
+      Color(0xFF475569),
       'STRM 视频文件',
     ));
   }
@@ -110,7 +119,7 @@ List<CoverBadgeSpec> buildCoverBadges({
     badges.add(const CoverBadgeSpec(
       PosterBadgeKind.subtitle,
       '字幕',
-      Color(0xFFFFE066),
+      Color(0xFFCA8A04),
       '内嵌字幕',
     ));
   }
@@ -120,7 +129,7 @@ List<CoverBadgeSpec> buildCoverBadges({
     badges.add(const CoverBadgeSpec(
       PosterBadgeKind.crack,
       '破解',
-      Color(0xFFFF7A98),
+      Color(0xFFDB2777),
       '破解/无码',
     ));
   }
@@ -136,7 +145,7 @@ List<CoverBadgeSpec> buildCoverBadges({
     badges.add(const CoverBadgeSpec(
       PosterBadgeKind.resolution,
       'UHD',
-      Color(0xFF7CC4FF),
+      Color(0xFF2563EB),
       '2160p / 4K',
     ));
   } else if ((height >= 720 && height < 2160) ||
@@ -144,7 +153,7 @@ List<CoverBadgeSpec> buildCoverBadges({
     badges.add(const CoverBadgeSpec(
       PosterBadgeKind.resolution,
       'HD',
-      Color(0xFF4CC9F0),
+      Color(0xFF0891B2),
       '720p 及以上',
     ));
   }
@@ -152,7 +161,7 @@ List<CoverBadgeSpec> buildCoverBadges({
   return badges;
 }
 
-/// 封面底部技术徽章行(半透明胶囊，横向排列)。
+/// 封面底部技术徽章行(彩色胶囊，横向排列)。
 class CoverBadgeRow extends StatelessWidget {
   const CoverBadgeRow({super.key, required this.badges});
 
@@ -170,20 +179,37 @@ class CoverBadgeRow extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.55),
+                color: b.color,
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: b.color.withValues(alpha: 0.55)),
-              ),
-              child: Text(
-                b.label,
-                style: TextStyle(
-                  color: b.color,
-                  fontFamily: 'Inter',
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
-                  height: 1.1,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.24),
+                  width: 0.8,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.22),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(b.icon, color: Colors.white, size: 11),
+                  const SizedBox(width: 3),
+                  Text(
+                    b.label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Inter',
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

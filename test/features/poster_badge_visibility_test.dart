@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:md_center/core/config/server_config_provider.dart';
 import 'package:md_center/features/i18n/poster_badge_visibility_provider.dart';
+import 'package:md_center/features/movie_detail/cover_badges.dart';
 import 'package:md_center/features/settings/poster_badge_display_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -62,5 +63,34 @@ void main() {
     await tester.pump();
 
     expect(find.text('HEVC'), findsNothing);
+  });
+
+  testWidgets('海报角标使用彩色背景并以白色显示文字和图标', (tester) async {
+    const badge = CoverBadgeSpec(
+      PosterBadgeKind.codec,
+      'HEVC',
+      Color(0xFF059669),
+    );
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(child: CoverBadgeRow(badges: [badge])),
+        ),
+      ),
+    );
+
+    final badgeText = tester.widget<Text>(find.text('HEVC'));
+    expect(badgeText.style?.color, Colors.white);
+
+    final badgeIcon = tester.widget<Icon>(find.byIcon(Icons.memory_outlined));
+    expect(badgeIcon.color, Colors.white);
+
+    final badgeContainer = tester.widget<Container>(
+      find.ancestor(of: find.text('HEVC'), matching: find.byType(Container)),
+    );
+    expect(
+      (badgeContainer.decoration! as BoxDecoration).color,
+      badge.color,
+    );
   });
 }

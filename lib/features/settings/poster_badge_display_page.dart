@@ -60,37 +60,37 @@ class _PosterBadgePreview extends StatelessWidget {
     CoverBadgeSpec(
       PosterBadgeKind.codec,
       'HEVC',
-      Color(0xFF8DF0BE),
+      Color(0xFF059669),
       '视频编码: HEVC',
     ),
     CoverBadgeSpec(
       PosterBadgeKind.hdr,
       'HDR10',
-      Color(0xFFFFB454),
+      Color(0xFFEA580C),
       '动态范围: HDR10 (PQ)',
     ),
     CoverBadgeSpec(
       PosterBadgeKind.strm,
       'STRM',
-      Color(0xFFE2E8F0),
+      Color(0xFF475569),
       'STRM 视频文件',
     ),
     CoverBadgeSpec(
       PosterBadgeKind.subtitle,
       '字幕',
-      Color(0xFFFFE066),
+      Color(0xFFCA8A04),
       '内嵌字幕',
     ),
     CoverBadgeSpec(
       PosterBadgeKind.crack,
       '破解',
-      Color(0xFFFF7A98),
+      Color(0xFFDB2777),
       '破解/无码',
     ),
     CoverBadgeSpec(
       PosterBadgeKind.resolution,
       'HD',
-      Color(0xFF4CC9F0),
+      Color(0xFF0891B2),
       '720p 及以上',
     ),
   ];
