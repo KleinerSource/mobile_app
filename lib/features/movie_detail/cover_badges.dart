@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/media_streams.dart';
+import '../i18n/poster_badge_visibility_provider.dart';
 
 /// 详情页封面技术徽章规格。
 @immutable
 class CoverBadgeSpec {
-  const CoverBadgeSpec(this.label, this.color, [this.tooltip]);
+  const CoverBadgeSpec(this.kind, this.label, this.color, [this.tooltip]);
+  final PosterBadgeKind kind;
   final String label;
   final Color color;
   final String? tooltip;
@@ -54,19 +56,39 @@ List<CoverBadgeSpec> buildCoverBadges({
       'vp9' => ('VP9', const Color(0xFFFFCF8A)),
       _ => (codec.toUpperCase(), const Color(0xFFD7DCE6)),
     };
-    badges.add(CoverBadgeSpec(label, color, '视频编码: $label'));
+    badges.add(CoverBadgeSpec(
+      PosterBadgeKind.codec,
+      label,
+      color,
+      '视频编码: $label',
+    ));
   }
 
   // HDR 动态范围: DoVi > HDR10(PQ) > HLG；SDR 不显示
   if (video != null) {
     if (video.dolbyVision) {
-      badges.add(const CoverBadgeSpec('Dolby Vision', Color(0xFFC084FC), '动态范围: Dolby Vision'));
+      badges.add(const CoverBadgeSpec(
+        PosterBadgeKind.hdr,
+        'Dolby Vision',
+        Color(0xFFC084FC),
+        '动态范围: Dolby Vision',
+      ));
     } else {
       switch (video.colorTransfer) {
         case 'smpte2084':
-          badges.add(const CoverBadgeSpec('HDR10', Color(0xFFFFB454), '动态范围: HDR10 (PQ)'));
+          badges.add(const CoverBadgeSpec(
+            PosterBadgeKind.hdr,
+            'HDR10',
+            Color(0xFFFFB454),
+            '动态范围: HDR10 (PQ)',
+          ));
         case 'arib-std-b67':
-          badges.add(const CoverBadgeSpec('HLG', Color(0xFF4ADE80), '动态范围: HLG'));
+          badges.add(const CoverBadgeSpec(
+            PosterBadgeKind.hdr,
+            'HLG',
+            Color(0xFF4ADE80),
+            '动态范围: HLG',
+          ));
       }
     }
   }
@@ -74,18 +96,33 @@ List<CoverBadgeSpec> buildCoverBadges({
   final stem = _fileNameStem(filePath);
 
   if ((filePath ?? '').toLowerCase().endsWith('.strm')) {
-    badges.add(const CoverBadgeSpec('STRM', Color(0xFFE2E8F0), 'STRM 视频文件'));
+    badges.add(const CoverBadgeSpec(
+      PosterBadgeKind.strm,
+      'STRM',
+      Color(0xFFE2E8F0),
+      'STRM 视频文件',
+    ));
   }
 
   if (stem.isNotEmpty &&
       (_kEmbeddedSubtitleRegex.hasMatch(stem) ||
           _kCrackWithSubRegex.hasMatch(stem))) {
-    badges.add(const CoverBadgeSpec('字幕', Color(0xFFFFE066), '内嵌字幕'));
+    badges.add(const CoverBadgeSpec(
+      PosterBadgeKind.subtitle,
+      '字幕',
+      Color(0xFFFFE066),
+      '内嵌字幕',
+    ));
   }
 
   if (stem.isNotEmpty &&
       (_kUmrCrackRegex.hasMatch(stem) || _kCrackRegex.hasMatch(stem))) {
-    badges.add(const CoverBadgeSpec('破解', Color(0xFFFF7A98), '破解/无码'));
+    badges.add(const CoverBadgeSpec(
+      PosterBadgeKind.crack,
+      '破解',
+      Color(0xFFFF7A98),
+      '破解/无码',
+    ));
   }
 
   // UHD / HD: 高度优先，文件名后缀与 prob4+大小 兜底
@@ -96,10 +133,20 @@ List<CoverBadgeSpec> buildCoverBadges({
           (fileSize ?? 0) > _uhdSizeThreshold &&
           _kProb4Regex.hasMatch(stem));
   if (isUhd) {
-    badges.add(const CoverBadgeSpec('UHD', Color(0xFF7CC4FF), '2160p / 4K'));
+    badges.add(const CoverBadgeSpec(
+      PosterBadgeKind.resolution,
+      'UHD',
+      Color(0xFF7CC4FF),
+      '2160p / 4K',
+    ));
   } else if ((height >= 720 && height < 2160) ||
       (stem.isNotEmpty && _kHdRegex.hasMatch(stem))) {
-    badges.add(const CoverBadgeSpec('HD', Color(0xFF4CC9F0), '720p 及以上'));
+    badges.add(const CoverBadgeSpec(
+      PosterBadgeKind.resolution,
+      'HD',
+      Color(0xFF4CC9F0),
+      '720p 及以上',
+    ));
   }
 
   return badges;

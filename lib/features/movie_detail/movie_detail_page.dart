@@ -34,6 +34,7 @@ import 'cover_badges.dart';
 import 'media_stream_cards.dart';
 import 'thunder_subtitle_sheet.dart';
 import '../home/home_movie_view_state.dart';
+import '../i18n/poster_badge_visibility_provider.dart';
 
 class MovieDetailPage extends ConsumerStatefulWidget {
   const MovieDetailPage({super.key, required this.movieId});
@@ -258,11 +259,12 @@ class _HeroHeader extends ConsumerWidget {
 
     // 技术徽章(编码/HDR/字幕/破解/UHD...)基于媒体探测 + 文件名后缀
     final video = ref.watch(mediaInfoProvider(movie.id)).value?.streams.video;
+    final badgeVisibility = ref.watch(posterBadgeVisibilityProvider);
     final badges = buildCoverBadges(
       filePath: movie.filePath,
       fileSize: movie.fileSize,
       video: video,
-    );
+    ).where((badge) => badgeVisibility.isEnabled(badge.kind)).toList();
 
     return Stack(
       fit: StackFit.expand,

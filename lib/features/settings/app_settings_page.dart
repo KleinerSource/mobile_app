@@ -15,6 +15,7 @@ import 'badge_position_page.dart';
 import 'cache_management_page.dart';
 import 'haptic_settings.dart';
 import 'player_settings_page.dart';
+import 'poster_badge_display_page.dart';
 import 'settings_common.dart';
 import 'subtitle_settings_page.dart';
 
@@ -68,6 +69,16 @@ class AppSettingsPage extends ConsumerWidget {
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
                           builder: (_) => const BadgePositionPage()),
+                    ),
+                  ),
+                  SettingsTile(
+                    title: '海报角标显示',
+                    subtitle: '编码 / HDR / STRM / 字幕 / 破解 / HD',
+                    leadingIcon: Icons.local_offer_outlined,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const PosterBadgeDisplayPage(),
+                      ),
                     ),
                   ),
                 ],
