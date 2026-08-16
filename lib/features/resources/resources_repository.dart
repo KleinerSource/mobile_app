@@ -162,15 +162,8 @@ class ResourcesRepository {
     }
   }
 
-  Future<ResourceItem> create(
-    ResourceKind kind, {
-    required String name,
-    String? description,
-  }) async {
+  Future<ResourceItem> create(ResourceKind kind, {required String name}) async {
     final body = <String, dynamic>{'name': name};
-    if (description != null && description.isNotEmpty) {
-      body['description'] = description;
-    }
     final raw = await _create(kind, body);
     return unwrapStd<ResourceItem>(
       raw,
@@ -182,12 +175,10 @@ class ResourcesRepository {
     ResourceKind kind,
     int id, {
     String? name,
-    String? description,
     bool autoMapping = false,
   }) async {
     final body = <String, dynamic>{};
     if (name != null) body['name'] = name;
-    if (description != null) body['description'] = description;
     body['auto_mapping'] = autoMapping;
     final raw = await _update(kind, id, body);
     return unwrapStd<ResourceItem>(

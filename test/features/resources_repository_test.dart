@@ -10,21 +10,12 @@ void main() {
     final adapter = _ResourceAdapter();
     final repository = ResourcesRepository(ApiClient(_dio(adapter)));
 
-    await repository.update(
-      ResourceKind.tag,
-      7,
-      name: '睡觉',
-      description: '',
-      autoMapping: true,
-    );
-    await repository.update(
-      ResourceKind.series,
-      8,
-      name: '系列 B',
-      description: '',
-    );
+    await repository.update(ResourceKind.tag, 7, name: '睡觉', autoMapping: true);
+    await repository.update(ResourceKind.series, 8, name: '系列 B');
 
     expect(adapter.paths, <String>['/api/tags/7', '/api/series/8']);
+    expect(adapter.requestBodies[0].containsKey('description'), isFalse);
+    expect(adapter.requestBodies[1].containsKey('description'), isFalse);
     expect(adapter.requestBodies[0]['auto_mapping'], isTrue);
     expect(adapter.requestBodies[1]['auto_mapping'], isFalse);
   });
@@ -61,7 +52,6 @@ class _ResourceAdapter implements HttpClientAdapter {
         'data': {
           'id': int.parse(id),
           'name': options.data['name'],
-          'description': options.data['description'],
           'movie_count': 0,
         },
       }),
