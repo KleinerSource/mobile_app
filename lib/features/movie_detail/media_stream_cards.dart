@@ -216,27 +216,7 @@ class _VideoStreamCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _CardRow('编码', formatVideoCodec(video.codec)),
-          _CardRow('配置', video.profile ?? '-'),
-          _CardRow('等级', formatVideoLevel(video)),
-          _CardRow(
-            '分辨率',
-            video.width != null && video.height != null
-                ? '${video.width}×${video.height}'
-                : '-',
-          ),
-          _CardRow('长宽比', formatAspectRatio(video)),
-          _CardRow('帧率', formatFrameRate(video.frameRate)),
-          _CardRow('基色', colorPrimariesLabel(video.colorPrimaries)),
-          _CardRow('色彩空间', colorSpaceLabel(video.colorSpace)),
-          _CardRow('传递特性', colorTransferLabel(video.colorTransfer)),
-          _CardRow('色彩范围', colorRangeLabel(video.colorRange)),
-          _CardRow(
-            '位深',
-            video.bitDepth != null ? '${video.bitDepth}-bit' : '-',
-          ),
-          _CardRow('像素格式', video.pixFmt ?? '-'),
-          _CardRow('码率', formatBitrate(video.bitRate ?? fallbackBitRate)),
+          for (final r in _videoRows(video, fallbackBitRate)) _CardRow(r.label, r.value!),
         ],
       ),
     );
@@ -262,15 +242,7 @@ class _AudioStreamCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _CardRow('语言', languageLabel(track.language)),
-          _CardRow('编码', audioCodecLabel(track.codec)),
-          _CardRow('等级', track.profile ?? '-'),
-          _CardRow('布局', channelLayoutLabel(track)),
-          _CardRow('声道', track.channels != null ? '${track.channels} ch' : '-'),
-          _CardRow('采样率', formatSampleRate(track.sampleRate)),
-          _CardRow('码率', formatBitrate(track.bitRate)),
-          if (track.title != null && track.title!.isNotEmpty)
-            _CardRow('标题', track.title!),
+          for (final r in _audioRows(track)) _CardRow(r.label, r.value!),
         ],
       ),
     );
@@ -297,7 +269,7 @@ class _SubtitleStreamCard extends StatelessWidget {
         children: [
           for (final sub in streams)
             _CardRow(
-              languageLabel(sub.language),
+              _opt(languageLabel(sub.language)) ?? subtitleCodecLabel(sub.codec),
               subtitleCodecLabel(sub.codec),
               valueWidget: Wrap(
                 alignment: WrapAlignment.end,
@@ -328,6 +300,60 @@ class _SubtitleStreamCard extends StatelessWidget {
 }
 
 // ============ 格式化（与 Web 端 MediaInfoPanel 保持一致） ============
+
+/// 卡片行：value 为 null 表示取不到数据，该行直接隐藏。
+typedef _StreamRow = ({String label, String? value});
+
+/// 格式化结果为空或占位 '-' 时视为无数据（返回 null）。
+String? _opt(String? v) {
+  if (v == null || v.isEmpty || v == '-') return null;
+  return v;
+}
+
+List<_StreamRow> _videoRows(VideoStreamInfo video, int? fallbackBitRate) {
+  return [
+    (label: '编码', value: _opt(formatVideoCodec(video.codec))),
+    (label: '配置', value: _opt(video.profile ?? '-')),
+    (label: '等级', value: _opt(formatVideoLevel(video))),
+    (
+      label: '分辨率',
+      value: video.width != null && video.height != null
+          ? '${video.width}×${video.height}'
+          : null
+    ),
+    (label: '长宽比', value: _opt(formatAspectRatio(video))),
+    (label: '帧率', value: _opt(formatFrameRate(video.frameRate))),
+    (label: '基色', value: _opt(colorPrimariesLabel(video.colorPrimaries))),
+    (label: '色彩空间', value: _opt(colorSpaceLabel(video.colorSpace))),
+    (label: '传递特性', value: _opt(colorTransferLabel(video.colorTransfer))),
+    (label: '色彩范围', value: _opt(colorRangeLabel(video.colorRange))),
+    (
+      label: '位深',
+      value: video.bitDepth != null ? '${video.bitDepth}-bit' : null
+    ),
+    (label: '像素格式', value: video.pixFmt),
+    (
+      label: '码率',
+      value: _opt(formatBitrate(video.bitRate ?? fallbackBitRate))
+    ),
+  ].where((r) => r.value != null).toList();
+}
+
+List<_StreamRow> _audioRows(AudioStreamInfo track) {
+  return [
+    (label: '语言', value: _opt(languageLabel(track.language))),
+    (label: '编码', value: _opt(audioCodecLabel(track.codec))),
+    (label: '等级', value: track.profile),
+    (label: '布局', value: _opt(channelLayoutLabel(track))),
+    (
+      label: '声道',
+      value: track.channels != null ? '${track.channels} ch' : null
+    ),
+    (label: '采样率', value: _opt(formatSampleRate(track.sampleRate))),
+    (label: '码率', value: _opt(formatBitrate(track.bitRate))),
+    (label: '标题', value: track.title),
+  ].where((r) => r.value != null).toList();
+}
 
 const _videoCodecNames = {
   'h264': 'H.264 (AVC)',
