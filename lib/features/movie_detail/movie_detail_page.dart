@@ -1331,17 +1331,24 @@ class _RelatedFilesSection extends StatelessWidget {
   }
 }
 
-class _DetailsTable extends StatelessWidget {
+class _DetailsTable extends ConsumerWidget {
   const _DetailsTable({required this.movie});
   final MovieDetail movie;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
     final rows = <List<String>>[];
     if (movie.num != null && movie.num!.isNotEmpty) rows.add(['番号', movie.num!]);
     if (movie.country != null && movie.country!.isNotEmpty) {
       rows.add(['产地', movie.country!]);
+    }
+    // 时长优先用媒体探测结果，缺失时回退 NFO 元数据 runtime
+    final durationSec = ref.watch(mediaInfoProvider(movie.id)).value?.durationSec;
+    if (durationSec != null && durationSec > 0) {
+      rows.add(['时长', _formatDurationSec(durationSec)]);
+    } else if (movie.runtime != null && movie.runtime! > 0) {
+      rows.add(['时长', '${movie.runtime} MIN']);
     }
     if (movie.fileSize != null && movie.fileSize! > 0) {
       rows.add(['文件大小', _formatBytes(movie.fileSize!)]);
@@ -1418,7 +1425,18 @@ String _formatBytes(int bytes) {
   return '${size.toStringAsFixed(2)} ${units[unit]}';
 }
 
-/// 媒体技术信息 section (容器/时长/码率 + 视频/音频/字幕流卡片)
+/// 媒体探测时长 → "1h 02m 30s" 风格，供详细信息表使用。
+String _formatDurationSec(double sec) {
+  final s = sec.round();
+  final h = s ~/ 3600;
+  final m = (s % 3600) ~/ 60;
+  final ss = s % 60;
+  return h > 0
+      ? '${h}h ${m.toString().padLeft(2, '0')}m ${ss.toString().padLeft(2, '0')}s'
+      : '${m}m ${ss.toString().padLeft(2, '0')}s';
+}
+
+/// 媒体技术信息 section (容器/大小 + 视频/音频/字幕流卡片)
 class _MediaInfoSection extends ConsumerWidget {
   const _MediaInfoSection({required this.movieId});
   final int movieId;
@@ -1433,18 +1451,6 @@ class _MediaInfoSection extends ConsumerWidget {
         final c = appColors(context);
         final rows = <List<String>>[];
         if (detail.container != null) rows.add(['容器', detail.container!]);
-        if (detail.durationSec != null && detail.durationSec! > 0) {
-          final s = detail.durationSec!.round();
-          final h = s ~/ 3600;
-          final m = (s % 3600) ~/ 60;
-          final sec = s % 60;
-          rows.add([
-            '时长',
-            h > 0
-                ? '${h}h ${m.toString().padLeft(2, '0')}m ${sec.toString().padLeft(2, '0')}s'
-                : '${m}m ${sec.toString().padLeft(2, '0')}s'
-          ]);
-        }
         if (detail.fileSize != null && detail.fileSize! > 0) {
           rows.add(['大小', _formatBytes(detail.fileSize!)]);
         }
