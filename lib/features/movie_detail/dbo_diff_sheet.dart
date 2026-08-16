@@ -492,7 +492,12 @@ class _DboDiffSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final badgeItems = items.where((item) => !_isLongText(item)).toList();
+    final durationItems = section == DboMetadataDiffSection.info
+        ? items.where((item) => item.field == 'runtime').toList()
+        : const <DboMetadataDiffItem>[];
+    final badgeItems = items
+        .where((item) => !_isLongText(item) && !durationItems.contains(item))
+        .toList();
     final longTextItems = items.where(_isLongText).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -546,6 +551,7 @@ class _DboDiffSection extends StatelessWidget {
           )
         else
           Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (badgeItems.isNotEmpty)
                 Wrap(
@@ -571,6 +577,22 @@ class _DboDiffSection extends StatelessWidget {
                 ),
                 if (i < longTextItems.length - 1) const SizedBox(height: 8),
               ],
+              if (longTextItems.isNotEmpty && durationItems.isNotEmpty)
+                const SizedBox(height: 10),
+              if (durationItems.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final item in durationItems)
+                      _DboDiffBadge(
+                        item: item,
+                        section: section,
+                        saving: saving,
+                        onTap: () => onToggle(item),
+                      ),
+                  ],
+                ),
             ],
           ),
       ],
