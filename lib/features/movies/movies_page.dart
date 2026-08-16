@@ -319,6 +319,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                         sliver: _viewMode == _ViewMode.grid
                             ? PagedSliverGrid<int, MovieListItem>(
                                 pagingController: _controller,
+                                showNoMoreItemsIndicatorAsGridChild: false,
                                 gridDelegate:
                                     SliverGridDelegateWithFixedCrossAxisCount(
                                       crossAxisCount: crossAxisCount,

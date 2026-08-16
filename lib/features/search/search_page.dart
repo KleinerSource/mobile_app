@@ -225,6 +225,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
           padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
           sliver: PagedSliverGrid<int, MovieListItem>(
             pagingController: _controller,
+            showNoMoreItemsIndicatorAsGridChild: false,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
               childAspectRatio: 0.5,

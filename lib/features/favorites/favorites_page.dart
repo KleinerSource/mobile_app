@@ -477,6 +477,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                 sliver: _viewMode == FavoritesViewMode.grid
                     ? PagedSliverGrid<int, MovieListItem>(
                         pagingController: _controller,
+                        showNoMoreItemsIndicatorAsGridChild: false,
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 3,

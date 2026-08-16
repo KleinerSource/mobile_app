@@ -217,6 +217,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
               sliver: PagedSliverGrid<int, MovieListItem>(
                 pagingController: _controller,
+                showNoMoreItemsIndicatorAsGridChild: false,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
                   childAspectRatio: 0.55,

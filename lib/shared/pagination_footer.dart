@@ -8,9 +8,12 @@ class NoMoreContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
-      child: Center(child: Text('没有更多内容', style: AppText.meta(context))),
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 16, 22, 30),
+        child: Center(child: Text('没有更多内容', style: AppText.meta(context))),
+      ),
     );
   }
 }
