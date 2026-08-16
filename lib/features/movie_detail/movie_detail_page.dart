@@ -354,12 +354,7 @@ class _TitleBlock extends StatelessWidget {
         style: baseStyle.copyWith(color: c.accent),
       ));
     }
-    if (movie.country != null && movie.country!.isNotEmpty) {
-      add(TextSpan(
-        text: movie.country!.toUpperCase(),
-        style: baseStyle.copyWith(color: c.muted),
-      ));
-    }
+    // 国家不在标题元信息中展示,由"详细信息"表的产地行统一显示
     if (movie.rating != null && movie.rating! > 0) {
       add(TextSpan(
         text: '★ ${movie.rating!.toStringAsFixed(1)}',
