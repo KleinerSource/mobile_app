@@ -54,9 +54,11 @@ void main() {
 
     expect(find.text('HEVC'), findsOneWidget);
 
-    final switchFinder = find.byType(Switch);
-    await tester.scrollUntilVisible(switchFinder, 300);
-    await tester.tap(switchFinder.first);
+    final codecTile = find.byKey(const ValueKey('poster-badge-codec'));
+    await tester.scrollUntilVisible(codecTile, 300);
+    await tester.tap(
+      find.descendant(of: codecTile, matching: find.byType(Switch)),
+    );
     await tester.pump();
 
     expect(find.text('HEVC'), findsNothing);

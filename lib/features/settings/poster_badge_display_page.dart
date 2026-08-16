@@ -226,6 +226,7 @@ class _PosterBadgeVisibilityTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SettingsTile(
+      key: ValueKey('poster-badge-${kind.name}'),
       title: kind.label,
       subtitle: enabled ? '显示' : '已隐藏',
       leadingIcon: _icon,
