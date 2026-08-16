@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,7 +72,7 @@ class _PrivacyShieldState extends ConsumerState<PrivacyShield>
 
   void _startShakeDetection() {
     if (!mounted || _shakeSubscription != null) return;
-    if (!Platform.isAndroid && !Platform.isIOS) return;
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
 
     _shakeDetector.reset();
     _shakeSubscription = userAccelerometerEventStream(
@@ -236,7 +237,7 @@ class _Brand extends StatelessWidget {
 ///
 /// 在 main.dart 启动后调用一次,与 PrivacyShield 双重保险
 Future<void> applyAndroidFlagSecure(bool enabled) async {
-  if (!Platform.isAndroid) return;
+  if (kIsWeb || !Platform.isAndroid) return;
   try {
     // 通过 MethodChannel 设置 Activity flag
     const channel = MethodChannel('md_center/privacy');

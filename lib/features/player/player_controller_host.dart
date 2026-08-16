@@ -66,26 +66,34 @@ class PlayerControllerHost {
         // demuxer-cache-dir 必须在 cache-on-disk 创建文件前设置；否则 mpv
         // 会继续使用默认目录，缓存管理页统计不到实际文件。
         if (diskCacheEnabled && diskCacheDirectory != null) {
-          await platform.setProperty('demuxer-cache-dir', diskCacheDirectory!);
+          await _setNativeProperty(
+            platform,
+            'demuxer-cache-dir',
+            diskCacheDirectory!,
+          );
         }
         // mpv 的磁盘缓存只有在显式启用网络缓存后才会生效。
-        await platform.setProperty(
+        await _setNativeProperty(
+          platform,
           'cache',
           diskCacheEnabled ? 'yes' : 'no',
         );
-        await platform.setProperty(
+        await _setNativeProperty(
+          platform,
           'cache-on-disk',
           diskCacheEnabled ? 'yes' : 'no',
         );
         // 先使用极小的安全预载值，等媒体时长就绪后再收敛到总时长的 15%，
         // 避免播放器在时长未知时按字节缓存过多内容。
-        await platform.setProperty(
+        await _setNativeProperty(
+          platform,
           'cache-secs',
           playerInitialPrefetchSeconds.toStringAsFixed(3),
         );
         // demuxer cache 本身是临时的；stream-record 才是由应用管理的
         // 持久化缓存，必须在打开媒体源前设置。
-        await platform.setProperty(
+        await _setNativeProperty(
+          platform,
           'stream-record',
           diskCacheEnabled && persistentCacheFile != null
               ? persistentCacheFile!
@@ -113,7 +121,8 @@ class PlayerControllerHost {
       if (generation != _openGeneration) return;
       final platform = targetPlayer.platform;
       if (platform is NativePlayer) {
-        await platform.setProperty(
+        await _setNativeProperty(
+          platform,
           'cache-secs',
           playerPrefetchSecondsFor(duration).toStringAsFixed(3),
         );
@@ -121,6 +130,16 @@ class PlayerControllerHost {
     } catch (_) {
       // 部分流媒体无法及时提供总时长或不支持 cache-secs，继续使用安全初始值播放。
     }
+  }
+
+  // NativePlayer 的 Web stub 没有 setProperty；实际 Web 播放器不会进入
+  // NativePlayer 分支，使用 dynamic 仅让原生专用 API 保持可编译。
+  Future<void> _setNativeProperty(
+    NativePlayer platform,
+    String property,
+    String value,
+  ) async {
+    await (platform as dynamic).setProperty(property, value);
   }
 
   Future<void> setSubtitleUrl(

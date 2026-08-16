@@ -49,9 +49,12 @@ class _MovieDetailPageState extends ConsumerState<MovieDetailPage> {
   @override
   void initState() {
     super.initState();
-    unawaited(
-      ref.read(homeMovieViewStateProvider).markMovieViewed(widget.movieId),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        ref.read(homeMovieViewStateProvider).markMovieViewed(widget.movieId),
+      );
+    });
   }
 
   @override

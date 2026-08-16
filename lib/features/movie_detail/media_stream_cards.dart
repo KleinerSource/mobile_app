@@ -77,7 +77,7 @@ class _CardShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     return Container(
-      width: 272,
+      width: 245,
       padding: const EdgeInsets.fromLTRB(13, 12, 13, 14),
       decoration: BoxDecoration(
         color: c.surfaceAlt,
