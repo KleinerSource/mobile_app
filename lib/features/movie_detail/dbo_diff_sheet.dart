@@ -614,87 +614,92 @@ class _DboDiffRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return InkWell(
-      onTap: saving ? null : onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          decoration: BoxDecoration(
-            color: item.selected ? c.accent.withValues(alpha: 0.1) : c.chipBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: item.selected
-                  ? c.accent.withValues(alpha: 0.55)
-                  : c.cardBorder,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: saving ? null : onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: item.selected ? c.accent.withValues(alpha: 0.1) : c.chipBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: item.selected
+                    ? c.accent.withValues(alpha: 0.55)
+                    : c.cardBorder,
+              ),
             ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        color: c.text,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13.5,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.label,
+                        style: TextStyle(
+                          color: c.text,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    if (item.currentText != null)
+                      const SizedBox(height: 4),
+                      if (item.currentText != null)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('当前:', style: AppText.meta(context)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                item.currentText!,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: c.muted,
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      const SizedBox(height: 5),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('当前:', style: AppText.meta(context)),
-                          const SizedBox(width: 6),
+                          Icon(Icons.arrow_forward, size: 12, color: c.accent),
+                          const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              item.currentText!,
-                              maxLines: 3,
+                              item.remoteText,
+                              maxLines: 5,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: c.muted,
+                                color: c.accent,
                                 fontFamily: 'Inter',
-                                fontSize: 12,
-                                decoration: TextDecoration.lineThrough,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                height: 1.35,
                               ),
                             ),
                           ),
                         ],
                       ),
-                    const SizedBox(height: 5),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.arrow_forward, size: 12, color: c.accent),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            item.remoteText,
-                            maxLines: 5,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: c.accent,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                              height: 1.35,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
