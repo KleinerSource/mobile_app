@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:md_center/core/config/server_config_provider.dart';
 import 'package:md_center/features/i18n/poster_badge_visibility_provider.dart';
+import 'package:md_center/features/settings/poster_badge_display_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -38,5 +39,23 @@ void main() {
       isFalse,
     );
     expect(prefs.getString('app.posterBadgeVisibility'), contains('"hdr":false'));
+  });
+
+  testWidgets('海报角标预览会随开关实时更新', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: const MaterialApp(home: PosterBadgeDisplayPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('HEVC'), findsOneWidget);
+
+    await tester.tap(find.byType(Switch).first);
+    await tester.pump();
+
+    expect(find.text('HEVC'), findsNothing);
   });
 }
