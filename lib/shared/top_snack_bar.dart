@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 /// 保持现有 ScaffoldMessenger 调用方式不变，但把 SnackBar 显示在顶部。
 ///
 /// ScaffoldMessengerState 没有悬浮顶部 SnackBar 布局选项，因此通知使用
-/// MaterialBanner 外观并放入应用根 Overlay，避免参与 Scaffold 布局。
+/// 独立的顶部 Material 卡片并放入应用根 Overlay，避免参与 Scaffold 布局。
 /// 底部仅放置一个透明的短生命周期 SnackBar，保证既有调用方拿到的
 /// 控制器类型和关闭语义仍然有效。
 class TopSnackBarMessenger extends ScaffoldMessenger {
@@ -57,16 +57,19 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
         child: SafeArea(
           bottom: false,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: _TopNoticeDismissible(
-                    onDismiss: () => _dismissTopNotice(sequence),
-                    child: _buildBanner(snackBar, sequence),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: _TopNoticeDismissible(
+                      onDismiss: () => _dismissTopNotice(sequence),
+                      child: _buildBanner(snackBar, sequence),
+                    ),
                   ),
                 ),
               ),
@@ -98,7 +101,7 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
     behavior: SnackBarBehavior.floating,
   );
 
-  MaterialBanner _buildBanner(SnackBar snackBar, int sequence) {
+  Widget _buildBanner(SnackBar snackBar, int sequence) {
     final theme = Theme.of(context);
     final snackBarTheme = SnackBarTheme.of(context);
     final action = snackBar.action;
@@ -111,8 +114,11 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
         snackBarTheme.actionTextColor ??
         theme.colorScheme.primary;
 
-    return MaterialBanner(
-      content: Material(
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      child: Material(
+        key: const ValueKey<String>('top-notice-card'),
         color: backgroundColor,
         elevation: snackBar.elevation ?? snackBarTheme.elevation ?? 6,
         shape: snackBar.shape ??
@@ -145,14 +151,6 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
           ),
         ),
       ),
-      actions: const [SizedBox.shrink()],
-      minActionBarHeight: 0,
-      backgroundColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      dividerColor: Colors.transparent,
-      elevation: 0,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-      margin: EdgeInsets.zero,
     );
   }
 

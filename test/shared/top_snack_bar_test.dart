@@ -35,10 +35,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.byType(MaterialBanner), findsOneWidget);
+    final card = find.byKey(const ValueKey<String>('top-notice-card'));
+    expect(card, findsOneWidget);
     expect(find.text('顶部通知'), findsOneWidget);
-    final bannerTop = tester.getTopLeft(find.byType(MaterialBanner)).dy;
-    final bannerCenter = tester.getCenter(find.byType(MaterialBanner)).dx;
+    final bannerTop = tester.getTopLeft(card).dy;
+    final bannerCenter = tester.getCenter(card).dx;
     final scaffoldRect = tester.getRect(find.byType(Scaffold));
     expect(bannerTop, lessThan(scaffoldRect.center.dy));
     expect(bannerCenter, closeTo(scaffoldRect.center.dx, 0.1));
@@ -46,15 +47,15 @@ void main() {
 
     await tester.tap(find.text('顶部通知'));
     await tester.pump();
-    expect(find.byType(MaterialBanner), findsNothing);
+    expect(card, findsNothing);
 
     await tester.tap(find.text('显示'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.byType(MaterialBanner), findsOneWidget);
+    expect(card, findsOneWidget);
 
-    await tester.fling(find.byType(MaterialBanner), const Offset(0, -80), 500);
+    await tester.fling(card, const Offset(0, -80), 500);
     await tester.pump();
-    expect(find.byType(MaterialBanner), findsNothing);
+    expect(card, findsNothing);
   });
 }
