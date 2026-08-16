@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../api/server_compatibility.dart';
 import 'server_config.dart';
+import 'server_line_probe.dart';
 import 'server_config_repository.dart';
 import 'server_profile_cache_repository.dart';
 
@@ -17,6 +19,12 @@ final serverProfileCacheRepoProvider =
     Provider<ServerProfileCacheRepository>((ref) {
   return ServerProfileCacheRepository(ref.watch(sharedPrefsProvider));
 });
+
+final serverLineProbeCoordinatorProvider = Provider<ServerLineProbeCoordinator>(
+  (ref) {
+    return ServerLineProbeCoordinator();
+  },
+);
 
 /// 多服务器启动选择只在当前进程首次进入时显示一次。
 final serverSelectionReadyProvider = StateProvider<bool>((ref) => false);
@@ -98,9 +106,41 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
       (item) => item.id == serverId,
       orElse: () => throw StateError('服务器不存在'),
     );
-    final line = server.activeLine;
-    if (line == null) return;
-    await saveServer(server, select: true);
+
+    final candidates = server.lines.where((line) => line.enabled).toList();
+    if (candidates.isEmpty) {
+      throw StateError('目标服务器没有启用线路');
+    }
+    final preferred = server.activeLine;
+    final currentLine = preferred != null && preferred.enabled
+        ? preferred
+        : candidates.first;
+    final selection = await ref
+        .read(serverLineProbeCoordinatorProvider)
+        .selectPreferred(
+          current: currentLine,
+          alternatives: candidates.where((line) => line.id != currentLine.id),
+        );
+    final selected = selection.selected;
+    if (selected == null) {
+      throw StateError(_lineSelectionFailureMessage(selection));
+    }
+
+    final testedAt = DateTime.now();
+    final testedLines = server.lines
+        .map(
+          (line) => line.id == selected.line.id
+              ? line.copyWith(
+                  latencyMs: selected.latencyMs,
+                  lastTestedAt: testedAt,
+                )
+              : line,
+        )
+        .toList();
+    await saveServer(
+      server.copyWith(lines: testedLines, activeLineId: selected.line.id),
+      select: true,
+    );
     ref.read(serverSelectionReadyProvider.notifier).state = true;
   }
 
@@ -253,4 +293,15 @@ ServerLine _lineForUrl(List<ServerLine> lines, String baseUrl) {
       orElse: () => lines.first,
     ),
   );
+}
+
+String _lineSelectionFailureMessage(ServerLineSelection selection) {
+  if (selection.results.any((result) => result.incompatible)) {
+    return serverCompatibilityRequirementMessage;
+  }
+  final detail = selection.results
+      .map((result) => '${result.line.name}：${result.message}')
+      .where((message) => message.trim().isNotEmpty)
+      .join('\n');
+  return detail.isEmpty ? '没有可用的服务器线路' : detail;
 }
