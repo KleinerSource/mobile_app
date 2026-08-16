@@ -356,224 +356,225 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       return _normalizeResourceName(value) != originalName;
     }
 
-    final result = await showModalBottomSheet<({String name, bool autoMapping})>(
-      context: context,
-      backgroundColor: c.bg,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setSheetState) {
-            final canAutoMap = nameChanged(nameCtrl.text);
-            final mappingActive = autoMapping && canAutoMap;
+    Future<void> translateName(
+      BuildContext sheetContext,
+      StateSetter setSheetState,
+    ) async {
+      final text = nameCtrl.text.trim();
+      if (text.isEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('名称内容为空, 无需翻译')));
+        return;
+      }
 
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 22,
-                right: 22,
-                top: 4,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 22,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isEdit
-                        ? '编辑${widget.kind.label}'
-                        : '新建${widget.kind.label}',
-                    style: AppText.sectionTitle(ctx),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: c.surface,
-                      border: Border.all(color: c.cardBorder),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: TextField(
-                      controller: nameCtrl,
-                      autofocus: !isEdit,
-                      onChanged: (_) {
-                        final changed = nameChanged(nameCtrl.text);
-                        setSheetState(() {
-                          if (!changed) autoMapping = false;
-                        });
-                      },
-                      decoration: InputDecoration(
-                        hintText: '${widget.kind.label}名称',
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        suffixIcon: IconButton(
-                          tooltip: '翻译名称',
-                          onPressed: translating
-                              ? null
-                              : () async {
-                                  final text = nameCtrl.text.trim();
-                                  if (text.isEmpty) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('名称为空，无需翻译'),
-                                      ),
-                                    );
-                                    return;
-                                  }
+      setSheetState(() => translating = true);
+      try {
+        final translated = await ref
+            .read(translationRepositoryProvider)
+            .translateText(
+              text,
+              fieldName: _resourceTranslationField(widget.kind),
+            );
+        if (!sheetContext.mounted) return;
+        final value = translated.trim();
+        if (value.isEmpty) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('名称翻译为空')));
+          return;
+        }
+        nameCtrl.value = nameCtrl.value.copyWith(
+          text: value,
+          selection: TextSelection.collapsed(offset: value.length),
+        );
+        setSheetState(() {});
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('名称翻译成功')));
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('名称翻译失败: ${toApiException(e).message}')),
+        );
+      } finally {
+        if (sheetContext.mounted) {
+          setSheetState(() => translating = false);
+        }
+      }
+    }
 
-                                  setSheetState(() => translating = true);
-                                  try {
-                                    final translated = await ref
-                                        .read(translationRepositoryProvider)
-                                        .translateText(
-                                          text,
-                                          fieldName: _resourceTranslationField(
-                                            widget.kind,
-                                          ),
-                                        );
-                                    if (!ctx.mounted) return;
-                                    final value = translated.trim();
-                                    if (value.isEmpty) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(content: Text('翻译结果为空')),
-                                      );
-                                      return;
-                                    }
-                                    nameCtrl.value = nameCtrl.value.copyWith(
-                                      text: value,
-                                      selection: TextSelection.collapsed(
-                                        offset: value.length,
-                                      ),
-                                    );
-                                    setSheetState(() {});
-                                  } catch (e) {
-                                    if (!context.mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          '翻译失败: ${toApiException(e).message}',
-                                        ),
-                                      ),
-                                    );
-                                  } finally {
-                                    if (ctx.mounted) {
-                                      setSheetState(() => translating = false);
-                                    }
-                                  }
-                                },
-                          icon: translating
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.translate_rounded),
-                        ),
-                      ),
-                      style: TextStyle(
-                        color: c.text,
-                        fontFamily: 'Inter',
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+    final result =
+        await showModalBottomSheet<({String name, bool autoMapping})>(
+          context: context,
+          backgroundColor: c.bg,
+          isScrollControlled: true,
+          showDragHandle: true,
+          builder: (ctx) {
+            return StatefulBuilder(
+              builder: (ctx, setSheetState) {
+                final canAutoMap = nameChanged(nameCtrl.text);
+                final mappingActive = autoMapping && canAutoMap;
+
+                return Padding(
+                  padding: EdgeInsets.only(
+                    left: 22,
+                    right: 22,
+                    top: 4,
+                    bottom: MediaQuery.of(ctx).viewInsets.bottom + 22,
                   ),
-                  if (isEdit) ...[
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: canAutoMap
-                            ? () => setSheetState(
-                                () => autoMapping = !autoMapping,
-                              )
-                            : null,
-                        style: OutlinedButton.styleFrom(
-                          alignment: Alignment.centerLeft,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          foregroundColor: mappingActive ? c.accent : c.text,
-                          backgroundColor: mappingActive
-                              ? c.accent.withValues(alpha: 0.1)
-                              : c.surface,
-                          side: BorderSide(
-                            color: mappingActive ? c.accent : c.cardBorder,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isEdit
+                            ? '编辑${widget.kind.label}'
+                            : '新建${widget.kind.label}',
+                        style: AppText.sectionTitle(ctx),
+                      ),
+                      const SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
                         child: Row(
                           children: [
-                            IgnorePointer(
-                              child: Checkbox(
-                                value: mappingActive,
-                                onChanged: canAutoMap ? (_) {} : null,
-                                activeColor: c.accent,
-                                checkColor: c.bg,
-                                visualDensity: VisualDensity.compact,
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
+                            Expanded(
+                              child: Text(
+                                widget.kind.label.toUpperCase(),
+                                style: AppText.eyebrow(ctx),
                               ),
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '自动映射',
-                              style: TextStyle(
-                                color: canAutoMap ? c.text : c.muted,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                              ),
+                            _ResourceTranslateButton(
+                              loading: translating,
+                              onTap: () => translateName(ctx, setSheetState),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () {
-                        final name = nameCtrl.text.trim();
-                        if (name.isEmpty) return;
-                        Navigator.pop(ctx, (
-                          name: name,
-                          autoMapping: autoMapping && nameChanged(name),
-                        ));
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: c.text,
-                        foregroundColor: c.bg,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
+                      Container(
+                        decoration: BoxDecoration(
+                          color: c.surface,
+                          border: Border.all(color: c.cardBorder),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                      ),
-                      child: Text(
-                        isEdit ? '保存' : '创建',
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
+                        child: TextField(
+                          controller: nameCtrl,
+                          autofocus: !isEdit,
+                          onChanged: (_) {
+                            final changed = nameChanged(nameCtrl.text);
+                            setSheetState(() {
+                              if (!changed) autoMapping = false;
+                            });
+                          },
+                          decoration: InputDecoration(
+                            hintText: '${widget.kind.label}名称',
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                          ),
+                          style: TextStyle(
+                            color: c.text,
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                    ),
+                      if (isEdit) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: canAutoMap
+                                ? () => setSheetState(
+                                    () => autoMapping = !autoMapping,
+                                  )
+                                : null,
+                            style: OutlinedButton.styleFrom(
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              foregroundColor: mappingActive
+                                  ? c.accent
+                                  : c.text,
+                              backgroundColor: mappingActive
+                                  ? c.accent.withValues(alpha: 0.1)
+                                  : c.surface,
+                              side: BorderSide(
+                                color: mappingActive ? c.accent : c.cardBorder,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                IgnorePointer(
+                                  child: Checkbox(
+                                    value: mappingActive,
+                                    onChanged: canAutoMap ? (_) {} : null,
+                                    activeColor: c.accent,
+                                    checkColor: c.bg,
+                                    visualDensity: VisualDensity.compact,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '自动映射',
+                                  style: TextStyle(
+                                    color: canAutoMap ? c.text : c.muted,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: () {
+                            final name = nameCtrl.text.trim();
+                            if (name.isEmpty) return;
+                            Navigator.pop(ctx, (
+                              name: name,
+                              autoMapping: autoMapping && nameChanged(name),
+                            ));
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: c.text,
+                            foregroundColor: c.bg,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            isEdit ? '保存' : '创建',
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             );
           },
         );
-      },
-    );
 
     nameCtrl.dispose();
 
@@ -653,6 +654,50 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
         SnackBar(content: Text('删除失败: ${toApiException(e).message}')),
       );
     }
+  }
+}
+
+/// 单字段翻译按钮，与影片编辑中的翻译控件保持一致。
+class _ResourceTranslateButton extends StatelessWidget {
+  const _ResourceTranslateButton({required this.loading, required this.onTap});
+
+  final bool loading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return InkWell(
+      onTap: loading ? null : onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (loading)
+              const SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              Icon(Icons.translate_rounded, size: 13, color: c.accent),
+            const SizedBox(width: 4),
+            Text(
+              loading ? '翻译中' : '翻译',
+              style: TextStyle(
+                color: loading ? c.muted : c.accent,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
