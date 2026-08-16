@@ -4,7 +4,7 @@ import '../../core/api/providers.dart';
 import '../../core/api/url_resolver.dart';
 import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config_provider.dart';
-import '../../core/models/media_info.dart';
+import '../../core/models/media_streams.dart';
 import '../../core/models/movie.dart';
 import '../../core/models/watch_record.dart';
 import 'movie_filter.dart';
@@ -81,6 +81,6 @@ final extraFanartsProvider = FutureProvider.autoDispose
 });
 
 final mediaInfoProvider = FutureProvider.autoDispose
-    .family<MediaInfo?, int>((ref, id) async {
-  return ref.read(moviesRepositoryProvider).mediaInfo(id);
+    .family<MediaInfoDetail?, int>((ref, id) async {
+  return ref.read(moviesRepositoryProvider).mediaInfoDetail(id);
 });

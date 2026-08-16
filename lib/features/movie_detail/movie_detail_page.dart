@@ -30,6 +30,7 @@ import 'resources_sheet.dart';
 import '../resources/resources_repository.dart';
 import 'movie_editor_sheet.dart';
 import 'movie_detail_formatters.dart';
+import 'media_stream_cards.dart';
 import 'thunder_subtitle_sheet.dart';
 import '../home/home_movie_view_state.dart';
 
@@ -1417,7 +1418,7 @@ String _formatBytes(int bytes) {
   return '${size.toStringAsFixed(2)} ${units[unit]}';
 }
 
-/// 媒体技术信息 section (容器/视频/音频)
+/// 媒体技术信息 section (容器/时长/码率 + 视频/音频/字幕流卡片)
 class _MediaInfoSection extends ConsumerWidget {
   const _MediaInfoSection({required this.movieId});
   final int movieId;
@@ -1426,28 +1427,14 @@ class _MediaInfoSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(mediaInfoProvider(movieId));
     return async.maybeWhen(
-      data: (info) {
-        if (info == null) return const SizedBox.shrink();
+      data: (detail) {
+        if (detail == null) return const SizedBox.shrink();
+        final streams = detail.streams;
         final c = appColors(context);
         final rows = <List<String>>[];
-        if (info.container != null) rows.add(['容器', info.container!]);
-        if (info.videoCodec != null) {
-          final parts = <String>[info.videoCodec!];
-          if (info.videoWidth != null && info.videoHeight != null) {
-            parts.add('${info.videoWidth}×${info.videoHeight}');
-          }
-          if (info.videoFrameRate != null) {
-            parts.add('${info.videoFrameRate!.toStringAsFixed(2)} fps');
-          }
-          rows.add(['视频', parts.join(' · ')]);
-        }
-        if (info.audioCodec != null) {
-          final parts = <String>[info.audioCodec!];
-          if (info.audioChannels != null) parts.add('${info.audioChannels} ch');
-          rows.add(['音频', parts.join(' · ')]);
-        }
-        if (info.durationSec != null && info.durationSec! > 0) {
-          final s = info.durationSec!.round();
+        if (detail.container != null) rows.add(['容器', detail.container!]);
+        if (detail.durationSec != null && detail.durationSec! > 0) {
+          final s = detail.durationSec!.round();
           final h = s ~/ 3600;
           final m = (s % 3600) ~/ 60;
           final sec = s % 60;
@@ -1458,10 +1445,14 @@ class _MediaInfoSection extends ConsumerWidget {
                 : '${m}m ${sec.toString().padLeft(2, '0')}s'
           ]);
         }
-        if (info.bitRate != null && info.bitRate! > 0) {
-          rows.add(['码率', '${(info.bitRate! / 1000).round()} kbps']);
+        if (detail.bitRate != null && detail.bitRate! > 0) {
+          rows.add(['码率', '${(detail.bitRate! / 1000).round()} kbps']);
         }
-        if (rows.isEmpty) return const SizedBox.shrink();
+        if (detail.fileSize != null && detail.fileSize! > 0) {
+          rows.add(['大小', _formatBytes(detail.fileSize!)]);
+        }
+        final hasCards = streams.hasContent;
+        if (rows.isEmpty && !hasCards) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
           child: Column(
@@ -1502,6 +1493,10 @@ class _MediaInfoSection extends ConsumerWidget {
                     ],
                   ),
                 ),
+              if (hasCards) ...[
+                if (rows.isNotEmpty) const SizedBox(height: 10),
+                MediaStreamCards(detail: detail),
+              ],
             ],
           ),
         );
