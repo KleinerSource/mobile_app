@@ -336,58 +336,71 @@ class _HapticIntensityTile extends ConsumerWidget {
     final current = ref.watch(hapticIntensityProvider);
     return SettingsTile(
       title: '震动反馈强度',
-      subtitle: current.label,
+      subtitle: '当前：${current.label}',
       leadingIcon: Icons.vibration,
-      onTap: () => _showSheet(context, ref, current),
+      trailing: SizedBox(
+        width: 178,
+        child: _HapticIntensitySlider(
+          value: current,
+          onChanged: (value) {
+            final intensity = HapticIntensity.values[value.round()];
+            unawaited(
+              ref.read(hapticIntensityProvider.notifier).set(intensity),
+            );
+          },
+        ),
+      ),
     );
   }
+}
 
-  Future<void> _showSheet(
-    BuildContext context,
-    WidgetRef ref,
-    HapticIntensity current,
-  ) async {
+class _HapticIntensitySlider extends StatelessWidget {
+  const _HapticIntensitySlider({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final HapticIntensity value;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
     final c = appColors(context);
-    final picked = await showModalBottomSheet<HapticIntensity>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
-                child: Row(
-                  children: [
-                    Text('震动反馈强度', style: AppText.sectionTitle(ctx)),
-                  ],
+    final intensities = HapticIntensity.values;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        HapticSlider(
+          value: value.index.toDouble(),
+          min: 0,
+          max: (intensities.length - 1).toDouble(),
+          divisions: intensities.length - 1,
+          label: value.label,
+          onChanged: onChanged,
+        ),
+        Row(
+          children: [
+            for (var i = 0; i < intensities.length; i++)
+              Expanded(
+                child: Text(
+                  intensities[i].label,
+                  textAlign: i == 0
+                      ? TextAlign.left
+                      : i == intensities.length - 1
+                          ? TextAlign.right
+                          : TextAlign.center,
+                  style: AppText.meta(context).copyWith(
+                    color: intensities[i] == value ? c.accent : c.muted,
+                    fontWeight: intensities[i] == value
+                        ? FontWeight.w800
+                        : FontWeight.w500,
+                    fontSize: 10,
+                  ),
                 ),
               ),
-              for (final intensity in HapticIntensity.values)
-                ListTile(
-                  leading: Icon(Icons.vibration, color: c.muted, size: 20),
-                  title: Text(
-                    intensity.label,
-                    style: AppText.body(ctx).copyWith(
-                      color: c.text,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  trailing: intensity == current
-                      ? Icon(Icons.check, color: c.accent)
-                      : null,
-                  onTap: () => Navigator.pop(ctx, intensity),
-                ),
-              const SizedBox(height: 6),
-            ],
-          ),
-        );
-      },
+          ],
+        ),
+      ],
     );
-    if (picked != null && picked != current) {
-      await ref.read(hapticIntensityProvider.notifier).set(picked);
-      AppHaptics.selection();
-    }
   }
 }
