@@ -12,6 +12,7 @@ import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/pagination_footer.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/poster.dart';
 import '../../shared/collection_card_layout.dart';
 import '../lists/list_detail_page.dart';
@@ -60,6 +61,10 @@ class FavoritesPage extends ConsumerStatefulWidget {
 class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   static const _pageSize = 30;
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
+  final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
+    _controller,
+  );
   FavoritesViewMode _viewMode = FavoritesViewMode.grid;
   FavoritesSort _sort = FavoritesSort.recent;
   int _totalCount = 0;
@@ -77,6 +82,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -100,6 +106,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       } else {
         _controller.appendPage(page.items, nextOffset);
       }
+      _scrollRestorer.restoreAfterPage(_scrollController);
       if (mounted) setState(() {});
     } catch (e) {
       _controller.error = toApiException(e).message;
@@ -108,9 +115,14 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
   Future<void> _refresh() async {
     refreshImageCache(ref);
-    _controller.refresh();
+    _reload();
     // 等首页就绪
     await Future.delayed(const Duration(milliseconds: 600));
+  }
+
+  void _reload({bool preserveScroll = false}) {
+    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
+    _controller.refresh();
   }
 
   Future<void> _startResourceScan() async {
@@ -158,7 +170,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         context,
         taskId: result.taskId,
         onCompleted: () {
-          if (mounted) _controller.refresh();
+          if (mounted) _reload(preserveScroll: true);
         },
       );
     } catch (e) {
@@ -172,13 +184,13 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
   void _toggleNewResourcesFilter() {
     setState(() => _newResourcesOnly = !_newResourcesOnly);
-    _controller.refresh();
+    _reload();
   }
 
   void _changeSort(FavoritesSort v) {
     if (v == _sort) return;
     setState(() => _sort = v);
-    _controller.refresh();
+    _reload();
   }
 
   void _toggleSelect(int id) {
@@ -313,6 +325,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
           color: c.accent,
           onRefresh: _refresh,
           child: CustomScrollView(
+            controller: _scrollController,
             slivers: [
               // ===== 顶部 =====
               SliverToBoxAdapter(

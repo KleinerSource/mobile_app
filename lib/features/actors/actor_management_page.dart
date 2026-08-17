@@ -17,6 +17,7 @@ import '../../shared/actor_avatar.dart';
 import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/pagination_footer.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../actor_associations/actor_associations_providers.dart';
 import '../actor_associations/actor_associations_repository.dart';
 import '../person_detail/person_detail_page.dart';
@@ -38,6 +39,10 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
 
   final _searchController = TextEditingController();
   final _controller = PagingController<int, ActorRow>(firstPageKey: 0);
+  final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<ActorRow>(
+    _controller,
+  );
   Timer? _searchDebounce;
   String? _search;
   String _sortBy = 'movie_count';
@@ -60,6 +65,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     _completeRefresh();
     _searchDebounce?.cancel();
     _controller.dispose();
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -92,6 +98,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       } else {
         _controller.appendPage(rows, nextOffset);
       }
+      _scrollRestorer.restoreAfterPage(_scrollController);
       _completeRefresh();
     } catch (error) {
       if (!mounted || requestSerial != _requestSerial) return;
@@ -100,8 +107,9 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     }
   }
 
-  void _reload() {
+  void _reload({bool preserveScroll = false}) {
     _requestSerial++;
+    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
     if (mounted) {
       setState(() {
         _hasLoaded = false;
@@ -111,13 +119,13 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     _controller.refresh();
   }
 
-  Future<void> _refresh() {
+  Future<void> _refresh({bool preserveScroll = false}) {
     final pending = _refreshCompleter;
     if (pending != null) return pending.future;
 
     final completer = Completer<void>();
     _refreshCompleter = completer;
-    _reload();
+    _reload(preserveScroll: preserveScroll);
     return completer.future;
   }
 
@@ -201,6 +209,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
+            scrollController: _scrollController,
             header: SettingsSubPageHeader(
               eyebrow: l.settingsGroupLibrary,
               title: l.settingsActors,
@@ -212,7 +221,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
               color: c.accent,
               onRefresh: _refresh,
               child: CustomScrollView(
-                primary: true,
+                controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(
@@ -333,7 +342,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                                   actorType: actor.actorType,
                                   biography: actor.biography,
                                   avatarPath: actor.avatarPath,
-                                  onUpdated: _refresh,
+                                  onUpdated: () =>
+                                      _refresh(preserveScroll: true),
                                 ),
                               ),
                             ),
@@ -513,7 +523,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       messenger.showSnackBar(
         SnackBar(content: Text(isEdit ? '演员已保存' : '演员已创建')),
       );
-      await _refresh();
+      await _refresh(preserveScroll: isEdit);
     } catch (error) {
       messenger.showSnackBar(
         SnackBar(content: Text('操作失败: ${toApiException(error).message}')),
@@ -635,7 +645,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       _removeDeletedActor(actor.id);
       AppHaptics.medium();
       messenger.showSnackBar(const SnackBar(content: Text('演员已删除')));
-      await _refresh();
+      await _refresh(preserveScroll: true);
     } catch (error) {
       messenger.showSnackBar(
         SnackBar(content: Text('删除失败: ${toApiException(error).message}')),

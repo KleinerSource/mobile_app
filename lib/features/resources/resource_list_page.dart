@@ -12,6 +12,7 @@ import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../settings/settings_common.dart';
 import '../translation/translation_providers.dart';
 import 'resource_movies_page.dart';
@@ -54,6 +55,9 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   final _searchController = TextEditingController();
   final _controller = PagingController<int, ResourceItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<ResourceItem>(
+    _controller,
+  );
   Timer? _debounce;
   String? _search;
   String _sortBy = 'name';
@@ -61,7 +65,6 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   int? _totalCount;
   int _requestSerial = 0;
   Completer<void>? _refreshCompleter;
-  double? _pendingScrollOffset;
 
   @override
   void initState() {
@@ -135,7 +138,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       } else {
         _controller.appendPage(page.items, nextOffset);
       }
-      _restorePendingScrollOffset();
+      _scrollRestorer.restoreAfterPage(_scrollController);
       _completeRefresh();
     } catch (error) {
       if (!mounted || requestSerial != _requestSerial) return;
@@ -144,33 +147,10 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     }
   }
 
-  void _reload({double? preserveScrollOffset}) {
+  void _reload({bool preserveScroll = false}) {
     _requestSerial++;
-    _pendingScrollOffset = preserveScrollOffset;
+    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
     _controller.refresh();
-  }
-
-  void _restorePendingScrollOffset() {
-    final target = _pendingScrollOffset;
-    if (target == null) return;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-      if (_pendingScrollOffset != target) return;
-
-      final position = _scrollController.position;
-      final restored = target
-          .clamp(position.minScrollExtent, position.maxScrollExtent)
-          .toDouble();
-      if ((position.pixels - restored).abs() > 0.5) {
-        _scrollController.jumpTo(restored);
-      }
-
-      if (target <= position.maxScrollExtent ||
-          _controller.nextPageKey == null) {
-        _pendingScrollOffset = null;
-      }
-    });
   }
 
   Future<void> _refresh() {
@@ -632,11 +612,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
         ),
       );
       // ignore: unused_result
-      _reload(
-        preserveScrollOffset: isEdit && _scrollController.hasClients
-            ? _scrollController.offset
-            : null,
-      );
+      _reload(preserveScroll: isEdit);
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('操作失败: ${toApiException(e).message}')),
@@ -682,7 +658,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
         const SnackBar(content: Text('已删除'), duration: Duration(seconds: 1)),
       );
       // ignore: unused_result
-      _reload();
+      _reload(preserveScroll: true);
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('删除失败: ${toApiException(e).message}')),

@@ -12,6 +12,7 @@ import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../privacy/privacy_mask.dart';
 import '../settings/settings_common.dart';
 import 'actor_associations_providers.dart';
@@ -29,6 +30,10 @@ class ActorAssociationsPage extends ConsumerStatefulWidget {
 class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
   static const _pageSize = 20;
   final _controller = PagingController<int, MappingRule>(firstPageKey: 0);
+  final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<MappingRule>(
+    _controller,
+  );
   final _searchCtl = TextEditingController();
   String _search = '';
   Timer? _searchDebounce;
@@ -42,6 +47,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     _searchCtl.dispose();
     _searchDebounce?.cancel();
     super.dispose();
@@ -61,9 +67,15 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
       } else {
         _controller.appendPage(r.items, nextOffset);
       }
+      _scrollRestorer.restoreAfterPage(_scrollController);
     } catch (e) {
       _controller.error = toApiException(e).message;
     }
+  }
+
+  void _reload({bool preserveScroll = false}) {
+    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
+    _controller.refresh();
   }
 
   void _onSearchChanged(String v) {
@@ -72,7 +84,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
       final s = v.trim();
       if (s == _search) return;
       _search = s;
-      _controller.refresh();
+      _reload();
     });
   }
 
@@ -81,7 +93,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
       context,
       mode: ActorAssocEditMode.create,
     );
-    if (ok == true) _controller.refresh();
+    if (ok == true) _reload(preserveScroll: true);
   }
 
   Future<void> _edit(MappingRule r) async {
@@ -90,7 +102,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
       mode: ActorAssocEditMode.edit,
       existing: r,
     );
-    if (ok == true) _controller.refresh();
+    if (ok == true) _reload(preserveScroll: true);
   }
 
   Future<void> _append(MappingRule r) async {
@@ -99,12 +111,12 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
       mode: ActorAssocEditMode.append,
       existing: r,
     );
-    if (ok == true) _controller.refresh();
+    if (ok == true) _reload(preserveScroll: true);
   }
 
   Future<void> _sync(MappingRule r) async {
     final ok = await ActorAssociationSyncSheet.show(context, r);
-    if (ok == true) _controller.refresh();
+    if (ok == true) _reload(preserveScroll: true);
   }
 
   Future<void> _delete(MappingRule r) async {
@@ -138,7 +150,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
     try {
       await ref.read(actorAssociationsRepositoryProvider).deleteById(r.id);
       messenger.showSnackBar(const SnackBar(content: Text('已删除')));
-      _controller.refresh();
+      _reload(preserveScroll: true);
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('删除失败: ${toApiException(e).message}')),
@@ -154,6 +166,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
+            scrollController: _scrollController,
             header: SettingsSubPageHeader(
               eyebrow: '媒体库',
               title: '演员关联管理',
@@ -170,7 +183,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
                 ),
                 Expanded(
                   child: PagedListView<int, MappingRule>(
-                    primary: true,
+                    scrollController: _scrollController,
                     pagingController: _controller,
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 96),
                     builderDelegate: PagedChildBuilderDelegate<MappingRule>(

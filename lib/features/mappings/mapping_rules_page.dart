@@ -12,6 +12,7 @@ import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../settings/settings_common.dart';
 import 'mappings_providers.dart';
 import 'mappings_repository.dart';
@@ -30,6 +31,10 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
 
   final _searchCtrl = TextEditingController();
   final _controller = PagingController<int, MappingRule>(firstPageKey: 0);
+  final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<MappingRule>(
+    _controller,
+  );
   Timer? _debounce;
   String? _search;
   String _status = 'all';
@@ -42,6 +47,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     _completeRefresh();
     _debounce?.cancel();
     _controller.dispose();
+    _scrollController.dispose();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -97,6 +103,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
       } else {
         _controller.appendPage(page.items, nextOffset);
       }
+      _scrollRestorer.restoreAfterPage(_scrollController);
       _completeRefresh();
     } catch (error) {
       if (!mounted || requestSerial != _requestSerial) return;
@@ -105,8 +112,9 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     }
   }
 
-  void _reload() {
+  void _reload({bool preserveScroll = false}) {
     _requestSerial++;
+    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
     _controller.refresh();
   }
 
@@ -135,6 +143,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
+            scrollController: _scrollController,
             header: SettingsSubPageHeader(
               eyebrow: '映射规则',
               title: '${widget.type.label}映射',
@@ -147,7 +156,8 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
               color: c.accent,
               onRefresh: _refresh,
               child: CustomScrollView(
-                primary: true,
+                controller: _scrollController,
+                primary: false,
                 slivers: [
                   SliverToBoxAdapter(
                     child: Padding(
@@ -497,7 +507,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
         ),
       );
       // ignore: unused_result
-      _reload();
+      _reload(preserveScroll: rule != null);
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('操作失败: ${toApiException(e).message}')),
@@ -533,7 +543,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
         const SnackBar(content: Text('已删除'), duration: Duration(seconds: 1)),
       );
       // ignore: unused_result
-      _reload();
+      _reload(preserveScroll: true);
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('删除失败: ${toApiException(e).message}')),

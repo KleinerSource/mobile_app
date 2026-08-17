@@ -14,6 +14,7 @@ import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/actor_avatar.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../actor_associations/widgets/actor_association_sync_sheet.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
@@ -31,6 +32,10 @@ class ActorMoviesPage extends ConsumerStatefulWidget {
 class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
   static const _pageSize = 30;
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
+  final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
+    _controller,
+  );
   int? _totalCount;
   late String _currentBiography;
   String? _avatarCacheBust;
@@ -45,6 +50,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -65,6 +71,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
       } else {
         _controller.appendPage(page.items, nextOffset);
       }
+      _scrollRestorer.restoreAfterPage(_scrollController);
     } catch (e) {
       _controller.error = toApiException(e).message;
     }
@@ -93,6 +100,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
       },
     );
     if (synced == true && mounted) {
+      _scrollRestorer.prepare(_scrollController, preserve: true);
       _controller.refresh();
     }
   }
@@ -111,6 +119,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
       body: GlowBackground(
         child: SafeArea(
           child: CustomScrollView(
+            controller: _scrollController,
             slivers: [
               SliverAppBar(
                 expandedHeight: 220,

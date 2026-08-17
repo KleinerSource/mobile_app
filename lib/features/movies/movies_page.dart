@@ -16,6 +16,7 @@ import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/poster.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../privacy/privacy_mask.dart';
 import 'advanced_filter_sheet.dart';
@@ -46,6 +47,10 @@ class MoviesPage extends ConsumerStatefulWidget {
 class _MoviesPageState extends ConsumerState<MoviesPage> {
   static const _pageSize = 50;
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
+  final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
+    _controller,
+  );
   final _searchController = TextEditingController();
   late MovieFilter _currentFilter;
   _ViewMode _viewMode = _ViewMode.grid;
@@ -68,6 +73,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   void dispose() {
     _completeRefresh();
     _controller.dispose();
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -100,6 +106,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       } else {
         _controller.appendPage(items, nextOffset);
       }
+      _scrollRestorer.restoreAfterPage(_scrollController);
       if (offset == 0) _completeRefresh();
       if (mounted) setState(() {});
     } catch (e) {
@@ -115,7 +122,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     refreshImageCache(ref);
     final completer = Completer<void>();
     _refreshCompleter = completer;
-    _controller.refresh();
+    _reload();
     return completer.future;
   }
 
@@ -129,6 +136,11 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     if (newFilter == _currentFilter) return;
     setState(() => _currentFilter = newFilter);
     ref.read(movieFilterProvider.notifier).state = newFilter;
+    _reload();
+  }
+
+  void _reload({bool preserveScroll = false}) {
+    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
     _controller.refresh();
   }
 
@@ -165,6 +177,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                 RefreshIndicator(
                   onRefresh: _refreshMovies,
                   child: CustomScrollView(
+                    controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
                       SliverToBoxAdapter(
@@ -485,7 +498,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     final ok = await BatchEditSheet.show(context, _selectedIds.toList());
     if (ok == true) {
       _exitSelection();
-      _controller.refresh();
+      _reload(preserveScroll: true);
     }
   }
 
@@ -554,7 +567,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         context,
         taskId: result.taskId,
         onCompleted: () {
-          if (mounted) _controller.refresh();
+          if (mounted) _reload(preserveScroll: true);
         },
       );
     } catch (e) {
@@ -576,7 +589,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     final ok = await BatchMergeSheet.show(context, _selectedIds.toList());
     if (ok == true) {
       _exitSelection();
-      _controller.refresh();
+      _reload(preserveScroll: true);
     }
   }
 
@@ -593,7 +606,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     );
     if (ok == true) {
       _exitSelection();
-      _controller.refresh();
+      _reload(preserveScroll: true);
     }
   }
 }
