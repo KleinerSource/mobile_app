@@ -286,7 +286,7 @@ class DiskCacheService {
     final directory = await videoBufferDirectory();
     final safeQuality = quality.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
     return File(
-      '${directory.path}${Platform.pathSeparator}movie-$movieId-$safeQuality.mkv',
+      '${directory.path}${Platform.pathSeparator}movie-$movieId-$safeQuality.mp4',
     );
   }
 
@@ -303,7 +303,7 @@ class DiskCacheService {
           recursive: true,
           followLinks: false,
         )) {
-          if (entity is File && entity.path.toLowerCase().endsWith('.mkv')) {
+          if (entity is File && _isPersistentVideoCacheFile(entity.path)) {
             files.add(entity);
           }
         }
@@ -388,6 +388,11 @@ class DiskCacheService {
       if (entity is File) total += await entity.length();
     }
     return total;
+  }
+
+  bool _isPersistentVideoCacheFile(String path) {
+    final lowerPath = path.toLowerCase();
+    return lowerPath.endsWith('.mp4') || lowerPath.endsWith('.mkv');
   }
 
   Future<List<Directory>> _videoCacheDirectories({required Directory root}) async {

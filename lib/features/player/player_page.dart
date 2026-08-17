@@ -1298,6 +1298,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           .read(diskCacheServiceProvider)
           .pruneVideoCache(maxBytes: maxBytes);
     } catch (_) {}
+    ref.invalidate(cacheUsageProvider);
   }
 
   Future<void> _disposePlayer() async {

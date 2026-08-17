@@ -115,8 +115,7 @@ class PlayerControllerHost {
       var duration = targetPlayer.state.duration;
       if (duration <= Duration.zero) {
         duration = await targetPlayer.stream.duration
-            .firstWhere((value) => value > Duration.zero)
-            .timeout(const Duration(seconds: 5));
+            .firstWhere((value) => value > Duration.zero);
       }
       if (generation != _openGeneration) return;
       final platform = targetPlayer.platform;

@@ -63,6 +63,7 @@ void main() {
     addTearDown(() => root.delete(recursive: true));
     final service = DiskCacheService(rootDirectory: root);
     final file = await service.videoCacheFile(movieId: 8, quality: 'original');
+    expect(file.path, endsWith('movie-8-original.mp4'));
     await file.writeAsString('cached-video');
 
     expect(await file.exists(), isTrue);
