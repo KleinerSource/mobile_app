@@ -69,6 +69,8 @@ void main() {
     );
 
     expect(track.isPgs, isTrue);
+    expect(track.typeLabel, 'PGS');
+    expect(track.sourceLabel, '内嵌');
     expect(track.isEmbedded, isTrue);
     expect(track.canLoad, isTrue);
   });
@@ -85,5 +87,7 @@ void main() {
     );
 
     expect(track.isPgs, isFalse);
+    expect(track.typeLabel, 'ASS');
+    expect(track.sourceLabel, '内嵌');
   });
 }
