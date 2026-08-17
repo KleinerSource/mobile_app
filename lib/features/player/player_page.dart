@@ -427,7 +427,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             )
           : null;
       _activeVideoCacheLimitBytes = bufferPolicy.diskCacheEnabled
-          ? bufferPolicy.bufferSize
+          ? bufferPolicy.diskCacheLimitBytes
           : null;
       await _host.recreate(
         enableHardwareAcceleration: _clientHardwareAcceleration,

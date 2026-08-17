@@ -133,10 +133,15 @@ class VideoBufferPolicy {
   const VideoBufferPolicy({
     required this.bufferSize,
     required this.diskCacheEnabled,
+    required this.diskCacheLimitBytes,
   });
 
+  /// media_kit 的进程内 demuxer 缓冲大小，不能与磁盘缓存上限混用。
   final int bufferSize;
   final bool diskCacheEnabled;
+
+  /// 持久化视频文件的磁盘淘汰上限。
+  final int diskCacheLimitBytes;
 }
 
 VideoBufferPolicy videoBufferPolicyFor(CacheSizeOption option) {
@@ -144,11 +149,15 @@ VideoBufferPolicy videoBufferPolicyFor(CacheSizeOption option) {
     return const VideoBufferPolicy(
       bufferSize: defaultVideoBufferBytes,
       diskCacheEnabled: false,
+      diskCacheLimitBytes: 0,
     );
   }
   return VideoBufferPolicy(
-    bufferSize: option.bytes,
+    // CacheSizeOption controls disk retention only. Passing 1-4GB here would
+    // make media_kit allocate an equally large native demuxer buffer.
+    bufferSize: defaultVideoBufferBytes,
     diskCacheEnabled: true,
+    diskCacheLimitBytes: option.bytes,
   );
 }
 

@@ -19,10 +19,16 @@ void main() {
     final disabled = videoBufferPolicyFor(CacheSizeOption.disabled);
     expect(disabled.diskCacheEnabled, isFalse);
     expect(disabled.bufferSize, defaultVideoBufferBytes);
+    expect(disabled.diskCacheLimitBytes, 0);
 
     final wifi = videoBufferPolicyFor(CacheSizeOption.mb500);
     expect(wifi.diskCacheEnabled, isTrue);
-    expect(wifi.bufferSize, CacheSizeOption.mb500.bytes);
+    expect(wifi.bufferSize, defaultVideoBufferBytes);
+    expect(wifi.diskCacheLimitBytes, CacheSizeOption.mb500.bytes);
+
+    final large = videoBufferPolicyFor(CacheSizeOption.gb4);
+    expect(large.bufferSize, defaultVideoBufferBytes);
+    expect(large.diskCacheLimitBytes, CacheSizeOption.gb4.bytes);
   });
 
   test('预缓存设置可以持久化并恢复', () async {
