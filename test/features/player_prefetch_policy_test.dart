@@ -15,4 +15,13 @@ void main() {
       playerInitialPrefetchSeconds,
     );
   });
+
+  test('起播缓存等待按预载目标设置且限制最长等待时间', () {
+    expect(playerInitialCacheWaitSecondsFor(12), 12);
+    expect(
+      playerInitialCacheWaitSecondsFor(900),
+      playerMaxInitialCacheWaitSeconds,
+    );
+    expect(playerInitialCacheWaitSecondsFor(0), playerInitialPrefetchSeconds);
+  });
 }

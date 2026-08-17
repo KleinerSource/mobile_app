@@ -7,6 +7,9 @@ void main() {
       'mode': 'transcode',
       'stream_url': '/api/movies/id/1/stream.m3u8?quality=1080p',
       'mime_type': 'application/vnd.apple.mpegurl',
+      'container': 'matroska,webm',
+      'duration_sec': 123.5,
+      'bit_rate': 4000000,
       'hwaccel': 'videotoolbox',
       'target_video': 'h264',
       'target_audio': 'aac',
@@ -42,6 +45,9 @@ void main() {
     expect(decision.subtitleTracks.single.isExternal, isTrue);
     expect(decision.subtitleTracks.single.canLoad, isTrue);
     expect(decision.targetHeight, 1080);
+    expect(decision.container, 'matroska,webm');
+    expect(decision.durationSec, 123.5);
+    expect(decision.bitRate, 4000000);
   });
 
   test('硬解失败状态可识别软解回退', () {

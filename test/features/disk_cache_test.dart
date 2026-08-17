@@ -31,6 +31,35 @@ void main() {
     expect(large.diskCacheLimitBytes, CacheSizeOption.gb4.bytes);
   });
 
+  test('15% 预载按码率估算但限制 native 内存上限', () {
+    final disabled = videoBufferBytesForPrefetch(
+      diskCacheEnabled: false,
+      durationSeconds: 3600,
+      bitRate: 20 * 1000 * 1000,
+    );
+    expect(disabled, defaultVideoBufferBytes);
+
+    expect(
+      videoBufferBytesForPrefetch(diskCacheEnabled: true, durationSeconds: 0),
+      maxVideoPrefetchBufferBytes,
+    );
+
+    final estimated = videoBufferBytesForPrefetch(
+      diskCacheEnabled: true,
+      durationSeconds: 3600,
+      bitRate: 4 * 1000 * 1000,
+    );
+    expect(estimated, greaterThan(defaultVideoBufferBytes));
+    expect(estimated, lessThanOrEqualTo(maxVideoPrefetchBufferBytes));
+
+    final capped = videoBufferBytesForPrefetch(
+      diskCacheEnabled: true,
+      durationSeconds: 7200,
+      bitRate: 50 * 1000 * 1000,
+    );
+    expect(capped, maxVideoPrefetchBufferBytes);
+  });
+
   test('预缓存设置可以持久化并恢复', () async {
     final prefs = await SharedPreferences.getInstance();
     final repository = DiskPrecacheSettingsRepository(prefs);
@@ -50,8 +79,9 @@ void main() {
     addTearDown(() => root.delete(recursive: true));
     final service = DiskCacheService(rootDirectory: root);
     final video = await service.videoBufferDirectory();
-    await File('${video.path}${Platform.pathSeparator}buffer.tmp')
-        .writeAsString('buffer-data');
+    await File(
+      '${video.path}${Platform.pathSeparator}buffer.tmp',
+    ).writeAsString('buffer-data');
     expect((await service.usage()).videoBytes, greaterThan(0));
 
     await service.clear(CacheCategory.video);
@@ -63,14 +93,21 @@ void main() {
     addTearDown(() => root.delete(recursive: true));
     final service = DiskCacheService(rootDirectory: root);
     final file = await service.videoCacheFile(movieId: 8, quality: 'original');
-    expect(file.path, endsWith('movie-8-original.mp4'));
+    expect(file.path, endsWith('movie-8-original.mkv'));
+    final hlsFile = await service.videoCacheFile(
+      movieId: 8,
+      quality: '720p',
+      extension: '.ts',
+    );
+    expect(hlsFile.path, endsWith('movie-8-720p.ts'));
     await file.writeAsString('cached-video');
+    await hlsFile.writeAsString('cached-hls');
 
     expect(await file.exists(), isTrue);
-    expect((await service.usage()).videoBytes, greaterThan(0));
+    expect((await service.usage()).videoBytes, greaterThan(10));
 
-    await service.pruneVideoCache(maxBytes: 1);
-    expect(await file.exists(), isTrue);
+    await service.pruneVideoCache(maxBytes: 12);
+    expect((await service.usage()).videoBytes, lessThanOrEqualTo(12));
 
     await service.clear(CacheCategory.video);
     expect(await file.exists(), isFalse);
