@@ -146,23 +146,42 @@ class PlayerControllerHost {
     String url, {
     String? title,
     String? language,
-  }) {
-    return player.setSubtitleTrack(
+  }) async {
+    await player.setSubtitleTrack(
       SubtitleTrack.uri(url, title: title, language: language),
     );
+    await _setNativeSubtitleVisibility(false);
   }
 
-  Future<void> clearSubtitle() => player.setSubtitleTrack(SubtitleTrack.no());
+  Future<void> clearSubtitle() async {
+    await player.setSubtitleTrack(SubtitleTrack.no());
+    await _setNativeSubtitleVisibility(false);
+  }
 
   Future<void> setSubtitleTrackById(
     String id, {
     int? fallbackIndex,
+    bool nativeRendering = false,
   }) async {
     final track = await _findSubtitleTrack(id, fallbackIndex);
     if (track == null) {
       throw StateError('未找到内嵌字幕轨道: $id');
     }
     await player.setSubtitleTrack(track);
+    await _setNativeSubtitleVisibility(nativeRendering);
+  }
+
+  Future<void> _setNativeSubtitleVisibility(bool visible) async {
+    final platform = player.platform;
+    if (platform is! NativePlayer) return;
+    try {
+      await (platform as dynamic).setProperty(
+        'sub-visibility',
+        visible ? 'yes' : 'no',
+      );
+    } catch (_) {
+      // Web and older native backends may not expose mpv properties.
+    }
   }
 
   Future<SubtitleTrack?> _findSubtitleTrack(

@@ -56,4 +56,34 @@ void main() {
 
     expect(status.hasHardwareFallback, isTrue);
   });
+
+  test('PGS 内嵌字幕可识别为原生位图字幕', () {
+    const track = SubtitleTrack(
+      index: 4,
+      source: 'embedded',
+      language: 'eng',
+      title: 'English PGS',
+      codec: 'hdmv_pgs_subtitle',
+      url: '',
+      isDefault: false,
+    );
+
+    expect(track.isPgs, isTrue);
+    expect(track.isEmbedded, isTrue);
+    expect(track.canLoad, isTrue);
+  });
+
+  test('普通文本字幕不启用 PGS 原生渲染', () {
+    const track = SubtitleTrack(
+      index: 3,
+      source: 'embedded',
+      language: 'zh',
+      title: '中文',
+      codec: 'ass',
+      url: '/embedded.ass',
+      isDefault: false,
+    );
+
+    expect(track.isPgs, isFalse);
+  });
 }

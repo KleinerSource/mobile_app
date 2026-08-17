@@ -187,6 +187,13 @@ class SubtitleTrack {
 
   bool get isExternal => source.trim().toLowerCase() == 'external';
 
+  bool get isPgs {
+    final normalized = codec.trim().toLowerCase();
+    return normalized == 'hdmv_pgs_subtitle' ||
+        normalized == 'pgssub' ||
+        normalized.contains('pgs');
+  }
+
   bool get canLoad => isEmbedded || url.trim().isNotEmpty;
 
   factory SubtitleTrack.fromJson(Map<String, dynamic> json) => SubtitleTrack(

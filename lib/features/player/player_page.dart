@@ -717,6 +717,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         await _host.setSubtitleTrackById(
           track.index.toString(),
           fallbackIndex: embeddedOrdinal,
+          nativeRendering: track.isPgs,
         );
         _setSelectedSubtitle(track);
         return true;
