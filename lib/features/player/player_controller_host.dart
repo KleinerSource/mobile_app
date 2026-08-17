@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -29,9 +30,7 @@ class PlayerControllerHost {
   int _openGeneration = 0;
 
   void _createPlayer() {
-    player = Player(
-      configuration: PlayerConfiguration(bufferSize: bufferSize),
-    );
+    player = Player(configuration: PlayerConfiguration(bufferSize: bufferSize));
     controller = VideoController(
       player,
       configuration: VideoControllerConfiguration(
@@ -45,11 +44,13 @@ class PlayerControllerHost {
     String url, {
     Duration? startAt,
     Map<String, String>? headers,
+    double? prefetchSeconds,
   }) {
     return _openWithBufferOptions(
       url,
       startAt: startAt,
       headers: headers,
+      prefetchSeconds: prefetchSeconds,
     );
   }
 
@@ -57,12 +58,29 @@ class PlayerControllerHost {
     String url, {
     Duration? startAt,
     Map<String, String>? headers,
+    double? prefetchSeconds,
   }) async {
     final openGeneration = ++_openGeneration;
     final targetPlayer = player;
+    final requestedPrefetchSeconds =
+        prefetchSeconds != null &&
+            prefetchSeconds.isFinite &&
+            prefetchSeconds > 0
+        ? prefetchSeconds
+        : playerInitialPrefetchSeconds;
     try {
       final platform = targetPlayer.platform;
       if (platform is NativePlayer) {
+        // Player.open() 也会 stop,但它是在本方法设置 stream-record 之后才
+        // 执行。先关闭旧媒体，避免新录制文件先按旧媒体的封装格式打开。
+        if (persistentCacheFile != null) {
+          await _setNativeProperty(platform, 'stream-record', '');
+        }
+        try {
+          await targetPlayer.stop();
+        } catch (error) {
+          debugPrint('[PlayerControllerHost] 关闭旧媒体失败，继续应用缓存配置: $error');
+        }
         // demuxer-cache-dir 必须在 cache-on-disk 创建文件前设置；否则 mpv
         // 会继续使用默认目录，缓存管理页统计不到实际文件。
         if (diskCacheEnabled && diskCacheDirectory != null) {
@@ -72,26 +90,34 @@ class PlayerControllerHost {
             diskCacheDirectory!,
           );
         }
-        // mpv 的磁盘缓存只有在显式启用网络缓存后才会生效。
-        await _setNativeProperty(
-          platform,
-          'cache',
-          diskCacheEnabled ? 'yes' : 'no',
-        );
+        // 网络 demuxer 缓冲与持久化磁盘缓存是两条独立能力。即使用户
+        // 关闭磁盘缓存，也必须保留 cache=yes，否则 cache-secs 会完全失效。
+        await _setNativeProperty(platform, 'cache', 'yes');
         await _setNativeProperty(
           platform,
           'cache-on-disk',
           diskCacheEnabled ? 'yes' : 'no',
+        );
+        // cache-secs 只是后台预载上限。显式进入初始 buffering，才能让
+        // 起播前确实先读取一段数据；等待时间封顶，避免长视频打开数分钟。
+        await _setNativeProperty(platform, 'cache-pause', 'yes');
+        await _setNativeProperty(platform, 'cache-pause-initial', 'yes');
+        await _setNativeProperty(
+          platform,
+          'cache-pause-wait',
+          playerInitialCacheWaitSecondsFor(
+            requestedPrefetchSeconds,
+          ).toStringAsFixed(3),
         );
         // 先使用极小的安全预载值，等媒体时长就绪后再收敛到总时长的 15%，
         // 避免播放器在时长未知时按字节缓存过多内容。
         await _setNativeProperty(
           platform,
           'cache-secs',
-          playerInitialPrefetchSeconds.toStringAsFixed(3),
+          requestedPrefetchSeconds.toStringAsFixed(3),
         );
-        // demuxer cache 本身是临时的；stream-record 才是由应用管理的
-        // 持久化缓存，必须在打开媒体源前设置。
+        // stream-record 必须在 loadfile 前设置，才能从网络源的第一段数据开始
+        // 写入；输出扩展名由调用方按播放路线选择，避免 HLS 被当成 MP4 封装。
         await _setNativeProperty(
           platform,
           'stream-record',
@@ -107,27 +133,137 @@ class PlayerControllerHost {
       Media(url, start: startAt, httpHeaders: headers),
       play: true,
     );
+    // Player.open() 内部会先 stop 再 loadlist。部分 iOS/libmpv 版本会在
+    // 这个边界重新应用默认缓存选项，因此 open 完成后再次回读并补设。
+    // cache-secs 在此处先用已知的决策值，时长未知时再由下方轮询收敛。
+    await _ensureCacheOptionsAfterOpen(
+      targetPlayer,
+      openGeneration,
+      prefetchSeconds: requestedPrefetchSeconds,
+    );
+    await _logNativeCacheState(targetPlayer, 'open');
     unawaited(_applyPrefetchLimit(targetPlayer, openGeneration));
   }
 
   Future<void> _applyPrefetchLimit(Player targetPlayer, int generation) async {
     try {
-      var duration = targetPlayer.state.duration;
-      if (duration <= Duration.zero) {
-        duration = await targetPlayer.stream.duration
-            .firstWhere((value) => value > Duration.zero);
-      }
-      if (generation != _openGeneration) return;
+      final duration = await _waitForDuration(targetPlayer, generation);
+      if (duration == null || generation != _openGeneration) return;
       final platform = targetPlayer.platform;
       if (platform is NativePlayer) {
+        final prefetchSeconds = playerPrefetchSecondsFor(duration);
         await _setNativeProperty(
           platform,
           'cache-secs',
-          playerPrefetchSecondsFor(duration).toStringAsFixed(3),
+          prefetchSeconds.toStringAsFixed(3),
         );
+        await _setNativeProperty(
+          platform,
+          'cache-pause-wait',
+          playerInitialCacheWaitSecondsFor(prefetchSeconds).toStringAsFixed(3),
+        );
+        await _logNativeCacheState(targetPlayer, 'duration-ready');
       }
     } catch (_) {
       // 部分流媒体无法及时提供总时长或不支持 cache-secs，继续使用安全初始值播放。
+    }
+  }
+
+  Future<Duration?> _waitForDuration(
+    Player targetPlayer,
+    int generation,
+  ) async {
+    // 轮询 state 而不是只订阅 duration 流。open() 可能在订阅前已经发出
+    // 第一个有效时长事件,轮询可以覆盖 iOS 快速解析媒体的情况。
+    for (var attempt = 0; attempt < 300; attempt++) {
+      if (generation != _openGeneration) return null;
+      try {
+        final duration = targetPlayer.state.duration;
+        if (duration > Duration.zero) return duration;
+      } catch (_) {
+        return null;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    return null;
+  }
+
+  Future<void> _ensureCacheOptionsAfterOpen(
+    Player targetPlayer,
+    int generation, {
+    required double prefetchSeconds,
+  }) async {
+    if (generation != _openGeneration) return;
+    final platform = targetPlayer.platform;
+    if (platform is! NativePlayer) return;
+
+    final expected = <String, String>{
+      'cache': 'yes',
+      'cache-on-disk': diskCacheEnabled ? 'yes' : 'no',
+      'cache-pause': 'yes',
+      'cache-pause-initial': 'yes',
+      'cache-pause-wait': playerInitialCacheWaitSecondsFor(
+        prefetchSeconds,
+      ).toStringAsFixed(3),
+      if (diskCacheEnabled && diskCacheDirectory != null)
+        'demuxer-cache-dir': diskCacheDirectory!,
+      'cache-secs': prefetchSeconds.toStringAsFixed(3),
+      'stream-record': diskCacheEnabled && persistentCacheFile != null
+          ? persistentCacheFile!
+          : '',
+    };
+    for (final entry in expected.entries) {
+      if (generation != _openGeneration) return;
+      await _ensureNativeProperty(platform, entry.key, entry.value);
+    }
+  }
+
+  Future<void> _ensureNativeProperty(
+    NativePlayer platform,
+    String property,
+    String requested,
+  ) async {
+    try {
+      final actual = '${await (platform as dynamic).getProperty(property)}'
+          .trim();
+      if (_nativePropertyMatches(property, requested, actual)) return;
+      debugPrint(
+        '[PlayerControllerHost] open 后重新应用 mpv 属性: '
+        '$property requested=$requested actual=$actual',
+      );
+      await _setNativeProperty(platform, property, requested);
+    } catch (error) {
+      debugPrint('[PlayerControllerHost] 校验 mpv 属性失败: $property, $error');
+    }
+  }
+
+  Future<void> _logNativeCacheState(Player targetPlayer, String phase) async {
+    final platform = targetPlayer.platform;
+    if (platform is! NativePlayer) return;
+    final native = platform as dynamic;
+    try {
+      final values = <String, String>{};
+      for (final property in <String>[
+        'file-format',
+        'cache-secs',
+        'demuxer-cache-time',
+        'cache-buffering-state',
+        'cache-on-disk',
+        'stream-record',
+      ]) {
+        values[property] = '${await native.getProperty(property)}'.trim();
+      }
+      debugPrint(
+        '[PlayerControllerHost] mpv 缓存状态 phase=$phase '
+        'file-format=${values['file-format']} '
+        'cache-secs=${values['cache-secs']} '
+        'demuxer-cache-time=${values['demuxer-cache-time']} '
+        'cache-buffering-state=${values['cache-buffering-state']} '
+        'cache-on-disk=${values['cache-on-disk']} '
+        'stream-record=${values['stream-record']}',
+      );
+    } catch (error) {
+      debugPrint('[PlayerControllerHost] 读取 mpv 缓存状态失败: $error');
     }
   }
 
@@ -138,7 +274,62 @@ class PlayerControllerHost {
     String property,
     String value,
   ) async {
-    await (platform as dynamic).setProperty(property, value);
+    final native = platform as dynamic;
+    try {
+      // `setProperty` 在 media_kit 1.2.x 不等待 mpv 的 native 命令完成。
+      // 使用可等待的 `set` 命令，避免 stream-record 清空与 stop 竞态。
+      await native.command(<String>['set', property, value]);
+    } catch (error) {
+      try {
+        // 兼容较旧 native backend 没有 command API 的情况。
+        await native.setProperty(property, value);
+      } catch (fallbackError) {
+        debugPrint(
+          '[PlayerControllerHost] 设置 mpv 属性失败: '
+          '$property=$value, $error, fallback=$fallbackError',
+        );
+        return;
+      }
+    }
+
+    // 即使命令已经入队，属性回读也可能短暂看到旧值；有限重试后再记录
+    // 未生效，避免把正常的 native 调度延迟误报成 iOS 不支持。
+    for (var attempt = 0; attempt < 5; attempt++) {
+      try {
+        final actual = '${await native.getProperty(property)}'.trim();
+        if (_nativePropertyMatches(property, value, actual)) return;
+        if (attempt == 4) {
+          debugPrint(
+            '[PlayerControllerHost] mpv 属性未生效: '
+            '$property requested=$value actual=$actual',
+          );
+        }
+      } catch (error) {
+        if (attempt == 4) {
+          debugPrint('[PlayerControllerHost] 读取 mpv 属性失败: $property, $error');
+        }
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+  }
+
+  bool _nativePropertyMatches(
+    String property,
+    String requested,
+    String actual,
+  ) {
+    if (property == 'cache-secs') {
+      final expectedValue = double.tryParse(requested);
+      final actualValue = double.tryParse(actual);
+      if (expectedValue != null && actualValue != null) {
+        return (expectedValue - actualValue).abs() < 0.01;
+      }
+    }
+    if (actual == requested) return true;
+    if (property == 'stream-record' || property == 'demuxer-cache-dir') {
+      return requested.isNotEmpty && actual.endsWith(requested);
+    }
+    return false;
   }
 
   Future<void> setSubtitleUrl(
@@ -187,11 +378,8 @@ class PlayerControllerHost {
     String id,
     int? fallbackIndex,
   ) async {
-    SubtitleTrack? find(Tracks tracks) => resolveSubtitleTrack(
-          tracks.subtitle,
-          id,
-          fallbackIndex: fallbackIndex,
-        );
+    SubtitleTrack? find(Tracks tracks) =>
+        resolveSubtitleTrack(tracks.subtitle, id, fallbackIndex: fallbackIndex);
 
     var track = find(player.state.tracks);
     if (track != null || fallbackIndex == null) return track;
@@ -249,7 +437,16 @@ class PlayerControllerHost {
   Future<void> seek(Duration position) => player.seek(position);
 
   /// 停止当前媒体但保留播放器实例, 用于退出播放页前的同步停播。
-  Future<void> stop() => player.stop();
+  Future<void> stop() async {
+    final targetPlayer = player;
+    final platform = targetPlayer.platform;
+    if (platform is NativePlayer && persistentCacheFile != null) {
+      // mpv 在修改 stream-record 时会先关闭旧文件。显式清空一次，确保
+      // 文件在播放器 stop 完成前已经 flush，缓存统计不会读到 0 字节。
+      await _setNativeProperty(platform, 'stream-record', '');
+    }
+    await targetPlayer.stop();
+  }
 
   Future<void> setRate(double rate) => player.setRate(rate);
 

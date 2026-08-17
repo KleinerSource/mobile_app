@@ -232,6 +232,9 @@ class PlaybackDecision {
     required this.mode,
     required this.streamUrl,
     required this.mimeType,
+    this.container = '',
+    this.durationSec = 0,
+    this.bitRate = 0,
     required this.hwAccel,
     required this.targetVideo,
     required this.targetAudio,
@@ -246,6 +249,9 @@ class PlaybackDecision {
   final String mode;
   final String streamUrl;
   final String mimeType;
+  final String container;
+  final double durationSec;
+  final int bitRate;
   final String hwAccel;
   final String targetVideo;
   final String targetAudio;
@@ -267,6 +273,9 @@ class PlaybackDecision {
       mode: _asString(json['mode']),
       streamUrl: _asString(json['stream_url']),
       mimeType: _asString(json['mime_type']),
+      container: _asString(json['container']),
+      durationSec: _asDouble(json['duration_sec']),
+      bitRate: _asInt(json['bit_rate']),
       hwAccel: _asString(json['hwaccel']),
       targetVideo: _asString(json['target_video']),
       targetAudio: _asString(json['target_audio']),

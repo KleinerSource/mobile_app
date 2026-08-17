@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show File, FileSystemException, Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -37,6 +37,19 @@ import 'subtitle_adjustment_sheet.dart';
 import 'subtitle_rendering.dart';
 import 'subtitle_settings.dart';
 import '../cache/disk_cache.dart';
+
+@immutable
+class _PlaybackCacheMetadata {
+  const _PlaybackCacheMetadata({
+    required this.container,
+    required this.durationSeconds,
+    required this.bitRate,
+  });
+
+  final String container;
+  final double durationSeconds;
+  final int bitRate;
+}
 
 /// 全屏视频播放页。播放源由后端协商，页面只负责编排回退、进度和用户控制。
 class PlayerPage extends ConsumerStatefulWidget {
@@ -140,8 +153,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   double _playbackRate = 1.0;
   bool _pictureInPictureRequesting = false;
   bool _isLeaving = false;
-  Future<void>? _stopPlayerFuture;
   int? _activeVideoCacheLimitBytes;
+  String? _activeVideoCacheFilePath;
+  int _videoCacheGeneration = 0;
+  Future<void> _videoCacheFinalization = Future<void>.value();
   Future<void> _loadQueue = Future<void>.value();
   bool _orientationInitialized = false;
 
@@ -389,6 +404,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final route = playbackRouteForQuality(selectedQuality);
     _onRateBoostEnd();
     await _stopTranscodeSession();
+    await _finalizeVideoCache();
     if (!mounted || generation != _loadGeneration) return;
     _pictureInPictureUrl = null;
     _pictureInPictureHeaders = null;
@@ -415,6 +431,35 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       }
       if (!mounted || generation != _loadGeneration) return;
 
+      final decision =
+          cachedDecision ??
+          await client.playback.decision(
+            widget.movieId,
+            _clientCaps(selectedQuality),
+          );
+      if (!mounted || generation != _loadGeneration) return;
+      _decision = decision;
+
+      // 新版 playback-decision 会直接携带这些字段；旧服务端或 .strm
+      // 决策可能没有它们。复用现有 media-info 接口补齐，避免预载退回
+      // 1 秒且用错误的封装后缀创建空 stream-record 文件。
+      final cacheMetadata = await _resolvePlaybackCacheMetadata(decision);
+      if (!mounted || generation != _loadGeneration) return;
+
+      final useServerRoute = route == PlaybackRoute.hls;
+      String? rawDirectUrl;
+      String? directUrl;
+      Map<String, String>? directHeaders;
+      if (!useServerRoute) {
+        // 先拿到 .strm 的最终远程地址，再决定 stream-record 的文件后缀；
+        // 远程地址可能实际是 HLS，不能沿用 playback-decision 的 mp4 兜底。
+        rawDirectUrl = await client.playback.streamUrl(widget.movieId);
+        directUrl = _protectedUrl(cfg, rawDirectUrl, token);
+        directHeaders = !isExternalUrl(cfg, rawDirectUrl)
+            ? _authorizationHeaders(token)
+            : null;
+      }
+
       final bufferPolicy = await _resolveVideoBufferPolicy();
       final cacheService = ref.read(diskCacheServiceProvider);
       final bufferDirectory = bufferPolicy.diskCacheEnabled
@@ -424,31 +469,37 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           ? await cacheService.videoCacheFile(
               movieId: widget.movieId,
               quality: selectedQuality,
+              extension: videoCacheExtensionFor(
+                route: route,
+                container: cacheMetadata.container,
+                mimeType: decision.mimeType,
+                sourceUrl: rawDirectUrl,
+              ),
             )
           : null;
       _activeVideoCacheLimitBytes = bufferPolicy.diskCacheEnabled
           ? bufferPolicy.diskCacheLimitBytes
           : null;
+      _activeVideoCacheFilePath = persistentCacheFile?.path;
+      _videoCacheGeneration++;
+      final playerBufferSize = videoBufferBytesForPrefetch(
+        diskCacheEnabled: bufferPolicy.diskCacheEnabled,
+        durationSeconds: cacheMetadata.durationSeconds,
+        bitRate: cacheMetadata.bitRate,
+        targetBitrate: decision.targetBitrate,
+        fallbackBytes: bufferPolicy.bufferSize,
+      );
       await _host.recreate(
         enableHardwareAcceleration: _clientHardwareAcceleration,
-        bufferSize: bufferPolicy.bufferSize,
+        bufferSize: playerBufferSize,
         diskCacheEnabled: bufferPolicy.diskCacheEnabled,
         diskCacheDirectory: bufferDirectory?.path,
         persistentCacheFile: persistentCacheFile?.path,
       );
       if (!mounted || generation != _loadGeneration) return;
 
-      final decision =
-          cachedDecision ??
-          await client.playback.decision(
-            widget.movieId,
-            _clientCaps(selectedQuality),
-          );
-      if (!mounted || generation != _loadGeneration) return;
-      _decision = decision;
       // 自动画质不采纳后端的服务端转码建议，始终把原始媒体交给
       // media_kit/libmpv；只有用户明确选择固定画质时才使用 HLS。
-      final useServerRoute = route == PlaybackRoute.hls;
       _serverDecodeStatus = useServerRoute
           ? PlayerDecodeStatus.server(engine: decision.hwAccel)
           : null;
@@ -479,24 +530,28 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           (resumePositionSec > 0 ? Duration(seconds: resumePositionSec) : null);
       final direct = !useServerRoute;
       if (direct) {
-        // .strm 的本地串流接口会返回 302。先请求 stream-url 解析出最终
-        // 外部地址，避免 media_kit 在重定向时丢失地址或透传服务器鉴权头。
-        final rawDirectUrl = await client.playback.streamUrl(widget.movieId);
-        final directUrl = _protectedUrl(cfg, rawDirectUrl, token);
-        final directHeaders = !isExternalUrl(cfg, rawDirectUrl)
-            ? _authorizationHeaders(token)
-            : null;
         await _openDirectWithClientFallback(
-          directUrl,
+          directUrl!,
           startAt,
           headers: directHeaders,
+          prefetchSeconds: _decisionPrefetchSeconds(
+            decision,
+            durationSeconds: cacheMetadata.durationSeconds,
+          ),
         );
       } else {
         final hlsUrl = _fallbackHlsUrl(cfg, token, selectedQuality);
-        await _openHlsWithClientFallback(hlsUrl, startAt);
+        await _openHlsWithClientFallback(
+          hlsUrl,
+          startAt,
+          prefetchSeconds: _decisionPrefetchSeconds(
+            decision,
+            durationSeconds: cacheMetadata.durationSeconds,
+          ),
+        );
       }
       if (!mounted || generation != _loadGeneration) {
-        await _host.stop();
+        await _finalizeVideoCache();
         return;
       }
       if (_playbackRate != 1.0) {
@@ -528,14 +583,25 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     String url,
     Duration? startAt, {
     Map<String, String>? headers,
+    double? prefetchSeconds,
   }) async {
     try {
-      await _host.open(url, startAt: startAt, headers: headers);
+      await _host.open(
+        url,
+        startAt: startAt,
+        headers: headers,
+        prefetchSeconds: prefetchSeconds,
+      );
     } catch (_) {
       if (!_clientHardwareAcceleration) rethrow;
       await _host.recreate(enableHardwareAcceleration: false);
       _clientHardwareAcceleration = false;
-      await _host.open(url, startAt: startAt, headers: headers);
+      await _host.open(
+        url,
+        startAt: startAt,
+        headers: headers,
+        prefetchSeconds: prefetchSeconds,
+      );
     }
     _usingHls = false;
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
@@ -544,14 +610,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         : Map<String, String>.from(headers);
   }
 
-  Future<void> _openHlsWithClientFallback(String url, Duration? startAt) async {
+  Future<void> _openHlsWithClientFallback(
+    String url,
+    Duration? startAt, {
+    double? prefetchSeconds,
+  }) async {
     try {
-      await _host.open(url, startAt: startAt);
+      await _host.open(url, startAt: startAt, prefetchSeconds: prefetchSeconds);
     } catch (_) {
       if (!_clientHardwareAcceleration) rethrow;
       await _host.recreate(enableHardwareAcceleration: false);
       _clientHardwareAcceleration = false;
-      await _host.open(url, startAt: startAt);
+      await _host.open(url, startAt: startAt, prefetchSeconds: prefetchSeconds);
     }
     _usingHls = true;
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
@@ -663,7 +733,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   Future<void> _stopAfterPlaybackError() async {
     try {
-      await _host.stop();
+      await _finalizeVideoCache();
       await _stopTranscodeSession();
     } catch (_) {}
   }
@@ -933,6 +1003,67 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     } catch (_) {
       // 网络状态暂时不可用时仍保留基础内存缓冲，不让缓存设置阻塞播放。
       return videoBufferPolicyFor(CacheSizeOption.disabled);
+    }
+  }
+
+  double? _decisionPrefetchSeconds(
+    playback_models.PlaybackDecision decision, {
+    double? durationSeconds,
+  }) {
+    final duration = durationSeconds ?? decision.durationSec;
+    if (!duration.isFinite || duration <= 0) return null;
+    return duration * 0.15;
+  }
+
+  Future<_PlaybackCacheMetadata> _resolvePlaybackCacheMetadata(
+    playback_models.PlaybackDecision decision,
+  ) async {
+    final decisionDuration =
+        decision.durationSec.isFinite && decision.durationSec > 0
+        ? decision.durationSec
+        : 0.0;
+    final decisionBitRate = decision.bitRate > 0 ? decision.bitRate : 0;
+    final decisionContainer = decision.container.trim();
+    if (decisionDuration > 0 &&
+        (decisionBitRate > 0 || decision.targetBitrate > 0) &&
+        decisionContainer.isNotEmpty) {
+      return _PlaybackCacheMetadata(
+        container: decisionContainer,
+        durationSeconds: decisionDuration,
+        bitRate: decisionBitRate,
+      );
+    }
+
+    try {
+      final detail = await ref
+          .read(moviesRepositoryProvider)
+          .mediaInfoDetail(widget.movieId);
+      final detailDuration = detail?.durationSec;
+      final detailBitRate = detail?.bitRate;
+      final videoBitRate = detail?.streams.video?.bitRate;
+      return _PlaybackCacheMetadata(
+        container: decisionContainer.isNotEmpty
+            ? decisionContainer
+            : (detail?.container ?? ''),
+        durationSeconds: decisionDuration > 0
+            ? decisionDuration
+            : (detailDuration != null && detailDuration.isFinite
+                  ? detailDuration
+                  : 0),
+        bitRate: decisionBitRate > 0
+            ? decisionBitRate
+            : (detailBitRate != null && detailBitRate > 0
+                  ? detailBitRate
+                  : (videoBitRate != null && videoBitRate > 0
+                        ? videoBitRate
+                        : 0)),
+      );
+    } catch (_) {
+      return _PlaybackCacheMetadata(
+        container: decisionContainer,
+        durationSeconds: decisionDuration,
+        bitRate: decisionBitRate,
+      );
     }
   }
 
@@ -1284,21 +1415,77 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _stopPlayer() {
-    return _stopPlayerFuture ??= _stopPlayerInternal();
+    return _stopPlayerInternal();
   }
 
   Future<void> _stopPlayerInternal() async {
-    try {
-      await _host.stop();
-    } catch (_) {}
+    await _finalizeVideoCache();
+  }
+
+  Future<void> _finalizeVideoCache() async {
+    final cachePath = _activeVideoCacheFilePath;
     final maxBytes = _activeVideoCacheLimitBytes;
-    if (maxBytes == null) return;
+
+    final generation = _videoCacheGeneration;
+    final next = _videoCacheFinalization.then<void>((_) async {
+      // 播放错误处理是异步触发的，可能与下一次切换画质同时到达；旧的
+      // 收尾任务不能停止或清理已经开始的新媒体。
+      if (generation != _videoCacheGeneration ||
+          cachePath != _activeVideoCacheFilePath ||
+          maxBytes != _activeVideoCacheLimitBytes) {
+        return;
+      }
+      try {
+        await _host.stop();
+      } catch (_) {}
+
+      if (cachePath == null && maxBytes == null) return;
+
+      await _waitForVideoCacheFlush(cachePath);
+      if (generation != _videoCacheGeneration ||
+          cachePath != _activeVideoCacheFilePath ||
+          maxBytes != _activeVideoCacheLimitBytes) {
+        return;
+      }
+      if (maxBytes != null) {
+        try {
+          await ref
+              .read(diskCacheServiceProvider)
+              .pruneVideoCache(maxBytes: maxBytes);
+        } catch (_) {}
+      }
+      ref.invalidate(cacheUsageProvider);
+      _activeVideoCacheFilePath = null;
+      _activeVideoCacheLimitBytes = null;
+    });
+    _videoCacheFinalization = next.catchError((_) {});
+    await next;
+  }
+
+  Future<void> _waitForVideoCacheFlush(String? path) async {
+    if (path == null) return;
+    final file = File(path);
+    for (var attempt = 0; attempt < 20; attempt++) {
+      try {
+        if (await file.exists()) {
+          final bytes = await file.length();
+          if (bytes > 0) {
+            debugPrint('[PlayerPage] 视频持久缓存已落盘: $path ($bytes bytes)');
+            return;
+          }
+        }
+      } on FileSystemException {
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
     try {
-      await ref
-          .read(diskCacheServiceProvider)
-          .pruneVideoCache(maxBytes: maxBytes);
-    } catch (_) {}
-    ref.invalidate(cacheUsageProvider);
+      final exists = await file.exists();
+      final bytes = exists ? await file.length() : 0;
+      debugPrint('[PlayerPage] 视频持久缓存未落盘: $path exists=$exists bytes=$bytes');
+    } on FileSystemException {
+      // 文件可能被系统清理，保留正常退出流程。
+    }
   }
 
   Future<void> _disposePlayer() async {

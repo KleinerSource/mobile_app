@@ -10,36 +10,28 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/server_config_provider.dart';
 
-enum CacheSizeOption {
-  disabled,
-  mb300,
-  mb500,
-  mb750,
-  gb1,
-  gb2,
-  gb4,
-}
+enum CacheSizeOption { disabled, mb300, mb500, mb750, gb1, gb2, gb4 }
 
 extension CacheSizeOptionX on CacheSizeOption {
   String get label => switch (this) {
-        CacheSizeOption.disabled => '禁用',
-        CacheSizeOption.mb300 => '300MB',
-        CacheSizeOption.mb500 => '500MB',
-        CacheSizeOption.mb750 => '750MB',
-        CacheSizeOption.gb1 => '1GB',
-        CacheSizeOption.gb2 => '2GB',
-        CacheSizeOption.gb4 => '4GB',
-      };
+    CacheSizeOption.disabled => '禁用',
+    CacheSizeOption.mb300 => '300MB',
+    CacheSizeOption.mb500 => '500MB',
+    CacheSizeOption.mb750 => '750MB',
+    CacheSizeOption.gb1 => '1GB',
+    CacheSizeOption.gb2 => '2GB',
+    CacheSizeOption.gb4 => '4GB',
+  };
 
   int get bytes => switch (this) {
-        CacheSizeOption.disabled => 0,
-        CacheSizeOption.mb300 => 300 * 1024 * 1024,
-        CacheSizeOption.mb500 => 500 * 1024 * 1024,
-        CacheSizeOption.mb750 => 750 * 1024 * 1024,
-        CacheSizeOption.gb1 => 1 * 1024 * 1024 * 1024,
-        CacheSizeOption.gb2 => 2 * 1024 * 1024 * 1024,
-        CacheSizeOption.gb4 => 4 * 1024 * 1024 * 1024,
-      };
+    CacheSizeOption.disabled => 0,
+    CacheSizeOption.mb300 => 300 * 1024 * 1024,
+    CacheSizeOption.mb500 => 500 * 1024 * 1024,
+    CacheSizeOption.mb750 => 750 * 1024 * 1024,
+    CacheSizeOption.gb1 => 1 * 1024 * 1024 * 1024,
+    CacheSizeOption.gb2 => 2 * 1024 * 1024 * 1024,
+    CacheSizeOption.gb4 => 4 * 1024 * 1024 * 1024,
+  };
 }
 
 const cacheSizeOptions = <CacheSizeOption>[
@@ -109,24 +101,58 @@ class DiskPrecacheSettingsRepository {
 class DiskPrecacheSettingsNotifier extends Notifier<DiskPrecacheSettings> {
   @override
   DiskPrecacheSettings build() {
-    return DiskPrecacheSettingsRepository(ref.watch(sharedPrefsProvider)).load();
+    return DiskPrecacheSettingsRepository(
+      ref.watch(sharedPrefsProvider),
+    ).load();
   }
 
   Future<void> update(DiskPrecacheSettings next) async {
     state = next;
-    await DiskPrecacheSettingsRepository(ref.read(sharedPrefsProvider))
-        .save(next);
+    await DiskPrecacheSettingsRepository(
+      ref.read(sharedPrefsProvider),
+    ).save(next);
   }
 }
 
 final diskPrecacheSettingsProvider =
     NotifierProvider<DiskPrecacheSettingsNotifier, DiskPrecacheSettings>(
-  DiskPrecacheSettingsNotifier.new,
-);
+      DiskPrecacheSettingsNotifier.new,
+    );
 
 /// 播放器没有启用磁盘缓存时仍保留一段基础内存缓冲，避免“禁用缓存”变成
 /// 播放器完全没有网络缓冲能力。
 const defaultVideoBufferBytes = 32 * 1024 * 1024;
+const maxVideoPrefetchBufferBytes = 256 * 1024 * 1024;
+
+/// 根据媒体平均码率估算 15% 预载所需的 demuxer 缓冲上限。
+///
+/// 该值只用于进程内缓冲,与用户设置的磁盘缓存额度严格分离。上限是
+/// 256 MiB,避免把 1/2/4 GiB 磁盘额度直接变成 iOS native 内存分配。
+int videoBufferBytesForPrefetch({
+  required bool diskCacheEnabled,
+  required double durationSeconds,
+  int bitRate = 0,
+  int targetBitrate = 0,
+  int fallbackBytes = defaultVideoBufferBytes,
+}) {
+  final safeFallback = fallbackBytes > 0
+      ? fallbackBytes
+      : defaultVideoBufferBytes;
+  if (!diskCacheEnabled) return safeFallback;
+  // 后端旧版本或 .strm 可能暂时没有时长/码率元数据。磁盘缓存已明确开启
+  // 时仍给一个受控的最大窗口,待 mpv 得到时长后由 cache-secs 再收敛到 15%。
+  if (durationSeconds <= 0) return maxVideoPrefetchBufferBytes;
+  final effectiveBitrate = targetBitrate > 0 ? targetBitrate : bitRate;
+  if (effectiveBitrate <= 0) return maxVideoPrefetchBufferBytes;
+
+  // 额外 25% 给音视频交错、码率波动和容器开销,不是磁盘缓存额度。
+  final estimated = effectiveBitrate * durationSeconds * 0.15 * 1.25 / 8;
+  if (estimated <= safeFallback) return safeFallback;
+  if (estimated >= maxVideoPrefetchBufferBytes) {
+    return maxVideoPrefetchBufferBytes;
+  }
+  return estimated.ceil();
+}
 
 @immutable
 class VideoBufferPolicy {
@@ -165,10 +191,10 @@ enum CacheCategory { video, image, other }
 
 extension CacheCategoryX on CacheCategory {
   String get label => switch (this) {
-        CacheCategory.video => '视频缓存',
-        CacheCategory.image => '图片缓存',
-        CacheCategory.other => '其他缓存',
-      };
+    CacheCategory.video => '视频缓存',
+    CacheCategory.image => '图片缓存',
+    CacheCategory.other => '其他缓存',
+  };
 }
 
 @immutable
@@ -186,9 +212,9 @@ class CacheUsage {
   int get totalBytes => videoBytes + imageBytes + otherBytes;
 
   int bytesFor(CacheCategory category) => switch (category) {
-        CacheCategory.video => videoBytes,
-        CacheCategory.image => imageBytes,
-        CacheCategory.other => otherBytes,
+    CacheCategory.video => videoBytes,
+    CacheCategory.image => imageBytes,
+    CacheCategory.other => otherBytes,
   };
 }
 
@@ -201,7 +227,11 @@ String formatCacheBytes(int bytes) {
     value /= 1024;
     unit++;
   }
-  final digits = unit == 0 ? 0 : value >= 10 ? 1 : 2;
+  final digits = unit == 0
+      ? 0
+      : value >= 10
+      ? 1
+      : 2;
   return '${value.toStringAsFixed(digits)} ${units[unit]}';
 }
 
@@ -233,7 +263,9 @@ class DiskCacheService {
     final existing = _root;
     if (existing != null) return existing;
     final base = await _cacheBaseDirectory();
-    final directory = Directory('${base.path}${Platform.pathSeparator}$_rootName');
+    final directory = Directory(
+      '${base.path}${Platform.pathSeparator}$_rootName',
+    );
     await directory.create(recursive: true);
     _root = directory;
     return directory;
@@ -272,8 +304,7 @@ class DiskCacheService {
   }
 
   /// media_kit/libmpv 的磁盘缓冲和持久化录制缓存使用此目录。
-  Future<Directory> videoBufferDirectory() =>
-      _categoryDirectory(_videoDirName);
+  Future<Directory> videoBufferDirectory() => _categoryDirectory(_videoDirName);
 
   /// 为单个影片/画质生成稳定的持久化缓存文件名。
   ///
@@ -282,11 +313,13 @@ class DiskCacheService {
   Future<File> videoCacheFile({
     required int movieId,
     required String quality,
+    String extension = '.mkv',
   }) async {
     final directory = await videoBufferDirectory();
     final safeQuality = quality.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final safeExtension = _videoCacheExtension(extension);
     return File(
-      '${directory.path}${Platform.pathSeparator}movie-$movieId-$safeQuality.mp4',
+      '${directory.path}${Platform.pathSeparator}movie-$movieId-$safeQuality$safeExtension',
     );
   }
 
@@ -384,7 +417,10 @@ class DiskCacheService {
   Future<int> _directorySize(Directory directory) async {
     if (!await directory.exists()) return 0;
     var total = 0;
-    await for (final entity in directory.list(recursive: true, followLinks: false)) {
+    await for (final entity in directory.list(
+      recursive: true,
+      followLinks: false,
+    )) {
       if (entity is File) total += await entity.length();
     }
     return total;
@@ -392,10 +428,24 @@ class DiskCacheService {
 
   bool _isPersistentVideoCacheFile(String path) {
     final lowerPath = path.toLowerCase();
-    return lowerPath.endsWith('.mp4') || lowerPath.endsWith('.mkv');
+    return lowerPath.endsWith('.mp4') ||
+        lowerPath.endsWith('.mkv') ||
+        lowerPath.endsWith('.ts') ||
+        lowerPath.endsWith('.mov') ||
+        lowerPath.endsWith('.webm');
   }
 
-  Future<List<Directory>> _videoCacheDirectories({required Directory root}) async {
+  String _videoCacheExtension(String extension) {
+    final normalized = extension.trim().toLowerCase();
+    return switch (normalized) {
+      '.mp4' || '.mkv' || '.ts' || '.mov' || '.webm' => normalized,
+      _ => '.mkv',
+    };
+  }
+
+  Future<List<Directory>> _videoCacheDirectories({
+    required Directory root,
+  }) async {
     final configured = Directory(
       '${root.path}${Platform.pathSeparator}$_videoDirName',
     );
@@ -411,15 +461,17 @@ class DiskCacheService {
     ];
     final candidates = <Directory>[configured];
     for (final base in bases) {
-      candidates.add(Directory(
-        '${base.path}${Platform.pathSeparator}$_rootName${Platform.pathSeparator}$_videoDirName',
-      ));
-      candidates.add(Directory(
-        '${base.path}${Platform.pathSeparator}mpv',
-      ));
-      candidates.add(Directory(
-        '${base.path}${Platform.pathSeparator}.cache${Platform.pathSeparator}mpv',
-      ));
+      candidates.add(
+        Directory(
+          '${base.path}${Platform.pathSeparator}$_rootName${Platform.pathSeparator}$_videoDirName',
+        ),
+      );
+      candidates.add(Directory('${base.path}${Platform.pathSeparator}mpv'));
+      candidates.add(
+        Directory(
+          '${base.path}${Platform.pathSeparator}.cache${Platform.pathSeparator}mpv',
+        ),
+      );
     }
     final seen = <String>{};
     return [
@@ -439,7 +491,7 @@ class DiskCacheService {
 
 class VideoBufferPolicyService {
   const VideoBufferPolicyService({Connectivity? connectivity})
-      : _connectivity = connectivity;
+    : _connectivity = connectivity;
 
   final Connectivity? _connectivity;
 
