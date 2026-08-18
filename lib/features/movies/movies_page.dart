@@ -511,6 +511,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       itemBuilder: (ctx, item, idx) => DragSelectionTarget<int>(
         key: ValueKey(item.id),
         id: item.id,
+        selectionHandleAlignment: Alignment.centerLeft,
         child: _ListRow(
           movie: item,
           urlBuilder: urlBuilder,

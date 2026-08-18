@@ -162,12 +162,14 @@ void main() {
     await gesture.up();
     await tester.pump();
     expect(find.text('1 已选'), findsOneWidget);
-    gesture = await _dragFromHandle(tester, second);
+
+    gesture = await _dragFromListSelectionIndicator(tester, second);
     await gesture.moveTo(tester.getCenter(fourth));
-    await gesture.up();
     await tester.pump();
 
     expect(find.text('4 已选'), findsOneWidget);
+    await gesture.up();
+    await tester.pump();
   });
 
   testWidgets('收藏夹列表支持从复选框区域向下滑动多选', (tester) async {
@@ -186,12 +188,14 @@ void main() {
     await gesture.up();
     await tester.pump();
     expect(find.text('1 已选'), findsOneWidget);
-    gesture = await _dragFromHandle(tester, second);
+
+    gesture = await _dragFromListSelectionIndicator(tester, second);
     await gesture.moveTo(tester.getCenter(fourth));
-    await gesture.up();
     await tester.pump();
 
     expect(find.text('4 已选'), findsOneWidget);
+    await gesture.up();
+    await tester.pump();
   });
 }
 
@@ -232,6 +236,14 @@ Future<TestGesture> _longPress(WidgetTester tester, Finder target) async {
 Future<TestGesture> _dragFromHandle(WidgetTester tester, Finder target) {
   final rect = tester.getRect(target);
   return tester.startGesture(rect.topLeft + const Offset(12, 12));
+}
+
+Future<TestGesture> _dragFromListSelectionIndicator(
+  WidgetTester tester,
+  Finder target,
+) {
+  final rect = tester.getRect(target);
+  return tester.startGesture(Offset(rect.left + 11, rect.center.dy));
 }
 
 Future<void> _pumpFrames(WidgetTester tester, Duration duration) async {

@@ -53,6 +53,7 @@ class DragSelectionTarget<T> extends StatefulWidget {
     required this.child,
     this.selectionIndex,
     this.selectionHandleExtent = 44,
+    this.selectionHandleAlignment = Alignment.topLeft,
   });
 
   final T id;
@@ -65,6 +66,9 @@ class DragSelectionTarget<T> extends StatefulWidget {
   /// vertical selection in list mode while the page is already in selection
   /// mode.
   final double selectionHandleExtent;
+
+  /// Alignment of the direct-drag hit area inside the target.
+  final Alignment selectionHandleAlignment;
 
   @override
   State<DragSelectionTarget<T>> createState() => _DragSelectionTargetState<T>();
@@ -584,9 +588,11 @@ class _DragSelectionTargetState<T> extends State<DragSelectionTarget<T>> {
 
     final handleWidth = math.min(extent, rect.width);
     final handleHeight = math.min(extent, rect.height);
+    final horizontalSpace = rect.width - handleWidth;
+    final verticalSpace = rect.height - handleHeight;
     return Rect.fromLTWH(
-      rect.left,
-      rect.top,
+      rect.left + horizontalSpace * (widget.selectionHandleAlignment.x + 1) / 2,
+      rect.top + verticalSpace * (widget.selectionHandleAlignment.y + 1) / 2,
       handleWidth,
       handleHeight,
     ).contains(globalPosition);

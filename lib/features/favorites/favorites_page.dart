@@ -666,6 +666,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       itemBuilder: (ctx, m, idx) => DragSelectionTarget<int>(
         key: ValueKey(m.id),
         id: m.id,
+        selectionHandleAlignment: Alignment.centerLeft,
         child: _ListRow(
           movie: m,
           urlBuilder: urlBuilder,
