@@ -147,6 +147,52 @@ void main() {
     expect(find.text('已收藏「影片 1」'), findsOneWidget);
     expect(favoritesApi.addedMovieIds, [1]);
   });
+
+  testWidgets('影片库列表支持从复选框区域向下滑动多选', (tester) async {
+    await _pumpPage(tester, const MoviesPage(maxItems: 9));
+
+    await tester.tap(find.byIcon(Icons.view_list_rounded));
+    await tester.pumpAndSettle();
+
+    final first = find.byKey(const ValueKey<int>(1));
+    final second = find.byKey(const ValueKey<int>(2));
+    final fourth = find.byKey(const ValueKey<int>(4));
+    expect(second, findsOneWidget);
+    var gesture = await _longPress(tester, first);
+    await gesture.up();
+    await tester.pump();
+    expect(find.text('1 已选'), findsOneWidget);
+    gesture = await _dragFromHandle(tester, second);
+    await gesture.moveTo(tester.getCenter(fourth));
+    await gesture.up();
+    await tester.pump();
+
+    expect(find.text('4 已选'), findsOneWidget);
+  });
+
+  testWidgets('收藏夹列表支持从复选框区域向下滑动多选', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpPage(tester, const FavoritesPage());
+
+    await tester.tap(find.byIcon(Icons.view_list_rounded));
+    await tester.pumpAndSettle();
+
+    final first = find.byKey(const ValueKey<int>(1));
+    final second = find.byKey(const ValueKey<int>(2));
+    final fourth = find.byKey(const ValueKey<int>(4));
+    expect(second, findsOneWidget);
+    var gesture = await _longPress(tester, first);
+    await gesture.up();
+    await tester.pump();
+    expect(find.text('1 已选'), findsOneWidget);
+    gesture = await _dragFromHandle(tester, second);
+    await gesture.moveTo(tester.getCenter(fourth));
+    await gesture.up();
+    await tester.pump();
+
+    expect(find.text('4 已选'), findsOneWidget);
+  });
 }
 
 Future<void> _pumpPage(
