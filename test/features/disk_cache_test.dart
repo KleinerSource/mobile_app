@@ -4,26 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:md_center/features/cache/disk_cache.dart';
 
 void main() {
-  test('15% 预读按码率估算但限制 native 内存上限', () {
-    expect(
-      videoBufferBytesForPrefetch(durationSeconds: 0),
-      maxVideoPrefetchBufferBytes,
-    );
-
-    final estimated = videoBufferBytesForPrefetch(
-      durationSeconds: 3600,
-      bitRate: 4 * 1000 * 1000,
-    );
-    expect(estimated, greaterThan(defaultVideoBufferBytes));
-    expect(estimated, lessThanOrEqualTo(maxVideoPrefetchBufferBytes));
-
-    final capped = videoBufferBytesForPrefetch(
-      durationSeconds: 7200,
-      bitRate: 50 * 1000 * 1000,
-    );
-    expect(capped, maxVideoPrefetchBufferBytes);
-  });
-
   test('缓存服务能统计并清理其他缓存目录', () async {
     final root = await Directory.systemTemp.createTemp('md-center-cache-test-');
     addTearDown(() => root.delete(recursive: true));

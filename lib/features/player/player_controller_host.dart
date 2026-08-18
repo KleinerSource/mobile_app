@@ -4,8 +4,14 @@ import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
-import 'player_prefetch_policy.dart';
 import 'player_subtitle_track_resolver.dart';
+
+/// 后向（已播放）demuxer 缓冲上限，固定值：既服务回看拖动，也把最坏
+/// native 内存约束为 预载档位 + 64 MiB，远离 iOS Jetsam 限额。
+const playerPreloadBackBufferBytes = 64 * 1024 * 1024;
+
+/// 媒体时长未知时的预读时间窗兜底；实际预载深度由字节档位约束。
+const playerPreloadWindowFallbackSeconds = 3600;
 
 /// media_kit 内核封装 · libmpv (内置 ffmpeg 软解 + VideoToolbox 硬解)
 ///
@@ -23,6 +29,11 @@ class PlayerControllerHost {
   late VideoController controller;
   bool hardwareAcceleration;
   int bufferSize;
+
+  /// 预载（前向 demuxer 缓冲）的内存档位字节数，由播放页在每次打开前按
+  /// 用户设置写入；[bufferSize] 只是播放器创建时的安全默认值，档位通过
+  /// 运行时属性生效，失败时降级为小缓冲而不是放大内存。
+  int preloadBytes = 250 * 1024 * 1024;
   int _openGeneration = 0;
 
   void _createPlayer() {
@@ -40,30 +51,18 @@ class PlayerControllerHost {
     String url, {
     Duration? startAt,
     Map<String, String>? headers,
-    double? prefetchSeconds,
   }) {
-    return _openWithBufferOptions(
-      url,
-      startAt: startAt,
-      headers: headers,
-      prefetchSeconds: prefetchSeconds,
-    );
+    return _openWithBufferOptions(url, startAt: startAt, headers: headers);
   }
 
   Future<void> _openWithBufferOptions(
     String url, {
     Duration? startAt,
     Map<String, String>? headers,
-    double? prefetchSeconds,
   }) async {
     final openGeneration = ++_openGeneration;
     final targetPlayer = player;
-    final requestedPrefetchSeconds =
-        prefetchSeconds != null &&
-            prefetchSeconds.isFinite &&
-            prefetchSeconds > 0
-        ? prefetchSeconds
-        : playerInitialPrefetchSeconds;
+    final targetPreloadBytes = preloadBytes;
     try {
       final platform = targetPlayer.platform;
       if (platform is NativePlayer) {
@@ -72,16 +71,26 @@ class PlayerControllerHost {
         } catch (error) {
           debugPrint('[PlayerControllerHost] 关闭旧媒体失败，继续应用缓冲配置: $error');
         }
-        // 网络 demuxer 缓冲是播放器必需能力；cache-secs 只控制后台预读上限。
+        // 网络 demuxer 缓冲是播放器必需能力。预载在播放和暂停期间都会
+        // 后台填充；时间窗先放宽到兜底值，实际深度由字节档位约束。
         await _setNativeProperty(platform, 'cache', 'yes');
         // media_kit 初始化默认开启 cache-on-disk，会把回退缓冲写成临时文件
         // 并在媒体关闭时删除。没有跨会话缓存需求时显式关闭，避免无谓 IO。
         await _setNativeProperty(platform, 'cache-on-disk', 'no');
-        // 时长未知时先用安全的小窗口，时长就绪后再收敛到总时长的 15%。
         await _setNativeProperty(
           platform,
           'cache-secs',
-          requestedPrefetchSeconds.toStringAsFixed(3),
+          '$playerPreloadWindowFallbackSeconds',
+        );
+        await _setNativeProperty(
+          platform,
+          'demuxer-max-bytes',
+          '$targetPreloadBytes',
+        );
+        await _setNativeProperty(
+          platform,
+          'demuxer-max-back-bytes',
+          '$playerPreloadBackBufferBytes',
         );
       }
     } catch (_) {
@@ -96,27 +105,45 @@ class PlayerControllerHost {
     await _ensureCacheOptionsAfterOpen(
       targetPlayer,
       openGeneration,
-      prefetchSeconds: requestedPrefetchSeconds,
+      preloadBytes: targetPreloadBytes,
     );
     await _logNativeCacheState(targetPlayer, 'open');
-    unawaited(_applyPrefetchLimit(targetPlayer, openGeneration));
+    unawaited(
+      _applyPreloadWindow(
+        targetPlayer,
+        openGeneration,
+        preloadBytes: targetPreloadBytes,
+      ),
+    );
   }
 
-  Future<void> _applyPrefetchLimit(Player targetPlayer, int generation) async {
+  Future<void> _applyPreloadWindow(
+    Player targetPlayer,
+    int generation, {
+    required int preloadBytes,
+  }) async {
     try {
       final duration = await _waitForDuration(targetPlayer, generation);
       if (duration == null || generation != _openGeneration) return;
       final platform = targetPlayer.platform;
       if (platform is NativePlayer) {
+        // 时长已知后把时间窗放开到整个媒体，预载深度完全由字节档位决定。
+        final windowSeconds =
+            duration.inMilliseconds / Duration.millisecondsPerSecond;
         await _setNativeProperty(
           platform,
           'cache-secs',
-          playerPrefetchSecondsFor(duration).toStringAsFixed(3),
+          windowSeconds.toStringAsFixed(3),
+        );
+        await _setNativeProperty(
+          platform,
+          'demuxer-max-bytes',
+          '$preloadBytes',
         );
         await _logNativeCacheState(targetPlayer, 'duration-ready');
       }
     } catch (_) {
-      // 部分流媒体无法及时提供总时长或不支持 cache-secs，继续使用安全初始值播放。
+      // 部分流媒体无法及时提供总时长，继续使用兜底时间窗和字节档位播放。
     }
   }
 
@@ -142,7 +169,7 @@ class PlayerControllerHost {
   Future<void> _ensureCacheOptionsAfterOpen(
     Player targetPlayer,
     int generation, {
-    required double prefetchSeconds,
+    required int preloadBytes,
   }) async {
     if (generation != _openGeneration) return;
     final platform = targetPlayer.platform;
@@ -151,7 +178,9 @@ class PlayerControllerHost {
     final expected = <String, String>{
       'cache': 'yes',
       'cache-on-disk': 'no',
-      'cache-secs': prefetchSeconds.toStringAsFixed(3),
+      'cache-secs': '$playerPreloadWindowFallbackSeconds',
+      'demuxer-max-bytes': '$preloadBytes',
+      'demuxer-max-back-bytes': '$playerPreloadBackBufferBytes',
     };
     for (final entry in expected.entries) {
       if (generation != _openGeneration) return;
@@ -186,6 +215,8 @@ class PlayerControllerHost {
       final values = <String, String>{};
       for (final property in <String>[
         'cache-secs',
+        'demuxer-max-bytes',
+        'demuxer-max-back-bytes',
         'demuxer-cache-time',
         'cache-buffering-state',
       ]) {
@@ -194,6 +225,8 @@ class PlayerControllerHost {
       debugPrint(
         '[PlayerControllerHost] mpv 缓冲状态 phase=$phase '
         'cache-secs=${values['cache-secs']} '
+        'demuxer-max-bytes=${values['demuxer-max-bytes']} '
+        'demuxer-max-back-bytes=${values['demuxer-max-back-bytes']} '
         'demuxer-cache-time=${values['demuxer-cache-time']} '
         'cache-buffering-state=${values['cache-buffering-state']}',
       );
@@ -268,6 +301,14 @@ class PlayerControllerHost {
       final actualValue = double.tryParse(actual);
       if (expectedValue != null && actualValue != null) {
         return (expectedValue - actualValue).abs() < 0.01;
+      }
+    }
+    if (property == 'demuxer-max-bytes' ||
+        property == 'demuxer-max-back-bytes') {
+      final expectedValue = int.tryParse(requested);
+      final actualValue = int.tryParse(actual);
+      if (expectedValue != null && actualValue != null) {
+        return expectedValue == actualValue;
       }
     }
     if (actual == requested) return true;

@@ -29,207 +29,205 @@ class PlayerSettingsPage extends ConsumerWidget {
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
-                eyebrow: l.settingsAppSettings,
-                title: '播放器设置',
-              ),
+              eyebrow: l.settingsAppSettings,
+              title: '播放器设置',
+            ),
             body: ListView(
               primary: true,
               children: [
-              SettingsGroup(
-                title: '播放器设置',
-                items: [
-                  _PlayerSwitchTile(
-                    title: '从上次进度播放',
-                    subtitle: '打开影片时自动恢复上次观看位置',
-                    icon: Icons.restore,
-                    value: settings.resumeFromLastPosition,
-                    onChanged: (value) => update(
-                      settings.copyWith(resumeFromLastPosition: value),
+                SettingsGroup(
+                  title: '播放器设置',
+                  items: [
+                    _PlayerSwitchTile(
+                      title: '从上次进度播放',
+                      subtitle: '打开影片时自动恢复上次观看位置',
+                      icon: Icons.restore,
+                      value: settings.resumeFromLastPosition,
+                      onChanged: (value) => update(
+                        settings.copyWith(resumeFromLastPosition: value),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              SettingsGroup(
-                title: '屏幕方向',
-                items: [
-                  _PlayerOptionTile<PlayerLandscapeSide>(
-                    title: '设备横屏方向',
-                    icon: Icons.screen_rotation,
-                    value: settings.landscapeSide,
-                    options: PlayerLandscapeSide.values,
-                    optionLabel: (value) => value.label,
-                    onChanged: (value) => update(
-                      settings.copyWith(landscapeSide: value),
+                  ],
+                ),
+                SettingsGroup(
+                  title: '播放缓冲',
+                  items: [
+                    _PlayerOptionTile<PlayerPreloadSize>(
+                      title: '预载缓冲大小',
+                      icon: Icons.memory,
+                      value: settings.preloadSize,
+                      options: PlayerPreloadSize.values,
+                      optionLabel: (value) => value.label,
+                      onChanged: (value) =>
+                          update(settings.copyWith(preloadSize: value)),
                     ),
-                  ),
-                  _PlayerOptionTile<PlayerEntryOrientation>(
-                    title: '进入播放器屏幕方向',
-                    icon: Icons.stay_current_landscape,
-                    value: settings.entryOrientation,
-                    options: PlayerEntryOrientation.values,
-                    optionLabel: (value) => value.label,
-                    onChanged: (value) => update(
-                      settings.copyWith(entryOrientation: value),
+                  ],
+                ),
+                SettingsGroup(
+                  title: '屏幕方向',
+                  items: [
+                    _PlayerOptionTile<PlayerLandscapeSide>(
+                      title: '设备横屏方向',
+                      icon: Icons.screen_rotation,
+                      value: settings.landscapeSide,
+                      options: PlayerLandscapeSide.values,
+                      optionLabel: (value) => value.label,
+                      onChanged: (value) =>
+                          update(settings.copyWith(landscapeSide: value)),
                     ),
-                  ),
-                ],
-              ),
-              SettingsGroup(
-                title: '双击手势',
-                items: [
-                  _PlayerSwitchTile(
-                    title: '双击屏幕中间',
-                    subtitle: '暂停 / 播放',
-                    icon: Icons.touch_app,
-                    value: settings.doubleTapCenter,
-                    onChanged: (value) => update(
-                      settings.copyWith(doubleTapCenter: value),
+                    _PlayerOptionTile<PlayerEntryOrientation>(
+                      title: '进入播放器屏幕方向',
+                      icon: Icons.stay_current_landscape,
+                      value: settings.entryOrientation,
+                      options: PlayerEntryOrientation.values,
+                      optionLabel: (value) => value.label,
+                      onChanged: (value) =>
+                          update(settings.copyWith(entryOrientation: value)),
                     ),
-                  ),
-                  _PlayerSwitchTile(
-                    title: '双击屏幕两边',
-                    subtitle: '左侧快退,右侧快进',
-                    icon: Icons.fast_forward,
-                    value: settings.doubleTapEdges,
-                    onChanged: (value) => update(
-                      settings.copyWith(doubleTapEdges: value),
+                  ],
+                ),
+                SettingsGroup(
+                  title: '双击手势',
+                  items: [
+                    _PlayerSwitchTile(
+                      title: '双击屏幕中间',
+                      subtitle: '暂停 / 播放',
+                      icon: Icons.touch_app,
+                      value: settings.doubleTapCenter,
+                      onChanged: (value) =>
+                          update(settings.copyWith(doubleTapCenter: value)),
                     ),
-                  ),
-                ],
-              ),
-              SettingsGroup(
-                title: '震动反馈',
-                items: [
-                  _PlayerSwitchTile(
-                    title: '长按屏幕',
-                    icon: Icons.pan_tool,
-                    value: settings.hapticLongPress,
-                    onChanged: (value) => update(
-                      settings.copyWith(hapticLongPress: value),
+                    _PlayerSwitchTile(
+                      title: '双击屏幕两边',
+                      subtitle: '左侧快退,右侧快进',
+                      icon: Icons.fast_forward,
+                      value: settings.doubleTapEdges,
+                      onChanged: (value) =>
+                          update(settings.copyWith(doubleTapEdges: value)),
                     ),
-                  ),
-                  _PlayerSwitchTile(
-                    title: '滑动调节进度',
-                    icon: Icons.swap_horiz,
-                    value: settings.hapticSeek,
-                    onChanged: (value) => update(
-                      settings.copyWith(hapticSeek: value),
+                  ],
+                ),
+                SettingsGroup(
+                  title: '震动反馈',
+                  items: [
+                    _PlayerSwitchTile(
+                      title: '长按屏幕',
+                      icon: Icons.pan_tool,
+                      value: settings.hapticLongPress,
+                      onChanged: (value) =>
+                          update(settings.copyWith(hapticLongPress: value)),
                     ),
-                  ),
-                  _PlayerSwitchTile(
-                    title: '滑动调节倍速',
-                    icon: Icons.speed,
-                    value: settings.hapticRate,
-                    onChanged: (value) => update(
-                      settings.copyWith(hapticRate: value),
+                    _PlayerSwitchTile(
+                      title: '滑动调节进度',
+                      icon: Icons.swap_horiz,
+                      value: settings.hapticSeek,
+                      onChanged: (value) =>
+                          update(settings.copyWith(hapticSeek: value)),
                     ),
-                  ),
-                  _PlayerSwitchTile(
-                    title: '拖动进度条',
-                    icon: Icons.linear_scale,
-                    value: settings.hapticProgressBar,
-                    onChanged: (value) => update(
-                      settings.copyWith(hapticProgressBar: value),
+                    _PlayerSwitchTile(
+                      title: '滑动调节倍速',
+                      icon: Icons.speed,
+                      value: settings.hapticRate,
+                      onChanged: (value) =>
+                          update(settings.copyWith(hapticRate: value)),
                     ),
-                  ),
-                ],
-              ),
-              SettingsGroup(
-                title: 'OSD 信息',
-                items: [
-                  _PlayerSwitchTile(
-                    title: '系统时间',
-                    subtitle: '在播放器上显示当前时间',
-                    icon: Icons.access_time,
-                    value: settings.showSystemTime,
-                    onChanged: (value) => update(
-                      settings.copyWith(showSystemTime: value),
+                    _PlayerSwitchTile(
+                      title: '拖动进度条',
+                      icon: Icons.linear_scale,
+                      value: settings.hapticProgressBar,
+                      onChanged: (value) =>
+                          update(settings.copyWith(hapticProgressBar: value)),
                     ),
-                  ),
-                  _PlayerSwitchTile(
-                    title: '设备网速',
-                    subtitle: '显示 Wi-Fi、4G/5G 网络类型和当前下载速度',
-                    icon: Icons.network_check,
-                    value: settings.showNetworkSpeed,
-                    onChanged: (value) => update(
-                      settings.copyWith(showNetworkSpeed: value),
+                  ],
+                ),
+                SettingsGroup(
+                  title: 'OSD 信息',
+                  items: [
+                    _PlayerSwitchTile(
+                      title: '系统时间',
+                      subtitle: '在播放器上显示当前时间',
+                      icon: Icons.access_time,
+                      value: settings.showSystemTime,
+                      onChanged: (value) =>
+                          update(settings.copyWith(showSystemTime: value)),
                     ),
-                  ),
-                  _PlayerSwitchTile(
-                    title: 'CPU 占用率',
-                    subtitle: '显示设备实时 CPU 使用率',
-                    icon: Icons.memory,
-                    value: settings.showCpuUsage,
-                    onChanged: (value) => update(
-                      settings.copyWith(showCpuUsage: value),
+                    _PlayerSwitchTile(
+                      title: '设备网速',
+                      subtitle: '显示 Wi-Fi、4G/5G 网络类型和当前下载速度',
+                      icon: Icons.network_check,
+                      value: settings.showNetworkSpeed,
+                      onChanged: (value) =>
+                          update(settings.copyWith(showNetworkSpeed: value)),
                     ),
-                  ),
-                  _PlayerSwitchTile(
-                    title: '设备电量',
-                    subtitle: '显示当前电池电量',
-                    icon: Icons.battery_full,
-                    value: settings.showBattery,
-                    onChanged: (value) => update(
-                      settings.copyWith(showBattery: value),
+                    _PlayerSwitchTile(
+                      title: 'CPU 占用率',
+                      subtitle: '显示设备实时 CPU 使用率',
+                      icon: Icons.memory,
+                      value: settings.showCpuUsage,
+                      onChanged: (value) =>
+                          update(settings.copyWith(showCpuUsage: value)),
                     ),
-                  ),
-                ],
-              ),
-              SettingsGroup(
-                title: '播放按钮',
-                items: [
-                  _PlayerSwitchTile(
-                    title: '播放 / 暂停按钮',
-                    icon: Icons.play_circle_outline,
-                    value: settings.showPlayPauseButton,
-                    onChanged: (value) => update(
-                      settings.copyWith(showPlayPauseButton: value),
+                    _PlayerSwitchTile(
+                      title: '设备电量',
+                      subtitle: '显示当前电池电量',
+                      icon: Icons.battery_full,
+                      value: settings.showBattery,
+                      onChanged: (value) =>
+                          update(settings.copyWith(showBattery: value)),
                     ),
-                  ),
-                  _PlayerSwitchTile(
-                    title: '快进 / 快退按钮',
-                    icon: Icons.fast_forward,
-                    value: settings.showSeekButtons,
-                    onChanged: (value) => update(
-                      settings.copyWith(showSeekButtons: value),
+                  ],
+                ),
+                SettingsGroup(
+                  title: '播放按钮',
+                  items: [
+                    _PlayerSwitchTile(
+                      title: '播放 / 暂停按钮',
+                      icon: Icons.play_circle_outline,
+                      value: settings.showPlayPauseButton,
+                      onChanged: (value) =>
+                          update(settings.copyWith(showPlayPauseButton: value)),
                     ),
-                  ),
-                  _PlayerSwitchTile(
-                    title: '速度调节按钮',
-                    icon: Icons.speed,
-                    value: settings.showSpeedButton,
-                    onChanged: (value) => update(
-                      settings.copyWith(showSpeedButton: value),
+                    _PlayerSwitchTile(
+                      title: '快进 / 快退按钮',
+                      icon: Icons.fast_forward,
+                      value: settings.showSeekButtons,
+                      onChanged: (value) =>
+                          update(settings.copyWith(showSeekButtons: value)),
                     ),
-                  ),
-                  _PlayerSwitchTile(
-                    title: '画中画按钮',
-                    icon: Icons.picture_in_picture_alt,
-                    value: settings.showPipButton,
-                    onChanged: (value) => update(
-                      settings.copyWith(showPipButton: value),
+                    _PlayerSwitchTile(
+                      title: '速度调节按钮',
+                      icon: Icons.speed,
+                      value: settings.showSpeedButton,
+                      onChanged: (value) =>
+                          update(settings.copyWith(showSpeedButton: value)),
                     ),
-                  ),
-                  _PlayerSwitchTile(
-                    title: '旋屏按钮',
-                    icon: Icons.screen_rotation,
-                    value: settings.showOrientationButton,
-                    onChanged: (value) => update(
-                      settings.copyWith(showOrientationButton: value),
+                    _PlayerSwitchTile(
+                      title: '画中画按钮',
+                      icon: Icons.picture_in_picture_alt,
+                      value: settings.showPipButton,
+                      onChanged: (value) =>
+                          update(settings.copyWith(showPipButton: value)),
                     ),
-                  ),
-                  _PlayerSwitchTile(
-                    title: '切换媒体按钮',
-                    subtitle: '上一部 / 下一部',
-                    icon: Icons.skip_next,
-                    value: settings.showMediaSwitchButton,
-                    onChanged: (value) => update(
-                      settings.copyWith(showMediaSwitchButton: value),
+                    _PlayerSwitchTile(
+                      title: '旋屏按钮',
+                      icon: Icons.screen_rotation,
+                      value: settings.showOrientationButton,
+                      onChanged: (value) => update(
+                        settings.copyWith(showOrientationButton: value),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 80),
+                    _PlayerSwitchTile(
+                      title: '切换媒体按钮',
+                      subtitle: '上一部 / 下一部',
+                      icon: Icons.skip_next,
+                      value: settings.showMediaSwitchButton,
+                      onChanged: (value) => update(
+                        settings.copyWith(showMediaSwitchButton: value),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 80),
               ],
             ),
           ),
@@ -303,10 +301,9 @@ class _PlayerOptionTile<T> extends StatelessWidget {
                 ListTile(
                   title: Text(
                     optionLabel(option),
-                    style: AppText.body(ctx).copyWith(
-                      color: c.text,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: AppText.body(
+                      ctx,
+                    ).copyWith(color: c.text, fontWeight: FontWeight.w700),
                   ),
                   trailing: option == value
                       ? Icon(Icons.check, color: c.accent)

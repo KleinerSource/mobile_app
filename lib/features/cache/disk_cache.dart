@@ -5,33 +5,6 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// 播放器进程内 demuxer 缓冲的基础值。
-const defaultVideoBufferBytes = 32 * 1024 * 1024;
-const maxVideoPrefetchBufferBytes = 256 * 1024 * 1024;
-
-/// 根据媒体平均码率估算 15% 预读所需的 demuxer 缓冲上限。
-///
-/// 该值只用于进程内缓冲。上限是 256 MiB，避免过大的 native 内存分配。
-int videoBufferBytesForPrefetch({
-  required double durationSeconds,
-  int bitRate = 0,
-  int targetBitrate = 0,
-}) {
-  // 后端旧版本或 .strm 可能暂时没有时长/码率元数据；给一个受控的最大
-  // 窗口，待 mpv 得到时长后由 cache-secs 再收敛到 15%。
-  if (durationSeconds <= 0) return maxVideoPrefetchBufferBytes;
-  final effectiveBitrate = targetBitrate > 0 ? targetBitrate : bitRate;
-  if (effectiveBitrate <= 0) return maxVideoPrefetchBufferBytes;
-
-  // 额外 25% 给音视频交错、码率波动和容器开销。
-  final estimated = effectiveBitrate * durationSeconds * 0.15 * 1.25 / 8;
-  if (estimated <= defaultVideoBufferBytes) return defaultVideoBufferBytes;
-  if (estimated >= maxVideoPrefetchBufferBytes) {
-    return maxVideoPrefetchBufferBytes;
-  }
-  return estimated.ceil();
-}
-
 enum CacheCategory { image, other }
 
 extension CacheCategoryX on CacheCategory {

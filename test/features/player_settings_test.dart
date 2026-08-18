@@ -12,6 +12,7 @@ void main() {
     expect(settings.resumeFromLastPosition, isTrue);
     expect(settings.landscapeSide, PlayerLandscapeSide.cameraRight);
     expect(settings.entryOrientation, PlayerEntryOrientation.forceLandscape);
+    expect(settings.preloadSize, PlayerPreloadSize.mb250);
     expect(settings.doubleTapCenter, isTrue);
     expect(settings.doubleTapEdges, isTrue);
     expect(settings.hapticLongPress, isTrue);
@@ -50,6 +51,36 @@ void main() {
     );
   });
 
+  test('预载档位提供四个内存选项且未知值回退默认', () {
+    expect(PlayerPreloadSize.values, hasLength(4));
+    expect(PlayerPreloadSize.mb250.bytes, 250 * 1024 * 1024);
+    expect(PlayerPreloadSize.mb500.bytes, 500 * 1024 * 1024);
+    expect(PlayerPreloadSize.mb750.bytes, 750 * 1024 * 1024);
+    expect(PlayerPreloadSize.gb1.bytes, 1024 * 1024 * 1024);
+    expect(PlayerPreloadSize.gb1.label, '1GB');
+    expect(PlayerPreloadSize.fromValue('500mb'), PlayerPreloadSize.mb500);
+    expect(PlayerPreloadSize.fromValue(null), PlayerPreloadSize.mb250);
+    expect(PlayerPreloadSize.fromValue('unsupported'), PlayerPreloadSize.mb250);
+  });
+
+  test('预载档位可以持久化并恢复', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repository = PlayerSettingsRepository(prefs);
+
+    await repository.save(
+      const PlayerSettings(preloadSize: PlayerPreloadSize.gb1),
+    );
+    expect(repository.load().preloadSize, PlayerPreloadSize.gb1);
+
+    SharedPreferences.setMockInitialValues({'player.preload_size': '750mb'});
+    final restored = await SharedPreferences.getInstance();
+    expect(
+      PlayerSettingsRepository(restored).load().preloadSize,
+      PlayerPreloadSize.mb750,
+    );
+  });
+
   test('播放器设置可以持久化并恢复', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -58,6 +89,7 @@ void main() {
       resumeFromLastPosition: false,
       landscapeSide: PlayerLandscapeSide.cameraRight,
       entryOrientation: PlayerEntryOrientation.forcePortrait,
+      preloadSize: PlayerPreloadSize.mb500,
       doubleTapCenter: false,
       doubleTapEdges: true,
       hapticLongPress: false,
@@ -82,6 +114,7 @@ void main() {
     expect(actual.resumeFromLastPosition, isFalse);
     expect(actual.landscapeSide, PlayerLandscapeSide.cameraRight);
     expect(actual.entryOrientation, PlayerEntryOrientation.forcePortrait);
+    expect(actual.preloadSize, PlayerPreloadSize.mb500);
     expect(actual.doubleTapCenter, isFalse);
     expect(actual.doubleTapEdges, isTrue);
     expect(actual.hapticLongPress, isFalse);

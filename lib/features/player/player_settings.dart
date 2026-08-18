@@ -39,12 +39,41 @@ enum PlayerEntryOrientation {
   }
 }
 
+/// 播放预载的内存档位。预载（前向 demuxer 缓冲）在播放和暂停期间都会
+/// 后台填充，直到达到档位字节数或媒体结尾。
+enum PlayerPreloadSize {
+  mb250('250mb', '250MB'),
+  mb500('500mb', '500MB'),
+  mb750('750mb', '750MB'),
+  gb1('1gb', '1GB');
+
+  const PlayerPreloadSize(this.value, this.label);
+
+  final String value;
+  final String label;
+
+  int get bytes => switch (this) {
+    PlayerPreloadSize.mb250 => 250 * 1024 * 1024,
+    PlayerPreloadSize.mb500 => 500 * 1024 * 1024,
+    PlayerPreloadSize.mb750 => 750 * 1024 * 1024,
+    PlayerPreloadSize.gb1 => 1024 * 1024 * 1024,
+  };
+
+  static PlayerPreloadSize fromValue(String? value) {
+    return values.firstWhere(
+      (item) => item.value == value,
+      orElse: () => PlayerPreloadSize.mb250,
+    );
+  }
+}
+
 @immutable
 class PlayerSettings {
   const PlayerSettings({
     this.resumeFromLastPosition = true,
     this.landscapeSide = PlayerLandscapeSide.cameraRight,
     this.entryOrientation = PlayerEntryOrientation.forceLandscape,
+    this.preloadSize = PlayerPreloadSize.mb250,
     this.doubleTapCenter = true,
     this.doubleTapEdges = true,
     this.hapticLongPress = true,
@@ -66,6 +95,7 @@ class PlayerSettings {
   final bool resumeFromLastPosition;
   final PlayerLandscapeSide landscapeSide;
   final PlayerEntryOrientation entryOrientation;
+  final PlayerPreloadSize preloadSize;
   final bool doubleTapCenter;
   final bool doubleTapEdges;
   final bool hapticLongPress;
@@ -87,6 +117,7 @@ class PlayerSettings {
     bool? resumeFromLastPosition,
     PlayerLandscapeSide? landscapeSide,
     PlayerEntryOrientation? entryOrientation,
+    PlayerPreloadSize? preloadSize,
     bool? doubleTapCenter,
     bool? doubleTapEdges,
     bool? hapticLongPress,
@@ -109,6 +140,7 @@ class PlayerSettings {
           resumeFromLastPosition ?? this.resumeFromLastPosition,
       landscapeSide: landscapeSide ?? this.landscapeSide,
       entryOrientation: entryOrientation ?? this.entryOrientation,
+      preloadSize: preloadSize ?? this.preloadSize,
       doubleTapCenter: doubleTapCenter ?? this.doubleTapCenter,
       doubleTapEdges: doubleTapEdges ?? this.doubleTapEdges,
       hapticLongPress: hapticLongPress ?? this.hapticLongPress,
@@ -137,6 +169,7 @@ class PlayerSettingsRepository {
   static const _resumeKey = 'player.resume_from_last_position';
   static const _landscapeSideKey = 'player.landscape_side';
   static const _entryOrientationKey = 'player.entry_orientation';
+  static const _preloadSizeKey = 'player.preload_size';
   static const _doubleTapCenterKey = 'player.double_tap_center';
   static const _doubleTapEdgesKey = 'player.double_tap_edges';
   static const _hapticLongPressKey = 'player.haptic_long_press';
@@ -152,8 +185,7 @@ class PlayerSettingsRepository {
   static const _showSpeedButtonKey = 'player.show_speed_button';
   static const _showPipButtonKey = 'player.show_pip_button';
   static const _showOrientationButtonKey = 'player.show_orientation_button';
-  static const _showMediaSwitchButtonKey =
-      'player.show_media_switch_button';
+  static const _showMediaSwitchButtonKey = 'player.show_media_switch_button';
 
   final SharedPreferences _prefs;
 
@@ -166,6 +198,9 @@ class PlayerSettingsRepository {
       entryOrientation: PlayerEntryOrientation.fromValue(
         _prefs.getString(_entryOrientationKey),
       ),
+      preloadSize: PlayerPreloadSize.fromValue(
+        _prefs.getString(_preloadSizeKey),
+      ),
       doubleTapCenter: _prefs.getBool(_doubleTapCenterKey) ?? true,
       doubleTapEdges: _prefs.getBool(_doubleTapEdgesKey) ?? true,
       hapticLongPress: _prefs.getBool(_hapticLongPressKey) ?? true,
@@ -176,15 +211,12 @@ class PlayerSettingsRepository {
       showNetworkSpeed: _prefs.getBool(_showNetworkSpeedKey) ?? true,
       showCpuUsage: _prefs.getBool(_showCpuUsageKey) ?? true,
       showBattery: _prefs.getBool(_showBatteryKey) ?? true,
-      showPlayPauseButton:
-          _prefs.getBool(_showPlayPauseButtonKey) ?? true,
+      showPlayPauseButton: _prefs.getBool(_showPlayPauseButtonKey) ?? true,
       showSeekButtons: _prefs.getBool(_showSeekButtonsKey) ?? true,
       showSpeedButton: _prefs.getBool(_showSpeedButtonKey) ?? true,
       showPipButton: _prefs.getBool(_showPipButtonKey) ?? true,
-      showOrientationButton:
-          _prefs.getBool(_showOrientationButtonKey) ?? true,
-      showMediaSwitchButton:
-          _prefs.getBool(_showMediaSwitchButtonKey) ?? true,
+      showOrientationButton: _prefs.getBool(_showOrientationButtonKey) ?? true,
+      showMediaSwitchButton: _prefs.getBool(_showMediaSwitchButtonKey) ?? true,
     );
   }
 
@@ -192,10 +224,8 @@ class PlayerSettingsRepository {
     await Future.wait([
       _prefs.setBool(_resumeKey, settings.resumeFromLastPosition),
       _prefs.setString(_landscapeSideKey, settings.landscapeSide.value),
-      _prefs.setString(
-        _entryOrientationKey,
-        settings.entryOrientation.value,
-      ),
+      _prefs.setString(_entryOrientationKey, settings.entryOrientation.value),
+      _prefs.setString(_preloadSizeKey, settings.preloadSize.value),
       _prefs.setBool(_doubleTapCenterKey, settings.doubleTapCenter),
       _prefs.setBool(_doubleTapEdgesKey, settings.doubleTapEdges),
       _prefs.setBool(_hapticLongPressKey, settings.hapticLongPress),
@@ -206,21 +236,12 @@ class PlayerSettingsRepository {
       _prefs.setBool(_showNetworkSpeedKey, settings.showNetworkSpeed),
       _prefs.setBool(_showCpuUsageKey, settings.showCpuUsage),
       _prefs.setBool(_showBatteryKey, settings.showBattery),
-      _prefs.setBool(
-        _showPlayPauseButtonKey,
-        settings.showPlayPauseButton,
-      ),
+      _prefs.setBool(_showPlayPauseButtonKey, settings.showPlayPauseButton),
       _prefs.setBool(_showSeekButtonsKey, settings.showSeekButtons),
       _prefs.setBool(_showSpeedButtonKey, settings.showSpeedButton),
       _prefs.setBool(_showPipButtonKey, settings.showPipButton),
-      _prefs.setBool(
-        _showOrientationButtonKey,
-        settings.showOrientationButton,
-      ),
-      _prefs.setBool(
-        _showMediaSwitchButtonKey,
-        settings.showMediaSwitchButton,
-      ),
+      _prefs.setBool(_showOrientationButtonKey, settings.showOrientationButton),
+      _prefs.setBool(_showMediaSwitchButtonKey, settings.showMediaSwitchButton),
     ]);
   }
 }
@@ -249,5 +270,5 @@ class PlayerSettingsNotifier extends Notifier<PlayerSettings> {
 
 final playerSettingsProvider =
     NotifierProvider<PlayerSettingsNotifier, PlayerSettings>(
-  PlayerSettingsNotifier.new,
-);
+      PlayerSettingsNotifier.new,
+    );

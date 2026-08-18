@@ -36,18 +36,6 @@ import 'player_status_overlay.dart';
 import 'subtitle_adjustment_sheet.dart';
 import 'subtitle_rendering.dart';
 import 'subtitle_settings.dart';
-import '../cache/disk_cache.dart';
-
-@immutable
-class _PlaybackCacheMetadata {
-  const _PlaybackCacheMetadata({
-    required this.durationSeconds,
-    required this.bitRate,
-  });
-
-  final double durationSeconds;
-  final int bitRate;
-}
 
 /// 全屏视频播放页。播放源由后端协商，页面只负责编排回退、进度和用户控制。
 class PlayerPage extends ConsumerStatefulWidget {
@@ -435,12 +423,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (!mounted || generation != _loadGeneration) return;
       _decision = decision;
 
-      // 新版 playback-decision 会直接携带这些字段；旧服务端或 .strm
-      // 决策可能没有它们。复用现有 media-info 接口补齐，供预读缓冲
-      // 按时长/码率估算大小。
-      final cacheMetadata = await _resolvePlaybackCacheMetadata(decision);
-      if (!mounted || generation != _loadGeneration) return;
-
       final useServerRoute = route == PlaybackRoute.hls;
       String? directUrl;
       Map<String, String>? directHeaders;
@@ -453,14 +435,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             : null;
       }
 
-      final playerBufferSize = videoBufferBytesForPrefetch(
-        durationSeconds: cacheMetadata.durationSeconds,
-        bitRate: cacheMetadata.bitRate,
-        targetBitrate: decision.targetBitrate,
-      );
+      // 预载档位在每次打开时读取，修改档位后下一次打开即生效。
+      _host.preloadBytes = ref.read(playerSettingsProvider).preloadSize.bytes;
       await _host.recreate(
         enableHardwareAcceleration: _clientHardwareAcceleration,
-        bufferSize: playerBufferSize,
       );
       if (!mounted || generation != _loadGeneration) return;
 
@@ -500,21 +478,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           directUrl!,
           startAt,
           headers: directHeaders,
-          prefetchSeconds: _decisionPrefetchSeconds(
-            decision,
-            durationSeconds: cacheMetadata.durationSeconds,
-          ),
         );
       } else {
         final hlsUrl = _fallbackHlsUrl(cfg, token, selectedQuality);
-        await _openHlsWithClientFallback(
-          hlsUrl,
-          startAt,
-          prefetchSeconds: _decisionPrefetchSeconds(
-            decision,
-            durationSeconds: cacheMetadata.durationSeconds,
-          ),
-        );
+        await _openHlsWithClientFallback(hlsUrl, startAt);
       }
       if (!mounted || generation != _loadGeneration) {
         await _stopPlayer();
@@ -549,25 +516,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     String url,
     Duration? startAt, {
     Map<String, String>? headers,
-    double? prefetchSeconds,
   }) async {
     try {
-      await _host.open(
-        url,
-        startAt: startAt,
-        headers: headers,
-        prefetchSeconds: prefetchSeconds,
-      );
+      await _host.open(url, startAt: startAt, headers: headers);
     } catch (_) {
       if (!_clientHardwareAcceleration) rethrow;
       await _host.recreate(enableHardwareAcceleration: false);
       _clientHardwareAcceleration = false;
-      await _host.open(
-        url,
-        startAt: startAt,
-        headers: headers,
-        prefetchSeconds: prefetchSeconds,
-      );
+      await _host.open(url, startAt: startAt, headers: headers);
     }
     _usingHls = false;
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
@@ -576,18 +532,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         : Map<String, String>.from(headers);
   }
 
-  Future<void> _openHlsWithClientFallback(
-    String url,
-    Duration? startAt, {
-    double? prefetchSeconds,
-  }) async {
+  Future<void> _openHlsWithClientFallback(String url, Duration? startAt) async {
     try {
-      await _host.open(url, startAt: startAt, prefetchSeconds: prefetchSeconds);
+      await _host.open(url, startAt: startAt);
     } catch (_) {
       if (!_clientHardwareAcceleration) rethrow;
       await _host.recreate(enableHardwareAcceleration: false);
       _clientHardwareAcceleration = false;
-      await _host.open(url, startAt: startAt, prefetchSeconds: prefetchSeconds);
+      await _host.open(url, startAt: startAt);
     }
     _usingHls = true;
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
@@ -971,60 +923,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     localHardware: _clientHardwareAcceleration,
     serverStatus: _serverDecodeStatus,
   );
-
-  double? _decisionPrefetchSeconds(
-    playback_models.PlaybackDecision decision, {
-    double? durationSeconds,
-  }) {
-    final duration = durationSeconds ?? decision.durationSec;
-    if (!duration.isFinite || duration <= 0) return null;
-    return duration * 0.15;
-  }
-
-  Future<_PlaybackCacheMetadata> _resolvePlaybackCacheMetadata(
-    playback_models.PlaybackDecision decision,
-  ) async {
-    final decisionDuration =
-        decision.durationSec.isFinite && decision.durationSec > 0
-        ? decision.durationSec
-        : 0.0;
-    final decisionBitRate = decision.bitRate > 0 ? decision.bitRate : 0;
-    if (decisionDuration > 0 &&
-        (decisionBitRate > 0 || decision.targetBitrate > 0)) {
-      return _PlaybackCacheMetadata(
-        durationSeconds: decisionDuration,
-        bitRate: decisionBitRate,
-      );
-    }
-
-    try {
-      final detail = await ref
-          .read(moviesRepositoryProvider)
-          .mediaInfoDetail(widget.movieId);
-      final detailDuration = detail?.durationSec;
-      final detailBitRate = detail?.bitRate;
-      final videoBitRate = detail?.streams.video?.bitRate;
-      return _PlaybackCacheMetadata(
-        durationSeconds: decisionDuration > 0
-            ? decisionDuration
-            : (detailDuration != null && detailDuration.isFinite
-                  ? detailDuration
-                  : 0),
-        bitRate: decisionBitRate > 0
-            ? decisionBitRate
-            : (detailBitRate != null && detailBitRate > 0
-                  ? detailBitRate
-                  : (videoBitRate != null && videoBitRate > 0
-                        ? videoBitRate
-                        : 0)),
-      );
-    } catch (_) {
-      return _PlaybackCacheMetadata(
-        durationSeconds: decisionDuration,
-        bitRate: decisionBitRate,
-      );
-    }
-  }
 
   Map<String, String>? _authorizationHeaders(String? token) {
     final value = token?.trim() ?? '';
