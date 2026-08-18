@@ -630,9 +630,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         key: ValueKey(m.id),
         id: m.id,
         selectionIndex: idx,
-        child: _GridCell(
+        child: SelectableMovieCard(
           movie: m,
-          urlBuilder: urlBuilder,
+          posterUrlBuilder: urlBuilder,
           selected: _selected.contains(m.id),
           selecting: _selecting,
           onTap: () {
@@ -847,61 +847,6 @@ class _ViewToggle extends StatelessWidget {
           btn(Icons.view_list_rounded, FavoritesViewMode.list),
         ],
       ),
-    );
-  }
-}
-
-// ============ Grid cell ============
-class _GridCell extends StatelessWidget {
-  const _GridCell({
-    required this.movie,
-    required this.urlBuilder,
-    required this.selected,
-    required this.selecting,
-    required this.onTap,
-  });
-
-  final MovieListItem movie;
-  final String Function(String) urlBuilder;
-  final bool selected;
-  final bool selecting;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Stack(
-      children: [
-        AnimatedOpacity(
-          duration: const Duration(milliseconds: 180),
-          opacity: selecting && !selected ? 0.55 : 1.0,
-          child: MovieCard(
-            movie: movie,
-            posterUrlBuilder: urlBuilder,
-            onTap: onTap,
-          ),
-        ),
-        if (selecting)
-          Positioned(
-            top: 6,
-            left: 6,
-            child: Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: selected
-                    ? c.accent
-                    : Colors.black.withValues(alpha: 0.5),
-                border: Border.all(color: Colors.white, width: 1.5),
-              ),
-              alignment: Alignment.center,
-              child: selected
-                  ? const Icon(Icons.check, color: Colors.white, size: 14)
-                  : const SizedBox.shrink(),
-            ),
-          ),
-      ],
     );
   }
 }

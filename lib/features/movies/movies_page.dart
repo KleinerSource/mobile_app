@@ -467,10 +467,10 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         key: ValueKey(item.id),
         id: item.id,
         selectionIndex: idx,
-        child: MovieCard(
+        child: SelectableMovieCard(
           movie: item,
           posterUrlBuilder: urlBuilder,
-          selectionMode: _selectionMode,
+          selecting: _selectionMode,
           selected: _selectedIds.contains(item.id),
           onTap: () {
             if (_selectionMode) {
