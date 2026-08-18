@@ -10,13 +10,18 @@ import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/empty_view.dart';
+import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/drag_selection.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/pagination_footer.dart';
 import '../../shared/poster.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../privacy/privacy_mask.dart';
+import '../favorites/favorites_providers.dart';
 import 'advanced_filter_sheet.dart';
 import 'batch_download_sheet.dart';
 import 'batch_duplicate_nfo_sheet.dart';
@@ -45,6 +50,10 @@ class MoviesPage extends ConsumerStatefulWidget {
 class _MoviesPageState extends ConsumerState<MoviesPage> {
   static const _pageSize = 50;
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
+  final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
+    _controller,
+  );
   final _searchController = TextEditingController();
   late MovieFilter _currentFilter;
   _ViewMode _viewMode = _ViewMode.grid;
@@ -67,6 +76,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   void dispose() {
     _completeRefresh();
     _controller.dispose();
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -99,6 +109,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       } else {
         _controller.appendPage(items, nextOffset);
       }
+      _scrollRestorer.restoreAfterPage(_scrollController);
       if (offset == 0) _completeRefresh();
       if (mounted) setState(() {});
     } catch (e) {
@@ -114,7 +125,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     refreshImageCache(ref);
     final completer = Completer<void>();
     _refreshCompleter = completer;
-    _controller.refresh();
+    _reload();
     return completer.future;
   }
 
@@ -128,6 +139,11 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     if (newFilter == _currentFilter) return;
     setState(() => _currentFilter = newFilter);
     ref.read(movieFilterProvider.notifier).state = newFilter;
+    _reload();
+  }
+
+  void _reload({bool preserveScroll = false}) {
+    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
     _controller.refresh();
   }
 
@@ -157,226 +173,296 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
           if (!didPop && _selectionMode) _exitSelection();
         },
         child: GlowBackground(
-        child: SafeArea(
-          bottom: false,
-        child: Stack(
-          children: [
-            RefreshIndicator(
-              onRefresh: _refreshMovies,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(AppL10n.of(context).libraryTitle.toUpperCase(),
-                        style: AppText.eyebrow(context)),
-                    const SizedBox(height: 3),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          _totalCount > 0 ? '$_totalCount' : '—',
-                          style: AppText.pageTitle(context),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          AppL10n.of(context).libraryCountSuffix,
-                          style: TextStyle(
-                            color: c.muted,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
+          child: SafeArea(
+            bottom: false,
+            child: Stack(
+              children: [
+                RefreshIndicator(
+                  onRefresh: _refreshMovies,
+                  child: DragSelectionScope<int>(
+                    scrollController: _scrollController,
+                    selectionLayout: _viewMode == _ViewMode.grid
+                        ? DragSelectionLayout.grid
+                        : DragSelectionLayout.list,
+                    isSelected: _selectedIds.contains,
+                    onSelectionStart: _startSelectionSweep,
+                    onSelectionChanged: _applySelectionSweep,
+                    onSelectionEnd: _finishSelectionSweep,
+                    selectionMode: _selectionMode,
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  AppL10n.of(
+                                    context,
+                                  ).libraryTitle.toUpperCase(),
+                                  style: AppText.eyebrow(context),
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.baseline,
+                                  textBaseline: TextBaseline.alphabetic,
+                                  children: [
+                                    Text(
+                                      _totalCount > 0 ? '$_totalCount' : '—',
+                                      style: AppText.pageTitle(context),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      AppL10n.of(context).libraryCountSuffix,
+                                      style: TextStyle(
+                                        color: c.muted,
+                                        fontFamily: 'Inter',
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                            child: _SearchBar(
+                              controller: _searchController,
+                              onSubmitted: (v) => _applyFilter(
+                                _currentFilter.copyWith(search: v),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: 36,
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 22,
+                              ),
+                              children: [
+                                _UpdatedDropdownChip(
+                                  value: _currentFilter.isUpdated,
+                                  onChanged: (v) => _applyFilter(
+                                    _currentFilter.copyWith(
+                                      isUpdated: v,
+                                      clearIsUpdated: v == null,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 7),
+                                CompactFilterButton(
+                                  label: '新资源',
+                                  icon: Icons.fiber_new_rounded,
+                                  active:
+                                      _currentFilter.hasNewResources == true,
+                                  onTap: () {
+                                    final enabled =
+                                        _currentFilter.hasNewResources == true;
+                                    _applyFilter(
+                                      _currentFilter.copyWith(
+                                        hasNewResources: enabled ? null : true,
+                                        clearHasNewResources: enabled,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(width: 7),
+                                CompactFilterButton(
+                                  label: '重复番号',
+                                  icon: Icons.copy_all_outlined,
+                                  active: _currentFilter.duplicateNum,
+                                  onTap: () => _applyFilter(
+                                    _currentFilter.copyWith(
+                                      duplicateNum:
+                                          !_currentFilter.duplicateNum,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 7),
+                                CompactFilterButton(
+                                  label: _resourceScanStarting ? '扫描中' : '扫描资源',
+                                  icon: _resourceScanStarting
+                                      ? Icons.sync_rounded
+                                      : Icons.cloud_download_outlined,
+                                  active: _resourceScanStarting,
+                                  onTap: _resourceScanStarting
+                                      ? () {}
+                                      : () => _startResourceScan(),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    AppL10n.of(context).sortedByOnly(
+                                      _sortLabel(
+                                        context,
+                                        _currentFilter.sortBy,
+                                      ),
+                                    ),
+                                    style: TextStyle(
+                                      color: c.muted,
+                                      fontFamily: 'Inter',
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                      letterSpacing: 0.6,
+                                    ),
+                                  ),
+                                ),
+                                _SortButton(
+                                  sortBy: _currentFilter.sortBy,
+                                  sortOrder: _currentFilter.sortOrder,
+                                  onChanged: (sortBy, sortOrder) =>
+                                      _applyFilter(
+                                        _currentFilter.copyWith(
+                                          sortBy: sortBy,
+                                          sortOrder: sortOrder,
+                                        ),
+                                      ),
+                                ),
+                                const SizedBox(width: 8),
+                                _FilterButton(
+                                  activeCount:
+                                      _currentFilter.activeAdvancedCount,
+                                  onTap: _openAdvancedFilter,
+                                ),
+                                const SizedBox(width: 8),
+                                _ViewModeToggle(
+                                  mode: _viewMode,
+                                  onChanged: (m) =>
+                                      setState(() => _viewMode = m),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
+                          sliver: _viewMode == _ViewMode.grid
+                              ? PagedSliverGrid<int, MovieListItem>(
+                                  pagingController: _controller,
+                                  showNoMoreItemsIndicatorAsGridChild: false,
+                                  gridDelegate:
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: crossAxisCount,
+                                        childAspectRatio: 0.5,
+                                        mainAxisSpacing: 14,
+                                        crossAxisSpacing: 10,
+                                      ),
+                                  builderDelegate: _buildDelegate(
+                                    urlBuilder,
+                                    crossAxisCount: crossAxisCount,
+                                  ),
+                                )
+                              : PagedSliverList<int, MovieListItem>(
+                                  pagingController: _controller,
+                                  builderDelegate: _buildListDelegate(
+                                    urlBuilder,
+                                  ),
+                                ),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 120)),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                child: _SearchBar(
-                  controller: _searchController,
-                  onSubmitted: (v) => _applyFilter(_currentFilter.copyWith(search: v)),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 36,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 22),
-                  children: [
-                    _UpdatedDropdownChip(
-                      value: _currentFilter.isUpdated,
-                      onChanged: (v) => _applyFilter(
-                        _currentFilter.copyWith(
-                          isUpdated: v,
-                          clearIsUpdated: v == null,
+                if (_selectionMode)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: EntityBatchToolbar(
+                      selectedCount: _selectedIds.length,
+                      onSelectAll: _selectAllLoaded,
+                      onClear: () => setState(() => _selectedIds.clear()),
+                      onClose: _exitSelection,
+                      actions: [
+                        EntityBatchAction(
+                          icon: Icons.edit_outlined,
+                          label: '编辑',
+                          onTap: _selectedIds.isEmpty ? null : _onBatchEdit,
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    CompactFilterButton(
-                      label: '新资源',
-                      icon: Icons.fiber_new_rounded,
-                      active: _currentFilter.hasNewResources == true,
-                      onTap: () {
-                        final enabled = _currentFilter.hasNewResources == true;
-                        _applyFilter(
-                          _currentFilter.copyWith(
-                            hasNewResources: enabled ? null : true,
-                            clearHasNewResources: enabled,
+                        EntityBatchAction(
+                          icon: Icons.cloud_download_outlined,
+                          label: '下载',
+                          color: const Color(0xFF34F5A5),
+                          onTap: _selectedIds.isEmpty ? null : _onBatchDownload,
+                        ),
+                        EntityBatchAction(
+                          icon: Icons.sync_rounded,
+                          label: '扫描',
+                          onTap: _selectedIds.isEmpty
+                              ? null
+                              : _onBatchResourceScan,
+                        ),
+                        if (_canMergeOrCompare)
+                          EntityBatchAction(
+                            icon: Icons.compare_arrows_rounded,
+                            label: '比较',
+                            onTap: _onBatchCompareNfo,
                           ),
-                        );
-                      },
+                        if (_canMergeOrCompare)
+                          EntityBatchAction(
+                            icon: Icons.merge_rounded,
+                            label: '合并',
+                            color: c.warning,
+                            onTap: _onBatchMerge,
+                          ),
+                      ],
                     ),
-                    const SizedBox(width: 7),
-                    CompactFilterButton(
-                      label: '重复番号',
-                      icon: Icons.copy_all_outlined,
-                      active: _currentFilter.duplicateNum,
-                      onTap: () => _applyFilter(
-                        _currentFilter.copyWith(
-                          duplicateNum: !_currentFilter.duplicateNum,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    CompactFilterButton(
-                      label: _resourceScanStarting ? '扫描中' : '扫描资源',
-                      icon: _resourceScanStarting
-                          ? Icons.sync_rounded
-                          : Icons.cloud_download_outlined,
-                      active: _resourceScanStarting,
-                      onTap: _resourceScanStarting
-                          ? () {}
-                          : () => _startResourceScan(),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        AppL10n.of(context).sortedByOnly(
-                          _sortLabel(context, _currentFilter.sortBy),
-                        ),
-                        style: TextStyle(
-                          color: c.muted,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                    ),
-                    _SortButton(
-                      sortBy: _currentFilter.sortBy,
-                      sortOrder: _currentFilter.sortOrder,
-                      onChanged: (sortBy, sortOrder) => _applyFilter(
-                        _currentFilter.copyWith(
-                          sortBy: sortBy,
-                          sortOrder: sortOrder,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _FilterButton(
-                      activeCount: _currentFilter.activeAdvancedCount,
-                      onTap: _openAdvancedFilter,
-                    ),
-                    const SizedBox(width: 8),
-                    _ViewModeToggle(
-                      mode: _viewMode,
-                      onChanged: (m) => setState(() => _viewMode = m),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
-              sliver: _viewMode == _ViewMode.grid
-                  ? PagedSliverGrid<int, MovieListItem>(
-                      pagingController: _controller,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        childAspectRatio: 0.5,
-                        mainAxisSpacing: 14,
-                        crossAxisSpacing: 10,
-                      ),
-                      builderDelegate: _buildDelegate(urlBuilder),
-                    )
-                  : PagedSliverList<int, MovieListItem>(
-                      pagingController: _controller,
-                      builderDelegate: _buildListDelegate(urlBuilder),
-                    ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 120)),
-                ],
-              ),
-            ),
-        if (_selectionMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _BatchActionBar(
-              selectedCount: _selectedIds.length,
-              canMergeOrCompare: _canMergeOrCompare,
-              onSelectAll: _selectAllLoaded,
-              onClear: () => setState(() => _selectedIds.clear()),
-              onClose: _exitSelection,
-              onEdit: _onBatchEdit,
-              onDownload: _onBatchDownload,
-              onResourceScan: _onBatchResourceScan,
-              onCompare: _onBatchCompareNfo,
-              onMerge: _onBatchMerge,
+                  ),
+              ],
             ),
           ),
-          ],
-        ),
-        ),
         ),
       ),
     );
   }
 
   PagedChildBuilderDelegate<MovieListItem> _buildDelegate(
-    String Function(String) urlBuilder,
-  ) {
+    String Function(String) urlBuilder, {
+    required int crossAxisCount,
+  }) {
     final l = AppL10n.of(context);
     return PagedChildBuilderDelegate<MovieListItem>(
-      itemBuilder: (ctx, item, idx) => MovieCard(
-        movie: item,
-        posterUrlBuilder: urlBuilder,
-        selectionMode: _selectionMode,
-        selected: _selectedIds.contains(item.id),
-        onTap: () {
-          if (_selectionMode) {
-            _toggleSelect(item.id);
-          } else {
-            Navigator.of(ctx).push(
-              MaterialPageRoute(
-                  builder: (_) => MovieDetailPage(movieId: item.id)),
-            );
-          }
-        },
-        onLongPress: () => _enterSelectionWith(item.id),
+      itemBuilder: (ctx, item, idx) => DragSelectionTarget<int>(
+        key: ValueKey(item.id),
+        id: item.id,
+        selectionIndex: idx,
+        child: MovieCard(
+          movie: item,
+          posterUrlBuilder: urlBuilder,
+          selectionMode: _selectionMode,
+          selected: _selectedIds.contains(item.id),
+          onTap: () {
+            if (_selectionMode) {
+              _toggleSelect(item.id);
+            } else {
+              Navigator.of(ctx).push(
+                MaterialPageRoute(
+                  builder: (_) => MovieDetailPage(movieId: item.id),
+                ),
+              );
+            }
+          },
+        ),
       ),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
         message: _controller.error?.toString() ?? l.loadFailed,
@@ -390,6 +476,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         ),
       ),
       noItemsFoundIndicatorBuilder: (_) => EmptyView(message: l.noResultFound),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
     );
@@ -400,19 +487,26 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   ) {
     final l = AppL10n.of(context);
     return PagedChildBuilderDelegate<MovieListItem>(
-      itemBuilder: (ctx, item, idx) => _ListRow(
-        movie: item,
-        urlBuilder: urlBuilder,
-        selectionMode: _selectionMode,
-        selected: _selectedIds.contains(item.id),
-        onSelectionTap: () => _toggleSelect(item.id),
-        onLongPress: () => _enterSelectionWith(item.id),
+      itemBuilder: (ctx, item, idx) => DragSelectionTarget<int>(
+        key: ValueKey(item.id),
+        id: item.id,
+        child: _ListRow(
+          movie: item,
+          urlBuilder: urlBuilder,
+          selectionMode: _selectionMode,
+          selected: _selectedIds.contains(item.id),
+          onSelectionTap: () => _toggleSelect(item.id),
+          onFavorite: () {
+            unawaited(_favoriteOne(item));
+          },
+        ),
       ),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
         message: _controller.error?.toString() ?? l.loadFailed,
         onRetry: () => _controller.refresh(),
       ),
       noItemsFoundIndicatorBuilder: (_) => EmptyView(message: l.noResultFound),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
     );
@@ -420,11 +514,30 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
   // ===== 选择模式 =====
 
-  void _enterSelectionWith(int id) {
+  void _startSelectionSweep(int id, bool selected) {
     setState(() {
       _selectionMode = true;
-      _selectedIds.add(id);
+      _setSelectionValue(id, selected);
     });
+  }
+
+  void _applySelectionSweep(int id, bool selected) {
+    if (_selectedIds.contains(id) == selected) return;
+    setState(() => _setSelectionValue(id, selected));
+  }
+
+  void _finishSelectionSweep() {
+    if (_selectionMode && _selectedIds.isEmpty) {
+      _exitSelection();
+    }
+  }
+
+  void _setSelectionValue(int id, bool selected) {
+    if (selected) {
+      _selectedIds.add(id);
+    } else {
+      _selectedIds.remove(id);
+    }
   }
 
   void _toggleSelect(int id) {
@@ -443,6 +556,25 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       _selectionMode = false;
       _selectedIds.clear();
     });
+  }
+
+  Future<void> _favoriteOne(MovieListItem movie) async {
+    try {
+      await ref.read(favoritesRepositoryProvider).addBatch([movie.id]);
+      ref.read(favoriteStatusProvider.notifier).seed(movie.id, true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已收藏「${movie.title}」'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('收藏失败: ${toApiException(e).message}')),
+      );
+    }
   }
 
   void _selectAllLoaded() {
@@ -474,7 +606,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     final ok = await BatchEditSheet.show(context, _selectedIds.toList());
     if (ok == true) {
       _exitSelection();
-      _controller.refresh();
+      _reload(preserveScroll: true);
     }
   }
 
@@ -493,9 +625,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     final selected = movieIds != null && movieIds.isNotEmpty;
     final count = selected ? movieIds.length : _totalCount;
     if (count <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('当前没有可扫描的影片')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('当前没有可扫描的影片')));
       return;
     }
 
@@ -524,7 +656,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
     setState(() => _resourceScanStarting = true);
     try {
-      final result = await ref.read(moviesRepositoryProvider).startResourceScan(
+      final result = await ref
+          .read(moviesRepositoryProvider)
+          .startResourceScan(
             movieIds: selected ? movieIds : null,
             filter: _currentFilter,
           );
@@ -541,7 +675,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         context,
         taskId: result.taskId,
         onCompleted: () {
-          if (mounted) _controller.refresh();
+          if (mounted) _reload(preserveScroll: true);
         },
       );
     } catch (e) {
@@ -555,30 +689,32 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
   Future<void> _onBatchMerge() async {
     if (!_canMergeOrCompare) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('需选择 2 部以上相同番号影片')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('需选择 2 部以上相同番号影片')));
       return;
     }
     final ok = await BatchMergeSheet.show(context, _selectedIds.toList());
     if (ok == true) {
       _exitSelection();
-      _controller.refresh();
+      _reload(preserveScroll: true);
     }
   }
 
   Future<void> _onBatchCompareNfo() async {
     if (!_canMergeOrCompare) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('需选择 2 部以上相同番号影片')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('需选择 2 部以上相同番号影片')));
       return;
     }
     final ok = await BatchDuplicateNfoCompareSheet.show(
-        context, _selectedIds.toList());
+      context,
+      _selectedIds.toList(),
+    );
     if (ok == true) {
       _exitSelection();
-      _controller.refresh();
+      _reload(preserveScroll: true);
     }
   }
 }
@@ -639,7 +775,10 @@ class _SearchBar extends StatelessWidget {
               controller: controller,
               decoration: InputDecoration(
                 hintText: AppL10n.of(context).searchHintAll,
-                hintStyle: TextStyle(color: c.muted, fontWeight: FontWeight.w500),
+                hintStyle: TextStyle(
+                  color: c.muted,
+                  fontWeight: FontWeight.w500,
+                ),
                 isCollapsed: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 border: InputBorder.none,
@@ -679,7 +818,7 @@ class _ViewModeToggle extends StatelessWidget {
                       color: Color(0x14000000),
                       blurRadius: 3,
                       offset: Offset(0, 1),
-                    )
+                    ),
                   ]
                 : null,
           ),
@@ -777,9 +916,7 @@ class _SortButton extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Text('排序', style: AppText.sectionTitle(ctx)),
-                  ),
+                  Expanded(child: Text('排序', style: AppText.sectionTitle(ctx))),
                   // 升降序 toggle
                   GestureDetector(
                     onTap: () {
@@ -789,7 +926,9 @@ class _SortButton extends StatelessWidget {
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: c.chipBg,
                         borderRadius: BorderRadius.circular(8),
@@ -880,10 +1019,10 @@ class _UpdatedDropdownChip extends StatelessWidget {
   final ValueChanged<bool?> onChanged;
 
   String get _label => switch (value) {
-        true => '已更新',
-        false => '未更新',
-        _ => '更新状态',
-      };
+    true => '已更新',
+    false => '未更新',
+    _ => '更新状态',
+  };
 
   Future<void> _openMenu(BuildContext context) async {
     final c = appColors(context);
@@ -972,14 +1111,14 @@ class _ListRow extends StatelessWidget {
     this.selectionMode = false,
     this.selected = false,
     this.onSelectionTap,
-    this.onLongPress,
+    required this.onFavorite,
   });
   final MovieListItem movie;
   final String Function(String) urlBuilder;
   final bool selectionMode;
   final bool selected;
   final VoidCallback? onSelectionTap;
-  final VoidCallback? onLongPress;
+  final VoidCallback onFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -993,15 +1132,15 @@ class _ListRow extends StatelessWidget {
       if (hasRating) '★ ${movie.rating!.toStringAsFixed(1)}',
     ].join(' · ');
 
-    return PrivacyAwareInkWell(
+    final row = PrivacyAwareInkWell(
       movieId: movie.id,
       onTap: selectionMode
           ? onSelectionTap
           : () => Navigator.of(context).push(
-                MaterialPageRoute(
-                    builder: (_) => MovieDetailPage(movieId: movie.id)),
+              MaterialPageRoute(
+                builder: (_) => MovieDetailPage(movieId: movie.id),
               ),
-      onLongPress: onLongPress,
+            ),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
@@ -1022,6 +1161,7 @@ class _ListRow extends StatelessWidget {
             ],
             SizedBox(
               width: 56,
+              height: 84,
               child: PrivacyMask(
                 movieId: movie.id,
                 radius: 8,
@@ -1113,209 +1253,38 @@ class _ListRow extends StatelessWidget {
         ),
       ),
     );
-  }
-}
 
-/// 浮动底部批量操作工具栏 · 编辑/下载/比较/合并
-class _BatchActionBar extends StatelessWidget {
-  const _BatchActionBar({
-    required this.selectedCount,
-    required this.canMergeOrCompare,
-    required this.onSelectAll,
-    required this.onClear,
-    required this.onClose,
-    required this.onEdit,
-    required this.onDownload,
-    required this.onResourceScan,
-    required this.onCompare,
-    required this.onMerge,
-  });
+    if (selectionMode) return row;
 
-  final int selectedCount;
-  final bool canMergeOrCompare;
-  final VoidCallback onSelectAll;
-  final VoidCallback onClear;
-  final VoidCallback onClose;
-  final VoidCallback onEdit;
-  final VoidCallback onDownload;
-  final VoidCallback onResourceScan;
-  final VoidCallback onCompare;
-  final VoidCallback onMerge;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    final toolbarBackground = Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF1B1A24)
-        : Colors.white;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-          decoration: BoxDecoration(
-            color: toolbarBackground,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: c.cardBorder),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    '$selectedCount 已选',
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  TextButton(
-                    onPressed: onSelectAll,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text('全选'),
-                  ),
-                  TextButton(
-                    onPressed: onClear,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      foregroundColor: c.danger,
-                    ),
-                    child: const Text('清空'),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: onClose,
-                    icon: Icon(Icons.close, size: 18, color: c.muted),
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              SizedBox(
-                height: 38,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _BatchActionButton(
-                        icon: Icons.edit_outlined,
-                        label: '编辑',
-                        onTap: selectedCount > 0 ? onEdit : null,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _BatchActionButton(
-                        icon: Icons.cloud_download_outlined,
-                        label: '下载',
-                        color: const Color(0xFF34F5A5),
-                        onTap: selectedCount > 0 ? onDownload : null,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _BatchActionButton(
-                        icon: Icons.sync_rounded,
-                        label: '扫描',
-                        onTap: selectedCount > 0 ? onResourceScan : null,
-                      ),
-                    ),
-                    if (canMergeOrCompare) ...[
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: _BatchActionButton(
-                          icon: Icons.compare_arrows_rounded,
-                          label: '比较',
-                          onTap: onCompare,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: _BatchActionButton(
-                          icon: Icons.merge_rounded,
-                          label: '合并',
-                          color: c.warning,
-                          onTap: onMerge,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BatchActionButton extends StatelessWidget {
-  const _BatchActionButton({
-    required this.icon,
-    required this.label,
-    this.color,
-    this.onTap,
-  });
-  final IconData icon;
-  final String label;
-  final Color? color;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    final enabled = onTap != null;
-    final fg = enabled ? (color ?? c.accent) : c.muted;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: enabled ? fg.withValues(alpha: 0.12) : c.chipBg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: enabled ? fg.withValues(alpha: 0.4) : c.cardBorder,
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+    return Dismissible(
+      key: ValueKey('movie-${movie.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 18),
+        color: c.accent.withValues(alpha: 0.85),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: fg),
-            const SizedBox(width: 4),
+            Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
+            SizedBox(width: 6),
             Text(
-              label,
+              '收藏',
               style: TextStyle(
-                color: fg,
+                color: Colors.white,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w700,
-                fontSize: 12,
+                fontSize: 13,
               ),
             ),
           ],
         ),
       ),
+      confirmDismiss: (_) async {
+        onFavorite();
+        return false;
+      },
+      child: row,
     );
   }
 }

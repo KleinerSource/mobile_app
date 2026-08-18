@@ -30,7 +30,7 @@ void main() {
         {'name': '喜剧'},
       ],
       'actors': [
-        {'name': '新演员'},
+        {'name': '新演员', 'gender': 'female'},
       ],
     });
 
@@ -74,7 +74,7 @@ void main() {
         {'name': '新分类'},
       ],
       'actors': [
-        {'name': '新演员'},
+        {'name': '新演员', 'gender': 'female'},
       ],
       'series': {'name': '新系列'},
     });
@@ -101,6 +101,12 @@ void main() {
         DboMetadataDiffAction.remove,
       ]),
     );
+    final addedActor = diff.items.firstWhere(
+      (item) =>
+          item.section == DboMetadataDiffSection.actors &&
+          item.action == DboMetadataDiffAction.add,
+    );
+    expect(addedActor.gender, 'female');
     final series = diff.items
         .firstWhere((item) => item.section == DboMetadataDiffSection.series);
     expect(series.action, DboMetadataDiffAction.replace);

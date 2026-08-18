@@ -7,6 +7,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/pagination_footer.dart';
 import '../movie_detail/entity_picker_sheet.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
@@ -133,11 +134,9 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
       if (_quickCrack) await applyQuick('无码破解');
       if (_quickUHD) await applyQuick('UHD');
 
-      final hasAdd = addTags.isNotEmpty ||
-          addGenres.isNotEmpty ||
-          _setSeriesId != null;
-      final hasRemove = _removeTagIds.isNotEmpty ||
-          _removeGenreIds.isNotEmpty;
+      final hasAdd =
+          addTags.isNotEmpty || addGenres.isNotEmpty || _setSeriesId != null;
+      final hasRemove = _removeTagIds.isNotEmpty || _removeGenreIds.isNotEmpty;
       final hasWatermark =
           _quickSubtitle || _quickExsub || _quickCrack || _quickUHD;
 
@@ -173,10 +172,11 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
           uhd: _quickUHD,
         );
         if (r.failedCount > 0) {
-          messenger.showSnackBar(SnackBar(
-            content:
-                Text('海报裁剪：成功 ${r.successCount}，失败 ${r.failedCount}'),
-          ));
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('海报裁剪：成功 ${r.successCount}，失败 ${r.failedCount}'),
+            ),
+          );
         }
       }
       if (!mounted) return;
@@ -211,11 +211,12 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('批量编辑 ${widget.movieIds.length} 部',
-                            style: AppText.sectionTitle(context)),
+                        Text(
+                          '批量编辑 ${widget.movieIds.length} 部',
+                          style: AppText.sectionTitle(context),
+                        ),
                         const SizedBox(height: 2),
-                        Text('集中调整标签、分类、系列和快速标记',
-                            style: AppText.meta(context)),
+                        Text('集中调整标签、分类、系列和快速标记', style: AppText.meta(context)),
                       ],
                     ),
                   ),
@@ -326,8 +327,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                           selected: _removeGenreIds,
                           restrictToIds: _commonGenreIds ?? const <int>{},
                           restrictLoading: _loadingCommon,
-                          onChanged: (s) =>
-                              setState(() => _removeGenreIds = s),
+                          onChanged: (s) => setState(() => _removeGenreIds = s),
                         ),
                       ],
                     ),
@@ -405,13 +405,15 @@ class _Card extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: TextStyle(
-                color: c.text,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              )),
+          Text(
+            title,
+            style: TextStyle(
+              color: c.text,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
             Text(subtitle!, style: AppText.meta(context)),
@@ -456,7 +458,8 @@ class _PickerFieldState extends ConsumerState<_PickerField> {
   @override
   void didUpdateWidget(covariant _PickerField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.kind != widget.kind || oldWidget.selected != widget.selected) {
+    if (oldWidget.kind != widget.kind ||
+        oldWidget.selected != widget.selected) {
       _loadSelectedNames();
     }
   }
@@ -510,8 +513,8 @@ class _PickerFieldState extends ConsumerState<_PickerField> {
     final placeholder = widget.restrictLoading
         ? '加载中...'
         : restrictEmpty
-            ? '无共有${widget.kind.label}'
-            : '选择${widget.kind.label}...';
+        ? '无共有${widget.kind.label}'
+        : '选择${widget.kind.label}...';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,33 +542,41 @@ class _PickerFieldState extends ConsumerState<_PickerField> {
                             for (final item in selectedItems.take(3))
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: c.accent.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(100),
                                 ),
-                                child: Text(item.name,
-                                    style: TextStyle(
-                                      color: c.accent,
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                    )),
+                                child: Text(
+                                  item.name,
+                                  style: TextStyle(
+                                    color: c.accent,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                               ),
                             if (selectedItems.length > 3)
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: c.chipBg,
                                   borderRadius: BorderRadius.circular(100),
                                   border: Border.all(color: c.cardBorder),
                                 ),
-                                child: Text('+${selectedItems.length - 3}',
-                                    style: TextStyle(
-                                      color: c.muted,
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                    )),
+                                child: Text(
+                                  '+${selectedItems.length - 3}',
+                                  style: TextStyle(
+                                    color: c.muted,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                               ),
                           ],
                         ),
@@ -646,11 +657,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
       try {
         final result = await ref
             .read(resourcesRepositoryProvider)
-            .options(
-              ResourceKind.series,
-              search: value,
-              limit: _pageSize,
-            );
+            .options(ResourceKind.series, search: value, limit: _pageSize);
         if (!active || serial != requestSerial) return;
         items = result.items;
         hasMore = result.hasMore;
@@ -671,7 +678,9 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
       loadingMore = true;
       setS(() {});
       try {
-        final result = await ref.read(resourcesRepositoryProvider).options(
+        final result = await ref
+            .read(resourcesRepositoryProvider)
+            .options(
               ResourceKind.series,
               search: q.isEmpty ? null : q,
               offset: nextOffset,
@@ -679,7 +688,9 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
             );
         if (!active || serial != requestSerial) return;
         final ids = items.map((item) => item.id).toSet();
-        final newItems = result.items.where((item) => ids.add(item.id)).toList();
+        final newItems = result.items
+            .where((item) => ids.add(item.id))
+            .toList();
         items = [...items, ...newItems];
         nextOffset = result.offset + result.items.length;
         hasMore = result.hasMore && newItems.isNotEmpty;
@@ -700,130 +711,138 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
       isScrollControlled: true,
       showDragHandle: true,
       builder: (ctx) {
-        return StatefulBuilder(builder: (ctx, setS) {
-          return SizedBox(
-            height: mq.size.height * 0.75,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
-                  child: Text('选择系列', style: AppText.sectionTitle(ctx)),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
-                  child: TextField(
-                    onChanged: (v) {
-                      q = v.trim();
-                      debounce?.cancel();
-                      debounce = Timer(const Duration(milliseconds: 250), () {
-                        searchSeries(q, setS);
-                      });
-                      setS(() {});
-                    },
-                    decoration: InputDecoration(
-                      hintText: '搜索系列...',
-                      prefixIcon:
-                          Icon(Icons.search, size: 18, color: c.muted),
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                if (searchError != null)
+        return StatefulBuilder(
+          builder: (ctx, setS) {
+            return SizedBox(
+              height: mq.size.height * 0.75,
+              child: Column(
+                children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 6),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        searchError!,
-                        style: TextStyle(color: c.danger, fontSize: 12),
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
+                    child: Text('选择系列', style: AppText.sectionTitle(ctx)),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
+                    child: TextField(
+                      onChanged: (v) {
+                        q = v.trim();
+                        debounce?.cancel();
+                        debounce = Timer(const Duration(milliseconds: 250), () {
+                          searchSeries(q, setS);
+                        });
+                        setS(() {});
+                      },
+                      decoration: InputDecoration(
+                        hintText: '搜索系列...',
+                        prefixIcon: Icon(
+                          Icons.search,
+                          size: 18,
+                          color: c.muted,
+                        ),
+                        isDense: true,
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                   ),
-                Expanded(
-                  child: searching
-                      ? const Center(child: CircularProgressIndicator())
-                      : items.isEmpty
-                          ? Center(
-                              child: Text(
-                                q.isEmpty ? '暂无系列' : '未找到匹配的系列',
-                                style: AppText.body(ctx),
-                              ),
-                            )
-                          : NotificationListener<ScrollNotification>(
-                              onNotification: (notification) {
-                                if (notification.metrics.extentAfter < 240 &&
-                                    searchError == null) {
-                                  loadMoreSeries(setS);
-                                }
-                                return false;
-                              },
-                              child: ListView.builder(
-                                itemCount: items.length + (hasMore ? 1 : 0),
-                                itemBuilder: (ctx, i) {
-                                  if (i >= items.length) {
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
-                                      ),
-                                      child: Center(
-                                        child: searchError != null &&
-                                                !loadingMore
-                                            ? TextButton(
-                                                onPressed: () {
-                                                  searchError = null;
-                                                  loadMoreSeries(setS);
-                                                },
-                                                child: const Text(
-                                                  '加载更多失败，点击重试',
-                                                ),
-                                              )
-                                            : loadingMore
-                                                ? const SizedBox(
-                                                    width: 18,
-                                                    height: 18,
-                                                    child: CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
-                                                  )
-                                                : const SizedBox.shrink(),
-                                      ),
-                                    );
-                                  }
-                                  final r = items[i];
-                                  final isSel = widget.selected == r.id;
-                                  return ListTile(
-                                    dense: true,
-                                    leading: Icon(
-                                      isSel
-                                          ? Icons.radio_button_checked
-                                          : Icons.radio_button_unchecked,
-                                      size: 18,
-                                      color: isSel ? c.accent : c.muted,
-                                    ),
-                                    title: Text(r.name),
-                                    onTap: () => Navigator.of(ctx)
-                                        .pop((id: r.id, clear: false)),
-                                  );
-                                },
-                              ),
+                  if (searchError != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 6),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          searchError!,
+                          style: TextStyle(color: c.danger, fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  Expanded(
+                    child: searching
+                        ? const Center(child: CircularProgressIndicator())
+                        : items.isEmpty
+                        ? Center(
+                            child: Text(
+                              q.isEmpty ? '暂无系列' : '未找到匹配的系列',
+                              style: AppText.body(ctx),
                             ),
-                ),
-                SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 8, 22, 10),
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(ctx)
-                          .pop((id: null, clear: true)),
-                      child: const Text('清空选择'),
+                          )
+                        : NotificationListener<ScrollNotification>(
+                            onNotification: (notification) {
+                              if (notification.metrics.extentAfter < 240 &&
+                                  searchError == null) {
+                                loadMoreSeries(setS);
+                              }
+                              return false;
+                            },
+                            child: ListView.builder(
+                              itemCount: items.length + (hasMore ? 1 : 0),
+                              itemBuilder: (ctx, i) {
+                                if (i >= items.length) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    child: Center(
+                                      child: searchError != null && !loadingMore
+                                          ? TextButton(
+                                              onPressed: () {
+                                                searchError = null;
+                                                loadMoreSeries(setS);
+                                              },
+                                              child: const Text('加载更多失败，点击重试'),
+                                            )
+                                          : loadingMore
+                                          ? const SizedBox(
+                                              width: 18,
+                                              height: 18,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : const SizedBox.shrink(),
+                                    ),
+                                  );
+                                }
+                                final r = items[i];
+                                final isSel = widget.selected == r.id;
+                                return ListTile(
+                                  dense: true,
+                                  leading: Icon(
+                                    isSel
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_unchecked,
+                                    size: 18,
+                                    color: isSel ? c.accent : c.muted,
+                                  ),
+                                  title: Text(r.name),
+                                  onTap: () => Navigator.of(
+                                    ctx,
+                                  ).pop((id: r.id, clear: false)),
+                                );
+                              },
+                            ),
+                          ),
+                  ),
+                  if (!searching &&
+                      !loadingMore &&
+                      !hasMore &&
+                      items.isNotEmpty)
+                    const NoMoreContent(),
+                  SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 8, 22, 10),
+                      child: OutlinedButton(
+                        onPressed: () =>
+                            Navigator.of(ctx).pop((id: null, clear: true)),
+                        child: const Text('清空选择'),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        });
+                ],
+              ),
+            );
+          },
+        );
       },
     );
     active = false;
@@ -840,10 +859,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
         final item = selectedItem;
         if (item != null && mounted) {
           setState(() {
-            _all = [
-              item,
-              ..._all.where((existing) => existing.id != item.id),
-            ];
+            _all = [item, ..._all.where((existing) => existing.id != item.id)];
           });
         }
       }
@@ -854,8 +870,12 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final name =
-        _all.firstWhere((r) => r.id == widget.selected, orElse: () => const ResourceItem(id: -1, name: '')).name;
+    final name = _all
+        .firstWhere(
+          (r) => r.id == widget.selected,
+          orElse: () => const ResourceItem(id: -1, name: ''),
+        )
+        .name;
     return GestureDetector(
       onTap: _loading ? null : _open,
       child: Container(
@@ -906,9 +926,7 @@ class _QuickFlagChip extends StatelessWidget {
           color: value ? c.accent.withValues(alpha: 0.15) : c.chipBg,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: value
-                ? c.accent.withValues(alpha: 0.55)
-                : c.cardBorder,
+            color: value ? c.accent.withValues(alpha: 0.55) : c.cardBorder,
             width: value ? 1.2 : 1,
           ),
         ),
@@ -916,9 +934,7 @@ class _QuickFlagChip extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              value
-                  ? Icons.check_circle_rounded
-                  : Icons.radio_button_unchecked,
+              value ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
               size: 14,
               color: value ? c.accent : c.muted,
             ),

@@ -251,8 +251,7 @@ class AppL10nZh extends AppL10n {
   String get settingsServerSettings => '服务器设置';
 
   @override
-  String get settingsServerSettingsSub =>
-      '服务器 / 系统配置 / 媒体库 / 映射规则 / 工具';
+  String get settingsServerSettingsSub => '服务器 / 系统配置 / 媒体库 / 映射规则 / 工具';
 
   @override
   String get settingsAppSettings => '应用设置';

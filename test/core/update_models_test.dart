@@ -134,9 +134,7 @@ void main() {
   test('更新说明会移除滚动构建元数据并保留实际内容', () {
     final release = GitHubRelease.fromJson(const {
       'tag_name': 'latest',
-      'body': '''未签名 iOS 构建产物（自动滚动更新）
-
-版本: 0.12.5+204
+      'body': '''版本: 0.12.5+204
 
 本次构建包含以下更新：
 

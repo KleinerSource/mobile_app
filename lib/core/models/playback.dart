@@ -13,11 +13,10 @@ class VideoCodecCapability {
   final List<String> pixFormats;
 
   Map<String, dynamic> toJson() => {
-        if (maxProfile != null && maxProfile!.isNotEmpty)
-          'max_profile': maxProfile,
-        if (maxLevel != null) 'max_level': maxLevel,
-        if (pixFormats.isNotEmpty) 'pix_formats': pixFormats,
-      };
+    if (maxProfile != null && maxProfile!.isNotEmpty) 'max_profile': maxProfile,
+    if (maxLevel != null) 'max_level': maxLevel,
+    if (pixFormats.isNotEmpty) 'pix_formats': pixFormats,
+  };
 }
 
 @immutable
@@ -28,9 +27,9 @@ class AudioCodecCapability {
   final int? maxSampleRate;
 
   Map<String, dynamic> toJson() => {
-        if (maxChannels != null) 'max_channels': maxChannels,
-        if (maxSampleRate != null) 'max_sample_rate': maxSampleRate,
-      };
+    if (maxChannels != null) 'max_channels': maxChannels,
+    if (maxSampleRate != null) 'max_sample_rate': maxSampleRate,
+  };
 }
 
 @immutable
@@ -102,12 +101,8 @@ class PlaybackClientCaps {
       maxLevel: 999,
       pixFormats: _mobilePixelFormats,
     ),
-    'vp9': VideoCodecCapability(
-      pixFormats: ['yuv420p', 'yuv420p10le'],
-    ),
-    'av1': VideoCodecCapability(
-      pixFormats: ['yuv420p', 'yuv420p10le'],
-    ),
+    'vp9': VideoCodecCapability(pixFormats: ['yuv420p', 'yuv420p10le']),
+    'av1': VideoCodecCapability(pixFormats: ['yuv420p', 'yuv420p10le']),
   };
 
   static const _mobileAudioCodecs = <String, AudioCodecCapability>{
@@ -121,18 +116,18 @@ class PlaybackClientCaps {
   };
 
   Map<String, dynamic> toJson() => {
-        'containers': containers,
-        'video_codecs': {
-          for (final entry in videoCodecs.entries) entry.key: entry.value.toJson(),
-        },
-        'audio_codecs': {
-          for (final entry in audioCodecs.entries) entry.key: entry.value.toJson(),
-        },
-        'max_bitrate': maxBitrate,
-        'max_height': maxHeight,
-        'quality_preset': qualityPreset,
-        if (userAgent != null && userAgent!.isNotEmpty) 'ua': userAgent,
-      };
+    'containers': containers,
+    'video_codecs': {
+      for (final entry in videoCodecs.entries) entry.key: entry.value.toJson(),
+    },
+    'audio_codecs': {
+      for (final entry in audioCodecs.entries) entry.key: entry.value.toJson(),
+    },
+    'max_bitrate': maxBitrate,
+    'max_height': maxHeight,
+    'quality_preset': qualityPreset,
+    if (userAgent != null && userAgent!.isNotEmpty) 'ua': userAgent,
+  };
 }
 
 @immutable
@@ -154,13 +149,13 @@ class AudioTrack {
   final bool isDefault;
 
   factory AudioTrack.fromJson(Map<String, dynamic> json) => AudioTrack(
-        index: _asInt(json['index']),
-        codec: _asString(json['codec']),
-        language: _asString(json['language']),
-        title: _asString(json['title']),
-        channels: _asInt(json['channels']),
-        isDefault: json['default'] == true,
-      );
+    index: _asInt(json['index']),
+    codec: _asString(json['codec']),
+    language: _asString(json['language']),
+    title: _asString(json['title']),
+    channels: _asInt(json['channels']),
+    isDefault: json['default'] == true,
+  );
 }
 
 @immutable
@@ -187,17 +182,48 @@ class SubtitleTrack {
 
   bool get isExternal => source.trim().toLowerCase() == 'external';
 
+  bool get isPgs {
+    final normalized = codec.trim().toLowerCase();
+    return normalized == 'hdmv_pgs_subtitle' ||
+        normalized == 'pgssub' ||
+        normalized.contains('pgs');
+  }
+
+  String get typeLabel {
+    final normalized = codec.trim().toLowerCase();
+    const labels = {
+      'subrip': 'SRT',
+      'srt': 'SRT',
+      'ass': 'ASS',
+      'ssa': 'SSA',
+      'webvtt': 'VTT',
+      'mov_text': 'MOV-TXT',
+      'hdmv_pgs_subtitle': 'PGS',
+      'pgssub': 'PGS',
+      'dvd_subtitle': 'VobSub',
+      'dvb_subtitle': 'DVB-SUB',
+    };
+    if (normalized.isEmpty) return '未知';
+    return labels[normalized] ?? codec.trim().toUpperCase();
+  }
+
+  String get sourceLabel {
+    if (isEmbedded) return '内嵌';
+    if (isExternal) return '外挂';
+    return source.trim().isEmpty ? '未知来源' : source.trim();
+  }
+
   bool get canLoad => isEmbedded || url.trim().isNotEmpty;
 
   factory SubtitleTrack.fromJson(Map<String, dynamic> json) => SubtitleTrack(
-        index: _asInt(json['index']),
-        source: _asString(json['source']),
-        language: _asString(json['language']),
-        title: _asString(json['title']),
-        codec: _asString(json['codec']),
-        url: _asString(json['url']),
-        isDefault: json['default'] == true,
-      );
+    index: _asInt(json['index']),
+    source: _asString(json['source']),
+    language: _asString(json['language']),
+    title: _asString(json['title']),
+    codec: _asString(json['codec']),
+    url: _asString(json['url']),
+    isDefault: json['default'] == true,
+  );
 }
 
 @immutable
@@ -206,6 +232,9 @@ class PlaybackDecision {
     required this.mode,
     required this.streamUrl,
     required this.mimeType,
+    this.container = '',
+    this.durationSec = 0,
+    this.bitRate = 0,
     required this.hwAccel,
     required this.targetVideo,
     required this.targetAudio,
@@ -220,6 +249,9 @@ class PlaybackDecision {
   final String mode;
   final String streamUrl;
   final String mimeType;
+  final String container;
+  final double durationSec;
+  final int bitRate;
   final String hwAccel;
   final String targetVideo;
   final String targetAudio;
@@ -241,6 +273,9 @@ class PlaybackDecision {
       mode: _asString(json['mode']),
       streamUrl: _asString(json['stream_url']),
       mimeType: _asString(json['mime_type']),
+      container: _asString(json['container']),
+      durationSec: _asDouble(json['duration_sec']),
+      bitRate: _asInt(json['bit_rate']),
       hwAccel: _asString(json['hwaccel']),
       targetVideo: _asString(json['target_video']),
       targetAudio: _asString(json['target_audio']),
@@ -248,8 +283,9 @@ class PlaybackDecision {
       targetBitrate: _asInt(json['target_bitrate']),
       reasons: _asStringList(json['reasons']),
       audioTracks: _asMapList(audio).map(AudioTrack.fromJson).toList(),
-      subtitleTracks:
-          _asMapList(subtitles).map(SubtitleTrack.fromJson).toList(),
+      subtitleTracks: _asMapList(
+        subtitles,
+      ).map(SubtitleTrack.fromJson).toList(),
       startSec: _asDouble(json['start_sec']),
     );
   }
@@ -275,7 +311,8 @@ class TranscodeStatus {
 
   bool get hasHardwareFallback => hwAccel.isNotEmpty && !hwDecodeOk;
 
-  factory TranscodeStatus.fromJson(Map<String, dynamic> json) => TranscodeStatus(
+  factory TranscodeStatus.fromJson(Map<String, dynamic> json) =>
+      TranscodeStatus(
         active: json['active'] == true,
         quality: _asString(json['quality']),
         hwAccel: _asString(json['hw_accel']),
@@ -287,7 +324,8 @@ class TranscodeStatus {
 
 String _asString(Object? value) => value?.toString() ?? '';
 
-int _asInt(Object? value) => value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+int _asInt(Object? value) =>
+    value is num ? value.toInt() : int.tryParse('$value') ?? 0;
 
 double _asDouble(Object? value) =>
     value is num ? value.toDouble() : double.tryParse('$value') ?? 0;

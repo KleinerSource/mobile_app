@@ -12,7 +12,9 @@ import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/pagination_footer.dart';
 import '../../shared/actor_avatar.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../actor_associations/widgets/actor_association_sync_sheet.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
@@ -30,6 +32,10 @@ class ActorMoviesPage extends ConsumerStatefulWidget {
 class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
   static const _pageSize = 30;
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
+  final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
+    _controller,
+  );
   int? _totalCount;
   late String _currentBiography;
   String? _avatarCacheBust;
@@ -44,6 +50,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -64,6 +71,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
       } else {
         _controller.appendPage(page.items, nextOffset);
       }
+      _scrollRestorer.restoreAfterPage(_scrollController);
     } catch (e) {
       _controller.error = toApiException(e).message;
     }
@@ -92,6 +100,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
       },
     );
     if (synced == true && mounted) {
+      _scrollRestorer.prepare(_scrollController, preserve: true);
       _controller.refresh();
     }
   }
@@ -110,6 +119,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
       body: GlowBackground(
         child: SafeArea(
           child: CustomScrollView(
+            controller: _scrollController,
             slivers: [
               SliverAppBar(
                 expandedHeight: 220,
@@ -161,10 +171,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
                         ),
                       ),
                       if (_totalCount != null)
-                        Text(
-                          '${_totalCount!} 部',
-                          style: AppText.meta(context),
-                        ),
+                        Text('${_totalCount!} 部', style: AppText.meta(context)),
                     ],
                   ),
                 ),
@@ -173,8 +180,8 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
                 padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
                 sliver: PagedSliverGrid<int, MovieListItem>(
                   pagingController: _controller,
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  showNoMoreItemsIndicatorAsGridChild: false,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
                     childAspectRatio: 0.55,
                     crossAxisSpacing: 10,
@@ -198,6 +205,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
                     ),
                     noItemsFoundIndicatorBuilder: (_) =>
                         const EmptyView(message: '没有该演员的影片'),
+                    noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                   ),
                 ),
               ),

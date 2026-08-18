@@ -162,15 +162,8 @@ class ResourcesRepository {
     }
   }
 
-  Future<ResourceItem> create(
-    ResourceKind kind, {
-    required String name,
-    String? description,
-  }) async {
+  Future<ResourceItem> create(ResourceKind kind, {required String name}) async {
     final body = <String, dynamic>{'name': name};
-    if (description != null && description.isNotEmpty) {
-      body['description'] = description;
-    }
     final raw = await _create(kind, body);
     return unwrapStd<ResourceItem>(
       raw,
@@ -182,11 +175,11 @@ class ResourcesRepository {
     ResourceKind kind,
     int id, {
     String? name,
-    String? description,
+    bool autoMapping = false,
   }) async {
     final body = <String, dynamic>{};
     if (name != null) body['name'] = name;
-    if (description != null) body['description'] = description;
+    body['auto_mapping'] = autoMapping;
     final raw = await _update(kind, id, body);
     return unwrapStd<ResourceItem>(
       raw,
@@ -200,6 +193,23 @@ class ResourcesRepository {
     bool force = false,
   }) async {
     final raw = await _batchDelete(kind, {'ids': ids, 'force': force});
+    unwrapStd<void>(raw, (_) {});
+  }
+
+  Future<void> merge(
+    ResourceKind kind, {
+    required List<int> sourceIds,
+    required String targetName,
+  }) async {
+    final type = switch (kind) {
+      ResourceKind.tag => 'tags',
+      ResourceKind.genre => 'genres',
+      ResourceKind.series => 'series',
+    };
+    final raw = await _client.catalog.merge(type, {
+      'source_ids': sourceIds,
+      'target_name': targetName,
+    });
     unwrapStd<void>(raw, (_) {});
   }
 }

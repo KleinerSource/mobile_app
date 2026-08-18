@@ -65,8 +65,12 @@ class PlaybackDecision {
 
     // 移动端 media_kit/libmpv 默认启用系统硬解。H.264/HEVC 先交给客户端，
     // 不因编码名称或 Android 平台差异强制创建服务端转码会话。
-    if (codec == 'h264' || codec == 'avc1' || codec == 'avc' ||
-        codec == 'hevc' || codec == 'h265' || codec == 'hvc1') {
+    if (codec == 'h264' ||
+        codec == 'avc1' ||
+        codec == 'avc' ||
+        codec == 'hevc' ||
+        codec == 'h265' ||
+        codec == 'hvc1') {
       return PlaybackSource(
         url: streamUrl,
         type: PlaybackSourceType.direct,
@@ -75,8 +79,10 @@ class PlaybackDecision {
     }
 
     // 10-bit / 422 等其他编码的高色深 → HLS 转码
-    if (pixFmt.contains('10') || pixFmt.contains('p10') ||
-        pixFmt.contains('422') || pixFmt.contains('444')) {
+    if (pixFmt.contains('10') ||
+        pixFmt.contains('p10') ||
+        pixFmt.contains('422') ||
+        pixFmt.contains('444')) {
       return PlaybackSource(
         url: hlsUrl,
         type: PlaybackSourceType.hls,

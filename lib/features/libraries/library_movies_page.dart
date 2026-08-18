@@ -12,6 +12,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/pagination_footer.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
@@ -31,10 +32,10 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
   Completer<void>? _refreshCompleter;
 
   MovieFilter get _filter => MovieFilter(
-        libraryId: widget.library.id,
-        sortBy: 'created_at',
-        sortOrder: 'desc',
-      );
+    libraryId: widget.library.id,
+    sortBy: 'created_at',
+    sortOrder: 'desc',
+  );
 
   @override
   void initState() {
@@ -102,58 +103,59 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-            SliverAppBar(
-              expandedHeight: 180,
-              pinned: true,
-              backgroundColor: c.bg,
-              surfaceTintColor: Colors.transparent,
-              leading: IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: c.surface.withValues(alpha: 0.6),
-                    shape: BoxShape.circle,
+              SliverAppBar(
+                expandedHeight: 180,
+                pinned: true,
+                backgroundColor: c.bg,
+                surfaceTintColor: Colors.transparent,
+                leading: IconButton(
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: c.surface.withValues(alpha: 0.6),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.arrow_back, size: 18),
                   ),
-                  child: const Icon(Icons.arrow_back, size: 18),
+                  onPressed: () => Navigator.of(context).maybePop(),
                 ),
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
-              flexibleSpace: FlexibleSpaceBar(
-                background: _Hero(library: widget.library, hue: hue),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(22, 18, 22, 80),
-              sliver: PagedSliverGrid<int, MovieListItem>(
-                pagingController: _controller,
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  childAspectRatio: 0.55,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 14,
+                flexibleSpace: FlexibleSpaceBar(
+                  background: _Hero(library: widget.library, hue: hue),
                 ),
-                builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
-                  itemBuilder: (ctx, m, idx) => MovieCard(
-                    movie: m,
-                    posterUrlBuilder: urlBuilder,
-                    onTap: () => Navigator.of(ctx).push(
-                      MaterialPageRoute(
-                        builder: (_) => MovieDetailPage(movieId: m.id),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(22, 18, 22, 80),
+                sliver: PagedSliverGrid<int, MovieListItem>(
+                  pagingController: _controller,
+                  showNoMoreItemsIndicatorAsGridChild: false,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    childAspectRatio: 0.55,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 14,
+                  ),
+                  builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
+                    itemBuilder: (ctx, m, idx) => MovieCard(
+                      movie: m,
+                      posterUrlBuilder: urlBuilder,
+                      onTap: () => Navigator.of(ctx).push(
+                        MaterialPageRoute(
+                          builder: (_) => MovieDetailPage(movieId: m.id),
+                        ),
                       ),
                     ),
+                    firstPageProgressIndicatorBuilder: (_) =>
+                        const Center(child: CupertinoActivityIndicator()),
+                    firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                      message: _controller.error?.toString() ?? '加载失败',
+                      onRetry: () => _controller.refresh(),
+                    ),
+                    noItemsFoundIndicatorBuilder: (_) =>
+                        const EmptyView(message: '这个媒体库还没有影片'),
+                    noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                   ),
-                  firstPageProgressIndicatorBuilder: (_) =>
-                      const Center(child: CupertinoActivityIndicator()),
-                  firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                    message: _controller.error?.toString() ?? '加载失败',
-                    onRetry: () => _controller.refresh(),
-                  ),
-                  noItemsFoundIndicatorBuilder: (_) =>
-                      const EmptyView(message: '这个媒体库还没有影片'),
                 ),
               ),
-            ),
             ],
           ),
         ),

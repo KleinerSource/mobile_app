@@ -68,6 +68,15 @@ class _MainShellState extends State<MainShell> {
         ),
       ),
       GlassMenuEntry<_YouQuickAction>.action(
+        value: _YouQuickAction.series,
+        builder: (context, selected, onTap) => GlassMenuRow(
+          icon: Icons.collections_bookmark_outlined,
+          label: l.settingsSeries,
+          selected: selected,
+          onTap: onTap,
+        ),
+      ),
+      GlassMenuEntry<_YouQuickAction>.action(
         value: _YouQuickAction.actors,
         builder: (context, selected, onTap) => GlassMenuRow(
           icon: Icons.people_outline,
@@ -86,6 +95,8 @@ class _MainShellState extends State<MainShell> {
       _YouQuickAction.tags => const ResourceListPage(kind: ResourceKind.tag),
       _YouQuickAction.genres =>
         const ResourceListPage(kind: ResourceKind.genre),
+      _YouQuickAction.series =>
+        const ResourceListPage(kind: ResourceKind.series),
       _YouQuickAction.actors => const ActorManagementPage(),
     };
     await Navigator.of(context).push(
@@ -142,7 +153,7 @@ class _MainShellState extends State<MainShell> {
 
 }
 
-enum _YouQuickAction { libraries, tags, genres, actors }
+enum _YouQuickAction { libraries, tags, genres, series, actors }
 
 class _TabSpec {
   const _TabSpec({required this.label, required this.icon});

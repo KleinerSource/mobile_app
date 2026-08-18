@@ -8,7 +8,6 @@ abstract class ResourceItem with _$ResourceItem {
   const factory ResourceItem({
     required int id,
     required String name,
-    String? description,
     @JsonKey(name: 'movie_count') @Default(0) int movieCount,
   }) = _ResourceItem;
 

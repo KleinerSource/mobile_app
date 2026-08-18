@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/api/envelope.dart';
@@ -11,9 +12,14 @@ import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../shared/drag_selection.dart';
+import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/actor_avatar.dart';
+import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
+import '../../shared/pagination_footer.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../actor_associations/actor_associations_providers.dart';
 import '../actor_associations/actor_associations_repository.dart';
 import '../person_detail/person_detail_page.dart';
@@ -34,55 +40,42 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   static const _pageSize = 100;
 
   final _searchController = TextEditingController();
+  final _controller = PagingController<int, ActorRow>(firstPageKey: 0);
   final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<ActorRow>(
+    _controller,
+  );
   Timer? _searchDebounce;
   String? _search;
   String _sortBy = 'movie_count';
   String _sortOrder = 'desc';
-  List<ActorRow> _items = const [];
   // 折叠关联演员：已展开的主行 id，各行的展开状态相互独立。
   final Set<int> _expandedIds = <int>{};
   int _totalCount = 0;
-  int _nextOffset = 0;
-  bool _hasMore = false;
-  bool _loading = false;
   bool _hasLoaded = false;
-  Object? _error;
   int _requestSerial = 0;
+  bool _selectionMode = false;
+  final Set<int> _selectedIds = <int>{};
+  Completer<void>? _refreshCompleter;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
-    unawaited(_fetch(reset: true));
+    _controller.addPageRequestListener(_fetch);
   }
 
   @override
   void dispose() {
+    _completeRefresh();
     _searchDebounce?.cancel();
+    _controller.dispose();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  void _onScroll() {
-    if (!_scrollController.hasClients ||
-        _scrollController.position.extentAfter > 280 ||
-        _error != null) {
-      return;
-    }
-    unawaited(_fetch(reset: false));
-  }
-
-  Future<void> _fetch({
-    required bool reset,
-    bool preserveScroll = false,
-  }) async {
-    if (!reset && (_loading || !_hasMore)) return;
-
-    final keepExistingItems = reset && preserveScroll && _items.isNotEmpty;
-    final requestSerial = reset ? ++_requestSerial : _requestSerial;
-    final offset = reset ? 0 : _nextOffset;
+  Future<void> _fetch(int offset) async {
+    final requestSerial = _requestSerial;
     final query = <String, dynamic>{
       'limit': _pageSize,
       'offset': offset,
@@ -92,17 +85,6 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       'collapse_associations': true,
       if (_search != null) 'search': _search,
     };
-    setState(() {
-      _loading = true;
-      _error = null;
-      if (reset && !keepExistingItems) {
-        _items = const [];
-        _totalCount = 0;
-        _nextOffset = 0;
-        _hasMore = false;
-        _hasLoaded = false;
-      }
-    });
 
     try {
       final raw = await ref.read(requiredApiClientProvider).actors.list(query);
@@ -110,36 +92,51 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       if (!mounted || requestSerial != _requestSerial) return;
 
       final rows = ActorRow.parseRows(raw, page.items);
-      final refreshedById = {
-        for (final row in rows) row.id: row,
-      };
-      final existingIds = _items.map((row) => row.id).toSet();
-      final newRows = rows.where((row) => existingIds.add(row.id)).toList();
-      final items = keepExistingItems
-          ? [
-              for (final row in _items) refreshedById[row.id] ?? row,
-            ]
-          : [..._items, ...newRows];
-      final nextOffset = keepExistingItems && _nextOffset > page.items.length
-          ? _nextOffset
-          : offset + page.items.length;
       setState(() {
-        _items = items;
         _totalCount = page.totalCount;
-        _nextOffset = nextOffset;
-        _hasMore = keepExistingItems
-            ? _nextOffset < page.totalCount
-            : page.hasMore && newRows.isNotEmpty;
-        _loading = false;
         _hasLoaded = true;
       });
+      final nextOffset = offset + page.items.length;
+      if (nextOffset >= page.totalCount || page.items.isEmpty) {
+        _controller.appendLastPage(rows);
+      } else {
+        _controller.appendPage(rows, nextOffset);
+      }
+      _scrollRestorer.restoreAfterPage(_scrollController);
+      _completeRefresh();
     } catch (error) {
       if (!mounted || requestSerial != _requestSerial) return;
+      _controller.error = toApiException(error).message;
+      _completeRefresh();
+    }
+  }
+
+  void _reload({bool preserveScroll = false}) {
+    _requestSerial++;
+    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
+    if (mounted) {
       setState(() {
-        _error = error;
-        _loading = false;
+        _hasLoaded = false;
+        _totalCount = 0;
       });
     }
+    _controller.refresh();
+  }
+
+  Future<void> _refresh({bool preserveScroll = false}) {
+    final pending = _refreshCompleter;
+    if (pending != null) return pending.future;
+
+    final completer = Completer<void>();
+    _refreshCompleter = completer;
+    _reload(preserveScroll: preserveScroll);
+    return completer.future;
+  }
+
+  void _completeRefresh() {
+    final completer = _refreshCompleter;
+    _refreshCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
   }
 
   void _onSearchChanged(String value) {
@@ -149,7 +146,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       setState(() {
         _search = value.trim().isEmpty ? null : value.trim();
       });
-      unawaited(_fetch(reset: true));
+      _reload();
     });
   }
 
@@ -162,12 +159,117 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         _sortOrder = field == 'movie_count' ? 'desc' : 'asc';
       }
     });
-    unawaited(_fetch(reset: true));
+    _reload();
     AppHaptics.selection();
   }
 
-  Future<void> _refresh() async {
-    await _fetch(reset: true, preserveScroll: true);
+  void _startSelectionSweep(int id, bool selected) {
+    setState(() {
+      _selectionMode = true;
+      _setSelectionValue(id, selected);
+    });
+  }
+
+  void _applySelectionSweep(int id, bool selected) {
+    if (_selectedIds.contains(id) == selected) return;
+    setState(() => _setSelectionValue(id, selected));
+  }
+
+  void _finishSelectionSweep() {
+    if (_selectionMode && _selectedIds.isEmpty) _exitSelection();
+  }
+
+  void _setSelectionValue(int id, bool selected) {
+    if (selected) {
+      _selectedIds.add(id);
+    } else {
+      _selectedIds.remove(id);
+    }
+  }
+
+  void _toggleSelect(int id) {
+    setState(() {
+      if (_selectedIds.remove(id)) {
+        if (_selectedIds.isEmpty) _selectionMode = false;
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  void _selectAllLoaded() {
+    final loaded = _controller.itemList ?? const <ActorRow>[];
+    setState(() {
+      _selectedIds
+        ..clear()
+        ..addAll(loaded.map((row) => row.id));
+    });
+  }
+
+  List<ActorItem> _selectedActors() {
+    final loaded = _controller.itemList ?? const <ActorRow>[];
+    return loaded
+        .where((row) => _selectedIds.contains(row.id))
+        .map((row) => row.actor)
+        .toList();
+  }
+
+  Future<void> _onBatchDelete() async {
+    final actors = _selectedActors();
+    if (actors.isEmpty) return;
+    final force = actors.any((actor) => actor.movieCount > 0);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('批量删除演员'),
+        content: Text(
+          force
+              ? '已选择 ${actors.length} 位演员，其中包含影片关联。强制删除会解除关联，影片本身不会被删除。'
+              : '确定删除已选择的 ${actors.length} 位演员吗？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(force ? '强制删除' : '删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final raw = await ref
+          .read(requiredApiClientProvider)
+          .catalog
+          .deleteActors({
+            'ids': actors.map((actor) => actor.id).toList(),
+            'force': force,
+          });
+      unwrapStd<void>(raw, (_) {});
+      if (!mounted) return;
+      AppHaptics.medium();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已删除 ${actors.length} 位演员')));
+      _exitSelection();
+      _reload(preserveScroll: true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('批量删除失败: ${toApiException(error).message}')),
+      );
+    }
   }
 
   void _removeDeletedActor(int actorId) {
@@ -175,7 +277,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     var removedMainRow = false;
     final nextItems = <ActorRow>[];
 
-    for (final row in _items) {
+    for (final row in _controller.itemList ?? const <ActorRow>[]) {
       if (row.id == actorId) {
         changed = true;
         removedMainRow = true;
@@ -187,17 +289,15 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
           .toList(growable: false);
       if (remainingMembers.length != row.members.length) {
         changed = true;
-        nextItems.add(
-          ActorRow(actor: row.actor, members: remainingMembers),
-        );
+        nextItems.add(ActorRow(actor: row.actor, members: remainingMembers));
       } else {
         nextItems.add(row);
       }
     }
 
     if (!changed || !mounted) return;
+    _controller.itemList = nextItems;
     setState(() {
-      _items = nextItems;
       if (removedMainRow && _totalCount > 0) _totalCount -= 1;
       _expandedIds.remove(actorId);
     });
@@ -216,239 +316,228 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final items = _items;
 
     return Scaffold(
       backgroundColor: c.bg,
-      body: GlowBackground(
-        child: SafeArea(
-          child: SettingsFixedHeaderLayout(
-            scrollController: _scrollController,
-            header: SettingsSubPageHeader(
-              eyebrow: l.settingsGroupLibrary,
-              title: l.settingsActors,
-              trailing: SettingsAddButton(
-                onPressed: () => _showEditor(context),
+      bottomNavigationBar: _selectionMode
+          ? EntityBatchToolbar(
+              selectedCount: _selectedIds.length,
+              onSelectAll: _selectAllLoaded,
+              onClear: () => setState(() => _selectedIds.clear()),
+              onClose: _exitSelection,
+              actions: [
+                EntityBatchAction(
+                  icon: Icons.delete_outline,
+                  label: '删除',
+                  color: c.danger,
+                  onTap: _selectedIds.isEmpty ? null : _onBatchDelete,
+                ),
+              ],
+            )
+          : null,
+      body: PopScope(
+        canPop: !_selectionMode,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _selectionMode) _exitSelection();
+        },
+        child: GlowBackground(
+          child: SafeArea(
+            child: SettingsFixedHeaderLayout(
+              scrollController: _scrollController,
+              header: SettingsSubPageHeader(
+                eyebrow: l.settingsGroupLibrary,
+                title: l.settingsActors,
+                trailing: SettingsAddButton(
+                  onPressed: () => _showEditor(context),
+                ),
               ),
-            ),
-            body: RefreshIndicator(
-              color: c.accent,
-              onRefresh: _refresh,
-              child: CustomScrollView(
-                primary: true,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            _hasLoaded ? '$_totalCount' : '—',
-                            style: AppText.pageTitle(context),
-                          ),
-                          const SizedBox(width: 8),
-                          Text('位演员', style: AppText.meta(context)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: c.surface,
-                          border: Border.all(color: c.cardBorder),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Row(
-                          children: [
-                            const SizedBox(width: 14),
-                            Icon(Icons.search, size: 18, color: c.muted),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: TextField(
-                                controller: _searchController,
-                                onChanged: _onSearchChanged,
-                                decoration: const InputDecoration(
-                                  hintText: '搜索演员名称',
-                                  isCollapsed: true,
-                                  contentPadding: EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  border: InputBorder.none,
-                                ),
-                                style: TextStyle(
-                                  color: c.text,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            if (_searchController.text.isNotEmpty)
-                              IconButton(
-                                icon: Icon(
-                                  Icons.close,
-                                  size: 16,
-                                  color: c.muted,
-                                ),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _onSearchChanged('');
-                                },
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 36,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 22),
-                        children: [
-                          CompactSortButton(
-                            label: '影片数',
-                            active: _sortBy == 'movie_count',
-                            ascending: _sortOrder == 'asc',
-                            onTap: () => _setSort('movie_count'),
-                          ),
-                          const SizedBox(width: 7),
-                          CompactSortButton(
-                            label: '名称',
-                            active: _sortBy == 'name',
-                            ascending: _sortOrder == 'asc',
-                            onTap: () => _setSort('name'),
-                          ),
-                          const SizedBox(width: 7),
-                          CompactSortButton(
-                            label: '创建时间',
-                            active: _sortBy == 'created_at',
-                            ascending: _sortOrder == 'asc',
-                            onTap: () => _setSort('created_at'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 10)),
-                  if (_loading && !_hasLoaded)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (_error != null && items.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
+              body: RefreshIndicator(
+                color: c.accent,
+                onRefresh: _refresh,
+                child: DragSelectionScope<int>(
+                  scrollController: _scrollController,
+                  selectionLayout: DragSelectionLayout.list,
+                  isSelected: _selectedIds.contains,
+                  onSelectionStart: _startSelectionSweep,
+                  onSelectionChanged: _applySelectionSweep,
+                  onSelectionEnd: _finishSelectionSweep,
+                  selectionMode: _selectionMode,
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
                         child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
+                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
                             children: [
                               Text(
-                                '加载失败: ${toApiException(_error!).message}',
-                                style: AppText.body(context),
-                                textAlign: TextAlign.center,
+                                _hasLoaded ? '$_totalCount' : '—',
+                                style: AppText.pageTitle(context),
                               ),
-                              const SizedBox(height: 10),
-                              TextButton(
-                                onPressed: () => unawaited(_fetch(reset: true)),
-                                child: const Text('点击重试'),
+                              const SizedBox(width: 8),
+                              Text('位演员', style: AppText.meta(context)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: c.surface,
+                              border: Border.all(color: c.cardBorder),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 14),
+                                Icon(Icons.search, size: 18, color: c.muted),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _searchController,
+                                    onChanged: _onSearchChanged,
+                                    decoration: const InputDecoration(
+                                      hintText: '搜索演员名称',
+                                      isCollapsed: true,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      border: InputBorder.none,
+                                    ),
+                                    style: TextStyle(
+                                      color: c.text,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                if (_searchController.text.isNotEmpty)
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.close,
+                                      size: 16,
+                                      color: c.muted,
+                                    ),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      _onSearchChanged('');
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: SizedBox(
+                          height: 36,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 22),
+                            children: [
+                              CompactSortButton(
+                                label: '影片数',
+                                active: _sortBy == 'movie_count',
+                                ascending: _sortOrder == 'asc',
+                                onTap: () => _setSort('movie_count'),
+                              ),
+                              const SizedBox(width: 7),
+                              CompactSortButton(
+                                label: '名称',
+                                active: _sortBy == 'name',
+                                ascending: _sortOrder == 'asc',
+                                onTap: () => _setSort('name'),
+                              ),
+                              const SizedBox(width: 7),
+                              CompactSortButton(
+                                label: '创建时间',
+                                active: _sortBy == 'created_at',
+                                ascending: _sortOrder == 'asc',
+                                onTap: () => _setSort('created_at'),
                               ),
                             ],
                           ),
                         ),
                       ),
-                    )
-                  else if (items.isEmpty && _hasLoaded)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: _EmptyActors(),
-                    )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
-                      sliver: SliverList.builder(
-                        itemCount: items.length + (_hasMore ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index >= items.length) {
-                            if (_error != null) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                child: Center(
-                                  child: TextButton(
-                                    onPressed: () =>
-                                        unawaited(_fetch(reset: false)),
-                                    child: const Text('加载更多失败，点击重试'),
+                      const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(
+                          22,
+                          0,
+                          22,
+                          _selectionMode ? 136 : 80,
+                        ),
+                        sliver: PagedSliverList<int, ActorRow>(
+                          pagingController: _controller,
+                          builderDelegate: PagedChildBuilderDelegate<ActorRow>(
+                            itemBuilder: (context, row, index) {
+                              final actor = row.actor;
+                              return DragSelectionTarget<int>(
+                                key: ValueKey(row.id),
+                                id: row.id,
+                                child: _ActorTile(
+                                  row: row,
+                                  hue: AppHues.all[index % AppHues.all.length],
+                                  isExpanded: _expandedIds.contains(row.id),
+                                  selectionMode: _selectionMode,
+                                  selected: _selectedIds.contains(row.id),
+                                  onSelectionTap: () => _toggleSelect(row.id),
+                                  onToggleExpand: () => _toggleExpand(row.id),
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => PersonDetailPage(
+                                        actorId: actor.id,
+                                        name: actor.name,
+                                        actorType: actor.actorType,
+                                        biography: actor.biography,
+                                        avatarPath: actor.avatarPath,
+                                        onUpdated: () =>
+                                            _refresh(preserveScroll: true),
+                                      ),
+                                    ),
+                                  ),
+                                  onEdit: () =>
+                                      _showEditor(context, actor: actor),
+                                  onDelete: () =>
+                                      _confirmDelete(context, actor),
+                                  onEditMember: (member) => _showEditor(
+                                    context,
+                                    actor: member.asActorItem,
+                                  ),
+                                  onDeleteMember: (member) => _confirmDelete(
+                                    context,
+                                    member.asActorItem,
+                                    force: true,
                                   ),
                                 ),
                               );
-                            }
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              child: Center(
-                                child: SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
+                            },
+                            firstPageProgressIndicatorBuilder: (_) =>
+                                const Center(
+                                  child: CircularProgressIndicator(),
                                 ),
-                              ),
-                            );
-                          }
-                          final row = items[index];
-                          final actor = row.actor;
-                          return _ActorTile(
-                            row: row,
-                            hue: AppHues.all[index % AppHues.all.length],
-                            isExpanded: _expandedIds.contains(row.id),
-                            onToggleExpand: () => _toggleExpand(row.id),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => PersonDetailPage(
-                                  actorId: actor.id,
-                                  name: actor.name,
-                                  actorType: actor.actorType,
-                                  biography: actor.biography,
-                                  avatarPath: actor.avatarPath,
-                                  onUpdated: _refresh,
+                            firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                              message: _controller.error?.toString() ?? '加载失败',
+                              onRetry: _controller.refresh,
+                            ),
+                            newPageErrorIndicatorBuilder: (_) =>
+                                PaginationRetry(
+                                  onRetry: _controller.retryLastFailedRequest,
                                 ),
-                              ),
-                            ),
-                            onEdit: () => _showEditor(
-                              context,
-                              actor: actor,
-                            ),
-                            onDelete: () => _confirmDelete(
-                              context,
-                              actor,
-                            ),
-                            onEditMember: (member) => _showEditor(
-                              context,
-                              actor: member.asActorItem,
-                            ),
-                            onDeleteMember: (member) => _confirmDelete(
-                              context,
-                              member.asActorItem,
-                              force: true,
-                            ),
-                          );
-                        },
+                            noItemsFoundIndicatorBuilder: (_) =>
+                                const _EmptyActors(),
+                            noMoreItemsIndicatorBuilder: (_) =>
+                                const NoMoreContent(),
+                          ),
+                        ),
                       ),
-                    ),
-                  if (_loading && _hasLoaded)
-                    const SliverToBoxAdapter(
-                      child: LinearProgressIndicator(minHeight: 2),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -457,10 +546,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     );
   }
 
-  Future<void> _showEditor(
-    BuildContext context, {
-    ActorItem? actor,
-  }) async {
+  Future<void> _showEditor(BuildContext context, {ActorItem? actor}) async {
     final associationData = actor == null
         ? const _ActorAssociationData.empty()
         : await _loadActorAssociation(actor.name);
@@ -468,10 +554,12 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
 
     final c = appColors(context);
     final nameController = TextEditingController(text: actor?.name ?? '');
-    final biographyController =
-        TextEditingController(text: actor?.biography ?? '');
-    final associationController =
-        TextEditingController(text: associationData.aliases.join('\n'));
+    final biographyController = TextEditingController(
+      text: actor?.biography ?? '',
+    );
+    final associationController = TextEditingController(
+      text: associationData.aliases.join('\n'),
+    );
     final isEdit = actor != null;
 
     final draft = await showModalBottomSheet<_ActorDraft>(
@@ -598,7 +686,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       messenger.showSnackBar(
         SnackBar(content: Text(isEdit ? '演员已保存' : '演员已创建')),
       );
-      await _refresh();
+      await _refresh(preserveScroll: isEdit);
     } catch (error) {
       messenger.showSnackBar(
         SnackBar(content: Text('操作失败: ${toApiException(error).message}')),
@@ -608,11 +696,11 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
 
   Future<_ActorAssociationData> _loadActorAssociation(String actorName) async {
     try {
-      final rules = (await ref.read(actorAssociationsRepositoryProvider).list(
-            limit: 100,
-            search: actorName,
-          ))
-          .items;
+      final rules =
+          (await ref
+                  .read(actorAssociationsRepositoryProvider)
+                  .list(limit: 100, search: actorName))
+              .items;
       final normalizedName = _normalizeActorName(actorName);
       MappingRule? rule;
       for (final item in rules) {
@@ -634,6 +722,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         rule: rule,
         isCanonical: isCanonical,
         aliases: List<String>.from(rule.originalValues),
+        loaded: true,
       );
     } catch (_) {
       // 演员资料仍可编辑；关联接口不可用时不覆盖已有规则。
@@ -689,8 +778,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
           hasMovies
               ? '「${actor.name}」关联了 ${actor.movieCount} 部影片。强制删除将解除关联,影片本身不会被删除。'
               : force
-                  ? '「${actor.name}」是关联名称,删除将解除其影片关联,影片本身不会被删除。'
-                  : '确定删除「${actor.name}」?',
+              ? '「${actor.name}」是关联名称,删除将解除其影片关联,影片本身不会被删除。'
+              : '确定删除「${actor.name}」?',
         ),
         actions: [
           TextButton(
@@ -708,17 +797,18 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
 
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final raw = await ref.read(requiredApiClientProvider).catalog.deleteActors(
-        {
-          'ids': [actor.id],
-          'force': willForce,
-        },
-      );
+      final raw = await ref
+          .read(requiredApiClientProvider)
+          .catalog
+          .deleteActors({
+            'ids': [actor.id],
+            'force': willForce,
+          });
       unwrapStd<void>(raw, (_) {});
       _removeDeletedActor(actor.id);
       AppHaptics.medium();
       messenger.showSnackBar(const SnackBar(content: Text('演员已删除')));
-      await _refresh();
+      await _refresh(preserveScroll: true);
     } catch (error) {
       messenger.showSnackBar(
         SnackBar(content: Text('删除失败: ${toApiException(error).message}')),
@@ -744,16 +834,14 @@ class _ActorAssociationData {
     this.rule,
     this.isCanonical = true,
     this.aliases = const <String>[],
-    this.loaded = true,
+    required this.loaded,
   });
 
-  const _ActorAssociationData.empty() : this();
+  const _ActorAssociationData.empty() : this(loaded: true);
 
-  const _ActorAssociationData.loaded()
-      : this(loaded: true);
+  const _ActorAssociationData.loaded() : this(loaded: true);
 
-  const _ActorAssociationData.unavailable()
-      : this(loaded: false);
+  const _ActorAssociationData.unavailable() : this(loaded: false);
 
   final MappingRule? rule;
   final bool isCanonical;
@@ -768,6 +856,9 @@ class _ActorTile extends StatelessWidget {
     required this.row,
     required this.hue,
     required this.isExpanded,
+    required this.selectionMode,
+    required this.selected,
+    required this.onSelectionTap,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
@@ -779,6 +870,9 @@ class _ActorTile extends StatelessWidget {
   final ActorRow row;
   final int hue;
   final bool isExpanded;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback onSelectionTap;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -800,7 +894,8 @@ class _ActorTile extends StatelessWidget {
       avatarPath: actor.avatarPath,
     );
     // 有关联成员的主行：头像边框提示可展开，点击头像单独展开/收起子行。
-    final expandableAvatar = row.hasMembers && onToggleExpand != null
+    final expandableAvatar =
+        !selectionMode && row.hasMembers && onToggleExpand != null
         ? _ExpandableAvatar(
             expanded: isExpanded,
             color: c.accent,
@@ -811,13 +906,16 @@ class _ActorTile extends StatelessWidget {
     return PrivacyAwareInkWell(
       movieId: actor.id,
       scope: PrivacyScope.actor,
-      onTap: onTap,
+      onTap: selectionMode ? onSelectionTap : onTap,
       borderRadius: 14,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
           color: c.surface,
-          border: Border.all(color: c.cardBorder),
+          border: Border.all(
+            color: selected ? c.accent : c.cardBorder,
+            width: selected ? 1.5 : 1,
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         clipBehavior: Clip.hardEdge,
@@ -828,9 +926,22 @@ class _ActorTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   child: Row(
                     children: [
+                      if (selectionMode) ...[
+                        Icon(
+                          selected
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_unchecked,
+                          size: 20,
+                          color: selected ? c.accent : c.muted,
+                        ),
+                        const SizedBox(width: 10),
+                      ],
                       PrivacyMask(
                         movieId: actor.id,
                         scope: PrivacyScope.actor,
@@ -1058,14 +1169,8 @@ class _ActorMemberRow extends StatelessWidget {
               }
             },
             itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: _ActorMenuAction.edit,
-                child: Text('编辑'),
-              ),
-              PopupMenuItem(
-                value: _ActorMenuAction.delete,
-                child: Text('删除'),
-              ),
+              PopupMenuItem(value: _ActorMenuAction.edit, child: Text('编辑')),
+              PopupMenuItem(value: _ActorMenuAction.delete, child: Text('删除')),
             ],
           ),
         ],

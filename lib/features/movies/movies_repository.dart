@@ -5,7 +5,7 @@ import '../../core/api/services/favorites_api.dart';
 import '../../core/api/services/movies_api.dart';
 import '../../core/api/services/movies_extended_api.dart';
 import '../../core/api/services/system_api.dart';
-import '../../core/models/media_info.dart';
+import '../../core/models/media_streams.dart';
 import '../../core/models/movie.dart';
 import '../../core/models/paged_result.dart';
 import '../../core/models/resource_scan.dart';
@@ -63,12 +63,13 @@ class MoviesRepository {
     await api.downloadDbonlineExtrafanart(id);
   }
 
-  Future<MediaInfo?> mediaInfo(int id) async {
+  /// 一次请求返回文件级摘要与 video / audio_streams / subtitle_streams。
+  Future<MediaInfoDetail?> mediaInfoDetail(int id) async {
     try {
       final raw = await _api.getMediaInfo(id);
-      return unwrapStd<MediaInfo?>(raw, (d) {
+      return unwrapStd<MediaInfoDetail?>(raw, (d) {
         if (d is Map) {
-          return MediaInfo.fromJson(Map<String, dynamic>.from(d));
+          return MediaInfoDetail.fromJson(Map<String, dynamic>.from(d));
         }
         return null;
       });

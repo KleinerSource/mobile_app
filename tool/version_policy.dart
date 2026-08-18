@@ -1,9 +1,9 @@
 /// 应用版本的递增类型。
 enum VersionBump {
-  /// 新建用户能力: x.y.z -> x.(y + 1).0。
+  /// 新增、删除或增强功能: x.y.z -> x.(y + 1).0。
   feature,
 
-  /// 修复 bug 或调整既有行为: x.y.z -> x.y.(z + 1)。
+  /// 优化、修复 bug 或改进既有行为: x.y.z -> x.y.(z + 1)。
   bugFix,
 
   /// 只生成新的构建产物: x.y.z+b -> x.y.z+(b + 1)。
@@ -27,9 +27,24 @@ VersionBump versionBumpForCommit(String commitMessage) {
 
   if (type == 'feat' ||
       type == 'feature' ||
+      type == 'add' ||
+      type == 'enhance' ||
+      type == 'enhancement' ||
+      type == 'remove' ||
+      type == 'delete' ||
       (type == null &&
-          ['新增功能', '新增', '添加', '补上', '支持', '实现', '引入']
-              .any(normalized.contains))) {
+          [
+            '新增功能',
+            '新增',
+            '添加',
+            '补上',
+            '支持',
+            '实现',
+            '引入',
+            '删除',
+            '移除',
+            '增强',
+          ].any(normalized.contains))) {
     return VersionBump.feature;
   }
 

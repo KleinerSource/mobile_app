@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum HapticIntensity {
+  off('off', '关闭'),
   low('low', '轻'),
   standard('standard', '标准'),
   high('high', '强');
@@ -44,6 +45,7 @@ abstract final class AppHaptics {
   }
 
   static void selection() {
+    if (_intensity == HapticIntensity.off) return;
     final now = DateTime.now();
     final previous = _lastSelectionAt;
     if (previous != null &&
@@ -54,9 +56,15 @@ abstract final class AppHaptics {
     _send(_selectionEffect());
   }
 
-  static void light() => _send(_lightEffect());
+  static void light() {
+    if (_intensity == HapticIntensity.off) return;
+    _send(_lightEffect());
+  }
 
-  static void medium() => _send(_mediumEffect());
+  static void medium() {
+    if (_intensity == HapticIntensity.off) return;
+    _send(_mediumEffect());
+  }
 
   /// 为开关统一添加反馈，禁用状态保持原来的 null 回调语义。
   static ValueChanged<bool>? wrapToggle(ValueChanged<bool>? onChanged) {
@@ -73,6 +81,7 @@ abstract final class AppHaptics {
 
   static Future<void> _selectionEffect() {
     return switch (_intensity) {
+      HapticIntensity.off => Future<void>.value(),
       HapticIntensity.low => HapticFeedback.selectionClick(),
       HapticIntensity.standard => HapticFeedback.lightImpact(),
       HapticIntensity.high => HapticFeedback.mediumImpact(),
@@ -81,6 +90,7 @@ abstract final class AppHaptics {
 
   static Future<void> _lightEffect() {
     return switch (_intensity) {
+      HapticIntensity.off => Future<void>.value(),
       HapticIntensity.low => HapticFeedback.selectionClick(),
       HapticIntensity.standard => HapticFeedback.lightImpact(),
       HapticIntensity.high => HapticFeedback.mediumImpact(),
@@ -89,6 +99,7 @@ abstract final class AppHaptics {
 
   static Future<void> _mediumEffect() {
     return switch (_intensity) {
+      HapticIntensity.off => Future<void>.value(),
       HapticIntensity.low => HapticFeedback.lightImpact(),
       HapticIntensity.standard => HapticFeedback.mediumImpact(),
       HapticIntensity.high => HapticFeedback.heavyImpact(),

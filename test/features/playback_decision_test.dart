@@ -34,8 +34,11 @@ void main() {
         ),
       );
 
-      expect(source.type, player_decision.PlaybackSourceType.direct,
-          reason: codec);
+      expect(
+        source.type,
+        player_decision.PlaybackSourceType.direct,
+        reason: codec,
+      );
       expect(source.url, '/stream', reason: codec);
     }
   });

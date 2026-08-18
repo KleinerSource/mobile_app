@@ -43,7 +43,7 @@ jobs:
         timeout-minutes: 2
         run: |
           set -euo pipefail
-          # feat: 次版本号 +1 且补丁号归零；fix/优化: 补丁号 +1；构建始终只增加 build。
+          # 新增/删除/增强功能: 次版本号 +1 且补丁号归零；优化/修复/改进: 补丁号 +1；构建始终只增加 build。
           commit_message="$(git log -1 --format=%B "${GITHUB_SHA}")"
           version="$(dart tool/bump_app_version.dart --auto --commit-message "${commit_message}")"
           echo "构建版本: ${version}"
@@ -208,8 +208,7 @@ jobs:
           notes_file="$(mktemp)"
           trap 'rm -f "${notes_file}"' EXIT
           bash tool/generate_release_notes.sh \
-            latest-android "${version}" "${notes_file}" \
-            '未签名 Android 构建产物（自动滚动更新）'
+            latest-android "${version}" "${notes_file}"
           gh release delete latest-android --yes --cleanup-tag || true
           gh release create latest-android "${{ steps.android_artifact.outputs.path }}" \
             --prerelease \

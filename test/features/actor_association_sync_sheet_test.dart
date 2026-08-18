@@ -264,7 +264,147 @@ void main() {
     applyCompletion.complete();
     await tester.pumpAndSettle();
   });
+
+  testWidgets('头像候选选择器会在异步头像完成后立即刷新', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final firstAvatar = Completer<List<int>>();
+    final secondAvatar = Completer<List<int>>();
+    final repository = _AvatarPickerRepository(
+      firstAvatar.future,
+      secondAvatar.future,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          dboConfigProvider.overrideWith(
+            (ref) async => const DboConfig(
+              enabled: true,
+              baseUrl: 'https://dbo.example',
+              apiKey: 'dbo-key',
+            ),
+          ),
+          avdbConfigProvider.overrideWith(
+            (ref) async => const AvdbConfig(
+              enabled: false,
+              baseUrl: '',
+              apiKey: '',
+            ),
+          ),
+          actorAssociationsRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: ActorAssociationSyncSheet(
+              actor: MappingRule(
+                id: 3,
+                mappedValue: '演员 C',
+                originalValues: ['演员 C'],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    for (var i = 0; i < 20 && repository.avatarRequests.length < 2; i++) {
+      await tester.pump();
+    }
+    expect(repository.avatarRequests, hasLength(2));
+    await tester.pump();
+    expect(find.text('标准演员'), findsOneWidget);
+    expect(find.text('演员 C'), findsOneWidget);
+
+    final actorLabelTop = tester.getTopLeft(find.text('标准演员')).dy;
+    await tester.tapAt(Offset(53, actorLabelTop + 28));
+    await tester.pump();
+    expect(find.text('选择演员头像'), findsOneWidget);
+
+    firstAvatar.complete(_tinyPng);
+    await tester.pump();
+
+    // 主预览的两个 loading 指示器消失，选择器只保留第二张仍在加载的指示器。
+    expect(find.byType(CircularProgressIndicator), findsNWidgets(1));
+    expect(find.byType(Image), findsNWidgets(2));
+
+    secondAvatar.complete(_tinyPng);
+    await tester.pump();
+  });
 }
+
+const _tinyPng = <int>[
+  0x89,
+  0x50,
+  0x4e,
+  0x47,
+  0x0d,
+  0x0a,
+  0x1a,
+  0x0a,
+  0x00,
+  0x00,
+  0x00,
+  0x0d,
+  0x49,
+  0x48,
+  0x44,
+  0x52,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x08,
+  0x06,
+  0x00,
+  0x00,
+  0x00,
+  0x1f,
+  0x15,
+  0xc4,
+  0x89,
+  0x00,
+  0x00,
+  0x00,
+  0x0d,
+  0x49,
+  0x44,
+  0x41,
+  0x54,
+  0x78,
+  0x9c,
+  0x63,
+  0x60,
+  0x60,
+  0x60,
+  0x00,
+  0x00,
+  0x00,
+  0x04,
+  0x00,
+  0x01,
+  0x27,
+  0x34,
+  0x27,
+  0x5b,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x49,
+  0x45,
+  0x4e,
+  0x44,
+  0xae,
+  0x42,
+  0x60,
+  0x82,
+];
 
 ActorAssocPreview _preview(String mappedValue) {
   return ActorAssocPreview(
@@ -377,5 +517,48 @@ class _AvatarPreviewRepository extends ActorAssociationsRepository {
     appliedAvatarOverwrite = avatarOverwrite;
     await applyCompletion.future;
     return true;
+  }
+}
+
+class _AvatarPickerRepository extends ActorAssociationsRepository {
+  _AvatarPickerRepository(this.firstAvatar, this.secondAvatar)
+      : super(MappingsApi(Dio()));
+
+  final Future<List<int>> firstAvatar;
+  final Future<List<int>> secondAvatar;
+  final List<String> avatarRequests = [];
+
+  @override
+  Future<ActorAssocPreview> previewSource(
+    String actorName, {
+    ActorDataSource source = ActorDataSource.dbonline,
+  }) {
+    return Future.value(
+      const ActorAssocPreview(
+        found: true,
+        mappedValue: '演员 C',
+        actorName: '演员 C',
+        allAliases: [],
+        existingAliases: [],
+        newAliases: [],
+        avatarChoices: [
+          ActorAssociationAvatarChoice(
+            downloadUrl: 'https://dbo.example/avatar-1.jpg',
+          ),
+          ActorAssociationAvatarChoice(
+            downloadUrl: 'https://dbo.example/avatar-2.jpg',
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Future<List<int>> previewAvatar(
+    String avatarUrl, {
+    ActorDataSource source = ActorDataSource.dbonline,
+  }) {
+    avatarRequests.add(avatarUrl);
+    return avatarUrl.endsWith('avatar-1.jpg') ? firstAvatar : secondAvatar;
   }
 }

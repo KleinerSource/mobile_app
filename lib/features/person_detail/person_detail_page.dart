@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
+import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
 import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/actor_avatar.dart';
+import '../../shared/empty_view.dart';
+import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/pagination_footer.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../actor_associations/widgets/actor_association_sync_sheet.dart';
+import '../movie_detail/movie_detail_page.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
 
@@ -35,13 +42,57 @@ class PersonDetailPage extends ConsumerStatefulWidget {
 }
 
 class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
+  static const _pageSize = 60;
+
+  final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
+  final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
+    _controller,
+  );
   late String _biography;
   String? _avatarCacheBust;
+  int? _totalCount;
+  int _requestSerial = 0;
 
   @override
   void initState() {
     super.initState();
     _biography = widget.biography?.trim() ?? '';
+    _controller.addPageRequestListener(_fetch);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetch(int offset) async {
+    final requestSerial = _requestSerial;
+    try {
+      final filter = MovieFilter(
+        actorIds: [widget.actorId],
+        sortBy: 'year',
+        sortOrder: 'desc',
+      );
+      final page = await ref
+          .read(moviesRepositoryProvider)
+          .list(filter, limit: _pageSize, offset: offset);
+      if (!mounted || requestSerial != _requestSerial) return;
+
+      setState(() => _totalCount = page.totalCount);
+      final nextOffset = offset + page.items.length;
+      if (nextOffset >= page.totalCount || page.items.isEmpty) {
+        _controller.appendLastPage(page.items);
+      } else {
+        _controller.appendPage(page.items, nextOffset);
+      }
+      _scrollRestorer.restoreAfterPage(_scrollController);
+    } catch (error) {
+      if (!mounted || requestSerial != _requestSerial) return;
+      _controller.error = toApiException(error).message;
+    }
   }
 
   Future<void> _syncActor() async {
@@ -65,7 +116,9 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
       },
     );
     if (synced != true || !mounted) return;
-    ref.invalidate(_actorMoviesProvider(widget.actorId));
+    _requestSerial++;
+    _scrollRestorer.prepare(_scrollController, preserve: true);
+    _controller.refresh();
     await widget.onUpdated?.call();
   }
 
@@ -75,12 +128,11 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
     final hue = (widget.name.codeUnits.fold(0, (a, b) => a + b) * 31) % 360;
 
-    final movies = ref.watch(_actorMoviesProvider(widget.actorId));
-
     return Scaffold(
       backgroundColor: c.bg,
       body: GlowBackground(
         child: CustomScrollView(
+          controller: _scrollController,
           slivers: [
             SliverAppBar(
               expandedHeight: 280,
@@ -155,35 +207,55 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                child: Text('Filmography', style: AppText.sectionTitle(context)),
-              ),
-            ),
-            movies.when(
-              loading: () => const SliverToBoxAdapter(
-                child: Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
-              ),
-              error: (e, _) => SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text('加载失败: $e', style: AppText.body(context)),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Filmography',
+                        style: AppText.sectionTitle(context),
+                      ),
+                    ),
+                    if (_totalCount != null)
+                      Text('${_totalCount!} 部', style: AppText.meta(context)),
+                  ],
                 ),
               ),
-              data: (items) => SliverPadding(
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: 0.55,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 14,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (ctx, i) => MovieCard(
-                      movie: items[i],
-                      posterUrlBuilder: urlBuilder,
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+              sliver: PagedSliverGrid<int, MovieListItem>(
+                pagingController: _controller,
+                showNoMoreItemsIndicatorAsGridChild: false,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  childAspectRatio: 0.55,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 14,
+                ),
+                builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
+                  itemBuilder: (ctx, movie, _) => MovieCard(
+                    movie: movie,
+                    posterUrlBuilder: urlBuilder,
+                    onTap: () => Navigator.of(ctx).push(
+                      MaterialPageRoute(
+                        builder: (_) => MovieDetailPage(movieId: movie.id),
+                      ),
                     ),
-                    childCount: items.length,
                   ),
+                  firstPageProgressIndicatorBuilder: (_) =>
+                      const Center(child: CircularProgressIndicator()),
+                  firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                    message: _controller.error?.toString() ?? '加载失败',
+                    onRetry: _controller.refresh,
+                  ),
+                  newPageErrorIndicatorBuilder: (_) => PaginationRetry(
+                    onRetry: _controller.retryLastFailedRequest,
+                  ),
+                  noItemsFoundIndicatorBuilder: (_) =>
+                      const EmptyView(message: '没有该演员的影片'),
+                  noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                 ),
               ),
             ),
@@ -194,11 +266,3 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
     );
   }
 }
-
-final _actorMoviesProvider =
-    FutureProvider.family<List<MovieListItem>, int>((ref, actorId) async {
-  final repo = ref.watch(moviesRepositoryProvider);
-  final filter = MovieFilter(actorIds: [actorId], sortBy: 'year', sortOrder: 'desc');
-  final page = await repo.list(filter, limit: 60, offset: 0);
-  return page.items;
-});

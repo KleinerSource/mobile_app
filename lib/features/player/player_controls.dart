@@ -162,18 +162,8 @@ class _PlayerControlsState extends State<PlayerControls> {
             ),
           ),
         ),
-        Positioned(
-          top: 36,
-          left: 0,
-          right: 0,
-          child: _topBar(),
-        ),
-        Positioned(
-          right: 0,
-          bottom: 0,
-          left: 0,
-          child: _bottomBar(),
-        ),
+        Positioned(top: 36, left: 0, right: 0, child: _topBar()),
+        Positioned(right: 0, bottom: 0, left: 0, child: _bottomBar()),
       ],
     );
   }
@@ -462,25 +452,26 @@ class _PlayerControlsState extends State<PlayerControls> {
             final previewPosition = _framePreviewPosition;
             return LayoutBuilder(
               builder: (context, constraints) {
-                final fraction =
-                    max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
+                final fraction = max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
                 final maxLeft = (constraints.maxWidth - _framePreviewWidth)
                     .clamp(0.0, double.infinity)
                     .toDouble();
-                final previewLeft = (constraints.maxWidth * fraction -
-                        _framePreviewWidth / 2)
-                    .clamp(0.0, maxLeft)
-                    .toDouble();
+                final previewLeft =
+                    (constraints.maxWidth * fraction - _framePreviewWidth / 2)
+                        .clamp(0.0, maxLeft)
+                        .toDouble();
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
                     SliderTheme(
                       data: SliderTheme.of(context).copyWith(
                         trackHeight: 3,
-                        thumbShape:
-                            const RoundSliderThumbShape(enabledThumbRadius: 5),
-                        overlayShape:
-                            const RoundSliderOverlayShape(overlayRadius: 14),
+                        thumbShape: const RoundSliderThumbShape(
+                          enabledThumbRadius: 5,
+                        ),
+                        overlayShape: const RoundSliderOverlayShape(
+                          overlayRadius: 14,
+                        ),
                         activeTrackColor: Colors.white,
                         secondaryActiveTrackColor: Colors.white60,
                         inactiveTrackColor: Colors.white30,
@@ -508,9 +499,7 @@ class _PlayerControlsState extends State<PlayerControls> {
                         onChanged: dur <= 0
                             ? null
                             : (v) => _updateSliderDrag(v),
-                        onChangeEnd: dur <= 0
-                            ? null
-                            : (v) => _endSliderDrag(v),
+                        onChangeEnd: dur <= 0 ? null : (v) => _endSliderDrag(v),
                       ),
                     ),
                     if (_sliderDragging &&
@@ -606,9 +595,7 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   Future<void> _runFramePreviewLoop(int session) async {
     try {
-      while (mounted &&
-          _sliderDragging &&
-          session == _framePreviewSession) {
+      while (mounted && _sliderDragging && session == _framePreviewSession) {
         var position = _pendingFramePreviewPosition;
         if (position == null) break;
         _pendingFramePreviewPosition = null;
@@ -618,9 +605,7 @@ class _PlayerControlsState extends State<PlayerControls> {
           final elapsed = DateTime.now().difference(lastCapture);
           final remaining = _framePreviewInterval - elapsed;
           if (remaining > Duration.zero) await Future<void>.delayed(remaining);
-          if (!mounted ||
-              !_sliderDragging ||
-              session != _framePreviewSession) {
+          if (!mounted || !_sliderDragging || session != _framePreviewSession) {
             break;
           }
           position = _pendingFramePreviewPosition ?? position;
@@ -667,14 +652,14 @@ class _PlayerControlsState extends State<PlayerControls> {
     final previewUri = widget.previewSourceUri?.trim();
     final sourceUri = previewUri == null || previewUri.isEmpty
         ? playlist.index >= 0 && playlist.index < playlist.medias.length
-            ? playlist.medias[playlist.index].uri
-            : null
+              ? playlist.medias[playlist.index].uri
+              : null
         : previewUri;
     if (sourceUri == null || sourceUri.isEmpty) return null;
     final sourceHeaders = previewUri == null || previewUri.isEmpty
         ? playlist.index >= 0 && playlist.index < playlist.medias.length
-            ? playlist.medias[playlist.index].httpHeaders
-            : null
+              ? playlist.medias[playlist.index].httpHeaders
+              : null
         : widget.previewSourceHeaders;
     final existing = _framePreviewPlayer;
     if (existing != null &&
@@ -702,16 +687,14 @@ class _PlayerControlsState extends State<PlayerControls> {
         ? null
         : Map<String, String>.from(sourceHeaders);
     try {
-      await player.open(
-        Media(
-          sourceUri,
-          httpHeaders: sourceHeaders,
-          start: startAt,
-        ),
-        // screenshot 只有在解码出视频帧后才会返回数据。预览内核保持
-        // 静音，只在取帧期间短暂播放，绝不影响主播放器位置。
-        play: true,
-      ).timeout(const Duration(seconds: 3));
+      await player
+          .open(
+            Media(sourceUri, httpHeaders: sourceHeaders, start: startAt),
+            // screenshot 只有在解码出视频帧后才会返回数据。预览内核保持
+            // 静音，只在取帧期间短暂播放，绝不影响主播放器位置。
+            play: true,
+          )
+          .timeout(const Duration(seconds: 3));
       final width = player.state.width;
       if (width == null || width <= 0) {
         await player.stream.width
@@ -719,8 +702,9 @@ class _PlayerControlsState extends State<PlayerControls> {
             .timeout(const Duration(milliseconds: 2500));
       }
       try {
-        await controller.waitUntilFirstFrameRendered
-            .timeout(const Duration(seconds: 5));
+        await controller.waitUntilFirstFrameRendered.timeout(
+          const Duration(seconds: 5),
+        );
       } catch (_) {
         // 某些平台不会回报首帧事件，继续使用 screenshot 的重试机制。
       }
@@ -748,10 +732,7 @@ class _PlayerControlsState extends State<PlayerControls> {
       for (var attempt = 0; attempt < 15; attempt++) {
         final frame = await previewPlayer
             .screenshot(format: 'image/jpeg')
-            .timeout(
-              const Duration(milliseconds: 400),
-              onTimeout: () => null,
-            );
+            .timeout(const Duration(milliseconds: 400), onTimeout: () => null);
         if (frame != null && frame.isNotEmpty) return frame;
         await Future<void>.delayed(const Duration(milliseconds: 80));
       }
@@ -895,9 +876,7 @@ class _PlayerControlsState extends State<PlayerControls> {
       enabled: enabled,
       child: Row(
         children: [
-          icon != null
-              ? Icon(icon, size: 18)
-              : const SizedBox(width: 18),
+          icon != null ? Icon(icon, size: 18) : const SizedBox(width: 18),
           const SizedBox(width: 10),
           Expanded(child: Text(label)),
           const SizedBox(width: 16),
@@ -913,7 +892,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     final label = track.title.isNotEmpty
         ? track.title
         : (track.language.isNotEmpty ? track.language : '字幕');
-    return track.isExternal ? '$label · 外挂' : label;
+    return '$label · ${track.typeLabel} · ${track.sourceLabel}';
   }
 
   Widget _audioButton() {
@@ -930,9 +909,11 @@ class _PlayerControlsState extends State<PlayerControls> {
         for (final track in widget.audioTracks)
           PopupMenuItem(
             value: track,
-            child: Text(track.title.isNotEmpty
-                ? track.title
-                : (track.language.isNotEmpty ? track.language : track.codec)),
+            child: Text(
+              track.title.isNotEmpty
+                  ? track.title
+                  : (track.language.isNotEmpty ? track.language : track.codec),
+            ),
           ),
       ],
       child: SizedBox(
@@ -1005,8 +986,11 @@ class _SliderFramePreview extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.image_not_supported_outlined,
-                      color: Colors.white70, size: 20),
+                  Icon(
+                    Icons.image_not_supported_outlined,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
                   SizedBox(height: 4),
                   Text(
                     '当前源无法预览',

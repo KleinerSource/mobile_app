@@ -556,7 +556,7 @@ abstract class AppL10n {
   /// No description provided for @settingsServerSettingsSub.
   ///
   /// In zh, this message translates to:
-    /// **'服务器 / 系统配置 / 媒体库 / 映射规则 / 工具'**
+  /// **'服务器 / 系统配置 / 媒体库 / 映射规则 / 工具'**
   String get settingsServerSettingsSub;
 
   /// No description provided for @settingsAppSettings.
@@ -790,13 +790,13 @@ abstract class AppL10n {
   /// No description provided for @settingsActorAssociationsSub.
   ///
   /// In zh, this message translates to:
-    /// **'标准名 + 别名维护, 支持同步演员关联'**
+  /// **'标准名 + 别名维护, 支持同步演员关联'**
   String get settingsActorAssociationsSub;
 
   /// No description provided for @settingsDbo.
   ///
   /// In zh, this message translates to:
-    /// **'DB Online 数据源'**
+  /// **'DB Online 数据源'**
   String get settingsDbo;
 
   /// No description provided for @settingsDboSub.

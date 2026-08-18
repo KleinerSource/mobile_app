@@ -111,47 +111,52 @@ class _PlaceholderLabel extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final iconSize = (constraints.maxWidth * 0.32).clamp(28.0, 80.0);
+        final contentWidth = constraints.maxWidth > 24
+            ? constraints.maxWidth - 24
+            : constraints.maxWidth;
         return Padding(
           padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Spacer(),
-              Icon(
-                Icons.movie_outlined,
-                size: iconSize,
-                color: fg,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                title.trim().isEmpty ? '—' : title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: fgStrong,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11,
-                  height: 1.3,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: SizedBox(
+                width: contentWidth,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(Icons.movie_outlined, size: iconSize, color: fg),
+                    const SizedBox(height: 10),
+                    Text(
+                      title.trim().isEmpty ? '—' : title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: fgStrong,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                        height: 1.3,
+                      ),
+                    ),
+                    if (year != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '$year',
+                        style: TextStyle(
+                          color: fg,
+                          fontFamily: 'monospace',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              if (year != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  '$year',
-                  style: TextStyle(
-                    color: fg,
-                    fontFamily: 'monospace',
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ],
-              const Spacer(),
-            ],
+            ),
           ),
         );
       },

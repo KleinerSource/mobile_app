@@ -10,6 +10,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/pagination_footer.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
@@ -124,8 +125,8 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
               padding: const EdgeInsets.fromLTRB(22, 18, 22, 80),
               sliver: PagedSliverGrid<int, MovieListItem>(
                 pagingController: _controller,
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
+                showNoMoreItemsIndicatorAsGridChild: false,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
                   childAspectRatio: 0.55,
                   crossAxisSpacing: 10,
@@ -147,9 +148,9 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
                     message: _controller.error?.toString() ?? '加载失败',
                     onRetry: () => _controller.refresh(),
                   ),
-                  noItemsFoundIndicatorBuilder: (_) => const EmptyView(
-                    message: '这个维度下还没有影片',
-                  ),
+                  noItemsFoundIndicatorBuilder: (_) =>
+                      const EmptyView(message: '这个维度下还没有影片'),
+                  noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                 ),
               ),
             ),

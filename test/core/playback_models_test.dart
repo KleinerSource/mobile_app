@@ -7,6 +7,9 @@ void main() {
       'mode': 'transcode',
       'stream_url': '/api/movies/id/1/stream.m3u8?quality=1080p',
       'mime_type': 'application/vnd.apple.mpegurl',
+      'container': 'matroska,webm',
+      'duration_sec': 123.5,
+      'bit_rate': 4000000,
       'hwaccel': 'videotoolbox',
       'target_video': 'h264',
       'target_audio': 'aac',
@@ -42,6 +45,9 @@ void main() {
     expect(decision.subtitleTracks.single.isExternal, isTrue);
     expect(decision.subtitleTracks.single.canLoad, isTrue);
     expect(decision.targetHeight, 1080);
+    expect(decision.container, 'matroska,webm');
+    expect(decision.durationSec, 123.5);
+    expect(decision.bitRate, 4000000);
   });
 
   test('硬解失败状态可识别软解回退', () {
@@ -55,5 +61,39 @@ void main() {
     });
 
     expect(status.hasHardwareFallback, isTrue);
+  });
+
+  test('PGS 内嵌字幕可识别为原生位图字幕', () {
+    const track = SubtitleTrack(
+      index: 4,
+      source: 'embedded',
+      language: 'eng',
+      title: 'English PGS',
+      codec: 'hdmv_pgs_subtitle',
+      url: '',
+      isDefault: false,
+    );
+
+    expect(track.isPgs, isTrue);
+    expect(track.typeLabel, 'PGS');
+    expect(track.sourceLabel, '内嵌');
+    expect(track.isEmbedded, isTrue);
+    expect(track.canLoad, isTrue);
+  });
+
+  test('普通文本字幕不启用 PGS 原生渲染', () {
+    const track = SubtitleTrack(
+      index: 3,
+      source: 'embedded',
+      language: 'zh',
+      title: '中文',
+      codec: 'ass',
+      url: '/embedded.ass',
+      isDefault: false,
+    );
+
+    expect(track.isPgs, isFalse);
+    expect(track.typeLabel, 'ASS');
+    expect(track.sourceLabel, '内嵌');
   });
 }

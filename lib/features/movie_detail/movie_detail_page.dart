@@ -13,6 +13,7 @@ import '../../core/models/actor.dart';
 import '../../core/models/watch_record.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/filter_chip.dart';
+import '../../shared/glass.dart';
 import '../../shared/glass_menu.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/poster.dart';
@@ -30,8 +31,11 @@ import 'resources_sheet.dart';
 import '../resources/resources_repository.dart';
 import 'movie_editor_sheet.dart';
 import 'movie_detail_formatters.dart';
+import 'cover_badges.dart';
+import 'media_stream_cards.dart';
 import 'thunder_subtitle_sheet.dart';
 import '../home/home_movie_view_state.dart';
+import '../i18n/poster_badge_visibility_provider.dart';
 
 class MovieDetailPage extends ConsumerStatefulWidget {
   const MovieDetailPage({super.key, required this.movieId});
@@ -45,9 +49,12 @@ class _MovieDetailPageState extends ConsumerState<MovieDetailPage> {
   @override
   void initState() {
     super.initState();
-    unawaited(
-      ref.read(homeMovieViewStateProvider).markMovieViewed(widget.movieId),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        ref.read(homeMovieViewStateProvider).markMovieViewed(widget.movieId),
+      );
+    });
   }
 
   @override
@@ -174,10 +181,7 @@ class _DetailBody extends ConsumerWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-              child: Text(
-                movie.plot!,
-                style: AppText.body(context).copyWith(height: 1.55),
-              ),
+              child: _PlotSection(plot: movie.plot!),
             ),
           ),
         SliverToBoxAdapter(
@@ -241,18 +245,27 @@ class _DetailBody extends ConsumerWidget {
   }
 }
 
-class _HeroHeader extends StatelessWidget {
+class _HeroHeader extends ConsumerWidget {
   const _HeroHeader({required this.movie, required this.urlBuilder});
   final MovieDetail movie;
   final String Function(String) urlBuilder;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
     // fanart fallback poster fallback thumb
     final heroUuid = movie.fanartUuid?.isNotEmpty == true
         ? movie.fanartUuid
         : (movie.posterUuid?.isNotEmpty == true ? movie.posterUuid : null);
+
+    // 技术徽章(编码/HDR/字幕/破解/UHD...)基于媒体探测 + 文件名后缀
+    final video = ref.watch(mediaInfoProvider(movie.id)).value?.streams.video;
+    final badgeVisibility = ref.watch(posterBadgeVisibilityProvider);
+    final badges = buildCoverBadges(
+      filePath: movie.filePath,
+      fileSize: movie.fileSize,
+      video: video,
+    ).where((badge) => badgeVisibility.isEnabled(badge.kind)).toList();
 
     return Stack(
       fit: StackFit.expand,
@@ -299,6 +312,15 @@ class _HeroHeader extends StatelessWidget {
             ),
           ),
         ),
+        // ---------- 底部技术徽章 ----------
+        if (badges.isNotEmpty)
+          Align(
+            alignment: Alignment.bottomLeft,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: CoverBadgeRow(badges: badges),
+            ),
+          ),
       ],
     );
   }
@@ -333,12 +355,7 @@ class _TitleBlock extends StatelessWidget {
         style: baseStyle.copyWith(color: c.accent),
       ));
     }
-    if (movie.country != null && movie.country!.isNotEmpty) {
-      add(TextSpan(
-        text: movie.country!.toUpperCase(),
-        style: baseStyle.copyWith(color: c.muted),
-      ));
-    }
+    // 国家不在标题元信息中展示,由"详细信息"表的产地行统一显示
     if (movie.rating != null && movie.rating! > 0) {
       add(TextSpan(
         text: '★ ${movie.rating!.toStringAsFixed(1)}',
@@ -380,6 +397,70 @@ class _TitleBlock extends StatelessWidget {
   }
 }
 
+class _PlotSection extends StatelessWidget {
+  const _PlotSection({required this.plot});
+
+  final String plot;
+
+  Future<void> _showFullPlot(BuildContext context) {
+    final normalizedPlot = normalizeMoviePlot(plot);
+    return showGlassDialog<void>(
+      context: context,
+      title: const Text('影片简介'),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.58,
+        ),
+        child: Scrollbar(
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(right: 8),
+            child: Text(
+              normalizedPlot,
+              style: AppText.body(context).copyWith(height: 1.55),
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('关闭'),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final normalizedPlot = normalizeMoviePlot(plot);
+
+    return Semantics(
+      button: true,
+      label: '查看完整简介',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          splashColor: c.accent.withValues(alpha: 0.08),
+          highlightColor: c.surfaceAlt.withValues(alpha: 0.28),
+          onTap: () => unawaited(_showFullPlot(context)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Text(
+              normalizedPlot,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.body(context).copyWith(height: 1.55),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ActionRow extends ConsumerWidget {
   const _ActionRow({required this.movie});
 
@@ -394,6 +475,19 @@ class _ActionRow extends ConsumerWidget {
     final runtimeMin = movie.runtime ?? 0;
     if (runtimeMin <= 0 || r <= 0) return 0;
     return (runtimeMin * 60 * r).round();
+  }
+
+  double _progressRatio(WatchRecord? watchRecord) {
+    if (watchRecord != null) {
+      if (watchRecord.completed || watchRecord.durationSec <= 0) return 0;
+      return (watchRecord.lastPositionSec / watchRecord.durationSec)
+          .clamp(0.0, 1.0)
+          .toDouble();
+    }
+
+    final summary = movie.watchRecord;
+    if (summary == null || summary.completed) return 0;
+    return summary.progressRatio.clamp(0.0, 1.0).toDouble();
   }
 
   List<PlayerQueueItem> _playerQueue(int startPositionSec) {
@@ -437,6 +531,7 @@ class _ActionRow extends ConsumerWidget {
     final watchRecord =
         ref.watch(movieWatchRecordProvider(movie.id)).valueOrNull;
     final startPositionSec = _startPositionSec(watchRecord);
+    final progressRatio = _progressRatio(watchRecord);
     final playLabel = startPositionSec > 0
         ? '${l.detailPlay} (${formatResumePosition(startPositionSec)})'
         : l.detailPlay;
@@ -447,38 +542,67 @@ class _ActionRow extends ConsumerWidget {
       children: [
         Expanded(
           flex: 2,
-          child: ElevatedButton(
-            onPressed: () async {
-              await PlayerPage.open(
-                context,
-                movieId: movie.id,
-                title: movie.title,
-                startPositionSec: startPositionSec,
-                queue: playerQueue,
-                queueIndex: playerQueueIndex < 0 ? 0 : playerQueueIndex,
-              );
-              if (context.mounted) {
-                ref.invalidate(movieWatchRecordProvider(movie.id));
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: c.text,
-              foregroundColor: c.bg,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(vertical: 14),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: c.text,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.play_arrow, size: 18),
-                const SizedBox(width: 6),
-                Text(playLabel,
-                    style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14)),
-              ],
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                fit: StackFit.passthrough,
+                children: [
+                  if (progressRatio > 0)
+                    Positioned.fill(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: progressRatio,
+                          heightFactor: 1,
+                          child: ColoredBox(
+                            color: c.bg.withValues(alpha: 0.16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await PlayerPage.open(
+                        context,
+                        movieId: movie.id,
+                        title: movie.title,
+                        startPositionSec: startPositionSec,
+                        queue: playerQueue,
+                        queueIndex: playerQueueIndex < 0 ? 0 : playerQueueIndex,
+                      );
+                      if (context.mounted) {
+                        ref.invalidate(movieWatchRecordProvider(movie.id));
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: c.bg,
+                      shadowColor: Colors.transparent,
+                      surfaceTintColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.play_arrow, size: 18),
+                        const SizedBox(width: 6),
+                        Text(playLabel,
+                            style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1287,17 +1411,26 @@ class _RelatedFilesSection extends StatelessWidget {
   }
 }
 
-class _DetailsTable extends StatelessWidget {
+class _DetailsTable extends ConsumerWidget {
   const _DetailsTable({required this.movie});
   final MovieDetail movie;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
     final rows = <List<String>>[];
-    if (movie.num != null && movie.num!.isNotEmpty) rows.add(['番号', movie.num!]);
+    if (movie.num != null && movie.num!.isNotEmpty) {
+      rows.add(['番号', movie.num!]);
+    }
     if (movie.country != null && movie.country!.isNotEmpty) {
       rows.add(['产地', movie.country!]);
+    }
+    // 时长优先用媒体探测结果，缺失时回退 NFO 元数据 runtime
+    final durationSec = ref.watch(mediaInfoProvider(movie.id)).value?.durationSec;
+    if (durationSec != null && durationSec > 0) {
+      rows.add(['时长', _formatDurationSec(durationSec)]);
+    } else if (movie.runtime != null && movie.runtime! > 0) {
+      rows.add(['时长', '${movie.runtime} MIN']);
     }
     if (movie.fileSize != null && movie.fileSize! > 0) {
       rows.add(['文件大小', _formatBytes(movie.fileSize!)]);
@@ -1374,7 +1507,18 @@ String _formatBytes(int bytes) {
   return '${size.toStringAsFixed(2)} ${units[unit]}';
 }
 
-/// 媒体技术信息 section (容器/视频/音频)
+/// 媒体探测时长 → "1h 02m 30s" 风格，供详细信息表使用。
+String _formatDurationSec(double sec) {
+  final s = sec.round();
+  final h = s ~/ 3600;
+  final m = (s % 3600) ~/ 60;
+  final ss = s % 60;
+  return h > 0
+      ? '${h}h ${m.toString().padLeft(2, '0')}m ${ss.toString().padLeft(2, '0')}s'
+      : '${m}m ${ss.toString().padLeft(2, '0')}s';
+}
+
+/// 媒体技术信息 section (容器/大小 + 视频/音频/字幕流卡片)
 class _MediaInfoSection extends ConsumerWidget {
   const _MediaInfoSection({required this.movieId});
   final int movieId;
@@ -1383,42 +1527,17 @@ class _MediaInfoSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(mediaInfoProvider(movieId));
     return async.maybeWhen(
-      data: (info) {
-        if (info == null) return const SizedBox.shrink();
+      data: (detail) {
+        if (detail == null) return const SizedBox.shrink();
+        final streams = detail.streams;
         final c = appColors(context);
         final rows = <List<String>>[];
-        if (info.container != null) rows.add(['容器', info.container!]);
-        if (info.videoCodec != null) {
-          final parts = <String>[info.videoCodec!];
-          if (info.videoWidth != null && info.videoHeight != null) {
-            parts.add('${info.videoWidth}×${info.videoHeight}');
-          }
-          if (info.videoFrameRate != null) {
-            parts.add('${info.videoFrameRate!.toStringAsFixed(2)} fps');
-          }
-          rows.add(['视频', parts.join(' · ')]);
+        if (detail.container != null) rows.add(['容器', detail.container!]);
+        if (detail.fileSize != null && detail.fileSize! > 0) {
+          rows.add(['大小', _formatBytes(detail.fileSize!)]);
         }
-        if (info.audioCodec != null) {
-          final parts = <String>[info.audioCodec!];
-          if (info.audioChannels != null) parts.add('${info.audioChannels} ch');
-          rows.add(['音频', parts.join(' · ')]);
-        }
-        if (info.durationSec != null && info.durationSec! > 0) {
-          final s = info.durationSec!.round();
-          final h = s ~/ 3600;
-          final m = (s % 3600) ~/ 60;
-          final sec = s % 60;
-          rows.add([
-            '时长',
-            h > 0
-                ? '${h}h ${m.toString().padLeft(2, '0')}m ${sec.toString().padLeft(2, '0')}s'
-                : '${m}m ${sec.toString().padLeft(2, '0')}s'
-          ]);
-        }
-        if (info.bitRate != null && info.bitRate! > 0) {
-          rows.add(['码率', '${(info.bitRate! / 1000).round()} kbps']);
-        }
-        if (rows.isEmpty) return const SizedBox.shrink();
+        final hasCards = streams.hasContent;
+        if (rows.isEmpty && !hasCards) return const SizedBox.shrink();
         return Padding(
           padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
           child: Column(
@@ -1459,6 +1578,10 @@ class _MediaInfoSection extends ConsumerWidget {
                     ],
                   ),
                 ),
+              if (hasCards) ...[
+                if (rows.isNotEmpty) const SizedBox(height: 10),
+                MediaStreamCards(detail: detail),
+              ],
             ],
           ),
         );

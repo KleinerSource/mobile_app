@@ -1,185 +1,31 @@
-import 'dart:async';
 import 'dart:io';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/config/server_config_provider.dart';
-
-enum CacheSizeOption {
-  disabled,
-  mb300,
-  mb500,
-  mb750,
-  gb1,
-  gb2,
-  gb4,
-}
-
-extension CacheSizeOptionX on CacheSizeOption {
-  String get label => switch (this) {
-        CacheSizeOption.disabled => '禁用',
-        CacheSizeOption.mb300 => '300MB',
-        CacheSizeOption.mb500 => '500MB',
-        CacheSizeOption.mb750 => '750MB',
-        CacheSizeOption.gb1 => '1GB',
-        CacheSizeOption.gb2 => '2GB',
-        CacheSizeOption.gb4 => '4GB',
-      };
-
-  int get bytes => switch (this) {
-        CacheSizeOption.disabled => 0,
-        CacheSizeOption.mb300 => 300 * 1024 * 1024,
-        CacheSizeOption.mb500 => 500 * 1024 * 1024,
-        CacheSizeOption.mb750 => 750 * 1024 * 1024,
-        CacheSizeOption.gb1 => 1 * 1024 * 1024 * 1024,
-        CacheSizeOption.gb2 => 2 * 1024 * 1024 * 1024,
-        CacheSizeOption.gb4 => 4 * 1024 * 1024 * 1024,
-      };
-}
-
-const cacheSizeOptions = <CacheSizeOption>[
-  CacheSizeOption.disabled,
-  CacheSizeOption.mb300,
-  CacheSizeOption.mb500,
-  CacheSizeOption.mb750,
-  CacheSizeOption.gb1,
-  CacheSizeOption.gb2,
-  CacheSizeOption.gb4,
-];
-
-@immutable
-class DiskPrecacheSettings {
-  const DiskPrecacheSettings({
-    this.wifiLimit = CacheSizeOption.gb1,
-    this.mobileLimit = CacheSizeOption.disabled,
-  });
-
-  static const defaults = DiskPrecacheSettings();
-
-  final CacheSizeOption wifiLimit;
-  final CacheSizeOption mobileLimit;
-
-  DiskPrecacheSettings copyWith({
-    CacheSizeOption? wifiLimit,
-    CacheSizeOption? mobileLimit,
-  }) {
-    return DiskPrecacheSettings(
-      wifiLimit: wifiLimit ?? this.wifiLimit,
-      mobileLimit: mobileLimit ?? this.mobileLimit,
-    );
-  }
-}
-
-class DiskPrecacheSettingsRepository {
-  DiskPrecacheSettingsRepository(this._prefs);
-
-  static const _wifiKey = 'cache.precache_wifi_limit';
-  static const _mobileKey = 'cache.precache_mobile_limit';
-
-  final SharedPreferences _prefs;
-
-  DiskPrecacheSettings load() {
-    return DiskPrecacheSettings(
-      wifiLimit: _read(_wifiKey, DiskPrecacheSettings.defaults.wifiLimit),
-      mobileLimit: _read(_mobileKey, DiskPrecacheSettings.defaults.mobileLimit),
-    );
-  }
-
-  Future<void> save(DiskPrecacheSettings settings) async {
-    await Future.wait([
-      _prefs.setInt(_wifiKey, settings.wifiLimit.index),
-      _prefs.setInt(_mobileKey, settings.mobileLimit.index),
-    ]);
-  }
-
-  CacheSizeOption _read(String key, CacheSizeOption fallback) {
-    final index = _prefs.getInt(key);
-    if (index == null || index < 0 || index >= CacheSizeOption.values.length) {
-      return fallback;
-    }
-    return CacheSizeOption.values[index];
-  }
-}
-
-class DiskPrecacheSettingsNotifier extends Notifier<DiskPrecacheSettings> {
-  @override
-  DiskPrecacheSettings build() {
-    return DiskPrecacheSettingsRepository(ref.watch(sharedPrefsProvider)).load();
-  }
-
-  Future<void> update(DiskPrecacheSettings next) async {
-    state = next;
-    await DiskPrecacheSettingsRepository(ref.read(sharedPrefsProvider))
-        .save(next);
-  }
-}
-
-final diskPrecacheSettingsProvider =
-    NotifierProvider<DiskPrecacheSettingsNotifier, DiskPrecacheSettings>(
-  DiskPrecacheSettingsNotifier.new,
-);
-
-/// 播放器没有启用磁盘缓存时仍保留一段基础内存缓冲，避免“禁用缓存”变成
-/// 播放器完全没有网络缓冲能力。
-const defaultVideoBufferBytes = 32 * 1024 * 1024;
-
-@immutable
-class VideoBufferPolicy {
-  const VideoBufferPolicy({
-    required this.bufferSize,
-    required this.diskCacheEnabled,
-  });
-
-  final int bufferSize;
-  final bool diskCacheEnabled;
-}
-
-VideoBufferPolicy videoBufferPolicyFor(CacheSizeOption option) {
-  if (option == CacheSizeOption.disabled) {
-    return const VideoBufferPolicy(
-      bufferSize: defaultVideoBufferBytes,
-      diskCacheEnabled: false,
-    );
-  }
-  return VideoBufferPolicy(
-    bufferSize: option.bytes,
-    diskCacheEnabled: true,
-  );
-}
-
-enum CacheCategory { video, image, other }
+enum CacheCategory { image, other }
 
 extension CacheCategoryX on CacheCategory {
   String get label => switch (this) {
-        CacheCategory.video => '视频缓存',
-        CacheCategory.image => '图片缓存',
-        CacheCategory.other => '其他缓存',
-      };
+    CacheCategory.image => '图片缓存',
+    CacheCategory.other => '其他缓存',
+  };
 }
 
 @immutable
 class CacheUsage {
-  const CacheUsage({
-    required this.videoBytes,
-    required this.imageBytes,
-    required this.otherBytes,
-  });
+  const CacheUsage({required this.imageBytes, required this.otherBytes});
 
-  final int videoBytes;
   final int imageBytes;
   final int otherBytes;
 
-  int get totalBytes => videoBytes + imageBytes + otherBytes;
+  int get totalBytes => imageBytes + otherBytes;
 
   int bytesFor(CacheCategory category) => switch (category) {
-        CacheCategory.video => videoBytes,
-        CacheCategory.image => imageBytes,
-        CacheCategory.other => otherBytes,
+    CacheCategory.image => imageBytes,
+    CacheCategory.other => otherBytes,
   };
 }
 
@@ -192,28 +38,18 @@ String formatCacheBytes(int bytes) {
     value /= 1024;
     unit++;
   }
-  final digits = unit == 0 ? 0 : value >= 10 ? 1 : 2;
+  final digits = unit == 0
+      ? 0
+      : value >= 10
+      ? 1
+      : 2;
   return '${value.toStringAsFixed(digits)} ${units[unit]}';
-}
-
-enum PrecacheNetwork { wifi, mobile }
-
-extension PrecacheNetworkX on PrecacheNetwork {
-  String get label => this == PrecacheNetwork.wifi ? 'Wi-Fi' : '流量';
-}
-
-class CacheNetworkUnavailableException implements Exception {
-  const CacheNetworkUnavailableException();
-
-  @override
-  String toString() => '当前没有可用网络';
 }
 
 class DiskCacheService {
   DiskCacheService({Directory? rootDirectory}) : _rootOverride = rootDirectory;
 
   static const _rootName = 'md_center_cache';
-  static const _videoDirName = 'video';
   static const _otherDirName = 'other';
 
   final Directory? _rootOverride;
@@ -224,7 +60,9 @@ class DiskCacheService {
     final existing = _root;
     if (existing != null) return existing;
     final base = await _cacheBaseDirectory();
-    final directory = Directory('${base.path}${Platform.pathSeparator}$_rootName');
+    final directory = Directory(
+      '${base.path}${Platform.pathSeparator}$_rootName',
+    );
     await directory.create(recursive: true);
     _root = directory;
     return directory;
@@ -246,15 +84,12 @@ class DiskCacheService {
 
   Future<CacheUsage> usage() async {
     final root = await _rootDirectory();
-    // DefaultCacheManager 仍使用临时目录，图片统计要跟随它的实际位置；
-    // 播放缓存使用应用缓存目录，避免与图片缓存路径混淆。
+    // DefaultCacheManager 仍使用临时目录，图片统计要跟随它的实际位置。
     final imageBase = _rootOverride ?? await getTemporaryDirectory();
     final image = Directory(
       '${imageBase.path}${Platform.pathSeparator}${DefaultCacheManager.key}',
     );
-    final videoDirectories = await _videoCacheDirectories(root: root);
     return CacheUsage(
-      videoBytes: await _sumDirectorySizes(videoDirectories),
       imageBytes: await _directorySize(image),
       otherBytes: await _directorySize(
         Directory('${root.path}${Platform.pathSeparator}$_otherDirName'),
@@ -262,85 +97,10 @@ class DiskCacheService {
     );
   }
 
-  /// media_kit/libmpv 的磁盘缓冲和持久化录制缓存使用此目录。
-  Future<Directory> videoBufferDirectory() =>
-      _categoryDirectory(_videoDirName);
-
-  /// 为单个影片/画质生成稳定的持久化缓存文件名。
-  ///
-  /// mpv 的 `stream-record` 会在媒体关闭时关闭文件但保留文件内容，
-  /// 因此不能使用临时文件名，否则缓存管理无法跨播放会话工作。
-  Future<File> videoCacheFile({
-    required int movieId,
-    required String quality,
-  }) async {
-    final directory = await videoBufferDirectory();
-    final safeQuality = quality.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-    return File(
-      '${directory.path}${Platform.pathSeparator}movie-$movieId-$safeQuality.mkv',
-    );
-  }
-
-  /// 按缓存上限淘汰最旧的持久化视频文件。
-  Future<void> pruneVideoCache({required int maxBytes}) {
-    if (maxBytes <= 0) return Future<void>.value();
-    return _enqueue(() async {
-      final root = await _rootDirectory();
-      final directories = await _videoCacheDirectories(root: root);
-      final files = <File>[];
-      for (final directory in directories) {
-        if (!await directory.exists()) continue;
-        await for (final entity in directory.list(
-          recursive: true,
-          followLinks: false,
-        )) {
-          if (entity is File && entity.path.toLowerCase().endsWith('.mkv')) {
-            files.add(entity);
-          }
-        }
-      }
-      final entries = <({File file, int bytes, DateTime modified})>[];
-      for (final file in files) {
-        try {
-          entries.add((
-            file: file,
-            bytes: await file.length(),
-            modified: await file.lastModified(),
-          ));
-        } on FileSystemException {
-          // 文件可能在播放器或系统清理过程中刚刚被删除。
-        }
-      }
-      entries.sort((a, b) => a.modified.compareTo(b.modified));
-      var total = entries.fold<int>(0, (sum, item) => sum + item.bytes);
-      for (final item in entries) {
-        // 即使单个视频超过上限，也保留最近一次缓存；缓存管理页仍可
-        // 通过“视频缓存”清理它，关闭视频不能把唯一缓存直接删掉。
-        if (total <= maxBytes || entries.length <= 1) break;
-        try {
-          await item.file.delete();
-          total -= item.bytes;
-        } on FileSystemException {
-          // 忽略单个文件删除失败，下一次清理继续处理。
-        }
-      }
-    });
-  }
-
   Future<void> clear(CacheCategory category) {
     return _enqueue(() async {
       if (category == CacheCategory.image) {
         await DefaultCacheManager().emptyCache();
-        return;
-      }
-      if (category == CacheCategory.video) {
-        final root = await _rootDirectory();
-        for (final directory in await _videoCacheDirectories(root: root)) {
-          if (await directory.exists()) {
-            await directory.delete(recursive: true);
-          }
-        }
-        await _categoryDirectory(_videoDirName);
         return;
       }
       final directory = await _categoryDirectory(_otherDirName);
@@ -352,14 +112,10 @@ class DiskCacheService {
   Future<void> clearAll() {
     return _enqueue(() async {
       await DefaultCacheManager().emptyCache();
+      // 整棵删除可以顺带清掉旧版本持久化视频缓存留下的文件。
       final root = await _rootDirectory();
-      final videoDirectories = await _videoCacheDirectories(root: root);
       if (await root.exists()) await root.delete(recursive: true);
       await root.create(recursive: true);
-      for (final directory in videoDirectories) {
-        if (directory.path == root.path) continue;
-        if (await directory.exists()) await directory.delete(recursive: true);
-      }
     });
   }
 
@@ -375,78 +131,13 @@ class DiskCacheService {
   Future<int> _directorySize(Directory directory) async {
     if (!await directory.exists()) return 0;
     var total = 0;
-    await for (final entity in directory.list(recursive: true, followLinks: false)) {
+    await for (final entity in directory.list(
+      recursive: true,
+      followLinks: false,
+    )) {
       if (entity is File) total += await entity.length();
     }
     return total;
-  }
-
-  Future<List<Directory>> _videoCacheDirectories({required Directory root}) async {
-    final configured = Directory(
-      '${root.path}${Platform.pathSeparator}$_videoDirName',
-    );
-    if (_rootOverride != null) return [configured];
-
-    // Older media_kit/mpv builds can ignore a runtime demuxer-cache-dir and
-    // fall back to their platform cache directory. Include those locations so
-    // the management page can still show and clear the files.
-    final bases = <Directory>[
-      await getApplicationCacheDirectory(),
-      await getTemporaryDirectory(),
-      await getApplicationSupportDirectory(),
-    ];
-    final candidates = <Directory>[configured];
-    for (final base in bases) {
-      candidates.add(Directory(
-        '${base.path}${Platform.pathSeparator}$_rootName${Platform.pathSeparator}$_videoDirName',
-      ));
-      candidates.add(Directory(
-        '${base.path}${Platform.pathSeparator}mpv',
-      ));
-      candidates.add(Directory(
-        '${base.path}${Platform.pathSeparator}.cache${Platform.pathSeparator}mpv',
-      ));
-    }
-    final seen = <String>{};
-    return [
-      for (final directory in candidates)
-        if (seen.add(directory.path)) directory,
-    ];
-  }
-
-  Future<int> _sumDirectorySizes(Iterable<Directory> directories) async {
-    var total = 0;
-    for (final directory in directories) {
-      total += await _directorySize(directory);
-    }
-    return total;
-  }
-}
-
-class VideoBufferPolicyService {
-  const VideoBufferPolicyService({Connectivity? connectivity})
-      : _connectivity = connectivity;
-
-  final Connectivity? _connectivity;
-
-  Future<PrecacheNetwork> network() async {
-    final results = await (_connectivity ?? Connectivity()).checkConnectivity();
-    if (results.contains(ConnectivityResult.wifi) ||
-        results.contains(ConnectivityResult.ethernet)) {
-      return PrecacheNetwork.wifi;
-    }
-    if (results.contains(ConnectivityResult.mobile)) {
-      return PrecacheNetwork.mobile;
-    }
-    throw const CacheNetworkUnavailableException();
-  }
-
-  Future<VideoBufferPolicy> policy(DiskPrecacheSettings settings) async {
-    final networkType = await network();
-    final option = networkType == PrecacheNetwork.wifi
-        ? settings.wifiLimit
-        : settings.mobileLimit;
-    return videoBufferPolicyFor(option);
   }
 }
 
@@ -456,8 +147,4 @@ final diskCacheServiceProvider = Provider<DiskCacheService>(
 
 final cacheUsageProvider = FutureProvider.autoDispose<CacheUsage>((ref) {
   return ref.watch(diskCacheServiceProvider).usage();
-});
-
-final videoBufferPolicyProvider = Provider<VideoBufferPolicyService>((ref) {
-  return const VideoBufferPolicyService();
 });

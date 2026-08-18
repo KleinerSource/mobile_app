@@ -8,11 +8,15 @@ import '../../core/models/movie.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../shared/drag_selection.dart';
 import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/pagination_footer.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/poster.dart';
 import '../../shared/collection_card_layout.dart';
+import '../../shared/entity_batch_toolbar.dart';
 import '../lists/list_detail_page.dart';
 import '../lists/list_model.dart';
 import '../lists/lists_providers.dart';
@@ -59,13 +63,18 @@ class FavoritesPage extends ConsumerStatefulWidget {
 class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   static const _pageSize = 30;
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
+  final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
+    _controller,
+  );
   FavoritesViewMode _viewMode = FavoritesViewMode.grid;
   FavoritesSort _sort = FavoritesSort.recent;
   int _totalCount = 0;
   final Set<int> _selected = {};
+  bool _selectionMode = false;
   bool _newResourcesOnly = false;
   bool _resourceScanStarting = false;
-  bool get _selecting => _selected.isNotEmpty;
+  bool get _selecting => _selectionMode;
 
   @override
   void initState() {
@@ -76,6 +85,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -99,6 +109,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       } else {
         _controller.appendPage(page.items, nextOffset);
       }
+      _scrollRestorer.restoreAfterPage(_scrollController);
       if (mounted) setState(() {});
     } catch (e) {
       _controller.error = toApiException(e).message;
@@ -107,9 +118,14 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
   Future<void> _refresh() async {
     refreshImageCache(ref);
-    _controller.refresh();
+    _reload();
     // 等首页就绪
     await Future.delayed(const Duration(milliseconds: 600));
+  }
+
+  void _reload({bool preserveScroll = false}) {
+    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
+    _controller.refresh();
   }
 
   Future<void> _startResourceScan() async {
@@ -135,7 +151,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
     setState(() => _resourceScanStarting = true);
     try {
-      final result = await ref.read(moviesRepositoryProvider).startResourceScan(
+      final result = await ref
+          .read(moviesRepositoryProvider)
+          .startResourceScan(
             filter: MovieFilter(
               hasNewResources: _newResourcesOnly ? true : null,
               sortBy: _sort.sortBy,
@@ -155,7 +173,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         context,
         taskId: result.taskId,
         onCompleted: () {
-          if (mounted) _controller.refresh();
+          if (mounted) _reload(preserveScroll: true);
         },
       );
     } catch (e) {
@@ -169,26 +187,66 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
   void _toggleNewResourcesFilter() {
     setState(() => _newResourcesOnly = !_newResourcesOnly);
-    _controller.refresh();
+    _reload();
   }
 
   void _changeSort(FavoritesSort v) {
     if (v == _sort) return;
     setState(() => _sort = v);
-    _controller.refresh();
+    _reload();
   }
 
   void _toggleSelect(int id) {
     setState(() {
       if (_selected.contains(id)) {
         _selected.remove(id);
+        if (_selected.isEmpty) _selectionMode = false;
       } else {
+        _selectionMode = true;
         _selected.add(id);
       }
     });
   }
 
-  void _clearSelection() => setState(_selected.clear);
+  void _startSelectionSweep(int id, bool selected) {
+    setState(() {
+      _selectionMode = true;
+      _setSelectionValue(id, selected);
+    });
+  }
+
+  void _applySelectionSweep(int id, bool selected) {
+    if (_selected.contains(id) == selected) return;
+    setState(() => _setSelectionValue(id, selected));
+  }
+
+  void _finishSelectionSweep() {
+    if (_selected.isEmpty) _clearSelection();
+  }
+
+  void _setSelectionValue(int id, bool selected) {
+    if (selected) {
+      _selected.add(id);
+    } else {
+      _selected.remove(id);
+    }
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selected.clear();
+    });
+  }
+
+  void _selectAllLoaded() {
+    final loaded = _controller.itemList ?? const <MovieListItem>[];
+    setState(() {
+      _selected
+        ..clear()
+        ..addAll(loaded.map((movie) => movie.id));
+    });
+  }
 
   Future<void> _removeOne(MovieListItem m) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -201,10 +259,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       _controller.itemList = list;
       _totalCount = (_totalCount - 1).clamp(0, 1 << 30);
       if (mounted) setState(() {});
-      messenger.showSnackBar(SnackBar(
-        content: Text('已移除「${m.title}」'),
-        duration: const Duration(seconds: 1),
-      ));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('已移除「${m.title}」'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('移除失败: $e')));
     }
@@ -221,11 +281,13 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         content: Text('从收藏夹移除 ${ids.length} 部影片?\n影片本身不会被删除。'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('移除')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('移除'),
+          ),
         ],
       ),
     );
@@ -239,12 +301,18 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       list.removeWhere((it) => ids.contains(it.id));
       _controller.itemList = list;
       _totalCount = (_totalCount - ids.length).clamp(0, 1 << 30);
-      _selected.clear();
-      if (mounted) setState(() {});
-      messenger.showSnackBar(SnackBar(
-        content: Text('已移除 ${ids.length} 部'),
-        duration: const Duration(seconds: 1),
-      ));
+      if (mounted) {
+        setState(() {
+          _selectionMode = false;
+          _selected.clear();
+        });
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('已移除 ${ids.length} 部'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('批量移除失败: $e')));
     }
@@ -264,9 +332,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
                 child: Row(
-                  children: [
-                    Text('排序方式', style: AppText.sectionTitle(ctx)),
-                  ],
+                  children: [Text('排序方式', style: AppText.sectionTitle(ctx))],
                 ),
               ),
               for (final s in FavoritesSort.values)
@@ -299,23 +365,51 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     final c = appColors(context);
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
 
-    return GlowBackground(
-      child: SafeArea(
-        bottom: false,
-        child: RefreshIndicator(
-          color: c.accent,
-          onRefresh: _refresh,
-          child: CustomScrollView(
-            slivers: [
-              // ===== 顶部 =====
-              SliverToBoxAdapter(
-                child: _selecting
-                    ? _SelectionBar(
-                        count: _selected.length,
-                        onCancel: _clearSelection,
-                        onRemove: _removeSelection,
-                      )
-                    : Padding(
+    return Scaffold(
+      backgroundColor: c.bg,
+      bottomNavigationBar: _selecting
+          ? EntityBatchToolbar(
+              selectedCount: _selected.length,
+              onSelectAll: _selectAllLoaded,
+              onClear: _clearSelection,
+              onClose: _clearSelection,
+              actions: [
+                EntityBatchAction(
+                  icon: Icons.delete_outline,
+                  label: '移除收藏',
+                  color: c.danger,
+                  onTap: _removeSelection,
+                ),
+              ],
+            )
+          : null,
+      body: PopScope(
+        canPop: !_selecting,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _selecting) _clearSelection();
+        },
+        child: GlowBackground(
+          child: SafeArea(
+            bottom: false,
+            child: RefreshIndicator(
+              color: c.accent,
+              onRefresh: _refresh,
+              child: DragSelectionScope<int>(
+                scrollController: _scrollController,
+                selectionLayout: _viewMode == FavoritesViewMode.grid
+                    ? DragSelectionLayout.grid
+                    : DragSelectionLayout.list,
+                isSelected: _selected.contains,
+                onSelectionStart: _startSelectionSweep,
+                onSelectionChanged: _applySelectionSweep,
+                onSelectionEnd: _finishSelectionSweep,
+                selectionMode: _selecting,
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  slivers: [
+                    // ===== 顶部 =====
+                    SliverToBoxAdapter(
+                      child: Padding(
                         padding: const EdgeInsets.fromLTRB(22, 16, 22, 22),
                         child: Row(
                           children: [
@@ -323,11 +417,15 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(AppL10n.of(context).tabYou.toUpperCase(),
-                                      style: AppText.eyebrow(context)),
+                                  Text(
+                                    AppL10n.of(context).tabYou.toUpperCase(),
+                                    style: AppText.eyebrow(context),
+                                  ),
                                   const SizedBox(height: 3),
-                                  Text(AppL10n.of(context).favoritesTitle,
-                                      style: AppText.pageTitle(context)),
+                                  Text(
+                                    AppL10n.of(context).favoritesTitle,
+                                    style: AppText.pageTitle(context),
+                                  ),
                                 ],
                               ),
                             ),
@@ -355,7 +453,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                       ),
                               ),
                               tooltip: '扫描资源',
-                              onPressed: _resourceScanStarting || _totalCount <= 0
+                              onPressed:
+                                  _resourceScanStarting || _totalCount <= 0
                                   ? null
                                   : _startResourceScan,
                             ),
@@ -367,112 +466,125 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                   color: c.surface,
                                   border: Border.all(color: c.cardBorder),
                                 ),
-                                child:
-                                    Icon(Icons.settings, size: 18, color: c.text),
+                                child: Icon(
+                                  Icons.settings,
+                                  size: 18,
+                                  color: c.text,
+                                ),
                               ),
                               onPressed: () => Navigator.of(context).push(
                                 MaterialPageRoute(
-                                    builder: (_) => const SettingsPage()),
+                                  builder: (_) => const SettingsPage(),
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-              ),
+                    ),
 
-              // ===== 统计条 =====
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
-                  child: _StatsCard(
-                    totalCount: _totalCount,
-                    items: _controller.itemList ?? const [],
-                  ),
-                ),
-              ),
+                    // ===== 统计条 =====
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
+                        child: _StatsCard(
+                          totalCount: _totalCount,
+                          items: _controller.itemList ?? const [],
+                        ),
+                      ),
+                    ),
 
-              // ===== Lists 多彩卡片 =====
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                  child: Text(AppL10n.of(context).yourLists, style: AppText.sectionTitle(context)),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-                  child: _ListsGrid(),
-                ),
-              ),
+                    // ===== Lists 多彩卡片 =====
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                        child: Text(
+                          AppL10n.of(context).yourLists,
+                          style: AppText.sectionTitle(context),
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+                        child: _ListsGrid(),
+                      ),
+                    ),
 
-              // ===== All favorites · header + 排序 + 视图切换 =====
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                    // ===== All favorites · header + 排序 + 视图切换 =====
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                        child: Row(
                           children: [
-                            Text('全部收藏',
-                                style: AppText.eyebrow(context)),
-                            const SizedBox(height: 3),
-                            Text('$_totalCount 部影片',
-                                style: AppText.sectionTitle(context)),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('全部收藏', style: AppText.eyebrow(context)),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    '$_totalCount 部影片',
+                                    style: AppText.sectionTitle(context),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Flexible(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    _FavoriteFilterPill(
+                                      active: _newResourcesOnly,
+                                      onTap: _toggleNewResourcesFilter,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    _SortPill(
+                                      label: _sort.label,
+                                      onTap: _showSortSheet,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    _ViewToggle(
+                                      mode: _viewMode,
+                                      onChange: (m) =>
+                                          setState(() => _viewMode = m),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                      Flexible(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              _FavoriteFilterPill(
-                                active: _newResourcesOnly,
-                                onTap: _toggleNewResourcesFilter,
-                              ),
-                              const SizedBox(width: 6),
-                              _SortPill(
-                                label: _sort.label,
-                                onTap: _showSortSheet,
-                              ),
-                              const SizedBox(width: 6),
-                              _ViewToggle(
-                                mode: _viewMode,
-                                onChange: (m) => setState(() => _viewMode = m),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+
+                    // ===== 收藏网格 / 列表 =====
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      sliver: _viewMode == FavoritesViewMode.grid
+                          ? PagedSliverGrid<int, MovieListItem>(
+                              pagingController: _controller,
+                              showNoMoreItemsIndicatorAsGridChild: false,
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    childAspectRatio: 0.5,
+                                    crossAxisSpacing: 10,
+                                    mainAxisSpacing: 14,
+                                  ),
+                              builderDelegate: _buildGridDelegate(urlBuilder),
+                            )
+                          : PagedSliverList<int, MovieListItem>(
+                              pagingController: _controller,
+                              builderDelegate: _buildListDelegate(urlBuilder),
+                            ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                  ],
                 ),
               ),
-
-              // ===== 收藏网格 / 列表 =====
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 22),
-                sliver: _viewMode == FavoritesViewMode.grid
-                    ? PagedSliverGrid<int, MovieListItem>(
-                        pagingController: _controller,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          childAspectRatio: 0.5,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 14,
-                        ),
-                        builderDelegate: _buildGridDelegate(urlBuilder),
-                      )
-                    : PagedSliverList<int, MovieListItem>(
-                        pagingController: _controller,
-                        builderDelegate: _buildListDelegate(urlBuilder),
-                      ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 120)),
-            ],
+            ),
           ),
         ),
       ),
@@ -483,21 +595,27 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     String Function(String) urlBuilder,
   ) {
     return PagedChildBuilderDelegate<MovieListItem>(
-      itemBuilder: (ctx, m, idx) => _GridCell(
-        movie: m,
-        urlBuilder: urlBuilder,
-        selected: _selected.contains(m.id),
-        selecting: _selecting,
-        onTap: () {
-          if (_selecting) {
-            _toggleSelect(m.id);
-          } else {
-            Navigator.of(ctx).push(
-              MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: m.id)),
-            );
-          }
-        },
-        onLongPress: () => _toggleSelect(m.id),
+      itemBuilder: (ctx, m, idx) => DragSelectionTarget<int>(
+        key: ValueKey(m.id),
+        id: m.id,
+        selectionIndex: idx,
+        child: _GridCell(
+          movie: m,
+          urlBuilder: urlBuilder,
+          selected: _selected.contains(m.id),
+          selecting: _selecting,
+          onTap: () {
+            if (_selecting) {
+              _toggleSelect(m.id);
+            } else {
+              Navigator.of(ctx).push(
+                MaterialPageRoute(
+                  builder: (_) => MovieDetailPage(movieId: m.id),
+                ),
+              );
+            }
+          },
+        ),
       ),
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
@@ -506,6 +624,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         onRetry: () => _controller.refresh(),
       ),
       noItemsFoundIndicatorBuilder: (_) => _EmptyState(),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
     );
   }
 
@@ -513,22 +632,27 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     String Function(String) urlBuilder,
   ) {
     return PagedChildBuilderDelegate<MovieListItem>(
-      itemBuilder: (ctx, m, idx) => _ListRow(
-        movie: m,
-        urlBuilder: urlBuilder,
-        selected: _selected.contains(m.id),
-        selecting: _selecting,
-        onTap: () {
-          if (_selecting) {
-            _toggleSelect(m.id);
-          } else {
-            Navigator.of(ctx).push(
-              MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: m.id)),
-            );
-          }
-        },
-        onLongPress: () => _toggleSelect(m.id),
-        onRemove: () => _removeOne(m),
+      itemBuilder: (ctx, m, idx) => DragSelectionTarget<int>(
+        key: ValueKey(m.id),
+        id: m.id,
+        child: _ListRow(
+          movie: m,
+          urlBuilder: urlBuilder,
+          selected: _selected.contains(m.id),
+          selecting: _selecting,
+          onTap: () {
+            if (_selecting) {
+              _toggleSelect(m.id);
+            } else {
+              Navigator.of(ctx).push(
+                MaterialPageRoute(
+                  builder: (_) => MovieDetailPage(movieId: m.id),
+                ),
+              );
+            }
+          },
+          onRemove: () => _removeOne(m),
+        ),
       ),
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
@@ -537,6 +661,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         onRetry: () => _controller.refresh(),
       ),
       noItemsFoundIndicatorBuilder: (_) => _EmptyState(),
+      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
     );
   }
 }
@@ -550,83 +675,20 @@ class _EmptyState extends StatelessWidget {
       child: Center(
         child: Column(
           children: [
-            Icon(Icons.favorite_border, size: 36, color: appColors(context).muted),
+            Icon(
+              Icons.favorite_border,
+              size: 36,
+              color: appColors(context).muted,
+            ),
             const SizedBox(height: 10),
-            Text('还没有收藏的影片',
-                style: AppText.body(context)
-                    .copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              '还没有收藏的影片',
+              style: AppText.body(
+                context,
+              ).copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 4),
-            Text('在影片详情页点击 ♡ 加入收藏',
-                style: AppText.meta(context)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============ Selection bar ============
-class _SelectionBar extends StatelessWidget {
-  const _SelectionBar({
-    required this.count,
-    required this.onCancel,
-    required this.onRemove,
-  });
-
-  final int count;
-  final VoidCallback onCancel;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
-      child: Container(
-        height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: c.accent,
-          borderRadius: BorderRadius.circular(100),
-          boxShadow: [
-            BoxShadow(
-              color: c.accent.withValues(alpha: 0.35),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.close, color: Colors.white),
-              onPressed: onCancel,
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                '已选 $count',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14.5,
-                ),
-              ),
-            ),
-            TextButton.icon(
-              icon: const Icon(Icons.delete_outline, color: Colors.white, size: 18),
-              label: const Text(
-                '移除',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-              onPressed: onRemove,
-            ),
+            Text('在影片详情页点击 ♡ 加入收藏', style: AppText.meta(context)),
           ],
         ),
       ),
@@ -765,7 +827,6 @@ class _GridCell extends StatelessWidget {
     required this.selected,
     required this.selecting,
     required this.onTap,
-    required this.onLongPress,
   });
 
   final MovieListItem movie;
@@ -773,7 +834,6 @@ class _GridCell extends StatelessWidget {
   final bool selected;
   final bool selecting;
   final VoidCallback onTap;
-  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -787,7 +847,6 @@ class _GridCell extends StatelessWidget {
             movie: movie,
             posterUrlBuilder: urlBuilder,
             onTap: onTap,
-            onLongPress: onLongPress,
           ),
         ),
         if (selecting)
@@ -799,7 +858,9 @@ class _GridCell extends StatelessWidget {
               height: 22,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: selected ? c.accent : Colors.black.withValues(alpha: 0.5),
+                color: selected
+                    ? c.accent
+                    : Colors.black.withValues(alpha: 0.5),
                 border: Border.all(color: Colors.white, width: 1.5),
               ),
               alignment: Alignment.center,
@@ -821,7 +882,6 @@ class _ListRow extends StatelessWidget {
     required this.selected,
     required this.selecting,
     required this.onTap,
-    required this.onLongPress,
     required this.onRemove,
   });
 
@@ -830,7 +890,6 @@ class _ListRow extends StatelessWidget {
   final bool selected;
   final bool selecting;
   final VoidCallback onTap;
-  final VoidCallback onLongPress;
   final VoidCallback onRemove;
 
   @override
@@ -838,103 +897,107 @@ class _ListRow extends StatelessWidget {
     final c = appColors(context);
     // 多选模式下走原 InkWell (点击切换勾选), 其他情况下走 PrivacyAwareInkWell
     final inner = Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
-          children: [
-            if (selecting) ...[
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: selected ? c.accent : Colors.transparent,
-                  border: Border.all(
-                      color: selected ? c.accent : c.muted2, width: 1.5),
-                ),
-                alignment: Alignment.center,
-                child: selected
-                    ? const Icon(Icons.check, color: Colors.white, size: 14)
-                    : null,
-              ),
-              const SizedBox(width: 14),
-            ],
-            SizedBox(
-              width: 52,
-              child: PrivacyMask(
-                movieId: movie.id,
-                radius: 8,
-                child: Poster(
-                  url: movie.posterUuid != null
-                      ? urlBuilder(movie.posterUuid!)
-                      : null,
-                  title: movie.title,
-                  year: movie.year,
-                  radius: 8,
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          if (selecting) ...[
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? c.accent : Colors.transparent,
+                border: Border.all(
+                  color: selected ? c.accent : c.muted2,
+                  width: 1.5,
                 ),
               ),
+              alignment: Alignment.center,
+              child: selected
+                  ? const Icon(Icons.check, color: Colors.white, size: 14)
+                  : null,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  PrivacyText(
-                    movieId: movie.id,
-                    text: movie.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    [
-                      if (movie.year != null) '${movie.year}',
-                      if (movie.runtime != null && movie.runtime! > 0)
-                        '${movie.runtime}m',
-                      if (movie.rating != null && movie.rating! > 0)
-                        '★ ${movie.rating!.toStringAsFixed(1)}',
-                    ].join(' · '),
-                    style: AppText.meta(context),
-                  ),
-                ],
-              ),
-            ),
-            if (!selecting)
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFFF6B9D), Color(0xFF9F6BFF)],
-                  ),
-                ),
-                child: const Icon(Icons.play_arrow, size: 16, color: Colors.white),
-              ),
+            const SizedBox(width: 14),
           ],
-        ),
-      );
+          SizedBox(
+            width: 52,
+            child: PrivacyMask(
+              movieId: movie.id,
+              radius: 8,
+              child: Poster(
+                url: movie.posterUuid != null
+                    ? urlBuilder(movie.posterUuid!)
+                    : null,
+                title: movie.title,
+                year: movie.year,
+                radius: 8,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PrivacyText(
+                  movieId: movie.id,
+                  text: movie.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: c.text,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  [
+                    if (movie.year != null) '${movie.year}',
+                    if (movie.runtime != null && movie.runtime! > 0)
+                      '${movie.runtime}m',
+                    if (movie.rating != null && movie.rating! > 0)
+                      '★ ${movie.rating!.toStringAsFixed(1)}',
+                  ].join(' · '),
+                  style: AppText.meta(context),
+                ),
+              ],
+            ),
+          ),
+          if (!selecting)
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFFF6B9D), Color(0xFF9F6BFF)],
+                ),
+              ),
+              child: const Icon(
+                Icons.play_arrow,
+                size: 16,
+                color: Colors.white,
+              ),
+            ),
+        ],
+      ),
+    );
 
     final row = selecting
         ? InkWell(
             onTap: onTap,
-            onLongPress: onLongPress,
             borderRadius: BorderRadius.circular(12),
             child: inner,
           )
         : PrivacyAwareInkWell(
             movieId: movie.id,
             onTap: onTap,
-            onLongPress: onLongPress,
             borderRadius: 12,
             child: inner,
           );
@@ -961,12 +1024,15 @@ class _ListRow extends StatelessWidget {
           children: [
             Icon(Icons.delete_outline, color: Colors.white, size: 18),
             SizedBox(width: 6),
-            Text('移除',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13)),
+            Text(
+              '移除',
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
           ],
         ),
       ),
@@ -986,10 +1052,7 @@ class _ListRow extends StatelessWidget {
 
 // ============ Stats + Lists 复用 ============
 class _StatsCard extends StatelessWidget {
-  const _StatsCard({
-    required this.totalCount,
-    required this.items,
-  });
+  const _StatsCard({required this.totalCount, required this.items});
   final int totalCount;
   final List<MovieListItem> items;
 
@@ -1045,8 +1108,11 @@ class _StatsCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          cell('已收藏', totalCount > 0 ? '$totalCount' : '${items.length}',
-              first: true),
+          cell(
+            '已收藏',
+            totalCount > 0 ? '$totalCount' : '${items.length}',
+            first: true,
+          ),
           cell('已看', '${localStats.watchedCount}'),
           cell('分钟', '${localStats.watchedMinutes}'),
         ],
@@ -1059,30 +1125,29 @@ class _ListsGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final lists = ref.watch(listsProvider);
-    return LayoutBuilder(builder: (ctx, cons) {
-      final cardWidth = collectionCardWidth(cons.maxWidth);
-      return SizedBox(
-        height: cardWidth / (5 / 3),
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: lists.length + 1,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
-          itemBuilder: (_, index) {
-            if (index == lists.length) {
-              // "+ 新建集合" 卡片
+    return LayoutBuilder(
+      builder: (ctx, cons) {
+        final cardWidth = collectionCardWidth(cons.maxWidth);
+        return SizedBox(
+          height: cardWidth / (5 / 3),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: lists.length + 1,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (_, index) {
+              if (index == lists.length) {
+                // "+ 新建集合" 卡片
+                return SizedBox(width: cardWidth, child: _NewListCard());
+              }
               return SizedBox(
                 width: cardWidth,
-                child: _NewListCard(),
+                child: _ListCard(list: lists[index]),
               );
-            }
-            return SizedBox(
-              width: cardWidth,
-              child: _ListCard(list: lists[index]),
-            );
-          },
-        ),
-      );
-    });
+            },
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -1144,7 +1209,9 @@ class _ListCard extends StatelessWidget {
                           if (list.locked)
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 2),
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.black.withValues(alpha: 0.35),
                                 borderRadius: BorderRadius.circular(5),
@@ -1293,8 +1360,9 @@ class _NewListCard extends ConsumerWidget {
                           boxShadow: on
                               ? [
                                   BoxShadow(
-                                    color:
-                                        AppHues.top(hue).withValues(alpha: 0.4),
+                                    color: AppHues.top(
+                                      hue,
+                                    ).withValues(alpha: 0.4),
                                     blurRadius: 8,
                                   ),
                                 ]
@@ -1309,10 +1377,13 @@ class _NewListCard extends ConsumerWidget {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-                child: const Text('创建')),
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('创建'),
+            ),
           ],
         );
       },

@@ -1,12 +1,13 @@
 import '../../core/api/envelope.dart';
 import '../../core/api/services/mappings_api.dart';
 import '../../core/models/mapping_rule.dart';
+import '../../core/models/paged_result.dart';
 
 String normalizeMappingStatus(String status) => switch (status) {
-      'convert' => 'active',
-      'delete' => 'empty',
-      _ => status,
-    };
+  'convert' => 'active',
+  'delete' => 'empty',
+  _ => status,
+};
 
 /// 普通映射规则类型 · 与后端路径 /mappings/type/{type} 一致
 enum MappingType {
@@ -26,24 +27,36 @@ class MappingsRepository {
   Future<List<MappingRule>> list(
     MappingType type, {
     String? search,
+
+    /// UI values are 'all' / 'convert' / 'delete'; the API expects
+    /// 'active' / 'empty' for the latter two.
+    String status = 'all',
+  }) async {
+    try {
+      return (await listPage(type, search: search, status: status)).items;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<PagedResult<MappingRule>> listPage(
+    MappingType type, {
+    int limit = 50,
+    int offset = 0,
+    String? search,
+
     /// UI values are 'all' / 'convert' / 'delete'; the API expects
     /// 'active' / 'empty' for the latter two.
     String status = 'all',
   }) async {
     final q = <String, dynamic>{};
+    q['limit'] = limit;
+    q['offset'] = offset;
     if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
     final apiStatus = normalizeMappingStatus(status);
     if (apiStatus != 'all') q['status'] = apiStatus;
     final raw = await _api.list(type.value, q);
-    if (raw is! Map || raw['success'] != true) return const [];
-    final data = raw['data'];
-    final list = data is List
-        ? data
-        : (data is Map && data['items'] is List ? data['items'] as List : const []);
-    return list
-        .whereType<Map>()
-        .map((e) => MappingRule.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
+    return unwrapTopLevelList<MappingRule>(raw, MappingRule.fromJson);
   }
 
   Future<MappingRule> create(
@@ -82,5 +95,4 @@ class MappingsRepository {
     final raw = await _api.delete(type.value, {'mappings_ids': ids});
     unwrapStd<void>(raw, (_) {});
   }
-
 }
