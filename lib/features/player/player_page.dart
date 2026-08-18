@@ -477,6 +477,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
               ),
             )
           : null;
+      if (bufferPolicy.diskCacheEnabled) {
+        // 容量淘汰属于下一次写入前的准备工作，不属于退出播放器的收尾。
+        // 这样退出后缓存会原样保留；只有已有缓存超过新设置的容量时，
+        // 才在打开下一部视频前淘汰最旧文件。
+        try {
+          await cacheService.pruneVideoCache(
+            maxBytes: bufferPolicy.diskCacheLimitBytes,
+          );
+        } catch (_) {}
+      }
       _activeVideoCacheLimitBytes = bufferPolicy.diskCacheEnabled
           ? bufferPolicy.diskCacheLimitBytes
           : null;
@@ -1446,13 +1456,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           cachePath != _activeVideoCacheFilePath ||
           maxBytes != _activeVideoCacheLimitBytes) {
         return;
-      }
-      if (maxBytes != null) {
-        try {
-          await ref
-              .read(diskCacheServiceProvider)
-              .pruneVideoCache(maxBytes: maxBytes);
-        } catch (_) {}
       }
       ref.invalidate(cacheUsageProvider);
       _activeVideoCacheFilePath = null;
