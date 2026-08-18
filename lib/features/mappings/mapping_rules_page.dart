@@ -8,6 +8,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/drag_selection.dart';
 import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
@@ -131,11 +132,28 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     return completer.future;
   }
 
-  void _enterSelectionWith(int id) {
+  void _startSelectionSweep(int id, bool selected) {
     setState(() {
       _selectionMode = true;
-      _selectedIds.add(id);
+      _setSelectionValue(id, selected);
     });
+  }
+
+  void _applySelectionSweep(int id, bool selected) {
+    if (_selectedIds.contains(id) == selected) return;
+    setState(() => _setSelectionValue(id, selected));
+  }
+
+  void _finishSelectionSweep() {
+    if (_selectionMode && _selectedIds.isEmpty) _exitSelection();
+  }
+
+  void _setSelectionValue(int id, bool selected) {
+    if (selected) {
+      _selectedIds.add(id);
+    } else {
+      _selectedIds.remove(id);
+    }
   }
 
   void _toggleSelect(int id) {
@@ -252,149 +270,172 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
               body: RefreshIndicator(
                 color: c.accent,
                 onRefresh: _refresh,
-                child: CustomScrollView(
-                  controller: _scrollController,
-                  primary: false,
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              _totalCount == null ? '—' : '$_totalCount',
-                              style: AppText.pageTitle(context),
-                            ),
-                            const SizedBox(width: 8),
-                            Text('条规则', style: AppText.meta(context)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // 搜索栏
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: c.surface,
-                            border: Border.all(color: c.cardBorder),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                child: DragSelectionScope<int>(
+                  scrollController: _scrollController,
+                  isSelected: _selectedIds.contains,
+                  onSelectionStart: _startSelectionSweep,
+                  onSelectionChanged: _applySelectionSweep,
+                  onSelectionEnd: _finishSelectionSweep,
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    primary: false,
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
                             children: [
-                              const SizedBox(width: 14),
-                              Icon(Icons.search, size: 18, color: c.muted),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: TextField(
-                                  controller: _searchCtrl,
-                                  onChanged: _onSearch,
-                                  decoration: InputDecoration(
-                                    hintText: '搜索原始值或映射值',
-                                    hintStyle: TextStyle(
-                                      color: c.muted,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    isCollapsed: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                    border: InputBorder.none,
-                                  ),
-                                  style: TextStyle(
-                                    color: c.text,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
+                              Text(
+                                _totalCount == null ? '—' : '$_totalCount',
+                                style: AppText.pageTitle(context),
                               ),
-                              if (_searchCtrl.text.isNotEmpty)
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.close,
-                                    size: 16,
-                                    color: c.muted,
-                                  ),
-                                  onPressed: () {
-                                    _clearSearch();
-                                  },
-                                ),
+                              const SizedBox(width: 8),
+                              Text('条规则', style: AppText.meta(context)),
                             ],
                           ),
                         ),
                       ),
-                    ),
-                    // status chips
-                    SliverToBoxAdapter(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 22),
-                        child: Row(
-                          children: [
-                            CompactFilterButton(
-                              label: '全部',
-                              icon: Icons.filter_list_rounded,
-                              active: _status == 'all',
-                              onTap: () => _setStatus('all'),
+                      // 搜索栏
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: c.surface,
+                              border: Border.all(color: c.cardBorder),
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                            const SizedBox(width: 7),
-                            CompactFilterButton(
-                              label: '映射规则',
-                              icon: Icons.swap_horiz_rounded,
-                              active: _status == 'convert',
-                              onTap: () => _setStatus('convert'),
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 14),
+                                Icon(Icons.search, size: 18, color: c.muted),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _searchCtrl,
+                                    onChanged: _onSearch,
+                                    decoration: InputDecoration(
+                                      hintText: '搜索原始值或映射值',
+                                      hintStyle: TextStyle(
+                                        color: c.muted,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      isCollapsed: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            vertical: 14,
+                                          ),
+                                      border: InputBorder.none,
+                                    ),
+                                    style: TextStyle(
+                                      color: c.text,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                if (_searchCtrl.text.isNotEmpty)
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.close,
+                                      size: 16,
+                                      color: c.muted,
+                                    ),
+                                    onPressed: () {
+                                      _clearSearch();
+                                    },
+                                  ),
+                              ],
                             ),
-                            const SizedBox(width: 7),
-                            CompactFilterButton(
-                              label: '删除规则',
-                              icon: Icons.delete_outline_rounded,
-                              active: _status == 'delete',
-                              onTap: () => _setStatus('delete'),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                      // status chips
+                      SliverToBoxAdapter(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 22),
+                          child: Row(
+                            children: [
+                              CompactFilterButton(
+                                label: '全部',
+                                icon: Icons.filter_list_rounded,
+                                active: _status == 'all',
+                                onTap: () => _setStatus('all'),
+                              ),
+                              const SizedBox(width: 7),
+                              CompactFilterButton(
+                                label: '映射规则',
+                                icon: Icons.swap_horiz_rounded,
+                                active: _status == 'convert',
+                                onTap: () => _setStatus('convert'),
+                              ),
+                              const SizedBox(width: 7),
+                              CompactFilterButton(
+                                label: '删除规则',
+                                icon: Icons.delete_outline_rounded,
+                                active: _status == 'delete',
+                                onTap: () => _setStatus('delete'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 10)),
 
-                    SliverPadding(
-                      padding: EdgeInsets.fromLTRB(
-                        22,
-                        0,
-                        22,
-                        _selectionMode ? 136 : 80,
-                      ),
-                      sliver: PagedSliverList<int, MappingRule>(
-                        pagingController: _controller,
-                        builderDelegate: PagedChildBuilderDelegate<MappingRule>(
-                          itemBuilder: (ctx, rule, _) => _RuleTile(
-                            rule: rule,
-                            selectionMode: _selectionMode,
-                            selected: _selectedIds.contains(rule.id),
-                            onSelectionTap: () => _toggleSelect(rule.id),
-                            onLongPress: () => _enterSelectionWith(rule.id),
-                            onEdit: () => _showEditor(rule: rule),
-                            onDelete: () => _confirmDelete(rule),
-                          ),
-                          firstPageProgressIndicatorBuilder: (_) =>
-                              const Center(child: CircularProgressIndicator()),
-                          firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                            message: _controller.error?.toString() ?? '加载失败',
-                            onRetry: _controller.refresh,
-                          ),
-                          newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                            onRetry: _controller.retryLastFailedRequest,
-                          ),
-                          noItemsFoundIndicatorBuilder: (_) =>
-                              _Empty(type: widget.type),
-                          noMoreItemsIndicatorBuilder: (_) =>
-                              const NoMoreContent(),
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(
+                          22,
+                          0,
+                          22,
+                          _selectionMode ? 136 : 80,
+                        ),
+                        sliver: PagedSliverList<int, MappingRule>(
+                          pagingController: _controller,
+                          builderDelegate:
+                              PagedChildBuilderDelegate<MappingRule>(
+                                itemBuilder: (ctx, rule, _) =>
+                                    DragSelectionTarget<int>(
+                                      key: ValueKey(rule.id),
+                                      id: rule.id,
+                                      child: _RuleTile(
+                                        rule: rule,
+                                        selectionMode: _selectionMode,
+                                        selected: _selectedIds.contains(
+                                          rule.id,
+                                        ),
+                                        onSelectionTap: () =>
+                                            _toggleSelect(rule.id),
+                                        onEdit: () => _showEditor(rule: rule),
+                                        onDelete: () => _confirmDelete(rule),
+                                      ),
+                                    ),
+                                firstPageProgressIndicatorBuilder: (_) =>
+                                    const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                firstPageErrorIndicatorBuilder: (_) =>
+                                    ErrorView(
+                                      message:
+                                          _controller.error?.toString() ??
+                                          '加载失败',
+                                      onRetry: _controller.refresh,
+                                    ),
+                                newPageErrorIndicatorBuilder: (_) =>
+                                    PaginationRetry(
+                                      onRetry:
+                                          _controller.retryLastFailedRequest,
+                                    ),
+                                noItemsFoundIndicatorBuilder: (_) =>
+                                    _Empty(type: widget.type),
+                                noMoreItemsIndicatorBuilder: (_) =>
+                                    const NoMoreContent(),
+                              ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -692,7 +733,6 @@ class _RuleTile extends StatelessWidget {
     required this.selectionMode,
     required this.selected,
     required this.onSelectionTap,
-    required this.onLongPress,
     required this.onEdit,
     required this.onDelete,
   });
@@ -701,7 +741,6 @@ class _RuleTile extends StatelessWidget {
   final bool selectionMode;
   final bool selected;
   final VoidCallback onSelectionTap;
-  final VoidCallback onLongPress;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -721,7 +760,6 @@ class _RuleTile extends StatelessWidget {
     final summary = isDelete ? '丢弃' : (rule.mappedValue ?? '');
     return InkWell(
       onTap: selectionMode ? onSelectionTap : onEdit,
-      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(14),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),

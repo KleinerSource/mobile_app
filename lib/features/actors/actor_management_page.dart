@@ -12,6 +12,7 @@ import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../shared/drag_selection.dart';
 import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/actor_avatar.dart';
@@ -162,11 +163,28 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     AppHaptics.selection();
   }
 
-  void _enterSelectionWith(int id) {
+  void _startSelectionSweep(int id, bool selected) {
     setState(() {
       _selectionMode = true;
-      _selectedIds.add(id);
+      _setSelectionValue(id, selected);
     });
+  }
+
+  void _applySelectionSweep(int id, bool selected) {
+    if (_selectedIds.contains(id) == selected) return;
+    setState(() => _setSelectionValue(id, selected));
+  }
+
+  void _finishSelectionSweep() {
+    if (_selectionMode && _selectedIds.isEmpty) _exitSelection();
+  }
+
+  void _setSelectionValue(int id, bool selected) {
+    if (selected) {
+      _selectedIds.add(id);
+    } else {
+      _selectedIds.remove(id);
+    }
   }
 
   void _toggleSelect(int id) {
@@ -336,172 +354,187 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
               body: RefreshIndicator(
                 color: c.accent,
                 onRefresh: _refresh,
-                child: CustomScrollView(
-                  controller: _scrollController,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              _hasLoaded ? '$_totalCount' : '—',
-                              style: AppText.pageTitle(context),
-                            ),
-                            const SizedBox(width: 8),
-                            Text('位演员', style: AppText.meta(context)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: c.surface,
-                            border: Border.all(color: c.cardBorder),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                child: DragSelectionScope<int>(
+                  scrollController: _scrollController,
+                  isSelected: _selectedIds.contains,
+                  onSelectionStart: _startSelectionSweep,
+                  onSelectionChanged: _applySelectionSweep,
+                  onSelectionEnd: _finishSelectionSweep,
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
                             children: [
-                              const SizedBox(width: 14),
-                              Icon(Icons.search, size: 18, color: c.muted),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: TextField(
-                                  controller: _searchController,
-                                  onChanged: _onSearchChanged,
-                                  decoration: const InputDecoration(
-                                    hintText: '搜索演员名称',
-                                    isCollapsed: true,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                    border: InputBorder.none,
-                                  ),
-                                  style: TextStyle(
-                                    color: c.text,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
+                              Text(
+                                _hasLoaded ? '$_totalCount' : '—',
+                                style: AppText.pageTitle(context),
                               ),
-                              if (_searchController.text.isNotEmpty)
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.close,
-                                    size: 16,
-                                    color: c.muted,
-                                  ),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    _onSearchChanged('');
-                                  },
-                                ),
+                              const SizedBox(width: 8),
+                              Text('位演员', style: AppText.meta(context)),
                             ],
                           ),
                         ),
                       ),
-                    ),
-                    SliverToBoxAdapter(
-                      child: SizedBox(
-                        height: 36,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 22),
-                          children: [
-                            CompactSortButton(
-                              label: '影片数',
-                              active: _sortBy == 'movie_count',
-                              ascending: _sortOrder == 'asc',
-                              onTap: () => _setSort('movie_count'),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: c.surface,
+                              border: Border.all(color: c.cardBorder),
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                            const SizedBox(width: 7),
-                            CompactSortButton(
-                              label: '名称',
-                              active: _sortBy == 'name',
-                              ascending: _sortOrder == 'asc',
-                              onTap: () => _setSort('name'),
-                            ),
-                            const SizedBox(width: 7),
-                            CompactSortButton(
-                              label: '创建时间',
-                              active: _sortBy == 'created_at',
-                              ascending: _sortOrder == 'asc',
-                              onTap: () => _setSort('created_at'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 10)),
-                    SliverPadding(
-                      padding: EdgeInsets.fromLTRB(
-                        22,
-                        0,
-                        22,
-                        _selectionMode ? 136 : 80,
-                      ),
-                      sliver: PagedSliverList<int, ActorRow>(
-                        pagingController: _controller,
-                        builderDelegate: PagedChildBuilderDelegate<ActorRow>(
-                          itemBuilder: (context, row, index) {
-                            final actor = row.actor;
-                            return _ActorTile(
-                              row: row,
-                              hue: AppHues.all[index % AppHues.all.length],
-                              isExpanded: _expandedIds.contains(row.id),
-                              selectionMode: _selectionMode,
-                              selected: _selectedIds.contains(row.id),
-                              onSelectionTap: () => _toggleSelect(row.id),
-                              onLongPress: () => _enterSelectionWith(row.id),
-                              onToggleExpand: () => _toggleExpand(row.id),
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => PersonDetailPage(
-                                    actorId: actor.id,
-                                    name: actor.name,
-                                    actorType: actor.actorType,
-                                    biography: actor.biography,
-                                    avatarPath: actor.avatarPath,
-                                    onUpdated: () =>
-                                        _refresh(preserveScroll: true),
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 14),
+                                Icon(Icons.search, size: 18, color: c.muted),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _searchController,
+                                    onChanged: _onSearchChanged,
+                                    decoration: const InputDecoration(
+                                      hintText: '搜索演员名称',
+                                      isCollapsed: true,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      border: InputBorder.none,
+                                    ),
+                                    style: TextStyle(
+                                      color: c.text,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              onEdit: () => _showEditor(context, actor: actor),
-                              onDelete: () => _confirmDelete(context, actor),
-                              onEditMember: (member) => _showEditor(
-                                context,
-                                actor: member.asActorItem,
-                              ),
-                              onDeleteMember: (member) => _confirmDelete(
-                                context,
-                                member.asActorItem,
-                                force: true,
-                              ),
-                            );
-                          },
-                          firstPageProgressIndicatorBuilder: (_) =>
-                              const Center(child: CircularProgressIndicator()),
-                          firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                            message: _controller.error?.toString() ?? '加载失败',
-                            onRetry: _controller.refresh,
+                                if (_searchController.text.isNotEmpty)
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.close,
+                                      size: 16,
+                                      color: c.muted,
+                                    ),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      _onSearchChanged('');
+                                    },
+                                  ),
+                              ],
+                            ),
                           ),
-                          newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                            onRetry: _controller.retryLastFailedRequest,
-                          ),
-                          noItemsFoundIndicatorBuilder: (_) =>
-                              const _EmptyActors(),
-                          noMoreItemsIndicatorBuilder: (_) =>
-                              const NoMoreContent(),
                         ),
                       ),
-                    ),
-                  ],
+                      SliverToBoxAdapter(
+                        child: SizedBox(
+                          height: 36,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 22),
+                            children: [
+                              CompactSortButton(
+                                label: '影片数',
+                                active: _sortBy == 'movie_count',
+                                ascending: _sortOrder == 'asc',
+                                onTap: () => _setSort('movie_count'),
+                              ),
+                              const SizedBox(width: 7),
+                              CompactSortButton(
+                                label: '名称',
+                                active: _sortBy == 'name',
+                                ascending: _sortOrder == 'asc',
+                                onTap: () => _setSort('name'),
+                              ),
+                              const SizedBox(width: 7),
+                              CompactSortButton(
+                                label: '创建时间',
+                                active: _sortBy == 'created_at',
+                                ascending: _sortOrder == 'asc',
+                                onTap: () => _setSort('created_at'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(
+                          22,
+                          0,
+                          22,
+                          _selectionMode ? 136 : 80,
+                        ),
+                        sliver: PagedSliverList<int, ActorRow>(
+                          pagingController: _controller,
+                          builderDelegate: PagedChildBuilderDelegate<ActorRow>(
+                            itemBuilder: (context, row, index) {
+                              final actor = row.actor;
+                              return DragSelectionTarget<int>(
+                                key: ValueKey(row.id),
+                                id: row.id,
+                                child: _ActorTile(
+                                  row: row,
+                                  hue: AppHues.all[index % AppHues.all.length],
+                                  isExpanded: _expandedIds.contains(row.id),
+                                  selectionMode: _selectionMode,
+                                  selected: _selectedIds.contains(row.id),
+                                  onSelectionTap: () => _toggleSelect(row.id),
+                                  onToggleExpand: () => _toggleExpand(row.id),
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => PersonDetailPage(
+                                        actorId: actor.id,
+                                        name: actor.name,
+                                        actorType: actor.actorType,
+                                        biography: actor.biography,
+                                        avatarPath: actor.avatarPath,
+                                        onUpdated: () =>
+                                            _refresh(preserveScroll: true),
+                                      ),
+                                    ),
+                                  ),
+                                  onEdit: () =>
+                                      _showEditor(context, actor: actor),
+                                  onDelete: () =>
+                                      _confirmDelete(context, actor),
+                                  onEditMember: (member) => _showEditor(
+                                    context,
+                                    actor: member.asActorItem,
+                                  ),
+                                  onDeleteMember: (member) => _confirmDelete(
+                                    context,
+                                    member.asActorItem,
+                                    force: true,
+                                  ),
+                                ),
+                              );
+                            },
+                            firstPageProgressIndicatorBuilder: (_) =>
+                                const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                            firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                              message: _controller.error?.toString() ?? '加载失败',
+                              onRetry: _controller.refresh,
+                            ),
+                            newPageErrorIndicatorBuilder: (_) =>
+                                PaginationRetry(
+                                  onRetry: _controller.retryLastFailedRequest,
+                                ),
+                            noItemsFoundIndicatorBuilder: (_) =>
+                                const _EmptyActors(),
+                            noMoreItemsIndicatorBuilder: (_) =>
+                                const NoMoreContent(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -824,7 +857,6 @@ class _ActorTile extends StatelessWidget {
     required this.selectionMode,
     required this.selected,
     required this.onSelectionTap,
-    required this.onLongPress,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
@@ -839,7 +871,6 @@ class _ActorTile extends StatelessWidget {
   final bool selectionMode;
   final bool selected;
   final VoidCallback onSelectionTap;
-  final VoidCallback onLongPress;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -874,7 +905,6 @@ class _ActorTile extends StatelessWidget {
       movieId: actor.id,
       scope: PrivacyScope.actor,
       onTap: selectionMode ? onSelectionTap : onTap,
-      onLongPress: onLongPress,
       borderRadius: 14,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),

@@ -8,6 +8,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/drag_selection.dart';
 import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
@@ -167,11 +168,28 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     return completer.future;
   }
 
-  void _enterSelectionWith(int id) {
+  void _startSelectionSweep(int id, bool selected) {
     setState(() {
       _selectionMode = true;
-      _selectedIds.add(id);
+      _setSelectionValue(id, selected);
     });
+  }
+
+  void _applySelectionSweep(int id, bool selected) {
+    if (_selectedIds.contains(id) == selected) return;
+    setState(() => _setSelectionValue(id, selected));
+  }
+
+  void _finishSelectionSweep() {
+    if (_selectionMode && _selectedIds.isEmpty) _exitSelection();
+  }
+
+  void _setSelectionValue(int id, bool selected) {
+    if (selected) {
+      _selectedIds.add(id);
+    } else {
+      _selectedIds.remove(id);
+    }
   }
 
   void _toggleSelect(int id) {
@@ -298,179 +316,194 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                   body: RefreshIndicator(
                     color: c.accent,
                     onRefresh: _refresh,
-                    child: CustomScrollView(
-                      controller: _scrollController,
-                      primary: false,
-                      slivers: [
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.baseline,
-                              textBaseline: TextBaseline.alphabetic,
-                              children: [
-                                Text(
-                                  _totalCount == null ? '—' : '$_totalCount',
-                                  style: AppText.pageTitle(context),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '个${widget.kind.label}',
-                                  style: AppText.meta(context),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // 搜索栏
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: c.surface,
-                                border: Border.all(color: c.cardBorder),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
+                    child: DragSelectionScope<int>(
+                      scrollController: _scrollController,
+                      isSelected: _selectedIds.contains,
+                      onSelectionStart: _startSelectionSweep,
+                      onSelectionChanged: _applySelectionSweep,
+                      onSelectionEnd: _finishSelectionSweep,
+                      child: CustomScrollView(
+                        controller: _scrollController,
+                        primary: false,
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.baseline,
+                                textBaseline: TextBaseline.alphabetic,
                                 children: [
-                                  const SizedBox(width: 14),
-                                  Icon(Icons.search, size: 18, color: c.muted),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _searchController,
-                                      onChanged: _onSearchChanged,
-                                      decoration: InputDecoration(
-                                        hintText: widget.kind.searchHint,
-                                        hintStyle: TextStyle(
-                                          color: c.muted,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        isCollapsed: true,
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              vertical: 14,
-                                            ),
-                                        border: InputBorder.none,
-                                      ),
-                                      style: TextStyle(
-                                        color: c.text,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
+                                  Text(
+                                    _totalCount == null ? '—' : '$_totalCount',
+                                    style: AppText.pageTitle(context),
                                   ),
-                                  if (_searchController.text.isNotEmpty)
-                                    IconButton(
-                                      icon: Icon(
-                                        Icons.close,
-                                        size: 16,
-                                        color: c.muted,
-                                      ),
-                                      onPressed: _clearSearch,
-                                    ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '个${widget.kind.label}',
+                                    style: AppText.meta(context),
+                                  ),
                                 ],
                               ),
                             ),
                           ),
-                        ),
-                        // 排序 chips
-                        SliverToBoxAdapter(
-                          child: SizedBox(
-                            height: 36,
-                            child: ListView(
-                              scrollDirection: Axis.horizontal,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 22,
+                          // 搜索栏
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: c.surface,
+                                  border: Border.all(color: c.cardBorder),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const SizedBox(width: 14),
+                                    Icon(
+                                      Icons.search,
+                                      size: 18,
+                                      color: c.muted,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _searchController,
+                                        onChanged: _onSearchChanged,
+                                        decoration: InputDecoration(
+                                          hintText: widget.kind.searchHint,
+                                          hintStyle: TextStyle(
+                                            color: c.muted,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          isCollapsed: true,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                vertical: 14,
+                                              ),
+                                          border: InputBorder.none,
+                                        ),
+                                        style: TextStyle(
+                                          color: c.text,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    if (_searchController.text.isNotEmpty)
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.close,
+                                          size: 16,
+                                          color: c.muted,
+                                        ),
+                                        onPressed: _clearSearch,
+                                      ),
+                                  ],
+                                ),
                               ),
-                              children: [
-                                CompactSortButton(
-                                  label: '名称',
-                                  active: _sortBy == 'name',
-                                  ascending: _sortOrder == 'asc',
-                                  onTap: () => _setSort('name'),
-                                ),
-                                const SizedBox(width: 7),
-                                CompactSortButton(
-                                  label: '影片数',
-                                  active: _sortBy == 'movie_count',
-                                  ascending: _sortOrder == 'asc',
-                                  onTap: () => _setSort('movie_count'),
-                                ),
-                                const SizedBox(width: 7),
-                                CompactSortButton(
-                                  label: '创建时间',
-                                  active: _sortBy == 'created_at',
-                                  ascending: _sortOrder == 'asc',
-                                  onTap: () => _setSort('created_at'),
-                                ),
-                              ],
                             ),
                           ),
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 10)),
-                        // 列表
-                        SliverPadding(
-                          padding: EdgeInsets.fromLTRB(
-                            22,
-                            0,
-                            22,
-                            _selectionMode ? 136 : 80,
-                          ),
-                          sliver: PagedSliverList<int, ResourceItem>(
-                            pagingController: _controller,
-                            builderDelegate:
-                                PagedChildBuilderDelegate<ResourceItem>(
-                                  itemBuilder: (ctx, r, i) {
-                                    final hue =
-                                        AppHues.all[i % AppHues.all.length];
-                                    return _ResourceTile(
-                                      kind: widget.kind,
-                                      item: r,
-                                      hue: hue,
-                                      selectionMode: _selectionMode,
-                                      selected: _selectedIds.contains(r.id),
-                                      onTap: _selectionMode
-                                          ? () => _toggleSelect(r.id)
-                                          : () => Navigator.of(ctx).push(
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    ResourceMoviesPage(
-                                                      kind: widget.kind,
-                                                      resource: r,
-                                                    ),
-                                              ),
-                                            ),
-                                      onLongPress: () =>
-                                          _enterSelectionWith(r.id),
-                                      onEdit: () => _showEditor(ctx, edit: r),
-                                      onDelete: () => _confirmDelete(ctx, r),
-                                    );
-                                  },
-                                  firstPageProgressIndicatorBuilder: (_) =>
-                                      const Center(
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                  firstPageErrorIndicatorBuilder: (_) =>
-                                      ErrorView(
-                                        message:
-                                            _controller.error?.toString() ??
-                                            '加载失败',
-                                        onRetry: _controller.refresh,
-                                      ),
-                                  newPageErrorIndicatorBuilder: (_) =>
-                                      PaginationRetry(
-                                        onRetry:
-                                            _controller.retryLastFailedRequest,
-                                      ),
-                                  noItemsFoundIndicatorBuilder: (_) =>
-                                      _Empty(kind: widget.kind),
-                                  noMoreItemsIndicatorBuilder: (_) =>
-                                      const NoMoreContent(),
+                          // 排序 chips
+                          SliverToBoxAdapter(
+                            child: SizedBox(
+                              height: 36,
+                              child: ListView(
+                                scrollDirection: Axis.horizontal,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 22,
                                 ),
+                                children: [
+                                  CompactSortButton(
+                                    label: '名称',
+                                    active: _sortBy == 'name',
+                                    ascending: _sortOrder == 'asc',
+                                    onTap: () => _setSort('name'),
+                                  ),
+                                  const SizedBox(width: 7),
+                                  CompactSortButton(
+                                    label: '影片数',
+                                    active: _sortBy == 'movie_count',
+                                    ascending: _sortOrder == 'asc',
+                                    onTap: () => _setSort('movie_count'),
+                                  ),
+                                  const SizedBox(width: 7),
+                                  CompactSortButton(
+                                    label: '创建时间',
+                                    active: _sortBy == 'created_at',
+                                    ascending: _sortOrder == 'asc',
+                                    onTap: () => _setSort('created_at'),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                          // 列表
+                          SliverPadding(
+                            padding: EdgeInsets.fromLTRB(
+                              22,
+                              0,
+                              22,
+                              _selectionMode ? 136 : 80,
+                            ),
+                            sliver: PagedSliverList<int, ResourceItem>(
+                              pagingController: _controller,
+                              builderDelegate:
+                                  PagedChildBuilderDelegate<ResourceItem>(
+                                    itemBuilder: (ctx, r, i) {
+                                      final hue =
+                                          AppHues.all[i % AppHues.all.length];
+                                      return DragSelectionTarget<int>(
+                                        key: ValueKey(r.id),
+                                        id: r.id,
+                                        child: _ResourceTile(
+                                          kind: widget.kind,
+                                          item: r,
+                                          hue: hue,
+                                          selectionMode: _selectionMode,
+                                          selected: _selectedIds.contains(r.id),
+                                          onTap: _selectionMode
+                                              ? () => _toggleSelect(r.id)
+                                              : () => Navigator.of(ctx).push(
+                                                  MaterialPageRoute(
+                                                    builder: (_) =>
+                                                        ResourceMoviesPage(
+                                                          kind: widget.kind,
+                                                          resource: r,
+                                                        ),
+                                                  ),
+                                                ),
+                                          onEdit: () =>
+                                              _showEditor(ctx, edit: r),
+                                          onDelete: () =>
+                                              _confirmDelete(ctx, r),
+                                        ),
+                                      );
+                                    },
+                                    firstPageProgressIndicatorBuilder: (_) =>
+                                        const Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                    firstPageErrorIndicatorBuilder: (_) =>
+                                        ErrorView(
+                                          message:
+                                              _controller.error?.toString() ??
+                                              '加载失败',
+                                          onRetry: _controller.refresh,
+                                        ),
+                                    newPageErrorIndicatorBuilder: (_) =>
+                                        PaginationRetry(
+                                          onRetry: _controller
+                                              .retryLastFailedRequest,
+                                        ),
+                                    noItemsFoundIndicatorBuilder: (_) =>
+                                        _Empty(kind: widget.kind),
+                                    noMoreItemsIndicatorBuilder: (_) =>
+                                        const NoMoreContent(),
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -905,7 +938,6 @@ class _ResourceTile extends StatelessWidget {
     required this.selectionMode,
     required this.selected,
     required this.onTap,
-    required this.onLongPress,
     required this.onEdit,
     required this.onDelete,
   });
@@ -916,7 +948,6 @@ class _ResourceTile extends StatelessWidget {
   final bool selectionMode;
   final bool selected;
   final VoidCallback onTap;
-  final VoidCallback onLongPress;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -925,7 +956,6 @@ class _ResourceTile extends StatelessWidget {
     final c = appColors(context);
     return InkWell(
       onTap: onTap,
-      onLongPress: onLongPress,
       borderRadius: BorderRadius.circular(14),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),

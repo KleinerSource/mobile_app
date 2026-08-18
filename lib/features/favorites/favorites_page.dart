@@ -8,6 +8,7 @@ import '../../core/models/movie.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../shared/drag_selection.dart';
 import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
@@ -70,9 +71,10 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   FavoritesSort _sort = FavoritesSort.recent;
   int _totalCount = 0;
   final Set<int> _selected = {};
+  bool _selectionMode = false;
   bool _newResourcesOnly = false;
   bool _resourceScanStarting = false;
-  bool get _selecting => _selected.isNotEmpty;
+  bool get _selecting => _selectionMode;
 
   @override
   void initState() {
@@ -198,13 +200,44 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     setState(() {
       if (_selected.contains(id)) {
         _selected.remove(id);
+        if (_selected.isEmpty) _selectionMode = false;
       } else {
+        _selectionMode = true;
         _selected.add(id);
       }
     });
   }
 
-  void _clearSelection() => setState(_selected.clear);
+  void _startSelectionSweep(int id, bool selected) {
+    setState(() {
+      _selectionMode = true;
+      _setSelectionValue(id, selected);
+    });
+  }
+
+  void _applySelectionSweep(int id, bool selected) {
+    if (_selected.contains(id) == selected) return;
+    setState(() => _setSelectionValue(id, selected));
+  }
+
+  void _finishSelectionSweep() {
+    if (_selected.isEmpty) _clearSelection();
+  }
+
+  void _setSelectionValue(int id, bool selected) {
+    if (selected) {
+      _selected.add(id);
+    } else {
+      _selected.remove(id);
+    }
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selected.clear();
+    });
+  }
 
   void _selectAllLoaded() {
     final loaded = _controller.itemList ?? const <MovieListItem>[];
@@ -268,8 +301,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       list.removeWhere((it) => ids.contains(it.id));
       _controller.itemList = list;
       _totalCount = (_totalCount - ids.length).clamp(0, 1 << 30);
-      _selected.clear();
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {
+          _selectionMode = false;
+          _selected.clear();
+        });
+      }
       messenger.showSnackBar(
         SnackBar(
           content: Text('已移除 ${ids.length} 部'),
@@ -357,183 +394,191 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
             child: RefreshIndicator(
               color: c.accent,
               onRefresh: _refresh,
-              child: CustomScrollView(
-                controller: _scrollController,
-                slivers: [
-                  // ===== 顶部 =====
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 16, 22, 22),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  AppL10n.of(context).tabYou.toUpperCase(),
-                                  style: AppText.eyebrow(context),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  AppL10n.of(context).favoritesTitle,
-                                  style: AppText.pageTitle(context),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: c.surface,
-                                border: Border.all(color: c.cardBorder),
-                              ),
-                              child: _resourceScanStarting
-                                  ? SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: c.accent,
-                                      ),
-                                    )
-                                  : Icon(
-                                      Icons.cloud_download_outlined,
-                                      size: 18,
-                                      color: c.text,
-                                    ),
-                            ),
-                            tooltip: '扫描资源',
-                            onPressed: _resourceScanStarting || _totalCount <= 0
-                                ? null
-                                : _startResourceScan,
-                          ),
-                          IconButton(
-                            icon: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: c.surface,
-                                border: Border.all(color: c.cardBorder),
-                              ),
-                              child: Icon(
-                                Icons.settings,
-                                size: 18,
-                                color: c.text,
-                              ),
-                            ),
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const SettingsPage(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // ===== 统计条 =====
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
-                      child: _StatsCard(
-                        totalCount: _totalCount,
-                        items: _controller.itemList ?? const [],
-                      ),
-                    ),
-                  ),
-
-                  // ===== Lists 多彩卡片 =====
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                      child: Text(
-                        AppL10n.of(context).yourLists,
-                        style: AppText.sectionTitle(context),
-                      ),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-                      child: _ListsGrid(),
-                    ),
-                  ),
-
-                  // ===== All favorites · header + 排序 + 视图切换 =====
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('全部收藏', style: AppText.eyebrow(context)),
-                                const SizedBox(height: 3),
-                                Text(
-                                  '$_totalCount 部影片',
-                                  style: AppText.sectionTitle(context),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Flexible(
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
+              child: DragSelectionScope<int>(
+                scrollController: _scrollController,
+                isSelected: _selected.contains,
+                onSelectionStart: _startSelectionSweep,
+                onSelectionChanged: _applySelectionSweep,
+                onSelectionEnd: _finishSelectionSweep,
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  slivers: [
+                    // ===== 顶部 =====
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 16, 22, 22),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _FavoriteFilterPill(
-                                    active: _newResourcesOnly,
-                                    onTap: _toggleNewResourcesFilter,
+                                  Text(
+                                    AppL10n.of(context).tabYou.toUpperCase(),
+                                    style: AppText.eyebrow(context),
                                   ),
-                                  const SizedBox(width: 6),
-                                  _SortPill(
-                                    label: _sort.label,
-                                    onTap: _showSortSheet,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  _ViewToggle(
-                                    mode: _viewMode,
-                                    onChange: (m) =>
-                                        setState(() => _viewMode = m),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    AppL10n.of(context).favoritesTitle,
+                                    style: AppText.pageTitle(context),
                                   ),
                                 ],
                               ),
                             ),
-                          ),
-                        ],
+                            IconButton(
+                              icon: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: c.surface,
+                                  border: Border.all(color: c.cardBorder),
+                                ),
+                                child: _resourceScanStarting
+                                    ? SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: c.accent,
+                                        ),
+                                      )
+                                    : Icon(
+                                        Icons.cloud_download_outlined,
+                                        size: 18,
+                                        color: c.text,
+                                      ),
+                              ),
+                              tooltip: '扫描资源',
+                              onPressed:
+                                  _resourceScanStarting || _totalCount <= 0
+                                  ? null
+                                  : _startResourceScan,
+                            ),
+                            IconButton(
+                              icon: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: c.surface,
+                                  border: Border.all(color: c.cardBorder),
+                                ),
+                                child: Icon(
+                                  Icons.settings,
+                                  size: 18,
+                                  color: c.text,
+                                ),
+                              ),
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const SettingsPage(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
 
-                  // ===== 收藏网格 / 列表 =====
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
-                    sliver: _viewMode == FavoritesViewMode.grid
-                        ? PagedSliverGrid<int, MovieListItem>(
-                            pagingController: _controller,
-                            showNoMoreItemsIndicatorAsGridChild: false,
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  childAspectRatio: 0.5,
-                                  crossAxisSpacing: 10,
-                                  mainAxisSpacing: 14,
+                    // ===== 统计条 =====
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
+                        child: _StatsCard(
+                          totalCount: _totalCount,
+                          items: _controller.itemList ?? const [],
+                        ),
+                      ),
+                    ),
+
+                    // ===== Lists 多彩卡片 =====
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                        child: Text(
+                          AppL10n.of(context).yourLists,
+                          style: AppText.sectionTitle(context),
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+                        child: _ListsGrid(),
+                      ),
+                    ),
+
+                    // ===== All favorites · header + 排序 + 视图切换 =====
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('全部收藏', style: AppText.eyebrow(context)),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    '$_totalCount 部影片',
+                                    style: AppText.sectionTitle(context),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Flexible(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    _FavoriteFilterPill(
+                                      active: _newResourcesOnly,
+                                      onTap: _toggleNewResourcesFilter,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    _SortPill(
+                                      label: _sort.label,
+                                      onTap: _showSortSheet,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    _ViewToggle(
+                                      mode: _viewMode,
+                                      onChange: (m) =>
+                                          setState(() => _viewMode = m),
+                                    ),
+                                  ],
                                 ),
-                            builderDelegate: _buildGridDelegate(urlBuilder),
-                          )
-                        : PagedSliverList<int, MovieListItem>(
-                            pagingController: _controller,
-                            builderDelegate: _buildListDelegate(urlBuilder),
-                          ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
-                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // ===== 收藏网格 / 列表 =====
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      sliver: _viewMode == FavoritesViewMode.grid
+                          ? PagedSliverGrid<int, MovieListItem>(
+                              pagingController: _controller,
+                              showNoMoreItemsIndicatorAsGridChild: false,
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    childAspectRatio: 0.5,
+                                    crossAxisSpacing: 10,
+                                    mainAxisSpacing: 14,
+                                  ),
+                              builderDelegate: _buildGridDelegate(urlBuilder),
+                            )
+                          : PagedSliverList<int, MovieListItem>(
+                              pagingController: _controller,
+                              builderDelegate: _buildListDelegate(urlBuilder),
+                            ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                  ],
+                ),
               ),
             ),
           ),
@@ -546,21 +591,26 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     String Function(String) urlBuilder,
   ) {
     return PagedChildBuilderDelegate<MovieListItem>(
-      itemBuilder: (ctx, m, idx) => _GridCell(
-        movie: m,
-        urlBuilder: urlBuilder,
-        selected: _selected.contains(m.id),
-        selecting: _selecting,
-        onTap: () {
-          if (_selecting) {
-            _toggleSelect(m.id);
-          } else {
-            Navigator.of(ctx).push(
-              MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: m.id)),
-            );
-          }
-        },
-        onLongPress: () => _toggleSelect(m.id),
+      itemBuilder: (ctx, m, idx) => DragSelectionTarget<int>(
+        key: ValueKey(m.id),
+        id: m.id,
+        child: _GridCell(
+          movie: m,
+          urlBuilder: urlBuilder,
+          selected: _selected.contains(m.id),
+          selecting: _selecting,
+          onTap: () {
+            if (_selecting) {
+              _toggleSelect(m.id);
+            } else {
+              Navigator.of(ctx).push(
+                MaterialPageRoute(
+                  builder: (_) => MovieDetailPage(movieId: m.id),
+                ),
+              );
+            }
+          },
+        ),
       ),
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
@@ -577,22 +627,27 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     String Function(String) urlBuilder,
   ) {
     return PagedChildBuilderDelegate<MovieListItem>(
-      itemBuilder: (ctx, m, idx) => _ListRow(
-        movie: m,
-        urlBuilder: urlBuilder,
-        selected: _selected.contains(m.id),
-        selecting: _selecting,
-        onTap: () {
-          if (_selecting) {
-            _toggleSelect(m.id);
-          } else {
-            Navigator.of(ctx).push(
-              MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: m.id)),
-            );
-          }
-        },
-        onLongPress: () => _toggleSelect(m.id),
-        onRemove: () => _removeOne(m),
+      itemBuilder: (ctx, m, idx) => DragSelectionTarget<int>(
+        key: ValueKey(m.id),
+        id: m.id,
+        child: _ListRow(
+          movie: m,
+          urlBuilder: urlBuilder,
+          selected: _selected.contains(m.id),
+          selecting: _selecting,
+          onTap: () {
+            if (_selecting) {
+              _toggleSelect(m.id);
+            } else {
+              Navigator.of(ctx).push(
+                MaterialPageRoute(
+                  builder: (_) => MovieDetailPage(movieId: m.id),
+                ),
+              );
+            }
+          },
+          onRemove: () => _removeOne(m),
+        ),
       ),
       firstPageProgressIndicatorBuilder: (_) =>
           const Center(child: CupertinoActivityIndicator()),
@@ -767,7 +822,6 @@ class _GridCell extends StatelessWidget {
     required this.selected,
     required this.selecting,
     required this.onTap,
-    required this.onLongPress,
   });
 
   final MovieListItem movie;
@@ -775,7 +829,6 @@ class _GridCell extends StatelessWidget {
   final bool selected;
   final bool selecting;
   final VoidCallback onTap;
-  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -789,7 +842,6 @@ class _GridCell extends StatelessWidget {
             movie: movie,
             posterUrlBuilder: urlBuilder,
             onTap: onTap,
-            onLongPress: onLongPress,
           ),
         ),
         if (selecting)
@@ -825,7 +877,6 @@ class _ListRow extends StatelessWidget {
     required this.selected,
     required this.selecting,
     required this.onTap,
-    required this.onLongPress,
     required this.onRemove,
   });
 
@@ -834,7 +885,6 @@ class _ListRow extends StatelessWidget {
   final bool selected;
   final bool selecting;
   final VoidCallback onTap;
-  final VoidCallback onLongPress;
   final VoidCallback onRemove;
 
   @override
@@ -937,14 +987,12 @@ class _ListRow extends StatelessWidget {
     final row = selecting
         ? InkWell(
             onTap: onTap,
-            onLongPress: onLongPress,
             borderRadius: BorderRadius.circular(12),
             child: inner,
           )
         : PrivacyAwareInkWell(
             movieId: movie.id,
             onTap: onTap,
-            onLongPress: onLongPress,
             borderRadius: 12,
             child: inner,
           );

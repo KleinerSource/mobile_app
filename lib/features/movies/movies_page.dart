@@ -14,6 +14,7 @@ import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/drag_selection.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/poster.dart';
@@ -177,179 +178,201 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
               children: [
                 RefreshIndicator(
                   onRefresh: _refreshMovies,
-                  child: CustomScrollView(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    slivers: [
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                AppL10n.of(context).libraryTitle.toUpperCase(),
-                                style: AppText.eyebrow(context),
-                              ),
-                              const SizedBox(height: 3),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.baseline,
-                                textBaseline: TextBaseline.alphabetic,
-                                children: [
-                                  Text(
-                                    _totalCount > 0 ? '$_totalCount' : '—',
-                                    style: AppText.pageTitle(context),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    AppL10n.of(context).libraryCountSuffix,
-                                    style: TextStyle(
-                                      color: c.muted,
-                                      fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
+                  child: DragSelectionScope<int>(
+                    scrollController: _scrollController,
+                    isSelected: _selectedIds.contains,
+                    onSelectionStart: _startSelectionSweep,
+                    onSelectionChanged: _applySelectionSweep,
+                    onSelectionEnd: _finishSelectionSweep,
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  AppL10n.of(
+                                    context,
+                                  ).libraryTitle.toUpperCase(),
+                                  style: AppText.eyebrow(context),
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.baseline,
+                                  textBaseline: TextBaseline.alphabetic,
+                                  children: [
+                                    Text(
+                                      _totalCount > 0 ? '$_totalCount' : '—',
+                                      style: AppText.pageTitle(context),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                          child: _SearchBar(
-                            controller: _searchController,
-                            onSubmitted: (v) => _applyFilter(
-                              _currentFilter.copyWith(search: v),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      AppL10n.of(context).libraryCountSuffix,
+                                      style: TextStyle(
+                                        color: c.muted,
+                                        fontFamily: 'Inter',
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: SizedBox(
-                          height: 36,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 22),
-                            children: [
-                              _UpdatedDropdownChip(
-                                value: _currentFilter.isUpdated,
-                                onChanged: (v) => _applyFilter(
-                                  _currentFilter.copyWith(
-                                    isUpdated: v,
-                                    clearIsUpdated: v == null,
-                                  ),
-                                ),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                            child: _SearchBar(
+                              controller: _searchController,
+                              onSubmitted: (v) => _applyFilter(
+                                _currentFilter.copyWith(search: v),
                               ),
-                              const SizedBox(width: 7),
-                              CompactFilterButton(
-                                label: '新资源',
-                                icon: Icons.fiber_new_rounded,
-                                active: _currentFilter.hasNewResources == true,
-                                onTap: () {
-                                  final enabled =
-                                      _currentFilter.hasNewResources == true;
-                                  _applyFilter(
+                            ),
+                          ),
+                        ),
+                        SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: 36,
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 22,
+                              ),
+                              children: [
+                                _UpdatedDropdownChip(
+                                  value: _currentFilter.isUpdated,
+                                  onChanged: (v) => _applyFilter(
                                     _currentFilter.copyWith(
-                                      hasNewResources: enabled ? null : true,
-                                      clearHasNewResources: enabled,
+                                      isUpdated: v,
+                                      clearIsUpdated: v == null,
                                     ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(width: 7),
-                              CompactFilterButton(
-                                label: '重复番号',
-                                icon: Icons.copy_all_outlined,
-                                active: _currentFilter.duplicateNum,
-                                onTap: () => _applyFilter(
-                                  _currentFilter.copyWith(
-                                    duplicateNum: !_currentFilter.duplicateNum,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 7),
-                              CompactFilterButton(
-                                label: _resourceScanStarting ? '扫描中' : '扫描资源',
-                                icon: _resourceScanStarting
-                                    ? Icons.sync_rounded
-                                    : Icons.cloud_download_outlined,
-                                active: _resourceScanStarting,
-                                onTap: _resourceScanStarting
-                                    ? () {}
-                                    : () => _startResourceScan(),
-                              ),
-                            ],
+                                const SizedBox(width: 7),
+                                CompactFilterButton(
+                                  label: '新资源',
+                                  icon: Icons.fiber_new_rounded,
+                                  active:
+                                      _currentFilter.hasNewResources == true,
+                                  onTap: () {
+                                    final enabled =
+                                        _currentFilter.hasNewResources == true;
+                                    _applyFilter(
+                                      _currentFilter.copyWith(
+                                        hasNewResources: enabled ? null : true,
+                                        clearHasNewResources: enabled,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(width: 7),
+                                CompactFilterButton(
+                                  label: '重复番号',
+                                  icon: Icons.copy_all_outlined,
+                                  active: _currentFilter.duplicateNum,
+                                  onTap: () => _applyFilter(
+                                    _currentFilter.copyWith(
+                                      duplicateNum:
+                                          !_currentFilter.duplicateNum,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 7),
+                                CompactFilterButton(
+                                  label: _resourceScanStarting ? '扫描中' : '扫描资源',
+                                  icon: _resourceScanStarting
+                                      ? Icons.sync_rounded
+                                      : Icons.cloud_download_outlined,
+                                  active: _resourceScanStarting,
+                                  onTap: _resourceScanStarting
+                                      ? () {}
+                                      : () => _startResourceScan(),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  AppL10n.of(context).sortedByOnly(
-                                    _sortLabel(context, _currentFilter.sortBy),
-                                  ),
-                                  style: TextStyle(
-                                    color: c.muted,
-                                    fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 12,
-                                    letterSpacing: 0.6,
-                                  ),
-                                ),
-                              ),
-                              _SortButton(
-                                sortBy: _currentFilter.sortBy,
-                                sortOrder: _currentFilter.sortOrder,
-                                onChanged: (sortBy, sortOrder) => _applyFilter(
-                                  _currentFilter.copyWith(
-                                    sortBy: sortBy,
-                                    sortOrder: sortOrder,
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    AppL10n.of(context).sortedByOnly(
+                                      _sortLabel(
+                                        context,
+                                        _currentFilter.sortBy,
+                                      ),
+                                    ),
+                                    style: TextStyle(
+                                      color: c.muted,
+                                      fontFamily: 'Inter',
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                      letterSpacing: 0.6,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              _FilterButton(
-                                activeCount: _currentFilter.activeAdvancedCount,
-                                onTap: _openAdvancedFilter,
-                              ),
-                              const SizedBox(width: 8),
-                              _ViewModeToggle(
-                                mode: _viewMode,
-                                onChanged: (m) => setState(() => _viewMode = m),
-                              ),
-                            ],
+                                _SortButton(
+                                  sortBy: _currentFilter.sortBy,
+                                  sortOrder: _currentFilter.sortOrder,
+                                  onChanged: (sortBy, sortOrder) =>
+                                      _applyFilter(
+                                        _currentFilter.copyWith(
+                                          sortBy: sortBy,
+                                          sortOrder: sortOrder,
+                                        ),
+                                      ),
+                                ),
+                                const SizedBox(width: 8),
+                                _FilterButton(
+                                  activeCount:
+                                      _currentFilter.activeAdvancedCount,
+                                  onTap: _openAdvancedFilter,
+                                ),
+                                const SizedBox(width: 8),
+                                _ViewModeToggle(
+                                  mode: _viewMode,
+                                  onChanged: (m) =>
+                                      setState(() => _viewMode = m),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
-                        sliver: _viewMode == _ViewMode.grid
-                            ? PagedSliverGrid<int, MovieListItem>(
-                                pagingController: _controller,
-                                showNoMoreItemsIndicatorAsGridChild: false,
-                                gridDelegate:
-                                    SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: crossAxisCount,
-                                      childAspectRatio: 0.5,
-                                      mainAxisSpacing: 14,
-                                      crossAxisSpacing: 10,
-                                    ),
-                                builderDelegate: _buildDelegate(urlBuilder),
-                              )
-                            : PagedSliverList<int, MovieListItem>(
-                                pagingController: _controller,
-                                builderDelegate: _buildListDelegate(urlBuilder),
-                              ),
-                      ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 120)),
-                    ],
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 0),
+                          sliver: _viewMode == _ViewMode.grid
+                              ? PagedSliverGrid<int, MovieListItem>(
+                                  pagingController: _controller,
+                                  showNoMoreItemsIndicatorAsGridChild: false,
+                                  gridDelegate:
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: crossAxisCount,
+                                        childAspectRatio: 0.5,
+                                        mainAxisSpacing: 14,
+                                        crossAxisSpacing: 10,
+                                      ),
+                                  builderDelegate: _buildDelegate(urlBuilder),
+                                )
+                              : PagedSliverList<int, MovieListItem>(
+                                  pagingController: _controller,
+                                  builderDelegate: _buildListDelegate(
+                                    urlBuilder,
+                                  ),
+                                ),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                      ],
+                    ),
                   ),
                 ),
                 if (_selectionMode)
@@ -410,23 +433,26 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   ) {
     final l = AppL10n.of(context);
     return PagedChildBuilderDelegate<MovieListItem>(
-      itemBuilder: (ctx, item, idx) => MovieCard(
-        movie: item,
-        posterUrlBuilder: urlBuilder,
-        selectionMode: _selectionMode,
-        selected: _selectedIds.contains(item.id),
-        onTap: () {
-          if (_selectionMode) {
-            _toggleSelect(item.id);
-          } else {
-            Navigator.of(ctx).push(
-              MaterialPageRoute(
-                builder: (_) => MovieDetailPage(movieId: item.id),
-              ),
-            );
-          }
-        },
-        onLongPress: () => _enterSelectionWith(item.id),
+      itemBuilder: (ctx, item, idx) => DragSelectionTarget<int>(
+        key: ValueKey(item.id),
+        id: item.id,
+        child: MovieCard(
+          movie: item,
+          posterUrlBuilder: urlBuilder,
+          selectionMode: _selectionMode,
+          selected: _selectedIds.contains(item.id),
+          onTap: () {
+            if (_selectionMode) {
+              _toggleSelect(item.id);
+            } else {
+              Navigator.of(ctx).push(
+                MaterialPageRoute(
+                  builder: (_) => MovieDetailPage(movieId: item.id),
+                ),
+              );
+            }
+          },
+        ),
       ),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
         message: _controller.error?.toString() ?? l.loadFailed,
@@ -451,13 +477,16 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   ) {
     final l = AppL10n.of(context);
     return PagedChildBuilderDelegate<MovieListItem>(
-      itemBuilder: (ctx, item, idx) => _ListRow(
-        movie: item,
-        urlBuilder: urlBuilder,
-        selectionMode: _selectionMode,
-        selected: _selectedIds.contains(item.id),
-        onSelectionTap: () => _toggleSelect(item.id),
-        onLongPress: () => _enterSelectionWith(item.id),
+      itemBuilder: (ctx, item, idx) => DragSelectionTarget<int>(
+        key: ValueKey(item.id),
+        id: item.id,
+        child: _ListRow(
+          movie: item,
+          urlBuilder: urlBuilder,
+          selectionMode: _selectionMode,
+          selected: _selectedIds.contains(item.id),
+          onSelectionTap: () => _toggleSelect(item.id),
+        ),
       ),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
         message: _controller.error?.toString() ?? l.loadFailed,
@@ -472,11 +501,30 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
   // ===== 选择模式 =====
 
-  void _enterSelectionWith(int id) {
+  void _startSelectionSweep(int id, bool selected) {
     setState(() {
       _selectionMode = true;
-      _selectedIds.add(id);
+      _setSelectionValue(id, selected);
     });
+  }
+
+  void _applySelectionSweep(int id, bool selected) {
+    if (_selectedIds.contains(id) == selected) return;
+    setState(() => _setSelectionValue(id, selected));
+  }
+
+  void _finishSelectionSweep() {
+    if (_selectionMode && _selectedIds.isEmpty) {
+      _exitSelection();
+    }
+  }
+
+  void _setSelectionValue(int id, bool selected) {
+    if (selected) {
+      _selectedIds.add(id);
+    } else {
+      _selectedIds.remove(id);
+    }
   }
 
   void _toggleSelect(int id) {
@@ -1031,14 +1079,12 @@ class _ListRow extends StatelessWidget {
     this.selectionMode = false,
     this.selected = false,
     this.onSelectionTap,
-    this.onLongPress,
   });
   final MovieListItem movie;
   final String Function(String) urlBuilder;
   final bool selectionMode;
   final bool selected;
   final VoidCallback? onSelectionTap;
-  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -1061,7 +1107,6 @@ class _ListRow extends StatelessWidget {
                 builder: (_) => MovieDetailPage(movieId: movie.id),
               ),
             ),
-      onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
