@@ -118,35 +118,51 @@ void main() {
     final state = _gridHarnessState(tester);
 
     var gesture = await _longPress(tester, _target(0));
-    await gesture.moveTo(tester.getCenter(_target(2)));
+    await gesture.moveTo(tester.getCenter(_target(4)));
     await gesture.up();
     await tester.pump();
-    expect(state.selected, {0, 1, 2});
+    expect(state.selected, {0, 1, 2, 3, 4});
 
-    gesture = await _longPress(tester, _target(3));
-    await gesture.moveTo(tester.getCenter(_target(7)));
+    gesture = await _longPress(tester, _target(7));
+    await gesture.moveTo(tester.getCenter(_target(9)));
     await gesture.up();
     await tester.pump();
 
-    expect(state.selected, {0, 1, 2, 3, 4, 5, 6, 7});
+    expect(state.selected, {0, 1, 2, 3, 4, 7, 8, 9});
   });
 
-  testWidgets('网格从首卡片滑到下一排不会整排展开', (tester) async {
+  testWidgets('网格回滑会撤销离开手指范围的卡片', (tester) async {
     await _pumpGridHarness(tester);
     final state = _gridHarnessState(tester);
 
     var gesture = await _longPress(tester, _target(0));
-    await gesture.moveTo(tester.getCenter(_target(3)));
+    await gesture.moveTo(tester.getCenter(_target(4)));
+    await tester.pump();
+    expect(state.selected, {0, 1, 2, 3, 4});
+
+    await gesture.moveTo(tester.getCenter(_target(1)));
+    await tester.pump();
+    expect(state.selected, {0, 1});
     await gesture.up();
     await tester.pump();
-    expect(state.selected, {0, 1, 2, 3});
+  });
 
-    gesture = await _longPress(tester, _target(3));
-    await gesture.moveTo(tester.getCenter(_target(7)));
+  testWidgets('网格松手后从已选卡片滑动可以取消连续范围', (tester) async {
+    await _pumpGridHarness(tester);
+    final state = _gridHarnessState(tester);
+
+    var gesture = await _longPress(tester, _target(0));
+    await gesture.moveTo(tester.getCenter(_target(4)));
+    await gesture.up();
+    await tester.pump();
+    expect(state.selected, {0, 1, 2, 3, 4});
+
+    gesture = await _longPress(tester, _target(0));
+    await gesture.moveTo(tester.getCenter(_target(2)));
     await gesture.up();
     await tester.pump();
 
-    expect(state.selected, {0, 1, 2});
+    expect(state.selected, {3, 4});
   });
 }
 
@@ -311,7 +327,7 @@ class _GridSelectionHarnessState extends State<_GridSelectionHarness> {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 300,
-      height: 270,
+      height: 360,
       child: DragSelectionScope<int>(
         scrollController: controller,
         isSelected: selected.contains,
@@ -338,7 +354,7 @@ class _GridSelectionHarnessState extends State<_GridSelectionHarness> {
                     child: Center(child: Text('$index')),
                   ),
                 ),
-                childCount: 9,
+                childCount: 12,
               ),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,

@@ -59,6 +59,8 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
   final _viewportKey = GlobalKey();
   final Map<T, _DragSelectionTargetState<T>> _targets = {};
   final Set<T> _visited = {};
+  final Set<T> _activeGridIds = {};
+  final Map<T, bool> _gridOriginalValues = {};
   late final Ticker _ticker;
 
   Offset? _pointerPosition;
@@ -117,6 +119,12 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
     _visited
       ..clear()
       ..add(id);
+    _activeGridIds.clear();
+    _gridOriginalValues.clear();
+    if (_selectionIndex != null) {
+      _activeGridIds.add(id);
+      _gridOriginalValues[id] = widget.isSelected(id);
+    }
 
     AppHaptics.medium();
     widget.onSelectionStart(id, _selectionValue);
@@ -144,6 +152,8 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
     _lastPointerPosition = null;
     _selectionIndex = null;
     _visited.clear();
+    _activeGridIds.clear();
+    _gridOriginalValues.clear();
     _lastTickElapsed = null;
     _stopTicker();
     widget.onSelectionEnd();
@@ -170,11 +180,23 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
 
     final first = math.min(startIndex, endIndex);
     final last = math.max(startIndex, endIndex);
+    final nextActiveIds = <T>{};
     final targets = List<_DragSelectionTargetState<T>>.of(_targets.values);
     for (final candidate in targets) {
       final index = candidate.widget.selectionIndex;
       if (index == null || index < first || index > last) continue;
-      _applyTarget(candidate);
+      nextActiveIds.add(candidate.widget.id);
+    }
+
+    for (final id in List<T>.of(_activeGridIds)) {
+      if (nextActiveIds.contains(id)) continue;
+      _deactivateGridId(id);
+    }
+
+    for (final candidate in targets) {
+      if (nextActiveIds.contains(candidate.widget.id)) {
+        _activateGridTarget(candidate);
+      }
     }
   }
 
@@ -190,8 +212,37 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
     final id = target.widget.id;
     if (!_visited.add(id)) return;
 
+    _applyTargetValue(target, _selectionValue);
+  }
+
+  void _activateGridTarget(_DragSelectionTargetState<T> target) {
+    final id = target.widget.id;
+    if (!_activeGridIds.add(id)) return;
+
+    _gridOriginalValues.putIfAbsent(id, () => widget.isSelected(id));
+    _applyTargetValue(target, _selectionValue);
+  }
+
+  void _deactivateGridId(T id) {
+    if (!_activeGridIds.remove(id)) return;
+
+    if (_gridOriginalValues.containsKey(id)) {
+      _applySelectionValue(id, _gridOriginalValues[id]!);
+    }
+  }
+
+  void _applyTargetValue(
+    _DragSelectionTargetState<T> target,
+    bool selected,
+  ) {
+    _applySelectionValue(target.widget.id, selected);
+  }
+
+  void _applySelectionValue(T id, bool selected) {
+    if (widget.isSelected(id) == selected) return;
+
     AppHaptics.selection();
-    widget.onSelectionChanged(id, _selectionValue);
+    widget.onSelectionChanged(id, selected);
   }
 
   bool _segmentIntersectsRect(Offset from, Offset to, Rect rect) {
