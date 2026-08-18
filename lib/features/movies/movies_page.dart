@@ -181,6 +181,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                   onRefresh: _refreshMovies,
                   child: DragSelectionScope<int>(
                     scrollController: _scrollController,
+                    selectionLayout: _viewMode == _ViewMode.grid
+                        ? DragSelectionLayout.grid
+                        : DragSelectionLayout.list,
                     isSelected: _selectedIds.contains,
                     onSelectionStart: _startSelectionSweep,
                     onSelectionChanged: _applySelectionSweep,

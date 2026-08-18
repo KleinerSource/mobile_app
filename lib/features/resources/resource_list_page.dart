@@ -318,6 +318,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                     onRefresh: _refresh,
                     child: DragSelectionScope<int>(
                       scrollController: _scrollController,
+                      selectionLayout: DragSelectionLayout.list,
                       isSelected: _selectedIds.contains,
                       onSelectionStart: _startSelectionSweep,
                       onSelectionChanged: _applySelectionSweep,

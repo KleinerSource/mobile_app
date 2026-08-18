@@ -8,6 +8,10 @@ import '../core/platform/app_haptics.dart';
 
 typedef DragSelectionChange<T> = void Function(T id, bool selected);
 
+/// Determines which direction can start a new selection sweep after the
+/// initial long press has entered selection mode.
+enum DragSelectionLayout { list, grid }
+
 /// Coordinates long-press drag selection for the mounted children below it.
 class DragSelectionScope<T> extends StatefulWidget {
   const DragSelectionScope({
@@ -18,6 +22,7 @@ class DragSelectionScope<T> extends StatefulWidget {
     required this.onSelectionChanged,
     required this.onSelectionEnd,
     required this.child,
+    this.selectionLayout = DragSelectionLayout.list,
     this.selectionMode = false,
     this.enabled = true,
     this.edgeExtent = 72,
@@ -30,6 +35,7 @@ class DragSelectionScope<T> extends StatefulWidget {
   final DragSelectionChange<T> onSelectionChanged;
   final VoidCallback onSelectionEnd;
   final Widget child;
+  final DragSelectionLayout selectionLayout;
   final bool selectionMode;
   final bool enabled;
   final double edgeExtent;
@@ -55,8 +61,9 @@ class DragSelectionTarget<T> extends StatefulWidget {
   /// The row-major position of this target in a grid. Null keeps list semantics.
   final int? selectionIndex;
 
-  /// The square hit area in the target's top-left corner used for direct drag
-  /// selection while the surrounding page is already in selection mode.
+  /// The square hit area in the target's top-left corner used for direct
+  /// vertical selection in list mode while the page is already in selection
+  /// mode.
   final double selectionHandleExtent;
 
   @override
@@ -107,6 +114,8 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
   }
 
   bool get _selectionMode => widget.selectionMode;
+
+  DragSelectionLayout get _selectionLayout => widget.selectionLayout;
 
   void _unregister(_DragSelectionTargetState<T> target, T id) {
     if (identical(_targets[id], target)) {
@@ -393,6 +402,7 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
   Widget build(BuildContext context) {
     return _DragSelectionInherited<T>(
       state: this,
+      selectionLayout: widget.selectionLayout,
       selectionMode: widget.selectionMode,
       child: NotificationListener<ScrollMetricsNotification>(
         onNotification: (notification) {
@@ -410,21 +420,25 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
 class _DragSelectionInherited<T> extends InheritedWidget {
   const _DragSelectionInherited({
     required this.state,
+    required this.selectionLayout,
     required this.selectionMode,
     required super.child,
   });
 
   final _DragSelectionScopeState<T> state;
+  final DragSelectionLayout selectionLayout;
   final bool selectionMode;
 
   @override
   bool updateShouldNotify(_DragSelectionInherited<T> oldWidget) =>
       !identical(state, oldWidget.state) ||
+      selectionLayout != oldWidget.selectionLayout ||
       selectionMode != oldWidget.selectionMode;
 }
 
 class _DragSelectionTargetState<T> extends State<DragSelectionTarget<T>> {
   _DragSelectionScopeState<T>? _scope;
+  Offset? _pointerDownPosition;
 
   Rect? get globalRect {
     final renderObject = context.findRenderObject();
@@ -464,10 +478,21 @@ class _DragSelectionTargetState<T> extends State<DragSelectionTarget<T>> {
     final scope = _scope;
     if (scope == null) return widget.child;
 
+    // The first gesture is always a long press. These direct recognizers may
+    // be installed when that gesture changes the page into selection mode,
+    // but they cannot join the already active pointer's gesture arena. They
+    // are therefore ready for the next touch as soon as the mode is entered.
     final directDragEnabled = scope._selectionMode;
     return Listener(
-      onPointerUp: (_) => scope._finishSelection(),
-      onPointerCancel: (_) => scope._finishSelection(),
+      onPointerDown: (event) => _pointerDownPosition = event.position,
+      onPointerUp: (_) {
+        _pointerDownPosition = null;
+        scope._finishSelection();
+      },
+      onPointerCancel: (_) {
+        _pointerDownPosition = null;
+        scope._finishSelection();
+      },
       child: RawGestureDetector(
         behavior: HitTestBehavior.translucent,
         gestures: <Type, GestureRecognizerFactory>{
@@ -492,12 +517,30 @@ class _DragSelectionTargetState<T> extends State<DragSelectionTarget<T>> {
                   recognizer.onLongPressCancel = scope._finishSelection;
                 },
               ),
-          if (directDragEnabled)
+          if (directDragEnabled &&
+              scope._selectionLayout == DragSelectionLayout.grid)
             _SelectionHorizontalDragRecognizer:
                 GestureRecognizerFactoryWithHandlers<
                   _SelectionHorizontalDragRecognizer
+                >(_SelectionHorizontalDragRecognizer.new, (recognizer) {
+                  recognizer.onStart = (details) {
+                    _startDirectSelection(scope, details.globalPosition);
+                  };
+                  recognizer.onUpdate = (details) {
+                    scope._updateSelection(details.globalPosition);
+                  };
+                  recognizer.onEnd = (_) {
+                    scope._finishSelection();
+                  };
+                  recognizer.onCancel = scope._finishSelection;
+                }),
+          if (directDragEnabled &&
+              scope._selectionLayout == DragSelectionLayout.list)
+            _SelectionVerticalDragRecognizer:
+                GestureRecognizerFactoryWithHandlers<
+                  _SelectionVerticalDragRecognizer
                 >(
-                  () => _SelectionHorizontalDragRecognizer(
+                  () => _SelectionVerticalDragRecognizer(
                     isPointerInHandle: (position) =>
                         _isPointerInSelectionHandle(
                           position,
@@ -506,7 +549,7 @@ class _DragSelectionTargetState<T> extends State<DragSelectionTarget<T>> {
                   ),
                   (recognizer) {
                     recognizer.onStart = (details) {
-                      scope._startSelection(this, details.globalPosition);
+                      _startDirectSelection(scope, details.globalPosition);
                     };
                     recognizer.onUpdate = (details) {
                       scope._updateSelection(details.globalPosition);
@@ -521,6 +564,18 @@ class _DragSelectionTargetState<T> extends State<DragSelectionTarget<T>> {
         child: widget.child,
       ),
     );
+  }
+
+  void _startDirectSelection(
+    _DragSelectionScopeState<T> scope,
+    Offset currentPosition,
+  ) {
+    scope._startSelection(this, _pointerDownPosition ?? currentPosition);
+    // Drag recognizers report the position at which the direction threshold
+    // was crossed in onStart. Apply that whole first segment immediately so a
+    // fast first move cannot skip mounted targets between touch-down and the
+    // first drag update.
+    scope._updateSelection(currentPosition);
   }
 
   bool _isPointerInSelectionHandle(Offset globalPosition, double extent) {
@@ -538,11 +593,17 @@ class _DragSelectionTargetState<T> extends State<DragSelectionTarget<T>> {
   }
 }
 
-/// A horizontal recognizer that only joins the gesture arena from the
-/// checkbox-sized area at the target's top-left corner.
+/// A horizontal recognizer used by cards after selection mode is active.
+/// Once it wins the arena, its updates continue to report vertical movement,
+/// so a horizontal-then-vertical sweep remains one uninterrupted selection.
 class _SelectionHorizontalDragRecognizer
-    extends HorizontalDragGestureRecognizer {
-  _SelectionHorizontalDragRecognizer({required this.isPointerInHandle});
+    extends HorizontalDragGestureRecognizer {}
+
+/// A vertical recognizer used by list items after selection mode is active.
+/// It only joins the arena from the checkbox-sized area at the target's
+/// top-left corner; other vertical gestures remain owned by the scroll view.
+class _SelectionVerticalDragRecognizer extends VerticalDragGestureRecognizer {
+  _SelectionVerticalDragRecognizer({required this.isPointerInHandle});
 
   final bool Function(Offset position) isPointerInHandle;
 

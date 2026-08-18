@@ -396,6 +396,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
               onRefresh: _refresh,
               child: DragSelectionScope<int>(
                 scrollController: _scrollController,
+                selectionLayout: _viewMode == FavoritesViewMode.grid
+                    ? DragSelectionLayout.grid
+                    : DragSelectionLayout.list,
                 isSelected: _selected.contains,
                 onSelectionStart: _startSelectionSweep,
                 onSelectionChanged: _applySelectionSweep,

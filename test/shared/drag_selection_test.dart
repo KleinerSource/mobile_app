@@ -30,7 +30,7 @@ void main() {
 
     gesture = await _dragFromHandle(tester, _target(2));
     final secondStart = _handlePosition(tester, _target(2));
-    await gesture.moveTo(secondStart + const Offset(60, 12));
+    await gesture.moveTo(secondStart + const Offset(12, 32));
     final state = _harnessState(tester);
     expect(state.selected, {0, 1, 3, 4, 5, 6});
 
@@ -169,7 +169,7 @@ void main() {
     expect(state.selected, {3, 4});
   });
 
-  testWidgets('进入多选模式后从左上角横向拖动无需再次长按', (tester) async {
+  testWidgets('网格多选模式后从卡片任意位置横向拖动无需再次长按', (tester) async {
     await _pumpGridHarness(tester);
     final state = _gridHarnessState(tester);
 
@@ -179,7 +179,7 @@ void main() {
     expect(state.selectionMode, isTrue);
     expect(state.selected, {0});
 
-    gesture = await _dragFromHandle(tester, _target(1));
+    gesture = await tester.startGesture(tester.getCenter(_target(1)));
     await gesture.moveTo(tester.getCenter(_target(2)));
     await tester.pump();
     await gesture.up();
@@ -188,7 +188,7 @@ void main() {
     expect(state.selected, {0, 1, 2});
   });
 
-  testWidgets('多选模式从卡片其他位置横向拖动不会触发选择', (tester) async {
+  testWidgets('网格多选模式横向后纵向移动仍持续选择', (tester) async {
     await _pumpGridHarness(tester);
     final state = _gridHarnessState(tester);
 
@@ -198,25 +198,75 @@ void main() {
 
     gesture = await tester.startGesture(tester.getCenter(_target(1)));
     await gesture.moveTo(tester.getCenter(_target(2)));
+    await gesture.moveTo(tester.getCenter(_target(5)));
     await tester.pump();
     await gesture.up();
     await tester.pump();
 
-    expect(state.selected, {0});
+    expect(state.selected, {0, 1, 2, 3, 4, 5});
   });
 
-  testWidgets('从复选框区域纵向拖动仍由列表滚动处理', (tester) async {
+  testWidgets('网格多选模式后纵向起手仍由列表滚动处理', (tester) async {
+    await _pumpGridHarness(tester);
+    final state = _gridHarnessState(tester);
+
+    var gesture = await _longPress(tester, _target(0));
+    await gesture.up();
+    await tester.pump();
+    expect(state.selected, {0});
+
+    await tester.timedDragFrom(
+      tester.getCenter(_target(0)),
+      const Offset(0, -120),
+      const Duration(milliseconds: 150),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(state.selected, {0});
+    expect(state.controller.offset, greaterThan(0));
+  });
+
+  testWidgets('列表多选模式后从复选框区域纵向拖动可继续选择', (tester) async {
     await _pumpHarness(tester, itemCount: 40, viewportHeight: 240);
     final state = _harnessState(tester);
 
-    var gesture = await _longPress(tester, _target(1));
+    var gesture = await _longPress(tester, _target(0));
+    await gesture.up();
+    await tester.pump();
+    expect(state.selected, {0});
+
+    gesture = await _dragFromHandle(tester, _target(1));
+    await gesture.moveTo(tester.getCenter(_target(4)));
+    await gesture.up();
+    await tester.pump();
+
+    expect(state.selected, {0, 1, 2, 3, 4});
+  });
+
+  testWidgets('网格首次长按后纵向拖动也按命中范围选择', (tester) async {
+    await _pumpGridHarness(tester);
+    final state = _gridHarnessState(tester);
+
+    final gesture = await _longPress(tester, _target(0));
+    await gesture.moveTo(tester.getCenter(_target(3)));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+
+    expect(state.selected, {0, 1, 2, 3});
+  });
+
+  testWidgets('列表多选模式后非复选框区域纵向拖动仍由列表滚动处理', (tester) async {
+    await _pumpHarness(tester, itemCount: 40, viewportHeight: 240);
+    final state = _harnessState(tester);
+
+    final gesture = await _longPress(tester, _target(1));
     await gesture.up();
     await tester.pump();
     expect(state.selected, {1});
 
-    final start = _handlePosition(tester, _target(1));
     await tester.timedDragFrom(
-      start,
+      tester.getCenter(_target(1)),
       const Offset(0, -52),
       const Duration(milliseconds: 100),
     );
@@ -331,6 +381,7 @@ class _SelectionHarnessState extends State<_SelectionHarness> {
       height: widget.viewportHeight,
       child: DragSelectionScope<int>(
         scrollController: controller,
+        selectionLayout: DragSelectionLayout.list,
         isSelected: selected.contains,
         selectionMode: selectionMode,
         onSelectionStart: (id, value) {
@@ -404,6 +455,7 @@ class _GridSelectionHarnessState extends State<_GridSelectionHarness> {
       height: 360,
       child: DragSelectionScope<int>(
         scrollController: controller,
+        selectionLayout: DragSelectionLayout.grid,
         isSelected: selected.contains,
         selectionMode: selectionMode,
         onSelectionStart: (id, value) {
@@ -432,7 +484,7 @@ class _GridSelectionHarnessState extends State<_GridSelectionHarness> {
                     child: Center(child: Text('$index')),
                   ),
                 ),
-                childCount: 12,
+                childCount: 18,
               ),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
