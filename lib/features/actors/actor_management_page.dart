@@ -12,19 +12,17 @@ import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/actor_avatar.dart';
 import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
-import '../../shared/glass_menu.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../actor_associations/actor_associations_providers.dart';
 import '../actor_associations/actor_associations_repository.dart';
-import '../actor_associations/widgets/actor_association_sync_sheet.dart';
 import '../person_detail/person_detail_page.dart';
 import '../privacy/privacy_mask.dart';
-import '../privacy/privacy_providers.dart';
 import '../settings/settings_common.dart';
 import 'actor_row.dart';
 
@@ -55,6 +53,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   int _totalCount = 0;
   bool _hasLoaded = false;
   int _requestSerial = 0;
+  bool _selectionMode = false;
+  final Set<int> _selectedIds = <int>{};
   Completer<void>? _refreshCompleter;
 
   @override
@@ -162,6 +162,98 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     AppHaptics.selection();
   }
 
+  void _enterSelectionWith(int id) {
+    setState(() {
+      _selectionMode = true;
+      _selectedIds.add(id);
+    });
+  }
+
+  void _toggleSelect(int id) {
+    setState(() {
+      if (_selectedIds.remove(id)) {
+        if (_selectedIds.isEmpty) _selectionMode = false;
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  void _selectAllLoaded() {
+    final loaded = _controller.itemList ?? const <ActorRow>[];
+    setState(() {
+      _selectedIds
+        ..clear()
+        ..addAll(loaded.map((row) => row.id));
+    });
+  }
+
+  List<ActorItem> _selectedActors() {
+    final loaded = _controller.itemList ?? const <ActorRow>[];
+    return loaded
+        .where((row) => _selectedIds.contains(row.id))
+        .map((row) => row.actor)
+        .toList();
+  }
+
+  Future<void> _onBatchDelete() async {
+    final actors = _selectedActors();
+    if (actors.isEmpty) return;
+    final force = actors.any((actor) => actor.movieCount > 0);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('批量删除演员'),
+        content: Text(
+          force
+              ? '已选择 ${actors.length} 位演员，其中包含影片关联。强制删除会解除关联，影片本身不会被删除。'
+              : '确定删除已选择的 ${actors.length} 位演员吗？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(force ? '强制删除' : '删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final raw = await ref
+          .read(requiredApiClientProvider)
+          .catalog
+          .deleteActors({
+            'ids': actors.map((actor) => actor.id).toList(),
+            'force': force,
+          });
+      unwrapStd<void>(raw, (_) {});
+      if (!mounted) return;
+      AppHaptics.medium();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已删除 ${actors.length} 位演员')));
+      _exitSelection();
+      _reload(preserveScroll: true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('批量删除失败: ${toApiException(error).message}')),
+      );
+    }
+  }
+
   void _removeDeletedActor(int actorId) {
     var changed = false;
     var removedMainRow = false;
@@ -202,21 +294,6 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     AppHaptics.selection();
   }
 
-  Future<void> _syncActor(ActorItem actor) async {
-    final synced = await ActorAssociationSyncSheet.show(
-      context,
-      MappingRule(
-        id: actor.id,
-        mappedValue: actor.name,
-        originalValues: [actor.name],
-      ),
-      currentBiography: actor.biography,
-    );
-    if (synced == true && mounted) {
-      await _refresh(preserveScroll: true);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
@@ -224,176 +301,208 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
 
     return Scaffold(
       backgroundColor: c.bg,
-      body: GlowBackground(
-        child: SafeArea(
-          child: SettingsFixedHeaderLayout(
-            scrollController: _scrollController,
-            header: SettingsSubPageHeader(
-              eyebrow: l.settingsGroupLibrary,
-              title: l.settingsActors,
-              trailing: SettingsAddButton(
-                onPressed: () => _showEditor(context),
+      bottomNavigationBar: _selectionMode
+          ? EntityBatchToolbar(
+              selectedCount: _selectedIds.length,
+              onSelectAll: _selectAllLoaded,
+              onClear: () => setState(() => _selectedIds.clear()),
+              onClose: _exitSelection,
+              actions: [
+                EntityBatchAction(
+                  icon: Icons.delete_outline,
+                  label: '删除',
+                  color: c.danger,
+                  onTap: _selectedIds.isEmpty ? null : _onBatchDelete,
+                ),
+              ],
+            )
+          : null,
+      body: PopScope(
+        canPop: !_selectionMode,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _selectionMode) _exitSelection();
+        },
+        child: GlowBackground(
+          child: SafeArea(
+            child: SettingsFixedHeaderLayout(
+              scrollController: _scrollController,
+              header: SettingsSubPageHeader(
+                eyebrow: l.settingsGroupLibrary,
+                title: l.settingsActors,
+                trailing: SettingsAddButton(
+                  onPressed: () => _showEditor(context),
+                ),
               ),
-            ),
-            body: RefreshIndicator(
-              color: c.accent,
-              onRefresh: _refresh,
-              child: CustomScrollView(
-                controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            _hasLoaded ? '$_totalCount' : '—',
-                            style: AppText.pageTitle(context),
-                          ),
-                          const SizedBox(width: 8),
-                          Text('位演员', style: AppText.meta(context)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: c.surface,
-                          border: Border.all(color: c.cardBorder),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
+              body: RefreshIndicator(
+                color: c.accent,
+                onRefresh: _refresh,
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
                           children: [
-                            const SizedBox(width: 14),
-                            Icon(Icons.search, size: 18, color: c.muted),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: TextField(
-                                controller: _searchController,
-                                onChanged: _onSearchChanged,
-                                decoration: const InputDecoration(
-                                  hintText: '搜索演员名称',
-                                  isCollapsed: true,
-                                  contentPadding: EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  border: InputBorder.none,
-                                ),
-                                style: TextStyle(
-                                  color: c.text,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                            Text(
+                              _hasLoaded ? '$_totalCount' : '—',
+                              style: AppText.pageTitle(context),
                             ),
-                            if (_searchController.text.isNotEmpty)
-                              IconButton(
-                                icon: Icon(
-                                  Icons.close,
-                                  size: 16,
-                                  color: c.muted,
-                                ),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _onSearchChanged('');
-                                },
-                              ),
+                            const SizedBox(width: 8),
+                            Text('位演员', style: AppText.meta(context)),
                           ],
                         ),
                       ),
                     ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 36,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 22),
-                        children: [
-                          CompactSortButton(
-                            label: '影片数',
-                            active: _sortBy == 'movie_count',
-                            ascending: _sortOrder == 'asc',
-                            onTap: () => _setSort('movie_count'),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: c.surface,
+                            border: Border.all(color: c.cardBorder),
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                          const SizedBox(width: 7),
-                          CompactSortButton(
-                            label: '名称',
-                            active: _sortBy == 'name',
-                            ascending: _sortOrder == 'asc',
-                            onTap: () => _setSort('name'),
-                          ),
-                          const SizedBox(width: 7),
-                          CompactSortButton(
-                            label: '创建时间',
-                            active: _sortBy == 'created_at',
-                            ascending: _sortOrder == 'asc',
-                            onTap: () => _setSort('created_at'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 10)),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
-                    sliver: PagedSliverList<int, ActorRow>(
-                      pagingController: _controller,
-                      builderDelegate: PagedChildBuilderDelegate<ActorRow>(
-                        itemBuilder: (context, row, index) {
-                          final actor = row.actor;
-                          return _ActorTile(
-                            row: row,
-                            hue: AppHues.all[index % AppHues.all.length],
-                            isExpanded: _expandedIds.contains(row.id),
-                            onToggleExpand: () => _toggleExpand(row.id),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => PersonDetailPage(
-                                  actorId: actor.id,
-                                  name: actor.name,
-                                  actorType: actor.actorType,
-                                  biography: actor.biography,
-                                  avatarPath: actor.avatarPath,
-                                  onUpdated: () =>
-                                      _refresh(preserveScroll: true),
+                          child: Row(
+                            children: [
+                              const SizedBox(width: 14),
+                              Icon(Icons.search, size: 18, color: c.muted),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextField(
+                                  controller: _searchController,
+                                  onChanged: _onSearchChanged,
+                                  decoration: const InputDecoration(
+                                    hintText: '搜索演员名称',
+                                    isCollapsed: true,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    border: InputBorder.none,
+                                  ),
+                                  style: TextStyle(
+                                    color: c.text,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
-                            ),
-                            onEdit: () => _showEditor(context, actor: actor),
-                            onDelete: () => _confirmDelete(context, actor),
-                            onSync: () => unawaited(_syncActor(actor)),
-                            onEditMember: (member) =>
-                                _showEditor(context, actor: member.asActorItem),
-                            onDeleteMember: (member) => _confirmDelete(
-                              context,
-                              member.asActorItem,
-                              force: true,
-                            ),
-                          );
-                        },
-                        firstPageProgressIndicatorBuilder: (_) =>
-                            const Center(child: CircularProgressIndicator()),
-                        firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                          message: _controller.error?.toString() ?? '加载失败',
-                          onRetry: _controller.refresh,
+                              if (_searchController.text.isNotEmpty)
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: c.muted,
+                                  ),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _onSearchChanged('');
+                                  },
+                                ),
+                            ],
+                          ),
                         ),
-                        newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                          onRetry: _controller.retryLastFailedRequest,
-                        ),
-                        noItemsFoundIndicatorBuilder: (_) =>
-                            const _EmptyActors(),
-                        noMoreItemsIndicatorBuilder: (_) =>
-                            const NoMoreContent(),
                       ),
                     ),
-                  ),
-                ],
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: 36,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 22),
+                          children: [
+                            CompactSortButton(
+                              label: '影片数',
+                              active: _sortBy == 'movie_count',
+                              ascending: _sortOrder == 'asc',
+                              onTap: () => _setSort('movie_count'),
+                            ),
+                            const SizedBox(width: 7),
+                            CompactSortButton(
+                              label: '名称',
+                              active: _sortBy == 'name',
+                              ascending: _sortOrder == 'asc',
+                              onTap: () => _setSort('name'),
+                            ),
+                            const SizedBox(width: 7),
+                            CompactSortButton(
+                              label: '创建时间',
+                              active: _sortBy == 'created_at',
+                              ascending: _sortOrder == 'asc',
+                              onTap: () => _setSort('created_at'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(
+                        22,
+                        0,
+                        22,
+                        _selectionMode ? 136 : 80,
+                      ),
+                      sliver: PagedSliverList<int, ActorRow>(
+                        pagingController: _controller,
+                        builderDelegate: PagedChildBuilderDelegate<ActorRow>(
+                          itemBuilder: (context, row, index) {
+                            final actor = row.actor;
+                            return _ActorTile(
+                              row: row,
+                              hue: AppHues.all[index % AppHues.all.length],
+                              isExpanded: _expandedIds.contains(row.id),
+                              selectionMode: _selectionMode,
+                              selected: _selectedIds.contains(row.id),
+                              onSelectionTap: () => _toggleSelect(row.id),
+                              onLongPress: () => _enterSelectionWith(row.id),
+                              onToggleExpand: () => _toggleExpand(row.id),
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => PersonDetailPage(
+                                    actorId: actor.id,
+                                    name: actor.name,
+                                    actorType: actor.actorType,
+                                    biography: actor.biography,
+                                    avatarPath: actor.avatarPath,
+                                    onUpdated: () =>
+                                        _refresh(preserveScroll: true),
+                                  ),
+                                ),
+                              ),
+                              onEdit: () => _showEditor(context, actor: actor),
+                              onDelete: () => _confirmDelete(context, actor),
+                              onEditMember: (member) => _showEditor(
+                                context,
+                                actor: member.asActorItem,
+                              ),
+                              onDeleteMember: (member) => _confirmDelete(
+                                context,
+                                member.asActorItem,
+                                force: true,
+                              ),
+                            );
+                          },
+                          firstPageProgressIndicatorBuilder: (_) =>
+                              const Center(child: CircularProgressIndicator()),
+                          firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                            message: _controller.error?.toString() ?? '加载失败',
+                            onRetry: _controller.refresh,
+                          ),
+                          newPageErrorIndicatorBuilder: (_) => PaginationRetry(
+                            onRetry: _controller.retryLastFailedRequest,
+                          ),
+                          noItemsFoundIndicatorBuilder: (_) =>
+                              const _EmptyActors(),
+                          noMoreItemsIndicatorBuilder: (_) =>
+                              const NoMoreContent(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -705,17 +814,20 @@ class _ActorAssociationData {
   final bool loaded;
 }
 
-enum _ActorMenuAction { view, sync, edit, delete }
+enum _ActorMenuAction { edit, delete }
 
-class _ActorTile extends ConsumerWidget {
+class _ActorTile extends StatelessWidget {
   const _ActorTile({
     required this.row,
     required this.hue,
     required this.isExpanded,
+    required this.selectionMode,
+    required this.selected,
+    required this.onSelectionTap,
+    required this.onLongPress,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
-    required this.onSync,
     required this.onEditMember,
     required this.onDeleteMember,
     this.onToggleExpand,
@@ -724,10 +836,13 @@ class _ActorTile extends ConsumerWidget {
   final ActorRow row;
   final int hue;
   final bool isExpanded;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback onSelectionTap;
+  final VoidCallback onLongPress;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final VoidCallback onSync;
   final void Function(ActorAssociationMember member) onEditMember;
   final void Function(ActorAssociationMember member) onDeleteMember;
   final VoidCallback? onToggleExpand;
@@ -735,12 +850,9 @@ class _ActorTile extends ConsumerWidget {
   ActorItem get actor => row.actor;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final c = appColors(context);
     final hasBiography = actor.biography?.trim().isNotEmpty == true;
-    final privacyLocked =
-        ref.watch(privacyShieldProvider) &&
-        !ref.watch(revealedActorsProvider).contains(actor.id);
     final avatar = ActorAvatar(
       actorId: actor.id,
       name: actor.name,
@@ -749,7 +861,8 @@ class _ActorTile extends ConsumerWidget {
       avatarPath: actor.avatarPath,
     );
     // 有关联成员的主行：头像边框提示可展开，点击头像单独展开/收起子行。
-    final expandableAvatar = row.hasMembers && onToggleExpand != null
+    final expandableAvatar =
+        !selectionMode && row.hasMembers && onToggleExpand != null
         ? _ExpandableAvatar(
             expanded: isExpanded,
             color: c.accent,
@@ -757,76 +870,20 @@ class _ActorTile extends ConsumerWidget {
             child: avatar,
           )
         : avatar;
-    return GlassMenuAnchor<_ActorMenuAction>(
-      width: 224,
-      entries: [
-        GlassMenuEntry<_ActorMenuAction>.action(
-          value: _ActorMenuAction.view,
-          builder: (context, selected, onSelect) => GlassMenuRow(
-            icon: Icons.person_outline,
-            label: '查看演员资料',
-            selected: selected,
-            onTap: onSelect,
-          ),
-        ),
-        GlassMenuEntry<_ActorMenuAction>.action(
-          value: _ActorMenuAction.sync,
-          builder: (context, selected, onSelect) => GlassMenuRow(
-            icon: Icons.cloud_sync_outlined,
-            label: '同步演员关联',
-            selected: selected,
-            onTap: onSelect,
-          ),
-        ),
-        GlassMenuEntry<_ActorMenuAction>.divider(dividerColor: c.divider),
-        GlassMenuEntry<_ActorMenuAction>.action(
-          value: _ActorMenuAction.edit,
-          builder: (context, selected, onSelect) => GlassMenuRow(
-            icon: Icons.edit_outlined,
-            label: '编辑',
-            selected: selected,
-            onTap: onSelect,
-          ),
-        ),
-        GlassMenuEntry<_ActorMenuAction>.action(
-          value: _ActorMenuAction.delete,
-          builder: (context, selected, onSelect) => GlassMenuRow(
-            icon: Icons.delete_outline,
-            label: '删除',
-            selected: selected,
-            foregroundColor: c.danger,
-            onTap: onSelect,
-          ),
-        ),
-      ],
-      onSelected: (action) {
-        switch (action) {
-          case _ActorMenuAction.view:
-            onTap();
-            return;
-          case _ActorMenuAction.sync:
-            onSync();
-            return;
-          case _ActorMenuAction.edit:
-            onEdit();
-            return;
-          case _ActorMenuAction.delete:
-            onDelete();
-            return;
-        }
-      },
-      onAnchorTap: () {
-        if (privacyLocked) {
-          ref.read(revealedActorsProvider.notifier).reveal(actor.id);
-          return;
-        }
-        onTap();
-      },
+    return PrivacyAwareInkWell(
+      movieId: actor.id,
+      scope: PrivacyScope.actor,
+      onTap: selectionMode ? onSelectionTap : onTap,
+      onLongPress: onLongPress,
+      borderRadius: 14,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
           color: c.surface,
-          border: Border.all(color: c.cardBorder),
+          border: Border.all(
+            color: selected ? c.accent : c.cardBorder,
+            width: selected ? 1.5 : 1,
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         clipBehavior: Clip.hardEdge,
@@ -843,6 +900,16 @@ class _ActorTile extends ConsumerWidget {
                   ),
                   child: Row(
                     children: [
+                      if (selectionMode) ...[
+                        Icon(
+                          selected
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_unchecked,
+                          size: 20,
+                          color: selected ? c.accent : c.muted,
+                        ),
+                        const SizedBox(width: 10),
+                      ],
                       PrivacyMask(
                         movieId: actor.id,
                         scope: PrivacyScope.actor,
@@ -879,7 +946,30 @@ class _ActorTile extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      Icon(Icons.more_horiz, color: c.muted),
+                      PopupMenuButton<_ActorMenuAction>(
+                        tooltip: '更多操作',
+                        icon: Icon(Icons.more_horiz, color: c.muted),
+                        onSelected: (action) {
+                          switch (action) {
+                            case _ActorMenuAction.edit:
+                              onEdit();
+                              return;
+                            case _ActorMenuAction.delete:
+                              onDelete();
+                              return;
+                          }
+                        },
+                        itemBuilder: (context) => const [
+                          PopupMenuItem(
+                            value: _ActorMenuAction.edit,
+                            child: Text('编辑'),
+                          ),
+                          PopupMenuItem(
+                            value: _ActorMenuAction.delete,
+                            child: Text('删除'),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -1038,9 +1128,6 @@ class _ActorMemberRow extends StatelessWidget {
             icon: Icon(Icons.more_horiz, size: 18, color: c.muted),
             onSelected: (action) {
               switch (action) {
-                case _ActorMenuAction.view:
-                case _ActorMenuAction.sync:
-                  return;
                 case _ActorMenuAction.edit:
                   onEdit();
                   return;

@@ -8,16 +8,15 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
-import '../../shared/glass_menu.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
-import '../mappings/mappings_providers.dart';
-import '../mappings/mappings_repository.dart';
 import '../settings/settings_common.dart';
 import '../translation/translation_providers.dart';
+import 'entity_merge_sheet.dart';
 import 'resource_movies_page.dart';
 import 'resources_providers.dart';
 import 'resources_repository.dart';
@@ -67,7 +66,8 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   String _sortOrder = 'asc';
   int? _totalCount;
   int _requestSerial = 0;
-  bool _mappingSaving = false;
+  bool _selectionMode = false;
+  final Set<int> _selectedIds = <int>{};
   Completer<void>? _refreshCompleter;
 
   @override
@@ -107,12 +107,6 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     setState(() => _search = null);
     _reload();
   }
-
-  MappingType get _mappingType => switch (widget.kind) {
-    ResourceKind.tag => MappingType.tag,
-    ResourceKind.genre => MappingType.genre,
-    ResourceKind.series => MappingType.series,
-  };
 
   void _setSort(String field) {
     setState(() {
@@ -173,26 +167,101 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     return completer.future;
   }
 
-  Future<void> _addToMapping(ResourceItem item) async {
-    final name = item.name.trim();
-    if (name.isEmpty || _mappingSaving) return;
+  void _enterSelectionWith(int id) {
+    setState(() {
+      _selectionMode = true;
+      _selectedIds.add(id);
+    });
+  }
 
-    setState(() => _mappingSaving = true);
-    final messenger = ScaffoldMessenger.of(context);
+  void _toggleSelect(int id) {
+    setState(() {
+      if (_selectedIds.remove(id)) {
+        if (_selectedIds.isEmpty) _selectionMode = false;
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  void _selectAllLoaded() {
+    final loaded = _controller.itemList ?? const <ResourceItem>[];
+    setState(() {
+      _selectedIds
+        ..clear()
+        ..addAll(loaded.map((item) => item.id));
+    });
+  }
+
+  List<ResourceItem> _selectedItems() {
+    final loaded = _controller.itemList ?? const <ResourceItem>[];
+    return loaded.where((item) => _selectedIds.contains(item.id)).toList();
+  }
+
+  Future<void> _onBatchDelete() async {
+    final items = _selectedItems();
+    if (items.isEmpty) return;
+    final force = items.any((item) => item.movieCount > 0);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('批量删除${widget.kind.label}'),
+        content: Text(
+          force
+              ? '已选择 ${items.length} 个${widget.kind.label}，其中包含影片关联。强制删除会解除关联，影片本身不会被删除。'
+              : '确定删除已选择的 ${items.length} 个${widget.kind.label}吗？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(force ? '强制删除' : '删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
     try {
       await ref
-          .read(mappingsRepositoryProvider)
-          .create(_mappingType, originalValues: [name]);
+          .read(resourcesRepositoryProvider)
+          .deleteBatch(
+            widget.kind,
+            items.map((item) => item.id).toList(),
+            force: force,
+          );
       if (!mounted) return;
       AppHaptics.medium();
-      messenger.showSnackBar(const SnackBar(content: Text('已添加到映射（删除规则）')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已删除 ${items.length} 个${widget.kind.label}')),
+      );
+      _exitSelection();
+      _reload(preserveScroll: true);
     } catch (error) {
       if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text('添加映射失败: ${toApiException(error).message}')),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('批量删除失败: ${toApiException(error).message}')),
       );
-    } finally {
-      if (mounted) setState(() => _mappingSaving = false);
+    }
+  }
+
+  Future<void> _onBatchMerge() async {
+    final items = _selectedItems();
+    if (items.length < 2) return;
+    final merged = await EntityMergeSheet.show(context, widget.kind, items);
+    if (merged == true && mounted) {
+      _exitSelection();
+      _reload(preserveScroll: true);
     }
   }
 
@@ -210,174 +279,228 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: SettingsFixedHeaderLayout(
-            scrollController: _scrollController,
-            header: SettingsSubPageHeader(
-              eyebrow: '媒体库',
-              title: widget.kind.plural,
-              trailing: SettingsAddButton(
-                onPressed: () => _showEditor(context),
-              ),
-            ),
-            body: RefreshIndicator(
-              color: c.accent,
-              onRefresh: _refresh,
-              child: CustomScrollView(
-                controller: _scrollController,
-                primary: false,
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            _totalCount == null ? '—' : '$_totalCount',
-                            style: AppText.pageTitle(context),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '个${widget.kind.label}',
-                            style: AppText.meta(context),
-                          ),
-                        ],
-                      ),
+          child: PopScope(
+            canPop: !_selectionMode,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop && _selectionMode) _exitSelection();
+            },
+            child: Stack(
+              children: [
+                SettingsFixedHeaderLayout(
+                  scrollController: _scrollController,
+                  header: SettingsSubPageHeader(
+                    eyebrow: '媒体库',
+                    title: widget.kind.plural,
+                    trailing: SettingsAddButton(
+                      onPressed: () => _showEditor(context),
                     ),
                   ),
-
-                  // 搜索栏
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: c.surface,
-                          border: Border.all(color: c.cardBorder),
-                          borderRadius: BorderRadius.circular(14),
+                  body: RefreshIndicator(
+                    color: c.accent,
+                    onRefresh: _refresh,
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      primary: false,
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
+                                Text(
+                                  _totalCount == null ? '—' : '$_totalCount',
+                                  style: AppText.pageTitle(context),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '个${widget.kind.label}',
+                                  style: AppText.meta(context),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        child: Row(
-                          children: [
-                            const SizedBox(width: 14),
-                            Icon(Icons.search, size: 18, color: c.muted),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: TextField(
-                                controller: _searchController,
-                                onChanged: _onSearchChanged,
-                                decoration: InputDecoration(
-                                  hintText: widget.kind.searchHint,
-                                  hintStyle: TextStyle(
-                                    color: c.muted,
-                                    fontWeight: FontWeight.w500,
+                        // 搜索栏
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: c.surface,
+                                border: Border.all(color: c.cardBorder),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Row(
+                                children: [
+                                  const SizedBox(width: 14),
+                                  Icon(Icons.search, size: 18, color: c.muted),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _searchController,
+                                      onChanged: _onSearchChanged,
+                                      decoration: InputDecoration(
+                                        hintText: widget.kind.searchHint,
+                                        hintStyle: TextStyle(
+                                          color: c.muted,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        isCollapsed: true,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              vertical: 14,
+                                            ),
+                                        border: InputBorder.none,
+                                      ),
+                                      style: TextStyle(
+                                        color: c.text,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
                                   ),
-                                  isCollapsed: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  border: InputBorder.none,
-                                ),
-                                style: TextStyle(
-                                  color: c.text,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                  if (_searchController.text.isNotEmpty)
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.close,
+                                        size: 16,
+                                        color: c.muted,
+                                      ),
+                                      onPressed: _clearSearch,
+                                    ),
+                                ],
                               ),
                             ),
-                            if (_searchController.text.isNotEmpty)
-                              IconButton(
-                                icon: Icon(
-                                  Icons.close,
-                                  size: 16,
-                                  color: c.muted,
-                                ),
-                                onPressed: () {
-                                  _clearSearch();
-                                },
-                              ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
-
-                  // 排序 chips
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 36,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 22),
-                        children: [
-                          CompactSortButton(
-                            label: '名称',
-                            active: _sortBy == 'name',
-                            ascending: _sortOrder == 'asc',
-                            onTap: () => _setSort('name'),
-                          ),
-                          const SizedBox(width: 7),
-                          CompactSortButton(
-                            label: '影片数',
-                            active: _sortBy == 'movie_count',
-                            ascending: _sortOrder == 'asc',
-                            onTap: () => _setSort('movie_count'),
-                          ),
-                          const SizedBox(width: 7),
-                          CompactSortButton(
-                            label: '创建时间',
-                            active: _sortBy == 'created_at',
-                            ascending: _sortOrder == 'asc',
-                            onTap: () => _setSort('created_at'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 10)),
-
-                  // 列表
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
-                    sliver: PagedSliverList<int, ResourceItem>(
-                      pagingController: _controller,
-                      builderDelegate: PagedChildBuilderDelegate<ResourceItem>(
-                        itemBuilder: (ctx, r, i) {
-                          final hue = AppHues.all[i % AppHues.all.length];
-                          return _ResourceTile(
-                            kind: widget.kind,
-                            item: r,
-                            hue: hue,
-                            onTap: () => Navigator.of(ctx).push(
-                              MaterialPageRoute(
-                                builder: (_) => ResourceMoviesPage(
-                                  kind: widget.kind,
-                                  resource: r,
-                                ),
+                        // 排序 chips
+                        SliverToBoxAdapter(
+                          child: SizedBox(
+                            height: 36,
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 22,
                               ),
+                              children: [
+                                CompactSortButton(
+                                  label: '名称',
+                                  active: _sortBy == 'name',
+                                  ascending: _sortOrder == 'asc',
+                                  onTap: () => _setSort('name'),
+                                ),
+                                const SizedBox(width: 7),
+                                CompactSortButton(
+                                  label: '影片数',
+                                  active: _sortBy == 'movie_count',
+                                  ascending: _sortOrder == 'asc',
+                                  onTap: () => _setSort('movie_count'),
+                                ),
+                                const SizedBox(width: 7),
+                                CompactSortButton(
+                                  label: '创建时间',
+                                  active: _sortBy == 'created_at',
+                                  ascending: _sortOrder == 'asc',
+                                  onTap: () => _setSort('created_at'),
+                                ),
+                              ],
                             ),
-                            onEdit: () => _showEditor(ctx, edit: r),
-                            onDelete: () => _confirmDelete(ctx, r),
-                            onAddMapping: () => unawaited(_addToMapping(r)),
-                          );
-                        },
-                        firstPageProgressIndicatorBuilder: (_) =>
-                            const Center(child: CircularProgressIndicator()),
-                        firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                          message: _controller.error?.toString() ?? '加载失败',
-                          onRetry: _controller.refresh,
+                          ),
                         ),
-                        newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                          onRetry: _controller.retryLastFailedRequest,
+                        const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                        // 列表
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                            22,
+                            0,
+                            22,
+                            _selectionMode ? 136 : 80,
+                          ),
+                          sliver: PagedSliverList<int, ResourceItem>(
+                            pagingController: _controller,
+                            builderDelegate:
+                                PagedChildBuilderDelegate<ResourceItem>(
+                                  itemBuilder: (ctx, r, i) {
+                                    final hue =
+                                        AppHues.all[i % AppHues.all.length];
+                                    return _ResourceTile(
+                                      kind: widget.kind,
+                                      item: r,
+                                      hue: hue,
+                                      selectionMode: _selectionMode,
+                                      selected: _selectedIds.contains(r.id),
+                                      onTap: _selectionMode
+                                          ? () => _toggleSelect(r.id)
+                                          : () => Navigator.of(ctx).push(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    ResourceMoviesPage(
+                                                      kind: widget.kind,
+                                                      resource: r,
+                                                    ),
+                                              ),
+                                            ),
+                                      onLongPress: () =>
+                                          _enterSelectionWith(r.id),
+                                      onEdit: () => _showEditor(ctx, edit: r),
+                                      onDelete: () => _confirmDelete(ctx, r),
+                                    );
+                                  },
+                                  firstPageProgressIndicatorBuilder: (_) =>
+                                      const Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                  firstPageErrorIndicatorBuilder: (_) =>
+                                      ErrorView(
+                                        message:
+                                            _controller.error?.toString() ??
+                                            '加载失败',
+                                        onRetry: _controller.refresh,
+                                      ),
+                                  newPageErrorIndicatorBuilder: (_) =>
+                                      PaginationRetry(
+                                        onRetry:
+                                            _controller.retryLastFailedRequest,
+                                      ),
+                                  noItemsFoundIndicatorBuilder: (_) =>
+                                      _Empty(kind: widget.kind),
+                                  noMoreItemsIndicatorBuilder: (_) =>
+                                      const NoMoreContent(),
+                                ),
+                          ),
                         ),
-                        noItemsFoundIndicatorBuilder: (_) =>
-                            _Empty(kind: widget.kind),
-                        noMoreItemsIndicatorBuilder: (_) =>
-                            const NoMoreContent(),
-                      ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                if (_selectionMode)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: EntityBatchToolbar(
+                      selectedCount: _selectedIds.length,
+                      onSelectAll: _selectAllLoaded,
+                      onClear: () => setState(() => _selectedIds.clear()),
+                      onClose: _exitSelection,
+                      actions: [
+                        EntityBatchAction(
+                          icon: Icons.delete_outline,
+                          label: '删除',
+                          color: c.danger,
+                          onTap: _selectedIds.isEmpty ? null : _onBatchDelete,
+                        ),
+                        EntityBatchAction(
+                          icon: Icons.merge_rounded,
+                          label: '合并',
+                          color: c.warning,
+                          onTap: _selectedIds.length < 2 ? null : _onBatchMerge,
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -779,88 +902,54 @@ class _ResourceTile extends StatelessWidget {
     required this.kind,
     required this.item,
     required this.hue,
+    required this.selectionMode,
+    required this.selected,
     required this.onTap,
+    required this.onLongPress,
     required this.onEdit,
     required this.onDelete,
-    required this.onAddMapping,
   });
 
   final ResourceKind kind;
   final ResourceItem item;
   final int hue;
+  final bool selectionMode;
+  final bool selected;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final VoidCallback onAddMapping;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return GlassMenuAnchor<String>(
-      width: 224,
-      entries: [
-        GlassMenuEntry<String>.action(
-          value: 'view',
-          builder: (context, selected, onSelect) => GlassMenuRow(
-            icon: Icons.movie_outlined,
-            label: '查看关联影片',
-            selected: selected,
-            onTap: onSelect,
-          ),
-        ),
-        GlassMenuEntry<String>.action(
-          value: 'mapping',
-          builder: (context, selected, onSelect) => GlassMenuRow(
-            icon: Icons.swap_horiz_rounded,
-            label: '添加到映射',
-            selected: selected,
-            onTap: onSelect,
-          ),
-        ),
-        GlassMenuEntry<String>.action(
-          value: 'edit',
-          builder: (context, selected, onSelect) => GlassMenuRow(
-            icon: Icons.edit_outlined,
-            label: '编辑',
-            selected: selected,
-            onTap: onSelect,
-          ),
-        ),
-        GlassMenuEntry<String>.divider(dividerColor: c.divider),
-        GlassMenuEntry<String>.action(
-          value: 'delete',
-          builder: (context, selected, onSelect) => GlassMenuRow(
-            icon: Icons.delete_outline,
-            label: '删除',
-            selected: selected,
-            foregroundColor: c.danger,
-            onTap: onSelect,
-          ),
-        ),
-      ],
-      onSelected: (value) {
-        switch (value) {
-          case 'view':
-            onTap();
-          case 'mapping':
-            onAddMapping();
-          case 'edit':
-            onEdit();
-          case 'delete':
-            onDelete();
-        }
-      },
-      onAnchorTap: onTap,
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      borderRadius: BorderRadius.circular(14),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: c.surface,
-          border: Border.all(color: c.cardBorder),
+          border: Border.all(
+            color: selected ? c.accent : c.cardBorder,
+            width: selected ? 1.5 : 1,
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           children: [
+            if (selectionMode) ...[
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked,
+                size: 20,
+                color: selected ? c.accent : c.muted,
+              ),
+              const SizedBox(width: 10),
+            ],
             Container(
               width: 38,
               height: 38,
@@ -919,7 +1008,37 @@ class _ResourceTile extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.more_horiz, color: c.muted),
+            PopupMenuButton<String>(
+              tooltip: '更多操作',
+              icon: Icon(Icons.more_horiz, color: c.muted),
+              padding: EdgeInsets.zero,
+              onSelected: (value) {
+                if (value == 'edit') onEdit();
+                if (value == 'delete') onDelete();
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_outlined, size: 16),
+                      SizedBox(width: 8),
+                      Text('编辑'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, size: 16, color: c.danger),
+                      const SizedBox(width: 8),
+                      Text('删除', style: TextStyle(color: c.danger)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

@@ -195,4 +195,21 @@ class ResourcesRepository {
     final raw = await _batchDelete(kind, {'ids': ids, 'force': force});
     unwrapStd<void>(raw, (_) {});
   }
+
+  Future<void> merge(
+    ResourceKind kind, {
+    required List<int> sourceIds,
+    required String targetName,
+  }) async {
+    final type = switch (kind) {
+      ResourceKind.tag => 'tags',
+      ResourceKind.genre => 'genres',
+      ResourceKind.series => 'series',
+    };
+    final raw = await _client.catalog.merge(type, {
+      'source_ids': sourceIds,
+      'target_name': targetName,
+    });
+    unwrapStd<void>(raw, (_) {});
+  }
 }
