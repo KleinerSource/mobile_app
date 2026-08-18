@@ -15,6 +15,7 @@ import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/poster.dart';
 import '../../shared/collection_card_layout.dart';
+import '../../shared/entity_batch_toolbar.dart';
 import '../lists/list_detail_page.dart';
 import '../lists/list_model.dart';
 import '../lists/lists_providers.dart';
@@ -205,6 +206,15 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
   void _clearSelection() => setState(_selected.clear);
 
+  void _selectAllLoaded() {
+    final loaded = _controller.itemList ?? const <MovieListItem>[];
+    setState(() {
+      _selected
+        ..clear()
+        ..addAll(loaded.map((movie) => movie.id));
+    });
+  }
+
   Future<void> _removeOne(MovieListItem m) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -318,195 +328,214 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     final c = appColors(context);
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
 
-    return GlowBackground(
-      child: SafeArea(
-        bottom: false,
-        child: RefreshIndicator(
-          color: c.accent,
-          onRefresh: _refresh,
-          child: CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              // ===== 顶部 =====
-              SliverToBoxAdapter(
-                child: _selecting
-                    ? _SelectionBar(
-                        count: _selected.length,
-                        onCancel: _clearSelection,
-                        onRemove: _removeSelection,
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 16, 22, 22),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      backgroundColor: c.bg,
+      bottomNavigationBar: _selecting
+          ? EntityBatchToolbar(
+              selectedCount: _selected.length,
+              onSelectAll: _selectAllLoaded,
+              onClear: _clearSelection,
+              onClose: _clearSelection,
+              actions: [
+                EntityBatchAction(
+                  icon: Icons.delete_outline,
+                  label: '移除收藏',
+                  color: c.danger,
+                  onTap: _removeSelection,
+                ),
+              ],
+            )
+          : null,
+      body: PopScope(
+        canPop: !_selecting,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _selecting) _clearSelection();
+        },
+        child: GlowBackground(
+          child: SafeArea(
+            bottom: false,
+            child: RefreshIndicator(
+              color: c.accent,
+              onRefresh: _refresh,
+              child: CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  // ===== 顶部 =====
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 16, 22, 22),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  AppL10n.of(context).tabYou.toUpperCase(),
+                                  style: AppText.eyebrow(context),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  AppL10n.of(context).favoritesTitle,
+                                  style: AppText.pageTitle(context),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: c.surface,
+                                border: Border.all(color: c.cardBorder),
+                              ),
+                              child: _resourceScanStarting
+                                  ? SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: c.accent,
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.cloud_download_outlined,
+                                      size: 18,
+                                      color: c.text,
+                                    ),
+                            ),
+                            tooltip: '扫描资源',
+                            onPressed: _resourceScanStarting || _totalCount <= 0
+                                ? null
+                                : _startResourceScan,
+                          ),
+                          IconButton(
+                            icon: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: c.surface,
+                                border: Border.all(color: c.cardBorder),
+                              ),
+                              child: Icon(
+                                Icons.settings,
+                                size: 18,
+                                color: c.text,
+                              ),
+                            ),
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const SettingsPage(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // ===== 统计条 =====
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
+                      child: _StatsCard(
+                        totalCount: _totalCount,
+                        items: _controller.itemList ?? const [],
+                      ),
+                    ),
+                  ),
+
+                  // ===== Lists 多彩卡片 =====
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                      child: Text(
+                        AppL10n.of(context).yourLists,
+                        style: AppText.sectionTitle(context),
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+                      child: _ListsGrid(),
+                    ),
+                  ),
+
+                  // ===== All favorites · header + 排序 + 视图切换 =====
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('全部收藏', style: AppText.eyebrow(context)),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '$_totalCount 部影片',
+                                  style: AppText.sectionTitle(context),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Flexible(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
                                 children: [
-                                  Text(
-                                    AppL10n.of(context).tabYou.toUpperCase(),
-                                    style: AppText.eyebrow(context),
+                                  _FavoriteFilterPill(
+                                    active: _newResourcesOnly,
+                                    onTap: _toggleNewResourcesFilter,
                                   ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    AppL10n.of(context).favoritesTitle,
-                                    style: AppText.pageTitle(context),
+                                  const SizedBox(width: 6),
+                                  _SortPill(
+                                    label: _sort.label,
+                                    onTap: _showSortSheet,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  _ViewToggle(
+                                    mode: _viewMode,
+                                    onChange: (m) =>
+                                        setState(() => _viewMode = m),
                                   ),
                                 ],
                               ),
                             ),
-                            IconButton(
-                              icon: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: c.surface,
-                                  border: Border.all(color: c.cardBorder),
-                                ),
-                                child: _resourceScanStarting
-                                    ? SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: c.accent,
-                                        ),
-                                      )
-                                    : Icon(
-                                        Icons.cloud_download_outlined,
-                                        size: 18,
-                                        color: c.text,
-                                      ),
-                              ),
-                              tooltip: '扫描资源',
-                              onPressed:
-                                  _resourceScanStarting || _totalCount <= 0
-                                  ? null
-                                  : _startResourceScan,
-                            ),
-                            IconButton(
-                              icon: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: c.surface,
-                                  border: Border.all(color: c.cardBorder),
-                                ),
-                                child: Icon(
-                                  Icons.settings,
-                                  size: 18,
-                                  color: c.text,
-                                ),
-                              ),
-                              onPressed: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const SettingsPage(),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-              ),
-
-              // ===== 统计条 =====
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
-                  child: _StatsCard(
-                    totalCount: _totalCount,
-                    items: _controller.itemList ?? const [],
-                  ),
-                ),
-              ),
-
-              // ===== Lists 多彩卡片 =====
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                  child: Text(
-                    AppL10n.of(context).yourLists,
-                    style: AppText.sectionTitle(context),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-                  child: _ListsGrid(),
-                ),
-              ),
-
-              // ===== All favorites · header + 排序 + 视图切换 =====
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('全部收藏', style: AppText.eyebrow(context)),
-                            const SizedBox(height: 3),
-                            Text(
-                              '$_totalCount 部影片',
-                              style: AppText.sectionTitle(context),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Flexible(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              _FavoriteFilterPill(
-                                active: _newResourcesOnly,
-                                onTap: _toggleNewResourcesFilter,
-                              ),
-                              const SizedBox(width: 6),
-                              _SortPill(
-                                label: _sort.label,
-                                onTap: _showSortSheet,
-                              ),
-                              const SizedBox(width: 6),
-                              _ViewToggle(
-                                mode: _viewMode,
-                                onChange: (m) => setState(() => _viewMode = m),
-                              ),
-                            ],
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
 
-              // ===== 收藏网格 / 列表 =====
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 22),
-                sliver: _viewMode == FavoritesViewMode.grid
-                    ? PagedSliverGrid<int, MovieListItem>(
-                        pagingController: _controller,
-                        showNoMoreItemsIndicatorAsGridChild: false,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              childAspectRatio: 0.5,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 14,
-                            ),
-                        builderDelegate: _buildGridDelegate(urlBuilder),
-                      )
-                    : PagedSliverList<int, MovieListItem>(
-                        pagingController: _controller,
-                        builderDelegate: _buildListDelegate(urlBuilder),
-                      ),
+                  // ===== 收藏网格 / 列表 =====
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    sliver: _viewMode == FavoritesViewMode.grid
+                        ? PagedSliverGrid<int, MovieListItem>(
+                            pagingController: _controller,
+                            showNoMoreItemsIndicatorAsGridChild: false,
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  childAspectRatio: 0.5,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 14,
+                                ),
+                            builderDelegate: _buildGridDelegate(urlBuilder),
+                          )
+                        : PagedSliverList<int, MovieListItem>(
+                            pagingController: _controller,
+                            builderDelegate: _buildListDelegate(urlBuilder),
+                          ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                ],
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 120)),
-            ],
+            ),
           ),
         ),
       ),
@@ -600,79 +629,6 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text('在影片详情页点击 ♡ 加入收藏', style: AppText.meta(context)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============ Selection bar ============
-class _SelectionBar extends StatelessWidget {
-  const _SelectionBar({
-    required this.count,
-    required this.onCancel,
-    required this.onRemove,
-  });
-
-  final int count;
-  final VoidCallback onCancel;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
-      child: Container(
-        height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: c.accent,
-          borderRadius: BorderRadius.circular(100),
-          boxShadow: [
-            BoxShadow(
-              color: c.accent.withValues(alpha: 0.35),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.close, color: Colors.white),
-              onPressed: onCancel,
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                '已选 $count',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14.5,
-                ),
-              ),
-            ),
-            TextButton.icon(
-              icon: const Icon(
-                Icons.delete_outline,
-                color: Colors.white,
-                size: 18,
-              ),
-              label: const Text(
-                '移除',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-              onPressed: onRemove,
-            ),
           ],
         ),
       ),

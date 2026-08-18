@@ -73,7 +73,7 @@ class EntityBatchToolbar extends StatelessWidget {
                       fontSize: 13,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const Spacer(),
                   TextButton(
                     onPressed: onSelectAll,
                     style: TextButton.styleFrom(
@@ -93,7 +93,6 @@ class EntityBatchToolbar extends StatelessWidget {
                     ),
                     child: const Text('清空'),
                   ),
-                  const Spacer(),
                   IconButton(
                     tooltip: '退出多选',
                     onPressed: onClose,
@@ -110,16 +109,26 @@ class EntityBatchToolbar extends StatelessWidget {
                 const SizedBox(height: 4),
                 SizedBox(
                   height: 38,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (var i = 0; i < actions.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 6),
-                          _EntityBatchActionButton(action: actions[i]),
-                        ],
-                      ],
-                    ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minWidth: constraints.maxWidth,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              for (var i = 0; i < actions.length; i++) ...[
+                                if (i > 0) const SizedBox(width: 6),
+                                _EntityBatchActionButton(action: actions[i]),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
