@@ -15,6 +15,7 @@ import '../../shared/movie_card.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/actor_avatar.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
+import '../../shared/status_bar_scroll_to_top.dart';
 import '../actor_associations/widgets/actor_association_sync_sheet.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
@@ -118,98 +119,105 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
       backgroundColor: c.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              SliverAppBar(
-                expandedHeight: 220,
-                pinned: true,
-                backgroundColor: c.bg,
-                surfaceTintColor: Colors.transparent,
-                leading: IconButton(
-                  icon: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: c.surface.withValues(alpha: 0.6),
-                      shape: BoxShape.circle,
+          child: StatusBarScrollToTop(
+            scrollController: _scrollController,
+            child: CustomScrollView(
+              controller: _scrollController,
+              slivers: [
+                SliverAppBar(
+                  expandedHeight: 220,
+                  pinned: true,
+                  backgroundColor: c.bg,
+                  surfaceTintColor: Colors.transparent,
+                  leading: IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: c.surface.withValues(alpha: 0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.arrow_back, size: 18),
                     ),
-                    child: const Icon(Icons.arrow_back, size: 18),
+                    onPressed: () => Navigator.of(context).maybePop(),
                   ),
-                  onPressed: () => Navigator.of(context).maybePop(),
+                  actions: [
+                    IconButton(
+                      tooltip: '同步演员关联',
+                      icon: const Icon(Icons.cloud_sync_outlined),
+                      onPressed: _syncActor,
+                    ),
+                  ],
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: _ActorHero(
+                      actor: widget.actor,
+                      hue: _hue,
+                      count: _totalCount,
+                      cacheBust: _avatarCacheBust,
+                    ),
+                  ),
                 ),
-                actions: [
-                  IconButton(
-                    tooltip: '同步演员关联',
-                    icon: const Icon(Icons.cloud_sync_outlined),
-                    onPressed: _syncActor,
+                if (_currentBiography.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: _ActorBiography(biography: _currentBiography),
                   ),
-                ],
-                flexibleSpace: FlexibleSpaceBar(
-                  background: _ActorHero(
-                    actor: widget.actor,
-                    hue: _hue,
-                    count: _totalCount,
-                    cacheBust: _avatarCacheBust,
-                  ),
-                ),
-              ),
-              if (_currentBiography.isNotEmpty)
                 SliverToBoxAdapter(
-                  child: _ActorBiography(biography: _currentBiography),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 24, 22, 14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '相关影片',
+                            style: AppText.sectionTitle(context),
+                          ),
+                        ),
+                        if (_totalCount != null)
+                          Text(
+                            '${_totalCount!} 部',
+                            style: AppText.meta(context),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 24, 22, 14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '相关影片',
-                          style: AppText.sectionTitle(context),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
+                  sliver: PagedSliverGrid<int, MovieListItem>(
+                    pagingController: _controller,
+                    showNoMoreItemsIndicatorAsGridChild: false,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          childAspectRatio: 0.55,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 14,
+                        ),
+                    builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
+                      itemBuilder: (ctx, m, idx) => MovieCard(
+                        movie: m,
+                        posterUrlBuilder: urlBuilder,
+                        onTap: () => Navigator.of(ctx).push(
+                          MaterialPageRoute(
+                            builder: (_) => MovieDetailPage(movieId: m.id),
+                          ),
                         ),
                       ),
-                      if (_totalCount != null)
-                        Text('${_totalCount!} 部', style: AppText.meta(context)),
-                    ],
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
-                sliver: PagedSliverGrid<int, MovieListItem>(
-                  pagingController: _controller,
-                  showNoMoreItemsIndicatorAsGridChild: false,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: 0.55,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 14,
-                  ),
-                  builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
-                    itemBuilder: (ctx, m, idx) => MovieCard(
-                      movie: m,
-                      posterUrlBuilder: urlBuilder,
-                      onTap: () => Navigator.of(ctx).push(
-                        MaterialPageRoute(
-                          builder: (_) => MovieDetailPage(movieId: m.id),
-                        ),
+                      firstPageProgressIndicatorBuilder: (_) =>
+                          const Center(child: CupertinoActivityIndicator()),
+                      firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                        message: _controller.error?.toString() ?? '加载失败',
+                        onRetry: () => _controller.refresh(),
                       ),
+                      noItemsFoundIndicatorBuilder: (_) =>
+                          const EmptyView(message: '没有该演员的影片'),
+                      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                     ),
-                    firstPageProgressIndicatorBuilder: (_) =>
-                        const Center(child: CupertinoActivityIndicator()),
-                    firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                      message: _controller.error?.toString() ?? '加载失败',
-                      onRetry: () => _controller.refresh(),
-                    ),
-                    noItemsFoundIndicatorBuilder: (_) =>
-                        const EmptyView(message: '没有该演员的影片'),
-                    noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

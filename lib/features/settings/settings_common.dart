@@ -1,9 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/status_bar_scroll_to_top.dart';
 
 class SettingsGroup extends StatelessWidget {
   const SettingsGroup({super.key, required this.title, required this.items});
@@ -420,10 +419,11 @@ class SettingsSubPageHeader extends StatelessWidget {
 
 /// 设置页固定头部布局，统一管理内容滚动与 iOS 状态栏回顶。
 ///
-/// [body] 中的纵向滚动视图应设置 `primary: true`，这样所有使用该
-/// 布局的页面都会连接到同一个 [PrimaryScrollController]。分页页面可以
-/// 通过 [scrollController] 注入自己的控制器，同时保留分页监听逻辑。
-class SettingsFixedHeaderLayout extends StatefulWidget {
+/// 回顶逻辑由 [StatusBarScrollToTop] 提供：[body] 中的纵向滚动视图应设置
+/// `primary: true`（或不传 controller），这样所有使用该布局的页面都会
+/// 连接到同一个 [PrimaryScrollController]。分页页面可以通过
+/// [scrollController] 注入自己的控制器，同时保留分页监听逻辑。
+class SettingsFixedHeaderLayout extends StatelessWidget {
   const SettingsFixedHeaderLayout({
     super.key,
     required this.header,
@@ -436,76 +436,13 @@ class SettingsFixedHeaderLayout extends StatefulWidget {
   final ScrollController? scrollController;
 
   @override
-  State<SettingsFixedHeaderLayout> createState() =>
-      _SettingsFixedHeaderLayoutState();
-}
-
-class _SettingsFixedHeaderLayoutState extends State<SettingsFixedHeaderLayout>
-    with WidgetsBindingObserver {
-  ScrollController? _ownedController;
-
-  ScrollController get _controller =>
-      widget.scrollController ?? _ownedController!;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    if (widget.scrollController == null) {
-      _ownedController = ScrollController();
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant SettingsFixedHeaderLayout oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.scrollController == null &&
-        widget.scrollController != null) {
-      _ownedController?.dispose();
-      _ownedController = null;
-    } else if (oldWidget.scrollController != null &&
-        widget.scrollController == null) {
-      _ownedController = ScrollController();
-    }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _ownedController?.dispose();
-    super.dispose();
-  }
-
-  @override
-  void handleStatusBarTap() {
-    super.handleStatusBarTap();
-    final route = ModalRoute.of(context);
-    if ((route != null && !route.isCurrent) || !_controller.hasClients) {
-      return;
-    }
-    final position = _controller.position;
-    if (position.pixels <= position.minScrollExtent) {
-      return;
-    }
-    // 与影片库保持一致，从当前位置连续滚回顶部；animateTo 会中止当前
-    // 的惯性滚动，避免先闪回再开始动画。
-    unawaited(
-      _controller.animateTo(
-        position.minScrollExtent,
-        duration: const Duration(milliseconds: 420),
-        curve: Curves.easeOutCubic,
-      ),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return PrimaryScrollController(
-      controller: _controller,
+    return StatusBarScrollToTop(
+      scrollController: scrollController,
       child: Column(
         children: [
-          widget.header,
-          Expanded(child: widget.body),
+          header,
+          Expanded(child: body),
         ],
       ),
     );
