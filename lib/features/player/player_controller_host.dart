@@ -15,7 +15,6 @@ class PlayerControllerHost {
   PlayerControllerHost({
     this.hardwareAcceleration = true,
     this.bufferSize = 32 * 1024 * 1024,
-    this.diskCacheEnabled = true,
   }) {
     _createPlayer();
   }
@@ -24,9 +23,6 @@ class PlayerControllerHost {
   late VideoController controller;
   bool hardwareAcceleration;
   int bufferSize;
-  bool diskCacheEnabled;
-  String? diskCacheDirectory;
-  String? persistentCacheFile;
   int _openGeneration = 0;
 
   void _createPlayer() {
@@ -45,14 +41,12 @@ class PlayerControllerHost {
     Duration? startAt,
     Map<String, String>? headers,
     double? prefetchSeconds,
-    bool recordCache = true,
   }) {
     return _openWithBufferOptions(
       url,
       startAt: startAt,
       headers: headers,
       prefetchSeconds: prefetchSeconds,
-      recordCache: recordCache,
     );
   }
 
@@ -61,7 +55,6 @@ class PlayerControllerHost {
     Duration? startAt,
     Map<String, String>? headers,
     double? prefetchSeconds,
-    required bool recordCache,
   }) async {
     final openGeneration = ++_openGeneration;
     final targetPlayer = player;
@@ -74,59 +67,21 @@ class PlayerControllerHost {
     try {
       final platform = targetPlayer.platform;
       if (platform is NativePlayer) {
-        // Player.open() 也会 stop,但它是在本方法设置 stream-record 之后才
-        // 执行。先关闭旧媒体，避免新录制文件先按旧媒体的封装格式打开。
-        if (persistentCacheFile != null) {
-          await _setNativeProperty(platform, 'stream-record', '');
-        }
         try {
           await targetPlayer.stop();
         } catch (error) {
-          debugPrint('[PlayerControllerHost] 关闭旧媒体失败，继续应用缓存配置: $error');
+          debugPrint('[PlayerControllerHost] 关闭旧媒体失败，继续应用缓冲配置: $error');
         }
-        // demuxer-cache-dir 必须在 cache-on-disk 创建文件前设置；否则 mpv
-        // 会继续使用默认目录，缓存管理页统计不到实际文件。
-        if (diskCacheEnabled && diskCacheDirectory != null) {
-          await _setNativeProperty(
-            platform,
-            'demuxer-cache-dir',
-            diskCacheDirectory!,
-          );
-        }
-        // 网络 demuxer 缓冲与持久化磁盘缓存是两条独立能力。即使用户
-        // 关闭磁盘缓存，也必须保留 cache=yes，否则 cache-secs 会完全失效。
+        // 网络 demuxer 缓冲是播放器必需能力；cache-secs 只控制后台预读上限。
         await _setNativeProperty(platform, 'cache', 'yes');
-        await _setNativeProperty(
-          platform,
-          'cache-on-disk',
-          diskCacheEnabled ? 'yes' : 'no',
-        );
-        // cache-secs 只是后台预载上限。显式进入初始 buffering，才能让
-        // 起播前确实先读取一段数据；等待时间封顶，避免长视频打开数分钟。
-        await _setNativeProperty(platform, 'cache-pause', 'yes');
-        await _setNativeProperty(platform, 'cache-pause-initial', 'yes');
-        await _setNativeProperty(
-          platform,
-          'cache-pause-wait',
-          playerInitialCacheWaitSecondsFor(
-            requestedPrefetchSeconds,
-          ).toStringAsFixed(3),
-        );
-        // 先使用极小的安全预载值，等媒体时长就绪后再收敛到总时长的 15%，
-        // 避免播放器在时长未知时按字节缓存过多内容。
+        // media_kit 初始化默认开启 cache-on-disk，会把回退缓冲写成临时文件
+        // 并在媒体关闭时删除。没有跨会话缓存需求时显式关闭，避免无谓 IO。
+        await _setNativeProperty(platform, 'cache-on-disk', 'no');
+        // 时长未知时先用安全的小窗口，时长就绪后再收敛到总时长的 15%。
         await _setNativeProperty(
           platform,
           'cache-secs',
           requestedPrefetchSeconds.toStringAsFixed(3),
-        );
-        // stream-record 必须在 loadfile 前设置，才能从网络源的第一段数据开始
-        // 写入；输出扩展名由调用方按播放路线选择，避免 HLS 被当成 MP4 封装。
-        await _setNativeProperty(
-          platform,
-          'stream-record',
-          recordCache && diskCacheEnabled && persistentCacheFile != null
-              ? persistentCacheFile!
-              : '',
         );
       }
     } catch (_) {
@@ -136,62 +91,15 @@ class PlayerControllerHost {
       Media(url, start: startAt, httpHeaders: headers),
       play: true,
     );
-    // Player.open() 内部会先 stop 再 loadlist。部分 iOS/libmpv 版本会在
-    // 这个边界重新应用默认缓存选项，因此 open 完成后再次回读并补设。
-    // cache-secs 在此处先用已知的决策值，时长未知时再由下方轮询收敛。
+    // Player.open() 内部会先 stop 再 loadlist，open 完成后回读确认缓冲
+    // 属性仍然生效，避免媒体加载边界覆盖运行时配置。
     await _ensureCacheOptionsAfterOpen(
       targetPlayer,
       openGeneration,
       prefetchSeconds: requestedPrefetchSeconds,
-      recordCache: recordCache,
     );
     await _logNativeCacheState(targetPlayer, 'open');
-    // NativePlayer.open() 通过异步 loadlist 加载媒体。部分 iOS/libmpv
-    // 版本会在真正开始载入文件时重置 per-file 的 stream-record，因此在
-    // loadlist 完成后再做一次延迟校验，确保录制目标仍然指向持久缓存文件。
-    unawaited(
-      _rearmPersistentRecording(
-        targetPlayer,
-        openGeneration,
-        recordCache: recordCache,
-      ),
-    );
     unawaited(_applyPrefetchLimit(targetPlayer, openGeneration));
-  }
-
-  Future<void> _rearmPersistentRecording(
-    Player targetPlayer,
-    int generation, {
-    required bool recordCache,
-  }) async {
-    final path = persistentCacheFile;
-    if (!recordCache || !diskCacheEnabled || path == null || path.isEmpty) {
-      return;
-    }
-
-    for (final delay in <Duration>[
-      const Duration(milliseconds: 250),
-      const Duration(milliseconds: 750),
-      const Duration(milliseconds: 1500),
-    ]) {
-      await Future<void>.delayed(delay);
-      if (generation != _openGeneration) return;
-      final platform = targetPlayer.platform;
-      if (platform is! NativePlayer) return;
-      try {
-        final native = platform as dynamic;
-        final actual = '${await native.getProperty('stream-record')}'.trim();
-        if (_nativePropertyMatches('stream-record', path, actual)) continue;
-        debugPrint(
-          '[PlayerControllerHost] 媒体加载后重新启用持久缓存: '
-          'requested=$path actual=$actual',
-        );
-        await _setNativeProperty(platform, 'stream-record', path);
-        await _logNativeCacheState(targetPlayer, 'record-rearmed');
-      } catch (error) {
-        debugPrint('[PlayerControllerHost] 重启持久缓存失败: $error');
-      }
-    }
   }
 
   Future<void> _applyPrefetchLimit(Player targetPlayer, int generation) async {
@@ -200,16 +108,10 @@ class PlayerControllerHost {
       if (duration == null || generation != _openGeneration) return;
       final platform = targetPlayer.platform;
       if (platform is NativePlayer) {
-        final prefetchSeconds = playerPrefetchSecondsFor(duration);
         await _setNativeProperty(
           platform,
           'cache-secs',
-          prefetchSeconds.toStringAsFixed(3),
-        );
-        await _setNativeProperty(
-          platform,
-          'cache-pause-wait',
-          playerInitialCacheWaitSecondsFor(prefetchSeconds).toStringAsFixed(3),
+          playerPrefetchSecondsFor(duration).toStringAsFixed(3),
         );
         await _logNativeCacheState(targetPlayer, 'duration-ready');
       }
@@ -241,7 +143,6 @@ class PlayerControllerHost {
     Player targetPlayer,
     int generation, {
     required double prefetchSeconds,
-    required bool recordCache,
   }) async {
     if (generation != _openGeneration) return;
     final platform = targetPlayer.platform;
@@ -249,19 +150,8 @@ class PlayerControllerHost {
 
     final expected = <String, String>{
       'cache': 'yes',
-      'cache-on-disk': diskCacheEnabled ? 'yes' : 'no',
-      'cache-pause': 'yes',
-      'cache-pause-initial': 'yes',
-      'cache-pause-wait': playerInitialCacheWaitSecondsFor(
-        prefetchSeconds,
-      ).toStringAsFixed(3),
-      if (diskCacheEnabled && diskCacheDirectory != null)
-        'demuxer-cache-dir': diskCacheDirectory!,
+      'cache-on-disk': 'no',
       'cache-secs': prefetchSeconds.toStringAsFixed(3),
-      'stream-record':
-          recordCache && diskCacheEnabled && persistentCacheFile != null
-          ? persistentCacheFile!
-          : '',
     };
     for (final entry in expected.entries) {
       if (generation != _openGeneration) return;
@@ -295,26 +185,20 @@ class PlayerControllerHost {
     try {
       final values = <String, String>{};
       for (final property in <String>[
-        'file-format',
         'cache-secs',
         'demuxer-cache-time',
         'cache-buffering-state',
-        'cache-on-disk',
-        'stream-record',
       ]) {
         values[property] = '${await native.getProperty(property)}'.trim();
       }
       debugPrint(
-        '[PlayerControllerHost] mpv 缓存状态 phase=$phase '
-        'file-format=${values['file-format']} '
+        '[PlayerControllerHost] mpv 缓冲状态 phase=$phase '
         'cache-secs=${values['cache-secs']} '
         'demuxer-cache-time=${values['demuxer-cache-time']} '
-        'cache-buffering-state=${values['cache-buffering-state']} '
-        'cache-on-disk=${values['cache-on-disk']} '
-        'stream-record=${values['stream-record']}',
+        'cache-buffering-state=${values['cache-buffering-state']}',
       );
     } catch (error) {
-      debugPrint('[PlayerControllerHost] 读取 mpv 缓存状态失败: $error');
+      debugPrint('[PlayerControllerHost] 读取 mpv 缓冲状态失败: $error');
     }
   }
 
@@ -329,7 +213,7 @@ class PlayerControllerHost {
     Object? commandError;
     try {
       // `setProperty` 在 media_kit 1.2.x 不等待 mpv 的 native 命令完成。
-      // 使用可等待的 `set` 命令，避免 stream-record 清空与 stop 竞态。
+      // 使用可等待的 `set` 命令，确保属性在下一次播放器操作前已经生效。
       await native.command(<String>['set', property, value]);
       if (await _waitForNativeProperty(native, property, value)) return;
     } catch (error) {
@@ -387,9 +271,6 @@ class PlayerControllerHost {
       }
     }
     if (actual == requested) return true;
-    if (property == 'stream-record' || property == 'demuxer-cache-dir') {
-      return requested.isNotEmpty && actual.endsWith(requested);
-    }
     return false;
   }
 
@@ -468,46 +349,25 @@ class PlayerControllerHost {
   Future<void> recreate({
     required bool enableHardwareAcceleration,
     int? bufferSize,
-    bool? diskCacheEnabled,
-    String? diskCacheDirectory,
-    String? persistentCacheFile,
   }) async {
     final nextBufferSize = bufferSize ?? this.bufferSize;
-    final nextDiskCacheEnabled = diskCacheEnabled ?? this.diskCacheEnabled;
-    final nextDiskCacheDirectory =
-        diskCacheDirectory ?? this.diskCacheDirectory;
-    final nextPersistentCacheFile =
-        persistentCacheFile ?? this.persistentCacheFile;
     if (hardwareAcceleration == enableHardwareAcceleration &&
-        this.bufferSize == nextBufferSize &&
-        this.diskCacheEnabled == nextDiskCacheEnabled &&
-        this.diskCacheDirectory == nextDiskCacheDirectory &&
-        this.persistentCacheFile == nextPersistentCacheFile) {
+        this.bufferSize == nextBufferSize) {
       return;
     }
     final previous = player;
     hardwareAcceleration = enableHardwareAcceleration;
     this.bufferSize = nextBufferSize;
-    this.diskCacheEnabled = nextDiskCacheEnabled;
-    this.diskCacheDirectory = nextDiskCacheDirectory;
-    this.persistentCacheFile = nextPersistentCacheFile;
     _createPlayer();
     await previous.dispose();
   }
 
   Future<void> seek(Duration position) => player.seek(position);
 
-  /// 停止当前媒体但保留播放器实例, 用于退出播放页前的同步停播。
+  /// 停止当前媒体但保留播放器实例, 用于退出播放页前的停播。
   Future<void> stop() async {
     ++_openGeneration;
-    final targetPlayer = player;
-    final platform = targetPlayer.platform;
-    if (platform is NativePlayer && persistentCacheFile != null) {
-      // mpv 在修改 stream-record 时会先关闭旧文件。显式清空一次，确保
-      // 文件在播放器 stop 完成前已经 flush，缓存统计不会读到 0 字节。
-      await _setNativeProperty(platform, 'stream-record', '');
-    }
-    await targetPlayer.stop();
+    await player.stop();
   }
 
   Future<void> setRate(double rate) => player.setRate(rate);

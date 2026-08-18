@@ -12,66 +12,6 @@ PlaybackRoute playbackRouteForQuality(String quality) {
       : PlaybackRoute.hls;
 }
 
-/// 返回 stream-record 应使用的输出容器后缀。
-///
-/// 后端的容器值来自 ffprobe,可能是逗号分隔的候选 token,例如
-/// `mov,mp4,m4a,3gp,3g2,mj2`; 不能直接把它当作文件扩展名。
-String videoCacheExtensionFor({
-  required PlaybackRoute route,
-  String? container,
-  String? mimeType,
-  String? sourceUrl,
-}) {
-  if (route == PlaybackRoute.hls) return '.ts';
-
-  // `.strm` 的 playback-decision 没有远程媒体探测结果，决策中的
-  // mime_type 只能使用 video/mp4 兜底；最终地址本身通常更可靠。
-  final sourcePath =
-      Uri.tryParse(sourceUrl ?? '')?.path.toLowerCase() ??
-      (sourceUrl ?? '').toLowerCase().split('?').first;
-  if (sourcePath.endsWith('.m3u8') || sourcePath.endsWith('.ts')) return '.ts';
-  if (sourcePath.endsWith('.webm')) return '.webm';
-  if (sourcePath.endsWith('.mov')) return '.mov';
-  if (sourcePath.endsWith('.mkv')) return '.mkv';
-  if (sourcePath.endsWith('.mp4')) return '.mp4';
-
-  final tokens = (container ?? '')
-      .toLowerCase()
-      .split(',')
-      .map((value) => value.trim())
-      .where((value) => value.isNotEmpty)
-      .toSet();
-  if (tokens.contains('matroska') || tokens.contains('mkv')) return '.mkv';
-  if (tokens.contains('webm')) return '.webm';
-  if (tokens.contains('mpegts') || tokens.contains('mpeg-ts')) return '.ts';
-  if (tokens.contains('mov') &&
-      !tokens.any((value) => value == 'mp4' || value == 'm4v')) {
-    return '.mov';
-  }
-  if (tokens.any(
-    (value) =>
-        value == 'mp4' ||
-        value == 'm4v' ||
-        value == 'm4a' ||
-        value == '3gp' ||
-        value == '3g2' ||
-        value == 'mj2',
-  )) {
-    return '.mp4';
-  }
-
-  final mime = (mimeType ?? '').toLowerCase();
-  if (mime.contains('webm')) return '.webm';
-  if (mime.contains('quicktime')) return '.mov';
-  if (mime.contains('matroska')) return '.mkv';
-  if (mime.contains('mpeg') || mime.contains('mp2t')) return '.ts';
-  // .strm 没有远程探测结果时，后端 playback-decision 的实际兜底是
-  // video/mp4。stream-record 要求输出封装与输入一致，使用 .mkv 会让
-  // 常见的外部 MP4 源录制失败并留下 0 字节文件。
-  if (mime.contains('mp4') || mime.contains('m4v')) return '.mp4';
-  return '.mp4';
-}
-
 /// 播放源类型
 enum PlaybackSourceType { direct, hls }
 
