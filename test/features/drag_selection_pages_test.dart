@@ -44,6 +44,35 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets('影片网格纵向拖动会选择经过的整排', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpPage(tester, const MoviesPage(maxItems: 9));
+
+    final crossAxisCount = tester.getSize(find.byType(Scaffold)).width > 600
+        ? 4
+        : 3;
+    final first = find.byKey(const ValueKey<int>(1));
+    final firstRowEnd = find.byKey(ValueKey<int>(crossAxisCount));
+    final secondRowStart = find.byKey(ValueKey<int>(crossAxisCount + 1));
+    final thirdRowStart = find.byKey(ValueKey<int>(crossAxisCount * 2 + 1));
+
+    var gesture = await _longPress(tester, first);
+    await gesture.moveTo(tester.getCenter(firstRowEnd));
+    await gesture.up();
+    await tester.pump();
+    expect(find.text('$crossAxisCount 已选'), findsOneWidget);
+
+    expect(secondRowStart, findsOneWidget);
+    expect(thirdRowStart, findsOneWidget);
+
+    gesture = await _longPress(tester, secondRowStart);
+    await gesture.moveTo(tester.getCenter(thirdRowStart));
+    await gesture.up();
+    await tester.pump();
+    expect(find.text('9 已选'), findsOneWidget);
+  });
+
   testWidgets('演员普通列表长按滑动同步工具栏和滚动偏移', (tester) async {
     await _pumpPage(tester, const ActorManagementPage());
 

@@ -594,6 +594,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       itemBuilder: (ctx, m, idx) => DragSelectionTarget<int>(
         key: ValueKey(m.id),
         id: m.id,
+        selectionRow: idx ~/ 3,
         child: _GridCell(
           movie: m,
           urlBuilder: urlBuilder,

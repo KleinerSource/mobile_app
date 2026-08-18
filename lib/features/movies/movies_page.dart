@@ -361,7 +361,10 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                                         mainAxisSpacing: 14,
                                         crossAxisSpacing: 10,
                                       ),
-                                  builderDelegate: _buildDelegate(urlBuilder),
+                                  builderDelegate: _buildDelegate(
+                                    urlBuilder,
+                                    crossAxisCount: crossAxisCount,
+                                  ),
                                 )
                               : PagedSliverList<int, MovieListItem>(
                                   pagingController: _controller,
@@ -429,13 +432,15 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   }
 
   PagedChildBuilderDelegate<MovieListItem> _buildDelegate(
-    String Function(String) urlBuilder,
-  ) {
+    String Function(String) urlBuilder, {
+    required int crossAxisCount,
+  }) {
     final l = AppL10n.of(context);
     return PagedChildBuilderDelegate<MovieListItem>(
       itemBuilder: (ctx, item, idx) => DragSelectionTarget<int>(
         key: ValueKey(item.id),
         id: item.id,
+        selectionRow: idx ~/ crossAxisCount,
         child: MovieCard(
           movie: item,
           posterUrlBuilder: urlBuilder,
