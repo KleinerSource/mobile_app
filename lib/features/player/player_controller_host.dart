@@ -45,12 +45,14 @@ class PlayerControllerHost {
     Duration? startAt,
     Map<String, String>? headers,
     double? prefetchSeconds,
+    bool recordCache = true,
   }) {
     return _openWithBufferOptions(
       url,
       startAt: startAt,
       headers: headers,
       prefetchSeconds: prefetchSeconds,
+      recordCache: recordCache,
     );
   }
 
@@ -59,6 +61,7 @@ class PlayerControllerHost {
     Duration? startAt,
     Map<String, String>? headers,
     double? prefetchSeconds,
+    required bool recordCache,
   }) async {
     final openGeneration = ++_openGeneration;
     final targetPlayer = player;
@@ -121,7 +124,7 @@ class PlayerControllerHost {
         await _setNativeProperty(
           platform,
           'stream-record',
-          diskCacheEnabled && persistentCacheFile != null
+          recordCache && diskCacheEnabled && persistentCacheFile != null
               ? persistentCacheFile!
               : '',
         );
@@ -140,21 +143,31 @@ class PlayerControllerHost {
       targetPlayer,
       openGeneration,
       prefetchSeconds: requestedPrefetchSeconds,
+      recordCache: recordCache,
     );
     await _logNativeCacheState(targetPlayer, 'open');
     // NativePlayer.open() 通过异步 loadlist 加载媒体。部分 iOS/libmpv
     // 版本会在真正开始载入文件时重置 per-file 的 stream-record，因此在
     // loadlist 完成后再做一次延迟校验，确保录制目标仍然指向持久缓存文件。
-    unawaited(_rearmPersistentRecording(targetPlayer, openGeneration));
+    unawaited(
+      _rearmPersistentRecording(
+        targetPlayer,
+        openGeneration,
+        recordCache: recordCache,
+      ),
+    );
     unawaited(_applyPrefetchLimit(targetPlayer, openGeneration));
   }
 
   Future<void> _rearmPersistentRecording(
     Player targetPlayer,
-    int generation,
-  ) async {
+    int generation, {
+    required bool recordCache,
+  }) async {
     final path = persistentCacheFile;
-    if (!diskCacheEnabled || path == null || path.isEmpty) return;
+    if (!recordCache || !diskCacheEnabled || path == null || path.isEmpty) {
+      return;
+    }
 
     for (final delay in <Duration>[
       const Duration(milliseconds: 250),
@@ -228,6 +241,7 @@ class PlayerControllerHost {
     Player targetPlayer,
     int generation, {
     required double prefetchSeconds,
+    required bool recordCache,
   }) async {
     if (generation != _openGeneration) return;
     final platform = targetPlayer.platform;
@@ -244,7 +258,8 @@ class PlayerControllerHost {
       if (diskCacheEnabled && diskCacheDirectory != null)
         'demuxer-cache-dir': diskCacheDirectory!,
       'cache-secs': prefetchSeconds.toStringAsFixed(3),
-      'stream-record': diskCacheEnabled && persistentCacheFile != null
+      'stream-record':
+          recordCache && diskCacheEnabled && persistentCacheFile != null
           ? persistentCacheFile!
           : '',
     };

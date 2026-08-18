@@ -113,6 +113,37 @@ void main() {
     expect(await file.exists(), isFalse);
   });
 
+  test('视频缓存查找优先使用指定容器且忽略空文件', () async {
+    final root = await Directory.systemTemp.createTemp('md-center-cache-find-');
+    addTearDown(() => root.delete(recursive: true));
+    final service = DiskCacheService(rootDirectory: root);
+    final empty = await service.videoCacheFile(
+      movieId: 12,
+      quality: 'original',
+      extension: '.webm',
+    );
+    final fallback = await service.videoCacheFile(
+      movieId: 12,
+      quality: 'original',
+      extension: '.mkv',
+    );
+    final preferred = await service.videoCacheFile(
+      movieId: 12,
+      quality: 'original',
+      extension: '.mp4',
+    );
+    await empty.writeAsString('');
+    await fallback.writeAsString('cached-mkv');
+    await preferred.writeAsString('cached-mp4');
+
+    final found = await service.findVideoCacheFile(
+      movieId: 12,
+      quality: 'original',
+      preferredExtension: '.mp4',
+    );
+    expect(found?.path, preferred.path);
+  });
+
   test('缓存字节格式化使用易读单位', () {
     expect(formatCacheBytes(0), '0 B');
     expect(formatCacheBytes(1024 * 1024), '1.00 MB');

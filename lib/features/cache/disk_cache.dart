@@ -323,6 +323,70 @@ class DiskCacheService {
     );
   }
 
+  /// 查找可用于快速恢复的持久化视频片段。
+  ///
+  /// 片段的扩展名可能来自旧版本或旧的播放路线，因此优先匹配调用方
+  /// 计算出的扩展名，找不到时再按最近修改时间回退到其他支持的容器。
+  Future<File?> findVideoCacheFile({
+    required int movieId,
+    required String quality,
+    String? preferredExtension,
+  }) async {
+    final root = await _rootDirectory();
+    final safeQuality = quality.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final prefix = 'movie-$movieId-$safeQuality';
+    final preferred = preferredExtension == null
+        ? null
+        : _videoCacheExtension(preferredExtension);
+    final candidates = <File>[];
+    final seen = <String>{};
+    for (final directory in await _videoCacheDirectories(root: root)) {
+      if (!await directory.exists()) continue;
+      await for (final entity in directory.list(
+        recursive: true,
+        followLinks: false,
+      )) {
+        if (entity is! File || !seen.add(entity.path)) continue;
+        final name = entity.path.split(Platform.pathSeparator).last;
+        if (!name.startsWith('$prefix.') ||
+            !_isPersistentVideoCacheFile(entity.path)) {
+          continue;
+        }
+        try {
+          if (await entity.length() > 0) candidates.add(entity);
+        } on FileSystemException {
+          // 播放器可能正好在关闭文件，下一次打开时再尝试查找。
+        }
+      }
+    }
+    if (candidates.isEmpty) return null;
+
+    final entries = <({File file, DateTime modified})>[];
+    for (final file in candidates) {
+      try {
+        entries.add((file: file, modified: await file.lastModified()));
+      } on FileSystemException {
+        // 文件可能在扫描后被系统清理。
+      }
+    }
+    entries.sort((a, b) {
+      final aPreferred =
+          preferred != null && a.file.path.toLowerCase().endsWith(preferred);
+      final bPreferred =
+          preferred != null && b.file.path.toLowerCase().endsWith(preferred);
+      if (aPreferred != bPreferred) return aPreferred ? -1 : 1;
+      return b.modified.compareTo(a.modified);
+    });
+    if (entries.isEmpty) return null;
+    final selected = entries.first.file;
+    try {
+      await selected.setLastModified(DateTime.now());
+    } on FileSystemException {
+      // 更新访问时间失败不影响继续使用缓存片段。
+    }
+    return selected;
+  }
+
   /// 按缓存上限淘汰最旧的持久化视频文件。
   Future<void> pruneVideoCache({required int maxBytes}) {
     if (maxBytes <= 0) return Future<void>.value();
