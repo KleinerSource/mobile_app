@@ -7,8 +7,6 @@ import '../core/platform/app_haptics.dart';
 
 typedef DragSelectionChange<T> = void Function(T id, bool selected);
 
-enum _DragSelectionAxis { horizontal, vertical }
-
 /// Coordinates long-press drag selection for the mounted children below it.
 class DragSelectionScope<T> extends StatefulWidget {
   const DragSelectionScope({
@@ -44,22 +42,20 @@ class DragSelectionTarget<T> extends StatefulWidget {
     super.key,
     required this.id,
     required this.child,
-    this.selectionRow,
+    this.selectionIndex,
   });
 
   final T id;
   final Widget child;
 
-  /// The row occupied by this target in a grid. Null keeps list semantics.
-  final int? selectionRow;
+  /// The row-major position of this target in a grid. Null keeps list semantics.
+  final int? selectionIndex;
 
   @override
   State<DragSelectionTarget<T>> createState() => _DragSelectionTargetState<T>();
 }
 
 class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
-  static const _directionThreshold = 10.0;
-
   final _viewportKey = GlobalKey();
   final Map<T, _DragSelectionTargetState<T>> _targets = {};
   final Set<T> _visited = {};
@@ -67,9 +63,7 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
 
   Offset? _pointerPosition;
   Offset? _lastPointerPosition;
-  Offset? _selectionStartPosition;
-  int? _selectionRow;
-  _DragSelectionAxis? _selectionAxis;
+  int? _selectionIndex;
   bool _dragging = false;
   bool _selectionValue = true;
   Duration? _lastTickElapsed;
@@ -118,9 +112,7 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
     _dragging = true;
     _pointerPosition = globalPosition;
     _lastPointerPosition = globalPosition;
-    _selectionStartPosition = globalPosition;
-    _selectionRow = target.widget.selectionRow;
-    _selectionAxis = null;
+    _selectionIndex = target.widget.selectionIndex;
     _selectionValue = !widget.isSelected(id);
     _visited
       ..clear()
@@ -136,19 +128,10 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
 
     final previousPosition = _lastPointerPosition;
     _pointerPosition = globalPosition;
-    if (previousPosition != null) {
-      final directionLocked = _lockSelectionAxis(globalPosition);
-      final from = directionLocked
-          ? (_selectionStartPosition ?? previousPosition)
-          : previousPosition;
-
-      if (_selectionAxis == _DragSelectionAxis.vertical) {
-        _applyRowsAlongPath(from.dy, globalPosition.dy);
-      } else if (_selectionAxis == _DragSelectionAxis.horizontal) {
-        _applyAlongPath(from, globalPosition, row: _selectionRow);
-      } else {
-        _applyAlongPath(from, globalPosition, row: _selectionRow);
-      }
+    if (_selectionIndex != null) {
+      _applyGridRangeAt(globalPosition);
+    } else if (previousPosition != null) {
+      _applyAlongPath(previousPosition, globalPosition);
     }
     _lastPointerPosition = globalPosition;
     _updateAutoScroll();
@@ -159,36 +142,18 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
     _dragging = false;
     _pointerPosition = null;
     _lastPointerPosition = null;
-    _selectionStartPosition = null;
-    _selectionRow = null;
-    _selectionAxis = null;
+    _selectionIndex = null;
     _visited.clear();
     _lastTickElapsed = null;
     _stopTicker();
     widget.onSelectionEnd();
   }
 
-  bool _lockSelectionAxis(Offset position) {
-    if (_selectionRow == null || _selectionAxis != null) return false;
-
-    final start = _selectionStartPosition;
-    if (start == null) return false;
-
-    final delta = position - start;
-    if (delta.distance < _directionThreshold) return false;
-
-    _selectionAxis = delta.dx.abs() >= delta.dy.abs()
-        ? _DragSelectionAxis.horizontal
-        : _DragSelectionAxis.vertical;
-    return true;
-  }
-
-  void _applyAlongPath(Offset from, Offset to, {int? row}) {
+  void _applyAlongPath(Offset from, Offset to) {
     final targets = List<_DragSelectionTargetState<T>>.of(_targets.values);
     for (final target in targets) {
       final id = target.widget.id;
       if (_visited.contains(id)) continue;
-      if (row != null && target.widget.selectionRow != row) continue;
 
       final rect = target.globalRect;
       if (rect == null || !_segmentIntersectsRect(from, to, rect)) continue;
@@ -197,29 +162,28 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
     }
   }
 
-  void _applyRowsAlongPath(double fromY, double toY) {
-    final rows = <int, List<_DragSelectionTargetState<T>>>{};
-    final rowBounds = <int, Rect>{};
+  void _applyGridRangeAt(Offset position) {
+    final startIndex = _selectionIndex;
+    final target = _targetAt(position);
+    final endIndex = target?.widget.selectionIndex;
+    if (startIndex == null || endIndex == null) return;
 
+    final first = math.min(startIndex, endIndex);
+    final last = math.max(startIndex, endIndex);
+    final targets = List<_DragSelectionTargetState<T>>.of(_targets.values);
+    for (final candidate in targets) {
+      final index = candidate.widget.selectionIndex;
+      if (index == null || index < first || index > last) continue;
+      _applyTarget(candidate);
+    }
+  }
+
+  _DragSelectionTargetState<T>? _targetAt(Offset position) {
     for (final target in _targets.values) {
-      final row = target.widget.selectionRow;
       final rect = target.globalRect;
-      if (row == null || rect == null) continue;
-
-      rows.putIfAbsent(row, () => <_DragSelectionTargetState<T>>[]).add(target);
-      rowBounds[row] = rowBounds[row]?.expandToInclude(rect) ?? rect;
+      if (rect != null && rect.contains(position)) return target;
     }
-
-    final top = math.min(fromY, toY);
-    final bottom = math.max(fromY, toY);
-    for (final entry in rows.entries) {
-      final bounds = rowBounds[entry.key]!;
-      final expanded = bounds.inflate(3);
-      if (bottom < expanded.top || top > expanded.bottom) continue;
-      for (final target in entry.value) {
-        _applyTarget(target);
-      }
-    }
+    return null;
   }
 
   void _applyTarget(_DragSelectionTargetState<T> target) {
@@ -262,8 +226,8 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
     final pointer = _pointerPosition;
     if (pointer == null) return;
 
-    if (_selectionAxis == _DragSelectionAxis.vertical) {
-      _applyRowsAlongPath(pointer.dy, pointer.dy);
+    if (_selectionIndex != null) {
+      _applyGridRangeAt(pointer);
       return;
     }
 
@@ -271,11 +235,6 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
     for (final target in targets) {
       final id = target.widget.id;
       if (_visited.contains(id)) continue;
-      if (_selectionAxis == _DragSelectionAxis.horizontal &&
-          _selectionRow != null &&
-          target.widget.selectionRow != _selectionRow) {
-        continue;
-      }
 
       final rect = target.globalRect;
       if (rect == null || !rect.contains(pointer)) continue;

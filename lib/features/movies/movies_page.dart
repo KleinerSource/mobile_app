@@ -21,6 +21,7 @@ import '../../shared/poster.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../privacy/privacy_mask.dart';
+import '../favorites/favorites_providers.dart';
 import 'advanced_filter_sheet.dart';
 import 'batch_download_sheet.dart';
 import 'batch_duplicate_nfo_sheet.dart';
@@ -440,7 +441,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       itemBuilder: (ctx, item, idx) => DragSelectionTarget<int>(
         key: ValueKey(item.id),
         id: item.id,
-        selectionRow: idx ~/ crossAxisCount,
+        selectionIndex: idx,
         child: MovieCard(
           movie: item,
           posterUrlBuilder: urlBuilder,
@@ -491,6 +492,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
           selectionMode: _selectionMode,
           selected: _selectedIds.contains(item.id),
           onSelectionTap: () => _toggleSelect(item.id),
+          onFavorite: () {
+            unawaited(_favoriteOne(item));
+          },
         ),
       ),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
@@ -548,6 +552,25 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       _selectionMode = false;
       _selectedIds.clear();
     });
+  }
+
+  Future<void> _favoriteOne(MovieListItem movie) async {
+    try {
+      await ref.read(favoritesRepositoryProvider).addBatch([movie.id]);
+      ref.read(favoriteStatusProvider.notifier).seed(movie.id, true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已收藏「${movie.title}」'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('收藏失败: ${toApiException(e).message}')),
+      );
+    }
   }
 
   void _selectAllLoaded() {
@@ -1084,12 +1107,14 @@ class _ListRow extends StatelessWidget {
     this.selectionMode = false,
     this.selected = false,
     this.onSelectionTap,
+    required this.onFavorite,
   });
   final MovieListItem movie;
   final String Function(String) urlBuilder;
   final bool selectionMode;
   final bool selected;
   final VoidCallback? onSelectionTap;
+  final VoidCallback onFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -1103,7 +1128,7 @@ class _ListRow extends StatelessWidget {
       if (hasRating) '★ ${movie.rating!.toStringAsFixed(1)}',
     ].join(' · ');
 
-    return PrivacyAwareInkWell(
+    final row = PrivacyAwareInkWell(
       movieId: movie.id,
       onTap: selectionMode
           ? onSelectionTap
@@ -1132,6 +1157,7 @@ class _ListRow extends StatelessWidget {
             ],
             SizedBox(
               width: 56,
+              height: 84,
               child: PrivacyMask(
                 movieId: movie.id,
                 radius: 8,
@@ -1222,6 +1248,39 @@ class _ListRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+
+    if (selectionMode) return row;
+
+    return Dismissible(
+      key: ValueKey('movie-${movie.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 18),
+        color: c.accent.withValues(alpha: 0.85),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
+            SizedBox(width: 6),
+            Text(
+              '收藏',
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+      confirmDismiss: (_) async {
+        onFavorite();
+        return false;
+      },
+      child: row,
     );
   }
 }

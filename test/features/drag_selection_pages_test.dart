@@ -4,10 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:md_center/core/api/api_client.dart';
+import 'package:md_center/core/api/services/favorites_api.dart';
 import 'package:md_center/core/api/providers.dart';
 import 'package:md_center/core/config/server_config_provider.dart';
 import 'package:md_center/features/actors/actor_management_page.dart';
 import 'package:md_center/features/favorites/favorites_page.dart';
+import 'package:md_center/features/favorites/favorites_providers.dart';
+import 'package:md_center/features/favorites/favorites_repository.dart';
 import 'package:md_center/features/movies/movies_page.dart';
 import 'package:md_center/l10n/generated/app_localizations.dart';
 import 'package:md_center/shared/entity_batch_toolbar.dart';
@@ -44,7 +47,7 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('影片网格纵向拖动会选择经过的整排', (tester) async {
+  testWidgets('影片网格按手指命中的卡片选择连续范围', (tester) async {
     await tester.binding.setSurfaceSize(const Size(800, 1600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await _pumpPage(tester, const MoviesPage(maxItems: 9));
@@ -108,14 +111,47 @@ void main() {
     expect(first, findsOneWidget);
     expect(find.byType(Dismissible), findsWidgets);
 
-    await tester.fling(find.byType(Dismissible).first, const Offset(-500, 0), 1000);
+    await tester.fling(
+      find.byType(Dismissible).first,
+      const Offset(-500, 0),
+      1000,
+    );
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey<int>(1)), findsNothing);
   });
+
+  testWidgets('影片库列表支持左滑收藏且保留影片', (tester) async {
+    final favoritesApi = _RecordingFavoritesApi();
+    await _pumpPage(
+      tester,
+      const MoviesPage(maxItems: 9),
+      favoritesRepository: FavoritesRepository(favoritesApi),
+    );
+
+    await tester.tap(find.byIcon(Icons.view_list_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dismissible), findsWidgets);
+
+    await tester.fling(
+      find.byType(Dismissible).first,
+      const Offset(-500, 0),
+      1000,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const ValueKey<int>(1)), findsOneWidget);
+    expect(find.text('已收藏「影片 1」'), findsOneWidget);
+    expect(favoritesApi.addedMovieIds, [1]);
+  });
 }
 
-Future<void> _pumpPage(WidgetTester tester, Widget page) async {
+Future<void> _pumpPage(
+  WidgetTester tester,
+  Widget page, {
+  FavoritesRepository? favoritesRepository,
+}) async {
   SharedPreferences.setMockInitialValues({
     'privacy.app_switcher_shield': false,
   });
@@ -125,6 +161,8 @@ Future<void> _pumpPage(WidgetTester tester, Widget page) async {
       overrides: [
         requiredApiClientProvider.overrideWithValue(_buildFakeClient()),
         sharedPrefsProvider.overrideWithValue(prefs),
+        if (favoritesRepository != null)
+          favoritesRepositoryProvider.overrideWithValue(favoritesRepository),
       ],
       child: MaterialApp(
         localizationsDelegates: AppL10n.localizationsDelegates,
@@ -206,8 +244,7 @@ Object? _fakeResponse(String method, String path) {
 
   if (method == 'GET' && normalizedPath == '/favorites') {
     final items = [
-      for (var i = 1; i <= 6; i++)
-        {'id': i, 'title': '', 'is_favorited': true},
+      for (var i = 1; i <= 6; i++) {'id': i, 'title': '', 'is_favorited': true},
     ];
     return {
       'success': true,
@@ -224,5 +261,33 @@ Object? _fakeResponse(String method, String path) {
     return {'success': true, 'data': null};
   }
 
+  if (method == 'POST' && normalizedPath == '/favorites') {
+    return {'success': true, 'data': null};
+  }
+
   return null;
+}
+
+class _RecordingFavoritesApi implements FavoritesApi {
+  List<int>? addedMovieIds;
+
+  @override
+  Future<dynamic> addBatch(Map<String, dynamic> body) async {
+    addedMovieIds = List<int>.from(body['movie_ids'] as List);
+    return {'success': true, 'data': null};
+  }
+
+  @override
+  Future<dynamic> list(Map<String, dynamic> q) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<dynamic> removeBatch(Map<String, dynamic> body) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<dynamic> status(int movieId) async => throw UnimplementedError();
+
+  @override
+  Future<dynamic> toggle(int movieId) async => throw UnimplementedError();
 }

@@ -113,7 +113,7 @@ void main() {
     expect(state.selectionEndCount, 1);
   });
 
-  testWidgets('网格横向只选同排且松手后可以继续追加', (tester) async {
+  testWidgets('网格按手指命中的卡片选择连续范围', (tester) async {
     await _pumpGridHarness(tester);
     final state = _gridHarnessState(tester);
 
@@ -124,24 +124,24 @@ void main() {
     expect(state.selected, {0, 1, 2});
 
     gesture = await _longPress(tester, _target(3));
-    await gesture.moveTo(tester.getCenter(_target(5)));
-    await gesture.up();
-    await tester.pump();
-
-    expect(state.selected, {0, 1, 2, 3, 4, 5});
-  });
-
-  testWidgets('网格纵向拖动会选择经过的整排并支持整排取消', (tester) async {
-    await _pumpGridHarness(tester);
-    final state = _gridHarnessState(tester);
-
-    var gesture = await _longPress(tester, _target(1));
     await gesture.moveTo(tester.getCenter(_target(7)));
     await gesture.up();
     await tester.pump();
-    expect(state.selected, {0, 1, 2, 3, 4, 5, 6, 7, 8});
 
-    gesture = await _longPress(tester, _target(4));
+    expect(state.selected, {0, 1, 2, 3, 4, 5, 6, 7});
+  });
+
+  testWidgets('网格从首卡片滑到下一排不会整排展开', (tester) async {
+    await _pumpGridHarness(tester);
+    final state = _gridHarnessState(tester);
+
+    var gesture = await _longPress(tester, _target(0));
+    await gesture.moveTo(tester.getCenter(_target(3)));
+    await gesture.up();
+    await tester.pump();
+    expect(state.selected, {0, 1, 2, 3});
+
+    gesture = await _longPress(tester, _target(3));
     await gesture.moveTo(tester.getCenter(_target(7)));
     await gesture.up();
     await tester.pump();
@@ -330,7 +330,7 @@ class _GridSelectionHarnessState extends State<_GridSelectionHarness> {
                 (context, index) => DragSelectionTarget<int>(
                   key: ValueKey<int>(index),
                   id: index,
-                  selectionRow: index ~/ 3,
+                  selectionIndex: index,
                   child: ColoredBox(
                     color: selected.contains(index)
                         ? Colors.blue
