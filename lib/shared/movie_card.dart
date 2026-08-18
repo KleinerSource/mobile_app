@@ -247,6 +247,62 @@ class MovieCard extends ConsumerWidget {
   }
 }
 
+/// 多选网格卡片 · 收藏页/影片库共用的选择态外观:
+/// 未选中整卡变暗 (0.55, 180ms 过渡), 选中全亮 + 左上角对勾圆标;
+/// 角标不隐藏 (不向 [MovieCard] 传 selectionMode)
+class SelectableMovieCard extends StatelessWidget {
+  const SelectableMovieCard({
+    super.key,
+    required this.movie,
+    required this.posterUrlBuilder,
+    required this.selecting,
+    required this.selected,
+    this.onTap,
+  });
+
+  final MovieListItem movie;
+  final String Function(String uuid) posterUrlBuilder;
+  final bool selecting;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return Stack(
+      children: [
+        AnimatedOpacity(
+          duration: const Duration(milliseconds: 180),
+          opacity: selecting && !selected ? 0.55 : 1.0,
+          child: MovieCard(
+            movie: movie,
+            posterUrlBuilder: posterUrlBuilder,
+            onTap: onTap,
+          ),
+        ),
+        if (selecting)
+          Positioned(
+            top: 6,
+            left: 6,
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? c.accent : Colors.black.withValues(alpha: 0.5),
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              alignment: Alignment.center,
+              child: selected
+                  ? const Icon(Icons.check, color: Colors.white, size: 14)
+                  : const SizedBox.shrink(),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// 4 个角的 badge 位置 · 同一 corner 横向堆叠
 class _CornerBadges extends StatelessWidget {
   const _CornerBadges({

@@ -117,3 +117,4 @@ android/app/src/main/res/values/styles.xml
 windows/
 macos/
 linux/
+.zcode/

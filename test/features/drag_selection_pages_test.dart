@@ -78,6 +78,31 @@ void main() {
     expect(find.text('9 已选'), findsOneWidget);
   });
 
+  testWidgets('影片网格进入多选后未选中卡片整体变暗', (tester) async {
+    await _pumpPage(tester, const MoviesPage(maxItems: 9));
+
+    final first = find.byKey(const ValueKey<int>(1));
+    final second = find.byKey(const ValueKey<int>(2));
+    expect(find.byType(SelectableMovieCard), findsWidgets);
+
+    double dimOpacity(Finder cell) => tester.widget<AnimatedOpacity>(
+          find.descendant(of: cell, matching: find.byType(AnimatedOpacity)),
+        ).opacity;
+
+    // 多选前全部不透明
+    expect(dimOpacity(first), 1.0);
+    expect(dimOpacity(second), 1.0);
+
+    // 长按第一张进入多选 (长按即选中)
+    final gesture = await _longPress(tester, first);
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    // 选中卡全亮, 未选中卡整卡变暗 0.55, 与收藏页一致
+    expect(dimOpacity(first), 1.0);
+    expect(dimOpacity(second), 0.55);
+  });
+
   testWidgets('演员普通列表长按滑动同步工具栏和滚动偏移', (tester) async {
     await _pumpPage(tester, const ActorManagementPage());
 
@@ -147,6 +172,56 @@ void main() {
     expect(find.text('已收藏「影片 1」'), findsOneWidget);
     expect(favoritesApi.addedMovieIds, [1]);
   });
+
+  testWidgets('影片库列表支持从复选框区域向下滑动多选', (tester) async {
+    await _pumpPage(tester, const MoviesPage(maxItems: 9));
+
+    await tester.tap(find.byIcon(Icons.view_list_rounded));
+    await tester.pumpAndSettle();
+
+    final first = find.byKey(const ValueKey<int>(1));
+    final second = find.byKey(const ValueKey<int>(2));
+    final fourth = find.byKey(const ValueKey<int>(4));
+    expect(second, findsOneWidget);
+    var gesture = await _longPress(tester, first);
+    await gesture.up();
+    await tester.pump();
+    expect(find.text('1 已选'), findsOneWidget);
+
+    gesture = await _dragFromListSelectionIndicator(tester, second);
+    await gesture.moveTo(tester.getCenter(fourth));
+    await tester.pump();
+
+    expect(find.text('4 已选'), findsOneWidget);
+    await gesture.up();
+    await tester.pump();
+  });
+
+  testWidgets('收藏夹列表支持从复选框区域向下滑动多选', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpPage(tester, const FavoritesPage());
+
+    await tester.tap(find.byIcon(Icons.view_list_rounded));
+    await tester.pumpAndSettle();
+
+    final first = find.byKey(const ValueKey<int>(1));
+    final second = find.byKey(const ValueKey<int>(2));
+    final fourth = find.byKey(const ValueKey<int>(4));
+    expect(second, findsOneWidget);
+    var gesture = await _longPress(tester, first);
+    await gesture.up();
+    await tester.pump();
+    expect(find.text('1 已选'), findsOneWidget);
+
+    gesture = await _dragFromListSelectionIndicator(tester, second);
+    await gesture.moveTo(tester.getCenter(fourth));
+    await tester.pump();
+
+    expect(find.text('4 已选'), findsOneWidget);
+    await gesture.up();
+    await tester.pump();
+  });
 }
 
 Future<void> _pumpPage(
@@ -186,6 +261,14 @@ Future<TestGesture> _longPress(WidgetTester tester, Finder target) async {
 Future<TestGesture> _dragFromHandle(WidgetTester tester, Finder target) {
   final rect = tester.getRect(target);
   return tester.startGesture(rect.topLeft + const Offset(12, 12));
+}
+
+Future<TestGesture> _dragFromListSelectionIndicator(
+  WidgetTester tester,
+  Finder target,
+) {
+  final rect = tester.getRect(target);
+  return tester.startGesture(Offset(rect.left + 11, rect.center.dy));
 }
 
 Future<void> _pumpFrames(WidgetTester tester, Duration duration) async {

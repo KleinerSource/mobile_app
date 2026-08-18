@@ -7,6 +7,7 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass_menu.dart';
+import '../../shared/status_bar_scroll_to_top.dart';
 import '../actors/actor_management_page.dart';
 import '../favorites/favorites_page.dart';
 import '../home/home_page.dart';
@@ -28,6 +29,23 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+
+  // 各 Tab 独立的回顶控制器：无自定义控制器的 Tab 页（首页/搜索）通过
+  // PrimaryScrollController 自动挂接，状态栏回顶由 StatusBarScrollToTop
+  // 统一接管；持自有控制器的页面（影片库/我的）内部另有 StatusBarScrollToTop，
+  // 这里对应的控制器无客户端，自动空操作。
+  final List<ScrollController> _tabScrollControllers = List.generate(
+    4,
+    (_) => ScrollController(),
+  );
+
+  @override
+  void dispose() {
+    for (final controller in _tabScrollControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   void _selectTab(int index) {
     if (index == _index) return;
@@ -138,7 +156,16 @@ class _MainShellState extends State<MainShell> {
       backgroundColor: c.bg,
       body: IndexedStack(
         index: _index,
-        children: List.generate(tabs.length, _bodyFor),
+        children: [
+          for (var i = 0; i < tabs.length; i++)
+            ActiveTabScope(
+              active: i == _index,
+              child: StatusBarScrollToTop(
+                scrollController: _tabScrollControllers[i],
+                child: _bodyFor(i),
+              ),
+            ),
+        ],
       ),
       bottomNavigationBar: _FloatingTabBar(
         tabs: tabs,
