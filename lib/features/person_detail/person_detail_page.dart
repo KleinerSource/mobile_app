@@ -14,6 +14,7 @@ import '../../shared/movie_card.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../actor_associations/widgets/actor_association_sync_sheet.dart';
+import '../movie_detail/movie_detail_page.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
 
@@ -234,8 +235,15 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                   mainAxisSpacing: 14,
                 ),
                 builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
-                  itemBuilder: (ctx, movie, _) =>
-                      MovieCard(movie: movie, posterUrlBuilder: urlBuilder),
+                  itemBuilder: (ctx, movie, _) => MovieCard(
+                    movie: movie,
+                    posterUrlBuilder: urlBuilder,
+                    onTap: () => Navigator.of(ctx).push(
+                      MaterialPageRoute(
+                        builder: (_) => MovieDetailPage(movieId: movie.id),
+                      ),
+                    ),
+                  ),
                   firstPageProgressIndicatorBuilder: (_) =>
                       const Center(child: CircularProgressIndicator()),
                   firstPageErrorIndicatorBuilder: (_) => ErrorView(

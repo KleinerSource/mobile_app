@@ -9,9 +9,11 @@ import 'package:md_center/core/models/avdb_config.dart';
 import 'package:md_center/core/models/dbo_config.dart';
 import 'package:md_center/features/actors/actor_management_page.dart';
 import 'package:md_center/features/configs/configs_providers.dart';
+import 'package:md_center/features/movie_detail/movie_detail_page.dart';
 import 'package:md_center/features/person_detail/person_detail_page.dart';
 import 'package:md_center/features/privacy/privacy_providers.dart';
 import 'package:md_center/l10n/generated/app_localizations.dart';
+import 'package:md_center/shared/movie_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -68,6 +70,15 @@ void main() {
     final before = _scrollOffset(tester, listFinder);
     expect(before, greaterThan(0));
     await tester.tap(visibleActor.first);
+    await tester.pumpAndSettle();
+    expect(find.byType(PersonDetailPage), findsOneWidget);
+
+    final filmographyMovie = find.byType(MovieCard);
+    expect(filmographyMovie, findsOneWidget);
+    await tester.tap(filmographyMovie);
+    await tester.pumpAndSettle();
+    expect(find.byType(MovieDetailPage), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.arrow_back).first);
     await tester.pumpAndSettle();
     expect(find.byType(PersonDetailPage), findsOneWidget);
 
@@ -133,8 +144,26 @@ Object? _fakeResponse(String method, String path) {
   if (method == 'GET' && normalizedPath == '/movies') {
     return {
       'success': true,
-      'data': {'items': const [], 'total_count': 0, 'limit': 60, 'offset': 0},
+      'data': {
+        'items': const [
+          {'id': 101, 'title': '影片 1', 'year': 2024},
+        ],
+        'total_count': 1,
+        'limit': 60,
+        'offset': 0,
+      },
     };
+  }
+
+  if (method == 'GET' && normalizedPath == '/movies/id/101') {
+    return {
+      'success': true,
+      'data': const {'id': 101, 'title': '影片 1', 'year': 2024},
+    };
+  }
+
+  if (method == 'GET' && normalizedPath == '/movies/id/101/media-info') {
+    return {'success': true, 'data': const <String, dynamic>{}};
   }
 
   if (method == 'POST' &&
