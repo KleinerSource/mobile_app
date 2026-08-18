@@ -78,6 +78,31 @@ void main() {
     expect(find.text('9 已选'), findsOneWidget);
   });
 
+  testWidgets('影片网格进入多选后未选中卡片整体变暗', (tester) async {
+    await _pumpPage(tester, const MoviesPage(maxItems: 9));
+
+    final first = find.byKey(const ValueKey<int>(1));
+    final second = find.byKey(const ValueKey<int>(2));
+    expect(find.byType(SelectableMovieCard), findsWidgets);
+
+    double dimOpacity(Finder cell) => tester.widget<AnimatedOpacity>(
+          find.descendant(of: cell, matching: find.byType(AnimatedOpacity)),
+        ).opacity;
+
+    // 多选前全部不透明
+    expect(dimOpacity(first), 1.0);
+    expect(dimOpacity(second), 1.0);
+
+    // 长按第一张进入多选 (长按即选中)
+    final gesture = await _longPress(tester, first);
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    // 选中卡全亮, 未选中卡整卡变暗 0.55, 与收藏页一致
+    expect(dimOpacity(first), 1.0);
+    expect(dimOpacity(second), 0.55);
+  });
+
   testWidgets('演员普通列表长按滑动同步工具栏和滚动偏移', (tester) async {
     await _pumpPage(tester, const ActorManagementPage());
 
