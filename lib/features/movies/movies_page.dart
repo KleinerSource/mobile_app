@@ -185,6 +185,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                     onSelectionStart: _startSelectionSweep,
                     onSelectionChanged: _applySelectionSweep,
                     onSelectionEnd: _finishSelectionSweep,
+                    selectionMode: _selectionMode,
                     child: CustomScrollView(
                       controller: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),

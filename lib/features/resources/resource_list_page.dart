@@ -322,6 +322,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                       onSelectionStart: _startSelectionSweep,
                       onSelectionChanged: _applySelectionSweep,
                       onSelectionEnd: _finishSelectionSweep,
+                      selectionMode: _selectionMode,
                       child: CustomScrollView(
                         controller: _scrollController,
                         primary: false,

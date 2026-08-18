@@ -58,6 +58,7 @@ void main() {
     final first = find.byKey(const ValueKey<int>(1));
     final firstRowEnd = find.byKey(ValueKey<int>(crossAxisCount));
     final secondRowStart = find.byKey(ValueKey<int>(crossAxisCount + 1));
+    final secondRowEnd = find.byKey(ValueKey<int>(crossAxisCount * 2));
     final thirdRowStart = find.byKey(ValueKey<int>(crossAxisCount * 2 + 1));
 
     var gesture = await _longPress(tester, first);
@@ -69,7 +70,8 @@ void main() {
     expect(secondRowStart, findsOneWidget);
     expect(thirdRowStart, findsOneWidget);
 
-    gesture = await _longPress(tester, secondRowStart);
+    gesture = await _dragFromHandle(tester, secondRowStart);
+    await gesture.moveTo(tester.getCenter(secondRowEnd));
     await gesture.moveTo(tester.getCenter(thirdRowStart));
     await gesture.up();
     await tester.pump();
@@ -179,6 +181,11 @@ Future<TestGesture> _longPress(WidgetTester tester, Finder target) async {
   final gesture = await tester.startGesture(tester.getCenter(target));
   await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
   return gesture;
+}
+
+Future<TestGesture> _dragFromHandle(WidgetTester tester, Finder target) {
+  final rect = tester.getRect(target);
+  return tester.startGesture(rect.topLeft + const Offset(12, 12));
 }
 
 Future<void> _pumpFrames(WidgetTester tester, Duration duration) async {

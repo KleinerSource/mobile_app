@@ -360,6 +360,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                   onSelectionStart: _startSelectionSweep,
                   onSelectionChanged: _applySelectionSweep,
                   onSelectionEnd: _finishSelectionSweep,
+                  selectionMode: _selectionMode,
                   child: CustomScrollView(
                     controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),

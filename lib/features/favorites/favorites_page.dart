@@ -400,6 +400,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                 onSelectionStart: _startSelectionSweep,
                 onSelectionChanged: _applySelectionSweep,
                 onSelectionEnd: _finishSelectionSweep,
+                selectionMode: _selecting,
                 child: CustomScrollView(
                   controller: _scrollController,
                   slivers: [

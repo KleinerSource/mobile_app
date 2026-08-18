@@ -28,7 +28,9 @@ void main() {
     await gesture.up();
     await tester.pump();
 
-    gesture = await _longPress(tester, _target(2));
+    gesture = await _dragFromHandle(tester, _target(2));
+    final secondStart = _handlePosition(tester, _target(2));
+    await gesture.moveTo(secondStart + const Offset(60, 12));
     final state = _harnessState(tester);
     expect(state.selected, {0, 1, 3, 4, 5, 6});
 
@@ -123,7 +125,8 @@ void main() {
     await tester.pump();
     expect(state.selected, {0, 1, 2, 3, 4});
 
-    gesture = await _longPress(tester, _target(7));
+    gesture = await _dragFromHandle(tester, _target(7));
+    await gesture.moveTo(tester.getCenter(_target(8)));
     await gesture.moveTo(tester.getCenter(_target(9)));
     await gesture.up();
     await tester.pump();
@@ -157,12 +160,70 @@ void main() {
     await tester.pump();
     expect(state.selected, {0, 1, 2, 3, 4});
 
-    gesture = await _longPress(tester, _target(0));
+    gesture = await _dragFromHandle(tester, _target(0));
+    await gesture.moveTo(tester.getCenter(_target(1)));
     await gesture.moveTo(tester.getCenter(_target(2)));
     await gesture.up();
     await tester.pump();
 
     expect(state.selected, {3, 4});
+  });
+
+  testWidgets('进入多选模式后从左上角横向拖动无需再次长按', (tester) async {
+    await _pumpGridHarness(tester);
+    final state = _gridHarnessState(tester);
+
+    var gesture = await _longPress(tester, _target(0));
+    await gesture.up();
+    await tester.pump();
+    expect(state.selectionMode, isTrue);
+    expect(state.selected, {0});
+
+    gesture = await _dragFromHandle(tester, _target(1));
+    await gesture.moveTo(tester.getCenter(_target(2)));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+
+    expect(state.selected, {0, 1, 2});
+  });
+
+  testWidgets('多选模式从卡片其他位置横向拖动不会触发选择', (tester) async {
+    await _pumpGridHarness(tester);
+    final state = _gridHarnessState(tester);
+
+    var gesture = await _longPress(tester, _target(0));
+    await gesture.up();
+    await tester.pump();
+
+    gesture = await tester.startGesture(tester.getCenter(_target(1)));
+    await gesture.moveTo(tester.getCenter(_target(2)));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+
+    expect(state.selected, {0});
+  });
+
+  testWidgets('从复选框区域纵向拖动仍由列表滚动处理', (tester) async {
+    await _pumpHarness(tester, itemCount: 40, viewportHeight: 240);
+    final state = _harnessState(tester);
+
+    var gesture = await _longPress(tester, _target(1));
+    await gesture.up();
+    await tester.pump();
+    expect(state.selected, {1});
+
+    final start = _handlePosition(tester, _target(1));
+    await tester.timedDragFrom(
+      start,
+      const Offset(0, -52),
+      const Duration(milliseconds: 100),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(state.selected, {1});
+    expect(state.controller.offset, greaterThan(0));
   });
 }
 
@@ -199,6 +260,13 @@ Future<TestGesture> _longPress(WidgetTester tester, Finder target) async {
   return gesture;
 }
 
+Future<TestGesture> _dragFromHandle(WidgetTester tester, Finder target) {
+  return tester.startGesture(_handlePosition(tester, target));
+}
+
+Offset _handlePosition(WidgetTester tester, Finder target) =>
+    tester.getRect(target).topLeft + const Offset(12, 12);
+
 _SelectionHarnessState _harnessState(WidgetTester tester) =>
     tester.state<_SelectionHarnessState>(find.byType(_SelectionHarness));
 
@@ -230,6 +298,7 @@ class _SelectionHarnessState extends State<_SelectionHarness> {
   final Set<int> selected = <int>{};
   var itemCount = 0;
   var selectionEndCount = 0;
+  var selectionMode = false;
 
   @override
   void initState() {
@@ -263,8 +332,12 @@ class _SelectionHarnessState extends State<_SelectionHarness> {
       child: DragSelectionScope<int>(
         scrollController: controller,
         isSelected: selected.contains,
+        selectionMode: selectionMode,
         onSelectionStart: (id, value) {
-          setState(() => _setSelection(id, value));
+          setState(() {
+            selectionMode = true;
+            _setSelection(id, value);
+          });
         },
         onSelectionChanged: (id, value) {
           setState(() => _setSelection(id, value));
@@ -308,6 +381,7 @@ class _GridSelectionHarness extends StatefulWidget {
 class _GridSelectionHarnessState extends State<_GridSelectionHarness> {
   final controller = ScrollController();
   final Set<int> selected = <int>{};
+  var selectionMode = false;
 
   @override
   void dispose() {
@@ -331,8 +405,12 @@ class _GridSelectionHarnessState extends State<_GridSelectionHarness> {
       child: DragSelectionScope<int>(
         scrollController: controller,
         isSelected: selected.contains,
+        selectionMode: selectionMode,
         onSelectionStart: (id, value) {
-          setState(() => _setSelection(id, value));
+          setState(() {
+            selectionMode = true;
+            _setSelection(id, value);
+          });
         },
         onSelectionChanged: (id, value) {
           setState(() => _setSelection(id, value));

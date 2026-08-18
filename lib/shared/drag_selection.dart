@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -17,6 +18,7 @@ class DragSelectionScope<T> extends StatefulWidget {
     required this.onSelectionChanged,
     required this.onSelectionEnd,
     required this.child,
+    this.selectionMode = false,
     this.enabled = true,
     this.edgeExtent = 72,
     this.maxAutoScrollSpeed = 720,
@@ -28,6 +30,7 @@ class DragSelectionScope<T> extends StatefulWidget {
   final DragSelectionChange<T> onSelectionChanged;
   final VoidCallback onSelectionEnd;
   final Widget child;
+  final bool selectionMode;
   final bool enabled;
   final double edgeExtent;
   final double maxAutoScrollSpeed;
@@ -43,6 +46,7 @@ class DragSelectionTarget<T> extends StatefulWidget {
     required this.id,
     required this.child,
     this.selectionIndex,
+    this.selectionHandleExtent = 44,
   });
 
   final T id;
@@ -50,6 +54,10 @@ class DragSelectionTarget<T> extends StatefulWidget {
 
   /// The row-major position of this target in a grid. Null keeps list semantics.
   final int? selectionIndex;
+
+  /// The square hit area in the target's top-left corner used for direct drag
+  /// selection while the surrounding page is already in selection mode.
+  final double selectionHandleExtent;
 
   @override
   State<DragSelectionTarget<T>> createState() => _DragSelectionTargetState<T>();
@@ -98,6 +106,8 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
     if (_dragging) _updateAutoScroll();
   }
 
+  bool get _selectionMode => widget.selectionMode;
+
   void _unregister(_DragSelectionTargetState<T> target, T id) {
     if (identical(_targets[id], target)) {
       _targets.remove(id);
@@ -126,6 +136,7 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
       _gridOriginalValues[id] = widget.isSelected(id);
     }
 
+    if (mounted) setState(() {});
     AppHaptics.medium();
     widget.onSelectionStart(id, _selectionValue);
     _updateAutoScroll();
@@ -156,6 +167,7 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
     _gridOriginalValues.clear();
     _lastTickElapsed = null;
     _stopTicker();
+    if (mounted) setState(() {});
     widget.onSelectionEnd();
   }
 
@@ -231,10 +243,7 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
     }
   }
 
-  void _applyTargetValue(
-    _DragSelectionTargetState<T> target,
-    bool selected,
-  ) {
+  void _applyTargetValue(_DragSelectionTargetState<T> target, bool selected) {
     _applySelectionValue(target.widget.id, selected);
   }
 
@@ -384,6 +393,7 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
   Widget build(BuildContext context) {
     return _DragSelectionInherited<T>(
       state: this,
+      selectionMode: widget.selectionMode,
       child: NotificationListener<ScrollMetricsNotification>(
         onNotification: (notification) {
           if (notification.metrics.axis == Axis.vertical) {
@@ -398,13 +408,19 @@ class _DragSelectionScopeState<T> extends State<DragSelectionScope<T>> {
 }
 
 class _DragSelectionInherited<T> extends InheritedWidget {
-  const _DragSelectionInherited({required this.state, required super.child});
+  const _DragSelectionInherited({
+    required this.state,
+    required this.selectionMode,
+    required super.child,
+  });
 
   final _DragSelectionScopeState<T> state;
+  final bool selectionMode;
 
   @override
   bool updateShouldNotify(_DragSelectionInherited<T> oldWidget) =>
-      !identical(state, oldWidget.state);
+      !identical(state, oldWidget.state) ||
+      selectionMode != oldWidget.selectionMode;
 }
 
 class _DragSelectionTargetState<T> extends State<DragSelectionTarget<T>> {
@@ -446,17 +462,107 @@ class _DragSelectionTargetState<T> extends State<DragSelectionTarget<T>> {
   @override
   Widget build(BuildContext context) {
     final scope = _scope;
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onLongPressStart: scope == null
-          ? null
-          : (details) => scope._startSelection(this, details.globalPosition),
-      onLongPressMoveUpdate: scope == null
-          ? null
-          : (details) => scope._updateSelection(details.globalPosition),
-      onLongPressEnd: scope == null ? null : (_) => scope._finishSelection(),
-      onLongPressCancel: scope?._finishSelection,
-      child: widget.child,
+    if (scope == null) return widget.child;
+
+    final directDragEnabled = scope._selectionMode;
+    return Listener(
+      onPointerUp: (_) => scope._finishSelection(),
+      onPointerCancel: (_) => scope._finishSelection(),
+      child: RawGestureDetector(
+        behavior: HitTestBehavior.translucent,
+        gestures: <Type, GestureRecognizerFactory>{
+          _SelectionLongPressRecognizer:
+              GestureRecognizerFactoryWithHandlers<
+                _SelectionLongPressRecognizer
+              >(
+                () => _SelectionLongPressRecognizer(
+                  allowSelection: () =>
+                      !scope._selectionMode || scope._dragging,
+                ),
+                (recognizer) {
+                  recognizer.onLongPressStart = (details) {
+                    scope._startSelection(this, details.globalPosition);
+                  };
+                  recognizer.onLongPressMoveUpdate = (details) {
+                    scope._updateSelection(details.globalPosition);
+                  };
+                  recognizer.onLongPressEnd = (_) {
+                    scope._finishSelection();
+                  };
+                  recognizer.onLongPressCancel = scope._finishSelection;
+                },
+              ),
+          if (directDragEnabled)
+            _SelectionHorizontalDragRecognizer:
+                GestureRecognizerFactoryWithHandlers<
+                  _SelectionHorizontalDragRecognizer
+                >(
+                  () => _SelectionHorizontalDragRecognizer(
+                    isPointerInHandle: (position) =>
+                        _isPointerInSelectionHandle(
+                          position,
+                          widget.selectionHandleExtent,
+                        ),
+                  ),
+                  (recognizer) {
+                    recognizer.onStart = (details) {
+                      scope._startSelection(this, details.globalPosition);
+                    };
+                    recognizer.onUpdate = (details) {
+                      scope._updateSelection(details.globalPosition);
+                    };
+                    recognizer.onEnd = (_) {
+                      scope._finishSelection();
+                    };
+                    recognizer.onCancel = scope._finishSelection;
+                  },
+                ),
+        },
+        child: widget.child,
+      ),
     );
+  }
+
+  bool _isPointerInSelectionHandle(Offset globalPosition, double extent) {
+    final rect = globalRect;
+    if (rect == null) return false;
+
+    final handleWidth = math.min(extent, rect.width);
+    final handleHeight = math.min(extent, rect.height);
+    return Rect.fromLTWH(
+      rect.left,
+      rect.top,
+      handleWidth,
+      handleHeight,
+    ).contains(globalPosition);
+  }
+}
+
+/// A horizontal recognizer that only joins the gesture arena from the
+/// checkbox-sized area at the target's top-left corner.
+class _SelectionHorizontalDragRecognizer
+    extends HorizontalDragGestureRecognizer {
+  _SelectionHorizontalDragRecognizer({required this.isPointerInHandle});
+
+  final bool Function(Offset position) isPointerInHandle;
+
+  @override
+  bool isPointerAllowed(PointerEvent event) {
+    if (!super.isPointerAllowed(event)) return false;
+    return isPointerInHandle(event.position);
+  }
+}
+
+/// Keeps the long-press recognizer in the arena for the gesture that entered
+/// selection mode, while rejecting new long presses once the mode is active.
+class _SelectionLongPressRecognizer extends LongPressGestureRecognizer {
+  _SelectionLongPressRecognizer({required this.allowSelection});
+
+  final bool Function() allowSelection;
+
+  @override
+  bool isPointerAllowed(PointerDownEvent event) {
+    if (!allowSelection()) return false;
+    return super.isPointerAllowed(event);
   }
 }

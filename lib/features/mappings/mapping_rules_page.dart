@@ -276,6 +276,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                   onSelectionStart: _startSelectionSweep,
                   onSelectionChanged: _applySelectionSweep,
                   onSelectionEnd: _finishSelectionSweep,
+                  selectionMode: _selectionMode,
                   child: CustomScrollView(
                     controller: _scrollController,
                     primary: false,
