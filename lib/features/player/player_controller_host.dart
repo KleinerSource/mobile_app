@@ -142,7 +142,43 @@ class PlayerControllerHost {
       prefetchSeconds: requestedPrefetchSeconds,
     );
     await _logNativeCacheState(targetPlayer, 'open');
+    // NativePlayer.open() 通过异步 loadlist 加载媒体。部分 iOS/libmpv
+    // 版本会在真正开始载入文件时重置 per-file 的 stream-record，因此在
+    // loadlist 完成后再做一次延迟校验，确保录制目标仍然指向持久缓存文件。
+    unawaited(_rearmPersistentRecording(targetPlayer, openGeneration));
     unawaited(_applyPrefetchLimit(targetPlayer, openGeneration));
+  }
+
+  Future<void> _rearmPersistentRecording(
+    Player targetPlayer,
+    int generation,
+  ) async {
+    final path = persistentCacheFile;
+    if (!diskCacheEnabled || path == null || path.isEmpty) return;
+
+    for (final delay in <Duration>[
+      const Duration(milliseconds: 250),
+      const Duration(milliseconds: 750),
+      const Duration(milliseconds: 1500),
+    ]) {
+      await Future<void>.delayed(delay);
+      if (generation != _openGeneration) return;
+      final platform = targetPlayer.platform;
+      if (platform is! NativePlayer) return;
+      try {
+        final native = platform as dynamic;
+        final actual = '${await native.getProperty('stream-record')}'.trim();
+        if (_nativePropertyMatches('stream-record', path, actual)) continue;
+        debugPrint(
+          '[PlayerControllerHost] 媒体加载后重新启用持久缓存: '
+          'requested=$path actual=$actual',
+        );
+        await _setNativeProperty(platform, 'stream-record', path);
+        await _logNativeCacheState(targetPlayer, 'record-rearmed');
+      } catch (error) {
+        debugPrint('[PlayerControllerHost] 重启持久缓存失败: $error');
+      }
+    }
   }
 
   Future<void> _applyPrefetchLimit(Player targetPlayer, int generation) async {
@@ -275,42 +311,52 @@ class PlayerControllerHost {
     String value,
   ) async {
     final native = platform as dynamic;
+    Object? commandError;
     try {
       // `setProperty` 在 media_kit 1.2.x 不等待 mpv 的 native 命令完成。
       // 使用可等待的 `set` 命令，避免 stream-record 清空与 stop 竞态。
       await native.command(<String>['set', property, value]);
+      if (await _waitForNativeProperty(native, property, value)) return;
     } catch (error) {
-      try {
-        // 兼容较旧 native backend 没有 command API 的情况。
-        await native.setProperty(property, value);
-      } catch (fallbackError) {
-        debugPrint(
-          '[PlayerControllerHost] 设置 mpv 属性失败: '
-          '$property=$value, $error, fallback=$fallbackError',
-        );
-        return;
-      }
+      commandError = error;
     }
 
-    // 即使命令已经入队，属性回读也可能短暂看到旧值；有限重试后再记录
-    // 未生效，避免把正常的 native 调度延迟误报成 iOS 不支持。
+    // 兼容较旧 native backend，或 command 返回但 mpv 没有接受属性的情况。
+    Object? fallbackError;
+    for (var attempt = 0; attempt < 5; attempt++) {
+      try {
+        await native.setProperty(property, value);
+        if (await _waitForNativeProperty(native, property, value)) return;
+      } catch (error) {
+        fallbackError = error;
+      }
+    }
+    String actual = '';
+    try {
+      actual = '${await native.getProperty(property)}'.trim();
+    } catch (_) {}
+    debugPrint(
+      '[PlayerControllerHost] mpv 属性未生效: '
+      '$property requested=$value actual=$actual '
+      'command=$commandError fallback=$fallbackError',
+    );
+  }
+
+  Future<bool> _waitForNativeProperty(
+    dynamic native,
+    String property,
+    String requested,
+  ) async {
     for (var attempt = 0; attempt < 5; attempt++) {
       try {
         final actual = '${await native.getProperty(property)}'.trim();
-        if (_nativePropertyMatches(property, value, actual)) return;
-        if (attempt == 4) {
-          debugPrint(
-            '[PlayerControllerHost] mpv 属性未生效: '
-            '$property requested=$value actual=$actual',
-          );
-        }
-      } catch (error) {
-        if (attempt == 4) {
-          debugPrint('[PlayerControllerHost] 读取 mpv 属性失败: $property, $error');
-        }
+        if (_nativePropertyMatches(property, requested, actual)) return true;
+      } catch (_) {}
+      if (attempt < 4) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
       }
-      await Future<void>.delayed(const Duration(milliseconds: 20));
     }
+    return false;
   }
 
   bool _nativePropertyMatches(
@@ -438,6 +484,7 @@ class PlayerControllerHost {
 
   /// 停止当前媒体但保留播放器实例, 用于退出播放页前的同步停播。
   Future<void> stop() async {
+    ++_openGeneration;
     final targetPlayer = player;
     final platform = targetPlayer.platform;
     if (platform is NativePlayer && persistentCacheFile != null) {
@@ -461,5 +508,8 @@ class PlayerControllerHost {
   Stream<bool> get completedStream => player.stream.completed;
   Stream<String> get errorStream => player.stream.error;
 
-  Future<void> dispose() => player.dispose();
+  Future<void> dispose() async {
+    ++_openGeneration;
+    await player.dispose();
+  }
 }

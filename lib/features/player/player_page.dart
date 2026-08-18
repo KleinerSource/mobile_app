@@ -302,6 +302,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   @override
   void dispose() {
+    final wasLeaving = _isLeaving;
     _isLeaving = true;
     _loadGeneration++;
     WidgetsBinding.instance.removeObserver(this);
@@ -328,7 +329,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     );
     FlutterVolumeController.updateShowSystemUI(true);
     _resetApplicationBrightness();
-    unawaited(_reportProgress());
+    if (!wasLeaving) unawaited(_reportProgress());
     if (_transcodeSessionActive) {
       _transcodeSessionActive = false;
       try {
@@ -477,6 +478,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
               ),
             )
           : null;
+      debugPrint(
+        '[PlayerPage] 视频缓存目标 enabled=${bufferPolicy.diskCacheEnabled} '
+        'limitBytes=${bufferPolicy.diskCacheLimitBytes} '
+        'directory=${bufferDirectory?.path} file=${persistentCacheFile?.path}',
+      );
       if (bufferPolicy.diskCacheEnabled) {
         // 容量淘汰属于下一次写入前的准备工作，不属于退出播放器的收尾。
         // 这样退出后缓存会原样保留；只有已有缓存超过新设置的容量时，
@@ -939,15 +945,25 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _stopTranscodeSession() async {
+  Future<void> _stopTranscodeSession({bool waitForServer = true}) async {
+    final shouldStopServerSession = _transcodeSessionActive;
+    _transcodeSessionActive = false;
+    final stopFuture = shouldStopServerSession
+        ? ref.read(requiredApiClientProvider).playback.stop(widget.movieId)
+        : null;
     await _eventsSub?.cancel();
     _eventsSub = null;
     _transcodePollTimer?.cancel();
     _transcodePollTimer = null;
-    if (!_transcodeSessionActive) return;
-    _transcodeSessionActive = false;
+    if (!shouldStopServerSession) return;
+    if (stopFuture == null) return;
+    if (!waitForServer) {
+      // 服务器会话停止属于网络清理，不应阻塞本地播放器退出。
+      unawaited(stopFuture.catchError((_) {}));
+      return;
+    }
     try {
-      await ref.read(requiredApiClientProvider).playback.stop(widget.movieId);
+      await stopFuture;
     } catch (_) {}
   }
 
@@ -1010,8 +1026,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final settings = ref.read(diskPrecacheSettingsProvider);
     try {
       return await ref.read(videoBufferPolicyProvider).policy(settings);
-    } catch (_) {
+    } catch (error) {
       // 网络状态暂时不可用时仍保留基础内存缓冲，不让缓存设置阻塞播放。
+      debugPrint(
+        '[PlayerPage] 视频缓存策略读取失败，按禁用磁盘缓存处理: '
+        'wifi=${settings.wifiLimit.label} mobile=${settings.mobileLimit.label} '
+        'error=$error',
+      );
       return videoBufferPolicyFor(CacheSizeOption.disabled);
     }
   }
@@ -1327,12 +1348,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _loadGeneration++;
     _hideTimer?.cancel();
     _onRateBoostEnd();
-    if (_loading) {
-      // 初次加载时没有可上报的播放进度，不能让退出按钮等待网络请求。
-      unawaited(_reportProgress());
-    } else {
-      await _reportProgress();
-    }
+    // 进度上报不能阻塞本地播放器停止和下一部视频打开。
+    unawaited(_reportProgress());
     try {
       await _stopPlayer();
       await _stopTranscodeSession();
@@ -1445,11 +1462,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           maxBytes != _activeVideoCacheLimitBytes) {
         return;
       }
+      if (cachePath == null && maxBytes == null) return;
       try {
         await _host.stop();
       } catch (_) {}
-
-      if (cachePath == null && maxBytes == null) return;
 
       await _waitForVideoCacheFlush(cachePath);
       if (generation != _videoCacheGeneration ||
@@ -1457,7 +1473,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           maxBytes != _activeVideoCacheLimitBytes) {
         return;
       }
-      ref.invalidate(cacheUsageProvider);
+      if (mounted) ref.invalidate(cacheUsageProvider);
       _activeVideoCacheFilePath = null;
       _activeVideoCacheLimitBytes = null;
     });
@@ -1468,7 +1484,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<void> _waitForVideoCacheFlush(String? path) async {
     if (path == null) return;
     final file = File(path);
-    for (var attempt = 0; attempt < 20; attempt++) {
+    // stream-record 的 set 命令已经等待 native 回读，这里只给文件系统一个
+    // 很短的 flush 窗口；文件没有生成时不能把退出路由卡住数秒。
+    for (var attempt = 0; attempt < 6; attempt++) {
       try {
         if (await file.exists()) {
           final bytes = await file.length();
@@ -1480,7 +1498,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       } on FileSystemException {
         return;
       }
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      if (attempt < 5) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
     }
     try {
       final exists = await file.exists();
@@ -1504,10 +1524,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _loadGeneration++;
     _hideTimer?.cancel();
     _onRateBoostEnd();
-    await _reportProgress();
+    // 观看进度上报不能阻塞播放器退出；失败或慢网络不应把路由留在黑屏。
+    unawaited(_reportProgress());
     try {
       await _stopPlayer();
-      await _stopTranscodeSession();
+      unawaited(_stopTranscodeSession(waitForServer: false));
     } finally {
       if (mounted) {
         _invalidateHomeMovieLists();

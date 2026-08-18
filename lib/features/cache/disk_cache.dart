@@ -512,7 +512,13 @@ class VideoBufferPolicyService {
     final option = networkType == PrecacheNetwork.wifi
         ? settings.wifiLimit
         : settings.mobileLimit;
-    return videoBufferPolicyFor(option);
+    final policy = videoBufferPolicyFor(option);
+    debugPrint(
+      '[VideoBufferPolicy] network=${networkType.label} '
+      'option=${option.label} diskCacheEnabled=${policy.diskCacheEnabled} '
+      'diskCacheLimitBytes=${policy.diskCacheLimitBytes}',
+    );
+    return policy;
   }
 }
 
