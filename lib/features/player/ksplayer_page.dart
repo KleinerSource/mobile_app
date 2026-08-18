@@ -20,6 +20,7 @@ import 'ksplayer_platform.dart';
 import 'player_queue.dart';
 import 'player_resume.dart';
 import 'player_settings.dart';
+import 'player_system_levels.dart';
 
 class KsPlayerPage extends ConsumerStatefulWidget {
   const KsPlayerPage({
@@ -47,8 +48,11 @@ class _KsPlayerPageState extends ConsumerState<KsPlayerPage>
   String? _error;
   _KsPlayerConfig? _config;
   KsPlayerPlatformController? _controller;
+  final PlayerSystemLevels _systemLevels = PlayerSystemLevels();
   bool _isLeaving = false;
   bool _isPlaying = false;
+  bool _wasPlayingBeforePause = false;
+  bool _isLifecyclePaused = false;
   bool _transcodeSessionActive = false;
   int _lastPositionSec = 0;
   int _lastDurationSec = 0;
@@ -62,6 +66,7 @@ class _KsPlayerPageState extends ConsumerState<KsPlayerPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    unawaited(_systemLevels.initialize());
     WakelockPlus.enable();
     unawaited(_applyEntryOrientation(ref.read(playerSettingsProvider)));
     unawaited(_load());
@@ -69,9 +74,30 @@ class _KsPlayerPageState extends ConsumerState<KsPlayerPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_isLeaving || state != AppLifecycleState.resumed) return;
-    if (_isPlaying) {
-      unawaited(_controller?.play() ?? Future<void>.value());
+    if (_isLeaving) return;
+    switch (state) {
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+        if (_isLifecyclePaused) {
+          unawaited(_reportProgress());
+          break;
+        }
+        _isLifecyclePaused = true;
+        _wasPlayingBeforePause = _isPlaying;
+        if (_wasPlayingBeforePause) {
+          unawaited(_controller?.pause() ?? Future<void>.value());
+        }
+        unawaited(_reportProgress());
+      case AppLifecycleState.resumed:
+        if (!_isLifecyclePaused) break;
+        _isLifecyclePaused = false;
+        if (_wasPlayingBeforePause) {
+          _wasPlayingBeforePause = false;
+          unawaited(_controller?.play() ?? Future<void>.value());
+        }
+      case AppLifecycleState.detached:
+        break;
     }
   }
 
@@ -87,6 +113,7 @@ class _KsPlayerPageState extends ConsumerState<KsPlayerPage>
       SystemUiMode.edgeToEdge,
       overlays: SystemUiOverlay.values,
     );
+    _systemLevels.restore();
     WakelockPlus.disable();
     super.dispose();
   }
@@ -111,6 +138,8 @@ class _KsPlayerPageState extends ConsumerState<KsPlayerPage>
   Future<void> _load() async {
     final generation = ++_loadGeneration;
     if (!mounted || _isLeaving) return;
+    await _systemLevels.initialize();
+    if (!mounted || _isLeaving || generation != _loadGeneration) return;
     setState(() {
       _loading = true;
       _error = null;

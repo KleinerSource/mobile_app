@@ -5,9 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:screen_brightness/screen_brightness.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/api/dio_factory.dart';
@@ -34,6 +32,7 @@ import 'playback_decision.dart';
 import 'player_resume.dart';
 import 'player_settings.dart';
 import 'player_status_overlay.dart';
+import 'player_system_levels.dart';
 import 'subtitle_adjustment_sheet.dart';
 import 'subtitle_rendering.dart';
 import 'subtitle_settings.dart';
@@ -105,6 +104,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   final PlayerControllerHost _host = PlayerControllerHost();
   final PlayerDeviceStatsReader _deviceStatsReader = PlayerDeviceStatsReader();
+  final PlayerSystemLevels _systemLevels = PlayerSystemLevels();
 
   bool _loading = true;
   String? _error;
@@ -142,12 +142,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Timer? _hideTimer;
   PlayerIndicator? _indicator;
   Timer? _indicatorTimer;
-  double _brightness = 0.5;
-  double _volume = 0.5;
-  Future<void> _brightnessOperations = Future<void>.value();
-  bool _brightnessScopeStarted = false;
-  bool _brightnessReady = false;
   bool _wasPlayingBeforePause = false;
+  bool _isLifecyclePaused = false;
   Duration _backgroundPosition = Duration.zero;
   bool _playbackErrorReported = false;
   String? _pendingPlaybackError;
@@ -170,10 +166,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     );
     unawaited(_applyEntryOrientation(ref.read(playerSettingsProvider)));
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    FlutterVolumeController.updateShowSystemUI(false);
     // ignore: discarded_futures
     WakelockPlus.enable();
-    unawaited(_initLevels());
+    unawaited(_systemLevels.initialize());
     _startDeviceStatsPolling();
     _load();
   }
@@ -210,43 +205,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         : DeviceOrientation.landscapeRight;
   }
 
-  Future<void> _initLevels() async {
-    _brightnessScopeStarted = true;
-    await _queueBrightnessOperation(() async {
-      try {
-        final currentBrightness = await ScreenBrightness.instance.application;
-        if (!_isLeaving) {
-          _brightness = currentBrightness;
-        }
-      } catch (_) {}
-      _brightnessReady = true;
-    });
-    try {
-      _volume = await FlutterVolumeController.getVolume() ?? 0.5;
-    } catch (_) {}
-  }
-
-  Future<void> _queueBrightnessOperation(Future<void> Function() operation) {
-    final next = _brightnessOperations.then<void>((_) async {
-      try {
-        await operation();
-      } catch (_) {}
-    });
-    _brightnessOperations = next;
-    return next;
-  }
-
-  void _resetApplicationBrightness() {
-    if (!_brightnessScopeStarted) return;
-    // The plugin owns app background/foreground restoration. This reset is
-    // only for leaving the player route, including an initialization race.
-    unawaited(
-      _queueBrightnessOperation(
-        ScreenBrightness.instance.resetApplicationScreenBrightness,
-      ),
-    );
-  }
-
   void _startDeviceStatsPolling() {
     unawaited(_refreshDeviceStats());
     _deviceStatsTimer = Timer.periodic(
@@ -272,9 +230,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_isLeaving) return;
     if ((state == AppLifecycleState.inactive ||
-            state == AppLifecycleState.paused) &&
+            state == AppLifecycleState.paused ||
+            state == AppLifecycleState.hidden) &&
         !_pictureInPictureRequesting &&
         !_pictureInPictureActive) {
+      if (_isLifecyclePaused) {
+        unawaited(_reportProgress());
+        return;
+      }
+      _isLifecyclePaused = true;
       _onRateBoostEnd();
       _wasPlayingBeforePause = _host.player.state.playing;
       _backgroundPosition = _host.position;
@@ -287,8 +251,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         if (mounted) setState(() => _serverDecodeStatus = null);
       }
     } else if (state == AppLifecycleState.resumed &&
+        _isLifecyclePaused &&
         _wasPlayingBeforePause &&
         !_pictureInPictureActive) {
+      _isLifecyclePaused = false;
       if (_usingHls) {
         // HLS 会话在后台已停止，恢复时以当前位置重新协商并起播。
         // ignore: discarded_futures
@@ -297,6 +263,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         // ignore: discarded_futures
         _host.player.play();
       }
+    } else if (state == AppLifecycleState.resumed && _isLifecyclePaused) {
+      _isLifecyclePaused = false;
     }
   }
 
@@ -327,8 +295,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       SystemUiMode.edgeToEdge,
       overlays: SystemUiOverlay.values,
     );
-    FlutterVolumeController.updateShowSystemUI(true);
-    _resetApplicationBrightness();
+    _systemLevels.restore();
     if (!wasLeaving) unawaited(_reportProgress());
     if (_transcodeSessionActive) {
       _transcodeSessionActive = false;
@@ -1248,24 +1215,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _onBrightnessDelta(double delta) {
-    if (!_brightnessReady || _isLeaving) return;
-    _brightness = (_brightness + delta).clamp(0.0, 1.0);
-    final brightness = _brightness;
-    unawaited(
-      _queueBrightnessOperation(
-        () => ScreenBrightness.instance.setApplicationScreenBrightness(
-          brightness,
-        ),
-      ),
+    if (_isLeaving || !_systemLevels.brightnessReady) return;
+    _systemLevels.adjustBrightness(delta);
+    _showIndicator(
+      PlayerIndicator.brightness(_systemLevels.brightness),
+      autoHide: false,
     );
-    _showIndicator(PlayerIndicator.brightness(_brightness), autoHide: false);
   }
 
   void _onVolumeDelta(double delta) {
-    _volume = (_volume + delta).clamp(0.0, 1.0);
-    // ignore: discarded_futures
-    FlutterVolumeController.setVolume(_volume);
-    _showIndicator(PlayerIndicator.volume(_volume), autoHide: false);
+    if (_isLeaving) return;
+    _systemLevels.adjustVolume(delta);
+    _showIndicator(
+      PlayerIndicator.volume(_systemLevels.volume),
+      autoHide: false,
+    );
   }
 
   void _showIndicator(PlayerIndicator indicator, {bool autoHide = true}) {

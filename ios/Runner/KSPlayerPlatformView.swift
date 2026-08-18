@@ -125,6 +125,7 @@ private final class KSPlayerFlutterView: IOSVideoPlayerView {
   private let channel: FlutterMethodChannel
   private var pendingStartTime: TimeInterval?
   private var definitionLabels = [String]()
+  private var isDisposed = false
 
   init(
     frame: CGRect,
@@ -133,6 +134,7 @@ private final class KSPlayerFlutterView: IOSVideoPlayerView {
   ) {
     self.channel = channel
     super.init(frame: frame)
+    configureNativePlayerOptions()
     backBlock = { [weak self] in
       self?.emit("back", arguments: nil)
     }
@@ -160,7 +162,8 @@ private final class KSPlayerFlutterView: IOSVideoPlayerView {
       completion(false)
       return
     }
-    playerLayer.seek(time: time, autoPlay: true) { finished in
+    let shouldResumePlayback = playerLayer.state.isPlaying
+    playerLayer.seek(time: time, autoPlay: shouldResumePlayback) { finished in
       DispatchQueue.main.async {
         completion(finished)
       }
@@ -176,8 +179,29 @@ private final class KSPlayerFlutterView: IOSVideoPlayerView {
   }
 
   func disposePlayer() {
+    guard !isDisposed else { return }
+    isDisposed = true
+    panGesture.isEnabled = false
     playerLayer?.stop()
     resetPlayer()
+  }
+
+  override func judgePanGesture() {
+    // media_kit 在暂停态仍允许 seek/亮度/音量手势。保留 KSPlayer 的
+    // 原生方向判定和提交逻辑，只放宽它在 iPhone 竖屏下对播放按钮状态的限制。
+    panGesture.isEnabled = playerLayer != nil &&
+      !replayButton.isSelected &&
+      !isLock
+  }
+
+  private func configureNativePlayerOptions() {
+    // KSPlayer 2.3.4 已原生实现左亮度、右音量、横向 seek 和长按 2x。
+    // 显式配置这些开关，避免上游默认值或其他页面配置改变本应用的交互契约。
+    KSOptions.enableBrightnessGestures = true
+    KSOptions.enableVolumeGestures = true
+    KSOptions.enablePlaytimeGestures = true
+    // media_kit 页面在 3 秒无操作后隐藏控制层，与原生控制层保持一致。
+    KSOptions.animateDelayTimeInterval = 3
   }
 
   override func player(
@@ -335,8 +359,10 @@ private final class KSPlayerFlutterView: IOSVideoPlayerView {
   }
 
   private func emit(_ method: String, arguments: Any?) {
+    guard !isDisposed else { return }
     DispatchQueue.main.async { [weak self] in
-      self?.channel.invokeMethod(method, arguments: arguments)
+      guard let self, !self.isDisposed else { return }
+      self.channel.invokeMethod(method, arguments: arguments)
     }
   }
 }
