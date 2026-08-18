@@ -16,12 +16,15 @@ import '../../shared/glow_background.dart';
 import '../../shared/actor_avatar.dart';
 import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
+import '../../shared/glass_menu.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../actor_associations/actor_associations_providers.dart';
 import '../actor_associations/actor_associations_repository.dart';
+import '../actor_associations/widgets/actor_association_sync_sheet.dart';
 import '../person_detail/person_detail_page.dart';
 import '../privacy/privacy_mask.dart';
+import '../privacy/privacy_providers.dart';
 import '../settings/settings_common.dart';
 import 'actor_row.dart';
 
@@ -199,6 +202,21 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     AppHaptics.selection();
   }
 
+  Future<void> _syncActor(ActorItem actor) async {
+    final synced = await ActorAssociationSyncSheet.show(
+      context,
+      MappingRule(
+        id: actor.id,
+        mappedValue: actor.name,
+        originalValues: [actor.name],
+      ),
+      currentBiography: actor.biography,
+    );
+    if (synced == true && mounted) {
+      await _refresh(preserveScroll: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
@@ -349,6 +367,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                             ),
                             onEdit: () => _showEditor(context, actor: actor),
                             onDelete: () => _confirmDelete(context, actor),
+                            onSync: () => unawaited(_syncActor(actor)),
                             onEditMember: (member) =>
                                 _showEditor(context, actor: member.asActorItem),
                             onDeleteMember: (member) => _confirmDelete(
@@ -686,9 +705,9 @@ class _ActorAssociationData {
   final bool loaded;
 }
 
-enum _ActorMenuAction { edit, delete }
+enum _ActorMenuAction { view, sync, edit, delete }
 
-class _ActorTile extends StatelessWidget {
+class _ActorTile extends ConsumerWidget {
   const _ActorTile({
     required this.row,
     required this.hue,
@@ -696,6 +715,7 @@ class _ActorTile extends StatelessWidget {
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
+    required this.onSync,
     required this.onEditMember,
     required this.onDeleteMember,
     this.onToggleExpand,
@@ -707,6 +727,7 @@ class _ActorTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onSync;
   final void Function(ActorAssociationMember member) onEditMember;
   final void Function(ActorAssociationMember member) onDeleteMember;
   final VoidCallback? onToggleExpand;
@@ -714,9 +735,12 @@ class _ActorTile extends StatelessWidget {
   ActorItem get actor => row.actor;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
     final hasBiography = actor.biography?.trim().isNotEmpty == true;
+    final privacyLocked =
+        ref.watch(privacyShieldProvider) &&
+        !ref.watch(revealedActorsProvider).contains(actor.id);
     final avatar = ActorAvatar(
       actorId: actor.id,
       name: actor.name,
@@ -733,11 +757,71 @@ class _ActorTile extends StatelessWidget {
             child: avatar,
           )
         : avatar;
-    return PrivacyAwareInkWell(
-      movieId: actor.id,
-      scope: PrivacyScope.actor,
-      onTap: onTap,
-      borderRadius: 14,
+    return GlassMenuAnchor<_ActorMenuAction>(
+      width: 224,
+      entries: [
+        GlassMenuEntry<_ActorMenuAction>.action(
+          value: _ActorMenuAction.view,
+          builder: (context, selected, onSelect) => GlassMenuRow(
+            icon: Icons.person_outline,
+            label: '查看演员资料',
+            selected: selected,
+            onTap: onSelect,
+          ),
+        ),
+        GlassMenuEntry<_ActorMenuAction>.action(
+          value: _ActorMenuAction.sync,
+          builder: (context, selected, onSelect) => GlassMenuRow(
+            icon: Icons.cloud_sync_outlined,
+            label: '同步演员关联',
+            selected: selected,
+            onTap: onSelect,
+          ),
+        ),
+        GlassMenuEntry<_ActorMenuAction>.divider(dividerColor: c.divider),
+        GlassMenuEntry<_ActorMenuAction>.action(
+          value: _ActorMenuAction.edit,
+          builder: (context, selected, onSelect) => GlassMenuRow(
+            icon: Icons.edit_outlined,
+            label: '编辑',
+            selected: selected,
+            onTap: onSelect,
+          ),
+        ),
+        GlassMenuEntry<_ActorMenuAction>.action(
+          value: _ActorMenuAction.delete,
+          builder: (context, selected, onSelect) => GlassMenuRow(
+            icon: Icons.delete_outline,
+            label: '删除',
+            selected: selected,
+            foregroundColor: c.danger,
+            onTap: onSelect,
+          ),
+        ),
+      ],
+      onSelected: (action) {
+        switch (action) {
+          case _ActorMenuAction.view:
+            onTap();
+            return;
+          case _ActorMenuAction.sync:
+            onSync();
+            return;
+          case _ActorMenuAction.edit:
+            onEdit();
+            return;
+          case _ActorMenuAction.delete:
+            onDelete();
+            return;
+        }
+      },
+      onAnchorTap: () {
+        if (privacyLocked) {
+          ref.read(revealedActorsProvider.notifier).reveal(actor.id);
+          return;
+        }
+        onTap();
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
@@ -795,30 +879,7 @@ class _ActorTile extends StatelessWidget {
                           ],
                         ),
                       ),
-                      PopupMenuButton<_ActorMenuAction>(
-                        tooltip: '更多操作',
-                        icon: Icon(Icons.more_horiz, color: c.muted),
-                        onSelected: (action) {
-                          switch (action) {
-                            case _ActorMenuAction.edit:
-                              onEdit();
-                              return;
-                            case _ActorMenuAction.delete:
-                              onDelete();
-                              return;
-                          }
-                        },
-                        itemBuilder: (context) => const [
-                          PopupMenuItem(
-                            value: _ActorMenuAction.edit,
-                            child: Text('编辑'),
-                          ),
-                          PopupMenuItem(
-                            value: _ActorMenuAction.delete,
-                            child: Text('删除'),
-                          ),
-                        ],
-                      ),
+                      Icon(Icons.more_horiz, color: c.muted),
                     ],
                   ),
                 ),
@@ -977,6 +1038,9 @@ class _ActorMemberRow extends StatelessWidget {
             icon: Icon(Icons.more_horiz, size: 18, color: c.muted),
             onSelected: (action) {
               switch (action) {
+                case _ActorMenuAction.view:
+                case _ActorMenuAction.sync:
+                  return;
                 case _ActorMenuAction.edit:
                   onEdit();
                   return;

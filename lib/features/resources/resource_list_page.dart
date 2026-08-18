@@ -10,9 +10,12 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
+import '../../shared/glass_menu.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
+import '../mappings/mappings_providers.dart';
+import '../mappings/mappings_repository.dart';
 import '../settings/settings_common.dart';
 import '../translation/translation_providers.dart';
 import 'resource_movies_page.dart';
@@ -64,6 +67,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   String _sortOrder = 'asc';
   int? _totalCount;
   int _requestSerial = 0;
+  bool _mappingSaving = false;
   Completer<void>? _refreshCompleter;
 
   @override
@@ -103,6 +107,12 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     setState(() => _search = null);
     _reload();
   }
+
+  MappingType get _mappingType => switch (widget.kind) {
+    ResourceKind.tag => MappingType.tag,
+    ResourceKind.genre => MappingType.genre,
+    ResourceKind.series => MappingType.series,
+  };
 
   void _setSort(String field) {
     setState(() {
@@ -161,6 +171,29 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     _refreshCompleter = completer;
     _reload();
     return completer.future;
+  }
+
+  Future<void> _addToMapping(ResourceItem item) async {
+    final name = item.name.trim();
+    if (name.isEmpty || _mappingSaving) return;
+
+    setState(() => _mappingSaving = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(mappingsRepositoryProvider)
+          .create(_mappingType, originalValues: [name]);
+      if (!mounted) return;
+      AppHaptics.medium();
+      messenger.showSnackBar(const SnackBar(content: Text('已添加到映射（删除规则）')));
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('添加映射失败: ${toApiException(error).message}')),
+      );
+    } finally {
+      if (mounted) setState(() => _mappingSaving = false);
+    }
   }
 
   void _completeRefresh() {
@@ -324,6 +357,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                             ),
                             onEdit: () => _showEditor(ctx, edit: r),
                             onDelete: () => _confirmDelete(ctx, r),
+                            onAddMapping: () => unawaited(_addToMapping(r)),
                           );
                         },
                         firstPageProgressIndicatorBuilder: (_) =>
@@ -748,6 +782,7 @@ class _ResourceTile extends StatelessWidget {
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
+    required this.onAddMapping,
   });
 
   final ResourceKind kind;
@@ -756,13 +791,66 @@ class _ResourceTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onAddMapping;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+    return GlassMenuAnchor<String>(
+      width: 224,
+      entries: [
+        GlassMenuEntry<String>.action(
+          value: 'view',
+          builder: (context, selected, onSelect) => GlassMenuRow(
+            icon: Icons.movie_outlined,
+            label: '查看关联影片',
+            selected: selected,
+            onTap: onSelect,
+          ),
+        ),
+        GlassMenuEntry<String>.action(
+          value: 'mapping',
+          builder: (context, selected, onSelect) => GlassMenuRow(
+            icon: Icons.swap_horiz_rounded,
+            label: '添加到映射',
+            selected: selected,
+            onTap: onSelect,
+          ),
+        ),
+        GlassMenuEntry<String>.action(
+          value: 'edit',
+          builder: (context, selected, onSelect) => GlassMenuRow(
+            icon: Icons.edit_outlined,
+            label: '编辑',
+            selected: selected,
+            onTap: onSelect,
+          ),
+        ),
+        GlassMenuEntry<String>.divider(dividerColor: c.divider),
+        GlassMenuEntry<String>.action(
+          value: 'delete',
+          builder: (context, selected, onSelect) => GlassMenuRow(
+            icon: Icons.delete_outline,
+            label: '删除',
+            selected: selected,
+            foregroundColor: c.danger,
+            onTap: onSelect,
+          ),
+        ),
+      ],
+      onSelected: (value) {
+        switch (value) {
+          case 'view':
+            onTap();
+          case 'mapping':
+            onAddMapping();
+          case 'edit':
+            onEdit();
+          case 'delete':
+            onDelete();
+        }
+      },
+      onAnchorTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -831,36 +919,7 @@ class _ResourceTile extends StatelessWidget {
                 ),
               ),
             ),
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_horiz, color: c.muted),
-              padding: EdgeInsets.zero,
-              onSelected: (v) {
-                if (v == 'edit') onEdit();
-                if (v == 'delete') onDelete();
-              },
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit_outlined, size: 16),
-                      SizedBox(width: 8),
-                      Text('编辑'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete_outline, size: 16, color: c.danger),
-                      const SizedBox(width: 8),
-                      Text('删除', style: TextStyle(color: c.danger)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            Icon(Icons.more_horiz, color: c.muted),
           ],
         ),
       ),

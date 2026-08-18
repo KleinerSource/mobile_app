@@ -10,6 +10,7 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
+import '../../shared/glass_menu.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
@@ -604,9 +605,41 @@ class _RuleTile extends StatelessWidget {
     final firstLine = originals.join(' · ');
     // 摘要文字 (放第二行 muted)
     final summary = isDelete ? '丢弃' : (rule.mappedValue ?? '');
-    return InkWell(
-      onTap: onEdit,
-      borderRadius: BorderRadius.circular(14),
+    return GlassMenuAnchor<String>(
+      width: 190,
+      entries: [
+        GlassMenuEntry<String>.action(
+          value: 'edit',
+          builder: (context, selected, onSelect) => GlassMenuRow(
+            icon: Icons.edit_outlined,
+            label: '编辑',
+            selected: selected,
+            onTap: onSelect,
+          ),
+        ),
+        GlassMenuEntry<String>.divider(dividerColor: c.divider),
+        GlassMenuEntry<String>.action(
+          value: 'delete',
+          builder: (context, selected, onSelect) => GlassMenuRow(
+            icon: Icons.delete_outline,
+            label: '删除',
+            selected: selected,
+            foregroundColor: c.danger,
+            onTap: onSelect,
+          ),
+        ),
+      ],
+      onSelected: (value) {
+        switch (value) {
+          case 'edit':
+            onEdit();
+            return;
+          case 'delete':
+            onDelete();
+            return;
+        }
+      },
+      onAnchorTap: onEdit,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -698,37 +731,7 @@ class _RuleTile extends StatelessWidget {
                 ),
               ),
             ),
-            // ... 按钮 (编辑/删除)
-            PopupMenuButton<String>(
-              icon: Icon(Icons.more_horiz, color: c.muted),
-              padding: EdgeInsets.zero,
-              onSelected: (v) {
-                if (v == 'edit') onEdit();
-                if (v == 'delete') onDelete();
-              },
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit_outlined, size: 16),
-                      SizedBox(width: 8),
-                      Text('编辑'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete_outline, size: 16, color: c.danger),
-                      const SizedBox(width: 8),
-                      Text('删除', style: TextStyle(color: c.danger)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            Icon(Icons.more_horiz, color: c.muted),
           ],
         ),
       ),
