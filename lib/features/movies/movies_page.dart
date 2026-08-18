@@ -10,6 +10,7 @@ import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/empty_view.dart';
+import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/glow_background.dart';
@@ -356,17 +357,44 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    child: _BatchActionBar(
+                    child: EntityBatchToolbar(
                       selectedCount: _selectedIds.length,
-                      canMergeOrCompare: _canMergeOrCompare,
                       onSelectAll: _selectAllLoaded,
                       onClear: () => setState(() => _selectedIds.clear()),
                       onClose: _exitSelection,
-                      onEdit: _onBatchEdit,
-                      onDownload: _onBatchDownload,
-                      onResourceScan: _onBatchResourceScan,
-                      onCompare: _onBatchCompareNfo,
-                      onMerge: _onBatchMerge,
+                      actions: [
+                        EntityBatchAction(
+                          icon: Icons.edit_outlined,
+                          label: '编辑',
+                          onTap: _selectedIds.isEmpty ? null : _onBatchEdit,
+                        ),
+                        EntityBatchAction(
+                          icon: Icons.cloud_download_outlined,
+                          label: '下载',
+                          color: const Color(0xFF34F5A5),
+                          onTap: _selectedIds.isEmpty ? null : _onBatchDownload,
+                        ),
+                        EntityBatchAction(
+                          icon: Icons.sync_rounded,
+                          label: '扫描',
+                          onTap: _selectedIds.isEmpty
+                              ? null
+                              : _onBatchResourceScan,
+                        ),
+                        if (_canMergeOrCompare)
+                          EntityBatchAction(
+                            icon: Icons.compare_arrows_rounded,
+                            label: '比较',
+                            onTap: _onBatchCompareNfo,
+                          ),
+                        if (_canMergeOrCompare)
+                          EntityBatchAction(
+                            icon: Icons.merge_rounded,
+                            label: '合并',
+                            color: c.warning,
+                            onTap: _onBatchMerge,
+                          ),
+                      ],
                     ),
                   ),
               ],
@@ -1141,216 +1169,6 @@ class _ListRow extends StatelessWidget {
               )
             else
               Icon(Icons.chevron_right, color: c.muted, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 浮动底部批量操作工具栏 · 编辑/下载/比较/合并
-class _BatchActionBar extends StatelessWidget {
-  const _BatchActionBar({
-    required this.selectedCount,
-    required this.canMergeOrCompare,
-    required this.onSelectAll,
-    required this.onClear,
-    required this.onClose,
-    required this.onEdit,
-    required this.onDownload,
-    required this.onResourceScan,
-    required this.onCompare,
-    required this.onMerge,
-  });
-
-  final int selectedCount;
-  final bool canMergeOrCompare;
-  final VoidCallback onSelectAll;
-  final VoidCallback onClear;
-  final VoidCallback onClose;
-  final VoidCallback onEdit;
-  final VoidCallback onDownload;
-  final VoidCallback onResourceScan;
-  final VoidCallback onCompare;
-  final VoidCallback onMerge;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    final toolbarBackground = Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF1B1A24)
-        : Colors.white;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-          decoration: BoxDecoration(
-            color: toolbarBackground,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: c.cardBorder),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    '$selectedCount 已选',
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  TextButton(
-                    onPressed: onSelectAll,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text('全选'),
-                  ),
-                  TextButton(
-                    onPressed: onClear,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      foregroundColor: c.danger,
-                    ),
-                    child: const Text('清空'),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: onClose,
-                    icon: Icon(Icons.close, size: 18, color: c.muted),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              SizedBox(
-                height: 38,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _BatchActionButton(
-                        icon: Icons.edit_outlined,
-                        label: '编辑',
-                        onTap: selectedCount > 0 ? onEdit : null,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _BatchActionButton(
-                        icon: Icons.cloud_download_outlined,
-                        label: '下载',
-                        color: const Color(0xFF34F5A5),
-                        onTap: selectedCount > 0 ? onDownload : null,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _BatchActionButton(
-                        icon: Icons.sync_rounded,
-                        label: '扫描',
-                        onTap: selectedCount > 0 ? onResourceScan : null,
-                      ),
-                    ),
-                    if (canMergeOrCompare) ...[
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: _BatchActionButton(
-                          icon: Icons.compare_arrows_rounded,
-                          label: '比较',
-                          onTap: onCompare,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: _BatchActionButton(
-                          icon: Icons.merge_rounded,
-                          label: '合并',
-                          color: c.warning,
-                          onTap: onMerge,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BatchActionButton extends StatelessWidget {
-  const _BatchActionButton({
-    required this.icon,
-    required this.label,
-    this.color,
-    this.onTap,
-  });
-  final IconData icon;
-  final String label;
-  final Color? color;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    final enabled = onTap != null;
-    final fg = enabled ? (color ?? c.accent) : c.muted;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: enabled ? fg.withValues(alpha: 0.12) : c.chipBg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: enabled ? fg.withValues(alpha: 0.4) : c.cardBorder,
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 14, color: fg),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: fg,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
-            ),
           ],
         ),
       ),

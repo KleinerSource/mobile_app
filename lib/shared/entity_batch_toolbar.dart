@@ -73,11 +73,14 @@ class EntityBatchToolbar extends StatelessWidget {
                       fontSize: 13,
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 12),
                   TextButton(
                     onPressed: onSelectAll,
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 7),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
@@ -86,13 +89,17 @@ class EntityBatchToolbar extends StatelessWidget {
                   TextButton(
                     onPressed: onClear,
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 7),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       foregroundColor: c.danger,
                     ),
                     child: const Text('清空'),
                   ),
+                  const Spacer(),
                   IconButton(
                     tooltip: '退出多选',
                     onPressed: onClose,

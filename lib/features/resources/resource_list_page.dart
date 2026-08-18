@@ -486,16 +486,16 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                       onClose: _exitSelection,
                       actions: [
                         EntityBatchAction(
-                          icon: Icons.delete_outline,
-                          label: '删除',
-                          color: c.danger,
-                          onTap: _selectedIds.isEmpty ? null : _onBatchDelete,
-                        ),
-                        EntityBatchAction(
                           icon: Icons.merge_rounded,
                           label: '合并',
                           color: c.warning,
                           onTap: _selectedIds.length < 2 ? null : _onBatchMerge,
+                        ),
+                        EntityBatchAction(
+                          icon: Icons.delete_outline,
+                          label: '删除',
+                          color: c.danger,
+                          onTap: _selectedIds.isEmpty ? null : _onBatchDelete,
                         ),
                       ],
                     ),
