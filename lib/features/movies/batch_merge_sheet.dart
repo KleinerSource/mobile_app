@@ -259,23 +259,26 @@ class _MovieOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return InkWell(
-      onTap: disabled ? null : onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: selected ? c.accent.withValues(alpha: 0.15) : c.surface,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: selected ? c.accent.withValues(alpha: 0.15) : c.surface,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
+          side: BorderSide(
             color: selected
                 ? c.accent.withValues(alpha: 0.55)
                 : c.cardBorder,
-            width: selected ? 1.5 : 1,
+            width: 1,
           ),
         ),
-        child: Row(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: disabled ? null : onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
@@ -325,9 +328,11 @@ class _MovieOption extends StatelessWidget {
                 ],
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
+    ),
     );
   }
 }

@@ -755,6 +755,8 @@ class _DboDiffBadge extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
+      borderRadius: BorderRadius.circular(100),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: saving ? null : onTap,
         borderRadius: BorderRadius.circular(100),

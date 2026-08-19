@@ -956,21 +956,24 @@ class _ResourceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: c.surface,
-          border: Border.all(
-            color: selected ? c.accent : c.cardBorder,
-            width: selected ? 1.5 : 1,
-          ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: c.surface,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color: selected ? c.accent : c.cardBorder,
+            width: 1,
+          ),
         ),
-        child: Row(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
           children: [
             if (selectionMode) ...[
               Icon(
@@ -1071,9 +1074,11 @@ class _ResourceTile extends StatelessWidget {
                 ),
               ],
             ),
-          ],
+            ],
+          ),
         ),
       ),
+    ),
     );
   }
 }

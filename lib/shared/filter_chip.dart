@@ -117,6 +117,8 @@ class FilterChipPill extends StatelessWidget {
     final c = appColors(context);
     return Material(
       color: Colors.transparent,
+      borderRadius: BorderRadius.circular(100),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         borderRadius: BorderRadius.circular(100),
         onTap: onTap,
@@ -186,6 +188,8 @@ class HueChip extends StatelessWidget {
     final textColor = AppHues.chipText(hue, b);
     return Material(
       color: Colors.transparent,
+      borderRadius: BorderRadius.circular(100),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         borderRadius: BorderRadius.circular(100),
         onTap: onTap,

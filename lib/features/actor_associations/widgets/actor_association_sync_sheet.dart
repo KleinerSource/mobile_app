@@ -842,7 +842,7 @@ class _ActorDataSourceOption extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           side: BorderSide(
             color: selected ? c.accent : c.cardBorder,
-            width: selected ? 1.5 : 1,
+            width: 1,
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -1179,21 +1179,19 @@ class _AvatarChoicePicker extends StatelessWidget {
                     selected: selected,
                     label: '选择第 ${index + 1} 张演员头像',
                     child: Material(
-                      color: Colors.transparent,
+                      color: c.surface,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: selected ? c.accent : c.cardBorder,
+                          width: 1,
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
                       child: InkWell(
                         onTap: () => Navigator.of(context).pop(index),
                         borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: c.surface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: selected ? c.accent : c.cardBorder,
-                              width: selected ? 2 : 1,
-                            ),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Column(
+                        child: Column(
                             children: [
                               Expanded(
                                 child: Stack(
@@ -1258,7 +1256,6 @@ class _AvatarChoicePicker extends StatelessWidget {
                                 ),
                               ),
                             ],
-                          ),
                         ),
                       ),
                     ),
@@ -1593,37 +1590,55 @@ class _AliasPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final active = selected || (onTap == null && highlight);
-    final pill = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: active ? color.withValues(alpha: 0.15) : c.chipBg,
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(
-          color: active ? color.withValues(alpha: 0.45) : c.cardBorder,
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: active ? color : c.text,
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
-        ),
+    final text = Text(
+      label,
+      style: TextStyle(
+        color: active ? color : c.text,
+        fontFamily: 'Inter',
+        fontWeight: FontWeight.w700,
+        fontSize: 12,
       ),
     );
 
-    if (onTap == null) return pill;
+    if (onTap == null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: active ? color.withValues(alpha: 0.15) : c.chipBg,
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: active ? color.withValues(alpha: 0.45) : c.cardBorder,
+            width: 1,
+          ),
+        ),
+        child: text,
+      );
+    }
+
     return Semantics(
       button: true,
       toggled: selected,
       label: label,
       child: Material(
         color: Colors.transparent,
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: active ? color.withValues(alpha: 0.45) : c.cardBorder,
+            width: 1,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(100),
-          child: pill,
+          customBorder: const StadiumBorder(),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: active ? color.withValues(alpha: 0.15) : c.chipBg,
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: text,
+          ),
         ),
       ),
     );

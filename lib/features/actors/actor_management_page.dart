@@ -903,23 +903,24 @@ class _ActorTile extends StatelessWidget {
             child: avatar,
           )
         : avatar;
-    return PrivacyAwareInkWell(
-      movieId: actor.id,
-      scope: PrivacyScope.actor,
-      onTap: selectionMode ? onSelectionTap : onTap,
-      borderRadius: 14,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: c.surface,
-          border: Border.all(
-            color: selected ? c.accent : c.cardBorder,
-            width: selected ? 1.5 : 1,
-          ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: c.surface,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color: selected ? c.accent : c.cardBorder,
+            width: 1,
+          ),
         ),
-        clipBehavior: Clip.hardEdge,
-        child: Stack(
+        clipBehavior: Clip.antiAlias,
+        child: PrivacyAwareInkWell(
+          movieId: actor.id,
+          scope: PrivacyScope.actor,
+          onTap: selectionMode ? onSelectionTap : onTap,
+          borderRadius: 14,
+          child: Stack(
           children: [
             Column(
               mainAxisSize: MainAxisSize.min,
@@ -1027,6 +1028,7 @@ class _ActorTile extends StatelessWidget {
                 ),
               ),
           ],
+          ),
         ),
       ),
     );

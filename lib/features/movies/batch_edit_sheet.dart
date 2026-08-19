@@ -927,7 +927,7 @@ class _QuickFlagChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: value ? c.accent.withValues(alpha: 0.55) : c.cardBorder,
-            width: value ? 1.2 : 1,
+            width: 1,
           ),
         ),
         child: Row(

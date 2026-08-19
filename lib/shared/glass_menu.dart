@@ -106,6 +106,8 @@ class GlassMenuRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Material(
         color: Colors.transparent,
+        borderRadius: BorderRadius.circular(11),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(11),

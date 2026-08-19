@@ -854,18 +854,21 @@ class _PickerSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-        decoration: BoxDecoration(
-          color: c.surface,
-          border: Border.all(color: c.cardBorder),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: c.surface,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: c.cardBorder, width: 1),
         ),
-        child: Column(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -903,9 +906,11 @@ class _PickerSection extends StatelessWidget {
                 runSpacing: 6,
                 children: children!,
               ),
-          ],
+            ],
+          ),
         ),
       ),
+    ),
     );
   }
 }
@@ -963,23 +968,27 @@ class _FlagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return InkWell(
+    return Material(
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(100),
-      onTap: () => onChanged(!value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: value ? c.accent.withValues(alpha: 0.18) : c.chipBg,
-          border: Border.all(
-            color: value
-                ? c.accent.withValues(alpha: 0.6)
-                : Colors.transparent,
-            width: 1.5,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(100),
+        onTap: () => onChanged(!value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: value ? c.accent.withValues(alpha: 0.18) : c.chipBg,
+            border: Border.all(
+              color: value
+                  ? c.accent.withValues(alpha: 0.6)
+                  : Colors.transparent,
+              width: 1.5,
+            ),
+            borderRadius: BorderRadius.circular(100),
           ),
-          borderRadius: BorderRadius.circular(100),
-        ),
-        child: Row(
+          child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             AnimatedSwitcher(
@@ -1004,6 +1013,7 @@ class _FlagChip extends StatelessWidget {
               ),
             ),
           ],
+          ),
         ),
       ),
     );

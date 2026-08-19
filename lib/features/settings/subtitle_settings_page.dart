@@ -368,23 +368,25 @@ class _SubtitleColorTile extends StatelessWidget {
               runSpacing: 14,
               children: [
                 for (final option in subtitleColorChoices)
-                  InkWell(
-                    onTap: () => Navigator.of(ctx).pop(option),
-                    borderRadius: BorderRadius.circular(24),
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: _isTransparent(option) ? c.surface : option,
-                        shape: BoxShape.circle,
-                        border: Border.all(
+                  SizedBox(
+                    width: 38,
+                    height: 38,
+                    child: Material(
+                      color: _isTransparent(option) ? c.surface : option,
+                      shape: CircleBorder(
+                        side: BorderSide(
                           color: option == color ? c.accent : c.cardBorder,
-                          width: option == color ? 3 : 1,
+                          width: 1,
                         ),
                       ),
-                      child: _isTransparent(option)
-                          ? Icon(Icons.block, color: c.muted, size: 18)
-                          : null,
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => Navigator.of(ctx).pop(option),
+                        customBorder: const CircleBorder(),
+                        child: _isTransparent(option)
+                            ? Icon(Icons.block, color: c.muted, size: 18)
+                            : null,
+                      ),
                     ),
                   ),
               ],
@@ -405,20 +407,22 @@ class _SubtitleColorTile extends StatelessWidget {
       title: title,
       subtitle: _isTransparent(color) ? '透明' : _colorHex(color),
       leadingIcon: icon,
-      trailing: InkWell(
-        onTap: () => _pick(context),
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: _isTransparent(color) ? Colors.transparent : color,
-            shape: BoxShape.circle,
-            border: Border.all(color: appColors(context).cardBorder),
+      trailing: SizedBox(
+        width: 28,
+        height: 28,
+        child: Material(
+          color: _isTransparent(color) ? Colors.transparent : color,
+          shape: CircleBorder(
+            side: BorderSide(color: appColors(context).cardBorder, width: 1),
           ),
-          child: _isTransparent(color)
-              ? Icon(Icons.block, size: 16, color: appColors(context).muted)
-              : null,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _pick(context),
+            customBorder: const CircleBorder(),
+            child: _isTransparent(color)
+                ? Icon(Icons.block, size: 16, color: appColors(context).muted)
+                : null,
+          ),
         ),
       ),
       onTap: () => _pick(context),
