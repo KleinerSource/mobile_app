@@ -37,12 +37,28 @@ import 'subtitle_adjustment_sheet.dart';
 import 'subtitle_rendering.dart';
 import 'subtitle_settings.dart';
 
+const _directPlaybackDecision = playback_models.PlaybackDecision(
+  mode: 'direct_play',
+  streamUrl: '',
+  mimeType: '',
+  hwAccel: '',
+  targetVideo: '',
+  targetAudio: '',
+  targetHeight: 0,
+  targetBitrate: 0,
+  reasons: <String>[],
+  audioTracks: <playback_models.AudioTrack>[],
+  subtitleTracks: <playback_models.SubtitleTrack>[],
+  startSec: 0,
+);
+
 /// 全屏视频播放页。播放源由后端协商，页面只负责编排回退、进度和用户控制。
 class PlayerPage extends ConsumerStatefulWidget {
   const PlayerPage({
     super.key,
     required this.movieId,
     required this.title,
+    this.directUrl,
     this.startPositionSec = 0,
     this.queue = const <PlayerQueueItem>[],
     this.queueIndex = 0,
@@ -50,6 +66,7 @@ class PlayerPage extends ConsumerStatefulWidget {
 
   final int movieId;
   final String title;
+  final String? directUrl;
   final int startPositionSec;
   final List<PlayerQueueItem> queue;
   final int queueIndex;
@@ -58,6 +75,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     BuildContext context, {
     required int movieId,
     required String title,
+    String? directUrl,
     int startPositionSec = 0,
     List<PlayerQueueItem> queue = const <PlayerQueueItem>[],
     int queueIndex = 0,
@@ -67,6 +85,7 @@ class PlayerPage extends ConsumerStatefulWidget {
         builder: (_) => PlayerPage(
           movieId: movieId,
           title: title,
+          directUrl: directUrl,
           startPositionSec: startPositionSec,
           queue: queue,
           queueIndex: queueIndex,
@@ -141,6 +160,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _isLeaving = false;
   Future<void> _loadQueue = Future<void>.value();
   bool _orientationInitialized = false;
+
+  bool get _isDirectPlayback => widget.directUrl?.trim().isNotEmpty == true;
 
   @override
   void initState() {
@@ -332,6 +353,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _reportProgress() {
+    if (_isDirectPlayback) return Future<void>.value();
     final next = _progressReportChain.then<void>((_) async {
       final position = _host.position.inSeconds;
       final duration = _host.duration.inSeconds;
@@ -402,6 +424,26 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     });
 
     try {
+      final trailerUrl = widget.directUrl?.trim();
+      if (trailerUrl != null && trailerUrl.isNotEmpty) {
+        _host.preloadBytes = ref.read(playerSettingsProvider).preloadSize.bytes;
+        await _host.recreate(
+          enableHardwareAcceleration: _clientHardwareAcceleration,
+        );
+        if (!mounted || generation != _loadGeneration) return;
+
+        await _openDirectWithClientFallback(trailerUrl, null);
+        if (!mounted || generation != _loadGeneration) {
+          await _stopPlayer();
+          return;
+        }
+        _decision = _directPlaybackDecision;
+        _bindProgress();
+        setState(() => _loading = false);
+        _restartHideTimer();
+        return;
+      }
+
       final cfg = ref.read(serverConfigProvider);
       if (cfg == null) throw StateError('未配置服务器');
       final client = ref.read(requiredApiClientProvider);
@@ -657,6 +699,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _onQualityChanged(String quality) async {
+    if (_isDirectPlayback) return;
     final position = _host.position;
     await _load(quality: quality, resume: position);
   }
@@ -1407,6 +1450,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 previewSourceUri: _pictureInPictureUrl,
                 previewSourceHeaders: _pictureInPictureHeaders,
                 quality: _quality,
+                showQualityButton: !_isDirectPlayback,
                 onQualityChanged: _onQualityChanged,
                 subtitleTracks: decision.subtitleTracks,
                 selectedSubtitle: _selectedSubtitle,

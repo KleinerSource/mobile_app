@@ -23,6 +23,7 @@ class PlayerControls extends StatefulWidget {
     this.previewSourceUri,
     this.previewSourceHeaders,
     required this.quality,
+    this.showQualityButton = true,
     required this.onQualityChanged,
     required this.subtitleTracks,
     required this.selectedSubtitle,
@@ -57,6 +58,7 @@ class PlayerControls extends StatefulWidget {
   final String? previewSourceUri;
   final Map<String, String>? previewSourceHeaders;
   final String quality;
+  final bool showQualityButton;
   final ValueChanged<String> onQualityChanged;
   final List<playback_models.SubtitleTrack> subtitleTracks;
   final playback_models.SubtitleTrack? selectedSubtitle;
@@ -244,7 +246,7 @@ class _PlayerControlsState extends State<PlayerControls> {
         Expanded(
           child: Row(
             children: [
-              _qualityButton(),
+              if (widget.showQualityButton) _qualityButton(),
               if (widget.decodeStatuses.isNotEmpty) ...[
                 const SizedBox(width: 8),
                 Flexible(

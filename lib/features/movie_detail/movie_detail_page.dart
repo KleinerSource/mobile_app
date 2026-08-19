@@ -193,8 +193,10 @@ class _DetailBody extends ConsumerWidget {
         SliverToBoxAdapter(
           child: _ExtraFanartSection(
             movieId: movie.id,
+            movieTitle: movie.title,
             canFetch: movie.num?.trim().isNotEmpty == true,
             trailerUrl: _trailerUrl(movie),
+            posterUrl: _posterUrl(movie, urlBuilder),
           ),
         ),
         if (movie.actors.isNotEmpty)
@@ -255,6 +257,11 @@ String? _trailerUrl(MovieDetail movie) {
     return null;
   }
   return uri.toString();
+}
+
+String? _posterUrl(MovieDetail movie, String Function(String) urlBuilder) {
+  final uuid = movie.posterUuid?.trim() ?? '';
+  return uuid.isEmpty ? null : urlBuilder(uuid);
 }
 
 class _HeroHeader extends ConsumerWidget {
@@ -675,13 +682,17 @@ class _ActionRow extends ConsumerWidget {
 class _ExtraFanartSection extends ConsumerStatefulWidget {
   const _ExtraFanartSection({
     required this.movieId,
+    required this.movieTitle,
     required this.canFetch,
     required this.trailerUrl,
+    required this.posterUrl,
   });
 
   final int movieId;
+  final String movieTitle;
   final bool canFetch;
   final String? trailerUrl;
+  final String? posterUrl;
 
   @override
   ConsumerState<_ExtraFanartSection> createState() =>
@@ -800,8 +811,8 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
             child: SizedBox(
               width: cardWidth,
               child: _TrailerThumbnail(
-                onTap: () =>
-                    unawaited(_openViewer(context, const <String>[], 0)),
+                posterUrl: widget.posterUrl,
+                onTap: () => _playTrailer(context),
               ),
             ),
           ),
@@ -887,9 +898,8 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
                       return SizedBox(
                         width: cardWidth,
                         child: _TrailerThumbnail(
-                          onTap: () {
-                            unawaited(_openViewer(context, urls, 0));
-                          },
+                          posterUrl: widget.posterUrl,
+                          onTap: () => _playTrailer(context),
                         ),
                       );
                     }
@@ -952,79 +962,121 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
       pageBuilder: (_, __, ___) => _ExtraFanartViewer(
         urls: urls,
         trailerUrl: widget.trailerUrl,
+        posterUrl: widget.posterUrl,
         initialIndex: initialIndex,
         onPageChanged: (index) => _syncPreviewScroll(context, index),
+      ),
+    );
+  }
+
+  void _playTrailer(BuildContext context) {
+    final url = widget.trailerUrl;
+    if (url == null) return;
+    unawaited(
+      PlayerPage.open(
+        context,
+        movieId: widget.movieId,
+        title: '${widget.movieTitle} · 预告片',
+        directUrl: url,
       ),
     );
   }
 }
 
 class _TrailerThumbnail extends StatelessWidget {
-  const _TrailerThumbnail({required this.onTap});
+  const _TrailerThumbnail({required this.posterUrl, required this.onTap});
 
+  final String? posterUrl;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
+    final imageUrl = posterUrl?.trim() ?? '';
     return Material(
       color: c.surfaceAlt,
       borderRadius: BorderRadius.circular(10),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [c.surfaceAlt, c.surface],
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (imageUrl.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => _trailerPlaceholder(context),
+              )
+            else
+              _trailerPlaceholder(context),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.08),
+                    Colors.black.withValues(alpha: 0.68),
+                  ],
+                ),
+              ),
             ),
-          ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Center(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: c.accent,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: Icon(Icons.play_arrow_rounded, size: 24),
-                  ),
+            Center(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: c.accent,
+                  shape: BoxShape.circle,
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(Icons.play_arrow_rounded, size: 24),
                 ),
               ),
-              Positioned(
-                left: 12,
-                bottom: 10,
-                child: Text(
-                  l.detailTrailer,
-                  style: AppText.body(
-                    context,
-                  ).copyWith(color: c.text, fontWeight: FontWeight.w700),
-                ),
+            ),
+            Positioned(
+              left: 12,
+              bottom: 10,
+              child: Text(
+                l.detailTrailer,
+                style: AppText.body(
+                  context,
+                ).copyWith(color: Colors.white, fontWeight: FontWeight.w700),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
+Widget _trailerPlaceholder(BuildContext context) {
+  final c = appColors(context);
+  return DecoratedBox(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [c.surfaceAlt, c.surface],
+      ),
+    ),
+  );
+}
+
 class _ExtraFanartViewer extends StatefulWidget {
   const _ExtraFanartViewer({
     required this.urls,
     required this.trailerUrl,
+    required this.posterUrl,
     required this.initialIndex,
     required this.onPageChanged,
   });
 
   final List<String> urls;
   final String? trailerUrl;
+  final String? posterUrl;
   final int initialIndex;
   final ValueChanged<int> onPageChanged;
 
@@ -1232,6 +1284,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
                           child: isTrailer
                               ? _TrailerViewer(
                                   url: widget.trailerUrl!,
+                                  posterUrl: widget.posterUrl,
                                   active: index == _index,
                                 )
                               : LayoutBuilder(
@@ -1322,9 +1375,14 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
 }
 
 class _TrailerViewer extends StatefulWidget {
-  const _TrailerViewer({required this.url, required this.active});
+  const _TrailerViewer({
+    required this.url,
+    required this.posterUrl,
+    required this.active,
+  });
 
   final String url;
+  final String? posterUrl;
   final bool active;
 
   @override
@@ -1420,20 +1478,43 @@ class _TrailerViewerState extends State<_TrailerViewer> {
   }
 
   Widget _initialStage(BuildContext context) {
-    final c = appColors(context);
+    final l = AppL10n.of(context);
+    final posterUrl = widget.posterUrl?.trim() ?? '';
     return Stack(
       fit: StackFit.expand,
       children: [
+        if (posterUrl.isNotEmpty)
+          CachedNetworkImage(
+            imageUrl: posterUrl,
+            fit: BoxFit.cover,
+            placeholder: (_, __) => _trailerBackdrop(context),
+            errorWidget: (_, __, ___) => _trailerBackdrop(context),
+          )
+        else
+          _trailerBackdrop(context),
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [c.surfaceAlt, Colors.black],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.16),
+                Colors.black.withValues(alpha: 0.72),
+              ],
             ),
           ),
         ),
         Center(child: _playButton(context, loading: _opening)),
+        Positioned(
+          left: 12,
+          bottom: 10,
+          child: Text(
+            l.detailTrailer,
+            style: AppText.body(
+              context,
+            ).copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+        ),
         if (_error != null)
           Positioned(
             left: 24,
@@ -1446,6 +1527,19 @@ class _TrailerViewerState extends State<_TrailerViewer> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _trailerBackdrop(BuildContext context) {
+    final c = appColors(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [c.surfaceAlt, Colors.black],
+        ),
+      ),
     );
   }
 
