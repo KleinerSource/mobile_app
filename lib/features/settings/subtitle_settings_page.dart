@@ -38,144 +38,153 @@ class SubtitleSettingsPage extends ConsumerWidget {
               eyebrow: '应用设置',
               title: '字幕设置',
             ),
-            body: ListView(
-              primary: true,
+            body: Column(
               children: [
-            SettingsGroup(
-              title: '样式预览',
-              items: [
-                _SubtitleStylePreview(settings: settings),
-              ],
-            ),
-            SettingsGroup(
-              title: '字幕行为',
-              items: [
-                _SubtitleSwitchTile(
-                  title: '记住所选字幕',
-                  subtitle: '下次播放时自动恢复最近使用的字幕轨道',
-                  icon: Icons.bookmark_outline,
-                  value: settings.rememberSelectedSubtitle,
-                  onChanged: (value) => update(
-                    settings.copyWith(rememberSelectedSubtitle: value),
+                SettingsGroup(
+                  title: '样式预览',
+                  items: [_SubtitleStylePreview(settings: settings)],
+                ),
+                Expanded(
+                  child: ListView(
+                    primary: true,
+                    children: [
+                      SettingsGroup(
+                        title: '字幕行为',
+                        items: [
+                          _SubtitleSwitchTile(
+                            title: '记住所选字幕',
+                            subtitle: '下次播放时自动恢复最近使用的字幕轨道',
+                            icon: Icons.bookmark_outline,
+                            value: settings.rememberSelectedSubtitle,
+                            onChanged: (value) => update(
+                              settings.copyWith(
+                                rememberSelectedSubtitle: value,
+                              ),
+                            ),
+                          ),
+                          _SubtitleSwitchTile(
+                            title: '忽略 ASS 字幕样式',
+                            subtitle: '使用下面的客户端字体和颜色设置',
+                            icon: Icons.text_fields,
+                            value: settings.ignoreAssStyle,
+                            onChanged: (value) => update(
+                              settings.copyWith(ignoreAssStyle: value),
+                            ),
+                          ),
+                          _SubtitleSwitchTile(
+                            title: '忽略 SRT 字幕样式',
+                            subtitle: '忽略字幕中的 HTML 样式标签',
+                            icon: Icons.code_off,
+                            value: settings.ignoreSrtStyle,
+                            onChanged: (value) => update(
+                              settings.copyWith(ignoreSrtStyle: value),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SettingsGroup(
+                        title: '文字样式',
+                        items: [
+                          _SubtitleOptionTile<String>(
+                            title: '字体',
+                            subtitle: _fontLabel(settings.fontFamily),
+                            icon: Icons.font_download_outlined,
+                            value: settings.fontFamily,
+                            options: _fontOptions,
+                            labelOf: _fontLabel,
+                            onChanged: (value) =>
+                                update(settings.copyWith(fontFamily: value)),
+                          ),
+                          _SubtitleSwitchTile(
+                            title: '加粗',
+                            icon: Icons.format_bold,
+                            value: settings.bold,
+                            onChanged: (value) =>
+                                update(settings.copyWith(bold: value)),
+                          ),
+                          _SubtitleSwitchTile(
+                            title: '斜体',
+                            icon: Icons.format_italic,
+                            value: settings.italic,
+                            onChanged: (value) =>
+                                update(settings.copyWith(italic: value)),
+                          ),
+                          _SubtitleColorTile(
+                            title: '字体颜色',
+                            icon: Icons.format_color_text,
+                            color: settings.fontColor,
+                            onChanged: (value) =>
+                                update(settings.copyWith(fontColor: value)),
+                          ),
+                          _SubtitleColorTile(
+                            title: '背景颜色',
+                            icon: Icons.format_color_fill,
+                            color: settings.backgroundColor,
+                            onChanged: (value) => update(
+                              settings.copyWith(backgroundColor: value),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SettingsGroup(
+                        title: '描边与阴影',
+                        items: [
+                          _SubtitleColorTile(
+                            title: '描边颜色',
+                            icon: Icons.border_color_outlined,
+                            color: settings.outlineColor,
+                            onChanged: (value) =>
+                                update(settings.copyWith(outlineColor: value)),
+                          ),
+                          _SubtitleSliderTile(
+                            title: '描边粗细',
+                            subtitle:
+                                '${settings.outlineWidth.toStringAsFixed(1)} px',
+                            icon: Icons.border_style,
+                            value: settings.outlineWidth,
+                            min: 0,
+                            max: 6,
+                            divisions: 12,
+                            onChanged: (value) =>
+                                update(settings.copyWith(outlineWidth: value)),
+                          ),
+                          _SubtitleColorTile(
+                            title: '阴影颜色',
+                            icon: Icons.blur_on_outlined,
+                            color: settings.shadowColor,
+                            onChanged: (value) =>
+                                update(settings.copyWith(shadowColor: value)),
+                          ),
+                          _SubtitleSliderTile(
+                            title: '阴影大小',
+                            subtitle:
+                                '${settings.shadowSize.toStringAsFixed(1)} px',
+                            icon: Icons.blur_on_outlined,
+                            value: settings.shadowSize,
+                            min: 0,
+                            max: 12,
+                            divisions: 24,
+                            onChanged: (value) =>
+                                update(settings.copyWith(shadowSize: value)),
+                          ),
+                        ],
+                      ),
+                      SettingsGroup(
+                        title: '恢复',
+                        items: [
+                          SettingsTile(
+                            title: '恢复默认',
+                            subtitle: '恢复字体、颜色、描边和字幕行为设置',
+                            leadingIcon: Icons.restore,
+                            destructive: true,
+                            onTap: () => unawaited(_reset(context, ref)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 80),
+                    ],
                   ),
                 ),
-                _SubtitleSwitchTile(
-                  title: '忽略 ASS 字幕样式',
-                  subtitle: '使用下面的客户端字体和颜色设置',
-                  icon: Icons.text_fields,
-                  value: settings.ignoreAssStyle,
-                  onChanged: (value) => update(
-                    settings.copyWith(ignoreAssStyle: value),
-                  ),
-                ),
-                _SubtitleSwitchTile(
-                  title: '忽略 SRT 字幕样式',
-                  subtitle: '忽略字幕中的 HTML 样式标签',
-                  icon: Icons.code_off,
-                  value: settings.ignoreSrtStyle,
-                  onChanged: (value) => update(
-                    settings.copyWith(ignoreSrtStyle: value),
-                  ),
-                ),
-              ],
-            ),
-            SettingsGroup(
-              title: '文字样式',
-              items: [
-                _SubtitleOptionTile<String>(
-                  title: '字体',
-                  subtitle: _fontLabel(settings.fontFamily),
-                  icon: Icons.font_download_outlined,
-                  value: settings.fontFamily,
-                  options: _fontOptions,
-                  labelOf: _fontLabel,
-                  onChanged: (value) => update(
-                    settings.copyWith(fontFamily: value),
-                  ),
-                ),
-                _SubtitleSwitchTile(
-                  title: '加粗',
-                  icon: Icons.format_bold,
-                  value: settings.bold,
-                  onChanged: (value) => update(settings.copyWith(bold: value)),
-                ),
-                _SubtitleSwitchTile(
-                  title: '斜体',
-                  icon: Icons.format_italic,
-                  value: settings.italic,
-                  onChanged: (value) =>
-                      update(settings.copyWith(italic: value)),
-                ),
-                _SubtitleColorTile(
-                  title: '字体颜色',
-                  icon: Icons.format_color_text,
-                  color: settings.fontColor,
-                  onChanged: (value) =>
-                      update(settings.copyWith(fontColor: value)),
-                ),
-                _SubtitleColorTile(
-                  title: '背景颜色',
-                  icon: Icons.format_color_fill,
-                  color: settings.backgroundColor,
-                  onChanged: (value) =>
-                      update(settings.copyWith(backgroundColor: value)),
-                ),
-              ],
-            ),
-            SettingsGroup(
-              title: '描边与阴影',
-              items: [
-                _SubtitleColorTile(
-                  title: '描边颜色',
-                  icon: Icons.border_color_outlined,
-                  color: settings.outlineColor,
-                  onChanged: (value) =>
-                      update(settings.copyWith(outlineColor: value)),
-                ),
-                _SubtitleSliderTile(
-                  title: '描边粗细',
-                  subtitle: '${settings.outlineWidth.toStringAsFixed(1)} px',
-                  icon: Icons.border_style,
-                  value: settings.outlineWidth,
-                  min: 0,
-                  max: 6,
-                  divisions: 12,
-                  onChanged: (value) =>
-                      update(settings.copyWith(outlineWidth: value)),
-                ),
-                _SubtitleColorTile(
-                  title: '阴影颜色',
-                  icon: Icons.blur_on_outlined,
-                  color: settings.shadowColor,
-                  onChanged: (value) =>
-                      update(settings.copyWith(shadowColor: value)),
-                ),
-                _SubtitleSliderTile(
-                  title: '阴影大小',
-                  subtitle: '${settings.shadowSize.toStringAsFixed(1)} px',
-                  icon: Icons.blur_on_outlined,
-                  value: settings.shadowSize,
-                  min: 0,
-                  max: 12,
-                  divisions: 24,
-                  onChanged: (value) =>
-                      update(settings.copyWith(shadowSize: value)),
-                ),
-              ],
-            ),
-            SettingsGroup(
-              title: '恢复',
-              items: [
-                SettingsTile(
-                  title: '恢复默认',
-                  subtitle: '恢复字体、颜色、描边和字幕行为设置',
-                  leadingIcon: Icons.restore,
-                  destructive: true,
-                  onTap: () => unawaited(_reset(context, ref)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 80),
               ],
             ),
           ),
