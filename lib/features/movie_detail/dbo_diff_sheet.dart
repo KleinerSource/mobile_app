@@ -330,7 +330,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('DBO 元数据', style: AppText.sectionTitle(context)),
+                        Text('DB Online 元数据', style: AppText.sectionTitle(context)),
                         const SizedBox(height: 2),
                         if (dboTitle.isNotEmpty || dboCode.isNotEmpty)
                           Text(
@@ -492,11 +492,16 @@ class _DboDiffSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final durationItems = section == DboMetadataDiffSection.info
-        ? items.where((item) => item.field == 'runtime').toList()
+    final durationRatingItems = section == DboMetadataDiffSection.info
+        ? <DboMetadataDiffItem>[
+            ...items.where((item) => item.field == 'runtime'),
+            ...items.where((item) => item.field == 'rating'),
+          ]
         : const <DboMetadataDiffItem>[];
     final badgeItems = items
-        .where((item) => !_isLongText(item) && !durationItems.contains(item))
+        .where(
+          (item) => !_isLongText(item) && !durationRatingItems.contains(item),
+        )
         .toList();
     final longTextItems = items.where(_isLongText).toList();
     return Column(
@@ -553,22 +558,6 @@ class _DboDiffSection extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (badgeItems.isNotEmpty)
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final item in badgeItems)
-                      _DboDiffBadge(
-                        item: item,
-                        section: section,
-                        saving: saving,
-                        onTap: () => onToggle(item),
-                      ),
-                  ],
-                ),
-              if (badgeItems.isNotEmpty && longTextItems.isNotEmpty)
-                const SizedBox(height: 10),
               for (var i = 0; i < longTextItems.length; i++) ...[
                 _DboDiffRow(
                   item: longTextItems[i],
@@ -577,14 +566,32 @@ class _DboDiffSection extends StatelessWidget {
                 ),
                 if (i < longTextItems.length - 1) const SizedBox(height: 8),
               ],
-              if (longTextItems.isNotEmpty && durationItems.isNotEmpty)
+              if (longTextItems.isNotEmpty && durationRatingItems.isNotEmpty)
                 const SizedBox(height: 10),
-              if (durationItems.isNotEmpty)
+              if (durationRatingItems.isNotEmpty)
+                Row(
+                  children: [
+                    for (var i = 0; i < durationRatingItems.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 8),
+                      Flexible(
+                        child: _DboDiffBadge(
+                          item: durationRatingItems[i],
+                          section: section,
+                          saving: saving,
+                          onTap: () => onToggle(durationRatingItems[i]),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              if (durationRatingItems.isNotEmpty && badgeItems.isNotEmpty)
+                const SizedBox(height: 10),
+              if (badgeItems.isNotEmpty)
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    for (final item in durationItems)
+                    for (final item in badgeItems)
                       _DboDiffBadge(
                         item: item,
                         section: section,

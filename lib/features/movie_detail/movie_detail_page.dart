@@ -4,6 +4,8 @@ import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
@@ -75,15 +77,16 @@ class _MovieDetailPageState extends ConsumerState<MovieDetailPage> {
               children: [
                 Text('加载失败', style: AppText.sectionTitle(context)),
                 const SizedBox(height: 8),
-                Text('$e', style: AppText.body(context), textAlign: TextAlign.center),
+                Text(
+                  '$e',
+                  style: AppText.body(context),
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
           ),
         ),
-        data: (movie) => _DetailBody(
-          movie: movie,
-          urlBuilder: urlBuilder,
-        ),
+        data: (movie) => _DetailBody(movie: movie, urlBuilder: urlBuilder),
       ),
     );
   }
@@ -101,7 +104,9 @@ class _DetailBody extends ConsumerWidget {
     // 初始化收藏状态种子
     if (!favStatus.containsKey(movie.id)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(favoriteStatusProvider.notifier).seed(movie.id, movie.isFavorited);
+        ref
+            .read(favoriteStatusProvider.notifier)
+            .seed(movie.id, movie.isFavorited);
       });
     }
     final isFavorited = favStatus[movie.id] ?? movie.isFavorited;
@@ -145,15 +150,16 @@ class _DetailBody extends ConsumerWidget {
                   final value = await ref
                       .read(favoriteStatusProvider.notifier)
                       .toggle(movie.id);
-                  messenger.showSnackBar(SnackBar(
-                    content: Text(
-                        value ? l.detailFavorited : l.detailUnfavorited),
-                    duration: const Duration(seconds: 1),
-                  ));
-                } catch (e) {
                   messenger.showSnackBar(
-                    SnackBar(content: Text('操作失败: $e')),
+                    SnackBar(
+                      content: Text(
+                        value ? l.detailFavorited : l.detailUnfavorited,
+                      ),
+                      duration: const Duration(seconds: 1),
+                    ),
                   );
+                } catch (e) {
+                  messenger.showSnackBar(SnackBar(content: Text('操作失败: $e')));
                 }
               },
             ),
@@ -188,12 +194,11 @@ class _DetailBody extends ConsumerWidget {
           child: _ExtraFanartSection(
             movieId: movie.id,
             canFetch: movie.num?.trim().isNotEmpty == true,
+            trailerUrl: _trailerUrl(movie),
           ),
         ),
         if (movie.actors.isNotEmpty)
-          SliverToBoxAdapter(
-            child: _CastSection(actors: movie.actors),
-          ),
+          SliverToBoxAdapter(child: _CastSection(actors: movie.actors)),
         SliverToBoxAdapter(
           child: _ActorRelatedMoviesSection(
             movie: movie,
@@ -230,19 +235,26 @@ class _DetailBody extends ConsumerWidget {
               prefix: '# ',
             ),
           ),
-        SliverToBoxAdapter(
-          child: _DetailsTable(movie: movie),
-        ),
-        SliverToBoxAdapter(
-          child: _MediaInfoSection(movieId: movie.id),
-        ),
-        SliverToBoxAdapter(
-          child: _RelatedFilesSection(movie: movie),
-        ),
+        SliverToBoxAdapter(child: _DetailsTable(movie: movie)),
+        SliverToBoxAdapter(child: _MediaInfoSection(movieId: movie.id)),
+        SliverToBoxAdapter(child: _RelatedFilesSection(movie: movie)),
         const SliverToBoxAdapter(child: SizedBox(height: 60)),
       ],
     );
   }
+}
+
+String? _trailerUrl(MovieDetail movie) {
+  final value = movie.trailer?.trim() ?? '';
+  final uri = Uri.tryParse(value);
+  if (value.isEmpty ||
+      uri == null ||
+      uri.host.isEmpty ||
+      (uri.scheme.toLowerCase() != 'http' &&
+          uri.scheme.toLowerCase() != 'https')) {
+    return null;
+  }
+  return uri.toString();
 }
 
 class _HeroHeader extends ConsumerWidget {
@@ -339,7 +351,10 @@ class _TitleBlock extends StatelessWidget {
       fontSize: 11.5,
       letterSpacing: 1.4,
     );
-    final dot = TextSpan(text: '  ·  ', style: baseStyle.copyWith(color: c.muted));
+    final dot = TextSpan(
+      text: '  ·  ',
+      style: baseStyle.copyWith(color: c.muted),
+    );
     final spans = <InlineSpan>[];
     void add(InlineSpan s) {
       if (spans.isNotEmpty) spans.add(dot);
@@ -347,20 +362,29 @@ class _TitleBlock extends StatelessWidget {
     }
 
     if (movie.year != null) {
-      add(TextSpan(text: '${movie.year}', style: baseStyle.copyWith(color: c.muted)));
+      add(
+        TextSpan(
+          text: '${movie.year}',
+          style: baseStyle.copyWith(color: c.muted),
+        ),
+      );
     }
     if (movie.runtime != null && movie.runtime! > 0) {
-      add(TextSpan(
-        text: '${movie.runtime} MIN',
-        style: baseStyle.copyWith(color: c.accent),
-      ));
+      add(
+        TextSpan(
+          text: '${movie.runtime} MIN',
+          style: baseStyle.copyWith(color: c.accent),
+        ),
+      );
     }
     // 国家不在标题元信息中展示,由"详细信息"表的产地行统一显示
     if (movie.rating != null && movie.rating! > 0) {
-      add(TextSpan(
-        text: '★ ${movie.rating!.toStringAsFixed(1)}',
-        style: baseStyle.copyWith(color: c.warning),
-      ));
+      add(
+        TextSpan(
+          text: '★ ${movie.rating!.toStringAsFixed(1)}',
+          style: baseStyle.copyWith(color: c.warning),
+        ),
+      );
     }
 
     return Column(
@@ -378,12 +402,17 @@ class _TitleBlock extends StatelessWidget {
             height: 1.1,
           ),
         ),
-        if (movie.originalTitle != null && movie.originalTitle != movie.title) ...[
+        if (movie.originalTitle != null &&
+            movie.originalTitle != movie.title) ...[
           const SizedBox(height: 4),
           Text(
             movie.originalTitle!,
             textAlign: TextAlign.center,
-            style: TextStyle(color: c.muted, fontStyle: FontStyle.italic, fontSize: 13),
+            style: TextStyle(
+              color: c.muted,
+              fontStyle: FontStyle.italic,
+              fontSize: 13,
+            ),
           ),
         ],
         const SizedBox(height: 12),
@@ -528,16 +557,18 @@ class _ActionRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final watchRecord =
-        ref.watch(movieWatchRecordProvider(movie.id)).valueOrNull;
+    final watchRecord = ref
+        .watch(movieWatchRecordProvider(movie.id))
+        .valueOrNull;
     final startPositionSec = _startPositionSec(watchRecord);
     final progressRatio = _progressRatio(watchRecord);
     final playLabel = startPositionSec > 0
         ? '${l.detailPlay} (${formatResumePosition(startPositionSec)})'
         : l.detailPlay;
     final playerQueue = _playerQueue(startPositionSec);
-    final playerQueueIndex =
-        playerQueue.indexWhere((item) => item.movieId == movie.id);
+    final playerQueueIndex = playerQueue.indexWhere(
+      (item) => item.movieId == movie.id,
+    );
     return Row(
       children: [
         Expanded(
@@ -585,7 +616,8 @@ class _ActionRow extends ConsumerWidget {
                       shadowColor: Colors.transparent,
                       surfaceTintColor: Colors.transparent,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: Row(
@@ -593,11 +625,14 @@ class _ActionRow extends ConsumerWidget {
                       children: [
                         const Icon(Icons.play_arrow, size: 18),
                         const SizedBox(width: 6),
-                        Text(playLabel,
-                            style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14)),
+                        Text(
+                          playLabel,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -617,15 +652,18 @@ class _ActionRow extends ConsumerWidget {
             style: OutlinedButton.styleFrom(
               foregroundColor: c.text,
               side: BorderSide(color: c.cardBorder),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
             child: Text(
               AppL10n.of(context).detailAddList,
               style: const TextStyle(
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14),
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
             ),
           ),
         ),
@@ -635,10 +673,15 @@ class _ActionRow extends ConsumerWidget {
 }
 
 class _ExtraFanartSection extends ConsumerStatefulWidget {
-  const _ExtraFanartSection({required this.movieId, required this.canFetch});
+  const _ExtraFanartSection({
+    required this.movieId,
+    required this.canFetch,
+    required this.trailerUrl,
+  });
 
   final int movieId;
   final bool canFetch;
+  final String? trailerUrl;
 
   @override
   ConsumerState<_ExtraFanartSection> createState() =>
@@ -646,7 +689,39 @@ class _ExtraFanartSection extends ConsumerStatefulWidget {
 }
 
 class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
+  final ScrollController _previewController = ScrollController();
   bool _fetching = false;
+
+  @override
+  void dispose() {
+    _previewController.dispose();
+    super.dispose();
+  }
+
+  double _cardWidth(BuildContext context) {
+    return (MediaQuery.sizeOf(context).width * 0.72)
+        .clamp(220.0, 300.0)
+        .toDouble();
+  }
+
+  void _syncPreviewScroll(BuildContext context, int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_previewController.hasClients) return;
+      final cardWidth = _cardWidth(context);
+      final viewport = _previewController.position.viewportDimension;
+      final target = index * (cardWidth + 10) - (viewport - cardWidth) / 2;
+      final position = target
+          .clamp(0.0, _previewController.position.maxScrollExtent)
+          .toDouble();
+      unawaited(
+        _previewController.animateTo(
+          position,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    });
+  }
 
   Future<void> _fetchExtraFanarts() async {
     if (_fetching || !widget.canFetch) return;
@@ -657,9 +732,9 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
           .downloadExtraFanarts(widget.movieId);
       if (!mounted) return;
       ref.invalidate(extraFanartsProvider(widget.movieId));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('预览图获取完成')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('预览图获取完成')));
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -673,9 +748,7 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
   Widget _header(BuildContext context, {required bool hasImages}) {
     return Row(
       children: [
-        Expanded(
-          child: Text('预览图', style: AppText.sectionTitle(context)),
-        ),
+        Expanded(child: Text('预览图', style: AppText.sectionTitle(context))),
         if (widget.canFetch)
           TextButton.icon(
             onPressed: _fetching ? null : _fetchExtraFanarts,
@@ -712,38 +785,72 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
     );
   }
 
+  Widget _trailerOnlyPreview(BuildContext context) {
+    final cardWidth = _cardWidth(context);
+    final cardHeight = cardWidth * 9 / 16;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _header(context, hasImages: true),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: cardHeight,
+            child: SizedBox(
+              width: cardWidth,
+              child: _TrailerThumbnail(
+                onTap: () =>
+                    unawaited(_openViewer(context, const <String>[], 0)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(extraFanartsProvider(widget.movieId));
     return async.when(
-      loading: () => Padding(
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _header(context, hasImages: false),
-            const SizedBox(height: 12),
-            _emptyState(context, '正在加载预览图', Icons.hourglass_empty_rounded),
-          ],
-        ),
-      ),
-      error: (error, _) => Padding(
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _header(context, hasImages: false),
-            const SizedBox(height: 12),
-            _emptyState(
-              context,
-              '预览图加载失败: ${toApiException(error).message}',
-              Icons.broken_image_outlined,
+      loading: () => widget.trailerUrl != null
+          ? _trailerOnlyPreview(context)
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _header(context, hasImages: false),
+                  const SizedBox(height: 12),
+                  _emptyState(
+                    context,
+                    '正在加载预览图',
+                    Icons.hourglass_empty_rounded,
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
+      error: (error, _) => widget.trailerUrl != null
+          ? _trailerOnlyPreview(context)
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _header(context, hasImages: false),
+                  const SizedBox(height: 12),
+                  _emptyState(
+                    context,
+                    '预览图加载失败: ${toApiException(error).message}',
+                    Icons.broken_image_outlined,
+                  ),
+                ],
+              ),
+            ),
       data: (urls) {
-        if (urls.isEmpty) {
+        final hasTrailer = widget.trailerUrl != null;
+        if (!hasTrailer && urls.isEmpty) {
           return Padding(
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
             child: Column(
@@ -757,10 +864,9 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
           );
         }
 
-        final cardWidth = (MediaQuery.sizeOf(context).width * 0.72)
-            .clamp(220.0, 300.0)
-            .toDouble();
+        final cardWidth = _cardWidth(context);
         final cardHeight = cardWidth * 9 / 16;
+        final itemCount = urls.length + (hasTrailer ? 1 : 0);
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
@@ -772,11 +878,24 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
               SizedBox(
                 height: cardHeight,
                 child: ListView.separated(
+                  controller: _previewController,
                   scrollDirection: Axis.horizontal,
-                  itemCount: urls.length,
+                  itemCount: itemCount,
                   separatorBuilder: (_, __) => const SizedBox(width: 10),
                   itemBuilder: (context, index) {
-                    final url = urls[index];
+                    if (hasTrailer && index == 0) {
+                      return SizedBox(
+                        width: cardWidth,
+                        child: _TrailerThumbnail(
+                          onTap: () {
+                            unawaited(_openViewer(context, urls, 0));
+                          },
+                        ),
+                      );
+                    }
+
+                    final imageIndex = index - (hasTrailer ? 1 : 0);
+                    final url = urls[imageIndex];
                     return SizedBox(
                       width: cardWidth,
                       child: Material(
@@ -794,7 +913,9 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
                               child: SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                             ),
                             errorWidget: (_, __, ___) => Icon(
@@ -821,6 +942,7 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
     List<String> urls,
     int initialIndex,
   ) {
+    _syncPreviewScroll(context, initialIndex);
     return showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -829,17 +951,82 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
       barrierColor: Colors.transparent,
       pageBuilder: (_, __, ___) => _ExtraFanartViewer(
         urls: urls,
+        trailerUrl: widget.trailerUrl,
         initialIndex: initialIndex,
+        onPageChanged: (index) => _syncPreviewScroll(context, index),
+      ),
+    );
+  }
+}
+
+class _TrailerThumbnail extends StatelessWidget {
+  const _TrailerThumbnail({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final l = AppL10n.of(context);
+    return Material(
+      color: c.surfaceAlt,
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [c.surfaceAlt, c.surface],
+            ),
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Center(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: c.accent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Icon(Icons.play_arrow_rounded, size: 24),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 12,
+                bottom: 10,
+                child: Text(
+                  l.detailTrailer,
+                  style: AppText.body(
+                    context,
+                  ).copyWith(color: c.text, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
 class _ExtraFanartViewer extends StatefulWidget {
-  const _ExtraFanartViewer({required this.urls, required this.initialIndex});
+  const _ExtraFanartViewer({
+    required this.urls,
+    required this.trailerUrl,
+    required this.initialIndex,
+    required this.onPageChanged,
+  });
 
   final List<String> urls;
+  final String? trailerUrl;
   final int initialIndex;
+  final ValueChanged<int> onPageChanged;
 
   @override
   State<_ExtraFanartViewer> createState() => _ExtraFanartViewerState();
@@ -856,6 +1043,12 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
   bool _isClosing = false;
 
   static const _dragAnimationDuration = Duration(milliseconds: 220);
+
+  bool get _hasTrailer => widget.trailerUrl != null;
+
+  int get _itemCount => widget.urls.length + (_hasTrailer ? 1 : 0);
+
+  bool _isTrailerIndex(int index) => _hasTrailer && index == 0;
 
   @override
   void initState() {
@@ -932,8 +1125,9 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
     final delta = details.primaryDelta ?? 0;
     setState(() {
       // 只允许向下退出，向上拖动时保持在原位，避免灯箱被拖出屏幕顶部。
-      _verticalDragOffset =
-          (_verticalDragOffset + delta).clamp(0.0, double.infinity).toDouble();
+      _verticalDragOffset = (_verticalDragOffset + delta)
+          .clamp(0.0, double.infinity)
+          .toDouble();
     });
   }
 
@@ -941,8 +1135,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
     if (_isClosing || _isZoomed(_index)) return;
     final height = MediaQuery.sizeOf(context).height;
     final velocity = details.primaryVelocity ?? 0;
-    final shouldClose =
-        _verticalDragOffset > height * 0.2 || velocity > 700;
+    final shouldClose = _verticalDragOffset > height * 0.2 || velocity > 700;
 
     if (shouldClose) {
       setState(() {
@@ -975,8 +1168,9 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
   @override
   Widget build(BuildContext context) {
     final height = MediaQuery.sizeOf(context).height;
-    final dragProgress =
-        (_verticalDragOffset / height).clamp(0.0, 1.0).toDouble();
+    final dragProgress = (_verticalDragOffset / height)
+        .clamp(0.0, 1.0)
+        .toDouble();
     final animationDuration = _isDragging
         ? Duration.zero
         : _dragAnimationDuration;
@@ -1000,11 +1194,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
             child: AnimatedContainer(
               duration: animationDuration,
               curve: Curves.easeOutCubic,
-              transform: Matrix4.translationValues(
-                0,
-                _verticalDragOffset,
-                0,
-              ),
+              transform: Matrix4.translationValues(0, _verticalDragOffset, 0),
               child: SafeArea(
                 child: Stack(
                   fit: StackFit.expand,
@@ -1014,56 +1204,73 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
                       physics: _isZoomed(_index)
                           ? const NeverScrollableScrollPhysics()
                           : null,
-                      itemCount: widget.urls.length,
+                      itemCount: _itemCount,
                       onPageChanged: (value) {
                         _resetImageTransform(_index);
                         setState(() => _index = value);
+                        widget.onPageChanged(value);
                       },
                       itemBuilder: (context, index) {
-                        final imageController = _imageControllerFor(index);
-                        final isZoomed = _isZoomed(index);
+                        final isTrailer = _isTrailerIndex(index);
+                        final imageController = isTrailer
+                            ? null
+                            : _imageControllerFor(index);
+                        final isZoomed = !isTrailer && _isZoomed(index);
                         return GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: _close,
+                          onTap: isTrailer ? null : _close,
                           onVerticalDragStart: isZoomed
                               ? null
                               : (_) => _startVerticalDrag(),
-                          onVerticalDragUpdate:
-                              isZoomed ? null : _updateVerticalDrag,
+                          onVerticalDragUpdate: isZoomed
+                              ? null
+                              : _updateVerticalDrag,
                           onVerticalDragEnd: isZoomed ? null : _endVerticalDrag,
-                          onVerticalDragCancel:
-                              isZoomed ? null : _cancelVerticalDrag,
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              return InteractiveViewer(
-                                transformationController: imageController,
-                                minScale: 1,
-                                maxScale: 6,
-                                panEnabled: isZoomed,
-                                scaleEnabled: true,
-                                constrained: false,
-                                boundaryMargin: const EdgeInsets.all(100000),
-                                clipBehavior: Clip.none,
-                                child: SizedBox(
-                                  width: constraints.maxWidth,
-                                  height: constraints.maxHeight,
-                                  child: Center(
-                                    child: CachedNetworkImage(
-                                      imageUrl: widget.urls[index],
-                                      fit: BoxFit.contain,
-                                      placeholder: (_, __) =>
-                                          const CircularProgressIndicator(),
-                                      errorWidget: (_, __, ___) => const Icon(
-                                        Icons.broken_image_outlined,
-                                        color: Colors.white54,
-                                        size: 48,
+                          onVerticalDragCancel: isZoomed
+                              ? null
+                              : _cancelVerticalDrag,
+                          child: isTrailer
+                              ? _TrailerViewer(
+                                  url: widget.trailerUrl!,
+                                  active: index == _index,
+                                )
+                              : LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final imageIndex =
+                                        index - (_hasTrailer ? 1 : 0);
+                                    return InteractiveViewer(
+                                      transformationController:
+                                          imageController!,
+                                      minScale: 1,
+                                      maxScale: 6,
+                                      panEnabled: isZoomed,
+                                      scaleEnabled: true,
+                                      constrained: false,
+                                      boundaryMargin: const EdgeInsets.all(
+                                        100000,
                                       ),
-                                    ),
-                                  ),
+                                      clipBehavior: Clip.none,
+                                      child: SizedBox(
+                                        width: constraints.maxWidth,
+                                        height: constraints.maxHeight,
+                                        child: Center(
+                                          child: CachedNetworkImage(
+                                            imageUrl: widget.urls[imageIndex],
+                                            fit: BoxFit.contain,
+                                            placeholder: (_, __) =>
+                                                const CircularProgressIndicator(),
+                                            errorWidget: (_, __, ___) =>
+                                                const Icon(
+                                                  Icons.broken_image_outlined,
+                                                  color: Colors.white54,
+                                                  size: 48,
+                                                ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                              );
-                            },
-                          ),
                         );
                       },
                     ),
@@ -1079,7 +1286,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
                         ),
                       ),
                     ),
-                    if (widget.urls.length > 1)
+                    if (_itemCount > 1)
                       Positioned(
                         left: 0,
                         right: 0,
@@ -1096,7 +1303,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
                                 vertical: 6,
                               ),
                               child: Text(
-                                '${_index + 1} / ${widget.urls.length}',
+                                '${_index + 1} / $_itemCount',
                                 style: const TextStyle(color: Colors.white),
                               ),
                             ),
@@ -1110,6 +1317,170 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TrailerViewer extends StatefulWidget {
+  const _TrailerViewer({required this.url, required this.active});
+
+  final String url;
+  final bool active;
+
+  @override
+  State<_TrailerViewer> createState() => _TrailerViewerState();
+}
+
+class _TrailerViewerState extends State<_TrailerViewer> {
+  late final Player _player;
+  late final VideoController _videoController;
+  bool _opened = false;
+  bool _opening = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _player = Player();
+    _videoController = VideoController(_player);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrailerViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active && !widget.active && _opened) {
+      unawaited(_player.pause());
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_player.dispose());
+    super.dispose();
+  }
+
+  Future<void> _startPlayback() async {
+    if (_opening) return;
+    if (_opened) {
+      await _player.play();
+      return;
+    }
+
+    setState(() {
+      _opening = true;
+      _error = null;
+    });
+    try {
+      await _player.open(Media(widget.url), play: true);
+      if (mounted) {
+        setState(() => _opened = true);
+        if (!widget.active) await _player.pause();
+      }
+    } catch (_) {
+      if (mounted) setState(() => _error = '预告片播放失败');
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
+
+  Future<void> _togglePlayback() async {
+    if (!_opened) {
+      await _startPlayback();
+      return;
+    }
+    await _player.playOrPause();
+  }
+
+  Widget _playButton(BuildContext context, {required bool loading}) {
+    final l = AppL10n.of(context);
+    return Semantics(
+      button: true,
+      label: loading ? l.detailTrailer : l.detailPlay,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.9),
+          shape: BoxShape.circle,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(9),
+          child: loading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.black87,
+                  size: 28,
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _initialStage(BuildContext context) {
+    final c = appColors(context);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [c.surfaceAlt, Colors.black],
+            ),
+          ),
+        ),
+        Center(child: _playButton(context, loading: _opening)),
+        if (_error != null)
+          Positioned(
+            left: 24,
+            right: 24,
+            bottom: 48,
+            child: Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_opened) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _startPlayback,
+        child: _initialStage(context),
+      );
+    }
+
+    return StreamBuilder<bool>(
+      stream: _player.stream.playing,
+      initialData: _player.state.playing,
+      builder: (context, snapshot) {
+        final isPlaying = snapshot.data ?? false;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _togglePlayback,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Video(
+                controller: _videoController,
+                controls: NoVideoControls,
+                fit: BoxFit.contain,
+              ),
+              if (!isPlaying || _opening)
+                Center(child: _playButton(context, loading: _opening)),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -1150,42 +1521,42 @@ class _CastSection extends StatelessWidget {
                     ),
                     borderRadius: BorderRadius.circular(12),
                     child: Column(
-                    children: [
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppHues.top(hue).withValues(alpha: 0.35),
-                              blurRadius: 16,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                      children: [
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppHues.top(hue).withValues(alpha: 0.35),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ActorAvatar(
+                            actorId: a.id,
+                            name: a.name,
+                            hue: hue,
+                            size: 76,
+                            avatarPath: a.avatarPath,
+                          ),
                         ),
-                        child: ActorAvatar(
-                          actorId: a.id,
-                          name: a.name,
-                          hue: hue,
-                          size: 76,
-                          avatarPath: a.avatarPath,
+                        const SizedBox(height: 8),
+                        Text(
+                          a.name,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: c.text,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11.5,
+                            height: 1.2,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        a.name,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: c.text,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11.5,
-                          height: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -1195,7 +1566,6 @@ class _CastSection extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _ActorRelatedMoviesSection extends StatelessWidget {
@@ -1213,8 +1583,7 @@ class _ActorRelatedMoviesSection extends StatelessWidget {
       final isCurrentMovie = item.id == movie.id;
       final isPartMovie = item.moviePart?.trim().isNotEmpty == true;
       return !isCurrentMovie && !isPartMovie && seen.add(item.id);
-    }).toList()
-      ..shuffle(Random(movie.id));
+    }).toList()..shuffle(Random(movie.id));
     return candidates.take(5).toList(growable: false);
   }
 
@@ -1254,9 +1623,10 @@ class _ActorRelatedMoviesSection extends StatelessWidget {
               const crossAxisSpacing = 10.0;
               const childAspectRatio = 0.55;
               final cardWidth =
-                  (constraints.maxWidth - horizontalPadding -
-                          crossAxisSpacing * (columns - 1)) /
-                      columns;
+                  (constraints.maxWidth -
+                      horizontalPadding -
+                      crossAxisSpacing * (columns - 1)) /
+                  columns;
               return SizedBox(
                 height: cardWidth / childAspectRatio,
                 child: ListView.separated(
@@ -1273,7 +1643,8 @@ class _ActorRelatedMoviesSection extends StatelessWidget {
                         posterUrlBuilder: urlBuilder,
                         onTap: () => Navigator.of(ctx).push(
                           MaterialPageRoute(
-                            builder: (_) => MovieDetailPage(movieId: related.id),
+                            builder: (_) =>
+                                MovieDetailPage(movieId: related.id),
                           ),
                         ),
                       ),
@@ -1322,10 +1693,7 @@ class _TaxonomySection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: AppText.sectionTitle(context),
-          ),
+          Text(label, style: AppText.sectionTitle(context)),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -1426,7 +1794,10 @@ class _DetailsTable extends ConsumerWidget {
       rows.add(['产地', movie.country!]);
     }
     // 时长优先用媒体探测结果，缺失时回退 NFO 元数据 runtime
-    final durationSec = ref.watch(mediaInfoProvider(movie.id)).value?.durationSec;
+    final durationSec = ref
+        .watch(mediaInfoProvider(movie.id))
+        .value
+        ?.durationSec;
     if (durationSec != null && durationSec > 0) {
       rows.add(['时长', _formatDurationSec(durationSec)]);
     } else if (movie.runtime != null && movie.runtime! > 0) {
@@ -1479,7 +1850,9 @@ class _DetailsTable extends ConsumerWidget {
                       rows[i][1],
                       style: TextStyle(
                         color: c.text,
-                        fontFamily: rows[i][0] == 'File' ? 'monospace' : 'Inter',
+                        fontFamily: rows[i][0] == 'File'
+                            ? 'monospace'
+                            : 'Inter',
                         fontWeight: FontWeight.w600,
                         fontSize: rows[i][0] == 'File' ? 11.5 : 13.5,
                         height: 1.4,
@@ -1622,10 +1995,7 @@ class _MoreMenuButton extends ConsumerWidget {
             await ThunderSubtitleSheet.show(context, movie.id);
             break;
           case 'resources':
-            await ResourcesSheet.show(
-              context,
-              movie: movie,
-            );
+            await ResourcesSheet.show(context, movie: movie);
             break;
           case 'dbo_meta':
             await DboDiffSheet.show(context, movie);
@@ -1636,8 +2006,7 @@ class _MoreMenuButton extends ConsumerWidget {
               ref,
               title: '同步到 NFO',
               message: '把当前元数据写入磁盘 NFO 文件?',
-              run: () =>
-                  ref.read(moviesRepositoryProvider).syncNfo(movie.id),
+              run: () => ref.read(moviesRepositoryProvider).syncNfo(movie.id),
               successMsg: '已同步到 NFO',
             );
             break;
@@ -1662,74 +2031,74 @@ class _MoreMenuButton extends ConsumerWidget {
   }
 
   List<GlassMenuEntry<String>> _movieMoreEntries(AppColors c) => [
-        GlassMenuEntry<String>.action(
-          value: 'edit',
-          builder: (context, selected, onTap) => GlassMenuRow(
-            icon: Icons.edit_outlined,
-            label: '编辑影片',
-            selected: selected,
-            onTap: onTap,
-          ),
-        ),
-        GlassMenuEntry<String>.action(
-          value: 'subtitle',
-          builder: (context, selected, onTap) => GlassMenuRow(
-            icon: Icons.subtitles_outlined,
-            label: '下载字幕',
-            selected: selected,
-            onTap: onTap,
-          ),
-        ),
-        GlassMenuEntry<String>.divider(dividerColor: c.divider),
-        GlassMenuEntry<String>.action(
-          value: 'dbo_meta',
-          builder: (context, selected, onTap) => GlassMenuRow(
-            icon: Icons.cloud_download_outlined,
-            label: '获取元数据',
-            selected: selected,
-            onTap: onTap,
-          ),
-        ),
-        GlassMenuEntry<String>.action(
-          value: 'resources',
-          builder: (context, selected, onTap) => GlassMenuRow(
-            icon: Icons.link,
-            label: '获取在线资源',
-            selected: selected,
-            onTap: onTap,
-          ),
-        ),
-        GlassMenuEntry<String>.divider(dividerColor: c.divider),
-        GlassMenuEntry<String>.action(
-          value: 'sync_nfo',
-          builder: (context, selected, onTap) => GlassMenuRow(
-            icon: Icons.upload_outlined,
-            label: '同步到 NFO',
-            selected: selected,
-            onTap: onTap,
-          ),
-        ),
-        GlassMenuEntry<String>.action(
-          value: 'refresh_nfo',
-          builder: (context, selected, onTap) => GlassMenuRow(
-            icon: Icons.refresh,
-            label: '从 NFO 重载',
-            selected: selected,
-            onTap: onTap,
-          ),
-        ),
-        GlassMenuEntry<String>.divider(dividerColor: c.divider),
-        GlassMenuEntry<String>.action(
-          value: 'delete',
-          builder: (context, selected, onTap) => GlassMenuRow(
-            icon: Icons.delete_outline,
-            label: '删除',
-            foregroundColor: c.danger,
-            selected: selected,
-            onTap: onTap,
-          ),
-        ),
-      ];
+    GlassMenuEntry<String>.action(
+      value: 'edit',
+      builder: (context, selected, onTap) => GlassMenuRow(
+        icon: Icons.edit_outlined,
+        label: '编辑影片',
+        selected: selected,
+        onTap: onTap,
+      ),
+    ),
+    GlassMenuEntry<String>.action(
+      value: 'subtitle',
+      builder: (context, selected, onTap) => GlassMenuRow(
+        icon: Icons.subtitles_outlined,
+        label: '下载字幕',
+        selected: selected,
+        onTap: onTap,
+      ),
+    ),
+    GlassMenuEntry<String>.divider(dividerColor: c.divider),
+    GlassMenuEntry<String>.action(
+      value: 'dbo_meta',
+      builder: (context, selected, onTap) => GlassMenuRow(
+        icon: Icons.cloud_download_outlined,
+        label: '获取元数据',
+        selected: selected,
+        onTap: onTap,
+      ),
+    ),
+    GlassMenuEntry<String>.action(
+      value: 'resources',
+      builder: (context, selected, onTap) => GlassMenuRow(
+        icon: Icons.link,
+        label: '获取在线资源',
+        selected: selected,
+        onTap: onTap,
+      ),
+    ),
+    GlassMenuEntry<String>.divider(dividerColor: c.divider),
+    GlassMenuEntry<String>.action(
+      value: 'sync_nfo',
+      builder: (context, selected, onTap) => GlassMenuRow(
+        icon: Icons.upload_outlined,
+        label: '同步到 NFO',
+        selected: selected,
+        onTap: onTap,
+      ),
+    ),
+    GlassMenuEntry<String>.action(
+      value: 'refresh_nfo',
+      builder: (context, selected, onTap) => GlassMenuRow(
+        icon: Icons.refresh,
+        label: '从 NFO 重载',
+        selected: selected,
+        onTap: onTap,
+      ),
+    ),
+    GlassMenuEntry<String>.divider(dividerColor: c.divider),
+    GlassMenuEntry<String>.action(
+      value: 'delete',
+      builder: (context, selected, onTap) => GlassMenuRow(
+        icon: Icons.delete_outline,
+        label: '删除',
+        foregroundColor: c.danger,
+        selected: selected,
+        onTap: onTap,
+      ),
+    ),
+  ];
 
   Future<void> _confirmAndRun(
     BuildContext context,
@@ -1747,11 +2116,13 @@ class _MoreMenuButton extends ConsumerWidget {
         content: Text(message),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('确定')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('确定'),
+          ),
         ],
       ),
     );
@@ -1759,10 +2130,12 @@ class _MoreMenuButton extends ConsumerWidget {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await run();
-      messenger.showSnackBar(SnackBar(
-        content: Text(successMsg),
-        duration: const Duration(seconds: 1),
-      ));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(successMsg),
+          duration: const Duration(seconds: 1),
+        ),
+      );
       if (refreshDetail) {
         // ignore: unused_result
         ref.refresh(movieDetailProvider(movie.id));
@@ -1773,6 +2146,7 @@ class _MoreMenuButton extends ConsumerWidget {
       );
     }
   }
+
   Future<void> _confirmDelete(
     BuildContext context,
     WidgetRef ref,
@@ -1787,11 +2161,13 @@ class _MoreMenuButton extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('删除')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
         ],
       ),
     );
@@ -1800,10 +2176,9 @@ class _MoreMenuButton extends ConsumerWidget {
     final nav = Navigator.of(context);
     try {
       await ref.read(moviesRepositoryProvider).deleteMovie(movie.id);
-      messenger.showSnackBar(const SnackBar(
-        content: Text('已删除'),
-        duration: Duration(seconds: 1),
-      ));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('已删除'), duration: Duration(seconds: 1)),
+      );
       // 返回上一页
       nav.popUntil((r) => r.isFirst);
     } catch (e) {

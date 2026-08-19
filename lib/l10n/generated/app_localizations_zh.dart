@@ -209,6 +209,9 @@ class AppL10nZh extends AppL10n {
   String get detailAddList => '+ 集合';
 
   @override
+  String get detailTrailer => '预告片';
+
+  @override
   String get detailCast => '演员';
 
   @override

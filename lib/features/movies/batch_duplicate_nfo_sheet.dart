@@ -42,17 +42,47 @@ class _BatchDuplicateNfoCompareSheetState
     _load();
   }
 
+  List<Map<String, dynamic>> _visibleScalarFields(
+    List<Map<String, dynamic>> fields,
+  ) {
+    final visible = <Map<String, dynamic>>[];
+    for (final field in fields) {
+      final fieldName = (field['field'] ?? '').toString();
+      final rawOptions = field['options'];
+      final options = rawOptions is List
+          ? rawOptions
+                .whereType<Map>()
+                .map((option) => Map<String, dynamic>.from(option))
+                .toList()
+          : const <Map<String, dynamic>>[];
+      final seenValues = <String>{};
+      final uniqueOptions = <Map<String, dynamic>>[];
+      for (final option in options) {
+        if (seenValues.add(_scalarValueKey(fieldName, option['value']))) {
+          uniqueOptions.add(option);
+        }
+      }
+      if (uniqueOptions.length <= 1) continue;
+
+      final normalizedField = Map<String, dynamic>.from(field);
+      normalizedField['options'] = uniqueOptions;
+      visible.add(normalizedField);
+    }
+    return visible;
+  }
+
   Future<void> _load() async {
     try {
       final data = await ref
           .read(moviesRepositoryProvider)
           .compareDuplicateNfo(widget.movieIds);
       if (!mounted) return;
-      final scalarFields = (data['scalar_fields'] as List?)
+      final rawScalarFields = (data['scalar_fields'] as List?)
               ?.whereType<Map>()
               .map((e) => Map<String, dynamic>.from(e))
               .toList() ??
           const <Map<String, dynamic>>[];
+      final scalarFields = _visibleScalarFields(rawScalarFields);
       final movies = (data['movies'] as List?)
               ?.whereType<Map>()
               .map((e) => Map<String, dynamic>.from(e))
@@ -66,7 +96,7 @@ class _BatchDuplicateNfoCompareSheetState
         dynamic chosen;
         for (final opt in options.whereType<Map>()) {
           final v = opt['value'];
-          if (v != null && v.toString().isNotEmpty) {
+          if (_scalarValueKey(fieldName, v).isNotEmpty) {
             chosen = v;
             break;
           }
@@ -271,6 +301,7 @@ class _FieldCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final fieldName = (field['field'] ?? '').toString();
     final label = (field['label'] ?? field['field'] ?? '').toString();
     final options = (field['options'] as List?) ?? const [];
     return Container(
@@ -295,8 +326,7 @@ class _FieldCard extends StatelessWidget {
           for (final opt in options.whereType<Map>())
             _ScalarOption(
               option: Map<String, dynamic>.from(opt),
-              selected:
-                  _valEquals(selectedValue, opt['value']),
+              selected: _valEquals(fieldName, selectedValue, opt['value']),
               onTap: () => onSelect(opt['value']),
               movieLabel: movieLabel,
             ),
@@ -305,10 +335,8 @@ class _FieldCard extends StatelessWidget {
     );
   }
 
-  static bool _valEquals(dynamic a, dynamic b) {
-    if (a == null && b == null) return true;
-    if (a == null || b == null) return false;
-    return a.toString() == b.toString();
+  static bool _valEquals(String fieldName, dynamic a, dynamic b) {
+    return _scalarValueKey(fieldName, a) == _scalarValueKey(fieldName, b);
   }
 }
 
@@ -329,69 +357,88 @@ class _ScalarOption extends StatelessWidget {
     final c = appColors(context);
     final movieId = (option['movie_id'] as num?)?.toInt();
     final value = option['value'];
-    final display = (value == null || value.toString().isEmpty)
-        ? '(空)'
-        : value.toString();
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: selected ? c.accent.withValues(alpha: 0.12) : c.bg,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected
-                ? c.accent.withValues(alpha: 0.5)
-                : c.cardBorder,
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              selected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
-              color: selected ? c.accent : c.muted,
-              size: 16,
+    final displayValue = value?.toString().trim() ?? '';
+    final display = displayValue.isEmpty ? '(空)' : displayValue;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        clipBehavior: Clip.antiAlias,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: selected ? c.accent.withValues(alpha: 0.12) : c.bg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected ? c.accent.withValues(alpha: 0.5) : c.cardBorder,
+              width: 1,
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
+          ),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (movieId != null)
-                    Text(
-                      movieLabel(movieId),
-                      style: TextStyle(
-                        color: c.muted,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 10.5,
-                      ),
+                  Icon(
+                    selected
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    color: selected ? c.accent : c.muted,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (movieId != null)
+                          Text(
+                            movieLabel(movieId),
+                            style: TextStyle(
+                              color: c.muted,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        const SizedBox(height: 3),
+                        Text(
+                          display,
+                          style: TextStyle(
+                            color: c.text,
+                            fontFamily: 'Inter',
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
+                          ),
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
-                  const SizedBox(height: 3),
-                  Text(
-                    display,
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      height: 1.4,
-                    ),
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
+}
+
+const _numericScalarFields = {'rating', 'runtime', 'year', 'duration'};
+
+String _scalarValueKey(String fieldName, dynamic value) {
+  final text = (value?.toString() ?? '').replaceAll('\r\n', '\n').trim();
+  if (text.isEmpty) return '';
+
+  if (_numericScalarFields.contains(fieldName)) {
+    final number = num.tryParse(text);
+    if (number != null) return 'number:${number.toDouble()}';
+  }
+  return 'text:$text';
 }

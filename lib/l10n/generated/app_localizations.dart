@@ -469,6 +469,12 @@ abstract class AppL10n {
   /// **'+ 集合'**
   String get detailAddList;
 
+  /// No description provided for @detailTrailer.
+  ///
+  /// In zh, this message translates to:
+  /// **'预告片'**
+  String get detailTrailer;
+
   /// No description provided for @detailCast.
   ///
   /// In zh, this message translates to:

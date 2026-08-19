@@ -209,6 +209,9 @@ class AppL10nEn extends AppL10n {
   String get detailAddList => '+ List';
 
   @override
+  String get detailTrailer => 'Trailer';
+
+  @override
   String get detailCast => 'Cast';
 
   @override
