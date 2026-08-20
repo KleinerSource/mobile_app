@@ -216,7 +216,7 @@ class _DetailBody extends ConsumerWidget {
             movieTitle: movie.title,
             canFetch: movie.num?.trim().isNotEmpty == true,
             trailerUrl: _trailerUrl(movie),
-            posterUrl: _posterUrl(movie, urlBuilder),
+            posterUrl: _trailerPosterUrl(movie, urlBuilder),
           ),
         ),
         if (movie.actors.isNotEmpty)
@@ -279,9 +279,19 @@ String? _trailerUrl(MovieDetail movie) {
   return uri.toString();
 }
 
-String? _posterUrl(MovieDetail movie, String Function(String) urlBuilder) {
-  final uuid = movie.posterUuid?.trim() ?? '';
-  return uuid.isEmpty ? null : urlBuilder(uuid);
+String? _trailerPosterUrl(
+  MovieDetail movie,
+  String Function(String) urlBuilder,
+) {
+  for (final candidate in [
+    movie.fanartUuid,
+    movie.thumbUuid,
+    movie.posterUuid,
+  ]) {
+    final uuid = candidate?.trim() ?? '';
+    if (uuid.isNotEmpty) return urlBuilder(uuid);
+  }
+  return null;
 }
 
 class _HeroHeader extends ConsumerWidget {
@@ -295,15 +305,21 @@ class _HeroHeader extends ConsumerWidget {
     // fanart fallback poster fallback thumb
     final heroUuid = movie.fanartUuid?.isNotEmpty == true
         ? movie.fanartUuid
-        : (movie.posterUuid?.isNotEmpty == true ? movie.posterUuid : null);
+        : (movie.posterUuid?.isNotEmpty == true
+            ? movie.posterUuid
+            : (movie.thumbUuid?.isNotEmpty == true ? movie.thumbUuid : null));
 
     // 技术徽章(编码/HDR/字幕/破解/UHD...)基于媒体探测 + 文件名后缀
-    final video = ref.watch(mediaInfoProvider(movie.id)).value?.streams.video;
+    final mediaInfo = ref.watch(mediaInfoProvider(movie.id)).value;
+    final video = mediaInfo?.streams.video;
     final badgeVisibility = ref.watch(posterBadgeVisibilityProvider);
     final badges = buildCoverBadges(
       filePath: movie.filePath,
       fileSize: movie.fileSize,
       video: video,
+      hasExternalSubtitle: movie.hasExternalSubtitle,
+      hasEmbeddedSubtitle:
+          mediaInfo?.streams.subtitleStreams.isNotEmpty == true,
     ).where((badge) => badgeVisibility.isEnabled(badge.kind)).toList();
 
     return Stack(

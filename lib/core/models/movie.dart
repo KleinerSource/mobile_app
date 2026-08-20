@@ -163,6 +163,7 @@ abstract class MovieDetail with _$MovieDetail {
     @JsonKey(name: 'movie_part') String? moviePart,
     @JsonKey(name: 'poster_uuid') String? posterUuid,
     @JsonKey(name: 'fanart_uuid') String? fanartUuid,
+    @JsonKey(name: 'thumb_uuid') String? thumbUuid,
     @JsonKey(name: 'has_external_subtitle') @Default(false) bool hasExternalSubtitle,
     @JsonKey(name: 'is_favorited') @Default(false) bool isFavorited,
     @Default(<ResourceItem>[]) List<ResourceItem> tags,

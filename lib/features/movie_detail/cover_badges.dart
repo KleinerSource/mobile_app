@@ -47,11 +47,13 @@ String _fileNameStem(String? filePath) {
 }
 
 /// 组合文件名后缀 + 媒体探测结果生成封面徽章(与 Web 端 useCoverBadges 对齐):
-/// 编码 / HDR / STRM / 内嵌字幕 / 破解 / UHD / HD，无数据的项自动省略。
+/// 编码 / HDR / STRM / 外挂字幕 / 内嵌字幕 / 破解 / UHD / HD，无数据的项自动省略。
 List<CoverBadgeSpec> buildCoverBadges({
   String? filePath,
   int? fileSize,
   VideoStreamInfo? video,
+  bool hasExternalSubtitle = false,
+  bool hasEmbeddedSubtitle = false,
 }) {
   final badges = <CoverBadgeSpec>[];
 
@@ -113,9 +115,19 @@ List<CoverBadgeSpec> buildCoverBadges({
     ));
   }
 
-  if (stem.isNotEmpty &&
-      (_kEmbeddedSubtitleRegex.hasMatch(stem) ||
-          _kCrackWithSubRegex.hasMatch(stem))) {
+  if (hasExternalSubtitle) {
+    badges.add(const CoverBadgeSpec(
+      PosterBadgeKind.subtitle,
+      '字幕',
+      Color(0xFFFF9F1C),
+      '外挂字幕',
+    ));
+  }
+
+  if (hasEmbeddedSubtitle ||
+      (stem.isNotEmpty &&
+          (_kEmbeddedSubtitleRegex.hasMatch(stem) ||
+              _kCrackWithSubRegex.hasMatch(stem)))) {
     badges.add(const CoverBadgeSpec(
       PosterBadgeKind.subtitle,
       '字幕',
