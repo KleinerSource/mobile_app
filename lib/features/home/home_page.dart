@@ -24,6 +24,9 @@ import 'home_movie_view_state.dart';
 import 'recommend_carousel.dart';
 import 'server_switcher.dart';
 
+const _homeSectionGap = 24.0;
+const _homeSectionTitleGap = 14.0;
+
 /// md_center 首页 · 现代化半屏 hero 设计:
 /// - 背景为当前轮播封面的大模糊毛玻璃氛围层
 /// - hero 轮播满铺占半屏,上滑先收窄再推出,显出下方卡片
@@ -234,7 +237,12 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                 // -------- 3. Recently Added --------
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(22, 26, 22, 14),
+                  padding: const EdgeInsets.fromLTRB(
+                    22,
+                    _homeSectionGap,
+                    22,
+                    _homeSectionTitleGap,
+                  ),
                   sliver: SliverToBoxAdapter(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -363,21 +371,26 @@ class _ContinueWatchingSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardWidth =
-        (MediaQuery.sizeOf(context).width * 0.7).clamp(260.0, 520.0).toDouble();
+        (MediaQuery.sizeOf(context).width * 0.7)
+            .clamp(260.0, 520.0)
+            .toDouble() *
+        0.72;
+    final coverHeight = cardWidth / (16 / 10);
+    const titleAreaHeight = 60.0;
 
     return Padding(
       // 顶部间距与全出血 hero 衔接
-      padding: const EdgeInsets.fromLTRB(22, 26, 22, 28),
+      padding: const EdgeInsets.fromLTRB(22, 26, 22, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            AppL10n.of(context).homePickupTitle.toUpperCase(),
-            style: AppText.eyebrow(context),
+            AppL10n.of(context).homePickupTitle,
+            style: AppText.sectionTitle(context),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: _homeSectionTitleGap),
           SizedBox(
-            height: cardWidth / (16 / 10),
+            height: coverHeight + 8 + titleAreaHeight,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: items.length,
@@ -417,128 +430,149 @@ class _ContinueWatchingCard extends StatelessWidget {
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            PrivacyMask(
-              movieId: movie.id,
-              radius: 0,
-              child: Poster(
-                url: movie.fanartUuid != null
-                    ? urlBuilder(movie.fanartUuid!)
-                    : (movie.posterUuid != null
-                        ? urlBuilder(movie.posterUuid!)
-                        : null),
-                title: movie.title,
-                year: movie.year,
-                aspectRatio: 16 / 10,
-                radius: 0,
-              ),
-            ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.7),
-                    ],
-                    stops: const [0.4, 1.0],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 22,
-              right: 22,
-              bottom: 22,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: AspectRatio(
+              aspectRatio: 16 / 10,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  PrivacyText(
+                  PrivacyMask(
                     movieId: movie.id,
-                    text: (movie.seriesName ?? movie.title).toUpperCase(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xCCFFFFFF),
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                      letterSpacing: 1.1,
+                    radius: 0,
+                    child: Poster(
+                      url: movie.fanartUuid != null
+                          ? urlBuilder(movie.fanartUuid!)
+                          : (movie.posterUuid != null
+                                ? urlBuilder(movie.posterUuid!)
+                                : null),
+                      title: movie.title,
+                      year: movie.year,
+                      aspectRatio: 16 / 10,
+                      radius: 0,
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      ElevatedButton(
-                        onPressed: () => PlayerPage.open(
-                          context,
-                          movieId: movie.id,
-                          title: movie.title,
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.play_arrow, size: 18),
-                            const SizedBox(width: 4),
-                            Text(
-                              AppL10n.of(context).homeResume,
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                              ),
-                            ),
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.7),
                           ],
+                          stops: const [0.4, 1.0],
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(100),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            minHeight: 4,
-                            backgroundColor: Colors.white.withValues(alpha: 0.18),
-                            valueColor: AlwaysStoppedAnimation(c.accent),
+                    ),
+                  ),
+                  Positioned(
+                    left: 22,
+                    right: 22,
+                    bottom: 16,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Semantics(
+                                button: true,
+                                label: AppL10n.of(context).homeResume,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => PlayerPage.open(
+                                    context,
+                                    movieId: movie.id,
+                                    title: movie.title,
+                                  ),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(2),
+                                    child: Icon(
+                                      Icons.play_arrow_rounded,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (minutesLeft != null) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  AppL10n.of(
+                                    context,
+                                  ).homeMinutesLeft(minutesLeft),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                      ),
-                      if (minutesLeft != null) ...[
-                        const SizedBox(width: 10),
-                        Text(
-                          AppL10n.of(context).homeMinutesLeft(minutesLeft),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11,
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(100),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 4,
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.18,
+                              ),
+                              valueColor: AlwaysStoppedAnimation(c.accent),
+                            ),
                           ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          PrivacyText(
+            movieId: movie.id,
+            text: movie.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: c.text,
+              fontFamily: 'Inter',
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+            ),
+          ),
+          if (movie.year != null || movie.runtime != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                [
+                  if (movie.year != null) '${movie.year}',
+                  if (movie.runtime != null && movie.runtime! > 0)
+                    '${movie.runtime}m',
+                ].join(' · '),
+                style: TextStyle(
+                  color: c.muted,
+                  fontFamily: 'Inter',
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -626,7 +660,7 @@ class _CollectionsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
+      padding: const EdgeInsets.fromLTRB(22, _homeSectionGap, 22, 28),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final cardWidth = collectionCardWidth(constraints.maxWidth);

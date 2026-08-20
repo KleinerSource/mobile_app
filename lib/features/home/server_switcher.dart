@@ -12,7 +12,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/glass_menu.dart';
 import 'server_switch_transition.dart';
 
-/// 首页右上角的服务器切换入口，只显示服务器头像和名称，不暴露线路地址。
+/// 首页右上角的服务器切换入口，只显示服务器头像，不暴露线路地址。
 class HomeServerSwitcher extends ConsumerWidget {
   const HomeServerSwitcher({super.key});
 
@@ -121,18 +121,11 @@ class _HomeServerSwitcherMenuState
             scale: transition.isActive ? 0.94 : 1,
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ServerAvatar(
-                  displayName: displayName,
-                  avatarUrl: avatarUrl,
-                  size: 36,
-                  colors: colors,
-                ),
-                const SizedBox(width: 7),
-                Icon(Icons.expand_more_rounded, color: colors.muted, size: 19),
-              ],
+            child: _ServerAvatar(
+              displayName: displayName,
+              avatarUrl: avatarUrl,
+              size: 36,
+              colors: colors,
             ),
           ),
         );
