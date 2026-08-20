@@ -14,6 +14,25 @@ void main() {
     expect(movie.hasExternalSubtitle, isTrue);
   });
 
+  test('详情模型解析关联字幕文件', () {
+    final movie = MovieDetail.fromJson({
+      'id': 3,
+      'title': '关联字幕测试',
+      'has_external_subtitle': false,
+      'related_files': [
+        {
+          'type': 'subtitle',
+          'label': '字幕文件',
+          'path': '/movies/test.srt',
+        },
+      ],
+    });
+
+    expect(movie.hasExternalSubtitle, isFalse);
+    expect(movie.relatedFiles.single.type, 'subtitle');
+    expect(movie.relatedFiles.single.path, '/movies/test.srt');
+  });
+
   test('列表模型解析内嵌字幕和视频分辨率状态', () {
     final movie = MovieListItem.fromJson({
       'id': 2,

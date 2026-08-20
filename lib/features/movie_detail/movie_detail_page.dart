@@ -313,11 +313,17 @@ class _HeroHeader extends ConsumerWidget {
     final mediaInfo = ref.watch(mediaInfoProvider(movie.id)).value;
     final video = mediaInfo?.streams.video;
     final badgeVisibility = ref.watch(posterBadgeVisibilityProvider);
+    final hasExternalSubtitle = movie.hasExternalSubtitle ||
+        movie.relatedFiles.any(
+          (file) =>
+              file.type?.trim().toLowerCase() == 'subtitle' &&
+              file.path.trim().isNotEmpty,
+        );
     final badges = buildCoverBadges(
       filePath: movie.filePath,
       fileSize: movie.fileSize,
       video: video,
-      hasExternalSubtitle: movie.hasExternalSubtitle,
+      hasExternalSubtitle: hasExternalSubtitle,
       hasEmbeddedSubtitle:
           mediaInfo?.streams.subtitleStreams.isNotEmpty == true,
     ).where((badge) => badgeVisibility.isEnabled(badge.kind)).toList();
