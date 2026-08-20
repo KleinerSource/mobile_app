@@ -8,9 +8,10 @@ import '../../core/platform/app_theme.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../privacy/privacy_mask.dart';
 
-/// 首页 hero 轮播 · 现代化半屏全出血风格:
-/// - viewportFraction 1.0 满铺,高度由外层 SliverPersistentHeader 提供
-/// - 底部渐隐 + 大标题 + 信息胶囊叠加在封面之上,圆点指示器压底部
+/// 首页 hero 轮播 · 固定封面 + 信息层横向切换:
+/// - 封面固定在 viewport 内,切换时按垂直边缘直切,不随页面横向位移
+/// - 影片信息由透明 PageView 承载,保留左右滑动手势和信息切换
+/// - 底部渐隐 + 大标题 + 信息胶囊叠加在固定封面之上,圆点指示器压底部
 /// - 5 秒自动切换,虚拟页无限循环(取模映射首尾相连)
 /// - 通过 [pagePosition] 输出归一化连续页位,驱动氛围背景跟随滑动
 class RecommendCarousel extends StatefulWidget {
@@ -128,6 +129,8 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
     return Stack(
       fit: StackFit.expand,
       children: [
+        // 封面层不参与命中,只根据 PageController 的进度做固定位置的边缘裁切。
+        IgnorePointer(child: _buildCoverStage()),
         PageView.builder(
           controller: _controller,
           onPageChanged: (i) {
@@ -140,9 +143,8 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
           },
           itemBuilder: (ctx, i) {
             final m = widget.items[i % widget.items.length];
-            return _HeroCard(
+            return _HeroInfoCard(
               movie: m,
-              imageUrl: _hero(m),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => MovieDetailPage(movieId: m.id),
@@ -178,6 +180,28 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
     );
   }
 
+  Widget _buildCoverStage() {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final rawPage = _controller.hasClients
+            ? (_controller.page ?? _page.toDouble())
+            : _page.toDouble();
+        final basePage = rawPage.floor();
+        final progress = (rawPage - basePage).clamp(0.0, 1.0);
+        final current = widget.items[basePage % widget.items.length];
+        final next = widget.items[(basePage + 1) % widget.items.length];
+        return _HeroCoverStage(
+          current: current,
+          next: next,
+          currentImageUrl: _hero(current),
+          nextImageUrl: _hero(next),
+          progress: progress,
+        );
+      },
+    );
+  }
+
   int _initialPage(int length) {
     if (length <= 0) return 0;
     return _initialPageBase - (_initialPageBase % length);
@@ -195,16 +219,104 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
   }
 }
 
-/// 单页 hero · 满铺封面 + 底部渐隐 + 番号/评分胶囊 + 大标题
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({
-    required this.movie,
-    required this.imageUrl,
-    required this.onTap,
+/// 固定封面层 · 当前封面与下一张封面按垂直边缘直切
+class _HeroCoverStage extends StatelessWidget {
+  const _HeroCoverStage({
+    required this.current,
+    required this.next,
+    required this.currentImageUrl,
+    required this.nextImageUrl,
+    required this.progress,
   });
+
+  final MovieListItem current;
+  final MovieListItem next;
+  final String? currentImageUrl;
+  final String? nextImageUrl;
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final split = 1 - progress;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _HeroCover(movie: current, imageUrl: currentImageUrl),
+        if (progress > 0)
+          Positioned.fill(
+            child: ClipRect(
+              key: const ValueKey('hero-cover-edge-clip'),
+              clipper: _RightRevealClipper(split),
+              child: _HeroCover(movie: next, imageUrl: nextImageUrl),
+            ),
+          ),
+        // 底部渐隐 · 与氛围背景色调衔接
+        const IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Colors.black87],
+                stops: [0.42, 1.0],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RightRevealClipper extends CustomClipper<Rect> {
+  const _RightRevealClipper(this.split);
+
+  final double split;
+
+  @override
+  Rect getClip(Size size) {
+    return Rect.fromLTRB(size.width * split, 0, size.width, size.height);
+  }
+
+  @override
+  bool shouldReclip(_RightRevealClipper oldClipper) =>
+      oldClipper.split != split;
+}
+
+class _HeroCover extends StatelessWidget {
+  const _HeroCover({required this.movie, required this.imageUrl});
 
   final MovieListItem movie;
   final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return PrivacyMask(
+      movieId: movie.id,
+      radius: 0,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const ColoredBox(color: Color(0xFF15161C)),
+          if (imageUrl != null)
+            CachedNetworkImage(
+              imageUrl: imageUrl!,
+              fit: BoxFit.cover,
+              fadeInDuration: Duration.zero,
+              placeholder: (_, __) => const SizedBox.shrink(),
+              errorWidget: (_, __, ___) => const SizedBox.shrink(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 透明信息层 · PageView 只滚动影片信息,不携带封面
+class _HeroInfoCard extends StatelessWidget {
+  const _HeroInfoCard({required this.movie, required this.onTap});
+
+  final MovieListItem movie;
   final VoidCallback onTap;
 
   @override
@@ -218,26 +330,6 @@ class _HeroCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            const ColoredBox(color: Color(0xFF15161C)),
-            if (imageUrl != null)
-              CachedNetworkImage(
-                imageUrl: imageUrl!,
-                fit: BoxFit.cover,
-                fadeInDuration: const Duration(milliseconds: 200),
-                placeholder: (_, __) => const SizedBox.shrink(),
-                errorWidget: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            // 底部渐隐 · 与氛围背景色调衔接
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black87],
-                  stops: [0.42, 1.0],
-                ),
-              ),
-            ),
             // 信息区 · 左下
             Positioned(
               left: 22,

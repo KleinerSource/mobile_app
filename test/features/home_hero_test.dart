@@ -176,6 +176,50 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('轮播拖动时封面保持原位并按边缘裁切', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'privacy.app_switcher_shield': false,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final items = [
+      const MovieListItem(id: 1, title: 'A', fanartUuid: 'a'),
+      const MovieListItem(id: 2, title: 'B', fanartUuid: 'b'),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 300,
+              child: RecommendCarousel(
+                items: items,
+                urlBuilder: (uuid) => 'http://test/$uuid.jpg',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final initialCover = find.byType(CachedNetworkImage);
+    expect(initialCover, findsOneWidget);
+    final initialRect = tester.getRect(initialCover);
+
+    await tester.drag(find.byType(PageView), const Offset(-150, 0));
+    await tester.pump(const Duration(milliseconds: 40));
+
+    expect(find.byType(CachedNetworkImage), findsNWidgets(2));
+    expect(find.byKey(const ValueKey('hero-cover-edge-clip')), findsOneWidget);
+    expect(
+      tester.getRect(find.byType(CachedNetworkImage).first),
+      initialRect,
+      reason: '拖动时封面图片应保持固定尺寸和位置',
+    );
+  });
+
   testWidgets('隐私模式开启且未揭开该影片时不显示封面背景', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
