@@ -48,6 +48,9 @@ class AppL10nZh extends AppL10n {
   String get homeSeeAll => '查看全部';
 
   @override
+  String get homeResume => '继续播放';
+
+  @override
   String homeMinutesLeft(int n) {
     return '$n 分钟剩余';
   }

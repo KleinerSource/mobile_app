@@ -472,20 +472,6 @@ class _ContinueWatchingCard extends StatelessWidget {
                       letterSpacing: 1.1,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  PrivacyText(
-                    movieId: movie.id,
-                    text: movie.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 22,
-                      height: 1.1,
-                    ),
-                  ),
                   const SizedBox(height: 14),
                   Row(
                     children: [
@@ -506,14 +492,14 @@ class _ContinueWatchingCard extends StatelessWidget {
                             vertical: 10,
                           ),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.play_arrow, size: 18),
-                            SizedBox(width: 4),
+                            const Icon(Icons.play_arrow, size: 18),
+                            const SizedBox(width: 4),
                             Text(
-                              'Resume',
-                              style: TextStyle(
+                              AppL10n.of(context).homeResume,
+                              style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontWeight: FontWeight.w700,
                                 fontSize: 13,

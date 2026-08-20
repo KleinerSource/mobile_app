@@ -17,6 +17,7 @@
   "homeFreshTitle": "新加入的影片",
   "homeYourLibraries": "我的媒体库",
   "homeSeeAll": "查看全部",
+  "homeResume": "继续播放",
   "homeMinutesLeft": "{n} 分钟剩余",
   "@homeMinutesLeft": { "placeholders": { "n": { "type": "int" } } },
 

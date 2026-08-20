@@ -48,6 +48,9 @@ class AppL10nEn extends AppL10n {
   String get homeSeeAll => 'See all';
 
   @override
+  String get homeResume => 'Resume';
+
+  @override
   String homeMinutesLeft(int n) {
     return '${n}m left';
   }

@@ -175,6 +175,12 @@ abstract class AppL10n {
   /// **'查看全部'**
   String get homeSeeAll;
 
+  /// No description provided for @homeResume.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续播放'**
+  String get homeResume;
+
   /// No description provided for @homeMinutesLeft.
   ///
   /// In zh, this message translates to:

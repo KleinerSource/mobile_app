@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -18,8 +19,9 @@ import '../../shared/glow_background.dart';
 
 /// 多服务器启动选择页。
 ///
-/// 服务器使用横向滚动列表展示；选中没有本地会话的服务器后，仍留在本页
-/// 完成登录，让头像和登录表单形成连续的 macOS 登录式过渡。
+/// 服务器使用横向滚动列表展示，滚动视口延伸到屏幕边缘，卡片不会在
+/// 内容区边界被切边；选中没有本地会话的服务器后，仍留在本页完成
+/// 登录，让头像和登录表单形成连续的 macOS 登录式过渡。
 class ServerSelectionPage extends ConsumerStatefulWidget {
   const ServerSelectionPage({super.key});
 
@@ -233,25 +235,25 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     AppColors colors,
     List<ServerProfile> servers,
   ) {
+    // 水平内边距下沉到各分区，服务器横向列表的滚动视口才能铺满到屏幕边缘。
     return SafeArea(
       child: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 42, 24, 42),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: Column(
-              children: [
-                SizedBox(
-                  height: 108,
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: _buildBrand(context, colors),
-                  ),
+          padding: const EdgeInsets.only(top: 42, bottom: 42),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: 108,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: _buildBrand(context, colors),
                 ),
-                const SizedBox(height: 44),
-                _buildPicker(context, colors, servers),
-              ],
-            ),
+              ),
+              const SizedBox(height: 44),
+              _buildPicker(context, colors, servers),
+            ],
           ),
         ),
       ),
@@ -332,18 +334,28 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   ) {
     return Column(
       key: const ValueKey('server-picker'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          '选择服务器',
-          style: AppText.pageTitle(context).copyWith(fontSize: 28),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: Column(
+              children: [
+                Text(
+                  '选择服务器',
+                  style: AppText.pageTitle(context).copyWith(fontSize: 28),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '选择要连接的服务器',
+                  textAlign: TextAlign.center,
+                  style: AppText.body(context).copyWith(color: colors.muted),
+                ),
+                const SizedBox(height: 32),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          '选择要连接的服务器',
-          textAlign: TextAlign.center,
-          style: AppText.body(context).copyWith(color: colors.muted),
-        ),
-        const SizedBox(height: 32),
         _buildServerStrip(colors, servers),
       ],
     );
@@ -351,18 +363,27 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
 
   Widget _buildServerStrip(AppColors colors, List<ServerProfile> servers) {
     if (servers.isEmpty) {
-      return Text('暂无可用服务器', style: AppText.body(context));
+      return Text(
+        '暂无可用服务器',
+        textAlign: TextAlign.center,
+        style: AppText.body(context),
+      );
     }
 
     return LayoutBuilder(
       builder: (context, constraints) {
         const itemWidth = 132.0;
         const gap = 20.0;
+        const restingInset = 24.0;
         final gaps = servers.length > 1 ? servers.length - 1 : 0;
         final contentWidth = servers.length * itemWidth + gaps * gap;
+        // 停靠时首尾卡片与标题保持同样的边距，滚动时卡片一直延伸到屏幕边缘。
         final horizontalPadding = contentWidth < constraints.maxWidth
-            ? (constraints.maxWidth - contentWidth) / 2
-            : 0.0;
+            ? math.max(
+                restingInset,
+                (constraints.maxWidth - contentWidth) / 2,
+              )
+            : restingInset;
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),

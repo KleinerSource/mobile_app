@@ -17,6 +17,7 @@
   "homeFreshTitle": "Fresh in your library",
   "homeYourLibraries": "Your libraries",
   "homeSeeAll": "See all",
+  "homeResume": "Resume",
   "homeMinutesLeft": "{n}m left",
   "@homeMinutesLeft": { "placeholders": { "n": { "type": "int" } } },
 
