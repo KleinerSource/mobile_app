@@ -7,7 +7,6 @@ import '../../core/models/library.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
-import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/poster.dart';
 import '../../shared/collection_card_layout.dart';
@@ -19,19 +18,40 @@ import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
 import '../player/player_page.dart';
 import '../privacy/privacy_mask.dart';
+import 'hero_backdrop.dart';
 import 'home_providers.dart';
 import 'home_movie_view_state.dart';
 import 'recommend_carousel.dart';
 import 'server_switcher.dart';
 
-/// md_center 首页
-/// 模块顺序 (对齐 frontend_new Dashboard.vue):
+/// md_center 首页 · 现代化半屏 hero 设计:
+/// - 背景为当前轮播封面的大模糊毛玻璃氛围层
+/// - hero 轮播满铺占半屏,上滑先收窄再推出,显出下方卡片
+/// - 模块顺序 (对齐 frontend_new Dashboard.vue):
 ///   1. RecommendCarousel (hero · 最近添加里 fanart 不为空的前 10 条)
 ///   2. Continue Watching (有观看进度未完成的)
 ///   3. Recently Added (横向卡片)
 ///   4. Your libraries (媒体库 · 最底部)
-class HomePage extends ConsumerWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
+
+  @override
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  /// 与轮播页对齐的封面艺术列表 · 驱动氛围背景
+  final _heroArts = ValueNotifier<List<HeroArt>>(const []);
+
+  /// 轮播连续页位 · 由 RecommendCarousel 驱动
+  final _heroPagePosition = ValueNotifier(0.0);
+
+  @override
+  void dispose() {
+    _heroArts.dispose();
+    _heroPagePosition.dispose();
+    super.dispose();
+  }
 
   String _greeting(AppL10n l) {
     final h = DateTime.now().hour;
@@ -42,7 +62,7 @@ class HomePage extends ConsumerWidget {
     return l.greetingNight;
   }
 
-  Future<void> _refreshHome(WidgetRef ref) async {
+  Future<void> _refreshHome() async {
     refreshImageCache(ref);
     await refreshHomeProviders(
       refreshRecentlyAdded: () => ref.refresh(recentlyAddedProvider.future),
@@ -53,8 +73,29 @@ class HomePage extends ConsumerWidget {
     );
   }
 
+  /// 轮播数据变化时同步封面艺术列表(与页位一一对应,含无封面占位)
+  void _syncHeroArts(List<MovieListItem> items) {
+    final urlBuilder = ref.read(imageUrlBuilderProvider);
+    HeroArt toArt(MovieListItem movie) {
+      final uuid = movie.fanartUuid ?? movie.posterUuid ?? movie.thumbUuid;
+      return HeroArt(
+        movieId: movie.id,
+        url: uuid == null || uuid.isEmpty ? '' : urlBuilder(uuid),
+      );
+    }
+
+    final arts = [for (final movie in items) toArt(movie)];
+    final current = _heroArts.value;
+    final same = current.length == arts.length &&
+        [
+          for (var i = 0; i < arts.length; i++)
+            current[i].movieId == arts[i].movieId && current[i].url == arts[i].url,
+        ].every((ok) => ok);
+    if (!same) _heroArts.value = arts;
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
     final recent = ref.watch(recentlyAddedProvider);
@@ -63,151 +104,253 @@ class HomePage extends ConsumerWidget {
     final libraries = ref.watch(librariesProvider);
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
 
-    return GlowBackground(
-      child: SafeArea(
-        bottom: false,
-        child: RefreshIndicator(
-          onRefresh: () => _refreshHome(ref),
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-            // -------- 顶部问候 --------
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _greeting(l),
-                        style: TextStyle(
-                          color: c.muted,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                          letterSpacing: 0.24,
+    final screenH = MediaQuery.sizeOf(context).height;
+    final heroMaxHeight = screenH * 0.5;
+    final heroMinHeight = heroMaxHeight * 0.62;
+
+    // 问候行 · 有 hero 时叠加在 hero 顶部,否则作为普通行;
+    // 叠加态文本忽略命中,避免挡住下方 PageView 的滑动
+    Widget greetingRow({required bool onHero}) => Padding(
+      padding: const EdgeInsets.fromLTRB(22, 12, 22, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: onHero
+                ? IgnorePointer(
+                    child: Text(
+                      _greeting(l),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        letterSpacing: 0.24,
+                      ),
+                    ),
+                  )
+                : Text(
+                    _greeting(l),
+                    style: TextStyle(
+                      color: c.muted,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      letterSpacing: 0.24,
+                    ),
+                  ),
+          ),
+          const HomeServerSwitcher(),
+        ],
+      ),
+    );
+
+    // hero 数据就绪且非空才渲染半屏折叠头
+    final heroReady = carousel.when(
+      loading: () => false,
+      error: (_, __) => false,
+      data: (items) => items.isNotEmpty,
+    );
+    carousel.whenData((items) {
+      if (items.isEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _heroArts.value.isNotEmpty) {
+            _heroArts.value = const [];
+          }
+        });
+      } else {
+        _syncHeroArts(items);
+      }
+    });
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // -------- 氛围背景: 当前 hero 封面 + 毛玻璃 --------
+        HeroBackdrop(arts: _heroArts, position: _heroPagePosition),
+        // -------- 滚动内容 --------
+        SafeArea(
+          bottom: false,
+          child: RefreshIndicator(
+            onRefresh: _refreshHome,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                // -------- 1. 半屏 hero 轮播 (上滑收窄再推出) --------
+                if (heroReady)
+                  carousel.when(
+                    loading: () => const SliverToBoxAdapter(
+                      child: SizedBox.shrink(),
+                    ),
+                    error: (_, __) => const SliverToBoxAdapter(
+                      child: SizedBox.shrink(),
+                    ),
+                    data: (items) => SliverPersistentHeader(
+                      pinned: false,
+                      delegate: _HeroHeaderDelegate(
+                        minHeight: heroMinHeight,
+                        maxHeight: heroMaxHeight,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: RecommendCarousel(
+                                items: items,
+                                urlBuilder: urlBuilder,
+                                pagePosition: _heroPagePosition,
+                              ),
+                            ),
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              child: greetingRow(onHero: true),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    const HomeServerSwitcher(),
-                  ],
-                ),
-              ),
-            ),
-
-            // -------- 1. 推荐轮播 (hero) --------
-            carousel.when(
-              loading: () => const SliverToBoxAdapter(
-                child: SizedBox(height: 248, child: Center(child: CircularProgressIndicator())),
-              ),
-              error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-              data: (items) {
-                if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
-                return SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-                    child: RecommendCarousel(items: items, urlBuilder: urlBuilder),
-                  ),
-                );
-              },
-            ),
-
-            // -------- 2. Continue Watching --------
-            continueW.when(
-              loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-              error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-              data: (items) {
-                if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
-                return SliverToBoxAdapter(
-                  child: _ContinueWatchingSection(
-                    items: items,
-                    urlBuilder: urlBuilder,
-                  ),
-                );
-              },
-            ),
-
-            // -------- 3. Recently Added --------
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
-              sliver: SliverToBoxAdapter(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        l.homeFreshTitle,
-                        style: AppText.sectionTitle(context),
-                      ),
+                  )
+                else
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: greetingRow(onHero: false),
                     ),
-                    TextButton.icon(
-                      onPressed: () => unawaited(
-                        Navigator.of(context).push<void>(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const MoviesPage(
-                              initialFilter: MovieFilter(
-                                sortBy: 'created_at',
-                                sortOrder: 'desc',
+                  ),
+
+                // -------- 2. Continue Watching --------
+                continueW.when(
+                  loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+                  error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+                  data: (items) {
+                    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+                    return SliverToBoxAdapter(
+                      child: _ContinueWatchingSection(
+                        items: items,
+                        urlBuilder: urlBuilder,
+                      ),
+                    );
+                  },
+                ),
+
+                // -------- 3. Recently Added --------
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(22, 26, 22, 14),
+                  sliver: SliverToBoxAdapter(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            l.homeFreshTitle,
+                            style: AppText.sectionTitle(context),
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: () => unawaited(
+                            Navigator.of(context).push<void>(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const MoviesPage(
+                                  initialFilter: MovieFilter(
+                                    sortBy: 'created_at',
+                                    sortOrder: 'desc',
+                                  ),
+                                  maxItems: 30,
+                                ),
                               ),
-                              maxItems: 30,
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: c.accent,
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          icon: const Icon(Icons.arrow_forward_ios_rounded, size: 13),
+                          label: Text(
+                            l.homeSeeAll,
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
                             ),
                           ),
                         ),
-                      ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: c.accent,
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      icon: const Icon(Icons.arrow_forward_ios_rounded, size: 13),
-                      label: Text(
-                        l.homeSeeAll,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                        ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-            recent.when(
-              loading: () => const SliverToBoxAdapter(
-                child: SizedBox(height: 220, child: Center(child: CircularProgressIndicator())),
-              ),
-              error: (e, _) => SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 22),
-                  child: Text('加载失败: $e', style: AppText.body(context)),
+                recent.when(
+                  loading: () => const SliverToBoxAdapter(
+                    child: SizedBox(height: 220, child: Center(child: CircularProgressIndicator())),
+                  ),
+                  error: (e, _) => SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      child: Text('加载失败: $e', style: AppText.body(context)),
+                    ),
+                  ),
+                  data: (paged) => SliverToBoxAdapter(
+                    child: _RecentRow(items: paged.items, urlBuilder: urlBuilder),
+                  ),
                 ),
-              ),
-              data: (paged) => SliverToBoxAdapter(
-                child: _RecentRow(items: paged.items, urlBuilder: urlBuilder),
-              ),
-            ),
 
-            // -------- 4. Your libraries (最底部) --------
-            SliverToBoxAdapter(
-              child: libraries.when(
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
-                data: (libs) {
-                  if (libs.isEmpty) return const SizedBox.shrink();
-                  return _CollectionsSection(libraries: libs);
-                },
-              ),
-            ),
+                // -------- 4. Your libraries (最底部) --------
+                SliverToBoxAdapter(
+                  child: libraries.when(
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (libs) {
+                      if (libs.isEmpty) return const SizedBox.shrink();
+                      return _CollectionsSection(libraries: libs);
+                    },
+                  ),
+                ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 120)),
-            ],
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              ],
+            ),
           ),
         ),
-      ),
+      ],
     );
+  }
+}
+
+/// 半屏 hero 折叠头:
+/// 展开高度 [maxHeight] (约半屏),上滑先收窄到 [minHeight] 再整体推出屏外。
+class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _HeroHeaderDelegate({
+    required this.minHeight,
+    required this.maxHeight,
+    required this.child,
+  });
+
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final height = (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
+    return SizedBox(height: height, child: child);
+  }
+
+  @override
+  bool shouldRebuild(_HeroHeaderDelegate oldDelegate) {
+    return minHeight != oldDelegate.minHeight ||
+        maxHeight != oldDelegate.maxHeight ||
+        child != oldDelegate.child;
   }
 }
 
@@ -223,7 +366,8 @@ class _ContinueWatchingSection extends StatelessWidget {
         (MediaQuery.sizeOf(context).width * 0.7).clamp(260.0, 520.0).toDouble();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+      // 顶部间距与全出血 hero 衔接
+      padding: const EdgeInsets.fromLTRB(22, 26, 22, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -542,81 +686,81 @@ class _LibraryCard extends StatelessWidget {
       ),
       borderRadius: BorderRadius.circular(16),
       child: ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: AspectRatio(
-        aspectRatio: 5 / 3,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppHues.top(hue), AppHues.bottom(hue)],
+        borderRadius: BorderRadius.circular(16),
+        child: AspectRatio(
+          aspectRatio: 5 / 3,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppHues.top(hue), AppHues.bottom(hue)],
+              ),
             ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: -30,
-                right: -30,
-                width: 100,
-                height: 100,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppHues.highlight(hue),
+            child: Stack(
+              children: [
+                Positioned(
+                  top: -30,
+                  right: -30,
+                  width: 100,
+                  height: 100,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppHues.highlight(hue),
+                    ),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '◆',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '◆',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          library.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                            letterSpacing: -0.3,
-                            height: 1.15,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            library.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              letterSpacing: -0.3,
+                              height: 1.15,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${library.fileCount} titles',
-                          style: const TextStyle(
-                            color: Color(0xCCFFFFFF),
-                            fontFamily: 'Inter',
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
+                          const SizedBox(height: 4),
+                          Text(
+                            '${library.fileCount} titles',
+                            style: const TextStyle(
+                              color: Color(0xCCFFFFFF),
+                              fontFamily: 'Inter',
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }

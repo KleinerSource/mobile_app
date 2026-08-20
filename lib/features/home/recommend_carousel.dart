@@ -1,27 +1,31 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
-import '../../shared/poster.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../privacy/privacy_mask.dart';
 
-/// 首页轮播 hero 区
-/// - 卡片宽屏 16:10 + fanart 满铺 + 渐隐 + 大标题
-/// - 5 秒自动切换
-/// - 底部圆点指示器
-/// - 虚拟页索引无限增长, 真实数据按取模映射实现首尾相连
+/// 首页 hero 轮播 · 现代化半屏全出血风格:
+/// - viewportFraction 1.0 满铺,高度由外层 SliverPersistentHeader 提供
+/// - 底部渐隐 + 大标题 + 信息胶囊叠加在封面之上,圆点指示器压底部
+/// - 5 秒自动切换,虚拟页无限循环(取模映射首尾相连)
+/// - 通过 [pagePosition] 输出归一化连续页位,驱动氛围背景跟随滑动
 class RecommendCarousel extends StatefulWidget {
   const RecommendCarousel({
     super.key,
     required this.items,
     required this.urlBuilder,
+    this.pagePosition,
   });
 
   final List<MovieListItem> items;
   final String Function(String uuid) urlBuilder;
+
+  /// 连续页位 [0, items.length),拖动/翻页动画期间逐帧更新
+  final ValueNotifier<double>? pagePosition;
 
   @override
   State<RecommendCarousel> createState() => _RecommendCarouselState();
@@ -38,11 +42,10 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
   void initState() {
     super.initState();
     _page = _initialPage(widget.items.length);
-    _controller = PageController(
-      initialPage: _page,
-      viewportFraction: 0.88,
-    );
+    _controller = PageController(initialPage: _page);
+    _controller.addListener(_syncPagePosition);
     _startAutoplay();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncPagePosition());
   }
 
   @override
@@ -73,6 +76,7 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
       if (mounted && _controller.hasClients) {
         _controller.jumpToPage(nextPage);
       }
+      _syncPagePosition();
     });
     _startAutoplay();
   }
@@ -80,8 +84,23 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
   @override
   void dispose() {
     _autoplay?.cancel();
+    _controller.removeListener(_syncPagePosition);
     _controller.dispose();
     super.dispose();
+  }
+
+  /// 把 PageController 的虚拟页位归一化到 [0, items.length),
+  /// 首尾相连的取模保证跨圈翻页时背景也能连续过渡
+  void _syncPagePosition() {
+    final notifier = widget.pagePosition;
+    if (notifier == null || !_controller.hasClients) return;
+    final n = widget.items.length;
+    if (n <= 0) return;
+    final raw = _controller.page ?? _page.toDouble();
+    final normalized = raw % n;
+    if ((notifier.value - normalized).abs() > 0.001) {
+      notifier.value = normalized;
+    }
   }
 
   void _startAutoplay() {
@@ -106,40 +125,55 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) return const SizedBox.shrink();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Stack(
+      fit: StackFit.expand,
       children: [
-        AspectRatio(
-          aspectRatio: 16 / 10,
-          child: PageView.builder(
-            controller: _controller,
-            onPageChanged: (i) {
-              setState(() {
-                _page = i;
-                _index = i % widget.items.length;
-              });
-              // 用户手动滑动后,重新启动 autoplay 计时
-              _startAutoplay();
-            },
-            itemBuilder: (ctx, i) {
-              final m = widget.items[i % widget.items.length];
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: _CarouselCard(
-                  movie: m,
-                  imageUrl: _hero(m),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => MovieDetailPage(movieId: m.id),
-                    ),
-                  ),
+        PageView.builder(
+          controller: _controller,
+          onPageChanged: (i) {
+            setState(() {
+              _page = i;
+              _index = i % widget.items.length;
+            });
+            // 用户手动滑动后,重新启动 autoplay 计时
+            _startAutoplay();
+          },
+          itemBuilder: (ctx, i) {
+            final m = widget.items[i % widget.items.length];
+            return _HeroCard(
+              movie: m,
+              imageUrl: _hero(m),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => MovieDetailPage(movieId: m.id),
                 ),
-              );
-            },
+              ),
+            );
+          },
+        ),
+        // 顶部渐隐 · 供问候语/状态栏方向的文字压图可读
+        // (无子节点的 DecoratedBox 会吸收指针,必须忽略命中才能让 PageView 接管手势)
+        const IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.black38, Colors.transparent],
+                stops: [0.0, 0.35],
+              ),
+            ),
           ),
         ),
-        const SizedBox(height: 12),
-        _Dots(active: _index, total: widget.items.length),
+        // 圆点指示器 · 压在 hero 底缘,不参与手势
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 12,
+          child: IgnorePointer(
+            child: _Dots(active: _index, total: widget.items.length),
+          ),
+        ),
       ],
     );
   }
@@ -161,8 +195,9 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
   }
 }
 
-class _CarouselCard extends StatelessWidget {
-  const _CarouselCard({
+/// 单页 hero · 满铺封面 + 底部渐隐 + 番号/评分胶囊 + 大标题
+class _HeroCard extends StatelessWidget {
+  const _HeroCard({
     required this.movie,
     required this.imageUrl,
     required this.onTap,
@@ -177,106 +212,54 @@ class _CarouselCard extends StatelessWidget {
     return PrivacyAwareInkWell(
       movieId: movie.id,
       onTap: onTap,
-      borderRadius: 20,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: PrivacyMask(
-          movieId: movie.id,
-          radius: 0,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Poster(
-                url: imageUrl,
-                title: movie.title,
-                year: movie.year,
-                aspectRatio: 16 / 10,
-                radius: 0,
+      child: PrivacyMask(
+        movieId: movie.id,
+        radius: 0,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const ColoredBox(color: Color(0xFF15161C)),
+            if (imageUrl != null)
+              CachedNetworkImage(
+                imageUrl: imageUrl!,
+                fit: BoxFit.cover,
+                fadeInDuration: const Duration(milliseconds: 200),
+                placeholder: (_, __) => const SizedBox.shrink(),
+                errorWidget: (_, __, ___) => const SizedBox.shrink(),
               ),
-            // 底部渐隐
-            DecoratedBox(
+            // 底部渐隐 · 与氛围背景色调衔接
+            const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.7),
-                  ],
-                  stops: const [0.45, 1.0],
+                  colors: [Colors.transparent, Colors.black87],
+                  stops: [0.42, 1.0],
                 ),
               ),
             ),
-            // 评分角标
-            if (movie.rating != null && movie.rating! > 0)
-              Positioned(
-                top: 14,
-                right: 14,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        '★',
-                        style: TextStyle(
-                          color: Color(0xFFFFD600),
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        movie.rating!.toStringAsFixed(1),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            // 番号角标
-            if (movie.num != null && movie.num!.isNotEmpty)
-              Positioned(
-                top: 14,
-                left: 14,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: Text(
-                    movie.num!.toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 10,
-                      letterSpacing: 0.6,
-                    ),
-                  ),
-                ),
-              ),
-            // 底部 meta + 标题
+            // 信息区 · 左下
             Positioned(
-              left: 20,
-              right: 20,
-              bottom: 18,
+              left: 22,
+              right: 22,
+              bottom: 34,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _MetaRow(movie: movie),
-                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      if (movie.num != null && movie.num!.isNotEmpty) ...[
+                        _GlassPill(text: movie.num!.toUpperCase(), mono: true),
+                        const SizedBox(width: 8),
+                      ],
+                      if (movie.rating != null && movie.rating! > 0)
+                        _GlassPill(
+                          text: '★ ${movie.rating!.toStringAsFixed(1)}',
+                          accent: const Color(0xFFFFD600),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                   PrivacyText(
                     movieId: movie.id,
                     text: movie.title,
@@ -286,24 +269,55 @@ class _CarouselCard extends StatelessWidget {
                       color: Colors.white,
                       fontFamily: 'Inter',
                       fontWeight: FontWeight.w800,
-                      fontSize: 20,
-                      height: 1.1,
-                      letterSpacing: -0.4,
+                      fontSize: 24,
+                      height: 1.12,
+                      letterSpacing: -0.5,
                       shadows: [
                         Shadow(
                           offset: Offset(0, 1),
-                          blurRadius: 6,
-                          color: Color(0x99000000),
+                          blurRadius: 8,
+                          color: Color(0xB3000000),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 6),
+                  _MetaRow(movie: movie),
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 黑玻璃信息胶囊
+class _GlassPill extends StatelessWidget {
+  const _GlassPill({required this.text, this.mono = false, this.accent});
+
+  final String text;
+  final bool mono;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: accent ?? Colors.white,
+          fontFamily: mono ? 'monospace' : 'Inter',
+          fontWeight: FontWeight.w700,
+          fontSize: 10,
+          letterSpacing: 0.6,
+        ),
       ),
     );
   }
@@ -352,7 +366,7 @@ class _Dots extends StatelessWidget {
           width: on ? 18 : 6,
           height: 6,
           decoration: BoxDecoration(
-            color: on ? c.accent : c.muted2.withValues(alpha: 0.45),
+            color: on ? c.accent : Colors.white.withValues(alpha: 0.35),
             borderRadius: BorderRadius.circular(100),
           ),
         );

@@ -12,6 +12,18 @@ class GlowBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return GlowBase(child: child);
+  }
+}
+
+/// 光晕底座 · bg 底色 + 两团大模糊彩晕,可作为页面或氛围背景的最底层。
+class GlowBase extends StatelessWidget {
+  const GlowBase({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
     final colors = appColors(context);
     return Stack(
       children: [
