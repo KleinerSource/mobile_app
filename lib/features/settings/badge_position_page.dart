@@ -41,10 +41,9 @@ class BadgePositionPage extends ConsumerWidget {
               eyebrow: l.settingsAppSettings,
               title: l.settingsBadgePositions,
             ),
-            body: ListView(
-              primary: true,
+            body: Column(
               children: [
-                // 预览区
+                // 预览固定在设置列表上方，调整位置时始终可见。
                 Padding(
                   padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
                   child: Container(
@@ -72,85 +71,92 @@ class BadgePositionPage extends ConsumerWidget {
                     ),
                   ),
                 ),
-                // 5 项 badge 配置
-                SettingsGroup(
-                  title: l.settingsBadgePositions,
-                  items: [
-                    _CornerTile(
-                      label: l.badgeRating,
-                      icon: Icons.star_rounded,
-                      value: pos.rating,
-                      enabled: pos.ratingEnabled,
-                      onChanged: (v) => ref
-                          .read(badgePositionsProvider.notifier)
-                          .setKind(BadgeKind.rating, v),
-                      onToggle: (v) => ref
-                          .read(badgePositionsProvider.notifier)
-                          .setEnabled(BadgeKind.rating, v),
-                    ),
-                    _CornerTile(
-                      label: l.badgeSubtitle,
-                      icon: Icons.closed_caption_rounded,
-                      value: pos.subtitle,
-                      enabled: pos.subtitleEnabled,
-                      onChanged: (v) => ref
-                          .read(badgePositionsProvider.notifier)
-                          .setKind(BadgeKind.subtitle, v),
-                      onToggle: (v) => ref
-                          .read(badgePositionsProvider.notifier)
-                          .setEnabled(BadgeKind.subtitle, v),
-                    ),
-                    _CornerTile(
-                      label: l.badgeCrack,
-                      icon: Icons.lock_open_rounded,
-                      value: pos.crack,
-                      enabled: pos.crackEnabled,
-                      onChanged: (v) => ref
-                          .read(badgePositionsProvider.notifier)
-                          .setKind(BadgeKind.crack, v),
-                      onToggle: (v) => ref
-                          .read(badgePositionsProvider.notifier)
-                          .setEnabled(BadgeKind.crack, v),
-                    ),
-                    _CornerTile(
-                      label: l.badgeResolution,
-                      icon: Icons.high_quality_outlined,
-                      value: pos.resolution,
-                      enabled: pos.resolutionEnabled,
-                      onChanged: (v) => ref
-                          .read(badgePositionsProvider.notifier)
-                          .setKind(BadgeKind.resolution, v),
-                      onToggle: (v) => ref
-                          .read(badgePositionsProvider.notifier)
-                          .setEnabled(BadgeKind.resolution, v),
-                    ),
-                    _CornerTile(
-                      label: l.badgeNewResources,
-                      icon: Icons.auto_awesome_rounded,
-                      value: pos.newResources,
-                      enabled: pos.newResourcesEnabled,
-                      onChanged: (v) => ref
-                          .read(badgePositionsProvider.notifier)
-                          .setKind(BadgeKind.newResources, v),
-                      onToggle: (v) => ref
-                          .read(badgePositionsProvider.notifier)
-                          .setEnabled(BadgeKind.newResources, v),
-                    ),
-                  ],
-                ),
-                // 每个角落单独微调，避免不同角落的 badge 相互牵连
-                for (final corner in BadgeCorner.values)
-                  _CornerOffsetGroup(
-                    corner: corner,
-                    offset: pos.offsetOf(corner),
-                    onHorizontalChanged: (v) => ref
-                        .read(badgePositionsProvider.notifier)
-                        .setHorizontalOffset(corner, v),
-                    onVerticalChanged: (v) => ref
-                        .read(badgePositionsProvider.notifier)
-                        .setVerticalOffset(corner, v),
+                Expanded(
+                  child: ListView(
+                    primary: true,
+                    children: [
+                      // 5 项 badge 配置
+                      SettingsGroup(
+                        title: l.settingsBadgePositions,
+                        items: [
+                          _CornerTile(
+                            label: l.badgeRating,
+                            icon: Icons.star_rounded,
+                            value: pos.rating,
+                            enabled: pos.ratingEnabled,
+                            onChanged: (v) => ref
+                                .read(badgePositionsProvider.notifier)
+                                .setKind(BadgeKind.rating, v),
+                            onToggle: (v) => ref
+                                .read(badgePositionsProvider.notifier)
+                                .setEnabled(BadgeKind.rating, v),
+                          ),
+                          _CornerTile(
+                            label: l.badgeSubtitle,
+                            icon: Icons.closed_caption_rounded,
+                            value: pos.subtitle,
+                            enabled: pos.subtitleEnabled,
+                            onChanged: (v) => ref
+                                .read(badgePositionsProvider.notifier)
+                                .setKind(BadgeKind.subtitle, v),
+                            onToggle: (v) => ref
+                                .read(badgePositionsProvider.notifier)
+                                .setEnabled(BadgeKind.subtitle, v),
+                          ),
+                          _CornerTile(
+                            label: l.badgeCrack,
+                            icon: Icons.lock_open_rounded,
+                            value: pos.crack,
+                            enabled: pos.crackEnabled,
+                            onChanged: (v) => ref
+                                .read(badgePositionsProvider.notifier)
+                                .setKind(BadgeKind.crack, v),
+                            onToggle: (v) => ref
+                                .read(badgePositionsProvider.notifier)
+                                .setEnabled(BadgeKind.crack, v),
+                          ),
+                          _CornerTile(
+                            label: l.badgeResolution,
+                            icon: Icons.high_quality_outlined,
+                            value: pos.resolution,
+                            enabled: pos.resolutionEnabled,
+                            onChanged: (v) => ref
+                                .read(badgePositionsProvider.notifier)
+                                .setKind(BadgeKind.resolution, v),
+                            onToggle: (v) => ref
+                                .read(badgePositionsProvider.notifier)
+                                .setEnabled(BadgeKind.resolution, v),
+                          ),
+                          _CornerTile(
+                            label: l.badgeNewResources,
+                            icon: Icons.auto_awesome_rounded,
+                            value: pos.newResources,
+                            enabled: pos.newResourcesEnabled,
+                            onChanged: (v) => ref
+                                .read(badgePositionsProvider.notifier)
+                                .setKind(BadgeKind.newResources, v),
+                            onToggle: (v) => ref
+                                .read(badgePositionsProvider.notifier)
+                                .setEnabled(BadgeKind.newResources, v),
+                          ),
+                        ],
+                      ),
+                      // 每个角落单独微调，避免不同角落的 badge 相互牵连
+                      for (final corner in BadgeCorner.values)
+                        _CornerOffsetGroup(
+                          corner: corner,
+                          offset: pos.offsetOf(corner),
+                          onHorizontalChanged: (v) => ref
+                              .read(badgePositionsProvider.notifier)
+                              .setHorizontalOffset(corner, v),
+                          onVerticalChanged: (v) => ref
+                              .read(badgePositionsProvider.notifier)
+                              .setVerticalOffset(corner, v),
+                        ),
+                      const SizedBox(height: 80),
+                    ],
                   ),
-                const SizedBox(height: 80),
+                ),
               ],
             ),
           ),
@@ -161,6 +167,9 @@ class BadgePositionPage extends ConsumerWidget {
 }
 
 class _OffsetSlider extends StatelessWidget {
+  static const _rowHeight = 56.0;
+  static const _sliderHeight = 48.0;
+
   const _OffsetSlider({
     required this.label,
     required this.icon,
@@ -176,36 +185,66 @@ class _OffsetSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, color: c.muted, size: 18),
-          const SizedBox(width: 8),
-          SizedBox(width: 56, child: Text(label, style: AppText.meta(context))),
-          Expanded(
-            child: HapticSlider(
-              min: -16,
-              max: 16,
-              divisions: 32,
-              value: value.toDouble(),
-              label: '$value',
-              onChanged: (v) => onChanged(v.round()),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SizedBox(
+        height: _rowHeight,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 18,
+              height: _rowHeight,
+              child: Center(child: Icon(icon, color: c.muted, size: 18)),
             ),
-          ),
-          SizedBox(
-            width: 36,
-            child: Text(
-              '$value',
-              textAlign: TextAlign.end,
-              style: TextStyle(
-                color: c.text,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 56,
+              height: _rowHeight,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.meta(context),
+                ),
               ),
             ),
-          ),
-        ],
+            Expanded(
+              child: Center(
+                child: SizedBox(
+                  height: _sliderHeight,
+                  child: HapticSlider(
+                    min: -16,
+                    max: 16,
+                    divisions: 32,
+                    value: value.toDouble(),
+                    label: '$value',
+                    onChanged: (v) => onChanged(v.round()),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 36,
+              height: _rowHeight,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  '$value',
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    color: c.text,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
