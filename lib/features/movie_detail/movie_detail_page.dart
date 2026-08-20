@@ -40,8 +40,15 @@ import '../home/home_movie_view_state.dart';
 import '../i18n/poster_badge_visibility_provider.dart';
 
 class MovieDetailPage extends ConsumerStatefulWidget {
-  const MovieDetailPage({super.key, required this.movieId});
+  const MovieDetailPage({
+    super.key,
+    required this.movieId,
+    this.acknowledgeNewResources = true,
+  });
   final int movieId;
+
+  /// 已由筛选列表提前发起确认时，交给调用方等待并刷新列表。
+  final bool acknowledgeNewResources;
 
   @override
   ConsumerState<MovieDetailPage> createState() => _MovieDetailPageState();
@@ -56,7 +63,20 @@ class _MovieDetailPageState extends ConsumerState<MovieDetailPage> {
       unawaited(
         ref.read(homeMovieViewStateProvider).markMovieViewed(widget.movieId),
       );
+      if (widget.acknowledgeNewResources) {
+        unawaited(_acknowledgeResources());
+      }
     });
+  }
+
+  Future<void> _acknowledgeResources() async {
+    try {
+      await ref
+          .read(moviesRepositoryProvider)
+          .acknowledgeResources(widget.movieId);
+    } catch (_) {
+      // 确认失败不应阻止用户查看影片详情，下一次进入时继续尝试。
+    }
   }
 
   @override

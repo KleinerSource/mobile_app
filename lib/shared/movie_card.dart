@@ -74,6 +74,9 @@ class MovieCard extends ConsumerWidget {
         }
       }
     }
+    if (!selectionMode && !restricted && movie.hasNewResources) {
+      byCorner[BadgeCorner.topRight]!.add(const NewResourcesBadge());
+    }
 
     return PrivacyAwareInkWell(
       movieId: movie.id,
@@ -388,6 +391,39 @@ class _SubtitleBadge extends StatelessWidget {
           Icons.closed_caption_rounded,
           color: Colors.white,
           size: 13,
+        ),
+      ),
+    );
+  }
+}
+
+class NewResourcesBadge extends StatelessWidget {
+  const NewResourcesBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: '新资源',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE11D48),
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: const Text(
+          '新资源',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ),
     );

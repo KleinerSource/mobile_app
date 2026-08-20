@@ -425,21 +425,10 @@ class _RecentRow extends ConsumerStatefulWidget {
 }
 
 class _RecentRowState extends ConsumerState<_RecentRow> {
-  Future<void> _acknowledgeResources(MovieListItem movie) async {
-    try {
-      await ref.read(moviesRepositoryProvider).acknowledgeResources(movie.id);
-    } catch (_) {
-      // 新资源确认失败不应阻止用户打开影片详情。
-    }
-  }
-
   void _openMovie(MovieListItem movie) {
     unawaited(
       ref.read(homeMovieViewStateProvider).markMovieViewed(movie.id),
     );
-    if (movie.hasNewResources) {
-      unawaited(_acknowledgeResources(movie));
-    }
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
     );

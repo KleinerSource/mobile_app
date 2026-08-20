@@ -148,6 +148,43 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     _controller.refresh();
   }
 
+  void _handleMovieTap(MovieListItem item) {
+    if (_selectionMode) {
+      _toggleSelect(item.id);
+      return;
+    }
+    unawaited(_openMovie(item));
+  }
+
+  Future<void> _openMovie(MovieListItem item) async {
+    final acknowledge = item.hasNewResources
+        ? ref.read(moviesRepositoryProvider).acknowledgeResources(item.id)
+        : null;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MovieDetailPage(
+          movieId: item.id,
+          acknowledgeNewResources: acknowledge == null,
+        ),
+      ),
+    );
+
+    if (!mounted || acknowledge == null) return;
+    try {
+      await acknowledge;
+    } catch (_) {
+      if (!mounted) return;
+      try {
+        await ref.read(moviesRepositoryProvider).acknowledgeResources(item.id);
+      } catch (_) {
+        // 确认失败时保留当前项，下一次查看或刷新时重试。
+        return;
+      }
+    }
+    if (mounted) _reload(preserveScroll: true);
+  }
+
   Future<void> _openAdvancedFilter() async {
     final next = await AdvancedFilterSheet.show(
       context,
@@ -472,17 +509,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
           posterUrlBuilder: urlBuilder,
           selecting: _selectionMode,
           selected: _selectedIds.contains(item.id),
-          onTap: () {
-            if (_selectionMode) {
-              _toggleSelect(item.id);
-            } else {
-              Navigator.of(ctx).push(
-                MaterialPageRoute(
-                  builder: (_) => MovieDetailPage(movieId: item.id),
-                ),
-              );
-            }
-          },
+          onTap: () => _handleMovieTap(item),
         ),
       ),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
@@ -518,6 +545,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
           selectionMode: _selectionMode,
           selected: _selectedIds.contains(item.id),
           onSelectionTap: () => _toggleSelect(item.id),
+          onMovieTap: () => _openMovie(item),
           onFavorite: () {
             unawaited(_favoriteOne(item));
           },
@@ -1133,6 +1161,7 @@ class _ListRow extends StatelessWidget {
     this.selectionMode = false,
     this.selected = false,
     this.onSelectionTap,
+    required this.onMovieTap,
     required this.onFavorite,
   });
   final MovieListItem movie;
@@ -1140,6 +1169,7 @@ class _ListRow extends StatelessWidget {
   final bool selectionMode;
   final bool selected;
   final VoidCallback? onSelectionTap;
+  final VoidCallback onMovieTap;
   final VoidCallback onFavorite;
 
   @override
@@ -1156,13 +1186,7 @@ class _ListRow extends StatelessWidget {
 
     final row = PrivacyAwareInkWell(
       movieId: movie.id,
-      onTap: selectionMode
-          ? onSelectionTap
-          : () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => MovieDetailPage(movieId: movie.id),
-              ),
-            ),
+      onTap: selectionMode ? onSelectionTap : onMovieTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
@@ -1203,18 +1227,29 @@ class _ListRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  PrivacyText(
-                    movieId: movie.id,
-                    text: movie.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      height: 1.25,
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: PrivacyText(
+                          movieId: movie.id,
+                          text: movie.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: c.text,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            height: 1.25,
+                          ),
+                        ),
+                      ),
+                      if (!selectionMode && movie.hasNewResources) ...[
+                        const SizedBox(width: 6),
+                        const NewResourcesBadge(),
+                      ],
+                    ],
                   ),
                   if (meta.isNotEmpty) ...[
                     const SizedBox(height: 3),

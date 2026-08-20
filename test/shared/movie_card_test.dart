@@ -65,6 +65,36 @@ void main() {
     expect(find.byType(LinearProgressIndicator), findsNothing);
   });
 
+  testWidgets('hasNewResources 显示独立的新资源角标且不混用 NEW', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 140,
+                child: MovieCard(
+                  movie: const MovieListItem(
+                    id: 1,
+                    title: 'A',
+                    hasNewResources: true,
+                  ),
+                  posterUrlBuilder: (u) => 'http://x/$u',
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('新资源'), findsOneWidget);
+    expect(find.text('NEW'), findsNothing);
+  });
+
   testWidgets('未完成有进度时显示进度条 (隐私关闭)', (tester) async {
     SharedPreferences.setMockInitialValues({
       'privacy.app_switcher_shield': false,

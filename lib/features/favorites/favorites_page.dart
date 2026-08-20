@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -127,6 +129,35 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   void _reload({bool preserveScroll = false}) {
     _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
     _controller.refresh();
+  }
+
+  Future<void> _openMovie(MovieListItem movie) async {
+    final acknowledge = movie.hasNewResources
+        ? ref.read(moviesRepositoryProvider).acknowledgeResources(movie.id)
+        : null;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MovieDetailPage(
+          movieId: movie.id,
+          acknowledgeNewResources: acknowledge == null,
+        ),
+      ),
+    );
+
+    if (!mounted || acknowledge == null) return;
+    try {
+      await acknowledge;
+    } catch (_) {
+      if (!mounted) return;
+      try {
+        await ref.read(moviesRepositoryProvider).acknowledgeResources(movie.id);
+      } catch (_) {
+        // 确认失败时保留当前项，下一次查看或刷新时重试。
+        return;
+      }
+    }
+    if (mounted) _reload(preserveScroll: true);
   }
 
   Future<void> _startResourceScan() async {
@@ -639,11 +670,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
             if (_selecting) {
               _toggleSelect(m.id);
             } else {
-              Navigator.of(ctx).push(
-                MaterialPageRoute(
-                  builder: (_) => MovieDetailPage(movieId: m.id),
-                ),
-              );
+              unawaited(_openMovie(m));
             }
           },
         ),
@@ -676,11 +703,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
             if (_selecting) {
               _toggleSelect(m.id);
             } else {
-              Navigator.of(ctx).push(
-                MaterialPageRoute(
-                  builder: (_) => MovieDetailPage(movieId: m.id),
-                ),
-              );
+              unawaited(_openMovie(m));
             }
           },
           onRemove: () => _removeOne(m),
@@ -917,18 +940,29 @@ class _ListRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                PrivacyText(
-                  movieId: movie.id,
-                  text: movie.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.text,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    height: 1.2,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: PrivacyText(
+                        movieId: movie.id,
+                        text: movie.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.text,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                    if (!selecting && movie.hasNewResources) ...[
+                      const SizedBox(width: 6),
+                      const NewResourcesBadge(),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 3),
                 Text(
