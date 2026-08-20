@@ -65,7 +65,7 @@ void main() {
     expect(find.byType(LinearProgressIndicator), findsNothing);
   });
 
-  testWidgets('hasNewResources 显示独立的新资源角标且不混用 NEW', (tester) async {
+  testWidgets('hasNewResources 显示独立的星光图标且不混用 NEW', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
@@ -91,7 +91,8 @@ void main() {
       ),
     );
 
-    expect(find.text('新资源'), findsOneWidget);
+    expect(find.byIcon(Icons.auto_awesome_rounded), findsOneWidget);
+    expect(find.text('新资源'), findsNothing);
     expect(find.text('NEW'), findsNothing);
   });
 

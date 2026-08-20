@@ -1247,7 +1247,7 @@ class _ListRow extends StatelessWidget {
                       ),
                       if (!selectionMode && movie.hasNewResources) ...[
                         const SizedBox(width: 6),
-                        const NewResourcesBadge(),
+                        const NewResourcesIcon(),
                       ],
                     ],
                   ),
