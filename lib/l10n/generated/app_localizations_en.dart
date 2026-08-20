@@ -284,7 +284,7 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get settingsBadgePositionsSub =>
-      'Rating / subtitle / crack / resolution';
+      'Rating / subtitle / crack / resolution / new resources';
 
   @override
   String get badgeRating => 'Rating';
@@ -297,6 +297,9 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get badgeResolution => 'Resolution';
+
+  @override
+  String get badgeNewResources => 'New resources';
 
   @override
   String get badgeHidden => 'Hidden';

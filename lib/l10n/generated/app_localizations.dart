@@ -616,7 +616,7 @@ abstract class AppL10n {
   /// No description provided for @settingsBadgePositionsSub.
   ///
   /// In zh, this message translates to:
-  /// **'评分 / 字幕 / 破解 / 清晰度'**
+  /// **'评分 / 字幕 / 破解 / 清晰度 / 新资源'**
   String get settingsBadgePositionsSub;
 
   /// No description provided for @badgeRating.
@@ -642,6 +642,12 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'清晰度'**
   String get badgeResolution;
+
+  /// No description provided for @badgeNewResources.
+  ///
+  /// In zh, this message translates to:
+  /// **'新资源'**
+  String get badgeNewResources;
 
   /// No description provided for @badgeHidden.
   ///

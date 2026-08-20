@@ -281,7 +281,7 @@ class AppL10nZh extends AppL10n {
   String get settingsBadgePositions => '封面角标位置';
 
   @override
-  String get settingsBadgePositionsSub => '评分 / 字幕 / 破解 / 清晰度';
+  String get settingsBadgePositionsSub => '评分 / 字幕 / 破解 / 清晰度 / 新资源';
 
   @override
   String get badgeRating => '评分';
@@ -294,6 +294,9 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get badgeResolution => '清晰度';
+
+  @override
+  String get badgeNewResources => '新资源';
 
   @override
   String get badgeHidden => '已隐藏';

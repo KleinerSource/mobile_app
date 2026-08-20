@@ -1528,7 +1528,7 @@ class _TrailerViewerState extends State<_TrailerViewer> {
         if (posterUrl.isNotEmpty)
           CachedNetworkImage(
             imageUrl: posterUrl,
-            fit: BoxFit.cover,
+            fit: BoxFit.contain,
             placeholder: (_, __) => _trailerBackdrop(context),
             errorWidget: (_, __, ___) => _trailerBackdrop(context),
           )

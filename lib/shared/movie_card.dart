@@ -74,8 +74,11 @@ class MovieCard extends ConsumerWidget {
         }
       }
     }
-    if (!selectionMode && !restricted && movie.hasNewResources) {
-      byCorner[BadgeCorner.topRight]!.add(const NewResourcesIcon());
+    if (!selectionMode &&
+        !restricted &&
+        positions.newResourcesEnabled &&
+        movie.hasNewResources) {
+      byCorner[positions.newResources]!.add(const NewResourcesIcon());
     }
 
     return PrivacyAwareInkWell(
@@ -135,8 +138,10 @@ class MovieCard extends ConsumerWidget {
                   top: 6,
                   right: 6,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: c.warning.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(4),
@@ -159,8 +164,10 @@ class MovieCard extends ConsumerWidget {
                   top: 6,
                   left: 6,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(4),
@@ -202,8 +209,7 @@ class MovieCard extends ConsumerWidget {
                     completed: completed,
                     // 进度条已贴底, badge 不再让位, 位置保持一致
                     skipTopLeftForSelection: selectionMode,
-                    horizontalOffset: positions.horizontalOffset,
-                    verticalOffset: positions.verticalOffset,
+                    offset: positions.offsetOf(corner),
                     children: byCorner[corner]!,
                   ),
             ],
@@ -292,7 +298,9 @@ class SelectableMovieCard extends StatelessWidget {
               height: 22,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: selected ? c.accent : Colors.black.withValues(alpha: 0.5),
+                color: selected
+                    ? c.accent
+                    : Colors.black.withValues(alpha: 0.5),
                 border: Border.all(color: Colors.white, width: 1.5),
               ),
               alignment: Alignment.center,
@@ -312,15 +320,13 @@ class _CornerBadges extends StatelessWidget {
     required this.corner,
     required this.completed,
     required this.skipTopLeftForSelection,
-    required this.horizontalOffset,
-    required this.verticalOffset,
+    required this.offset,
     required this.children,
   });
   final BadgeCorner corner;
   final bool completed;
   final bool skipTopLeftForSelection;
-  final int horizontalOffset;
-  final int verticalOffset;
+  final BadgeCornerOffset offset;
   final List<Widget> children;
 
   @override
@@ -333,8 +339,8 @@ class _CornerBadges extends StatelessWidget {
         corner == BadgeCorner.topLeft || corner == BadgeCorner.bottomLeft;
 
     final baseInset = 6.0;
-    final hInset = (baseInset + horizontalOffset).clamp(0, 32).toDouble();
-    final vInset = (baseInset + verticalOffset).clamp(0, 32).toDouble();
+    final hInset = (baseInset + offset.horizontal).clamp(0, 32).toDouble();
+    final vInset = (baseInset + offset.vertical).clamp(0, 32).toDouble();
 
     final row = Row(
       mainAxisSize: MainAxisSize.min,
