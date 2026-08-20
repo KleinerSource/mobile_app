@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import '../privacy/privacy_providers.dart';
 
@@ -21,10 +20,10 @@ class HeroArt {
 }
 
 /// 首页氛围背景 · SenPlayer/Infuse 风格:
-/// - 底层保留静态光晕 (与全局 GlowBackground 同源)
+/// - 底层为全 App 统一的磨砂渐变基底(FrostedBase,无光斑)
 /// - 背景跟随轮播滑动连续过渡: 当前封面保持,下一张按页位进度
 ///   逐帧淡入,无整体切换、无闪烁
-/// - 顶层磨砂渐变保证滚动内容可读
+/// - 顶层磨砂遮罩(FrostedScrim)与普通页面共用,保证内容可读
 /// - 隐私模式未揭开该影片时对应层不渲染
 class HeroBackdrop extends ConsumerWidget {
   const HeroBackdrop({
@@ -41,11 +40,10 @@ class HeroBackdrop extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = appColors(context);
     return Stack(
       fit: StackFit.expand,
       children: [
-        const GlowBase(child: SizedBox.expand()),
+        const FrostedBase(child: SizedBox.expand()),
         ValueListenableBuilder<List<HeroArt>>(
           valueListenable: arts,
           builder: (context, arts, _) => ValueListenableBuilder<double>(
@@ -54,25 +52,8 @@ class HeroBackdrop extends ConsumerWidget {
                 _BackdropArtLayers(arts: arts, position: position),
           ),
         ),
-        // 磨砂遮罩 · 自上而下加深,保证卡片文字可读
-        Positioned.fill(
-          child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    c.bg.withValues(alpha: 0.58),
-                    c.bg.withValues(alpha: 0.78),
-                    c.bg.withValues(alpha: 0.94),
-                  ],
-                  stops: const [0.0, 0.45, 1.0],
-                ),
-              ),
-            ),
-          ),
-        ),
+        // 磨砂遮罩 · 与普通页面统一
+        const Positioned.fill(child: FrostedScrim()),
       ],
     );
   }
