@@ -185,9 +185,9 @@ List<CoverBadgeSpec> buildCoverBadges({
   return badges;
 }
 
-/// 封面底部技术徽章行 · 分组与 Web 端一致:
-/// 视频规格(编码/HDR/分辨率)合并为行首叠堆,多来源字幕合并为行尾叠堆,
-/// 其余徽章(STRM/破解)独立显示;多元素分组收起时叠加、点按向上展开。
+/// 封面底部技术徽章行:
+/// 仅多来源字幕合并为叠堆(收起时叠加、点按向上展开),
+/// 其余徽章(编码/HDR/分辨率/STRM/破解)逐个平铺显示。
 class CoverBadgeRow extends StatelessWidget {
   const CoverBadgeRow({super.key, required this.badges});
 
@@ -195,26 +195,21 @@ class CoverBadgeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final quality = <CoverBadgeSpec>[];
     final subs = <CoverBadgeSpec>[];
     final others = <CoverBadgeSpec>[];
     for (final b in badges) {
       if (b.kind == PosterBadgeKind.subtitle) {
         subs.add(b);
-      } else if (b.kind == PosterBadgeKind.codec ||
-          b.kind == PosterBadgeKind.hdr ||
-          b.kind == PosterBadgeKind.resolution) {
-        quality.add(b);
       } else {
         others.add(b);
       }
     }
 
-    Widget group(List<CoverBadgeSpec> list, String? Function(int) tooltip) {
+    Widget subGroup(List<CoverBadgeSpec> list) {
       if (list.isEmpty) return const SizedBox.shrink();
       if (list.length == 1) return _CoverBadgePill(spec: list.single);
       return StackedBadges(
-        tooltip: tooltip(list.length),
+        tooltip: '字幕 ×${list.length}（点按展开）',
         children: [for (final b in list) _CoverBadgePill(spec: b)],
       );
     }
@@ -223,9 +218,8 @@ class CoverBadgeRow extends StatelessWidget {
       spacing: 6,
       runSpacing: 6,
       children: [
-        group(quality, (n) => '视频规格 ×$n（点按展开）'),
         for (final b in others) _CoverBadgePill(spec: b),
-        group(subs, (n) => '字幕 ×$n（点按展开）'),
+        subGroup(subs),
       ],
     );
   }
