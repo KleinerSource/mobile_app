@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/media_streams.dart';
+import '../../shared/stacked_badges.dart';
 import '../i18n/poster_badge_visibility_provider.dart';
 
 /// 详情页封面技术徽章规格。
@@ -47,13 +48,14 @@ String _fileNameStem(String? filePath) {
 }
 
 /// 组合文件名后缀 + 媒体探测结果生成封面徽章(与 Web 端 useCoverBadges 对齐):
-/// 编码 / HDR / STRM / 外挂字幕 / 内嵌字幕 / 破解 / UHD / HD，无数据的项自动省略。
+/// 编码 / HDR / STRM / 外挂字幕 / 内嵌字幕轨道 / 文件名内嵌字幕 / 破解 / UHD / HD，
+/// 无数据的项自动省略。
 List<CoverBadgeSpec> buildCoverBadges({
   String? filePath,
   int? fileSize,
   VideoStreamInfo? video,
   bool hasExternalSubtitle = false,
-  bool hasEmbeddedSubtitle = false,
+  bool hasMuxedSubtitle = false,
 }) {
   final badges = <CoverBadgeSpec>[];
 
@@ -124,10 +126,20 @@ List<CoverBadgeSpec> buildCoverBadges({
     ));
   }
 
-  if (hasEmbeddedSubtitle ||
-      (stem.isNotEmpty &&
-          (_kEmbeddedSubtitleRegex.hasMatch(stem) ||
-              _kCrackWithSubRegex.hasMatch(stem)))) {
+  // 内嵌字幕轨道: 视频容器内的字幕流,与文件名标识相互独立
+  if (hasMuxedSubtitle) {
+    badges.add(const CoverBadgeSpec(
+      PosterBadgeKind.subtitle,
+      '字幕',
+      Color(0xFF16A34A),
+      '内嵌字幕轨道',
+    ));
+  }
+
+  // 文件名内嵌标识: -c / -chs / -uc / -umr-c 等番号后缀
+  if (stem.isNotEmpty &&
+      (_kEmbeddedSubtitleRegex.hasMatch(stem) ||
+          _kCrackWithSubRegex.hasMatch(stem))) {
     badges.add(const CoverBadgeSpec(
       PosterBadgeKind.subtitle,
       '字幕',
@@ -173,7 +185,9 @@ List<CoverBadgeSpec> buildCoverBadges({
   return badges;
 }
 
-/// 封面底部技术徽章行(彩色胶囊，横向排列)。
+/// 封面底部技术徽章行 · 分组与 Web 端一致:
+/// 视频规格(编码/HDR/分辨率)合并为行首叠堆,多来源字幕合并为行尾叠堆,
+/// 其余徽章(STRM/破解)独立显示;多元素分组收起时叠加、点按向上展开。
 class CoverBadgeRow extends StatelessWidget {
   const CoverBadgeRow({super.key, required this.badges});
 
@@ -181,51 +195,89 @@ class CoverBadgeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final quality = <CoverBadgeSpec>[];
+    final subs = <CoverBadgeSpec>[];
+    final others = <CoverBadgeSpec>[];
+    for (final b in badges) {
+      if (b.kind == PosterBadgeKind.subtitle) {
+        subs.add(b);
+      } else if (b.kind == PosterBadgeKind.codec ||
+          b.kind == PosterBadgeKind.hdr ||
+          b.kind == PosterBadgeKind.resolution) {
+        quality.add(b);
+      } else {
+        others.add(b);
+      }
+    }
+
+    Widget group(List<CoverBadgeSpec> list, String? Function(int) tooltip) {
+      if (list.isEmpty) return const SizedBox.shrink();
+      if (list.length == 1) return _CoverBadgePill(spec: list.single);
+      return StackedBadges(
+        tooltip: tooltip(list.length),
+        children: [for (final b in list) _CoverBadgePill(spec: b)],
+      );
+    }
+
     return Wrap(
       spacing: 6,
       runSpacing: 6,
       children: [
-        for (final b in badges)
-          Tooltip(
-            message: b.tooltip ?? b.label,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
-              decoration: BoxDecoration(
-                color: b.color,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.24),
-                  width: 0.8,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.22),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(b.icon, color: Colors.white, size: 11),
-                  const SizedBox(width: 3),
-                  Text(
-                    b.label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Inter',
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
-                      height: 1.1,
-                    ),
-                  ),
-                ],
+        group(quality, (n) => '视频规格 ×$n（点按展开）'),
+        for (final b in others) _CoverBadgePill(spec: b),
+        group(subs, (n) => '字幕 ×$n（点按展开）'),
+      ],
+    );
+  }
+}
+
+/// 单个彩色胶囊徽章 (原 CoverBadgeRow 的内联样式)
+class _CoverBadgePill extends StatelessWidget {
+  const _CoverBadgePill({required this.spec});
+
+  final CoverBadgeSpec spec;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = spec;
+    return Tooltip(
+      message: b.tooltip ?? b.label,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+        decoration: BoxDecoration(
+          color: b.color,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.24),
+            width: 0.8,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.22),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(b.icon, color: Colors.white, size: 11),
+            const SizedBox(width: 3),
+            Text(
+              b.label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontFamily: 'Inter',
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+                height: 1.1,
               ),
             ),
-          ),
-      ],
+          ],
+        ),
+      ),
     );
   }
 }

@@ -7,6 +7,7 @@ import '../features/i18n/badge_position_provider.dart';
 import '../features/privacy/privacy_mask.dart';
 import '../features/privacy/privacy_providers.dart';
 import 'poster.dart';
+import 'stacked_badges.dart';
 
 /// md_center 标准影片卡片 · 海报 + 评分角标 + 进度条 + 标题元数据
 ///
@@ -53,15 +54,29 @@ class MovieCard extends ConsumerWidget {
         byCorner[positions.rating]!.add(RatingBadge(rating: movie.rating!));
       }
       if (positions.subtitleEnabled) {
-        if (movie.hasExternalSubtitle) {
-          byCorner[positions.subtitle]!.add(
+        // 三种字幕来源: 外挂(橙) / 内嵌轨道(绿) / 文件名标识(黄),
+        // 多来源时合并为叠加堆,点按展开
+        final subBadges = <Widget>[
+          if (movie.hasExternalSubtitle)
             const _SubtitleBadge(color: Color(0xFFFF9F1C), tooltip: '外挂字幕'),
-          );
-        }
-        if (movie.hasEmbeddedSubtitle) {
-          byCorner[positions.subtitle]!.add(
+          if (movie.hasMuxedSubtitle)
+            const _SubtitleBadge(
+              color: Color(0xFF16A34A),
+              tooltip: '内嵌字幕轨道',
+            ),
+          if (movie.hasFilenameSubtitle)
             const _SubtitleBadge(color: Color(0xFFFFD60A), tooltip: '内嵌字幕'),
-          );
+        ];
+        if (subBadges.length > 1) {
+          final corner = positions.subtitle;
+          byCorner[corner]!.add(StackedBadges(
+            tooltip: '字幕 ×${subBadges.length}（点按展开）',
+            expandUpward:
+                corner == BadgeCorner.bottomLeft || corner == BadgeCorner.bottomRight,
+            children: subBadges,
+          ));
+        } else {
+          byCorner[positions.subtitle]!.addAll(subBadges);
         }
       }
       if (positions.crackEnabled && movie.hasCracked) {

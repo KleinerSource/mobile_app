@@ -324,7 +324,8 @@ class _HeroHeader extends ConsumerWidget {
       fileSize: movie.fileSize,
       video: video,
       hasExternalSubtitle: hasExternalSubtitle,
-      hasEmbeddedSubtitle:
+      hasMuxedSubtitle:
+          movie.hasInternalSubtitle ||
           mediaInfo?.streams.subtitleStreams.isNotEmpty == true,
     ).where((badge) => badgeVisibility.isEnabled(badge.kind)).toList();
 

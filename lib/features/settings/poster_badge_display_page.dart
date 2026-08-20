@@ -78,6 +78,18 @@ class _PosterBadgePreview extends StatelessWidget {
     CoverBadgeSpec(
       PosterBadgeKind.subtitle,
       '字幕',
+      Color(0xFFFF9F1C),
+      '外挂字幕',
+    ),
+    CoverBadgeSpec(
+      PosterBadgeKind.subtitle,
+      '字幕',
+      Color(0xFF16A34A),
+      '内嵌字幕轨道',
+    ),
+    CoverBadgeSpec(
+      PosterBadgeKind.subtitle,
+      '字幕',
       Color(0xFFCA8A04),
       '内嵌字幕',
     ),

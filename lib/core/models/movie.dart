@@ -84,9 +84,11 @@ extension MovieListItemX on MovieListItem {
     return raw.replaceFirst(RegExp(r'\.[^.]+$'), '').toLowerCase();
   }
 
-  /// 内嵌字幕: -c / -chs / -ch / -cht / -zh / -sub / -subs / -uc / -umr-c
-  bool get hasEmbeddedSubtitle {
-    if (hasInternalSubtitle) return true;
+  /// 内嵌字幕(视频容器内字幕轨道) · 详情接口字段,与文件名标识相互独立
+  bool get hasMuxedSubtitle => hasInternalSubtitle;
+
+  /// 文件名内嵌字幕标识: -c / -chs / -ch / -cht / -zh / -sub / -subs / -uc / -umr-c
+  bool get hasFilenameSubtitle {
     final stem = _fileNameStem;
     if (stem.isEmpty) return false;
     return _kEmbeddedSubtitleRegex.hasMatch(stem) ||
@@ -165,6 +167,7 @@ abstract class MovieDetail with _$MovieDetail {
     @JsonKey(name: 'fanart_uuid') String? fanartUuid,
     @JsonKey(name: 'thumb_uuid') String? thumbUuid,
     @JsonKey(name: 'has_external_subtitle') @Default(false) bool hasExternalSubtitle,
+    @JsonKey(name: 'has_internal_subtitle') @Default(false) bool hasInternalSubtitle,
     @JsonKey(name: 'is_favorited') @Default(false) bool isFavorited,
     @Default(<ResourceItem>[]) List<ResourceItem> tags,
     @Default(<ResourceItem>[]) List<ResourceItem> genres,

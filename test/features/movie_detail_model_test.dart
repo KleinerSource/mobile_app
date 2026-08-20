@@ -33,7 +33,7 @@ void main() {
     expect(movie.relatedFiles.single.path, '/movies/test.srt');
   });
 
-  test('列表模型解析内嵌字幕和视频分辨率状态', () {
+  test('列表模型解析内嵌字幕轨道和视频分辨率状态', () {
     final movie = MovieListItem.fromJson({
       'id': 2,
       'title': '列表测试',
@@ -45,6 +45,30 @@ void main() {
     expect(movie.hasInternalSubtitle, isTrue);
     expect(movie.videoWidth, 1920);
     expect(movie.videoHeight, 1080);
-    expect(movie.hasEmbeddedSubtitle, isTrue);
+    // 内嵌轨道与文件名标识相互独立
+    expect(movie.hasMuxedSubtitle, isTrue);
+    expect(movie.hasFilenameSubtitle, isFalse);
+  });
+
+  test('列表模型按文件名后缀识别内嵌字幕标识', () {
+    final movie = MovieListItem.fromJson({
+      'id': 4,
+      'title': '文件名标识测试',
+      'file_name': 'ABCD-001-uc.mp4',
+    });
+
+    expect(movie.hasInternalSubtitle, isFalse);
+    expect(movie.hasMuxedSubtitle, isFalse);
+    expect(movie.hasFilenameSubtitle, isTrue);
+  });
+
+  test('详情模型解析 has_internal_subtitle', () {
+    final movie = MovieDetail.fromJson({
+      'id': 5,
+      'title': '内嵌轨道测试',
+      'has_internal_subtitle': true,
+    });
+
+    expect(movie.hasInternalSubtitle, isTrue);
   });
 }
