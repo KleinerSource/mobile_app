@@ -380,19 +380,23 @@ class _ContinueWatchingSection extends StatelessWidget {
 
     return Padding(
       // 顶部间距与全出血 hero 衔接
-      padding: const EdgeInsets.fromLTRB(22, 26, 22, 0),
+      padding: const EdgeInsets.only(top: 26),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            AppL10n.of(context).homePickupTitle,
-            style: AppText.sectionTitle(context),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            child: Text(
+              AppL10n.of(context).homePickupTitle,
+              style: AppText.sectionTitle(context),
+            ),
           ),
           const SizedBox(height: _homeSectionTitleGap),
           SizedBox(
             height: coverHeight + 8 + titleAreaHeight,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 22),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(width: 12),
               itemBuilder: (_, index) => SizedBox(
@@ -660,20 +664,25 @@ class _CollectionsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, _homeSectionGap, 22, 28),
+      padding: const EdgeInsets.only(top: _homeSectionGap, bottom: 28),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final cardWidth = collectionCardWidth(constraints.maxWidth);
+          // 卡片尺寸沿用两侧 22 留白的可用宽度，列表本身全宽可滚到屏幕边缘
+          final cardWidth = collectionCardWidth(constraints.maxWidth - 44);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(AppL10n.of(context).homeYourLibraries,
-                  style: AppText.sectionTitle(context)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                child: Text(AppL10n.of(context).homeYourLibraries,
+                    style: AppText.sectionTitle(context)),
+              ),
               const SizedBox(height: 14),
               SizedBox(
                 height: cardWidth / (5 / 3),
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
                   itemCount: libraries.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 10),
                   itemBuilder: (_, i) => SizedBox(
