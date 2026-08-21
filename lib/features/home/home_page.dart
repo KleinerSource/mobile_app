@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -69,8 +70,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     refreshImageCache(ref);
     await refreshHomeProviders(
       refreshRecentlyAdded: () => ref.refresh(recentlyAddedProvider.future),
-      refreshContinueWatching: () => ref.refresh(continueWatchingProvider.future),
+      refreshContinueWatching: () =>
+          ref.refresh(continueWatchingProvider.future),
       refreshLibraries: () => ref.refresh(librariesProvider.future),
+      refreshLibraryCovers: () =>
+          ref.refresh(libraryCoverImagesProvider.future),
       refreshRecommendCarousel: () =>
           ref.refresh(recommendCarouselProvider.future),
     );
@@ -89,10 +93,12 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     final arts = [for (final movie in items) toArt(movie)];
     final current = _heroArts.value;
-    final same = current.length == arts.length &&
+    final same =
+        current.length == arts.length &&
         [
           for (var i = 0; i < arts.length; i++)
-            current[i].movieId == arts[i].movieId && current[i].url == arts[i].url,
+            current[i].movieId == arts[i].movieId &&
+                current[i].url == arts[i].url,
         ].every((ok) => ok);
     if (!same) _heroArts.value = arts;
   }
@@ -181,12 +187,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                 // -------- 1. 半屏 hero 轮播 (上滑收窄再推出) --------
                 if (heroReady)
                   carousel.when(
-                    loading: () => const SliverToBoxAdapter(
-                      child: SizedBox.shrink(),
-                    ),
-                    error: (_, __) => const SliverToBoxAdapter(
-                      child: SizedBox.shrink(),
-                    ),
+                    loading: () =>
+                        const SliverToBoxAdapter(child: SizedBox.shrink()),
+                    error: (_, __) =>
+                        const SliverToBoxAdapter(child: SizedBox.shrink()),
                     data: (items) => SliverPersistentHeader(
                       pinned: false,
                       delegate: _HeroHeaderDelegate(
@@ -222,10 +226,14 @@ class _HomePageState extends ConsumerState<HomePage> {
 
                 // -------- 2. Continue Watching --------
                 continueW.when(
-                  loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-                  error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+                  loading: () =>
+                      const SliverToBoxAdapter(child: SizedBox.shrink()),
+                  error: (_, __) =>
+                      const SliverToBoxAdapter(child: SizedBox.shrink()),
                   data: (items) {
-                    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+                    if (items.isEmpty) {
+                      return const SliverToBoxAdapter(child: SizedBox.shrink());
+                    }
                     return SliverToBoxAdapter(
                       child: _ContinueWatchingSection(
                         items: items,
@@ -274,7 +282,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             visualDensity: VisualDensity.compact,
                           ),
-                          icon: const Icon(Icons.arrow_forward_ios_rounded, size: 13),
+                          icon: const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 13,
+                          ),
                           label: Text(
                             l.homeSeeAll,
                             style: const TextStyle(
@@ -290,7 +301,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
                 recent.when(
                   loading: () => const SliverToBoxAdapter(
-                    child: SizedBox(height: 220, child: Center(child: CircularProgressIndicator())),
+                    child: SizedBox(
+                      height: 220,
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
                   ),
                   error: (e, _) => SliverToBoxAdapter(
                     child: Padding(
@@ -299,7 +313,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                   ),
                   data: (paged) => SliverToBoxAdapter(
-                    child: _RecentRow(items: paged.items, urlBuilder: urlBuilder),
+                    child: _RecentRow(
+                      items: paged.items,
+                      urlBuilder: urlBuilder,
+                    ),
                   ),
                 ),
 
@@ -364,7 +381,10 @@ class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
 
 // ============ Continue Watching ============
 class _ContinueWatchingSection extends StatelessWidget {
-  const _ContinueWatchingSection({required this.items, required this.urlBuilder});
+  const _ContinueWatchingSection({
+    required this.items,
+    required this.urlBuilder,
+  });
   final List<MovieListItem> items;
   final String Function(String) urlBuilder;
 
@@ -594,9 +614,7 @@ class _RecentRow extends ConsumerStatefulWidget {
 
 class _RecentRowState extends ConsumerState<_RecentRow> {
   void _openMovie(MovieListItem movie) {
-    unawaited(
-      ref.read(homeMovieViewStateProvider).markMovieViewed(movie.id),
-    );
+    unawaited(ref.read(homeMovieViewStateProvider).markMovieViewed(movie.id));
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
     );
@@ -604,7 +622,9 @@ class _RecentRowState extends ConsumerState<_RecentRow> {
 
   @override
   Widget build(BuildContext context) {
-    final viewedMovieIds = ref.watch(homeMovieViewStateProvider).viewedMovieIds();
+    final viewedMovieIds = ref
+        .watch(homeMovieViewStateProvider)
+        .viewedMovieIds();
     return SizedBox(
       height: 268,
       child: ListView.separated(
@@ -630,7 +650,9 @@ class _RecentRowState extends ConsumerState<_RecentRow> {
                     left: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(5),
@@ -657,12 +679,16 @@ class _RecentRowState extends ConsumerState<_RecentRow> {
 }
 
 // ============ Your libraries (媒体库 · 最底部) ============
-class _CollectionsSection extends StatelessWidget {
+class _CollectionsSection extends ConsumerWidget {
   const _CollectionsSection({required this.libraries});
   final List<LibraryItem> libraries;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 封面单独渐进加载 · 未就绪时卡片先以品牌渐变呈现
+    final covers =
+        ref.watch(libraryCoverImagesProvider).valueOrNull ??
+        const <int, Uint8List>{};
     return Padding(
       padding: const EdgeInsets.only(top: _homeSectionGap, bottom: 28),
       child: LayoutBuilder(
@@ -674,8 +700,10 @@ class _CollectionsSection extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: Text(AppL10n.of(context).homeYourLibraries,
-                    style: AppText.sectionTitle(context)),
+                child: Text(
+                  AppL10n.of(context).homeYourLibraries,
+                  style: AppText.sectionTitle(context),
+                ),
               ),
               const SizedBox(height: 14),
               SizedBox(
@@ -690,6 +718,7 @@ class _CollectionsSection extends StatelessWidget {
                     child: _LibraryCard(
                       library: libraries[i],
                       hue: AppHues.all[i % AppHues.all.length],
+                      cover: covers[libraries[i].id],
                     ),
                   ),
                 ),
@@ -703,9 +732,12 @@ class _CollectionsSection extends StatelessWidget {
 }
 
 class _LibraryCard extends StatelessWidget {
-  const _LibraryCard({required this.library, required this.hue});
+  const _LibraryCard({required this.library, required this.hue, this.cover});
   final LibraryItem library;
   final int hue;
+
+  /// 后端内联返回的封面图字节 · 为空时回退品牌渐变
+  final Uint8List? cover;
 
   @override
   Widget build(BuildContext context) {
@@ -718,76 +750,106 @@ class _LibraryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: AspectRatio(
           aspectRatio: 5 / 3,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppHues.top(hue), AppHues.bottom(hue)],
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 背景: 封面就绪后淡入替换品牌渐变
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                layoutBuilder: (currentChild, previousChildren) => Stack(
+                  fit: StackFit.expand,
+                  alignment: Alignment.center,
+                  children: [
+                    ...previousChildren,
+                    if (currentChild != null) currentChild,
+                  ],
+                ),
+                child: cover != null
+                    ? KeyedSubtree(
+                        key: ValueKey('cover-${library.id}'),
+                        child: Image.memory(cover!, fit: BoxFit.cover),
+                      )
+                    : KeyedSubtree(
+                        key: ValueKey('hue-$hue'),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [AppHues.top(hue), AppHues.bottom(hue)],
+                            ),
+                          ),
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                top: -30,
+                                right: -30,
+                                width: 100,
+                                height: 100,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: AppHues.highlight(hue),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
               ),
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  top: -30,
-                  right: -30,
-                  width: 100,
-                  height: 100,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppHues.highlight(hue),
+              // 封面上的压暗渐变,保证白色文字可读
+              if (cover != null)
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black54,
+                        Colors.black87,
+                      ],
+                      stops: [0.35, 0.7, 1.0],
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(14),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Align(
+                  alignment: Alignment.bottomLeft,
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        '◆',
-                        style: TextStyle(
+                      Text(
+                        library.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 18,
+                          fontFamily: 'Inter',
                           fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                          letterSpacing: -0.3,
+                          height: 1.15,
                         ),
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            library.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                              letterSpacing: -0.3,
-                              height: 1.15,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${library.fileCount} titles',
-                            style: const TextStyle(
-                              color: Color(0xCCFFFFFF),
-                              fontFamily: 'Inter',
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 4),
+                      Text(
+                        AppL10n.of(context).libraryCount(library.fileCount),
+                        style: const TextStyle(
+                          color: Color(0xCCFFFFFF),
+                          fontFamily: 'Inter',
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

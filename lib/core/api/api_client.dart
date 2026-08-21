@@ -5,6 +5,7 @@ import '../config/server_config.dart';
 import 'dio_factory.dart';
 import 'services/auth_api.dart';
 import 'services/actors_api.dart';
+import 'services/audio_api.dart';
 import 'services/configs_api.dart';
 import 'services/favorites_api.dart';
 import 'services/genres_api.dart';
@@ -17,6 +18,7 @@ import 'services/libraries_extended_api.dart';
 import 'services/catalog_extended_api.dart';
 import 'services/configs_extended_api.dart';
 import 'services/mappings_extended_api.dart';
+import 'services/modal_transcription_api.dart';
 import 'services/series_api.dart';
 import 'services/system_api.dart';
 import 'services/system_extended_api.dart';
@@ -25,25 +27,27 @@ import 'services/translation_api.dart';
 
 class ApiClient {
   ApiClient(this.dio, {this.config})
-      : auth = AuthApi(dio),
-        system = SystemApi(dio),
-        systemExtended = SystemExtendedApi(dio, config: config),
-        movies = MoviesApi(dio),
-        moviesExtended = MoviesExtendedApi(dio),
-        playback = PlaybackApi(dio),
-        favorites = FavoritesApi(dio),
-        libraries = LibrariesApi(dio),
-        librariesExtended = LibrariesExtendedApi(dio),
-        catalog = CatalogExtendedApi(dio),
-        tags = TagsApi(dio),
-        genres = GenresApi(dio),
-        series = SeriesApi(dio),
-        actors = ActorsApi(dio),
-        translation = TranslationApi(dio),
-        mappings = MappingsApi(dio),
-        mappingsExtended = MappingsExtendedApi(dio),
-        configs = ConfigsApi(dio),
-        configsExtended = ConfigsExtendedApi(dio);
+    : auth = AuthApi(dio),
+      system = SystemApi(dio),
+      systemExtended = SystemExtendedApi(dio, config: config),
+      movies = MoviesApi(dio),
+      moviesExtended = MoviesExtendedApi(dio),
+      playback = PlaybackApi(dio),
+      favorites = FavoritesApi(dio),
+      libraries = LibrariesApi(dio),
+      librariesExtended = LibrariesExtendedApi(dio),
+      catalog = CatalogExtendedApi(dio),
+      tags = TagsApi(dio),
+      genres = GenresApi(dio),
+      series = SeriesApi(dio),
+      actors = ActorsApi(dio),
+      audio = AudioApi(dio),
+      translation = TranslationApi(dio),
+      modalTranscription = ModalTranscriptionApi(dio),
+      mappings = MappingsApi(dio),
+      mappingsExtended = MappingsExtendedApi(dio),
+      configs = ConfigsApi(dio),
+      configsExtended = ConfigsExtendedApi(dio);
 
   factory ApiClient.fromConfig(
     ServerConfig config, {
@@ -79,7 +83,9 @@ class ApiClient {
   final GenresApi genres;
   final SeriesApi series;
   final ActorsApi actors;
+  final AudioApi audio;
   final TranslationApi translation;
+  final ModalTranscriptionApi modalTranscription;
   final MappingsApi mappings;
   final MappingsExtendedApi mappingsExtended;
   final ConfigsApi configs;

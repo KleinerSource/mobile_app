@@ -16,6 +16,7 @@ import '../movies/movies_page.dart';
 import '../resources/resource_list_page.dart';
 import '../resources/resources_repository.dart';
 import '../search/search_page.dart';
+import '../tasks/task_center_page.dart';
 
 /// md_center 主框架 · 设计稿 4 Tab 悬浮胶囊
 ///
@@ -58,6 +59,15 @@ class _MainShellState extends State<MainShell> {
   ) {
     final l = AppL10n.of(context);
     return [
+      GlassMenuEntry<_YouQuickAction>.action(
+        value: _YouQuickAction.tasks,
+        builder: (context, selected, onTap) => GlassMenuRow(
+          icon: Icons.task_alt_outlined,
+          label: '任务中心',
+          selected: selected,
+          onTap: onTap,
+        ),
+      ),
       GlassMenuEntry<_YouQuickAction>.action(
         value: _YouQuickAction.libraries,
         builder: (context, selected, onTap) => GlassMenuRow(
@@ -109,17 +119,20 @@ class _MainShellState extends State<MainShell> {
   Future<void> _openYouQuickAction(_YouQuickAction action) async {
     if (!mounted) return;
     final page = switch (action) {
+      _YouQuickAction.tasks => const TaskCenterPage(),
       _YouQuickAction.libraries => const LibrariesPage(),
       _YouQuickAction.tags => const ResourceListPage(kind: ResourceKind.tag),
-      _YouQuickAction.genres =>
-        const ResourceListPage(kind: ResourceKind.genre),
-      _YouQuickAction.series =>
-        const ResourceListPage(kind: ResourceKind.series),
+      _YouQuickAction.genres => const ResourceListPage(
+        kind: ResourceKind.genre,
+      ),
+      _YouQuickAction.series => const ResourceListPage(
+        kind: ResourceKind.series,
+      ),
       _YouQuickAction.actors => const ActorManagementPage(),
     };
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => page),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
   List<_TabSpec> _tabsFor(BuildContext context) {
@@ -172,15 +185,13 @@ class _MainShellState extends State<MainShell> {
         active: _index,
         onTap: _selectTab,
         quickMenuEntries: _quickMenuEntries(context),
-        onQuickMenuSelected: (action) =>
-            unawaited(_openYouQuickAction(action)),
+        onQuickMenuSelected: (action) => unawaited(_openYouQuickAction(action)),
       ),
     );
   }
-
 }
 
-enum _YouQuickAction { libraries, tags, genres, series, actors }
+enum _YouQuickAction { tasks, libraries, tags, genres, series, actors }
 
 class _TabSpec {
   const _TabSpec({required this.label, required this.icon});
@@ -232,8 +243,11 @@ class _FloatingTabBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(100),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha:
-                      Theme.of(context).brightness == Brightness.dark ? 0.5 : 0.18),
+                  color: Colors.black.withValues(
+                    alpha: Theme.of(context).brightness == Brightness.dark
+                        ? 0.5
+                        : 0.18,
+                  ),
                   blurRadius: 36,
                   offset: const Offset(0, 10),
                 ),
@@ -259,8 +273,7 @@ class _FloatingTabBar extends StatelessWidget {
                       active: i == active,
                       onTap: () => onTap(i),
                       quickMenuEntries: i == 3 ? quickMenuEntries : null,
-                      onQuickMenuSelected:
-                          i == 3 ? onQuickMenuSelected : null,
+                      onQuickMenuSelected: i == 3 ? onQuickMenuSelected : null,
                     ),
                   ),
               ],

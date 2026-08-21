@@ -25,12 +25,28 @@ void main() {
       'hwaccel': 'qsv',
       'enabled': true,
       'hw_fallback': false,
+      'audio_extract_workers': 6,
+      'audio_extract_threads': 4,
     });
 
     expect(config.hwAccel, 'qsv');
     expect(config.enabled, isTrue);
     expect(config.hwFallback, isFalse);
+    expect(config.audioExtractWorkers, 6);
+    expect(config.audioExtractThreads, 4);
     expect(config.toJson()['hwaccel'], 'qsv');
+    expect(config.toJson()['audio_extract_workers'], 6);
+    expect(config.toJson()['audio_extract_threads'], 4);
+  });
+
+  test('FFmpeg 音频提取设置超出范围时使用默认值', () {
+    final config = FfmpegConfig.fromJson(const {
+      'audio_extract_workers': 0,
+      'audio_extract_threads': 17,
+    });
+
+    expect(config.audioExtractWorkers, FfmpegConfig.defaultAudioExtractWorkers);
+    expect(config.audioExtractThreads, FfmpegConfig.defaultAudioExtractThreads);
   });
 
   test('未知硬件后端回退到 none', () {

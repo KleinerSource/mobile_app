@@ -36,6 +36,7 @@ import 'movie_detail_formatters.dart';
 import 'cover_badges.dart';
 import 'media_stream_cards.dart';
 import 'thunder_subtitle_sheet.dart';
+import 'audio_extraction_sheet.dart';
 import '../home/home_movie_view_state.dart';
 import '../i18n/poster_badge_visibility_provider.dart';
 
@@ -306,14 +307,15 @@ class _HeroHeader extends ConsumerWidget {
     final heroUuid = movie.fanartUuid?.isNotEmpty == true
         ? movie.fanartUuid
         : (movie.posterUuid?.isNotEmpty == true
-            ? movie.posterUuid
-            : (movie.thumbUuid?.isNotEmpty == true ? movie.thumbUuid : null));
+              ? movie.posterUuid
+              : (movie.thumbUuid?.isNotEmpty == true ? movie.thumbUuid : null));
 
     // 技术徽章(编码/HDR/字幕/破解/UHD...)基于媒体探测 + 文件名后缀
     final mediaInfo = ref.watch(mediaInfoProvider(movie.id)).value;
     final video = mediaInfo?.streams.video;
     final badgeVisibility = ref.watch(posterBadgeVisibilityProvider);
-    final hasExternalSubtitle = movie.hasExternalSubtitle ||
+    final hasExternalSubtitle =
+        movie.hasExternalSubtitle ||
         movie.relatedFiles.any(
           (file) =>
               file.type?.trim().toLowerCase() == 'subtitle' &&
@@ -2131,6 +2133,20 @@ class _MoreMenuButton extends ConsumerWidget {
           case 'subtitle':
             await ThunderSubtitleSheet.show(context, movie.id);
             break;
+          case 'audio_extract':
+            final taskId = await AudioExtractionSheet.show(
+              context,
+              movie: movie,
+            );
+            if (taskId != null && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('音频提取任务已提交，可在任务中心查看进度'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+            break;
           case 'resources':
             await ResourcesSheet.show(context, movie: movie);
             break;
@@ -2191,7 +2207,7 @@ class _MoreMenuButton extends ConsumerWidget {
       value: 'resources',
       builder: (context, selected, onTap) => GlassMenuRow(
         icon: Icons.link,
-        label: '获取在线资源',
+        label: '获取资源',
         selected: selected,
         onTap: onTap,
       ),
@@ -2206,6 +2222,15 @@ class _MoreMenuButton extends ConsumerWidget {
           onTap: onTap,
         ),
       ),
+    GlassMenuEntry<String>.action(
+      value: 'audio_extract',
+      builder: (context, selected, onTap) => GlassMenuRow(
+        icon: Icons.audiotrack_outlined,
+        label: '提取音频',
+        selected: selected,
+        onTap: onTap,
+      ),
+    ),
     GlassMenuEntry<String>.divider(dividerColor: c.divider),
     GlassMenuEntry<String>.action(
       value: 'sync_nfo',

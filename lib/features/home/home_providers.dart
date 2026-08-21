@@ -68,14 +68,18 @@ Future<void> refreshHomeProviders({
   required Future<Object?> Function() refreshContinueWatching,
   required Future<Object?> Function() refreshLibraries,
   required Future<Object?> Function() refreshRecommendCarousel,
+  Future<Object?> Function() refreshLibraryCovers = _noopRefresh,
 }) async {
   await Future.wait<void>([
     _waitForHomeRefresh(refreshRecentlyAdded),
     _waitForHomeRefresh(refreshContinueWatching),
     _waitForHomeRefresh(refreshLibraries),
+    _waitForHomeRefresh(refreshLibraryCovers),
   ]);
   await _waitForHomeRefresh(refreshRecommendCarousel);
 }
+
+Future<Object?> _noopRefresh() async => null;
 
 Future<void> _waitForHomeRefresh(Future<Object?> Function() refresh) async {
   try {

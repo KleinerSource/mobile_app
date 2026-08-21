@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:md_center/core/api/services/actors_api.dart';
+import 'package:md_center/core/api/services/audio_api.dart';
 import 'package:md_center/core/api/services/configs_extended_api.dart';
 import 'package:md_center/core/api/services/genres_api.dart';
 import 'package:md_center/core/api/services/libraries_api.dart';
@@ -10,6 +11,7 @@ import 'package:md_center/core/api/services/libraries_extended_api.dart';
 import 'package:md_center/core/api/services/mappings_api.dart';
 import 'package:md_center/core/api/services/movies_api.dart';
 import 'package:md_center/core/api/services/movies_extended_api.dart';
+import 'package:md_center/core/api/services/modal_transcription_api.dart';
 import 'package:md_center/core/api/services/playback_api.dart';
 import 'package:md_center/core/api/services/series_api.dart';
 import 'package:md_center/core/api/services/tags_api.dart';
@@ -32,15 +34,11 @@ void main() {
 
   test('同步演员关联会传递所选渠道', () async {
     final adapter = _RouteAdapter();
-    await MappingsApi(_dio(adapter)).actorExternalSyncPreview({
-      'actor_name': '演员 A',
-      'source': 'avdb',
-    });
+    await MappingsApi(
+      _dio(adapter),
+    ).actorExternalSyncPreview({'actor_name': '演员 A', 'source': 'avdb'});
 
-    expect(
-      adapter.paths.single,
-      '/api/mappings/actors/external-sync/preview',
-    );
+    expect(adapter.paths.single, '/api/mappings/actors/external-sync/preview');
     expect(adapter.requestBodies.single['source'], 'avdb');
   });
 
@@ -78,10 +76,9 @@ void main() {
 
   test('混合渠道预览与应用传递 source 与多来源身份', () async {
     final previewAdapter = _RouteAdapter();
-    await MappingsApi(_dio(previewAdapter)).actorExternalSyncPreview({
-      'actor_name': '演员 A',
-      'source': 'mixed',
-    });
+    await MappingsApi(
+      _dio(previewAdapter),
+    ).actorExternalSyncPreview({'actor_name': '演员 A', 'source': 'mixed'});
     expect(
       previewAdapter.paths.single,
       '/api/mappings/actors/external-sync/preview',
@@ -128,34 +125,39 @@ void main() {
     });
 
     expect(adapter.paths.single, '/api/actors/avatar/preview');
-    expect(adapter.requestBodies.single['avatar_url'],
-        'https://example.com/avatar.jpg');
+    expect(
+      adapter.requestBodies.single['avatar_url'],
+      'https://example.com/avatar.jpg',
+    );
     expect(adapter.requestBodies.single['source'], 'avdb');
     expect(response.data, isNotEmpty);
   });
 
   test('影片编辑器选项接口传递搜索关键词', () async {
     final cases = <(String, Future<dynamic> Function(Dio))>[
-      ('/api/actors/options', (dio) => ActorsApi(dio).options({
-            'search': '演员',
-            'offset': 100,
-            'limit': 50,
-          })),
-      ('/api/genres/options', (dio) => GenresApi(dio).options({
-            'search': '分类',
-            'offset': 100,
-            'limit': 50,
-          })),
-      ('/api/tags/options', (dio) => TagsApi(dio).options({
-            'search': '标签',
-            'offset': 100,
-            'limit': 50,
-          })),
-      ('/api/series/options', (dio) => SeriesApi(dio).options({
-            'search': '系列',
-            'offset': 100,
-            'limit': 50,
-          })),
+      (
+        '/api/actors/options',
+        (dio) => ActorsApi(
+          dio,
+        ).options({'search': '演员', 'offset': 100, 'limit': 50}),
+      ),
+      (
+        '/api/genres/options',
+        (dio) => GenresApi(
+          dio,
+        ).options({'search': '分类', 'offset': 100, 'limit': 50}),
+      ),
+      (
+        '/api/tags/options',
+        (dio) =>
+            TagsApi(dio).options({'search': '标签', 'offset': 100, 'limit': 50}),
+      ),
+      (
+        '/api/series/options',
+        (dio) => SeriesApi(
+          dio,
+        ).options({'search': '系列', 'offset': 100, 'limit': 50}),
+      ),
     ];
 
     for (final (path, request) in cases) {
@@ -207,10 +209,7 @@ void main() {
       },
     });
 
-    expect(
-      adapter.paths.single,
-      '/api/movies/batch/dbonline/resources/scan',
-    );
+    expect(adapter.paths.single, '/api/movies/batch/dbonline/resources/scan');
     expect(adapter.requestBodies.single['scan_all'], true);
     expect(adapter.requestBodies.single['filters'], {
       'has_new_resources': true,
@@ -222,10 +221,7 @@ void main() {
     final adapter = _RouteAdapter();
     await MoviesExtendedApi(_dio(adapter)).downloadDbonlineExtrafanart(7);
 
-    expect(
-      adapter.paths.single,
-      '/api/movies/id/7/dbonline/extrafanart',
-    );
+    expect(adapter.paths.single, '/api/movies/id/7/dbonline/extrafanart');
   });
 
   test('播放接口覆盖决策、串流地址、状态、SSE 和停止会话', () async {
@@ -281,6 +277,54 @@ void main() {
       'api_key': '__saved__',
     });
   });
+
+  test('云端转译与音频任务接口使用后端实际路径和参数', () async {
+    final audioAdapter = _RouteAdapter();
+    final audio = AudioApi(_dio(audioAdapter));
+
+    await audio.listTranscriptions(limit: 25, offset: 5, status: 'failed');
+    await audio.extractAudio(movieId: 7, format: 'm4a', bitrateKbps: 256);
+    await audio.cancelAudioExtraction('extract-1');
+    await audio.cancelSubtitleTranscription('12');
+    await audio.retrySubtitleTranscription('13', overwrite: true);
+
+    expect(audioAdapter.paths, <String>[
+      '/api/audios/transcriptions',
+      '/api/audios/extract',
+      '/api/audios/extract/extract-1/cancel',
+      '/api/audios/transcriptions/12/cancel',
+      '/api/audios/transcriptions/13/retry',
+    ]);
+    expect(audioAdapter.queries.first, {
+      'limit': '25',
+      'offset': '5',
+      'status': 'failed',
+    });
+    expect(
+      audioAdapter.requestBodies.any(
+        (body) =>
+            body['movie_id'] == 7 &&
+            body['format'] == 'm4a' &&
+            body['bitrate_kbps'] == 256,
+      ),
+      isTrue,
+    );
+    expect(
+      audioAdapter.requestBodies.any((body) => body['overwrite'] == true),
+      isTrue,
+    );
+
+    final configAdapter = _RouteAdapter();
+    final config = ModalTranscriptionApi(_dio(configAdapter));
+    await config.getConfig();
+    await config.saveConfig({'enabled': true});
+
+    expect(configAdapter.paths, <String>[
+      '/api/modal-transcription/config',
+      '/api/modal-transcription/config',
+    ]);
+    expect(configAdapter.requestBodies.single, {'enabled': true});
+  });
 }
 
 Dio _dio(_RouteAdapter adapter) {
@@ -310,15 +354,11 @@ class _RouteAdapter implements HttpClientAdapter {
     final path = options.uri.path;
     if (path.endsWith('/transcode-events')) {
       return ResponseBody.fromString(
-        'event: status\ndata: ${jsonEncode({
-          'active': true,
-          'quality': '1080p',
-          'hw_accel': 'videotoolbox',
-          'hw_decode_ok': true,
-          'hw_encode_ok': true,
-        })}\n\n',
+        'event: status\ndata: ${jsonEncode({'active': true, 'quality': '1080p', 'hw_accel': 'videotoolbox', 'hw_decode_ok': true, 'hw_encode_ok': true})}\n\n',
         200,
-        headers: {Headers.contentTypeHeader: ['text/event-stream']},
+        headers: {
+          Headers.contentTypeHeader: ['text/event-stream'],
+        },
       );
     }
 
@@ -326,64 +366,68 @@ class _RouteAdapter implements HttpClientAdapter {
       return ResponseBody.fromBytes(
         <int>[0xFF, 0xD8, 0xFF, 0xD9],
         200,
-        headers: {Headers.contentTypeHeader: ['image/jpeg']},
+        headers: {
+          Headers.contentTypeHeader: ['image/jpeg'],
+        },
       );
     }
 
     final data = switch (path) {
       '/api/movies/id/7/playback-decision' => {
-          'mode': 'direct_play',
-          'stream_url': '/api/movies/id/7/stream?mode=direct',
-          'mime_type': 'video/mp4',
-          'audio_tracks': [],
-          'subtitle_tracks': [],
-        },
+        'mode': 'direct_play',
+        'stream_url': '/api/movies/id/7/stream?mode=direct',
+        'mime_type': 'video/mp4',
+        'audio_tracks': [],
+        'subtitle_tracks': [],
+      },
       '/api/movies/id/7/stream-url' => {
-          'url': '/api/movies/id/7/stream?mode=direct',
-        },
+        'url': '/api/movies/id/7/stream?mode=direct',
+      },
       '/api/movies/id/7/transcode-status' => {
-          'active': true,
-          'quality': '1080p',
-          'hw_accel': 'videotoolbox',
-          'hw_decode_ok': true,
-          'hw_encode_ok': true,
-        },
+        'active': true,
+        'quality': '1080p',
+        'hw_accel': 'videotoolbox',
+        'hw_decode_ok': true,
+        'hw_encode_ok': true,
+      },
       '/api/libraries/scan' => {
-          'scan_type': '全量扫描',
-          'enabled_count': 2,
-          'accepted_count': 2,
-          'reused_count': 0,
-          'failed_count': 0,
-          'skipped_disabled_count': 1,
-          'tasks': [
-            {
-              'library_id': 1,
-              'library_name': 'Library 1',
-              'task_id': 'task-1',
-              'status': 'running',
-              'queue_position': 0,
-              'reused': false,
-            },
-            {
-              'library_id': 3,
-              'library_name': 'Library 3',
-              'task_id': 'task-3',
-              'status': 'queued',
-              'queue_position': 1,
-              'reused': false,
-            },
-          ],
-        },
+        'scan_type': '全量扫描',
+        'enabled_count': 2,
+        'accepted_count': 2,
+        'reused_count': 0,
+        'failed_count': 0,
+        'skipped_disabled_count': 1,
+        'tasks': [
+          {
+            'library_id': 1,
+            'library_name': 'Library 1',
+            'task_id': 'task-1',
+            'status': 'running',
+            'queue_position': 0,
+            'reused': false,
+          },
+          {
+            'library_id': 3,
+            'library_name': 'Library 3',
+            'task_id': 'task-3',
+            'status': 'queued',
+            'queue_position': 1,
+            'reused': false,
+          },
+        ],
+      },
       '/api/public/server-profile' => {
-          'name': '测试服务器',
-          'avatar_url': '/api/public/avatar',
-        },
+        'name': '测试服务器',
+        'avatar_url': '/api/public/avatar',
+      },
       _ => null,
     };
     return ResponseBody.fromString(
       jsonEncode({'success': true, 'message': 'ok', 'data': data}),
       200,
-      headers: {Headers.contentTypeHeader: ['application/json']},
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
     );
   }
 }
