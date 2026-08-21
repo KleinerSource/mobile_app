@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../movie_detail/movie_detail_page.dart';
 import '../settings/settings_common.dart';
 import 'task_center_provider.dart';
 import 'task_model.dart';
@@ -155,6 +156,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
         ? null
         : percent.clamp(0.0, 1.0);
     final busy = _busy.contains(task.key);
+    final canOpenDetail = _canOpenMovieDetail(task);
     final title = task.movieTitle.isNotEmpty
         ? task.movieTitle
         : task.libraryName.isNotEmpty
@@ -168,6 +170,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
       child: _TaskSwipeCard(
         key: ValueKey(task.key),
         actions: _taskActions(task, colors, busy),
+        onTap: canOpenDetail ? () => _openMovieDetail(task) : null,
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: settingsCardDecoration(context),
@@ -209,6 +212,14 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                               ),
                             ),
                             _StatusPill(status: task.status),
+                            if (canOpenDetail) ...[
+                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                size: 18,
+                                color: colors.muted,
+                              ),
+                            ],
                           ],
                         ),
                         if (title.isNotEmpty) ...[
@@ -268,6 +279,16 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
           ),
         ),
       ),
+    );
+  }
+
+  bool _canOpenMovieDetail(TaskItem task) {
+    return task.name == '字幕转译' && task.isCompleted && task.movieId > 0;
+  }
+
+  void _openMovieDetail(TaskItem task) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: task.movieId)),
     );
   }
 
@@ -399,10 +420,16 @@ class _TaskAction {
 }
 
 class _TaskSwipeCard extends StatefulWidget {
-  const _TaskSwipeCard({super.key, required this.child, required this.actions});
+  const _TaskSwipeCard({
+    super.key,
+    required this.child,
+    required this.actions,
+    this.onTap,
+  });
 
   final Widget child;
   final List<_TaskAction> actions;
+  final VoidCallback? onTap;
 
   @override
   State<_TaskSwipeCard> createState() => _TaskSwipeCardState();
@@ -464,7 +491,14 @@ class _TaskSwipeCardState extends State<_TaskSwipeCard>
 
   @override
   Widget build(BuildContext context) {
-    if (widget.actions.isEmpty) return widget.child;
+    if (widget.actions.isEmpty) {
+      if (widget.onTap == null) return widget.child;
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: widget.child,
+      );
+    }
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
@@ -501,7 +535,11 @@ class _TaskSwipeCardState extends State<_TaskSwipeCard>
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {
-                if (_controller.value > 0.01) _close();
+                if (_controller.value > 0.01) {
+                  _close();
+                  return;
+                }
+                widget.onTap?.call();
               },
               onHorizontalDragStart: _onDragStart,
               onHorizontalDragUpdate: _onDragUpdate,
