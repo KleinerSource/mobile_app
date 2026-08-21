@@ -470,21 +470,30 @@ class _TaskSwipeCardState extends State<_TaskSwipeCard>
       borderRadius: BorderRadius.circular(16),
       child: Stack(
         children: [
+          // 卡片背景是半透明玻璃，按钮层不能常驻垫在卡片下方，否则会透过
+          // 卡片与正文重叠；让按钮随卡片位移从右缘滑入，收起时完全移出
+          // ClipRRect 裁剪区。
           Positioned.fill(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final action in widget.actions)
-                  _TaskSwipeActionButton(
-                    action: action,
-                    width: _actionWidth,
-                    onTap: () {
-                      _close();
-                      action.onPressed?.call();
-                    },
-                  ),
-              ],
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) => Transform.translate(
+                offset: Offset(_actionExtent * (1 - _controller.value), 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final action in widget.actions)
+                      _TaskSwipeActionButton(
+                        action: action,
+                        width: _actionWidth,
+                        onTap: () {
+                          _close();
+                          action.onPressed?.call();
+                        },
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
           AnimatedBuilder(
