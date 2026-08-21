@@ -2177,15 +2177,6 @@ class _MoreMenuButton extends ConsumerWidget {
         onTap: onTap,
       ),
     ),
-    GlassMenuEntry<String>.action(
-      value: 'subtitle',
-      builder: (context, selected, onTap) => GlassMenuRow(
-        icon: Icons.subtitles_outlined,
-        label: '下载字幕',
-        selected: selected,
-        onTap: onTap,
-      ),
-    ),
     GlassMenuEntry<String>.divider(dividerColor: c.divider),
     GlassMenuEntry<String>.action(
       value: 'dbo_meta',
@@ -2205,6 +2196,16 @@ class _MoreMenuButton extends ConsumerWidget {
         onTap: onTap,
       ),
     ),
+    if ((movie.num ?? '').trim().isNotEmpty)
+      GlassMenuEntry<String>.action(
+        value: 'subtitle',
+        builder: (context, selected, onTap) => GlassMenuRow(
+          icon: Icons.subtitles_outlined,
+          label: '获取字幕',
+          selected: selected,
+          onTap: onTap,
+        ),
+      ),
     GlassMenuEntry<String>.divider(dividerColor: c.divider),
     GlassMenuEntry<String>.action(
       value: 'sync_nfo',

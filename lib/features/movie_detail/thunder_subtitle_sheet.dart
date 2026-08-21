@@ -184,7 +184,7 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('下载字幕', style: AppText.sectionTitle(context)),
+                        Text('获取字幕', style: AppText.sectionTitle(context)),
                         if (_keyword.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text('关键词: $_keyword',
@@ -212,26 +212,23 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return Padding(
-        padding: const EdgeInsets.all(20),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: c.danger.withValues(alpha: 0.1),
-            border: Border.all(color: c.danger.withValues(alpha: 0.4)),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 16, color: c.danger),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(_error!,
-                    style: TextStyle(
-                        color: c.danger,
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600)),
+              Icon(Icons.error_outline, size: 36, color: c.danger),
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: c.danger,
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
