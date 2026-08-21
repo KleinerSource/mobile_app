@@ -535,7 +535,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                           ),
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+                              padding: const EdgeInsets.only(bottom: 28),
                               child: _ListsGrid(),
                             ),
                           ),
@@ -543,51 +543,51 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                           // ===== All favorites · header + 排序 + 视图切换 =====
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                              child: Row(
+                              padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '全部收藏',
-                                          style: AppText.eyebrow(context),
-                                        ),
-                                        const SizedBox(height: 3),
-                                        Text(
-                                          '$_totalCount 部影片',
-                                          style: AppText.sectionTitle(context),
-                                        ),
-                                      ],
-                                    ),
+                                  Text(
+                                    '全部收藏',
+                                    style: AppText.eyebrow(context),
                                   ),
-                                  Flexible(
-                                    child: SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: Row(
-                                        children: [
-                                          _FavoriteFilterPill(
-                                            active: _newResourcesOnly,
-                                            onTap: _toggleNewResourcesFilter,
-                                          ),
-                                          const SizedBox(width: 6),
-                                          _SortPill(
-                                            label: _sort.label,
-                                            onTap: _showSortSheet,
-                                          ),
-                                          const SizedBox(width: 6),
-                                          _ViewToggle(
-                                            mode: _viewMode,
-                                            onChange: (m) =>
-                                                setState(() => _viewMode = m),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    '$_totalCount 部影片',
+                                    style: AppText.sectionTitle(context),
                                   ),
                                 ],
+                              ),
+                            ),
+                          ),
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: SizedBox(
+                                height: 32,
+                                child: ListView(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 22,
+                                  ),
+                                  children: [
+                                    _FavoriteFilterPill(
+                                      active: _newResourcesOnly,
+                                      onTap: _toggleNewResourcesFilter,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    _SortPill(
+                                      label: _sort.label,
+                                      onTap: _showSortSheet,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    _ViewToggle(
+                                      mode: _viewMode,
+                                      onChange: (m) =>
+                                          setState(() => _viewMode = m),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -1138,11 +1138,13 @@ class _ListsGrid extends ConsumerWidget {
     final lists = ref.watch(listsProvider);
     return LayoutBuilder(
       builder: (ctx, cons) {
-        final cardWidth = collectionCardWidth(cons.maxWidth);
+        // 卡片尺寸沿用两侧 22 留白的可用宽度，列表本身全宽可滚到屏幕边缘
+        final cardWidth = collectionCardWidth(cons.maxWidth - 44);
         return SizedBox(
           height: cardWidth / (5 / 3),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 22),
             itemCount: lists.length + 1,
             separatorBuilder: (_, __) => const SizedBox(width: 10),
             itemBuilder: (_, index) {
