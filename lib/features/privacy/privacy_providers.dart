@@ -11,7 +11,7 @@ class PrivacyShieldNotifier extends Notifier<bool> {
 
   @override
   bool build() {
-    return ref.read(sharedPrefsProvider).getBool(_key) ?? true;
+    return ref.read(sharedPrefsProvider).getBool(_key) ?? false;
   }
 
   Future<void> setEnabled(bool v) async {

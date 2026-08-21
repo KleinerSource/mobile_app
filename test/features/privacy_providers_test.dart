@@ -9,6 +9,21 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  test('隐私遮罩默认关闭并可持久化', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    expect(container.read(privacyShieldProvider), isFalse);
+
+    await container.read(privacyShieldProvider.notifier).setEnabled(true);
+
+    expect(container.read(privacyShieldProvider), isTrue);
+    expect(prefs.getBool('privacy.app_switcher_shield'), isTrue);
+  });
+
   test('摇一摇开关默认开启并可持久化', () async {
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(
