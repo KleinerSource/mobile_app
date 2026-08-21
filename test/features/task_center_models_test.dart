@@ -77,14 +77,16 @@ void main() {
     expect(canceled.canRetry, isTrue);
   });
 
-  test('云端转译配置读取脱敏凭据，保存时不覆盖原凭据', () {
+  test('云端转译配置解析多令牌脱敏列表并生成完整目标提交', () {
     final loaded = ModalTranscriptionConfig.fromJson(const {
       'enabled': true,
-      'modal_token_id': '********2345',
-      'modal_token_secret': '********6789',
+      'tokens': [
+        {'id': 'tok-1', 'name': '主账号', 'token_id_masked': '********2345'},
+        {'id': 'tok-2', 'name': '', 'token_id_masked': '********6789'},
+      ],
+      'token_strategy': 'fill_first',
+      'per_token_workers': 2,
       'hf_token': '********abcd',
-      'has_modal_token_id': true,
-      'has_modal_token_secret': true,
       'has_hf_token': true,
       'default_gpu': 'L4',
       'default_model': 'chickenrice',
@@ -93,15 +95,36 @@ void main() {
       'max_workers': 3,
     });
 
-    expect(loaded.modalTokenId, isEmpty);
-    expect(loaded.modalTokenSecret, isEmpty);
+    expect(loaded.tokens, hasLength(2));
+    expect(loaded.tokens.first.id, 'tok-1');
+    // 脱敏值不会被当作新凭据再次提交。
+    expect(loaded.tokens.first.tokenId, isEmpty);
+    expect(loaded.tokens.first.tokenIdMasked, '********2345');
     expect(loaded.hfToken, isEmpty);
-    expect(loaded.hasModalTokenId, isTrue);
+    expect(loaded.hasHfToken, isTrue);
+    expect(loaded.tokenStrategy, 'fill_first');
+    expect(loaded.perTokenWorkers, 2);
     expect(loaded.defaultFormats, const ['srt']);
-    expect(loaded.toRequest().containsKey('modal_token_id'), isFalse);
-    expect(loaded.toRequest()['max_workers'], 3);
 
-    final replacement = loaded.copyWith(modalTokenSecret: 'new-secret');
-    expect(replacement.toRequest()['modal_token_secret'], 'new-secret');
+    final request = loaded.toRequest();
+    // 既有令牌未输入新凭据时只提交稳定 id 与备注。
+    expect(request['tokens'], [
+      {'id': 'tok-1', 'name': '主账号'},
+      {'id': 'tok-2', 'name': ''},
+    ]);
+    expect(request['token_strategy'], 'fill_first');
+    expect(request['per_token_workers'], 2);
+    expect(request['max_workers'], 3);
+    expect(request.containsKey('hf_token'), isFalse);
+
+    final updated = loaded.copyWith(
+      tokens: [loaded.tokens.first.copyWith(tokenSecret: ' new-secret ')],
+      hfToken: ' hf-new ',
+    );
+    final updatedRequest = updated.toRequest();
+    expect(updatedRequest['tokens'], [
+      {'id': 'tok-1', 'name': '主账号', 'token_secret': 'new-secret'},
+    ]);
+    expect(updatedRequest['hf_token'], 'hf-new');
   });
 }
