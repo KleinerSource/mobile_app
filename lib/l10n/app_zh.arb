@@ -128,7 +128,7 @@
   "settingsGenres": "分类管理",
   "settingsTags": "标签管理",
   "settingsSeries": "系列管理",
-  "settingsTranslation": "翻译配置",
+  "settingsTranslation": "AI 翻译配置",
   "settingsTranslationSub": "ChatGPT API · 自动翻译标题/简介",
   "settingsMappingTags": "标签映射",
   "settingsMappingGenres": "分类映射",

@@ -314,7 +314,10 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
           Text(label.toUpperCase(), style: AppText.eyebrow(context)),
           if (help.isNotEmpty) ...[
             const SizedBox(height: 2),
-            Text(help, style: AppText.meta(context)),
+            Text(
+              help,
+              style: AppText.meta(context).copyWith(fontSize: 10.5),
+            ),
           ],
         ],
       ),
@@ -353,7 +356,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
               obscureText: !_showKey,
               decoration: settingsInputDecoration(
                 context,
-                hintText: _hasKey ? '已配置 · 留空则保留' : '请输入',
+                hintText: _hasKey ? '输入新的 API Key' : '请输入',
                 borderless: true,
               ),
               style: TextStyle(

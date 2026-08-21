@@ -26,9 +26,7 @@ void main() {
       movie: const MovieListItem(id: 1, title: '示例片名'),
       posterUrlBuilder: (u) => 'http://x/$u',
     )));
-    // 默认隐私遮罩为开 (mock 空 prefs → default true) →
-    // 海报会被 blur 罩, 标题显示 ▆▆▆▆▆▆;
-    // 关闭遮罩或揭开后才显示原标题。
+    // 默认隐私遮罩为关 (mock 空 prefs → default false)，正常显示内容。
     // 我们这里直接断言渲染不抛错 (有 MovieCard 即可)
     expect(find.byType(MovieCard), findsOneWidget);
   });

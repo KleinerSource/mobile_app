@@ -249,7 +249,7 @@ class _TranslationSettingsPageState
     return SettingsFixedHeaderLayout(
       header: const SettingsSubPageHeader(
         eyebrow: '系统配置',
-        title: '翻译配置',
+        title: 'AI 翻译配置',
         subtitle: '配置 ChatGPT API 翻译功能',
       ),
       body: ListView(
@@ -414,7 +414,10 @@ class _TranslationSettingsPageState
           Text(label.toUpperCase(), style: AppText.eyebrow(context)),
           if (help.isNotEmpty) ...[
             const SizedBox(height: 2),
-            Text(help, style: AppText.meta(context)),
+            Text(
+              help,
+              style: AppText.meta(context).copyWith(fontSize: 10.5),
+            ),
           ],
         ],
       ),
@@ -467,7 +470,7 @@ class _TranslationSettingsPageState
               controller: _apiKey,
               obscureText: !_showKey,
               decoration: InputDecoration(
-                hintText: _hasSavedKey ? '已配置 · 留空则保留' : 'sk-...',
+                hintText: _hasSavedKey ? '输入新的 API Key' : 'sk-...',
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14, vertical: 12),

@@ -487,7 +487,10 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
         children: [
           Text(label.toUpperCase(), style: AppText.eyebrow(context)),
           const SizedBox(height: 2),
-          Text(help, style: AppText.meta(context)),
+          Text(
+            help,
+            style: AppText.meta(context).copyWith(fontSize: 10.5),
+          ),
         ],
       ),
     );
@@ -530,7 +533,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
         decoration: settingsInputDecoration(
           context,
           borderless: true,
-          hintText: _configured ? '已配置 · 留空则保留' : '至少 8 位字符',
+          hintText: _configured ? '输入新密码' : '至少 8 位字符',
           suffixIcon: IconButton(
             tooltip: _showPassword ? '隐藏密码' : '显示密码',
             icon: Icon(

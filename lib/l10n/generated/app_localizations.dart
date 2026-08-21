@@ -766,7 +766,7 @@ abstract class AppL10n {
   /// No description provided for @settingsTranslation.
   ///
   /// In zh, this message translates to:
-  /// **'翻译配置'**
+  /// **'AI 翻译配置'**
   String get settingsTranslation;
 
   /// No description provided for @settingsTranslationSub.

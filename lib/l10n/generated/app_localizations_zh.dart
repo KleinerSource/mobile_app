@@ -356,7 +356,7 @@ class AppL10nZh extends AppL10n {
   String get settingsSeries => '系列管理';
 
   @override
-  String get settingsTranslation => '翻译配置';
+  String get settingsTranslation => 'AI 翻译配置';
 
   @override
   String get settingsTranslationSub => 'ChatGPT API · 自动翻译标题/简介';
