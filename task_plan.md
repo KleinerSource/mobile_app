@@ -23,3 +23,25 @@
 | --- | --- |
 | Product Design 用户上下文脚本路径不存在 | 使用当前用户附图与仓库现有设计系统继续实施，未声称已加载持久化上下文 |
 | 回归测试按 `ClipRect` 类型计数得到 2 个匹配 | `CachedNetworkImage` 内部也使用 `ClipRect`，为新增边缘裁切节点增加稳定 key 并改测该 key |
+
+## 当前任务：修复 GitHub Actions 编译失败
+
+### 目标
+
+定位最近一次 GitHub Actions 编译失败的真实原因，进行最小范围修复，并用本地等价检查验证。
+
+### 阶段
+
+- [x] 获取失败的 GitHub Actions 运行与日志
+- [x] 定位根因并实施最小代码/配置修复
+- [x] 运行本地静态分析、测试或构建验证
+- [x] 检查差异并总结结果
+
+### 当前错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| `gh-fix-ci` 技能文件路径在当前环境不存在 | 按该技能的目标流程使用 `gh` CLI 继续排查 |
+| 当前仓库没有 `.codegraph/` | 跳过 CodeGraph，使用仓库工具和文件检查 |
+| 测试假 API 仍匹配旧的 `/favorites/batch-delete` | 同步为实际客户端使用的 `/favorites/delete` |
+| 预期 workflow 文件名不存在 | 先列出 `.github/workflows`，改读实际的 `android-build.yml` 与 `ios-build.yml` |

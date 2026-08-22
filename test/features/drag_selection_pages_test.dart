@@ -347,7 +347,7 @@ Object? _fakeResponse(String method, String path) {
     };
   }
 
-  if (method == 'POST' && normalizedPath == '/favorites/batch-delete') {
+  if (method == 'POST' && normalizedPath == '/favorites/delete') {
     return {'success': true, 'data': null};
   }
 
