@@ -22,6 +22,6 @@ abstract class TagsApi {
     @Body() Map<String, dynamic> body,
   );
 
-  @POST('/tags/batch-delete')
+  @POST('/tags/delete')
   Future<dynamic> batchDelete(@Body() Map<String, dynamic> body);
 }

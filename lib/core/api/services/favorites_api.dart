@@ -24,6 +24,6 @@ abstract class FavoritesApi {
   Future<dynamic> addBatch(@Body() Map<String, dynamic> body);
 
   /// 批量删除收藏。
-  @POST('/favorites/batch-delete')
+  @POST('/favorites/delete')
   Future<dynamic> removeBatch(@Body() Map<String, dynamic> body);
 }

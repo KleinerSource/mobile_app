@@ -8,7 +8,7 @@ class LibrariesExtendedApi {
   Future<Object?> stats() => _get('/libraries/stats');
 
   Future<Object?> batchDelete(Map<String, dynamic> body) =>
-      _post('/libraries/batch-delete', body);
+      _post('/libraries/delete', body);
 
   Future<Object?> batchScan(Map<String, dynamic> body) =>
       _post('/libraries/scan', body);
@@ -22,7 +22,7 @@ class LibrariesExtendedApi {
     int libraryId,
     Map<String, dynamic> body,
   ) =>
-      _post('/libraries/id/$libraryId/directories/batch-delete', body);
+      _post('/libraries/id/$libraryId/directories/delete', body);
 
   Future<Object?> directoryDetail(int libraryId, int directoryId) =>
       _get('/libraries/id/$libraryId/directories/$directoryId');

@@ -85,7 +85,7 @@ class LibrariesRepository {
   }
 
   Future<void> delete(int id) async {
-    final raw = await _api.delete(id);
+    final raw = await _api.delete({'libraries_ids': [id]});
     unwrapStd<void>(raw, (_) {});
   }
 
@@ -250,7 +250,10 @@ class LibrariesRepository {
   }
 
   Future<void> deleteDirectory(int libraryId, int dirId) async {
-    final raw = await _api.deleteDirectory(libraryId, dirId);
+    final raw = await _api.deleteDirectory(
+      libraryId,
+      {'directories_ids': [dirId]},
+    );
     unwrapStd<void>(raw, (_) {});
   }
 

@@ -15,7 +15,7 @@ class CatalogExtendedApi {
       _patch('/$type/$id', body);
 
   Future<Object?> batchDelete(String type, Map<String, dynamic> body) =>
-      _post('/$type/batch-delete', body);
+      _post('/$type/delete', body);
 
   Future<Object?> checkRename(String type, Map<String, dynamic> body) =>
       _post('/$type/rename/check', body);
@@ -39,7 +39,7 @@ class CatalogExtendedApi {
       _patch('/actors/$id', body);
 
   Future<Object?> deleteActors(Map<String, dynamic> body) =>
-      _post('/actors/batch-delete', body);
+      _post('/actors/delete', body);
 
   Future<Object?> _get(String path, {Map<String, dynamic>? queryParameters}) async =>
       (await _dio.get<dynamic>(path, queryParameters: queryParameters)).data;

@@ -23,6 +23,6 @@ abstract class GenresApi {
   );
 
   /// 批量删除 · body { ids: [...], force: bool }
-  @POST('/genres/batch-delete')
+  @POST('/genres/delete')
   Future<dynamic> batchDelete(@Body() Map<String, dynamic> body);
 }

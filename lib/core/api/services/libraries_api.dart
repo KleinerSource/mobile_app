@@ -24,8 +24,9 @@ abstract class LibrariesApi {
     @Body() Map<String, dynamic> body,
   );
 
-  @DELETE('/libraries/id/{id}')
-  Future<dynamic> delete(@Path('id') int id);
+  /// 删除媒体库（统一删除入口，单项删除即提交长度为 1 的数组） · body: { libraries_ids: [int] }
+  @POST('/libraries/delete')
+  Future<dynamic> delete(@Body() Map<String, dynamic> body);
 
   // ===== 扫描 =====
 
@@ -81,10 +82,11 @@ abstract class LibrariesApi {
     @Body() Map<String, dynamic> body,
   );
 
-  @DELETE('/libraries/id/{id}/directories/{dirId}')
+  /// 删除目录（统一删除入口，单项删除即提交长度为 1 的数组） · body: { directories_ids: [int] }
+  @POST('/libraries/id/{id}/directories/delete')
   Future<dynamic> deleteDirectory(
     @Path('id') int id,
-    @Path('dirId') int dirId,
+    @Body() Map<String, dynamic> body,
   );
 
   // ===== Tools (路径浏览 + 验证) =====

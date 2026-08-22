@@ -22,6 +22,6 @@ abstract class SeriesApi {
     @Body() Map<String, dynamic> body,
   );
 
-  @POST('/series/batch-delete')
+  @POST('/series/delete')
   Future<dynamic> batchDelete(@Body() Map<String, dynamic> body);
 }
