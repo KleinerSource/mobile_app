@@ -78,6 +78,9 @@ class TaskItem {
     );
   }
 
+  /// 从 /audios/transcriptions 列表行解析转译任务。
+  /// 转译信息内嵌在音频资产行上，`id` 即音频资产 ID，
+  /// 与 WS scheduler_status 推送的 taskId 同源，可直接用于取消/重试。
   factory TaskItem.fromTranscription(Map<String, dynamic> json) {
     final status = _asString(json['status'], fallback: 'queued');
     final percent = _asDouble(json['percent']);
