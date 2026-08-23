@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 
 import '../core/platform/app_haptics.dart';
 
@@ -22,13 +23,14 @@ class SwipeActionData {
 
 /// 列表行左滑展开操作，操作按钮贴右缘排在卡片下方。
 ///
-/// - 跟随手指拖动，松手按速度/位移吸附展开或收起（240ms easeOutCubic）
+/// - 全程弹簧物理（果冻手感）：拖动时按钮轻微弹性跟随，松手带回弹吸附；
+///   松手速度会续接到吸附弹簧上
 /// - 同一 [group] 内同时只展开一行；滚动、进入多选或操作失效时由调用方置空收起
 /// - 展开状态下点击卡片本体只收起，不穿透到卡片内部点击
 /// - [actions] 为空或 [enabled] 为 false 时禁用滑动
-/// - iOS 风格双逻辑：拖开可点磁贴执行；继续拖动时 [fullSwipeIndex] 对应的
-///   默认磁贴随手指拉长铺满腾出的空间，拖过阈值后磁贴铺满整行、
-///   执行默认操作并回弹收起（不提供甩动速度触发）
+/// - iOS 风格双逻辑（无甩动速度触发）：拖开可点磁贴执行；无论一次拖到还是
+///   展开后另起手势继续左滑，[fullSwipeIndex] 对应的默认磁贴都会随手指
+///   拉长铺满腾出的空间，拖过阈值后磁贴以弹簧铺满整行、执行默认操作并回弹
 /// - 操作磁贴相连成一个整块，按 [actionBorderRadius] 倒角：
 ///   分组容器内的行传零（外层容器统一裁剪）；连排分页列表首行只圆上角、
 ///   末行只圆下角（与行本身的圆角一致，避免磁贴顶出行轮廓）
@@ -68,17 +70,37 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   /// 拖过完整展开后再拖多少像素触发默认操作。
   static const _fullSwipeTriggerExtent = 44.0;
 
+  /// 手指跟踪：高刚度小过冲，感觉是 1:1 跟手但带一点弹性。
+  static const _trackSpring = SpringDescription(
+    mass: 1,
+    stiffness: 2000,
+    damping: 80,
+  );
+
+  /// 展开/收起吸附：轻回弹的果冻感。
+  static const _settleSpring = SpringDescription(
+    mass: 1,
+    stiffness: 340,
+    damping: 26,
+  );
+
+  /// 提交铺满：更明显的果冻过冲。
+  static const _fillSpring = SpringDescription(
+    mass: 1,
+    stiffness: 180,
+    damping: 16,
+  );
+
+  /// 进度：0 收起，1 完整展开，>1 为默认磁贴的拉长量（可超 1 表达弹性）。
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 240),
-    // 值需要超过 1.0 表达"拉长默认磁贴"的延展量。
     upperBound: double.infinity,
   );
 
-  /// 提交阶段默认磁贴从当前宽度铺满整行的补间。
+  /// 提交阶段默认磁贴从当前宽度铺满整行的补间（弹簧驱动）。
   late final AnimationController _fill = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 130),
+    upperBound: double.infinity,
   );
 
   /// 正在执行拉长直触的提交流程（填充 → 执行 → 收起）。
@@ -87,9 +109,16 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   /// 触发提交时默认磁贴已被拉长的像素，填充动画从这里继续铺满。
   double _commitExtra = 0;
 
+  /// 手指目标进度（按累计位移维护，独立于带弹性的视觉进度）。
+  double _target = 0;
+
+  /// 松手速度（进度/秒），续接到吸附弹簧。
+  double _springVelocity = 0;
+
   double get _openExtent => widget.actions.length * _actionWidth;
 
-  double get _triggerExtentPx => _openExtent + _fullSwipeTriggerExtent;
+  double get _triggerValue =>
+      (_openExtent + _fullSwipeTriggerExtent) / _openExtent;
 
   bool get _isOpen => widget.group.value == widget.cellKey;
 
@@ -97,8 +126,7 @@ class _SwipeActionCellState extends State<SwipeActionCell>
       widget.fullSwipeIndex != null &&
       widget.fullSwipeIndex! < widget.actions.length;
 
-  double get _maxDragValue =>
-      _hasFullSwipeAction ? _triggerExtentPx / _openExtent : 1.0;
+  double get _maxDragValue => _hasFullSwipeAction ? _triggerValue : 1.0;
 
   @override
   void initState() {
@@ -120,13 +148,23 @@ class _SwipeActionCellState extends State<SwipeActionCell>
     super.dispose();
   }
 
+  void _springTo(
+    double target, {
+    SpringDescription spring = _settleSpring,
+    double velocity = 0,
+  }) {
+    _controller.animateWith(
+      SpringSimulation(spring, _controller.value, target, velocity),
+    );
+  }
+
   void _handleGroupChange() {
-    if (!mounted) return;
-    if (_isOpen) {
-      _controller.animateTo(1, curve: Curves.easeOutCubic);
-    } else if (_controller.value > 0) {
-      _controller.animateTo(0, curve: Curves.easeOutCubic);
+    if (!mounted || _committing) return;
+    final target = _isOpen ? 1.0 : 0.0;
+    if (_isOpen || _controller.value > 0) {
+      _springTo(target, velocity: _springVelocity);
     }
+    _springVelocity = 0;
   }
 
   void _setOpen(bool open) {
@@ -136,30 +174,40 @@ class _SwipeActionCellState extends State<SwipeActionCell>
     } else if (widget.group.value == widget.cellKey) {
       widget.group.value = null;
     } else {
-      _controller.animateTo(0, curve: Curves.easeOutCubic);
+      _springTo(0);
     }
+  }
+
+  void _handleDragStart(DragStartDetails details) {
+    if (_committing) return;
+    // 从当前状态续滑：已展开的行也能继续左滑拉长提交。
+    _target = _controller.value.clamp(0.0, 1.0);
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
     if (_committing) return;
     // 手指向左 (delta.dx < 0) 展开操作，向右收起；超过完整展开的部分
     // 由默认磁贴拉长补齐，拖过 [_fullSwipeTriggerExtent] 像素提交执行。
-    final raw = (_controller.value * _openExtent) - details.delta.dx;
-    if (_hasFullSwipeAction && raw >= _triggerExtentPx) {
+    final step = -details.delta.dx / _openExtent;
+    _target = (_target + step).clamp(0.0, _maxDragValue);
+    if (_hasFullSwipeAction && _target >= _triggerValue) {
       _commitFullSwipe();
       return;
     }
-    _controller.value = (raw / _openExtent).clamp(0.0, _maxDragValue);
+    _springTo(_target, spring: _trackSpring);
   }
 
   void _handleDragEnd(DragEndDetails details) {
     if (_committing) return;
-    final velocity = details.primaryVelocity ?? 0;
-    final open = velocity.abs() > 350 ? velocity < 0 : _controller.value > 0.5;
+    final velocityPx = details.primaryVelocity ?? 0;
+    _springVelocity = velocityPx / _openExtent;
+    final open = velocityPx.abs() > 350
+        ? velocityPx < 0
+        : _controller.value > 0.5 || _target > 0.5;
     _setOpen(open);
   }
 
-  /// 拉长提交：默认磁贴铺满整行后执行操作，再收回。
+  /// 拉长提交：默认磁贴以弹簧铺满整行后执行操作，再带弹回收起。
   void _commitFullSwipe() {
     if (!_hasFullSwipeAction || _committing) return;
     _committing = true;
@@ -167,13 +215,15 @@ class _SwipeActionCellState extends State<SwipeActionCell>
         (_controller.value - 1.0).clamp(0.0, double.infinity) * _openExtent;
     if (_isOpen) widget.group.value = null;
     AppHaptics.medium();
-    _fill.forward(from: 0).whenComplete(() {
+    _fill.animateWith(SpringSimulation(_fillSpring, 0, 1, 0)).whenComplete(() {
       if (!mounted) return;
       widget.actions[widget.fullSwipeIndex!].onPressed();
-      _fill.reverse();
-      _controller.animateTo(0, curve: Curves.easeOutCubic).whenComplete(() {
-        if (mounted) _committing = false;
-      });
+      _fill.animateWith(SpringSimulation(_settleSpring, 1, 0, 0));
+      _controller
+          .animateWith(SpringSimulation(_settleSpring, _controller.value, 0, 0))
+          .whenComplete(() {
+            if (mounted) _committing = false;
+          });
     });
   }
 
@@ -181,6 +231,7 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   Widget build(BuildContext context) {
     final enabled = widget.enabled && widget.actions.isNotEmpty;
     return GestureDetector(
+      onHorizontalDragStart: enabled ? _handleDragStart : null,
       onHorizontalDragUpdate: enabled ? _handleDragUpdate : null,
       onHorizontalDragEnd: enabled ? _handleDragEnd : null,
       onTap: enabled && _isOpen ? () => _setOpen(false) : null,
@@ -197,7 +248,7 @@ class _SwipeActionCellState extends State<SwipeActionCell>
               final dragExtra = _hasFullSwipeAction
                   ? (value - 1.0).clamp(0.0, double.infinity) * _openExtent
                   : 0.0;
-              // 提交阶段：从触发时的宽度继续铺满整行。
+              // 提交阶段：从触发时的宽度继续铺满整行（弹簧过冲被裁剪）。
               final extra = _committing
                   ? _commitExtra +
                         _fill.value *
@@ -213,6 +264,8 @@ class _SwipeActionCellState extends State<SwipeActionCell>
                     Positioned.fill(
                       // 按钮贴卡片右缘随拖动滑入，收起时整体移出裁剪区——
                       // 实色滑入不透明渐变，也不受半透明卡片透色影响。
+                      // OverflowBox 解除宽度约束，允许拉长/弹簧过冲超出
+                      // 行宽，超出部分由 ClipRect 裁剪而不触发布局溢出。
                       child: ClipRect(
                         child: IgnorePointer(
                           ignoring: !_committing && reveal < 0.99,
@@ -220,13 +273,18 @@ class _SwipeActionCellState extends State<SwipeActionCell>
                             alignment: Alignment.centerRight,
                             child: FractionalTranslation(
                               translation: Offset(1 - reveal, 0),
-                              child:
-                                  widget.actionBorderRadius == BorderRadius.zero
-                                  ? _buildActionRow(defaultWidth)
-                                  : ClipRRect(
-                                      borderRadius: widget.actionBorderRadius,
-                                      child: _buildActionRow(defaultWidth),
-                                    ),
+                              child: OverflowBox(
+                                alignment: Alignment.centerRight,
+                                maxWidth: double.infinity,
+                                child:
+                                    widget.actionBorderRadius ==
+                                        BorderRadius.zero
+                                    ? _buildActionRow(defaultWidth)
+                                    : ClipRRect(
+                                        borderRadius: widget.actionBorderRadius,
+                                        child: _buildActionRow(defaultWidth),
+                                      ),
+                              ),
                             ),
                           ),
                         ),
