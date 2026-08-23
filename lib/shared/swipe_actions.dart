@@ -30,9 +30,10 @@ class SwipeActionData {
 /// - [actions] 为空或 [enabled] 为 false 时禁用滑动
 /// - iOS 原生触发语义（[fullSwipeIndex] 指定默认操作）：
 ///   · 慢拖：拖开按钮后继续拖，默认磁贴随手指拉长铺满腾出的空间，
-///     拖满整行（磁贴铺满）那一刻立即执行——未拖满前随时滑回即撤销；
+///     拖过提交点（不低于按钮区+44px，也不低于行宽的 55%）立即执行
+///     ——未过提交点前随时滑回即撤销；
 ///   · 快甩：松手左向速度足够时带惯性飞到满宽并执行（原生整行滑动）；
-///   · 松手未达满宽：按位移/速度正常吸附展开或收起
+///   · 松手未达提交点：按位移/速度正常吸附展开或收起
 /// - 操作磁贴相连成一个整块，按 [actionBorderRadius] 倒角：
 ///   分组容器内的行传零（外层容器统一裁剪）；连排分页列表首行只圆上角、
 ///   末行只圆下角（与行本身的圆角一致，避免磁贴顶出行轮廓）
@@ -97,7 +98,15 @@ class _SwipeActionCellState extends State<SwipeActionCell>
 
   /// 快甩触发：松手左向速度不超过该值 (px/s) 时带惯性飞到满宽并执行，
   /// 对应 iOS 原生"快速整行滑动直接执行默认操作"。
-  static const _flingVelocity = -1200;
+  static const _flingVelocity = -1000;
+
+  /// 慢拖提交的保底触发距离：按钮区完全展开后再拖 44px。
+  static const _fullSwipeTriggerExtent = 44.0;
+
+  /// 慢拖提交距离占行宽的比例。整行宽度从行中部起拖物理上不可达
+  /// （手指到屏幕边缘就没了），取 55% 保证大多数起拖位置都能触发；
+  /// 更短的距离靠快甩触发。
+  static const _commitDragFraction = 0.55;
 
   /// 正在执行拉长直触的提交流程（填充 → 执行 → 收起）。
   bool _committing = false;
@@ -108,10 +117,10 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   /// 手指目标进度（按累计位移维护，独立于带弹性的视觉进度）。
   double _target = 0;
 
-  /// 松手速度（进度/秒），续接到吸附弹簧。
+  /// 松手速度（进度/秒，进度增大为正），续接到吸附弹簧。
   double _springVelocity = 0;
 
-  /// 行宽（build 时由 LayoutBuilder 更新），满宽提交的触发点。
+  /// 行宽（build 时由 LayoutBuilder 更新），换算提交触发距离用。
   double _rowWidth = 0;
 
   double get _openExtent => widget.actions.length * _actionWidth;
@@ -126,11 +135,18 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   double get _maxDragValue =>
       _hasFullSwipeAction && _rowWidth > 0 ? _rowWidth / _openExtent : 1.0;
 
-  /// 是否已拖满整行（默认磁贴铺满即触发，iOS 原生语义）。
+  /// 慢拖提交触发距离（px）：不低于保底距离，也不低于行宽的 55%。
+  double get _commitDragPx {
+    final floor = _openExtent + _fullSwipeTriggerExtent;
+    final fractional = _rowWidth * _commitDragFraction;
+    return fractional > floor ? fractional : floor;
+  }
+
+  /// 拖拽距离是否已过提交点（磁贴拉长越点即触发，iOS 原生语义）。
   bool get _reachedFullSwipe =>
       _hasFullSwipeAction &&
       _rowWidth > 0 &&
-      _target >= _rowWidth / _openExtent - 0.001;
+      _target * _openExtent >= _commitDragPx;
 
   @override
   void initState() {
@@ -174,11 +190,21 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   void _setOpen(bool open) {
     if (open) {
       AppHaptics.selection();
-      widget.group.value = widget.cellKey;
+    }
+    // 行已是展开状态时再赋同一个 key，ValueNotifier 不会通知监听器，
+    // 吸附弹簧将无人启动——需直接吸附，否则卡在松手位置不回弹。
+    if (open && widget.group.value == widget.cellKey) {
+      _springTo(1.0, velocity: _springVelocity);
+      _springVelocity = 0;
+      return;
+    }
+    if (open) {
+      widget.group.value = widget.cellKey; // 监听器内吸附到 1
     } else if (widget.group.value == widget.cellKey) {
-      widget.group.value = null;
+      widget.group.value = null; // 监听器内吸附到 0
     } else {
-      _springTo(0);
+      _springTo(0, velocity: _springVelocity);
+      _springVelocity = 0;
     }
   }
 
@@ -191,7 +217,7 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   void _handleDragUpdate(DragUpdateDetails details) {
     if (_committing) return;
     // 手指向左 (delta.dx < 0) 展开操作，向右收起；超过完整展开的部分
-    // 由默认磁贴拉长补齐。拖满整行（磁贴铺满）那一刻立即提交——
+    // 由默认磁贴拉长补齐。拖过提交点那一刻立即提交——
     // iOS 原生语义；未拖满前可随时滑回，不会执行任何操作。
     // 拖动中直接赋值 1:1 跟手（direct manipulation），
     // 弹簧只用于松手后的吸附/甩动与提交动画。
@@ -212,7 +238,8 @@ class _SwipeActionCellState extends State<SwipeActionCell>
       _flingFullSwipe(velocityPx);
       return;
     }
-    _springVelocity = velocityPx / _openExtent;
+    // 像素速度（左负右正）换算为进度速度：进度增大为正，故取反。
+    _springVelocity = -velocityPx / _openExtent;
     final open = velocityPx.abs() > 350
         ? velocityPx < 0
         : _controller.value > 0.5 || _target > 0.5;
@@ -229,7 +256,7 @@ class _SwipeActionCellState extends State<SwipeActionCell>
             _settleSpring,
             _controller.value,
             _rowWidth / _openExtent,
-            velocityPx / _openExtent,
+            -velocityPx / _openExtent,
           ),
         )
         .whenComplete(() {
