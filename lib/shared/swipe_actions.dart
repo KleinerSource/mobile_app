@@ -23,16 +23,16 @@ class SwipeActionData {
 
 /// 列表行左滑展开操作，操作按钮贴右缘排在卡片下方。
 ///
-/// - 全程弹簧物理（果冻手感）：拖动时按钮轻微弹性跟随，松手带回弹吸附；
-///   松手速度会续接到吸附弹簧上
+/// - 拖动期间 1:1 直接跟手（direct manipulation）；弹簧物理（果冻手感）
+///   用于松手后的展开/收起吸附、快甩飞行与提交铺满，松手速度会续接到弹簧
 /// - 同一 [group] 内同时只展开一行；滚动、进入多选或操作失效时由调用方置空收起
 /// - 展开状态下点击卡片本体只收起，不穿透到卡片内部点击
 /// - [actions] 为空或 [enabled] 为 false 时禁用滑动
-/// - iOS 风格双逻辑（无甩动速度触发）：拖开可点磁贴执行；无论一次拖到还是
-///   展开后另起手势继续左滑，[fullSwipeIndex] 对应的默认磁贴都会随手指
-///   拉长铺满腾出的空间。提交只发生在松手且整体拖拽进度超过行宽 80%
-///   （[_commitFraction] 语义）时——拖过头可原路滑回撤销，不会中途生效；
-///   松手提交后磁贴以弹簧铺满整行、执行默认操作并回弹
+/// - iOS 原生触发语义（[fullSwipeIndex] 指定默认操作）：
+///   · 慢拖：拖开按钮后继续拖，默认磁贴随手指拉长铺满腾出的空间，
+///     拖满整行（磁贴铺满）那一刻立即执行——未拖满前随时滑回即撤销；
+///   · 快甩：松手左向速度足够时带惯性飞到满宽并执行（原生整行滑动）；
+///   · 松手未达满宽：按位移/速度正常吸附展开或收起
 /// - 操作磁贴相连成一个整块，按 [actionBorderRadius] 倒角：
 ///   分组容器内的行传零（外层容器统一裁剪）；连排分页列表首行只圆上角、
 ///   末行只圆下角（与行本身的圆角一致，避免磁贴顶出行轮廓）
@@ -69,13 +69,6 @@ class _SwipeActionCellState extends State<SwipeActionCell>
     with TickerProviderStateMixin {
   static const _actionWidth = 78.0;
 
-  /// 手指跟踪：高刚度小过冲，感觉是 1:1 跟手但带一点弹性。
-  static const _trackSpring = SpringDescription(
-    mass: 1,
-    stiffness: 2000,
-    damping: 80,
-  );
-
   /// 展开/收起吸附：轻回弹的果冻感。
   static const _settleSpring = SpringDescription(
     mass: 1,
@@ -102,8 +95,9 @@ class _SwipeActionCellState extends State<SwipeActionCell>
     upperBound: double.infinity,
   );
 
-  /// 提交阈值：拖拽整体进度（相对整行宽度）超过该比例，松手才执行默认操作。
-  static const _commitFraction = 0.8;
+  /// 快甩触发：松手左向速度不超过该值 (px/s) 时带惯性飞到满宽并执行，
+  /// 对应 iOS 原生"快速整行滑动直接执行默认操作"。
+  static const _flingVelocity = -1200;
 
   /// 正在执行拉长直触的提交流程（填充 → 执行 → 收起）。
   bool _committing = false;
@@ -117,7 +111,7 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   /// 松手速度（进度/秒），续接到吸附弹簧。
   double _springVelocity = 0;
 
-  /// 行宽（build 时由 LayoutBuilder 更新），换算 80% 提交阈值用。
+  /// 行宽（build 时由 LayoutBuilder 更新），满宽提交的触发点。
   double _rowWidth = 0;
 
   double get _openExtent => widget.actions.length * _actionWidth;
@@ -132,11 +126,11 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   double get _maxDragValue =>
       _hasFullSwipeAction && _rowWidth > 0 ? _rowWidth / _openExtent : 1.0;
 
-  /// 松手时的提交判定：整体拖拽进度达到行宽的 [_commitFraction]。
-  bool get _shouldCommit =>
+  /// 是否已拖满整行（默认磁贴铺满即触发，iOS 原生语义）。
+  bool get _reachedFullSwipe =>
       _hasFullSwipeAction &&
       _rowWidth > 0 &&
-      _target * _openExtent >= _commitFraction * _rowWidth;
+      _target >= _rowWidth / _openExtent - 0.001;
 
   @override
   void initState() {
@@ -197,26 +191,52 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   void _handleDragUpdate(DragUpdateDetails details) {
     if (_committing) return;
     // 手指向左 (delta.dx < 0) 展开操作，向右收起；超过完整展开的部分
-    // 由默认磁贴拉长补齐。拖动过程不执行任何操作——是否提交只看松手
-    // 时的整体进度，拖过头可以原路滑回撤销。
+    // 由默认磁贴拉长补齐。拖满整行（磁贴铺满）那一刻立即提交——
+    // iOS 原生语义；未拖满前可随时滑回，不会执行任何操作。
+    // 拖动中直接赋值 1:1 跟手（direct manipulation），
+    // 弹簧只用于松手后的吸附/甩动与提交动画。
     final step = -details.delta.dx / _openExtent;
     _target = (_target + step).clamp(0.0, _maxDragValue);
-    _springTo(_target, spring: _trackSpring);
+    if (_reachedFullSwipe) {
+      _commitFullSwipe();
+      return;
+    }
+    _controller.value = _target;
   }
 
   void _handleDragEnd(DragEndDetails details) {
     if (_committing) return;
-    // 整体进度超过行宽 80% 才提交默认操作，避免刚拖开按钮就生效。
-    if (_shouldCommit) {
-      _commitFullSwipe();
+    final velocityPx = details.primaryVelocity ?? 0;
+    // iOS 原生：快速整行左甩带惯性飞到满宽并执行默认操作。
+    if (_hasFullSwipeAction && velocityPx <= _flingVelocity) {
+      _flingFullSwipe(velocityPx);
       return;
     }
-    final velocityPx = details.primaryVelocity ?? 0;
     _springVelocity = velocityPx / _openExtent;
     final open = velocityPx.abs() > 350
         ? velocityPx < 0
         : _controller.value > 0.5 || _target > 0.5;
     _setOpen(open);
+  }
+
+  /// 快甩提交：带松手速度飞到满宽后走提交流程。
+  void _flingFullSwipe(double velocityPx) {
+    if (_committing) return;
+    _committing = true;
+    _controller
+        .animateWith(
+          SpringSimulation(
+            _settleSpring,
+            _controller.value,
+            _rowWidth / _openExtent,
+            velocityPx / _openExtent,
+          ),
+        )
+        .whenComplete(() {
+          if (!mounted) return;
+          _committing = false;
+          _commitFullSwipe();
+        });
   }
 
   /// 拉长提交：默认磁贴以弹簧铺满整行后执行操作，再带弹回收起。

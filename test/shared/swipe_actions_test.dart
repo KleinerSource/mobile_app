@@ -69,9 +69,9 @@ void main() {
     expect(find.text('删除'), findsNothing);
   });
 
-  // 测试视口 800 宽，提交阈值为行宽 80% = 640px。
+  // 测试视口 800 宽：慢拖提交点 = 拖满整行（800px）；快甩按速度触发。
 
-  testWidgets('拖过阈值拉长提交默认操作并回弹', (tester) async {
+  testWidgets('拖满整行拉长提交默认操作并回弹', (tester) async {
     var fired = 0;
     final group = SwipeActionGroup(null);
     addTearDown(group.dispose);
@@ -94,11 +94,11 @@ void main() {
       ),
     );
 
-    // 松手时整体进度 700/800 > 80%，提交执行。
+    // 拖到整行宽度，磁贴铺满那一刻提交执行。
     await tester.timedDrag(
       find.text('行内容'),
-      const Offset(-700, 0),
-      const Duration(milliseconds: 400),
+      const Offset(-800, 0),
+      const Duration(milliseconds: 500),
     );
     await tester.pumpAndSettle();
 
@@ -107,7 +107,7 @@ void main() {
     expect(find.text('删除'), findsNothing);
   });
 
-  testWidgets('拖过头后原路滑回不提交（回滑撤销）', (tester) async {
+  testWidgets('快速左甩带惯性飞到满宽执行', (tester) async {
     var fired = 0;
     final group = SwipeActionGroup(null);
     addTearDown(group.dispose);
@@ -130,7 +130,37 @@ void main() {
       ),
     );
 
-    // 拖过 80% 阈值但未松手，滑回到阈值内再松手 → 不执行。
+    await tester.fling(find.text('行内容'), const Offset(-300, 0), 2000);
+    await tester.pumpAndSettle();
+
+    expect(fired, 1);
+    expect(group.value, isNull);
+  });
+
+  testWidgets('未拖满整行滑回不提交（回滑撤销）', (tester) async {
+    var fired = 0;
+    final group = SwipeActionGroup(null);
+    addTearDown(group.dispose);
+    await tester.pumpWidget(
+      _wrap(
+        SwipeActionCell(
+          group: group,
+          cellKey: 1,
+          enabled: true,
+          actions: [
+            SwipeActionData(
+              icon: Icons.delete_outline,
+              label: '删除',
+              color: Colors.red,
+              onPressed: () => fired++,
+            ),
+          ],
+          child: const SizedBox(height: 60, child: Text('行内容')),
+        ),
+      ),
+    );
+
+    // 拖到 720px（未满 800）后滑回再松手 → 不执行。
     final gesture = await tester.startGesture(
       tester.getCenter(find.text('行内容')),
     );
