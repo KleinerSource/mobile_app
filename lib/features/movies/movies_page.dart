@@ -203,7 +203,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       } catch (_) {
         if (!mounted) return;
         try {
-          await ref.read(moviesRepositoryProvider).acknowledgeResources(item.id);
+          await ref
+              .read(moviesRepositoryProvider)
+              .acknowledgeResources(item.id);
         } catch (_) {
           // 确认失败时保留当前项，下一次查看或刷新时重试。
         }

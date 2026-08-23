@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
@@ -117,10 +119,21 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
       },
     );
     if (synced != true || !mounted) return;
-    _requestSerial++;
-    _scrollRestorer.prepare(_scrollController, preserve: true);
-    _controller.refresh();
+    _reload(preserveScroll: true);
     await widget.onUpdated?.call();
+  }
+
+  void _reload({bool preserveScroll = false}) {
+    _requestSerial++;
+    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
+    _controller.refresh();
+  }
+
+  Future<void> _openMovie(int movieId) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),
+    );
+    if (mounted) _reload(preserveScroll: true);
   }
 
   @override
@@ -243,11 +256,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                     itemBuilder: (ctx, movie, _) => MovieCard(
                       movie: movie,
                       posterUrlBuilder: urlBuilder,
-                      onTap: () => Navigator.of(ctx).push(
-                        MaterialPageRoute(
-                          builder: (_) => MovieDetailPage(movieId: movie.id),
-                        ),
-                      ),
+                      onTap: () => unawaited(_openMovie(movie.id)),
                     ),
                     firstPageProgressIndicatorBuilder: (_) =>
                         const Center(child: CircularProgressIndicator()),

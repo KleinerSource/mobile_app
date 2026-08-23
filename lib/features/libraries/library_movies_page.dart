@@ -12,6 +12,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/pagination_footer.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../movies/movie_filter.dart';
@@ -29,6 +30,10 @@ class LibraryMoviesPage extends ConsumerStatefulWidget {
 class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
   static const _pageSize = 30;
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
+  final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
+    _controller,
+  );
   Completer<void>? _refreshCompleter;
 
   MovieFilter get _filter => MovieFilter(
@@ -47,6 +52,7 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
   void dispose() {
     _completeRefresh();
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -60,6 +66,7 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
       } else {
         _controller.appendPage(page.items, nextOffset);
       }
+      _scrollRestorer.restoreAfterPage(_scrollController);
       if (offset == 0) _completeRefresh();
     } catch (e) {
       _controller.error = toApiException(e).message;
@@ -74,14 +81,26 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
     refreshImageCache(ref);
     final completer = Completer<void>();
     _refreshCompleter = completer;
-    _controller.refresh();
+    _reload();
     return completer.future;
+  }
+
+  void _reload({bool preserveScroll = false}) {
+    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
+    _controller.refresh();
   }
 
   void _completeRefresh() {
     final completer = _refreshCompleter;
     _refreshCompleter = null;
     if (completer != null && !completer.isCompleted) completer.complete();
+  }
+
+  Future<void> _openMovie(MovieListItem movie) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
+    );
+    if (mounted) _reload(preserveScroll: true);
   }
 
   int _hueFor(String name) {
@@ -101,6 +120,7 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
         child: RefreshIndicator(
           onRefresh: _refreshMovies,
           child: CustomScrollView(
+            controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverAppBar(
@@ -138,11 +158,7 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
                     itemBuilder: (ctx, m, idx) => MovieCard(
                       movie: m,
                       posterUrlBuilder: urlBuilder,
-                      onTap: () => Navigator.of(ctx).push(
-                        MaterialPageRoute(
-                          builder: (_) => MovieDetailPage(movieId: m.id),
-                        ),
-                      ),
+                      onTap: () => unawaited(_openMovie(m)),
                     ),
                     firstPageProgressIndicatorBuilder: (_) =>
                         const Center(child: CupertinoActivityIndicator()),

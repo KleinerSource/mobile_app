@@ -286,10 +286,13 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
     return task.name == '字幕转译' && task.isCompleted && task.movieId > 0;
   }
 
-  void _openMovieDetail(TaskItem task) {
-    Navigator.of(context).push(
+  Future<void> _openMovieDetail(TaskItem task) async {
+    await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: task.movieId)),
     );
+    if (mounted) {
+      await ref.read(taskCenterProvider.notifier).refresh();
+    }
   }
 
   List<_TaskAction> _taskActions(TaskItem task, AppColors colors, bool busy) {

@@ -4,7 +4,7 @@ import 'package:md_center/shared/top_snack_bar.dart';
 
 void main() {
   testWidgets('顶部通知居中并支持点击和上滑关闭', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(360, 800));
+    await tester.binding.setSurfaceSize(const Size(720, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     const bodyKey = ValueKey<String>('body');

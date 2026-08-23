@@ -335,6 +335,7 @@ void main() {
     }
     expect(fired, 0);
     await gesture.up();
+    expect(fired, 1);
     await tester.pumpAndSettle();
     expect(fired, 1);
   });
@@ -595,7 +596,7 @@ void main() {
     expect(group.value, anyOf(isNull, 1));
   });
 
-  testWidgets('快速全滑松手后仍向整行推进，完成前不执行', (tester) async {
+  testWidgets('快速全滑松手立即执行，视觉仍继续推进', (tester) async {
     var fired = 0;
     final group = SwipeActionGroup(null);
     addTearDown(group.dispose);
@@ -624,13 +625,13 @@ void main() {
     final releasedRight = tester
         .getTopRight(find.byKey(const ValueKey('fling-card')))
         .dx;
-    expect(fired, 0);
+    expect(fired, 1);
     await tester.pump(const Duration(milliseconds: 16));
     final nextRight = tester
         .getTopRight(find.byKey(const ValueKey('fling-card')))
         .dx;
     expect(nextRight, lessThan(releasedRight));
-    expect(fired, 0);
+    expect(fired, 1);
 
     await tester.pumpAndSettle();
     expect(fired, 1);

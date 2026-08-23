@@ -311,6 +311,7 @@ class _SwipeActionCellState extends State<SwipeActionCell>
 
   Future<void> _commitFullSwipe(double openingVelocity) async {
     if (!_hasFullSwipe || _state == _SwipeState.committing) return;
+    final onPressed = widget.actions.first.onPressed;
     _state = _SwipeState.committing;
     _stopAnimation();
     if (widget.group.value == widget.cellKey) widget.group.value = null;
@@ -331,10 +332,10 @@ class _SwipeActionCellState extends State<SwipeActionCell>
                 openingVelocity,
               ),
             );
-      await fill.orCancel;
+      onPressed();
       if (!mounted || _state != _SwipeState.committing) return;
 
-      widget.actions.first.onPressed();
+      await fill.orCancel;
       if (!mounted || _state != _SwipeState.committing) return;
 
       final close = _reduceMotion

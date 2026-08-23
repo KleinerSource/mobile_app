@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +12,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/pagination_footer.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../movies/movie_filter.dart';
@@ -34,6 +37,10 @@ class ResourceMoviesPage extends ConsumerStatefulWidget {
 class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
   static const _pageSize = 30;
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
+  final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
+    _controller,
+  );
   int? _totalCount;
 
   MovieFilter get _filter {
@@ -68,6 +75,7 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -82,9 +90,22 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
       } else {
         _controller.appendPage(page.items, nextOffset);
       }
+      _scrollRestorer.restoreAfterPage(_scrollController);
     } catch (e) {
       _controller.error = toApiException(e).message;
     }
+  }
+
+  void _reload({bool preserveScroll = false}) {
+    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
+    _controller.refresh();
+  }
+
+  Future<void> _openMovie(int movieId) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),
+    );
+    if (mounted) _reload(preserveScroll: true);
   }
 
   @override
@@ -96,6 +117,7 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
       backgroundColor: c.bg,
       body: SafeArea(
         child: CustomScrollView(
+          controller: _scrollController,
           slivers: [
             SliverAppBar(
               expandedHeight: 180,
@@ -136,11 +158,7 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
                   itemBuilder: (ctx, m, idx) => MovieCard(
                     movie: m,
                     posterUrlBuilder: urlBuilder,
-                    onTap: () => Navigator.of(ctx).push(
-                      MaterialPageRoute(
-                        builder: (_) => MovieDetailPage(movieId: m.id),
-                      ),
-                    ),
+                    onTap: () => unawaited(_openMovie(m.id)),
                   ),
                   firstPageProgressIndicatorBuilder: (_) =>
                       const Center(child: CupertinoActivityIndicator()),

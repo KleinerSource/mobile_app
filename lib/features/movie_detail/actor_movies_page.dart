@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -100,10 +102,19 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
         }
       },
     );
-    if (synced == true && mounted) {
-      _scrollRestorer.prepare(_scrollController, preserve: true);
-      _controller.refresh();
-    }
+    if (synced == true && mounted) _reload(preserveScroll: true);
+  }
+
+  void _reload({bool preserveScroll = false}) {
+    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
+    _controller.refresh();
+  }
+
+  Future<void> _openMovie(int movieId) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),
+    );
+    if (mounted) _reload(preserveScroll: true);
   }
 
   int get _hue {
@@ -198,11 +209,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
                       itemBuilder: (ctx, m, idx) => MovieCard(
                         movie: m,
                         posterUrlBuilder: urlBuilder,
-                        onTap: () => Navigator.of(ctx).push(
-                          MaterialPageRoute(
-                            builder: (_) => MovieDetailPage(movieId: m.id),
-                          ),
-                        ),
+                        onTap: () => unawaited(_openMovie(m.id)),
                       ),
                       firstPageProgressIndicatorBuilder: (_) =>
                           const Center(child: CupertinoActivityIndicator()),

@@ -180,7 +180,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       } catch (_) {
         if (!mounted) return;
         try {
-          await ref.read(moviesRepositoryProvider).acknowledgeResources(movie.id);
+          await ref
+              .read(moviesRepositoryProvider)
+              .acknowledgeResources(movie.id);
         } catch (_) {
           // 确认失败时保留当前项，下一次查看或刷新时重试。
         }

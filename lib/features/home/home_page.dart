@@ -80,6 +80,26 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  void _refreshMovieSections() {
+    if (!mounted) return;
+    refreshImageCache(ref);
+    ref.invalidate(recentlyAddedProvider);
+    ref.invalidate(continueWatchingProvider);
+    ref.invalidate(recommendCarouselProvider);
+  }
+
+  Future<void> _openRecentMovies() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const MoviesPage(
+          initialFilter: MovieFilter(sortBy: 'created_at', sortOrder: 'desc'),
+          maxItems: 30,
+        ),
+      ),
+    );
+    if (mounted) _refreshMovieSections();
+  }
+
   /// 轮播数据变化时同步封面艺术列表(与页位一一对应,含无封面占位)
   void _syncHeroArts(List<MovieListItem> items) {
     final urlBuilder = ref.read(imageUrlBuilderProvider);
@@ -203,6 +223,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 items: items,
                                 urlBuilder: urlBuilder,
                                 pagePosition: _heroPagePosition,
+                                onMovieReturned: _refreshMovieSections,
                               ),
                             ),
                             Positioned(
@@ -238,6 +259,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       child: _ContinueWatchingSection(
                         items: items,
                         urlBuilder: urlBuilder,
+                        onMovieReturned: _refreshMovieSections,
                       ),
                     );
                   },
@@ -262,19 +284,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                         ),
                         TextButton.icon(
-                          onPressed: () => unawaited(
-                            Navigator.of(context).push<void>(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const MoviesPage(
-                                  initialFilter: MovieFilter(
-                                    sortBy: 'created_at',
-                                    sortOrder: 'desc',
-                                  ),
-                                  maxItems: 30,
-                                ),
-                              ),
-                            ),
-                          ),
+                          onPressed: () => unawaited(_openRecentMovies()),
                           style: TextButton.styleFrom(
                             foregroundColor: c.accent,
                             padding: EdgeInsets.zero,
@@ -316,6 +326,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     child: _RecentRow(
                       items: paged.items,
                       urlBuilder: urlBuilder,
+                      onMovieReturned: _refreshMovieSections,
                     ),
                   ),
                 ),
@@ -327,7 +338,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                     error: (_, __) => const SizedBox.shrink(),
                     data: (libs) {
                       if (libs.isEmpty) return const SizedBox.shrink();
-                      return _CollectionsSection(libraries: libs);
+                      return _CollectionsSection(
+                        libraries: libs,
+                        onMovieReturned: _refreshMovieSections,
+                      );
                     },
                   ),
                 ),
@@ -384,9 +398,11 @@ class _ContinueWatchingSection extends StatelessWidget {
   const _ContinueWatchingSection({
     required this.items,
     required this.urlBuilder,
+    required this.onMovieReturned,
   });
   final List<MovieListItem> items;
   final String Function(String) urlBuilder;
+  final VoidCallback onMovieReturned;
 
   @override
   Widget build(BuildContext context) {
@@ -424,6 +440,7 @@ class _ContinueWatchingSection extends StatelessWidget {
                 child: _ContinueWatchingCard(
                   movie: items[index],
                   urlBuilder: urlBuilder,
+                  onMovieReturned: onMovieReturned,
                 ),
               ),
             ),
@@ -435,10 +452,15 @@ class _ContinueWatchingSection extends StatelessWidget {
 }
 
 class _ContinueWatchingCard extends StatelessWidget {
-  const _ContinueWatchingCard({required this.movie, required this.urlBuilder});
+  const _ContinueWatchingCard({
+    required this.movie,
+    required this.urlBuilder,
+    required this.onMovieReturned,
+  });
 
   final MovieListItem movie;
   final String Function(String) urlBuilder;
+  final VoidCallback onMovieReturned;
 
   @override
   Widget build(BuildContext context) {
@@ -451,9 +473,12 @@ class _ContinueWatchingCard extends StatelessWidget {
     return PrivacyAwareInkWell(
       movieId: movie.id,
       borderRadius: 22,
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
-      ),
+      onTap: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
+        );
+        if (context.mounted) onMovieReturned();
+      },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -604,20 +629,26 @@ class _ContinueWatchingCard extends StatelessWidget {
 
 // ============ Recently Added (横向卡片) ============
 class _RecentRow extends ConsumerStatefulWidget {
-  const _RecentRow({required this.items, required this.urlBuilder});
+  const _RecentRow({
+    required this.items,
+    required this.urlBuilder,
+    required this.onMovieReturned,
+  });
   final List<MovieListItem> items;
   final String Function(String) urlBuilder;
+  final VoidCallback onMovieReturned;
 
   @override
   ConsumerState<_RecentRow> createState() => _RecentRowState();
 }
 
 class _RecentRowState extends ConsumerState<_RecentRow> {
-  void _openMovie(MovieListItem movie) {
+  Future<void> _openMovie(MovieListItem movie) async {
     unawaited(ref.read(homeMovieViewStateProvider).markMovieViewed(movie.id));
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
     );
+    if (mounted) widget.onMovieReturned();
   }
 
   @override
@@ -680,8 +711,12 @@ class _RecentRowState extends ConsumerState<_RecentRow> {
 
 // ============ Your libraries (媒体库 · 最底部) ============
 class _CollectionsSection extends ConsumerWidget {
-  const _CollectionsSection({required this.libraries});
+  const _CollectionsSection({
+    required this.libraries,
+    required this.onMovieReturned,
+  });
   final List<LibraryItem> libraries;
+  final VoidCallback onMovieReturned;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -719,6 +754,7 @@ class _CollectionsSection extends ConsumerWidget {
                       library: libraries[i],
                       hue: AppHues.all[i % AppHues.all.length],
                       cover: covers[libraries[i].id],
+                      onMovieReturned: onMovieReturned,
                     ),
                   ),
                 ),
@@ -732,9 +768,15 @@ class _CollectionsSection extends ConsumerWidget {
 }
 
 class _LibraryCard extends StatelessWidget {
-  const _LibraryCard({required this.library, required this.hue, this.cover});
+  const _LibraryCard({
+    required this.library,
+    required this.hue,
+    required this.onMovieReturned,
+    this.cover,
+  });
   final LibraryItem library;
   final int hue;
+  final VoidCallback onMovieReturned;
 
   /// 后端内联返回的封面图字节 · 为空时回退品牌渐变
   final Uint8List? cover;
@@ -742,9 +784,14 @@ class _LibraryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => LibraryMoviesPage(library: library)),
-      ),
+      onTap: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => LibraryMoviesPage(library: library),
+          ),
+        );
+        if (context.mounted) onMovieReturned();
+      },
       borderRadius: BorderRadius.circular(16),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),

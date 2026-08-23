@@ -540,13 +540,14 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     }
   }
 
-  void _openMovieDetail(AudioAsset asset) {
+  Future<void> _openMovieDetail(AudioAsset asset) async {
     if (asset.movieId <= 0) return;
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => MovieDetailPage(movieId: asset.movieId),
       ),
     );
+    if (mounted) _reload(preserveScroll: true);
   }
 
   /// 返回 null 表示取消，否则返回是否覆盖已有同名字幕。

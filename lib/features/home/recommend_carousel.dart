@@ -19,11 +19,13 @@ class RecommendCarousel extends StatefulWidget {
     super.key,
     required this.items,
     required this.urlBuilder,
+    required this.onMovieReturned,
     this.pagePosition,
   });
 
   final List<MovieListItem> items;
   final String Function(String uuid) urlBuilder;
+  final VoidCallback onMovieReturned;
 
   /// 连续页位 [0, items.length),拖动/翻页动画期间逐帧更新
   final ValueNotifier<double>? pagePosition;
@@ -145,11 +147,14 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
             final m = widget.items[i % widget.items.length];
             return _HeroInfoCard(
               movie: m,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => MovieDetailPage(movieId: m.id),
-                ),
-              ),
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => MovieDetailPage(movieId: m.id),
+                  ),
+                );
+                if (mounted) widget.onMovieReturned();
+              },
             );
           },
         ),
@@ -207,10 +212,7 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
     return _initialPageBase - (_initialPageBase % length);
   }
 
-  bool _itemsChanged(
-    List<MovieListItem> previous,
-    List<MovieListItem> next,
-  ) {
+  bool _itemsChanged(List<MovieListItem> previous, List<MovieListItem> next) {
     if (previous.length != next.length) return true;
     for (var i = 0; i < previous.length; i++) {
       if (previous[i].id != next[i].id) return true;

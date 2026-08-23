@@ -11,6 +11,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/pagination_footer.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../movies/movie_filter.dart';
@@ -164,6 +165,10 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
   static const _pageSize = 60;
 
   final _controller = PagingController<int, MovieListItem>(firstPageKey: 0);
+  final _scrollController = ScrollController();
+  late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
+    _controller,
+  );
   int _requestSerial = 0;
 
   @override
@@ -176,15 +181,28 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
   void didUpdateWidget(covariant _SearchResults oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.query != widget.query) {
-      _requestSerial++;
-      _controller.refresh();
+      _reload();
     }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _reload({bool preserveScroll = false}) {
+    _requestSerial++;
+    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
+    _controller.refresh();
+  }
+
+  Future<void> _openMovie(int movieId) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),
+    );
+    if (mounted) _reload(preserveScroll: true);
   }
 
   Future<void> _fetch(int offset) async {
@@ -209,6 +227,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
       } else {
         _controller.appendPage(page.items, nextOffset);
       }
+      _scrollRestorer.restoreAfterPage(_scrollController);
     } catch (error) {
       if (!mounted || requestSerial != _requestSerial) return;
       _controller.error = toApiException(error).message;
@@ -219,7 +238,8 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
   Widget build(BuildContext context) {
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
     return CustomScrollView(
-      primary: true,
+      controller: _scrollController,
+      primary: false,
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
@@ -236,11 +256,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
               itemBuilder: (ctx, movie, _) => MovieCard(
                 movie: movie,
                 posterUrlBuilder: urlBuilder,
-                onTap: () => Navigator.of(ctx).push(
-                  MaterialPageRoute(
-                    builder: (_) => MovieDetailPage(movieId: movie.id),
-                  ),
-                ),
+                onTap: () => unawaited(_openMovie(movie.id)),
               ),
               firstPageProgressIndicatorBuilder: (_) =>
                   const Center(child: CircularProgressIndicator()),
