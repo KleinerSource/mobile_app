@@ -214,6 +214,35 @@ void main() {
     expect(favoritesApi.addedMovieIds, [1]);
   });
 
+  testWidgets('影片库列表收藏状态实时同步并区分操作颜色', (tester) async {
+    final favoritesApi = _RecordingFavoritesApi();
+    await _pumpPage(
+      tester,
+      const MoviesPage(maxItems: 9),
+      favoritesRepository: FavoritesRepository(favoritesApi),
+    );
+
+    await tester.tap(find.byIcon(Icons.view_list_rounded));
+    await tester.pumpAndSettle();
+    final cell = find.byType(SwipeActionCell).first;
+
+    await tester.timedDrag(
+      cell,
+      const Offset(-800, 0),
+      const Duration(milliseconds: 250),
+    );
+    await tester.pumpAndSettle();
+    expect(favoritesApi.addedMovieIds, [1]);
+
+    await tester.timedDrag(
+      cell,
+      const Offset(-800, 0),
+      const Duration(milliseconds: 250),
+    );
+    await tester.pumpAndSettle();
+    expect(favoritesApi.removedMovieIds, [1]);
+  });
+
   testWidgets('影片库列表支持从复选框区域向下滑动多选', (tester) async {
     await _pumpPage(tester, const MoviesPage(maxItems: 9));
 
@@ -407,6 +436,7 @@ Object? _fakeResponse(String method, String path) {
 
 class _RecordingFavoritesApi implements FavoritesApi {
   List<int>? addedMovieIds;
+  List<int>? removedMovieIds;
 
   @override
   Future<dynamic> addBatch(Map<String, dynamic> body) async {
@@ -419,8 +449,10 @@ class _RecordingFavoritesApi implements FavoritesApi {
       throw UnimplementedError();
 
   @override
-  Future<dynamic> removeBatch(Map<String, dynamic> body) async =>
-      throw UnimplementedError();
+  Future<dynamic> removeBatch(Map<String, dynamic> body) async {
+    removedMovieIds = List<int>.from(body['movie_ids'] as List);
+    return {'success': true, 'data': null};
+  }
 
   @override
   Future<dynamic> status(int movieId) async => throw UnimplementedError();

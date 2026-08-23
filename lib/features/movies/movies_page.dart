@@ -197,16 +197,16 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       ),
     );
 
-    if (!mounted || acknowledge == null) return;
-    try {
-      await acknowledge;
-    } catch (_) {
-      if (!mounted) return;
+    if (mounted && acknowledge != null) {
       try {
-        await ref.read(moviesRepositoryProvider).acknowledgeResources(item.id);
+        await acknowledge;
       } catch (_) {
-        // 确认失败时保留当前项，下一次查看或刷新时重试。
-        return;
+        if (!mounted) return;
+        try {
+          await ref.read(moviesRepositoryProvider).acknowledgeResources(item.id);
+        } catch (_) {
+          // 确认失败时保留当前项，下一次查看或刷新时重试。
+        }
       }
     }
     if (mounted) _reload(preserveScroll: true);
@@ -545,9 +545,8 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
           selected: _selectedIds.contains(item.id),
           onSelectionTap: () => _toggleSelect(item.id),
           onMovieTap: () => _openMovie(item),
-          onFavorite: () {
-            unawaited(_favoriteOne(item));
-          },
+          onFavorite: (isFavorited) =>
+              unawaited(_toggleFavorite(item, isFavorited)),
         ),
       ),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
@@ -607,21 +606,29 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     });
   }
 
-  Future<void> _favoriteOne(MovieListItem movie) async {
+  Future<void> _toggleFavorite(MovieListItem movie, bool isFavorited) async {
+    final nextValue = !isFavorited;
     try {
-      await ref.read(favoritesRepositoryProvider).addBatch([movie.id]);
-      ref.read(favoriteStatusProvider.notifier).seed(movie.id, true);
+      final repository = ref.read(favoritesRepositoryProvider);
+      if (isFavorited) {
+        await repository.removeBatch([movie.id]);
+      } else {
+        await repository.addBatch([movie.id]);
+      }
+      ref.read(favoriteStatusProvider.notifier).seed(movie.id, nextValue);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('已收藏「${movie.title}」'),
+          content: Text(
+            nextValue ? '已收藏「${movie.title}」' : '已取消收藏「${movie.title}」',
+          ),
           duration: const Duration(seconds: 1),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('收藏失败: ${toApiException(e).message}')),
+        SnackBar(content: Text('操作失败: ${toApiException(e).message}')),
       );
     }
   }
@@ -1087,7 +1094,7 @@ class _UpdatedDropdownChip extends StatelessWidget {
   }
 }
 
-class _ListRow extends StatelessWidget {
+class _ListRow extends ConsumerWidget {
   const _ListRow({
     required this.movie,
     required this.urlBuilder,
@@ -1105,11 +1112,16 @@ class _ListRow extends StatelessWidget {
   final bool selected;
   final VoidCallback? onSelectionTap;
   final VoidCallback onMovieTap;
-  final VoidCallback onFavorite;
+  final ValueChanged<bool> onFavorite;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
+    final isFavorited = ref.watch(
+      favoriteStatusProvider.select(
+        (statuses) => statuses[movie.id] ?? movie.isFavorited,
+      ),
+    );
     final progress = (movie.watchRecord?.progressRatio ?? 0).clamp(0.0, 1.0);
     final completed = movie.watchRecord?.completed ?? false;
     final hasRating = movie.rating != null && movie.rating! > 0;
@@ -1256,9 +1268,9 @@ class _ListRow extends StatelessWidget {
       actions: [
         SwipeActionData(
           icon: Icons.favorite_rounded,
-          label: movie.isFavorited ? '取消收藏' : '收藏',
-          color: c.accent,
-          onPressed: onFavorite,
+          label: isFavorited ? '取消收藏' : '收藏',
+          color: isFavorited ? c.danger : c.accent,
+          onPressed: () => onFavorite(isFavorited),
         ),
       ],
       child: row,
