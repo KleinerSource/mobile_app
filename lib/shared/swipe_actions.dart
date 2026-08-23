@@ -297,15 +297,18 @@ class _SwipeActionCellState extends State<SwipeActionCell>
                     Positioned.fill(
                       // 按钮贴卡片右缘随拖动滑入，收起时整体移出裁剪区——
                       // 实色滑入不透明渐变，也不受半透明卡片透色影响。
-                      // OverflowBox 解除宽度约束，允许拉长/弹簧过冲超出
-                      // 行宽，超出部分由 ClipRect 裁剪而不触发布局溢出。
+                      // 偏移按按钮区宽度（像素）计算：OverflowBox 尺寸是
+                      // 整行宽，若用 FractionalTranslation 会以行宽为单位
+                      // 放大位移，导致卡片滑出一截后按钮才出现（中间留白）。
+                      // OverflowBox 本身用于解除宽度约束，允许拉长/弹簧
+                      // 过冲超出行宽，超出部分由 ClipRect 裁剪。
                       child: ClipRect(
                         child: IgnorePointer(
                           ignoring: !_committing && reveal < 0.99,
                           child: Align(
                             alignment: Alignment.centerRight,
-                            child: FractionalTranslation(
-                              translation: Offset(1 - reveal, 0),
+                            child: Transform.translate(
+                              offset: Offset((1 - reveal) * _openExtent, 0),
                               child: OverflowBox(
                                 alignment: Alignment.centerRight,
                                 maxWidth: double.infinity,

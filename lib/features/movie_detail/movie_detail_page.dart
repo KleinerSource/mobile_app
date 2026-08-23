@@ -321,8 +321,9 @@ class _HeroHeader extends ConsumerWidget {
               file.path.trim().isNotEmpty,
         )
         .toList();
-    final hasExternalSubtitle =
-        movie.hasExternalSubtitle || subtitleFiles.isNotEmpty;
+    // 外挂字幕 = 非 AI 的外挂字幕;AI 字幕单独标识,两者互斥分类
+    final hasExternalSubtitle = movie.hasExternalSubtitle ||
+        subtitleFiles.any((f) => !isAISubtitlePath(f.path));
     // AI 字幕: 详情接口字段优先,回退按字幕文件名识别(.ai. 标记段)
     final hasAISubtitle =
         movie.hasAiSubtitle || subtitleFiles.any((f) => isAISubtitlePath(f.path));

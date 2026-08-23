@@ -14,6 +14,42 @@ SwipeActionData _action(VoidCallback onPressed) => SwipeActionData(
 );
 
 void main() {
+  testWidgets('按钮贴卡片尾缘滑入，中途无空隙', (tester) async {
+    final group = SwipeActionGroup(null);
+    addTearDown(group.dispose);
+    await tester.pumpWidget(
+      _wrap(
+        SwipeActionCell(
+          group: group,
+          cellKey: 1,
+          enabled: true,
+          actions: [_action(() {})],
+          child: const SizedBox(
+            key: ValueKey('card'),
+            height: 60,
+            child: Text('行内容'),
+          ),
+        ),
+      ),
+    );
+
+    // 半展开（60px < 按钮宽 78px）时按住不放：按钮块左缘应与卡片右缘重合。
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('行内容')),
+    );
+    for (var i = 0; i < 5; i++) {
+      await gesture.moveBy(const Offset(-12, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    final cardRight = tester.getTopRight(find.byKey(const ValueKey('card'))).dx;
+    final iconLeft = tester.getTopLeft(find.byIcon(Icons.delete_outline)).dx;
+    // 图标 20px 居中于 78px 磁贴内。
+    final tileLeft = iconLeft - (78 - 20) / 2;
+    expect(tileLeft, closeTo(cardRight, 1.0));
+    await gesture.up();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('向左拖动展开操作，点击执行并收起', (tester) async {
     var tapped = false;
     final group = SwipeActionGroup(null);
