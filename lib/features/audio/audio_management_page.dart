@@ -1211,11 +1211,12 @@ class _AssetCard extends StatelessWidget {
       ),
     );
 
-    // 多选模式下整卡点击切换勾选；平时点标题跳影片详情。
-    if (!selecting) return inner;
+    // 多选模式下整卡点击切换勾选；平时点整卡跳影片详情。
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: locked ? null : onToggleSelect,
+      onTap: selecting
+          ? (locked ? null : onToggleSelect)
+          : (asset.movieId > 0 ? onOpenMovie : null),
       child: inner,
     );
   }
@@ -1246,49 +1247,45 @@ class _AssetCard extends StatelessWidget {
   }
 
   Widget _buildTitle(AppColors c) {
-    return GestureDetector(
-      onTap: selecting ? null : (asset.movieId > 0 ? onOpenMovie : null),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  asset.displayTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.text,
-                    fontFamily: 'Inter',
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.2,
-                    height: 1.2,
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                asset.displayTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: c.text,
+                  fontFamily: 'Inter',
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                  height: 1.2,
                 ),
               ),
-              if (asset.movieId > 0 && !selecting)
-                Icon(Icons.chevron_right_rounded, size: 16, color: c.muted2),
-            ],
-          ),
-          if (asset.movieFileName.isNotEmpty &&
-              asset.movieTitle.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Text(
-              asset.movieFileName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: c.muted,
-                fontFamily: 'Inter',
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
             ),
+            if (asset.movieId > 0 && !selecting)
+              Icon(Icons.chevron_right_rounded, size: 16, color: c.muted2),
           ],
+        ),
+        if (asset.movieFileName.isNotEmpty && asset.movieTitle.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            asset.movieFileName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: c.muted,
+              fontFamily: 'Inter',
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
-      ),
+      ],
     );
   }
 
