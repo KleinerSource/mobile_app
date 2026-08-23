@@ -4,6 +4,18 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/status_bar_scroll_to_top.dart';
 
+/// 标记子树中的 [SettingsTile] 位于分组容器内：
+/// 悬停/按压水波纹改用直角，行的首尾弧度由分组容器的圆角裁剪统一处理。
+class _TileGroupScope extends InheritedWidget {
+  const _TileGroupScope({required super.child});
+
+  static bool isInGroup(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_TileGroupScope>() != null;
+
+  @override
+  bool updateShouldNotify(_TileGroupScope oldWidget) => false;
+}
+
 class SettingsGroup extends StatelessWidget {
   const SettingsGroup({super.key, required this.title, required this.items});
   final String title;
@@ -27,17 +39,23 @@ class SettingsGroup extends StatelessWidget {
               border: Border.all(color: c.cardBorder),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Column(
-              children: [
-                for (var i = 0; i < items.length; i++) ...[
-                  items[i],
-                  if (i < items.length - 1)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Divider(height: 1, color: c.divider),
-                    ),
-                ],
-              ],
+            // 圆角裁剪让首/末行的直角水波纹在分组外框处呈现弧度。
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: _TileGroupScope(
+                child: Column(
+                  children: [
+                    for (var i = 0; i < items.length; i++) ...[
+                      items[i],
+                      if (i < items.length - 1)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Divider(height: 1, color: c.divider),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -68,6 +86,10 @@ class SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    // 分组内的行是直角水波纹（弧度由分组容器裁剪）；独立使用时保留圆角。
+    final rippleRadius = _TileGroupScope.isInGroup(context)
+        ? BorderRadius.zero
+        : BorderRadius.circular(16);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -77,7 +99,7 @@ class SettingsTile extends StatelessWidget {
                 AppHaptics.selection();
                 onTap!();
               },
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: rippleRadius,
         splashColor: c.accent.withValues(alpha: 0.14),
         highlightColor: c.accent.withValues(alpha: 0.08),
         child: Padding(
@@ -90,8 +112,9 @@ class SettingsTile extends StatelessWidget {
                   height: 32,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: (destructive ? c.danger : c.accent)
-                        .withValues(alpha: 0.12),
+                    color: (destructive ? c.danger : c.accent).withValues(
+                      alpha: 0.12,
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -191,9 +214,7 @@ InputDecoration settingsInputDecoration(
     enabledBorder: borderless ? InputBorder.none : border,
     focusedBorder: borderless
         ? InputBorder.none
-        : border.copyWith(
-            borderSide: BorderSide(color: c.accent, width: 1.5),
-          ),
+        : border.copyWith(borderSide: BorderSide(color: c.accent, width: 1.5)),
   );
 }
 
@@ -229,9 +250,7 @@ class SettingsAddButton extends StatelessWidget {
       style: FilledButton.styleFrom(
         backgroundColor: c.text,
         foregroundColor: c.bg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(100),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       ),
     );
@@ -273,10 +292,7 @@ class SettingsSaveButton extends StatelessWidget {
             ? SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: c.bg,
-                ),
+                child: CircularProgressIndicator(strokeWidth: 2, color: c.bg),
               )
             : const Icon(Icons.save_outlined, size: 18),
         label: Text(
@@ -390,10 +406,7 @@ class SettingsSubPageHeader extends StatelessWidget {
                 )
               else
                 const SizedBox(width: 48, height: 48),
-              if (trailing != null) ...[
-                const Spacer(),
-                trailing!,
-              ],
+              if (trailing != null) ...[const Spacer(), trailing!],
             ],
           ),
           Padding(
