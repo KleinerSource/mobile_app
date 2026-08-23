@@ -114,7 +114,29 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),
     );
-    if (mounted) _reload(preserveScroll: true);
+    if (mounted) await _refreshAfterMovie();
+  }
+
+  Future<void> _refreshAfterMovie() async {
+    final refreshed = await refreshPagedListInBackground<MovieListItem>(
+      controller: _controller,
+      loadFirstPage: (limit) async {
+        final page = await ref
+            .read(moviesRepositoryProvider)
+            .list(
+              MovieFilter(
+                actorIds: [widget.actor.id],
+                sortBy: 'created_at',
+                sortOrder: 'desc',
+              ),
+              limit: limit,
+              offset: 0,
+            );
+        _totalCount = page.totalCount;
+        return page;
+      },
+    );
+    if (mounted && refreshed) setState(() {});
   }
 
   int get _hue {

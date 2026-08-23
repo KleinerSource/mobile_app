@@ -96,16 +96,25 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
     }
   }
 
-  void _reload({bool preserveScroll = false}) {
-    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
-    _controller.refresh();
-  }
-
   Future<void> _openMovie(int movieId) async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),
     );
-    if (mounted) _reload(preserveScroll: true);
+    if (mounted) await _refreshAfterMovie();
+  }
+
+  Future<void> _refreshAfterMovie() async {
+    final refreshed = await refreshPagedListInBackground<MovieListItem>(
+      controller: _controller,
+      loadFirstPage: (limit) async {
+        final page = await ref
+            .read(moviesRepositoryProvider)
+            .list(_filter, limit: limit, offset: 0);
+        _totalCount = page.totalCount;
+        return page;
+      },
+    );
+    if (mounted && refreshed) setState(() {});
   }
 
   @override

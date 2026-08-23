@@ -133,7 +133,29 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),
     );
-    if (mounted) _reload(preserveScroll: true);
+    if (mounted) await _refreshAfterMovie();
+  }
+
+  Future<void> _refreshAfterMovie() async {
+    final refreshed = await refreshPagedListInBackground<MovieListItem>(
+      controller: _controller,
+      loadFirstPage: (limit) async {
+        final page = await ref
+            .read(moviesRepositoryProvider)
+            .list(
+              MovieFilter(
+                actorIds: [widget.actorId],
+                sortBy: 'year',
+                sortOrder: 'desc',
+              ),
+              limit: limit,
+              offset: 0,
+            );
+        _totalCount = page.totalCount;
+        return page;
+      },
+    );
+    if (mounted && refreshed) setState(() {});
   }
 
   @override

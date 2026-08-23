@@ -8,6 +8,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/movie.dart';
+import '../../core/models/paged_result.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/empty_view.dart';
@@ -211,7 +212,37 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         }
       }
     }
-    if (mounted) _reload(preserveScroll: true);
+    if (mounted) await _refreshAfterMovie();
+  }
+
+  Future<void> _refreshAfterMovie() async {
+    final refreshed = await refreshPagedListInBackground<MovieListItem>(
+      controller: _controller,
+      loadFirstPage: (limit) async {
+        final maxItems = widget.maxItems;
+        final requestLimit = maxItems == null
+            ? limit
+            : limit.clamp(1, maxItems).toInt();
+        final page = await ref
+            .read(moviesRepositoryProvider)
+            .list(_currentFilter, limit: requestLimit, offset: 0);
+        final items = maxItems == null
+            ? page.items
+            : page.items.take(maxItems).toList();
+        _totalCount = maxItems == null
+            ? page.totalCount
+            : page.totalCount.clamp(0, maxItems).toInt();
+        return maxItems == null
+            ? page
+            : PagedResult<MovieListItem>(
+                items: items,
+                totalCount: _totalCount,
+                limit: requestLimit,
+                offset: 0,
+              );
+      },
+    );
+    if (mounted && refreshed) setState(() {});
   }
 
   Future<void> _openAdvancedFilter() async {

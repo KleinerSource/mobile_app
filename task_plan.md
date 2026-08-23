@@ -84,3 +84,39 @@
 | 语义句柄用 `addTearDown` 释放晚于框架句柄校验 | 在测试末尾显式调用 `SemanticsHandle.dispose()` |
 | 反向速度测试受测试手势最后采样速度和竞技场时序影响，可能落在普通展开落点 | 断言核心契约为不提交，同时允许普通展开落点保留 |
 | 用户反馈短距离快速滑动容易误触默认动作 | 仅当位移达到动作区+一个动作宽度（窄行取全滑临界点）时加入整行落点，短快甩保持普通展开 |
+# 当前任务：Flutter iOS 播放器内核与项目播放器模块分析（2026-08-23）
+
+## 目标
+
+基于项目源码、依赖锁定信息和权威文档，说明 Flutter 在 iOS 可用的主要播放器内核，并还原当前 App 已使用的播放器模块、底层内核、调用链和能力边界。
+
+## 成功标准
+
+- [x] 区分 Flutter 播放器封装与 iOS 真正解码/渲染内核。
+- [x] 盘点主流 iOS 内核、Flutter 接入方式、协议/格式、硬解、DRM 与维护风险。
+- [x] 从项目依赖和源码确认实际播放器组件、封装层、页面入口与原生配置。
+- [x] 给出与当前项目直接相关的选型建议，并标注证据与不确定项。
+
+## 阶段
+
+1. [已完成] 项目发现 → 验证：依赖、源码调用链、iOS 配置证据互相印证。
+2. [已完成] 权威资料核验 → 验证：优先官方文档、插件源码/发布页与 Context7。
+3. [已完成] 对比与结论 → 验证：形成内核矩阵、项目现状图和建议。
+4. [已完成] 交付检查 → 验证：所有结论可追溯，不修改业务代码。
+
+## 假设与边界
+
+- “播放器内核”按 iOS 侧实际媒体引擎理解，包括 AVFoundation/AVPlayer、FFmpeg、libmpv、VLC/libVLC、IJKPlayer 等；Flutter package 视为接入/控制层。
+- 分析本地当前工作树，而非仅以仓库默认分支为准。
+- 只做读取、分析和验证；计划记录文件除外，不修改业务代码。
+
+## 当前错误记录
+
+| 错误 | 尝试 | 处理 |
+| --- | --- | --- |
+| 首次通过 JavaScript 包装调用 CodeGraph 出现 `SyntaxError: Invalid or unexpected token` | 1 | 简化为无额外转义的单行调用，不重复原调用格式。 |
+| 读取 `ios/Podfile` 失败：文件不存在 | 1 | 不假定 CocoaPods 文件已提交；改为枚举 `ios/` 构建配置，并以插件依赖清单、podspec 和 Xcode 工程为证据。 |
+| Context7 三个库解析请求均返回月度配额已耗尽 | 1 | 停止重复 Context7 请求，改为直接读取 Apple、Flutter、media_kit、mpv/VLC 等官方文档和仓库。 |
+| 浏览器读取 Apple AVPlayer 文档 JSON 被客户端阻止（`ERR_BLOCKED_BY_CLIENT`） | 1 | 不重复同一路径的浏览器导航；改用只读 HTTP CLI 获取 Apple 官方 JSON。 |
+| 查询 pub.dev 包状态的 PowerShell `foreach` 后直接管道导致 `ParserError` | 1 | 用变量接收 foreach 输出后再 `Format-Table`，不重复原管道结构。 |
+| GStreamer 官方 iOS 文档页返回 503 backend timeout | 1 | 不重复刷新页面；改读 GStreamer 官方 GitLab 文档源文件。 |

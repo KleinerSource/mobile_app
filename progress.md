@@ -47,3 +47,37 @@
 - 完整 `flutter test`：355 项全部通过。
 - 最终 `flutter analyze`、格式、`git diff --check` 均通过；未修改业务页面或 `.codegraph/`。
 - 根据反馈新增短距离快甩防误触门槛，组件测试新增 1 项（共 23 项）全部通过；页面回归 8 项通过，`flutter analyze` 通过。
+# Flutter iOS 播放器分析进度（2026-08-23）
+
+- 状态：进行中。
+- 已读取 `planning-with-files` 技能并执行会话恢复检查；未发现未同步上下文。
+- 已确认项目存在 `.codegraph/`，将依照项目规则优先使用 CodeGraph 调查源码。
+- 已建立本次分析的目标、成功标准、阶段和边界。
+- 业务代码修改：无。
+- 错误：首次 CodeGraph 包装脚本产生 JavaScript 语法错误；已记录，下一步使用简化调用。
+- 已通过 CodeGraph 定位主播放器为 `PlayerControllerHost` + `PlayerPage`，并确认 mpv 原生属性调用。
+- 已核对依赖与全仓关键词：主播放依赖为 `media_kit`/`media_kit_video`/自定义 iOS libmpv 路径包；另有基于 `AVPlayer` 的 iOS PiP 桥接。
+- 已读取 iOS 本地库包、Makefile 与 `Info.plist`：确认 libmpv full XCFramework、PGS 字幕、ATS 媒体例外及后台音频模式。
+- `ios/Podfile` 不存在的读取错误已记录；后续改查实际 iOS 文件结构与 Xcode 集成配置。
+- Context7 因月度配额耗尽无法查询；已停止重试并切换到官方站点/仓库核验。
+- 已查阅 Flutter `video_player` 与 `media_kit` 官方包页：分别确认 AVPlayer 与 libmpv 路线、平台支持和硬件加速说明。
+- 已查阅 `flutter_vlc_player` 与 `fvp` 上游包页：确认 libVLC/VLCKit 与 libmdk 两条可用 iOS 路线及其能力边界。
+- 已核对 Chewie 与 `better_player_plus`：两者都是 `video_player` 上层功能/UI 封装，不能计为独立 iOS 播放内核。
+- 已核对 Apple FairPlay Streaming 官方说明；AVPlayer 文档正文为动态加载，本轮未读取到，已记录并准备改查官方 JSON 数据源。
+- 浏览器访问 Apple AVPlayer JSON 数据被客户端拦截；已记录，下一步改用 HTTP CLI，不重复失败路径。
+- 已通过只读 HTTP 获取 Apple AVPlayer 官方 JSON；同时核验 IJKPlayer 仓库当前并未 archived，修正了常见但过时的判断。
+- 已还原 iOS PiP 双内核接力：libmpv 主播放 → 临时 AVPlayer 系统 PiP → 进度回传 libmpv。
+- 已核对 Flutter IJKPlayer 封装状态：`flutter_ijkplayer` 已停用且不兼容 Dart 3，`fijkplayer` 也长期未发布，归类为遗留高风险方案。
+- 已枚举 20 个 `lib/features/player` 模块和 13 个相关测试，并还原直传/HLS/软解回退与服务端转码策略。
+- 已确认全局入口调用 `MediaKit.ensureInitialized()`；同时确认完整 iOS 工程由 CI 动态脚手架生成，部署目标为 iOS 16.0，并经 CocoaPods 集成本地 libmpv 包。
+- 已确认详情页灯箱预告片是第二个直接使用 media_kit 的轻量播放器；完整预告片入口仍复用 `PlayerPage`。
+- 已检查本地 iOS 库许可证与上游构建说明，识别出 native v0.6.0 固定版本、full 构建许可审计和 podspec 版本不同步三项维护风险。
+- 查询最新 pub.dev/native release 状态的首个 PowerShell 命令有管道语法错误；已记录并将改用变量收集输出。
+- 已成功核对当前上游版本：Dart 层已是最新，iOS native 构建落后两个以上发布周期；官方现推荐跨平台 `media_kit_libs_video`。
+- 已核对 Bitmovin 官方 Flutter SDK，补充商业播放器路线；GStreamer 官方页面 503 已记录并切换文档源。
+- 已从 GStreamer 官方 GitLab 文档确认 iOS 12+ 与 1.28 XCFramework 路线；项目发现和外部资料核验阶段完成，开始汇总对比与建议。
+- 静态分析通过；12 个相关测试文件的 46 个测试全部通过。
+- 已确认 PiP 的 headers 不会进入 AVPlayer；同服务器 token query/HLS 路径正常，header-only 外部源是未覆盖边界。
+- 已形成七类 iOS 播放内核/SDK 对比表与五项项目建议，进入最终证据与工作区检查。
+- 最终检查完成：业务代码无改动；仅更新 `task_plan.md`、`findings.md`、`progress.md` 调查记录；`git diff --check` 通过。
+- 状态：完成。

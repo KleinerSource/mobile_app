@@ -63,6 +63,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   /// 当前左滑展开的行（资产 id 或 'task:$id'），同一时刻只展开一个。
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
   Completer<void>? _refreshCompleter;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -90,6 +91,8 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   }
 
   Future<void> _fetch(int offset) async {
+    // 刷新已有列表时保留旧数据，避免列表组件触发额外的后续分页请求。
+    if (_refreshing && offset != 0) return;
     final requestSerial = _requestSerial;
     try {
       final page = await ref
@@ -97,6 +100,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
           .listAssets(limit: _pageSize, offset: offset, search: _search);
       if (!mounted || requestSerial != _requestSerial) return;
 
+      _refreshing = false;
       setState(() {
         _totalCount = page.total;
       });
@@ -115,6 +119,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     } catch (error) {
       if (!mounted || requestSerial != _requestSerial) return;
       _controller.error = toApiException(error).message;
+      _refreshing = false;
       _completeRefresh();
     }
   }
@@ -142,9 +147,60 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   }
 
   void _reload({bool preserveScroll = false}) {
-    _requestSerial++;
+    final loadedItems = _controller.itemList;
+    final requestSerial = ++_requestSerial;
     _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
-    _controller.refresh();
+    _refreshing = true;
+
+    if (!preserveScroll &&
+        loadedItems != null &&
+        _scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
+
+    if (loadedItems == null) {
+      _controller.refresh();
+      return;
+    }
+
+    // 已有内容时不清空分页控制器，让刷新请求在后台完成，避免首屏加载态
+    // 替换当前列表造成闪烁，也避免滚动中的行被卸载而中断用户操作。
+    unawaited(_refreshLoadedItems(requestSerial, loadedItems.length));
+  }
+
+  Future<void> _refreshLoadedItems(int requestSerial, int loadedCount) async {
+    try {
+      final page = await ref
+          .read(audioRepositoryProvider)
+          .listAssets(
+            limit: loadedCount > _pageSize ? loadedCount : _pageSize,
+            offset: 0,
+            search: _search,
+          );
+      if (!mounted || requestSerial != _requestSerial) return;
+
+      final nextOffset = page.items.length;
+      _refreshing = false;
+      setState(() {
+        _totalCount = page.total;
+        _lastPageComplete = nextOffset >= page.total || page.items.isEmpty;
+      });
+      _controller.value = PagingState<int, AudioAsset>(
+        itemList: page.items,
+        error: null,
+        nextPageKey: nextOffset >= page.total || page.items.isEmpty
+            ? null
+            : nextOffset,
+      );
+      _scrollRestorer.restoreAfterPage(_scrollController);
+      _pruneSelection(page.items);
+      _completeRefresh();
+    } catch (_) {
+      if (!mounted || requestSerial != _requestSerial) return;
+      // 刷新失败时保留旧列表和当前交互状态，下一次刷新或分页请求可以重试。
+      _refreshing = false;
+      _completeRefresh();
+    }
   }
 
   Future<void> _refresh() {
@@ -538,14 +594,13 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     }
   }
 
-  Future<void> _openMovieDetail(AudioAsset asset) async {
+  void _openMovieDetail(AudioAsset asset) {
     if (asset.movieId <= 0) return;
-    await Navigator.of(context).push(
+    Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => MovieDetailPage(movieId: asset.movieId),
       ),
     );
-    if (mounted) _reload(preserveScroll: true);
   }
 
   /// 返回 null 表示取消，否则返回是否覆盖已有同名字幕。

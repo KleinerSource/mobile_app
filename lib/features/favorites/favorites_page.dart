@@ -188,7 +188,29 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         }
       }
     }
-    if (mounted) _reload(preserveScroll: true);
+    if (mounted) await _refreshAfterMovie();
+  }
+
+  Future<void> _refreshAfterMovie() async {
+    final refreshed = await refreshPagedListInBackground<MovieListItem>(
+      controller: _controller,
+      loadFirstPage: (limit) async {
+        final result = await ref
+            .read(favoritesRepositoryProvider)
+            .list(
+              MovieFilter(
+                sortBy: _sort.sortBy,
+                sortOrder: _sort.order,
+                hasNewResources: _newResourcesOnly ? true : null,
+              ),
+              limit: limit,
+              offset: 0,
+            );
+        _totalCount = result.page.totalCount;
+        return result.page;
+      },
+    );
+    if (mounted && refreshed) setState(() {});
   }
 
   Future<void> _startResourceScan() async {

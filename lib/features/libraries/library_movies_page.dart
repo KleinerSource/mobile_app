@@ -100,7 +100,16 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
     );
-    if (mounted) _reload(preserveScroll: true);
+    if (mounted) await _refreshAfterMovie();
+  }
+
+  Future<void> _refreshAfterMovie() async {
+    await refreshPagedListInBackground<MovieListItem>(
+      controller: _controller,
+      loadFirstPage: (limit) => ref
+          .read(moviesRepositoryProvider)
+          .list(_filter, limit: limit, offset: 0),
+    );
   }
 
   int _hueFor(String name) {

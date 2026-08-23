@@ -122,7 +122,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             Expanded(
               child: _query.isEmpty
                   ? _EmptyHint()
-                  : _SearchResults(query: _query),
+                  : _SearchResults(key: ValueKey(_query), query: _query),
             ),
           ],
         ),
@@ -154,7 +154,7 @@ class _EmptyHint extends StatelessWidget {
 }
 
 class _SearchResults extends ConsumerStatefulWidget {
-  const _SearchResults({required this.query});
+  const _SearchResults({super.key, required this.query});
   final String query;
 
   @override
@@ -169,20 +169,11 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
   late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
     _controller,
   );
-  int _requestSerial = 0;
 
   @override
   void initState() {
     super.initState();
     _controller.addPageRequestListener(_fetch);
-  }
-
-  @override
-  void didUpdateWidget(covariant _SearchResults oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.query != widget.query) {
-      _reload();
-    }
   }
 
   @override
@@ -192,21 +183,31 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     super.dispose();
   }
 
-  void _reload({bool preserveScroll = false}) {
-    _requestSerial++;
-    _scrollRestorer.prepare(_scrollController, preserve: preserveScroll);
-    _controller.refresh();
-  }
-
   Future<void> _openMovie(int movieId) async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),
     );
-    if (mounted) _reload(preserveScroll: true);
+    if (mounted) await _refreshAfterMovie();
+  }
+
+  Future<void> _refreshAfterMovie() async {
+    await refreshPagedListInBackground<MovieListItem>(
+      controller: _controller,
+      loadFirstPage: (limit) => ref
+          .read(moviesRepositoryProvider)
+          .list(
+            MovieFilter(
+              search: widget.query,
+              sortBy: 'created_at',
+              sortOrder: 'desc',
+            ),
+            limit: limit,
+            offset: 0,
+          ),
+    );
   }
 
   Future<void> _fetch(int offset) async {
-    final requestSerial = _requestSerial;
     try {
       final page = await ref
           .read(moviesRepositoryProvider)
@@ -219,7 +220,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
             limit: _pageSize,
             offset: offset,
           );
-      if (!mounted || requestSerial != _requestSerial) return;
+      if (!mounted) return;
 
       final nextOffset = offset + page.items.length;
       if (nextOffset >= page.totalCount || page.items.isEmpty) {
@@ -229,7 +230,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
       }
       _scrollRestorer.restoreAfterPage(_scrollController);
     } catch (error) {
-      if (!mounted || requestSerial != _requestSerial) return;
+      if (!mounted) return;
       _controller.error = toApiException(error).message;
     }
   }
