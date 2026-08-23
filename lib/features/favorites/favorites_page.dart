@@ -17,6 +17,7 @@ import '../../shared/movie_card.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/status_bar_scroll_to_top.dart';
+import '../../shared/swipe_actions.dart';
 import '../../shared/poster.dart';
 import '../../shared/collection_card_layout.dart';
 import '../../shared/entity_batch_toolbar.dart';
@@ -77,19 +78,28 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   bool _selectionMode = false;
   bool _newResourcesOnly = false;
   bool _resourceScanStarting = false;
+  final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
   bool get _selecting => _selectionMode;
 
   @override
   void initState() {
     super.initState();
     _controller.addPageRequestListener(_fetch);
+    _scrollController.addListener(_closeSwipeOnScroll);
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_closeSwipeOnScroll);
+    _openSwipe.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 列表开始滚动时收起已展开的左滑操作。
+  void _closeSwipeOnScroll() {
+    if (_openSwipe.value != null) _openSwipe.value = null;
   }
 
   Future<void> _fetch(int offset) async {
@@ -547,10 +557,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    '全部收藏',
-                                    style: AppText.eyebrow(context),
-                                  ),
+                                  Text('全部收藏', style: AppText.eyebrow(context)),
                                   const SizedBox(height: 3),
                                   Text(
                                     '$_totalCount 部影片',
@@ -697,6 +704,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         child: _ListRow(
           movie: m,
           urlBuilder: urlBuilder,
+          swipeGroup: _openSwipe,
           selected: _selected.contains(m.id),
           selecting: _selecting,
           onTap: () {
@@ -879,6 +887,7 @@ class _ListRow extends StatelessWidget {
   const _ListRow({
     required this.movie,
     required this.urlBuilder,
+    required this.swipeGroup,
     required this.selected,
     required this.selecting,
     required this.onTap,
@@ -887,6 +896,7 @@ class _ListRow extends StatelessWidget {
 
   final MovieListItem movie;
   final String Function(String) urlBuilder;
+  final SwipeActionGroup swipeGroup;
   final bool selected;
   final bool selecting;
   final VoidCallback onTap;
@@ -1023,34 +1033,19 @@ class _ListRow extends StatelessWidget {
       );
     }
 
-    return Dismissible(
-      key: ValueKey('fav-${movie.id}'),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 18),
-        color: c.danger.withValues(alpha: 0.85),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.delete_outline, color: Colors.white, size: 18),
-            SizedBox(width: 6),
-            Text(
-              '移除',
-              style: TextStyle(
-                color: Colors.white,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-          ],
+    // 左滑双逻辑：展开点击移除，或滑到头/快速左甩直接执行。
+    return SwipeActionCell(
+      group: swipeGroup,
+      cellKey: movie.id,
+      enabled: true,
+      actions: [
+        SwipeActionData(
+          icon: Icons.delete_outline,
+          label: '移除',
+          color: c.danger,
+          onPressed: onRemove,
         ),
-      ),
-      confirmDismiss: (_) async {
-        onRemove();
-        return false;
-      },
+      ],
       child: Container(
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: c.divider)),

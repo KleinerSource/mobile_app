@@ -20,6 +20,7 @@ import '../../shared/pagination_footer.dart';
 import '../../shared/poster.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/status_bar_scroll_to_top.dart';
+import '../../shared/swipe_actions.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../privacy/privacy_mask.dart';
 import '../favorites/favorites_providers.dart';
@@ -62,6 +63,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   // 选择模式状态
   bool _selectionMode = false;
   final Set<int> _selectedIds = {};
+  final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
   Completer<void>? _refreshCompleter;
   bool _resourceScanStarting = false;
 
@@ -70,14 +72,22 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     super.initState();
     _currentFilter = widget.initialFilter;
     _controller.addPageRequestListener(_fetch);
+    _scrollController.addListener(_closeSwipeOnScroll);
   }
 
   @override
   void dispose() {
     _completeRefresh();
+    _scrollController.removeListener(_closeSwipeOnScroll);
+    _openSwipe.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 列表开始滚动时收起已展开的左滑操作。
+  void _closeSwipeOnScroll() {
+    if (_openSwipe.value != null) _openSwipe.value = null;
   }
 
   Future<void> _fetch(int offset) async {
@@ -257,8 +267,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                                         Row(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.baseline,
-                                          textBaseline:
-                                              TextBaseline.alphabetic,
+                                          textBaseline: TextBaseline.alphabetic,
                                           children: [
                                             Text(
                                               _totalCount > 0
@@ -512,6 +521,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         child: _ListRow(
           movie: item,
           urlBuilder: urlBuilder,
+          swipeGroup: _openSwipe,
           selectionMode: _selectionMode,
           selected: _selectedIds.contains(item.id),
           onSelectionTap: () => _toggleSelect(item.id),
@@ -1062,6 +1072,7 @@ class _ListRow extends StatelessWidget {
   const _ListRow({
     required this.movie,
     required this.urlBuilder,
+    required this.swipeGroup,
     this.selectionMode = false,
     this.selected = false,
     this.onSelectionTap,
@@ -1070,6 +1081,7 @@ class _ListRow extends StatelessWidget {
   });
   final MovieListItem movie;
   final String Function(String) urlBuilder;
+  final SwipeActionGroup swipeGroup;
   final bool selectionMode;
   final bool selected;
   final VoidCallback? onSelectionTap;
@@ -1217,34 +1229,19 @@ class _ListRow extends StatelessWidget {
 
     if (selectionMode) return row;
 
-    return Dismissible(
-      key: ValueKey('movie-${movie.id}'),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 18),
-        color: c.accent.withValues(alpha: 0.85),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
-            SizedBox(width: 6),
-            Text(
-              '收藏',
-              style: TextStyle(
-                color: Colors.white,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-          ],
+    // 左滑双逻辑：展开点击收藏，或滑到头/快速左甩直接执行。
+    return SwipeActionCell(
+      group: swipeGroup,
+      cellKey: movie.id,
+      enabled: true,
+      actions: [
+        SwipeActionData(
+          icon: Icons.favorite_rounded,
+          label: movie.isFavorited ? '取消收藏' : '收藏',
+          color: c.accent,
+          onPressed: onFavorite,
         ),
-      ),
-      confirmDismiss: (_) async {
-        onFavorite();
-        return false;
-      },
+      ],
       child: row,
     );
   }

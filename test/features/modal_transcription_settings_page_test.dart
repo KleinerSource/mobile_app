@@ -72,9 +72,13 @@ Future<void> _enableAndSave(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-/// 左滑令牌行展开操作，并点击指定操作按钮。
+/// 慢速左滑令牌行展开操作（不触发热滑直触），并点击指定操作按钮。
 Future<void> _swipeAndTap(WidgetTester tester, Finder row, String label) async {
-  await tester.fling(row, const Offset(-360, 0), 1000);
+  await tester.timedDrag(
+    row,
+    const Offset(-150, 0),
+    const Duration(milliseconds: 500),
+  );
   await tester.pumpAndSettle();
   await tester.tap(find.text(label).hitTestable());
   await tester.pumpAndSettle();

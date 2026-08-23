@@ -15,6 +15,7 @@ import 'package:md_center/features/movies/movies_page.dart';
 import 'package:md_center/l10n/generated/app_localizations.dart';
 import 'package:md_center/shared/entity_batch_toolbar.dart';
 import 'package:md_center/shared/movie_card.dart';
+import 'package:md_center/shared/swipe_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -85,9 +86,11 @@ void main() {
     final second = find.byKey(const ValueKey<int>(2));
     expect(find.byType(SelectableMovieCard), findsWidgets);
 
-    double dimOpacity(Finder cell) => tester.widget<AnimatedOpacity>(
+    double dimOpacity(Finder cell) => tester
+        .widget<AnimatedOpacity>(
           find.descendant(of: cell, matching: find.byType(AnimatedOpacity)),
-        ).opacity;
+        )
+        .opacity;
 
     // 多选前全部不透明
     expect(dimOpacity(first), 1.0);
@@ -136,12 +139,13 @@ void main() {
     await tester.pumpAndSettle();
     final first = find.byKey(const ValueKey<int>(1));
     expect(first, findsOneWidget);
-    expect(find.byType(Dismissible), findsWidgets);
+    expect(find.byType(SwipeActionCell), findsWidgets);
 
-    await tester.fling(
-      find.byType(Dismissible).first,
-      const Offset(-500, 0),
-      1000,
+    // 拖过按钮区继续拉长默认磁贴，越过阈值提交移除。
+    await tester.timedDrag(
+      find.byType(SwipeActionCell).first,
+      const Offset(-320, 0),
+      const Duration(milliseconds: 250),
     );
     await tester.pumpAndSettle();
 
@@ -158,15 +162,15 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.view_list_rounded));
     await tester.pumpAndSettle();
-    expect(find.byType(Dismissible), findsWidgets);
+    expect(find.byType(SwipeActionCell), findsWidgets);
 
-    await tester.fling(
-      find.byType(Dismissible).first,
-      const Offset(-500, 0),
-      1000,
+    // 拖过按钮区继续拉长默认磁贴（收藏），越过阈值提交执行。
+    await tester.timedDrag(
+      find.byType(SwipeActionCell).first,
+      const Offset(-320, 0),
+      const Duration(milliseconds: 250),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey<int>(1)), findsOneWidget);
     expect(find.text('已收藏「影片 1」'), findsOneWidget);
