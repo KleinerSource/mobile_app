@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import '../../core/api/dio_factory.dart';
+import '../../core/config/server_config_provider.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -34,6 +35,8 @@ import 'movies_providers.dart';
 import 'resource_scan_progress_sheet.dart';
 
 enum _ViewMode { grid, list }
+
+const _moviesViewModeKey = 'movies.view_mode.v1';
 
 class MoviesPage extends ConsumerStatefulWidget {
   const MoviesPage({
@@ -71,8 +74,24 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   void initState() {
     super.initState();
     _currentFilter = widget.initialFilter;
+    _viewMode = _loadViewMode();
     _controller.addPageRequestListener(_fetch);
     _scrollController.addListener(_closeSwipeOnScroll);
+  }
+
+  _ViewMode _loadViewMode() {
+    return ref.read(sharedPrefsProvider).getString(_moviesViewModeKey) ==
+            _ViewMode.list.name
+        ? _ViewMode.list
+        : _ViewMode.grid;
+  }
+
+  Future<void> _setViewMode(_ViewMode mode) async {
+    if (_viewMode == mode) return;
+    setState(() => _viewMode = mode);
+    await ref
+        .read(sharedPrefsProvider)
+        .setString(_moviesViewModeKey, mode.name);
   }
 
   @override
@@ -314,7 +333,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                                   _ViewModeToggle(
                                     mode: _viewMode,
                                     onChanged: (m) =>
-                                        setState(() => _viewMode = m),
+                                        unawaited(_setViewMode(m)),
                                   ),
                                 ],
                               ),

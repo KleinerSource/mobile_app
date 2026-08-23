@@ -46,3 +46,4 @@
 - 两个改动 Dart 文件格式检查通过，`git diff --check` 通过。
 - 完整 `flutter test`：355 项全部通过。
 - 最终 `flutter analyze`、格式、`git diff --check` 均通过；未修改业务页面或 `.codegraph/`。
+- 根据反馈新增短距离快甩防误触门槛，组件测试新增 1 项（共 23 项）全部通过；页面回归 8 项通过，`flutter analyze` 通过。

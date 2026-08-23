@@ -55,3 +55,4 @@
 - 减少动态效果时使用短促无回弹 `animateTo`；常规吸附使用 `mass: 1, stiffness: 440, damping: 42` 的近临界阻尼弹簧。
 - 当前 Flutter SDK 的 `CustomSemanticsAction` 定义在 `package:flutter/semantics.dart`，`DragStartBehavior` 定义在 `package:flutter/gestures.dart`；`material.dart` 不转出这两个符号。
 - 全仓库未发现显式 `fullSwipeIndex` 调用，生产调用点无需业务迁移；新增接口只需共享组件测试覆盖 `allowsFullSwipe`。
+- 用户反馈“稍微快一点就触发默认逻辑”后，整行落点增加距离意图门槛：实际位移未达到 `min(动作区+一个动作宽度, 全滑临界点)` 时，不把整行加入松手落点集合；速度仍用于投影和弹簧速度继承。

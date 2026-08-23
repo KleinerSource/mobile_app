@@ -233,6 +233,34 @@ void main() {
     expect(group.value, isNull);
   });
 
+  testWidgets('短距离快甩只展开操作区，不执行默认动作', (tester) async {
+    var fired = 0;
+    final group = SwipeActionGroup(null);
+    addTearDown(group.dispose);
+    await tester.pumpWidget(
+      _wrap(
+        SwipeActionCell(
+          group: group,
+          cellKey: 1,
+          enabled: true,
+          actions: [_action(() => fired++)],
+          child: const SizedBox(
+            width: double.infinity,
+            height: 60,
+            child: Text('行内容'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.fling(find.text('行内容'), const Offset(-120, 0), 2000);
+    await tester.pumpAndSettle();
+
+    expect(fired, 0);
+    expect(group.value, 1);
+    expect(find.text('删除').hitTestable(), findsOneWidget);
+  });
+
   testWidgets('未过提交点滑回不提交（回滑撤销）', (tester) async {
     var fired = 0;
     final group = SwipeActionGroup(null);

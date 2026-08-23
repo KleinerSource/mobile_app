@@ -19,6 +19,43 @@ import 'package:md_center/shared/swipe_actions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  testWidgets('影片库和收藏夹分别保存视图模式', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'privacy.app_switcher_shield': false,
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await _pumpPage(tester, const MoviesPage(maxItems: 9), preferences: prefs);
+    expect(find.byType(SwipeActionCell), findsNothing);
+    await tester.tap(find.byIcon(Icons.view_list_rounded));
+    await tester.pumpAndSettle();
+    expect(prefs.getString('movies.view_mode.v1'), 'list');
+
+    await _pumpPage(tester, const MoviesPage(maxItems: 9), preferences: prefs);
+    expect(find.byType(SwipeActionCell), findsWidgets);
+    await tester.tap(find.byIcon(Icons.grid_view_rounded));
+    await tester.pumpAndSettle();
+    expect(prefs.getString('movies.view_mode.v1'), 'grid');
+
+    await _pumpPage(tester, const MoviesPage(maxItems: 9), preferences: prefs);
+    expect(find.byType(SwipeActionCell), findsNothing);
+
+    await _pumpPage(tester, const FavoritesPage(), preferences: prefs);
+    expect(find.byType(SwipeActionCell), findsNothing);
+    await tester.tap(find.byIcon(Icons.view_list_rounded));
+    await tester.pumpAndSettle();
+    expect(prefs.getString('favorites.view_mode.v1'), 'list');
+
+    await _pumpPage(tester, const FavoritesPage(), preferences: prefs);
+    expect(find.byType(SwipeActionCell), findsWidgets);
+    await tester.tap(find.byIcon(Icons.grid_view_rounded));
+    await tester.pumpAndSettle();
+    expect(prefs.getString('favorites.view_mode.v1'), 'grid');
+
+    await _pumpPage(tester, const FavoritesPage(), preferences: prefs);
+    expect(find.byType(SwipeActionCell), findsNothing);
+  });
+
   testWidgets('影片网格长按滑动同步工具栏和勾选状态', (tester) async {
     await _pumpPage(tester, const MoviesPage(maxItems: 9));
 
@@ -232,11 +269,17 @@ Future<void> _pumpPage(
   WidgetTester tester,
   Widget page, {
   FavoritesRepository? favoritesRepository,
+  SharedPreferences? preferences,
 }) async {
-  SharedPreferences.setMockInitialValues({
-    'privacy.app_switcher_shield': false,
-  });
-  final prefs = await SharedPreferences.getInstance();
+  late final SharedPreferences prefs;
+  if (preferences != null) {
+    prefs = preferences;
+  } else {
+    SharedPreferences.setMockInitialValues({
+      'privacy.app_switcher_shield': false,
+    });
+    prefs = await SharedPreferences.getInstance();
+  }
   await tester.pumpWidget(
     ProviderScope(
       overrides: [

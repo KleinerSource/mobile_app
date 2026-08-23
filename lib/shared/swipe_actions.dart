@@ -93,6 +93,15 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   double get _fullSwipeThreshold =>
       _actionExtent + (_rowWidth - _actionExtent) / 2;
 
+  /// 速度投影只有在操作区完全露出后再继续拖过一个动作宽度才可提交。
+  /// 行较窄时以全滑临界点为上限，避免短距离快甩误执行默认动作。
+  double get _minimumProjectedFullSwipeOffset {
+    final extendedReveal = _actionExtent + _actionWidth;
+    return extendedReveal < _fullSwipeThreshold
+        ? extendedReveal
+        : _fullSwipeThreshold;
+  }
+
   bool get _reduceMotion =>
       MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
@@ -270,7 +279,9 @@ class _SwipeActionCellState extends State<SwipeActionCell>
         _offset.value +
         openingVelocity / 1000 * _decelerationRate / (1 - _decelerationRate);
     final targets = <double>[0, _actionExtent];
-    if (_hasFullSwipe) targets.add(_rowWidth);
+    final hasFullSwipeIntent =
+        _preparedFullSwipe || _offset.value >= _minimumProjectedFullSwipeOffset;
+    if (_hasFullSwipe && hasFullSwipeIntent) targets.add(_rowWidth);
 
     var target = targets.first;
     if (_preparedFullSwipe && projected >= _fullSwipeThreshold) {

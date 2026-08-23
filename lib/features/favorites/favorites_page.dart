@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import '../../core/api/dio_factory.dart';
+import '../../core/config/server_config_provider.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
@@ -34,6 +35,8 @@ import 'favorites_providers.dart';
 import 'favorites_repository.dart';
 
 enum FavoritesViewMode { grid, list }
+
+const _favoritesViewModeKey = 'favorites.view_mode.v1';
 
 enum FavoritesSort {
   recent(label: '最近添加', sortBy: 'created_at', order: 'desc'),
@@ -84,8 +87,24 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   @override
   void initState() {
     super.initState();
+    _viewMode = _loadViewMode();
     _controller.addPageRequestListener(_fetch);
     _scrollController.addListener(_closeSwipeOnScroll);
+  }
+
+  FavoritesViewMode _loadViewMode() {
+    return ref.read(sharedPrefsProvider).getString(_favoritesViewModeKey) ==
+            FavoritesViewMode.list.name
+        ? FavoritesViewMode.list
+        : FavoritesViewMode.grid;
+  }
+
+  Future<void> _setViewMode(FavoritesViewMode mode) async {
+    if (_viewMode == mode) return;
+    setState(() => _viewMode = mode);
+    await ref
+        .read(sharedPrefsProvider)
+        .setString(_favoritesViewModeKey, mode.name);
   }
 
   @override
@@ -591,7 +610,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                                     _ViewToggle(
                                       mode: _viewMode,
                                       onChange: (m) =>
-                                          setState(() => _viewMode = m),
+                                          unawaited(_setViewMode(m)),
                                     ),
                                   ],
                                 ),
