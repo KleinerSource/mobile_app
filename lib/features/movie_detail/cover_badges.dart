@@ -131,9 +131,9 @@ List<CoverBadgeSpec> buildCoverBadges({
   if (hasAISubtitle) {
     badges.add(const CoverBadgeSpec(
       PosterBadgeKind.subtitle,
-      'AI字幕',
+      '字幕',
       Color(0xFF8B5CF6),
-      'AI 字幕（文件名含 .ai. 标记）',
+      'AI 字幕',
     ));
   }
 

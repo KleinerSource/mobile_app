@@ -90,8 +90,8 @@ void main() {
         .where((badge) => badge.kind == PosterBadgeKind.subtitle)
         .toList();
     expect(subtitleBadges, hasLength(1));
-    expect(subtitleBadges.single.label, 'AI字幕');
-    expect(subtitleBadges.single.tooltip, 'AI 字幕（文件名含 .ai. 标记）');
+    expect(subtitleBadges.single.label, '字幕');
+    expect(subtitleBadges.single.tooltip, 'AI 字幕');
     expect(subtitleBadges.single.color.toARGB32(), 0xFF8B5CF6);
   });
 
@@ -106,7 +106,7 @@ void main() {
         .toList();
     expect(subtitleBadges, hasLength(2));
     expect(subtitleBadges.map((badge) => badge.tooltip),
-        ['外挂字幕', 'AI 字幕（文件名含 .ai. 标记）']);
+        ['外挂字幕', 'AI 字幕']);
   });
 
   test('四种字幕来源相互独立可同时显示', () {
@@ -123,7 +123,7 @@ void main() {
     expect(subtitleBadges, hasLength(4));
     expect(
       subtitleBadges.map((badge) => badge.tooltip),
-      ['外挂字幕', 'AI 字幕（文件名含 .ai. 标记）', '内嵌字幕轨道', '内嵌字幕'],
+      ['外挂字幕', 'AI 字幕', '内嵌字幕轨道', '内嵌字幕'],
     );
   });
 }
