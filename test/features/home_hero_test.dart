@@ -109,7 +109,8 @@ void main() {
     // 页位 0: 仅当前封面
     expect(find.byType(CachedNetworkImage), findsOneWidget);
     expect(
-      tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage))
+      tester
+          .widget<CachedNetworkImage>(find.byType(CachedNetworkImage))
           .imageUrl,
       'http://test/a.jpg',
     );
@@ -128,7 +129,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(CachedNetworkImage), findsOneWidget);
     expect(
-      tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage))
+      tester
+          .widget<CachedNetworkImage>(find.byType(CachedNetworkImage))
           .imageUrl,
       'http://test/b.jpg',
     );
@@ -155,6 +157,7 @@ void main() {
             child: RecommendCarousel(
               items: carouselItems,
               urlBuilder: (uuid) => 'http://test/$uuid.jpg',
+              onMovieReturned: () {},
               pagePosition: position,
             ),
           ),
@@ -196,6 +199,7 @@ void main() {
               child: RecommendCarousel(
                 items: items,
                 urlBuilder: (uuid) => 'http://test/$uuid.jpg',
+                onMovieReturned: () {},
               ),
             ),
           ),
