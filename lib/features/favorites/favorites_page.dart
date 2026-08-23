@@ -174,16 +174,16 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       ),
     );
 
-    if (!mounted || acknowledge == null) return;
-    try {
-      await acknowledge;
-    } catch (_) {
-      if (!mounted) return;
+    if (mounted && acknowledge != null) {
       try {
-        await ref.read(moviesRepositoryProvider).acknowledgeResources(movie.id);
+        await acknowledge;
       } catch (_) {
-        // 确认失败时保留当前项，下一次查看或刷新时重试。
-        return;
+        if (!mounted) return;
+        try {
+          await ref.read(moviesRepositoryProvider).acknowledgeResources(movie.id);
+        } catch (_) {
+          // 确认失败时保留当前项，下一次查看或刷新时重试。
+        }
       }
     }
     if (mounted) _reload(preserveScroll: true);
@@ -1007,24 +1007,6 @@ class _ListRow extends StatelessWidget {
               ],
             ),
           ),
-          if (!selecting)
-            Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFFF6B9D), Color(0xFF9F6BFF)],
-                ),
-              ),
-              child: const Icon(
-                Icons.play_arrow,
-                size: 16,
-                color: Colors.white,
-              ),
-            ),
         ],
       ),
     );
