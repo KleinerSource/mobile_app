@@ -57,19 +57,16 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
         child: SafeArea(
           bottom: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            padding: const EdgeInsets.fromLTRB(22, 10, 22, 0),
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: _TopNoticeDismissible(
-                      onDismiss: () => _dismissTopNotice(sequence),
-                      child: _buildBanner(snackBar, sequence),
-                    ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: _TopNoticeDismissible(
+                    onDismiss: () => _dismissTopNotice(sequence),
+                    child: _buildBanner(snackBar, sequence),
                   ),
                 ),
               ),

@@ -4,6 +4,9 @@ import 'package:md_center/shared/top_snack_bar.dart';
 
 void main() {
   testWidgets('顶部通知居中并支持点击和上滑关闭', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     const bodyKey = ValueKey<String>('body');
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
@@ -43,6 +46,7 @@ void main() {
     final scaffoldRect = tester.getRect(find.byType(Scaffold));
     expect(bannerTop, lessThan(scaffoldRect.center.dy));
     expect(bannerCenter, closeTo(scaffoldRect.center.dx, 0.1));
+    expect(tester.getSize(card).width, closeTo(scaffoldRect.width - 44, 0.1));
     expect(tester.getTopLeft(find.byKey(bodyKey)).dy, bodyTop);
 
     await tester.tap(find.text('顶部通知'));
