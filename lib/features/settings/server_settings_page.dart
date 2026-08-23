@@ -7,6 +7,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../actor_associations/actor_associations_page.dart';
 import '../actors/actor_management_page.dart';
+import '../audio/audio_management_page.dart';
 import '../configs/avdb_settings_page.dart';
 import '../configs/dbo_settings_page.dart';
 import '../configs/ffmpeg_settings_page.dart';
@@ -129,6 +130,16 @@ class ServerSettingsPage extends ConsumerWidget {
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const LibrariesPage(),
+                        ),
+                      ),
+                    ),
+                    SettingsTile(
+                      title: '音频管理',
+                      subtitle: '已提取音频资产与字幕转译进度',
+                      leadingIcon: Icons.graphic_eq_outlined,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AudioManagementPage(),
                         ),
                       ),
                     ),

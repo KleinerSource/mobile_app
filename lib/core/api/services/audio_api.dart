@@ -12,6 +12,43 @@ class AudioApi {
 
   final Dio _dio;
 
+  /// 音频资产列表：支持按影片名/文件名搜索，返回分页资产与转译统计。
+  Future<dynamic> listAssets({
+    int limit = 50,
+    int offset = 0,
+    String? search,
+    String? format,
+  }) async {
+    final query = <String, dynamic>{'limit': limit, 'offset': offset};
+    final term = search?.trim() ?? '';
+    if (term.isNotEmpty) query['search'] = term;
+    final fmt = format?.trim().toLowerCase() ?? '';
+    if (fmt.isNotEmpty) query['format'] = fmt;
+    final response = await _dio.get<dynamic>('/audios', queryParameters: query);
+    return response.data;
+  }
+
+  /// 统一删除入口：单项删除即提交长度为 1 的 ids 数组。
+  Future<dynamic> deleteAssets(List<int> ids) async {
+    final response = await _dio.post<dynamic>(
+      '/audios/delete',
+      data: {'ids': ids},
+    );
+    return response.data;
+  }
+
+  /// 把音频资产加入字幕转译队列，返回受理与被拒明细。
+  Future<dynamic> enqueueTranscriptions(
+    List<int> assetIds, {
+    bool overwrite = false,
+  }) async {
+    final response = await _dio.post<dynamic>(
+      '/audios/transcriptions',
+      data: {'audio_asset_ids': assetIds, 'overwrite': overwrite},
+    );
+    return response.data;
+  }
+
   /// 转译队列视图（从音频资产表投影）：仅返回转译状态非空的资产，
   /// 每个资产至多一条记录，按入队时间倒序。
   Future<dynamic> listTranscriptions({

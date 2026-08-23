@@ -9,6 +9,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass_menu.dart';
 import '../../shared/status_bar_scroll_to_top.dart';
 import '../actors/actor_management_page.dart';
+import '../audio/audio_management_page.dart';
 import '../favorites/favorites_page.dart';
 import '../home/home_page.dart';
 import '../libraries/libraries_page.dart';
@@ -78,6 +79,15 @@ class _MainShellState extends State<MainShell> {
         ),
       ),
       GlassMenuEntry<_YouQuickAction>.action(
+        value: _YouQuickAction.audios,
+        builder: (context, selected, onTap) => GlassMenuRow(
+          icon: Icons.graphic_eq_outlined,
+          label: '音频管理',
+          selected: selected,
+          onTap: onTap,
+        ),
+      ),
+      GlassMenuEntry<_YouQuickAction>.action(
         value: _YouQuickAction.tags,
         builder: (context, selected, onTap) => GlassMenuRow(
           icon: Icons.label_outline,
@@ -121,6 +131,7 @@ class _MainShellState extends State<MainShell> {
     final page = switch (action) {
       _YouQuickAction.tasks => const TaskCenterPage(),
       _YouQuickAction.libraries => const LibrariesPage(),
+      _YouQuickAction.audios => const AudioManagementPage(),
       _YouQuickAction.tags => const ResourceListPage(kind: ResourceKind.tag),
       _YouQuickAction.genres => const ResourceListPage(
         kind: ResourceKind.genre,
@@ -191,7 +202,15 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
-enum _YouQuickAction { tasks, libraries, tags, genres, series, actors }
+enum _YouQuickAction {
+  tasks,
+  libraries,
+  audios,
+  tags,
+  genres,
+  series,
+  actors,
+}
 
 class _TabSpec {
   const _TabSpec({required this.label, required this.icon});

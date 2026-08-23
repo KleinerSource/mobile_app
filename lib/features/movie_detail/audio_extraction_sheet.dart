@@ -5,6 +5,8 @@ import '../../core/api/api_exception.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/api/envelope.dart';
 import '../../core/api/providers.dart';
+import '../../core/config/server_config_provider.dart'
+    show sharedPrefsProvider;
 import '../../core/models/movie.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
@@ -18,6 +20,9 @@ const _audioFormatOptions = <({String value, String label})>[
 ];
 
 const _audioBitrateOptions = <int>[64, 96, 128, 192, 256, 320];
+
+const _formatPrefsKey = 'audioExtractFormat';
+const _bitratePrefsKey = 'audioExtractBitrateKbps';
 
 class AudioExtractionSheet extends ConsumerStatefulWidget {
   const AudioExtractionSheet({super.key, required this.movie});
@@ -45,6 +50,34 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
   bool _submitting = false;
   String? _error;
 
+  @override
+  void initState() {
+    super.initState();
+    _restoreLastSelection();
+  }
+
+  /// 带回上次提取使用的格式与码率，避免每次重复选择。
+  void _restoreLastSelection() {
+    final prefs = ref.read(sharedPrefsProvider);
+    final savedFormat = prefs.getString(_formatPrefsKey);
+    if (savedFormat != null &&
+        _audioFormatOptions.any((option) => option.value == savedFormat)) {
+      _format = savedFormat;
+    }
+    final savedBitrate = prefs.getInt(_bitratePrefsKey);
+    if (savedBitrate != null && _audioBitrateOptions.contains(savedBitrate)) {
+      _bitrateKbps = savedBitrate;
+    }
+  }
+
+  Future<void> _rememberSelection() {
+    final prefs = ref.read(sharedPrefsProvider);
+    return Future.wait([
+      prefs.setString(_formatPrefsKey, _format),
+      prefs.setInt(_bitratePrefsKey, _bitrateKbps),
+    ]);
+  }
+
   Future<void> _submit() async {
     if (_submitting) return;
     setState(() {
@@ -68,6 +101,7 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
       if (taskId.isEmpty) {
         throw ApiException('音频提取任务创建失败');
       }
+      await _rememberSelection();
       if (mounted) Navigator.of(context).pop(taskId);
     } catch (error) {
       if (mounted) {
