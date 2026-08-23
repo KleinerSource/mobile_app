@@ -509,8 +509,11 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
   }
 
   Future<void> _showEditor({MappingRule? rule}) async {
+    // 单原始值设计：编辑一条规则只处理一个原始值；新建仍可多值输入（保存时拆分为多条规则）。
     final originalCtrl = TextEditingController(
-      text: rule == null ? '' : rule.originalValues.join('\n'),
+      text: rule == null
+          ? ''
+          : (rule.originalValues.isNotEmpty ? rule.originalValues.first : ''),
     );
     final mappedCtrl = TextEditingController(text: rule?.mappedValue ?? '');
     bool isDelete = rule?.isDelete ?? false;
@@ -545,7 +548,10 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                       const SizedBox(height: 16),
                       Text('ORIGINAL VALUES', style: AppText.eyebrow(ctx)),
                       const SizedBox(height: 2),
-                      Text('多个值用换行分隔', style: AppText.meta(ctx)),
+                      Text(
+                        rule == null ? '多个值用换行分隔' : '单个原始值',
+                        style: AppText.meta(ctx),
+                      ),
                       const SizedBox(height: 6),
                       Container(
                         decoration: BoxDecoration(
@@ -555,14 +561,14 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                         ),
                         child: TextField(
                           controller: originalCtrl,
-                          minLines: 2,
-                          maxLines: 5,
+                          minLines: 1,
+                          maxLines: rule == null ? 5 : 1,
                           autofocus: rule == null,
-                          decoration: const InputDecoration(
-                            hintText: '原始值1\n原始值2',
-                            prefixIcon: Icon(Icons.notes),
+                          decoration: InputDecoration(
+                            hintText: rule == null ? '原始值1\n原始值2' : '原始值',
+                            prefixIcon: const Icon(Icons.notes),
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(
+                            contentPadding: const EdgeInsets.symmetric(
                               horizontal: 14,
                               vertical: 12,
                             ),
@@ -651,11 +657,16 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                         width: double.infinity,
                         child: FilledButton(
                           onPressed: () {
-                            final originals = originalCtrl.text
-                                .split('\n')
-                                .map((s) => s.trim())
-                                .where((s) => s.isNotEmpty)
-                                .toList();
+                            final trimmed = originalCtrl.text.trim();
+                            final originals = rule == null
+                                ? originalCtrl.text
+                                      .split('\n')
+                                      .map((s) => s.trim())
+                                      .where((s) => s.isNotEmpty)
+                                      .toList()
+                                : (trimmed.isEmpty
+                                      ? <String>[]
+                                      : [trimmed]);
                             if (originals.isEmpty) return;
                             if (!isDelete && mappedCtrl.text.trim().isEmpty) {
                               return;
