@@ -291,45 +291,35 @@ class _SwipeActionCellState extends State<SwipeActionCell>
                             )
                   : dragExtra;
               final defaultWidth = _actionWidth + extra;
+              // 卡片随手指平移；按钮块钉在固定坐标系的 `行宽 - 平移量`
+              // 处——左缘恒等于卡片右缘，随卡片尾缘滑入，无定位换算。
+              // Stack 默认按行边界裁剪：收起时按钮在右边界外不可见，
+              // 也保证展开后按钮可正常命中（不会因越界被 hitTest 拦截）。
+              // Positioned 只约束 left/top/bottom，宽度无界，Row 取自然
+              // 宽度即可，拉长/弹簧过冲超出行宽也不会触发布局溢出。
+              final offsetPx = reveal * _openExtent + extra;
+              final actionRow = _buildActionRow(defaultWidth);
               return Stack(
                 children: [
-                  if (value > 0.001 || _committing)
-                    Positioned.fill(
-                      // 按钮贴卡片右缘随拖动滑入，收起时整体移出裁剪区——
-                      // 实色滑入不透明渐变，也不受半透明卡片透色影响。
-                      // 偏移按按钮区宽度（像素）计算：OverflowBox 尺寸是
-                      // 整行宽，若用 FractionalTranslation 会以行宽为单位
-                      // 放大位移，导致卡片滑出一截后按钮才出现（中间留白）。
-                      // OverflowBox 本身用于解除宽度约束，允许拉长/弹簧
-                      // 过冲超出行宽，超出部分由 ClipRect 裁剪。
-                      child: ClipRect(
-                        child: IgnorePointer(
-                          ignoring: !_committing && reveal < 0.99,
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: Transform.translate(
-                              offset: Offset((1 - reveal) * _openExtent, 0),
-                              child: OverflowBox(
-                                alignment: Alignment.centerRight,
-                                maxWidth: double.infinity,
-                                child:
-                                    widget.actionBorderRadius ==
-                                        BorderRadius.zero
-                                    ? _buildActionRow(defaultWidth)
-                                    : ClipRRect(
-                                        borderRadius: widget.actionBorderRadius,
-                                        child: _buildActionRow(defaultWidth),
-                                      ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
                   Transform.translate(
-                    offset: Offset(-(reveal * _openExtent + extra), 0),
+                    offset: Offset(-offsetPx, 0),
                     child: AbsorbPointer(absorbing: _isOpen, child: child),
                   ),
+                  if (value > 0.001 || _committing)
+                    Positioned(
+                      top: 0,
+                      bottom: 0,
+                      left: rowWidth - offsetPx,
+                      child: IgnorePointer(
+                        ignoring: !_committing && reveal < 0.99,
+                        child: widget.actionBorderRadius == BorderRadius.zero
+                            ? actionRow
+                            : ClipRRect(
+                                borderRadius: widget.actionBorderRadius,
+                                child: actionRow,
+                              ),
+                      ),
+                    ),
                 ],
               );
             },

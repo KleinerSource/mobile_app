@@ -26,6 +26,7 @@ void main() {
           actions: [_action(() {})],
           child: const SizedBox(
             key: ValueKey('card'),
+            width: double.infinity,
             height: 60,
             child: Text('行内容'),
           ),
@@ -61,7 +62,11 @@ void main() {
           cellKey: 1,
           enabled: true,
           actions: [_action(() => tapped = true)],
-          child: const SizedBox(height: 60, child: Text('行内容')),
+          child: const SizedBox(
+            width: double.infinity,
+            height: 60,
+            child: Text('行内容'),
+          ),
         ),
       ),
     );
@@ -91,7 +96,11 @@ void main() {
           cellKey: 1,
           enabled: true,
           actions: [_action(() {})],
-          child: const SizedBox(height: 60, child: Text('行内容')),
+          child: const SizedBox(
+            width: double.infinity,
+            height: 60,
+            child: Text('行内容'),
+          ),
         ),
       ),
     );
@@ -125,7 +134,11 @@ void main() {
               onPressed: () => fired++,
             ),
           ],
-          child: const SizedBox(height: 60, child: Text('行内容')),
+          child: const SizedBox(
+            width: double.infinity,
+            height: 60,
+            child: Text('行内容'),
+          ),
         ),
       ),
     );
@@ -161,7 +174,11 @@ void main() {
               onPressed: () => fired++,
             ),
           ],
-          child: const SizedBox(height: 60, child: Text('行内容')),
+          child: const SizedBox(
+            width: double.infinity,
+            height: 60,
+            child: Text('行内容'),
+          ),
         ),
       ),
     );
@@ -191,7 +208,11 @@ void main() {
               onPressed: () => fired++,
             ),
           ],
-          child: const SizedBox(height: 60, child: Text('行内容')),
+          child: const SizedBox(
+            width: double.infinity,
+            height: 60,
+            child: Text('行内容'),
+          ),
         ),
       ),
     );
