@@ -475,6 +475,7 @@ class _ServerSwitchTransitionOverlayState
           controller: _passwordController,
           label: '密码',
           obscureText: true,
+          icon: Icons.key_outlined,
           enabled: !_loginBusy,
           onSubmitted: (_) => _submitLogin(requiresTotp),
         ),
@@ -489,6 +490,7 @@ class _ServerSwitchTransitionOverlayState
                     controller: _totpController,
                     label: 'TOTP 验证码',
                     keyboardType: TextInputType.number,
+                    icon: Icons.timer_outlined,
                     enabled: !_loginBusy,
                     onSubmitted: (_) => _submitLogin(true),
                   ),
@@ -629,6 +631,7 @@ class _ServerSwitchTransitionOverlayState
     required bool enabled,
     bool obscureText = false,
     TextInputType? keyboardType,
+    IconData? icon,
     ValueChanged<String>? onSubmitted,
   }) {
     final colors = appColors(context);
@@ -640,6 +643,7 @@ class _ServerSwitchTransitionOverlayState
       onSubmitted: onSubmitted,
       decoration: InputDecoration(
         labelText: label,
+        prefixIcon: icon == null ? null : Icon(icon),
         filled: true,
         fillColor: colors.surface,
         border: OutlineInputBorder(

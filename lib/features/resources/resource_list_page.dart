@@ -325,6 +325,22 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                   header: SettingsSubPageHeader(
                     eyebrow: '媒体库',
                     title: widget.kind.plural,
+                    titleTrailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          _totalCount == null ? '—' : '$_totalCount',
+                          style: AppText.pageTitle(context),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '个${widget.kind.label}',
+                          style: AppText.meta(context),
+                        ),
+                      ],
+                    ),
                     trailing: SettingsAddButton(
                       onPressed: () => _showEditor(context),
                     ),
@@ -344,26 +360,6 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                         controller: _scrollController,
                         primary: false,
                         slivers: [
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.baseline,
-                                textBaseline: TextBaseline.alphabetic,
-                                children: [
-                                  Text(
-                                    _totalCount == null ? '—' : '$_totalCount',
-                                    style: AppText.pageTitle(context),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '个${widget.kind.label}',
-                                    style: AppText.meta(context),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
                           // 搜索栏
                           SliverToBoxAdapter(
                             child: Padding(
@@ -735,6 +731,8 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                           },
                           decoration: InputDecoration(
                             hintText: '${widget.kind.label}名称',
+                            prefixIcon:
+                                const Icon(Icons.drive_file_rename_outline),
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 14,

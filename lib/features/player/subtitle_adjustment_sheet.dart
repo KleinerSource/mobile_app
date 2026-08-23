@@ -451,6 +451,7 @@ class _SubtitleNumericInputDialogState
           decoration: InputDecoration(
             hintText:
                 '${_formatNumber(widget.min)} ~ ${_formatNumber(widget.max)}',
+            prefixIcon: const Icon(Icons.tune),
             suffixText: widget.unit,
             errorText: _errorText,
             isDense: true,

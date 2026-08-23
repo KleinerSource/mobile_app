@@ -217,7 +217,10 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
                 TextField(
                   controller: controller,
                   autofocus: true,
-                  decoration: const InputDecoration(hintText: '集合名称'),
+                  decoration: const InputDecoration(
+                    hintText: '集合名称',
+                    prefixIcon: Icon(Icons.label_outline),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Wrap(

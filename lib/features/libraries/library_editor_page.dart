@@ -202,6 +202,7 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
                         controller: _nameController,
                         decoration: const InputDecoration(
                           hintText: '例: 我的电影',
+                          prefixIcon: Icon(Icons.drive_file_rename_outline),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(
                               horizontal: 16, vertical: 14),
@@ -393,6 +394,7 @@ class _DirEditor extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                   decoration: const InputDecoration(
                     hintText: '/path/to/media',
+                    prefixIcon: Icon(Icons.folder_outlined),
                     border: InputBorder.none,
                     isCollapsed: true,
                     contentPadding: EdgeInsets.symmetric(vertical: 10),

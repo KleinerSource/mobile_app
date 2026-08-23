@@ -193,7 +193,10 @@ class ListDetailPage extends ConsumerWidget {
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(hintText: '集合名称'),
+          decoration: const InputDecoration(
+            hintText: '集合名称',
+            prefixIcon: Icon(Icons.drive_file_rename_outline),
+          ),
         ),
         actions: [
           TextButton(

@@ -274,7 +274,8 @@ class _TranslationSettingsPageState
             ),
           ),
           _label('API URL', '支持 OpenAI / OpenRouter 等兼容服务'),
-              _input(_apiUrl, hint: 'https://api.openai.com/v1'),
+              _input(_apiUrl, hint: 'https://api.openai.com/v1',
+                  icon: Icons.link),
               const SizedBox(height: 18),
               _label('API Key', _hasSavedKey ? '已配置 · 留空则保留' : 'sk-...'),
               _passwordInput(),
@@ -300,7 +301,7 @@ class _TranslationSettingsPageState
                   ),
                 ],
               ),
-              _input(_model, hint: 'gpt-3.5-turbo'),
+              _input(_model, hint: 'gpt-3.5-turbo', icon: Icons.smart_toy_outlined),
               const SizedBox(height: 18),
               Row(
                 children: [
@@ -330,7 +331,8 @@ class _TranslationSettingsPageState
               ),
               const SizedBox(height: 18),
               _label('提示词模板', '需包含 {text} {target_language}'),
-              _input(_prompt, maxLines: 6, hint: 'You are ...'),
+              _input(_prompt, maxLines: 6, hint: 'You are ...',
+                  icon: Icons.edit_note),
               if (_error != null) ...[
                 const SizedBox(height: 14),
                 _errorBox(_error!),
@@ -428,6 +430,7 @@ class _TranslationSettingsPageState
     TextEditingController controller, {
     String? hint,
     int maxLines = 1,
+    IconData? icon,
   }) {
     final c = appColors(context);
     return Container(
@@ -441,6 +444,7 @@ class _TranslationSettingsPageState
         maxLines: maxLines,
         decoration: InputDecoration(
           hintText: hint,
+          prefixIcon: icon == null ? null : Icon(icon),
           border: InputBorder.none,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -471,6 +475,7 @@ class _TranslationSettingsPageState
               obscureText: !_showKey,
               decoration: InputDecoration(
                 hintText: _hasSavedKey ? '输入新的 API Key' : 'sk-...',
+                prefixIcon: const Icon(Icons.key_outlined),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14, vertical: 12),

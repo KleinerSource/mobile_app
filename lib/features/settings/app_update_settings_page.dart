@@ -104,7 +104,7 @@ class _AppUpdateSettingsPageState
                               context,
                               labelText: 'GitHub 仓库地址',
                               hintText: 'https://github.com/owner/repository',
-                              prefixIcon: const Icon(Icons.code_outlined),
+                              prefixIcon: const Icon(Icons.link),
                             ),
                             onChanged: (_) => setState(() {}),
                             onSubmitted: (_) => unawaited(_saveRepository()),

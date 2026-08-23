@@ -145,6 +145,7 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
                     label: '画质偏好',
                     hint: '如 4k, hd, uhd 等, 留空不限',
                     controller: _qualityCtl,
+                    icon: Icons.high_quality_outlined,
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -176,6 +177,7 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
                     label: '截止日期',
                     hint: 'YYYY-MM-DD',
                     controller: _afterDateCtl,
+                    icon: Icons.calendar_today_outlined,
                   ),
                   const SizedBox(height: 12),
                   SwitchListTile.adaptive(
@@ -250,10 +252,16 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
 }
 
 class _Field extends StatelessWidget {
-  const _Field({required this.label, this.hint, required this.controller});
+  const _Field({
+    required this.label,
+    this.hint,
+    required this.controller,
+    this.icon,
+  });
   final String label;
   final String? hint;
   final TextEditingController controller;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -266,6 +274,7 @@ class _Field extends StatelessWidget {
           controller: controller,
           decoration: InputDecoration(
             hintText: hint,
+            prefixIcon: icon == null ? null : Icon(icon),
             isDense: true,
             border: const OutlineInputBorder(),
             contentPadding:
@@ -296,6 +305,7 @@ class _NumField extends StatelessWidget {
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
             hintText: hint,
+            prefixIcon: const Icon(Icons.pin_outlined),
             isDense: true,
             border: const OutlineInputBorder(),
             contentPadding:

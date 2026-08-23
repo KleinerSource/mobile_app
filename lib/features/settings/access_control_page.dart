@@ -261,6 +261,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                   decoration: const InputDecoration(
                     labelText: '验证码',
                     hintText: '输入验证器中的验证码',
+                    prefixIcon: Icon(Icons.timer_outlined),
                     counterText: '',
                   ),
                   onSubmitted: (value) {
@@ -367,6 +368,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                 label: '有效期',
                 suffix: '天',
                 controller: _refreshDaysController,
+                icon: Icons.schedule,
                 help: '范围 1-90 天；Access Token 固定 24 小时自动刷新。',
               ),
               const SizedBox(height: 12),
@@ -375,6 +377,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                 label: '最大失败次数',
                 suffix: '次',
                 controller: _maxAttemptsController,
+                icon: Icons.error_outline,
                 help: '范围 1-100 次，达到后临时锁定。',
               ),
               const SizedBox(height: 12),
@@ -383,6 +386,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                 label: '锁定时长',
                 suffix: '分钟',
                 controller: _lockMinutesController,
+                icon: Icons.lock_clock,
                 help: '范围 1-1440 分钟。',
               ),
               const SizedBox(height: 18),
@@ -534,6 +538,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
           context,
           borderless: true,
           hintText: _configured ? '输入新密码' : '至少 8 位字符',
+          prefixIcon: const Icon(Icons.key_outlined),
           suffixIcon: IconButton(
             tooltip: _showPassword ? '隐藏密码' : '显示密码',
             icon: Icon(
@@ -562,6 +567,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
     required String suffix,
     required TextEditingController controller,
     required String help,
+    IconData? icon,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -578,6 +584,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                   keyboardType: TextInputType.number,
                   decoration: settingsInputDecoration(
                     context,
+                    prefixIcon: icon == null ? null : Icon(icon),
                     borderless: true,
                   ),
                   style: const TextStyle(

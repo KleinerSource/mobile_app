@@ -116,6 +116,7 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
                   decoration: settingsInputDecoration(
                     context,
                     hintText: 'mp4',
+                    prefixIcon: const Icon(Icons.video_file_outlined),
                     borderless: true,
                   ),
                   style: TextStyle(

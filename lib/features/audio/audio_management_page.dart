@@ -55,7 +55,6 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   bool _lastPageComplete = false;
   int _requestSerial = 0;
   int _totalCount = 0;
-  int _totalBytes = 0;
   bool _selectionMode = false;
   final Set<int> _selectedIds = <int>{};
   final Set<int> _busyAssetIds = <int>{};
@@ -100,7 +99,6 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
 
       setState(() {
         _totalCount = page.total;
-        _totalBytes = page.totalBytes;
       });
       final nextOffset = offset + page.items.length;
       if (nextOffset >= page.total || page.items.isEmpty) {
@@ -693,6 +691,16 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                   header: SettingsSubPageHeader(
                     eyebrow: '媒体工具',
                     title: '音频管理',
+                    titleTrailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text('$_totalCount', style: AppText.pageTitle(context)),
+                        const SizedBox(width: 6),
+                        Text('个音频资产', style: AppText.meta(context)),
+                      ],
+                    ),
                     subtitle: _search == null
                         ? '已提取的音频资产与字幕转译进度 · 提取请从影片详情页发起'
                         : '搜索“$_search”',
@@ -712,16 +720,6 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                         controller: _scrollController,
                         primary: false,
                         slivers: [
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                              child: _SummaryCard(
-                                total: _totalCount,
-                                totalBytes: _totalBytes,
-                                extractingCount: extractionTasks.length,
-                              ),
-                            ),
-                          ),
                           SliverToBoxAdapter(
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
@@ -946,87 +944,6 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ============ 汇总卡 ============
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.total,
-    required this.totalBytes,
-    required this.extractingCount,
-  });
-
-  final int total;
-  final int totalBytes;
-  final int extractingCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    final brightness = Theme.of(context).brightness;
-    final color = AppHues.top(AppHues.lavender);
-    final tint = AppHues.chipBg(AppHues.lavender, brightness);
-    final border = AppHues.chipBorder(AppHues.lavender);
-    final muted = AppHues.chipText(AppHues.lavender, brightness);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.cardBorder),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: tint,
-              border: Border.all(color: border),
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Icon(Icons.graphic_eq_rounded, size: 21, color: color),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$total 个音频资产',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: c.text,
-                    fontFamily: 'Inter',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '共占用 ${_formatBytes(totalBytes)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: muted,
-                    fontFamily: 'Inter',
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (extractingCount > 0) ...[
-            const SizedBox(width: 10),
-            _StatusPill(label: '提取中 ×$extractingCount', color: c.warning),
-          ],
-        ],
       ),
     );
   }

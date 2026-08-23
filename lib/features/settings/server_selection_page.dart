@@ -489,6 +489,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                 controller: _passwordController,
                 label: '密码',
                 obscureText: true,
+                icon: Icons.key_outlined,
                 enabled: !selecting && !_loginBusy,
                 onSubmitted: (_) => _login(),
               ),
@@ -503,6 +504,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                           controller: _totpController,
                           label: 'TOTP 验证码',
                           keyboardType: TextInputType.number,
+                          icon: Icons.timer_outlined,
                           enabled: !selecting && !_loginBusy,
                           onSubmitted: (_) => _login(),
                         ),
@@ -849,6 +851,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     required bool enabled,
     bool obscureText = false,
     TextInputType? keyboardType,
+    IconData? icon,
     ValueChanged<String>? onSubmitted,
   }) {
     final colors = appColors(context);
@@ -860,6 +863,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       onSubmitted: onSubmitted,
       decoration: InputDecoration(
         labelText: label,
+        prefixIcon: icon == null ? null : Icon(icon),
         filled: true,
         fillColor: colors.surface,
         border: OutlineInputBorder(

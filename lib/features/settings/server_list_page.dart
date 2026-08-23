@@ -353,7 +353,10 @@ class _ServerEditorDialogState extends State<_ServerEditorDialog> {
           children: [
             TextFormField(
               controller: _name,
-              decoration: const InputDecoration(labelText: '服务器名称'),
+              decoration: const InputDecoration(
+                labelText: '服务器名称',
+                prefixIcon: Icon(Icons.drive_file_rename_outline),
+              ),
               validator: (value) =>
                   value?.trim().isEmpty == true ? '请输入服务器名称' : null,
             ),
@@ -366,6 +369,7 @@ class _ServerEditorDialogState extends State<_ServerEditorDialog> {
                 decoration: const InputDecoration(
                   labelText: '初始线路地址',
                   hintText: 'http://192.168.1.10:8001',
+                  prefixIcon: Icon(Icons.link),
                 ),
                 validator: (value) {
                   final normalized = ServerConfig.normalize(value ?? '');

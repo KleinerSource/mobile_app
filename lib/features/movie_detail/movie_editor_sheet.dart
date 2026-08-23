@@ -448,10 +448,10 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
 
                   // ===== 文本字段 =====
                   _label('标题', trailing: _translateBtn('title')),
-                  _input(_title),
+                  _input(_title, icon: Icons.title),
                   const SizedBox(height: 14),
                   _label('原标题'),
-                  _input(_originalTitle),
+                  _input(_originalTitle, icon: Icons.translate),
                   const SizedBox(height: 14),
                   Row(
                     children: [
@@ -460,7 +460,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                             _label('番号'),
-                            _input(_num, mono: true),
+                            _input(_num, mono: true, icon: Icons.tag),
                           ])),
                       const SizedBox(width: 10),
                       Expanded(
@@ -468,7 +468,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                             _label('国家', trailing: _translateBtn('country')),
-                            _input(_country),
+                            _input(_country, icon: Icons.public),
                           ])),
                     ],
                   ),
@@ -502,7 +502,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                   ),
                   const SizedBox(height: 14),
                   _label('简介', trailing: _translateBtn('plot')),
-                  _input(_plot, maxLines: 6),
+                  _input(_plot, maxLines: 6, icon: Icons.notes),
                   const SizedBox(height: 10),
                   // 批量翻译按钮
                   Align(
@@ -803,6 +803,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     int maxLines = 1,
     bool mono = false,
     bool numeric = false,
+    IconData? icon,
   }) {
     final c = appColors(context);
     return Container(
@@ -817,10 +818,11 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
         keyboardType: numeric
             ? const TextInputType.numberWithOptions(decimal: true)
             : null,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
+          prefixIcon: icon == null ? null : Icon(icon),
           border: InputBorder.none,
-          contentPadding:
-              EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14, vertical: 12),
         ),
         style: TextStyle(
           color: c.text,

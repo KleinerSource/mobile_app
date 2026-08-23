@@ -229,6 +229,7 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                               child: _NumberField(
                                 controller: _yearFromCtl,
                                 hint: '起始年份',
+                                icon: Icons.calendar_today_outlined,
                                 hasError: _yearError,
                                 onChanged: (_) => setState(() {}),
                               ),
@@ -238,6 +239,7 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                               child: _NumberField(
                                 controller: _yearToCtl,
                                 hint: '结束年份',
+                                icon: Icons.calendar_today_outlined,
                                 hasError: _yearError,
                                 onChanged: (_) => setState(() {}),
                               ),
@@ -493,11 +495,13 @@ class _NumberField extends StatelessWidget {
     required this.hint,
     required this.hasError,
     required this.onChanged,
+    this.icon,
   });
   final TextEditingController controller;
   final String hint;
   final bool hasError;
   final ValueChanged<String> onChanged;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -510,6 +514,7 @@ class _NumberField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: c.muted),
+        prefixIcon: icon == null ? null : Icon(icon),
         isDense: true,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 12, vertical: 12),

@@ -278,6 +278,19 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
               header: SettingsSubPageHeader(
                 eyebrow: '映射规则',
                 title: '${widget.type.label}映射',
+                titleTrailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      _totalCount == null ? '—' : '$_totalCount',
+                      style: AppText.pageTitle(context),
+                    ),
+                    const SizedBox(width: 6),
+                    Text('条规则', style: AppText.meta(context)),
+                  ],
+                ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [SettingsAddButton(onPressed: () => _showEditor())],
@@ -298,23 +311,6 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                     controller: _scrollController,
                     primary: false,
                     slivers: [
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Text(
-                                _totalCount == null ? '—' : '$_totalCount',
-                                style: AppText.pageTitle(context),
-                              ),
-                              const SizedBox(width: 8),
-                              Text('条规则', style: AppText.meta(context)),
-                            ],
-                          ),
-                        ),
-                      ),
                       // 搜索栏
                       SliverToBoxAdapter(
                         child: Padding(
@@ -564,6 +560,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                           autofocus: rule == null,
                           decoration: const InputDecoration(
                             hintText: '原始值1\n原始值2',
+                            prefixIcon: Icon(Icons.notes),
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.symmetric(
                               horizontal: 14,
@@ -633,6 +630,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                             controller: mappedCtrl,
                             decoration: const InputDecoration(
                               hintText: '目标值',
+                              prefixIcon: Icon(Icons.drive_file_rename_outline),
                               border: InputBorder.none,
                               contentPadding: EdgeInsets.symmetric(
                                 horizontal: 14,

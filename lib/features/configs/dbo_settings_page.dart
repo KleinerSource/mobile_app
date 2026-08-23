@@ -167,7 +167,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
               ),
               const SizedBox(height: 18),
               _label('Base URL', '例: http://10.0.0.50:9090'),
-              _input(_baseUrl, hint: 'http://...'),
+              _input(_baseUrl, hint: 'http://...', icon: Icons.link),
               const SizedBox(height: 18),
               _label('API Key', _hasKey ? '已配置 · 留空则保留' : '请输入'),
               _passwordInput(c),
@@ -281,6 +281,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
                   decoration: settingsInputDecoration(
                     context,
                     hintText: '例如 2024-01',
+                    prefixIcon: const Icon(Icons.calendar_today_outlined),
                     borderless: true,
                   ),
                   style: TextStyle(
@@ -324,7 +325,8 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
     );
   }
 
-  Widget _input(TextEditingController controller, {String? hint}) {
+  Widget _input(TextEditingController controller,
+      {String? hint, IconData? icon}) {
     final c = appColors(context);
     return Container(
       decoration: settingsCardDecoration(context),
@@ -333,6 +335,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
         decoration: settingsInputDecoration(
           context,
           hintText: hint,
+          prefixIcon: icon == null ? null : Icon(icon),
           borderless: true,
         ),
         style: TextStyle(
@@ -357,6 +360,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
               decoration: settingsInputDecoration(
                 context,
                 hintText: _hasKey ? '输入新的 API Key' : '请输入',
+                prefixIcon: const Icon(Icons.key_outlined),
                 borderless: true,
               ),
               style: TextStyle(

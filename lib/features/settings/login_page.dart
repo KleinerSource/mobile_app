@@ -139,6 +139,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         controller: _passwordController,
                         label: '密码',
                         obscureText: true,
+                        icon: Icons.key_outlined,
                         onSubmitted: (_) => _login(),
                       ),
                       if (requiresTotp) ...[
@@ -148,6 +149,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           controller: _totpController,
                           label: 'TOTP 验证码',
                           keyboardType: TextInputType.number,
+                          icon: Icons.timer_outlined,
                           onSubmitted: (_) => _login(),
                         ),
                       ],
@@ -197,6 +199,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     required String label,
     bool obscureText = false,
     TextInputType? keyboardType,
+    IconData? icon,
     ValueChanged<String>? onSubmitted,
   }) {
     final c = appColors(context);
@@ -207,6 +210,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       onSubmitted: onSubmitted,
       decoration: InputDecoration(
         labelText: label,
+        prefixIcon: icon == null ? null : Icon(icon),
         filled: true,
         fillColor: c.surface,
         border: OutlineInputBorder(

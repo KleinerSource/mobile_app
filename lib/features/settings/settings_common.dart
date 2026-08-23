@@ -382,12 +382,14 @@ class SettingsSubPageHeader extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.trailing,
+    this.titleTrailing,
     this.showBackButton = true,
   });
   final String eyebrow;
   final String title;
   final String? subtitle;
   final Widget? trailing;
+  final Widget? titleTrailing;
   final bool showBackButton;
 
   @override
@@ -416,7 +418,16 @@ class SettingsSubPageHeader extends StatelessWidget {
               children: [
                 Text(eyebrow.toUpperCase(), style: AppText.eyebrow(context)),
                 const SizedBox(height: 3),
-                Text(title, style: AppText.pageTitle(context)),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Expanded(
+                      child: Text(title, style: AppText.pageTitle(context)),
+                    ),
+                    if (titleTrailing != null) titleTrailing!,
+                  ],
+                ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 8),
                   Text(subtitle!, style: AppText.meta(context)),

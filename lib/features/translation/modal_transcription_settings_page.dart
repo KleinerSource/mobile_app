@@ -631,6 +631,7 @@ class _ModalTranscriptionSettingsPageState
               enableSuggestions: false,
               decoration: InputDecoration(
                 hintText: hint,
+                prefixIcon: const Icon(Icons.key_outlined),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -787,6 +788,7 @@ class _TokenEditorSheetState extends State<_TokenEditorSheet> {
                 context,
                 labelText: '备注（可选）',
                 hintText: '如：主账号',
+                prefixIcon: const Icon(Icons.badge_outlined),
               ),
             ),
             const SizedBox(height: 10),
@@ -871,6 +873,7 @@ class _TokenEditorSheetState extends State<_TokenEditorSheet> {
         context,
         labelText: label,
         hintText: hint,
+        prefixIcon: const Icon(Icons.key_outlined),
         suffixIcon: IconButton(
           icon: Icon(
             visible ? Icons.visibility_off : Icons.visibility,

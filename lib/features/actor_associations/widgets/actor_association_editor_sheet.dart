@@ -195,6 +195,7 @@ class _ActorAssociationEditorSheetState
                 autofocus: _isCreate,
                 decoration: const InputDecoration(
                   hintText: '例: 加勒比海岛',
+                  prefixIcon: Icon(Icons.person_outline),
                   border: InputBorder.none,
                   contentPadding:
                       EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -227,6 +228,7 @@ class _ActorAssociationEditorSheetState
                 maxLines: 5,
                 decoration: const InputDecoration(
                   hintText: '一行一个, 或用 , ; 、 分隔',
+                  prefixIcon: Icon(Icons.sell_outlined),
                   border: InputBorder.none,
                   contentPadding:
                       EdgeInsets.symmetric(horizontal: 14, vertical: 12),

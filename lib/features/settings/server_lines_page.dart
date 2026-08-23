@@ -692,6 +692,7 @@ class _ServerLineEditorDialogState extends State<_ServerLineEditorDialog> {
               decoration: const InputDecoration(
                 labelText: '线路名称',
                 hintText: '例如：家庭网络',
+                prefixIcon: Icon(Icons.drive_file_rename_outline),
               ),
               textInputAction: TextInputAction.next,
             ),
@@ -703,6 +704,7 @@ class _ServerLineEditorDialogState extends State<_ServerLineEditorDialog> {
               decoration: const InputDecoration(
                 labelText: '服务器地址',
                 hintText: 'http://192.168.1.10:8001',
+                prefixIcon: Icon(Icons.link),
               ),
               validator: (value) {
                 final normalized = ServerConfig.normalize(value ?? '');

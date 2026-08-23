@@ -363,6 +363,19 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
               header: SettingsSubPageHeader(
                 eyebrow: l.settingsGroupLibrary,
                 title: l.settingsActors,
+                titleTrailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      _hasLoaded ? '$_totalCount' : '—',
+                      style: AppText.pageTitle(context),
+                    ),
+                    const SizedBox(width: 6),
+                    Text('位演员', style: AppText.meta(context)),
+                  ],
+                ),
                 trailing: SettingsAddButton(
                   onPressed: () => _showEditor(context),
                 ),
@@ -382,23 +395,6 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                     controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Text(
-                                _hasLoaded ? '$_totalCount' : '—',
-                                style: AppText.pageTitle(context),
-                              ),
-                              const SizedBox(width: 8),
-                              Text('位演员', style: AppText.meta(context)),
-                            ],
-                          ),
-                        ),
-                      ),
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
@@ -655,6 +651,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                     sheetContext,
                     labelText: '演员名称',
                     hintText: '演员名称',
+                    prefixIcon: const Icon(Icons.person_outline),
                   ),
                   textInputAction: TextInputAction.next,
                 ),
@@ -667,6 +664,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                     sheetContext,
                     labelText: '演员简介',
                     hintText: '填写演员简介（可选）',
+                    prefixIcon: const Icon(Icons.notes),
                   ),
                   textInputAction: TextInputAction.next,
                 ),
@@ -679,6 +677,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                     sheetContext,
                     labelText: '关联名称',
                     hintText: '每行一个，可选',
+                    prefixIcon: const Icon(Icons.sell_outlined),
                   ),
                 ),
                 const SizedBox(height: 18),
