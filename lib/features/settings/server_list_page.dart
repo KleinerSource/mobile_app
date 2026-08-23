@@ -6,14 +6,43 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/swipe_actions.dart';
 import 'server_lines_page.dart';
 import 'settings_common.dart';
 
-class ServerListPage extends ConsumerWidget {
+class ServerListPage extends ConsumerStatefulWidget {
   const ServerListPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ServerListPage> createState() => _ServerListPageState();
+}
+
+class _ServerListPageState extends ConsumerState<ServerListPage> {
+  /// 当前左滑展开的服务器行，同一时刻只展开一个。
+  final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_closeSwipeOnScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_closeSwipeOnScroll);
+    _openSwipe.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// 列表开始滚动时收起已展开的左滑操作。
+  void _closeSwipeOnScroll() {
+    if (_openSwipe.value != null) _openSwipe.value = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = appColors(context);
     final config = ref.watch(serverConfigProvider);
     final servers = config?.servers ?? const <ServerProfile>[];
@@ -22,39 +51,49 @@ class ServerListPage extends ConsumerWidget {
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
+            scrollController: _scrollController,
             header: SettingsSubPageHeader(
               eyebrow: '服务器',
               title: '服务器列表',
               subtitle: '每台服务器可单独配置线路，启动时选择服务器。',
-              trailing: SettingsAddButton(
-                onPressed: () => _showServerEditor(context, ref),
-              ),
+              trailing: SettingsAddButton(onPressed: () => _showServerEditor()),
             ),
-            body: ListView.separated(
-              primary: true,
+            // 服务器数量少且有界：合并为设置页式分组卡，行间细分隔线。
+            body: ListView(
+              controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
-              itemCount: servers.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final server = servers[index];
-                return _ServerListCard(
-                  server: server,
-                  active: server.id == config?.activeServerId,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ServerLinesPage(serverId: server.id),
+              children: [
+                if (servers.isNotEmpty)
+                  Container(
+                    decoration: settingsCardDecoration(context),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < servers.length; i++) ...[
+                            if (i > 0)
+                              Divider(height: 1, color: colors.divider),
+                            SwipeActionCell(
+                              group: _openSwipe,
+                              cellKey: servers[i].id,
+                              enabled: true,
+                              actions: _serverSwipeActions(
+                                colors,
+                                servers[i],
+                                servers.length,
+                              ),
+                              child: _ServerListCard(
+                                server: servers[i],
+                                active: servers[i].id == config?.activeServerId,
+                                onTap: () => _openLines(servers[i]),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
-                  onEdit: () => _showServerEditor(
-                    context,
-                    ref,
-                    existing: server,
-                  ),
-                  onDelete: servers.length <= 1
-                      ? null
-                      : () => _deleteServer(context, ref, server),
-                );
-              },
+              ],
             ),
           ),
         ),
@@ -62,50 +101,79 @@ class ServerListPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _showServerEditor(
-    BuildContext context,
-    WidgetRef ref, {
-    ServerProfile? existing,
-  }) async {
+  /// 单个服务器的左滑操作集：仅剩一台服务器时不可删除。
+  List<SwipeActionData> _serverSwipeActions(
+    AppColors colors,
+    ServerProfile server,
+    int count,
+  ) {
+    return [
+      SwipeActionData(
+        icon: Icons.edit_outlined,
+        label: '编辑名称',
+        color: colors.accent,
+        onPressed: () => _showServerEditor(existing: server),
+      ),
+      SwipeActionData(
+        icon: Icons.alt_route_outlined,
+        label: '管理线路',
+        color: AppHues.top(AppHues.sky),
+        onPressed: () => _openLines(server),
+      ),
+      if (count > 1)
+        SwipeActionData(
+          icon: Icons.delete_outline,
+          label: '删除',
+          color: colors.danger,
+          onPressed: () => _deleteServer(server),
+        ),
+    ];
+  }
+
+  void _openLines(ServerProfile server) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => ServerLinesPage(serverId: server.id)),
+    );
+  }
+
+  Future<void> _showServerEditor({ServerProfile? existing}) async {
     final draft = await showDialog<_ServerDraft>(
       context: context,
       builder: (_) => _ServerEditorDialog(existing: existing),
     );
-    if (draft == null || !context.mounted) return;
+    if (draft == null || !mounted) return;
     final server = ServerProfile(
       id: existing?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
       name: draft.name,
-      lines: existing?.lines ?? [
-        ServerLine(
-          id: 'main-${DateTime.now().microsecondsSinceEpoch}',
-          name: '主线路',
-          baseUrl: draft.baseUrl,
-        ),
-      ],
+      lines:
+          existing?.lines ??
+          [
+            ServerLine(
+              id: 'main-${DateTime.now().microsecondsSinceEpoch}',
+              name: '主线路',
+              baseUrl: draft.baseUrl,
+            ),
+          ],
       activeLineId: existing?.activeLineId,
     );
     try {
       await ref.read(serverConfigProvider.notifier).saveServer(server);
-      if (context.mounted) {
+      if (mounted) {
         AppHaptics.medium();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(existing == null ? '服务器已添加' : '服务器已更新')),
         );
       }
     } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败：$error')),
-        );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('保存失败：$error')));
       }
     }
   }
 
-  Future<void> _deleteServer(
-    BuildContext context,
-    WidgetRef ref,
-    ServerProfile server,
-  ) async {
+  Future<void> _deleteServer(ServerProfile server) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -123,14 +191,14 @@ class ServerListPage extends ConsumerWidget {
         ],
       ),
     );
-    if (confirmed != true || !context.mounted) return;
+    if (confirmed != true || !mounted) return;
     try {
       await ref.read(serverConfigProvider.notifier).deleteServer(server.id);
     } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败：$error')),
-        );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('删除失败：$error')));
       }
     }
   }
@@ -141,63 +209,70 @@ class _ServerListCard extends StatelessWidget {
     required this.server,
     required this.active,
     required this.onTap,
-    required this.onEdit,
-    required this.onDelete,
   });
 
   final ServerProfile server;
   final bool active;
   final VoidCallback onTap;
-  final VoidCallback onEdit;
-  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    return Container(
-      decoration: settingsCardDecoration(context),
-      child: Column(
-        children: [
-          SettingsTile(
-            title: server.name,
-            subtitle: '${server.lines.length} 条线路',
-            leadingIcon: Icons.dns_outlined,
-            trailing: active
-                ? _ActiveChip(color: colors.accent)
-                : Icon(Icons.chevron_right, color: colors.muted),
-            onTap: onTap,
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit_outlined, size: 17),
-                    label: const Text('编辑名称'),
-                  ),
+    // 分组连排行：透明背景，由外层分组容器提供表面，沿用设置页行布局。
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          AppHaptics.selection();
+          onTap();
+        },
+        splashColor: colors.accent.withValues(alpha: 0.14),
+        highlightColor: colors.accent.withValues(alpha: 0.08),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: colors.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onTap,
-                    icon: const Icon(Icons.alt_route_outlined, size: 17),
-                    label: const Text('管理线路'),
-                  ),
+                child: Icon(Icons.dns_outlined, color: colors.accent, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      server.name,
+                      style: TextStyle(
+                        color: colors.text,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        height: 1.25,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${server.lines.length} 条线路',
+                      style: AppText.meta(context),
+                    ),
+                  ],
                 ),
-                if (onDelete != null) ...[
-                  const SizedBox(width: 4),
-                  IconButton(
-                    tooltip: '删除服务器',
-                    onPressed: onDelete,
-                    icon: Icon(Icons.delete_outline, color: colors.danger),
-                  ),
-                ],
-              ],
-            ),
+              ),
+              if (active)
+                _ActiveChip(color: colors.accent)
+              else
+                Icon(Icons.chevron_right, color: colors.muted),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

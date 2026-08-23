@@ -9,6 +9,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/config/server_line_probe.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/swipe_actions.dart';
 import 'settings_common.dart';
 
 class ServerLinesPage extends ConsumerStatefulWidget {
@@ -24,6 +25,10 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
   final _testResults = <String, ServerLineProbeResult>{};
   final _probeCoordinator = ServerLineProbeCoordinator();
   final _testingIds = <String>{};
+
+  /// 当前左滑展开的线路行，同一时刻只展开一个。
+  final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
+  final _scrollController = ScrollController();
   List<ServerLine> _lines = const [];
   bool _loaded = false;
   bool _testingAll = false;
@@ -35,6 +40,25 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       if (server.id == widget.serverId) return server;
     }
     return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_closeSwipeOnScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_closeSwipeOnScroll);
+    _openSwipe.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// 列表开始滚动时收起已展开的左滑操作。
+  void _closeSwipeOnScroll() {
+    if (_openSwipe.value != null) _openSwipe.value = null;
   }
 
   @override
@@ -64,13 +88,14 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
+            scrollController: _scrollController,
             header: SettingsSubPageHeader(
               eyebrow: '服务器 · ${server.name}',
               title: '服务器线路',
               subtitle: '当前服务器可配置多条线路，自动选择最快可用线路',
             ),
             body: ListView(
-              primary: true,
+              controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 30),
               children: [
                 _buildActions(),
@@ -78,10 +103,39 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
                 if (_lines.isEmpty)
                   _buildEmpty(colors)
                 else
-                  for (final line in _lines) ...[
-                    _buildLineCard(context, colors, server, line),
-                    const SizedBox(height: 8),
-                  ],
+                  // 线路列表合并为设置页式分组卡，行间细分隔线。
+                  Container(
+                    decoration: settingsCardDecoration(context),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < _lines.length; i++) ...[
+                            if (i > 0)
+                              Divider(height: 1, color: colors.divider),
+                            SwipeActionCell(
+                              group: _openSwipe,
+                              cellKey: _lines[i].id,
+                              enabled:
+                                  !_testingAll &&
+                                  !_testingIds.contains(_lines[i].id),
+                              actions: _lineSwipeActions(
+                                colors,
+                                server,
+                                _lines[i],
+                              ),
+                              child: _buildLineCard(
+                                context,
+                                colors,
+                                server,
+                                _lines[i],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -146,14 +200,14 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     final statusColor = testing
         ? colors.accent
         : result?.success == true
-            ? Colors.green
-            : result?.success == false
-                ? colors.danger
-                : colors.muted;
+        ? Colors.green
+        : result?.success == false
+        ? colors.danger
+        : colors.muted;
 
+    // 分组连排行：透明背景，由外层分组容器提供表面。
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
-      decoration: settingsCardDecoration(context),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -220,50 +274,45 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
               ],
             ),
           ),
-          PopupMenuButton<_LineAction>(
-            enabled: !testing && !_testingAll,
-            tooltip: '线路操作',
-            icon: Icon(Icons.more_horiz, color: colors.muted),
-            onSelected: (action) => _handleLineAction(line, action),
-            itemBuilder: (context) => [
-              if (!active)
-                PopupMenuItem(
-                  value: _LineAction.activate,
-                  enabled: line.enabled,
-                  child: const _LineMenuItem(
-                    icon: Icons.check_circle_outline,
-                    label: '使用此线路',
-                  ),
-                ),
-              const PopupMenuItem(
-                value: _LineAction.edit,
-                child: _LineMenuItem(
-                  icon: Icons.edit_outlined,
-                  label: '编辑',
-                ),
-              ),
-              PopupMenuItem(
-                value: _LineAction.toggle,
-                child: _LineMenuItem(
-                  icon: line.enabled
-                      ? Icons.toggle_off_outlined
-                      : Icons.toggle_on_outlined,
-                  label: line.enabled ? '禁用' : '启用',
-                ),
-              ),
-              PopupMenuItem(
-                value: _LineAction.delete,
-                child: _LineMenuItem(
-                  icon: Icons.delete_outline,
-                  label: '删除',
-                  color: colors.danger,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
+  }
+
+  /// 单条线路的左滑操作集：当前线路与已禁用线路不再提供“使用”。
+  List<SwipeActionData> _lineSwipeActions(
+    AppColors colors,
+    ServerProfile server,
+    ServerLine line,
+  ) {
+    final active = line.id == server.activeLine?.id;
+    return [
+      if (!active && line.enabled)
+        SwipeActionData(
+          icon: Icons.check_circle_outline,
+          label: '使用',
+          color: AppHues.top(AppHues.mint),
+          onPressed: () => _activate(line),
+        ),
+      SwipeActionData(
+        icon: Icons.edit_outlined,
+        label: '编辑',
+        color: colors.accent,
+        onPressed: () => _editLine(existing: line),
+      ),
+      SwipeActionData(
+        icon: line.enabled ? Icons.block_rounded : Icons.check_rounded,
+        label: line.enabled ? '禁用' : '启用',
+        color: colors.warning,
+        onPressed: () => _toggle(line, !line.enabled),
+      ),
+      SwipeActionData(
+        icon: Icons.delete_outline,
+        label: '删除',
+        color: colors.danger,
+        onPressed: () => _delete(line),
+      ),
+    ];
   }
 
   Widget _statusChip(String text, Color color) {
@@ -298,19 +347,6 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     return null;
   }
 
-  void _handleLineAction(ServerLine line, _LineAction action) {
-    switch (action) {
-      case _LineAction.activate:
-        unawaited(_activate(line));
-      case _LineAction.edit:
-        unawaited(_editLine(existing: line));
-      case _LineAction.toggle:
-        unawaited(_toggle(line, !line.enabled));
-      case _LineAction.delete:
-        unawaited(_delete(line));
-    }
-  }
-
   Future<void> _testAll() async {
     if (_testingAll || _lines.isEmpty) return;
     final lines = _lines.where((line) => line.enabled).toList();
@@ -334,9 +370,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         await _persist(_lines, selected.line.baseUrl);
         if (mounted) {
           setState(() => _testingAll = false);
-          _showMessage(
-            '已选择 ${selected.line.name}（${selected.latencyMs} ms）',
-          );
+          _showMessage('已选择 ${selected.line.name}（${selected.latencyMs} ms）');
         }
       }
 
@@ -355,8 +389,8 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
             .where((result) => result.success)
             .fold<ServerLineProbeResult?>(
               null,
-              (best, result) => best == null ||
-                      result.latencyMs < best.latencyMs
+              (best, result) =>
+                  best == null || result.latencyMs < best.latencyMs
                   ? result
                   : best,
             );
@@ -398,8 +432,9 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       baseUrl: normalized,
       enabled: existing?.enabled ?? true,
       latencyMs: existing?.baseUrl == normalized ? existing?.latencyMs : null,
-      lastTestedAt:
-          existing?.baseUrl == normalized ? existing?.lastTestedAt : null,
+      lastTestedAt: existing?.baseUrl == normalized
+          ? existing?.lastTestedAt
+          : null,
     );
     final result = await _testAndShow(line);
     if (!mounted || !result.success) return;
@@ -411,8 +446,8 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     final next = existing == null
         ? [..._lines, testedLine]
         : _lines
-            .map((item) => item.id == existing.id ? testedLine : item)
-            .toList();
+              .map((item) => item.id == existing.id ? testedLine : item)
+              .toList();
     final current = ref.read(serverConfigProvider);
     final server = current == null ? null : _serverFor(current);
     if (server == null) return;
@@ -478,9 +513,9 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         return;
       }
       final next = _lines
-          .map((item) => item.id == line.id
-              ? item.copyWith(enabled: false)
-              : item)
+          .map(
+            (item) => item.id == line.id ? item.copyWith(enabled: false) : item,
+          )
           .toList();
       try {
         await _persist(next, selected.line.baseUrl);
@@ -491,9 +526,9 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       return;
     }
     final next = _lines
-        .map((item) => item.id == line.id
-            ? item.copyWith(enabled: enabled)
-            : item)
+        .map(
+          (item) => item.id == line.id ? item.copyWith(enabled: enabled) : item,
+        )
         .toList();
     try {
       await _persist(next, server.activeLine?.baseUrl ?? line.baseUrl);
@@ -532,8 +567,8 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     final next = _lines.where((item) => item.id != line.id).toList();
     final activeUrl = line.id == server.activeLine?.id
         ? next
-            .firstWhere((item) => item.enabled, orElse: () => next.first)
-            .baseUrl
+              .firstWhere((item) => item.enabled, orElse: () => next.first)
+              .baseUrl
         : server.activeLine?.baseUrl ?? next.first.baseUrl;
     try {
       await _persist(next, activeUrl);
@@ -549,8 +584,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       _testResults.remove(line.id);
     });
     final result = await _probeCoordinator.probeAll([line]).firstAvailable;
-    final resolved = result ??
-        ServerLineProbeResult.failure(line, '线路没有响应');
+    final resolved = result ?? ServerLineProbeResult.failure(line, '线路没有响应');
     if (!mounted) return resolved;
     setState(() {
       _testingIds.remove(line.id);
@@ -589,51 +623,22 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     if (server == null) return;
     final selectedLine = lines.firstWhere(
       (line) => line.baseUrl == activeUrl,
-      orElse: () => lines.firstWhere(
-        (line) => line.enabled,
-        orElse: () => lines.first,
-      ),
+      orElse: () =>
+          lines.firstWhere((line) => line.enabled, orElse: () => lines.first),
     );
-    await ref.read(serverConfigProvider.notifier).saveServer(
-          server.copyWith(
-            lines: lines,
-            activeLineId: selectedLine.id,
-          ),
+    await ref
+        .read(serverConfigProvider.notifier)
+        .saveServer(
+          server.copyWith(lines: lines, activeLineId: selectedLine.id),
           select: config?.activeServerId == server.id,
         );
     if (mounted) setState(() => _lines = List<ServerLine>.of(lines));
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-}
-
-enum _LineAction { activate, edit, toggle, delete }
-
-class _LineMenuItem extends StatelessWidget {
-  const _LineMenuItem({
-    required this.icon,
-    required this.label,
-    this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final foreground = color ?? appColors(context).text;
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: foreground),
-        const SizedBox(width: 10),
-        Text(label, style: TextStyle(color: foreground)),
-      ],
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -650,7 +655,8 @@ class _ServerLineEditorDialog extends StatefulWidget {
   final ServerLine? existing;
 
   @override
-  State<_ServerLineEditorDialog> createState() => _ServerLineEditorDialogState();
+  State<_ServerLineEditorDialog> createState() =>
+      _ServerLineEditorDialogState();
 }
 
 class _ServerLineEditorDialogState extends State<_ServerLineEditorDialog> {
@@ -716,10 +722,7 @@ class _ServerLineEditorDialogState extends State<_ServerLineEditorDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('取消'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('测试并保存'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('测试并保存')),
       ],
     );
   }

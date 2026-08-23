@@ -15,6 +15,7 @@ import '../../shared/filter_chip.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
+import '../../shared/swipe_actions.dart';
 import '../settings/settings_common.dart';
 import 'mappings_providers.dart';
 import 'mappings_repository.dart';
@@ -42,13 +43,19 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
   String _status = 'all';
   int? _totalCount;
   int _requestSerial = 0;
+  bool _lastPageComplete = false;
   bool _selectionMode = false;
   final Set<int> _selectedIds = <int>{};
   Completer<void>? _refreshCompleter;
 
+  /// 当前左滑展开的行（规则 id），同一时刻只展开一个。
+  final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
+
   @override
   void dispose() {
     _completeRefresh();
+    _scrollController.removeListener(_closeSwipeOnScroll);
+    _openSwipe.dispose();
     _debounce?.cancel();
     _controller.dispose();
     _scrollController.dispose();
@@ -60,6 +67,12 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
   void initState() {
     super.initState();
     _controller.addPageRequestListener(_fetch);
+    _scrollController.addListener(_closeSwipeOnScroll);
+  }
+
+  /// 列表开始滚动时收起已展开的左滑操作。
+  void _closeSwipeOnScroll() {
+    if (_openSwipe.value != null) _openSwipe.value = null;
   }
 
   void _onSearch(String v) {
@@ -103,8 +116,11 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
       setState(() => _totalCount = page.totalCount);
       final nextOffset = offset + page.items.length;
       if (nextOffset >= page.totalCount || page.items.isEmpty) {
+        // 末页标记：连排列表只有最后一行需要底部圆角。
+        setState(() => _lastPageComplete = true);
         _controller.appendLastPage(page.items);
       } else {
+        if (_lastPageComplete) setState(() => _lastPageComplete = false);
         _controller.appendPage(page.items, nextOffset);
       }
       _scrollRestorer.restoreAfterPage(_scrollController);
@@ -393,26 +409,75 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                           22,
                           _selectionMode ? 136 : 80,
                         ),
-                        sliver: PagedSliverList<int, MappingRule>(
+                        sliver: PagedSliverList<int, MappingRule>.separated(
                           pagingController: _controller,
+                          separatorBuilder: (_, itemIndex) {
+                            // 隐藏末项与状态页脚之间的尾随分隔线（末行底部圆角）。
+                            final count = _controller.itemList?.length ?? 0;
+                            return itemIndex >= count - 1
+                                ? const SizedBox.shrink()
+                                : Divider(height: 1, color: c.divider);
+                          },
                           builderDelegate:
                               PagedChildBuilderDelegate<MappingRule>(
-                                itemBuilder: (ctx, rule, _) =>
-                                    DragSelectionTarget<int>(
+                                itemBuilder: (ctx, rule, index) {
+                                  // 连排整条列表：首行圆上角、末行圆下角，
+                                  // 操作块沿用同一圆角避免顶出行轮廓。
+                                  final isLastRow =
+                                      _lastPageComplete &&
+                                      index ==
+                                          (_controller.itemList?.length ?? 0) -
+                                              1;
+                                  final rowRadius = BorderRadius.vertical(
+                                    top: index == 0
+                                        ? const Radius.circular(16)
+                                        : Radius.zero,
+                                    bottom: isLastRow
+                                        ? const Radius.circular(16)
+                                        : Radius.zero,
+                                  );
+                                  return SwipeActionCell(
+                                    actionBorderRadius: rowRadius,
+                                    group: _openSwipe,
+                                    cellKey: rule.id,
+                                    enabled: !_selectionMode,
+                                    actions: [
+                                      SwipeActionData(
+                                        icon: Icons.edit_outlined,
+                                        label: '编辑',
+                                        color: c.accent,
+                                        onPressed: () =>
+                                            _showEditor(rule: rule),
+                                      ),
+                                      SwipeActionData(
+                                        icon: Icons.delete_outline,
+                                        label: '删除',
+                                        color: c.danger,
+                                        onPressed: () => _confirmDelete(rule),
+                                      ),
+                                    ],
+                                    child: DragSelectionTarget<int>(
                                       key: ValueKey(rule.id),
                                       id: rule.id,
-                                      child: _RuleTile(
-                                        rule: rule,
-                                        selectionMode: _selectionMode,
-                                        selected: _selectedIds.contains(
-                                          rule.id,
+                                      selectionIndex: index,
+                                      selectionHandleAlignment:
+                                          Alignment.centerLeft,
+                                      child: ClipRRect(
+                                        borderRadius: rowRadius,
+                                        child: _RuleTile(
+                                          rule: rule,
+                                          selectionMode: _selectionMode,
+                                          selected: _selectedIds.contains(
+                                            rule.id,
+                                          ),
+                                          onSelectionTap: () =>
+                                              _toggleSelect(rule.id),
+                                          onEdit: () => _showEditor(rule: rule),
                                         ),
-                                        onSelectionTap: () =>
-                                            _toggleSelect(rule.id),
-                                        onEdit: () => _showEditor(rule: rule),
-                                        onDelete: () => _confirmDelete(rule),
                                       ),
                                     ),
+                                  );
+                                },
                                 firstPageProgressIndicatorBuilder: (_) =>
                                     const Center(
                                       child: CircularProgressIndicator(),
@@ -736,7 +801,6 @@ class _RuleTile extends StatelessWidget {
     required this.selected,
     required this.onSelectionTap,
     required this.onEdit,
-    required this.onDelete,
   });
 
   final MappingRule rule;
@@ -744,7 +808,6 @@ class _RuleTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onSelectionTap;
   final VoidCallback onEdit;
-  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -760,152 +823,110 @@ class _RuleTile extends StatelessWidget {
     final firstLine = originals.join(' · ');
     // 摘要文字 (放第二行 muted)
     final summary = isDelete ? '丢弃' : (rule.mappedValue ?? '');
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: c.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(
-            color: selected ? c.accent : c.cardBorder,
-            width: 1,
-          ),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: selectionMode ? onSelectionTap : onEdit,
-          borderRadius: BorderRadius.circular(14),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-          children: [
-            if (selectionMode) ...[
-              Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked,
-                size: 20,
-                color: selected ? c.accent : c.muted,
-              ),
-              const SizedBox(width: 10),
-            ],
-            // hue 首字母方块
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppHues.top(hue), AppHues.bottom(hue)],
+    return Material(
+      // 连排行：无独立边框圆角，选中以整行背景提示。
+      color: selected ? c.accent.withValues(alpha: 0.07) : c.surface,
+      child: InkWell(
+        onTap: selectionMode ? onSelectionTap : onEdit,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              if (selectionMode) ...[
+                Icon(
+                  selected
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked,
+                  size: 20,
+                  color: selected ? c.accent : c.muted,
                 ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                letter,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    firstLine,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14.5,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Icon(
-                        isDelete ? Icons.block : Icons.arrow_forward,
-                        size: 12,
-                        color: c.muted,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          summary,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.meta(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            // 映射/删除 角标 (替代右侧大胶囊, 紧凑放右侧)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              decoration: BoxDecoration(
-                color: isDelete
-                    ? c.danger.withValues(alpha: 0.15)
-                    : c.accent.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(100),
-              ),
-              child: Text(
-                isDelete ? '删除' : '映射',
-                style: TextStyle(
-                  color: isDelete ? c.danger : c.accent,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 10,
-                ),
-              ),
-            ),
-            PopupMenuButton<String>(
-              tooltip: '更多操作',
-              icon: Icon(Icons.more_horiz, color: c.muted),
-              padding: EdgeInsets.zero,
-              onSelected: (value) {
-                if (value == 'edit') onEdit();
-                if (value == 'delete') onDelete();
-              },
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit_outlined, size: 16),
-                      SizedBox(width: 8),
-                      Text('编辑'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete_outline, size: 16, color: c.danger),
-                      const SizedBox(width: 8),
-                      Text('删除', style: TextStyle(color: c.danger)),
-                    ],
-                  ),
-                ),
+                const SizedBox(width: 10),
               ],
-            ),
+              // hue 首字母方块
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppHues.top(hue), AppHues.bottom(hue)],
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  letter,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      firstLine,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: c.text,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14.5,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Icon(
+                          isDelete ? Icons.block : Icons.arrow_forward,
+                          size: 12,
+                          color: c.muted,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            summary,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.meta(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // 映射/删除 角标 (替代右侧大胶囊, 紧凑放右侧)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isDelete
+                      ? c.danger.withValues(alpha: 0.15)
+                      : c.accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Text(
+                  isDelete ? '删除' : '映射',
+                  style: TextStyle(
+                    color: isDelete ? c.danger : c.accent,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       ),
-    ),
     );
   }
 }

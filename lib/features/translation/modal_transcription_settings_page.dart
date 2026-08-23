@@ -6,6 +6,7 @@ import '../../core/models/modal_transcription_config.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/swipe_actions.dart';
 import '../settings/settings_common.dart';
 import 'modal_transcription_providers.dart';
 
@@ -55,6 +56,10 @@ class _ModalTranscriptionSettingsPageState
 
   late final TextEditingController _hfToken = TextEditingController();
 
+  /// 当前左滑展开的令牌行，同一时刻只展开一个。
+  final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
+  final _scrollController = ScrollController();
+
   bool _enabled = false;
   bool _hasHfToken = false;
   bool _showHfToken = false;
@@ -69,9 +74,23 @@ class _ModalTranscriptionSettingsPageState
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_closeSwipeOnScroll);
+  }
+
+  @override
   void dispose() {
+    _scrollController.removeListener(_closeSwipeOnScroll);
+    _openSwipe.dispose();
+    _scrollController.dispose();
     _hfToken.dispose();
     super.dispose();
+  }
+
+  /// 列表开始滚动时收起已展开的左滑操作。
+  void _closeSwipeOnScroll() {
+    if (_openSwipe.value != null) _openSwipe.value = null;
   }
 
   void _hydrate(ModalTranscriptionConfig config) {
@@ -226,6 +245,7 @@ class _ModalTranscriptionSettingsPageState
             data: (config) {
               _hydrate(config);
               return SettingsFixedHeaderLayout(
+                scrollController: _scrollController,
                 header: const SettingsSubPageHeader(
                   eyebrow: '系统配置',
                   title: '云端字幕转译',
@@ -242,7 +262,7 @@ class _ModalTranscriptionSettingsPageState
 
   Widget _buildForm(AppColors colors) {
     return ListView(
-      primary: true,
+      controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
       children: [
         Container(
@@ -367,17 +387,17 @@ class _ModalTranscriptionSettingsPageState
     }
     return Container(
       decoration: settingsCardDecoration(context),
-      child: Column(
-        children: [
-          for (var i = 0; i < _tokens.length; i++) ...[
-            if (i > 0)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Divider(height: 1, color: colors.divider),
-              ),
-            _buildTokenRow(colors, i),
+      child: ClipRRect(
+        // 外层统一裁剪：左滑操作磁贴为直角，靠分组卡圆角收边。
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          children: [
+            for (var i = 0; i < _tokens.length; i++) ...[
+              if (i > 0) Divider(height: 1, color: colors.divider),
+              _buildTokenRow(colors, i),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -387,58 +407,71 @@ class _ModalTranscriptionSettingsPageState
     final display = token.isExisting
         ? (token.tokenIdMasked.isEmpty ? '已配置' : token.tokenIdMasked)
         : '新令牌 · 保存后生效';
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: colors.accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
+    return SwipeActionCell(
+      group: _openSwipe,
+      cellKey: index,
+      enabled: true,
+      actions: [
+        SwipeActionData(
+          icon: Icons.edit_outlined,
+          label: '编辑',
+          color: colors.accent,
+          onPressed: () => _editToken(index: index),
+        ),
+        SwipeActionData(
+          icon: Icons.delete_outline,
+          label: '删除',
+          color: colors.danger,
+          onPressed: () => _removeToken(index),
+        ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.vpn_key_outlined,
+                color: colors.accent,
+                size: 17,
+              ),
             ),
-            child: Icon(Icons.vpn_key_outlined, color: colors.accent, size: 17),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  token.name.isEmpty ? '令牌 ${index + 1}' : token.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: colors.text,
-                    fontFamily: 'Inter',
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    token.name.isEmpty ? '令牌 ${index + 1}' : token.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.text,
+                      fontFamily: 'Inter',
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  display,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.mono(context, size: 11, color: colors.muted),
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    display,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.mono(context, size: 11, color: colors.muted),
+                  ),
+                ],
+              ),
             ),
-          ),
-          IconButton(
-            icon: Icon(Icons.edit_outlined, size: 18, color: colors.muted),
-            tooltip: '编辑令牌',
-            onPressed: () => _editToken(index: index),
-          ),
-          IconButton(
-            icon: Icon(Icons.delete_outline, size: 19, color: colors.danger),
-            tooltip: '删除令牌',
-            onPressed: () => _removeToken(index),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

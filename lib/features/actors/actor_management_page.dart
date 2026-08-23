@@ -20,6 +20,7 @@ import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
+import '../../shared/swipe_actions.dart';
 import '../actor_associations/actor_associations_providers.dart';
 import '../actor_associations/actor_associations_repository.dart';
 import '../person_detail/person_detail_page.dart';
@@ -53,25 +54,37 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   final Set<int> _expandedIds = <int>{};
   int _totalCount = 0;
   bool _hasLoaded = false;
+  bool _lastPageComplete = false;
   int _requestSerial = 0;
   bool _selectionMode = false;
   final Set<int> _selectedIds = <int>{};
   Completer<void>? _refreshCompleter;
 
+  /// 当前左滑展开的行（演员 id 或 'member:演员id:成员id'），同一时刻只展开一个。
+  final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
+
   @override
   void initState() {
     super.initState();
     _controller.addPageRequestListener(_fetch);
+    _scrollController.addListener(_closeSwipeOnScroll);
   }
 
   @override
   void dispose() {
     _completeRefresh();
+    _scrollController.removeListener(_closeSwipeOnScroll);
+    _openSwipe.dispose();
     _searchDebounce?.cancel();
     _controller.dispose();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// 列表开始滚动时收起已展开的左滑操作。
+  void _closeSwipeOnScroll() {
+    if (_openSwipe.value != null) _openSwipe.value = null;
   }
 
   Future<void> _fetch(int offset) async {
@@ -98,8 +111,11 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
       });
       final nextOffset = offset + page.items.length;
       if (nextOffset >= page.totalCount || page.items.isEmpty) {
+        // 末页标记：连排列表只有最后一行需要底部圆角。
+        setState(() => _lastPageComplete = true);
         _controller.appendLastPage(rows);
       } else {
+        if (_lastPageComplete) setState(() => _lastPageComplete = false);
         _controller.appendPage(rows, nextOffset);
       }
       _scrollRestorer.restoreAfterPage(_scrollController);
@@ -471,47 +487,94 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                           22,
                           _selectionMode ? 136 : 80,
                         ),
-                        sliver: PagedSliverList<int, ActorRow>(
+                        sliver: PagedSliverList<int, ActorRow>.separated(
                           pagingController: _controller,
+                          separatorBuilder: (_, itemIndex) {
+                            // 隐藏末项与状态页脚之间的尾随分隔线（末行底部圆角）。
+                            final count = _controller.itemList?.length ?? 0;
+                            return itemIndex >= count - 1
+                                ? const SizedBox.shrink()
+                                : Divider(height: 1, color: c.divider);
+                          },
                           builderDelegate: PagedChildBuilderDelegate<ActorRow>(
                             itemBuilder: (context, row, index) {
                               final actor = row.actor;
-                              return DragSelectionTarget<int>(
-                                key: ValueKey(row.id),
-                                id: row.id,
-                                child: _ActorTile(
-                                  row: row,
-                                  hue: AppHues.all[index % AppHues.all.length],
-                                  isExpanded: _expandedIds.contains(row.id),
-                                  selectionMode: _selectionMode,
-                                  selected: _selectedIds.contains(row.id),
-                                  onSelectionTap: () => _toggleSelect(row.id),
-                                  onToggleExpand: () => _toggleExpand(row.id),
-                                  onTap: () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => PersonDetailPage(
-                                        actorId: actor.id,
-                                        name: actor.name,
-                                        actorType: actor.actorType,
-                                        biography: actor.biography,
-                                        avatarPath: actor.avatarPath,
-                                        onUpdated: () =>
-                                            _refresh(preserveScroll: true),
+                              // 连排整条列表：首行圆上角、末行圆下角，
+                              // 操作块沿用同一圆角避免顶出行轮廓。
+                              final isLastRow =
+                                  _lastPageComplete &&
+                                  index ==
+                                      (_controller.itemList?.length ?? 0) - 1;
+                              final rowRadius = BorderRadius.vertical(
+                                top: index == 0
+                                    ? const Radius.circular(16)
+                                    : Radius.zero,
+                                bottom: isLastRow
+                                    ? const Radius.circular(16)
+                                    : Radius.zero,
+                              );
+                              return SwipeActionCell(
+                                group: _openSwipe,
+                                cellKey: row.id,
+                                actionBorderRadius: rowRadius,
+                                enabled: !_selectionMode,
+                                actions: [
+                                  SwipeActionData(
+                                    icon: Icons.edit_outlined,
+                                    label: '编辑',
+                                    color: c.accent,
+                                    onPressed: () =>
+                                        _showEditor(context, actor: actor),
+                                  ),
+                                  SwipeActionData(
+                                    icon: Icons.delete_outline,
+                                    label: '删除',
+                                    color: c.danger,
+                                    onPressed: () =>
+                                        _confirmDelete(context, actor),
+                                  ),
+                                ],
+                                child: DragSelectionTarget<int>(
+                                  key: ValueKey(row.id),
+                                  id: row.id,
+                                  child: ClipRRect(
+                                    borderRadius: rowRadius,
+                                    child: _ActorTile(
+                                      row: row,
+                                      hue: AppHues
+                                          .all[index % AppHues.all.length],
+                                      isExpanded: _expandedIds.contains(row.id),
+                                      selectionMode: _selectionMode,
+                                      selected: _selectedIds.contains(row.id),
+                                      swipeGroup: _openSwipe,
+                                      onSelectionTap: () =>
+                                          _toggleSelect(row.id),
+                                      onToggleExpand: () =>
+                                          _toggleExpand(row.id),
+                                      onTap: () => Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => PersonDetailPage(
+                                            actorId: actor.id,
+                                            name: actor.name,
+                                            actorType: actor.actorType,
+                                            biography: actor.biography,
+                                            avatarPath: actor.avatarPath,
+                                            onUpdated: () =>
+                                                _refresh(preserveScroll: true),
+                                          ),
+                                        ),
                                       ),
+                                      onEditMember: (member) => _showEditor(
+                                        context,
+                                        actor: member.asActorItem,
+                                      ),
+                                      onDeleteMember: (member) =>
+                                          _confirmDelete(
+                                            context,
+                                            member.asActorItem,
+                                            force: true,
+                                          ),
                                     ),
-                                  ),
-                                  onEdit: () =>
-                                      _showEditor(context, actor: actor),
-                                  onDelete: () =>
-                                      _confirmDelete(context, actor),
-                                  onEditMember: (member) => _showEditor(
-                                    context,
-                                    actor: member.asActorItem,
-                                  ),
-                                  onDeleteMember: (member) => _confirmDelete(
-                                    context,
-                                    member.asActorItem,
-                                    force: true,
                                   ),
                                 ),
                               );
@@ -849,8 +912,6 @@ class _ActorAssociationData {
   final bool loaded;
 }
 
-enum _ActorMenuAction { edit, delete }
-
 class _ActorTile extends StatelessWidget {
   const _ActorTile({
     required this.row,
@@ -858,10 +919,9 @@ class _ActorTile extends StatelessWidget {
     required this.isExpanded,
     required this.selectionMode,
     required this.selected,
+    required this.swipeGroup,
     required this.onSelectionTap,
     required this.onTap,
-    required this.onEdit,
-    required this.onDelete,
     required this.onEditMember,
     required this.onDeleteMember,
     this.onToggleExpand,
@@ -872,10 +932,9 @@ class _ActorTile extends StatelessWidget {
   final bool isExpanded;
   final bool selectionMode;
   final bool selected;
+  final SwipeActionGroup swipeGroup;
   final VoidCallback onSelectionTap;
   final VoidCallback onTap;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
   final void Function(ActorAssociationMember member) onEditMember;
   final void Function(ActorAssociationMember member) onDeleteMember;
   final VoidCallback? onToggleExpand;
@@ -903,24 +962,15 @@ class _ActorTile extends StatelessWidget {
             child: avatar,
           )
         : avatar;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: c.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(
-            color: selected ? c.accent : c.cardBorder,
-            width: 1,
-          ),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: PrivacyAwareInkWell(
-          movieId: actor.id,
-          scope: PrivacyScope.actor,
-          onTap: selectionMode ? onSelectionTap : onTap,
-          borderRadius: 14,
-          child: Stack(
+    return Material(
+      // 分组连排行：无独立边框，选中以整行背景提示。
+      color: selected ? c.accent.withValues(alpha: 0.07) : c.surface,
+      child: PrivacyAwareInkWell(
+        movieId: actor.id,
+        scope: PrivacyScope.actor,
+        onTap: selectionMode ? onSelectionTap : onTap,
+        borderRadius: 0,
+        child: Stack(
           children: [
             Column(
               mainAxisSize: MainAxisSize.min,
@@ -979,36 +1029,15 @@ class _ActorTile extends StatelessWidget {
                           ],
                         ),
                       ),
-                      PopupMenuButton<_ActorMenuAction>(
-                        tooltip: '更多操作',
-                        icon: Icon(Icons.more_horiz, color: c.muted),
-                        onSelected: (action) {
-                          switch (action) {
-                            case _ActorMenuAction.edit:
-                              onEdit();
-                              return;
-                            case _ActorMenuAction.delete:
-                              onDelete();
-                              return;
-                          }
-                        },
-                        itemBuilder: (context) => const [
-                          PopupMenuItem(
-                            value: _ActorMenuAction.edit,
-                            child: Text('编辑'),
-                          ),
-                          PopupMenuItem(
-                            value: _ActorMenuAction.delete,
-                            child: Text('删除'),
-                          ),
-                        ],
-                      ),
                     ],
                   ),
                 ),
                 if (row.hasMembers && isExpanded)
                   _ActorMemberList(
+                    actorId: row.id,
                     members: row.members,
+                    swipeGroup: swipeGroup,
+                    swipeEnabled: !selectionMode,
                     onEdit: onEditMember,
                     onDelete: onDeleteMember,
                   ),
@@ -1028,7 +1057,6 @@ class _ActorTile extends StatelessWidget {
                 ),
               ),
           ],
-          ),
         ),
       ),
     );
@@ -1071,31 +1099,59 @@ class _ExpandableAvatar extends StatelessWidget {
   }
 }
 
-/// 展开后的关联成员列表：仅名称 + 关联徽章 + 编辑/删除，不显示头像与影片数。
+/// 展开后的关联成员列表：仅名称 + 关联徽章，不显示头像与影片数，操作左滑展开。
 class _ActorMemberList extends StatelessWidget {
   const _ActorMemberList({
+    required this.actorId,
     required this.members,
+    required this.swipeGroup,
+    required this.swipeEnabled,
     required this.onEdit,
     required this.onDelete,
   });
 
+  final int actorId;
   final List<ActorAssociationMember> members;
+
+  /// 与主行共用同一组，整页同一时刻只展开一行。
+  final SwipeActionGroup swipeGroup;
+  final bool swipeEnabled;
   final void Function(ActorAssociationMember member) onEdit;
   final void Function(ActorAssociationMember member) onDelete;
 
   @override
   Widget build(BuildContext context) {
+    final c = appColors(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(56, 0, 14, 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final member in members)
-            _ActorMemberRow(
-              member: member,
-              onEdit: () => onEdit(member),
-              onDelete: () => onDelete(member),
+          for (var i = 0; i < members.length; i++) ...[
+            // 连排成员行：透明背景贴主行表面，行间细分隔线。
+            if (i > 0) Divider(height: 1, color: c.divider),
+            SwipeActionCell(
+              group: swipeGroup,
+              // cellKey 全页唯一：主行用演员 id，成员行组合演员 id 与成员 id。
+              cellKey: 'member:$actorId:${members[i].id}',
+              enabled: swipeEnabled,
+              actions: [
+                SwipeActionData(
+                  icon: Icons.edit_outlined,
+                  label: '编辑',
+                  color: c.accent,
+                  onPressed: () => onEdit(members[i]),
+                ),
+                SwipeActionData(
+                  icon: Icons.delete_outline,
+                  label: '删除',
+                  color: c.danger,
+                  onPressed: () => onDelete(members[i]),
+                ),
+              ],
+              child: _ActorMemberRow(member: members[i]),
             ),
+          ],
         ],
       ),
     );
@@ -1103,15 +1159,9 @@ class _ActorMemberList extends StatelessWidget {
 }
 
 class _ActorMemberRow extends StatelessWidget {
-  const _ActorMemberRow({
-    required this.member,
-    required this.onEdit,
-    required this.onDelete,
-  });
+  const _ActorMemberRow({required this.member});
 
   final ActorAssociationMember member;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -1156,24 +1206,6 @@ class _ActorMemberRow extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-          PopupMenuButton<_ActorMenuAction>(
-            tooltip: '关联演员操作',
-            icon: Icon(Icons.more_horiz, size: 18, color: c.muted),
-            onSelected: (action) {
-              switch (action) {
-                case _ActorMenuAction.edit:
-                  onEdit();
-                  return;
-                case _ActorMenuAction.delete:
-                  onDelete();
-                  return;
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: _ActorMenuAction.edit, child: Text('编辑')),
-              PopupMenuItem(value: _ActorMenuAction.delete, child: Text('删除')),
-            ],
           ),
         ],
       ),

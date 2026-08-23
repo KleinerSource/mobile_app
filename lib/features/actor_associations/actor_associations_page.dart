@@ -13,6 +13,7 @@ import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
+import '../../shared/swipe_actions.dart';
 import '../privacy/privacy_mask.dart';
 import '../settings/settings_common.dart';
 import 'actor_associations_providers.dart';
@@ -37,20 +38,32 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
   final _searchCtl = TextEditingController();
   String _search = '';
   Timer? _searchDebounce;
+  bool _lastPageComplete = false;
+
+  /// 当前左滑展开的行（规则 id），同一时刻只展开一个。
+  final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
 
   @override
   void initState() {
     super.initState();
     _controller.addPageRequestListener(_fetch);
+    _scrollController.addListener(_closeSwipeOnScroll);
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_closeSwipeOnScroll);
+    _openSwipe.dispose();
     _controller.dispose();
     _scrollController.dispose();
     _searchCtl.dispose();
     _searchDebounce?.cancel();
     super.dispose();
+  }
+
+  /// 列表开始滚动时收起已展开的左滑操作。
+  void _closeSwipeOnScroll() {
+    if (_openSwipe.value != null) _openSwipe.value = null;
   }
 
   Future<void> _fetch(int offset) async {
@@ -63,8 +76,13 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
       );
       final nextOffset = offset + r.items.length;
       if (nextOffset >= r.totalCount || r.items.isEmpty) {
+        // 末页标记：连排列表只有最后一行需要底部圆角。
+        if (mounted) setState(() => _lastPageComplete = true);
         _controller.appendLastPage(r.items);
       } else {
+        if (_lastPageComplete && mounted) {
+          setState(() => _lastPageComplete = false);
+        }
         _controller.appendPage(r.items, nextOffset);
       }
       _scrollRestorer.restoreAfterPage(_scrollController);
@@ -182,18 +200,69 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
                   ),
                 ),
                 Expanded(
-                  child: PagedListView<int, MappingRule>(
+                  child: PagedListView<int, MappingRule>.separated(
                     scrollController: _scrollController,
                     pagingController: _controller,
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 96),
+                    separatorBuilder: (_, itemIndex) {
+                      // 隐藏末项与状态页脚之间的尾随分隔线（末行底部圆角）。
+                      final count = _controller.itemList?.length ?? 0;
+                      return itemIndex >= count - 1
+                          ? const SizedBox.shrink()
+                          : Divider(height: 1, color: c.divider);
+                    },
                     builderDelegate: PagedChildBuilderDelegate<MappingRule>(
-                      itemBuilder: (ctx, item, _) => _AssocCard(
-                        rule: item,
-                        onSync: () => _sync(item),
-                        onAppend: () => _append(item),
-                        onEdit: () => _edit(item),
-                        onDelete: () => _delete(item),
-                      ),
+                      itemBuilder: (ctx, item, index) {
+                        // 连排整条列表：首行圆上角、末行圆下角，
+                        // 操作块沿用同一圆角避免顶出行轮廓。
+                        final isLastRow =
+                            _lastPageComplete &&
+                            index == (_controller.itemList?.length ?? 0) - 1;
+                        final rowRadius = BorderRadius.vertical(
+                          top: index == 0
+                              ? const Radius.circular(16)
+                              : Radius.zero,
+                          bottom: isLastRow
+                              ? const Radius.circular(16)
+                              : Radius.zero,
+                        );
+                        return SwipeActionCell(
+                          actionBorderRadius: rowRadius,
+                          group: _openSwipe,
+                          cellKey: item.id,
+                          enabled: true,
+                          actions: [
+                            SwipeActionData(
+                              icon: Icons.cloud_download_outlined,
+                              label: '同步',
+                              color: AppHues.top(AppHues.sky),
+                              onPressed: () => _sync(item),
+                            ),
+                            SwipeActionData(
+                              icon: Icons.add_rounded,
+                              label: '追加别名',
+                              color: AppHues.top(AppHues.mint),
+                              onPressed: () => _append(item),
+                            ),
+                            SwipeActionData(
+                              icon: Icons.edit_outlined,
+                              label: '编辑',
+                              color: c.accent,
+                              onPressed: () => _edit(item),
+                            ),
+                            SwipeActionData(
+                              icon: Icons.delete_outline,
+                              label: '删除',
+                              color: c.danger,
+                              onPressed: () => _delete(item),
+                            ),
+                          ],
+                          child: ClipRRect(
+                            borderRadius: rowRadius,
+                            child: _AssocCard(rule: item),
+                          ),
+                        );
+                      },
                       firstPageProgressIndicatorBuilder: (_) =>
                           const Center(child: CupertinoActivityIndicator()),
                       firstPageErrorIndicatorBuilder: (_) => ErrorView(
@@ -259,18 +328,8 @@ class _SearchBar extends StatelessWidget {
 }
 
 class _AssocCard extends StatelessWidget {
-  const _AssocCard({
-    required this.rule,
-    required this.onSync,
-    required this.onAppend,
-    required this.onEdit,
-    required this.onDelete,
-  });
+  const _AssocCard({required this.rule});
   final MappingRule rule;
-  final VoidCallback onSync;
-  final VoidCallback onAppend;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -280,15 +339,11 @@ class _AssocCard extends StatelessWidget {
       movieId: rule.id,
       scope: PrivacyScope.actorAssociation,
       onTap: null,
-      borderRadius: 14,
+      borderRadius: 0,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
-        decoration: BoxDecoration(
-          color: c.surface,
-          border: Border.all(color: c.cardBorder),
-          borderRadius: BorderRadius.circular(14),
-        ),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        // 连排行：无独立边框与圆角，行背景即分组表面。
+        color: c.surface,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -388,64 +443,9 @@ class _AssocCard extends StatelessWidget {
                 ],
               ),
             ],
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _ActionBtn(
-                  tooltip: '同步演员关联',
-                  icon: Icons.cloud_download_outlined,
-                  color: c.accent,
-                  onTap: onSync,
-                ),
-                _ActionBtn(
-                  tooltip: '追加别名',
-                  icon: Icons.add_rounded,
-                  color: c.accent,
-                  onTap: onAppend,
-                ),
-                _ActionBtn(
-                  tooltip: '编辑',
-                  icon: Icons.edit_outlined,
-                  color: c.text,
-                  onTap: onEdit,
-                ),
-                _ActionBtn(
-                  tooltip: '删除',
-                  icon: Icons.delete_outline,
-                  color: c.danger,
-                  onTap: onDelete,
-                ),
-              ],
-            ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ActionBtn extends StatelessWidget {
-  const _ActionBtn({
-    required this.tooltip,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-  final String tooltip;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: tooltip,
-      icon: Icon(icon, size: 18, color: color),
-      onPressed: onTap,
-      visualDensity: VisualDensity.compact,
-      padding: const EdgeInsets.all(6),
-      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
     );
   }
 }

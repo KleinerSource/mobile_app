@@ -6,6 +6,7 @@ import '../../core/models/library.dart';
 import '../../core/platform/app_action_sheet.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/swipe_actions.dart';
 import '../settings/settings_common.dart';
 import 'libraries_providers.dart';
 import 'library_editor_page.dart';
@@ -13,9 +14,9 @@ import 'scan_progress_sheet.dart';
 import 'scan_tasks_provider.dart';
 
 /// 媒体库管理列表页
-/// - 卡片列表 (名称 + 启用状态 + 文件数 + 目录数 + 多彩 hue)
+/// - 分组列表 (名称 + 启用状态 + 文件数 + 目录数 + 多彩 hue)
 /// - 顶右批量扫描菜单 + 添加按钮
-/// - 卡片操作: 编辑 / 增量扫描 / more (全量 / 启用-停用 / 删除)
+/// - 单库操作左滑展开: 扫描 (增量/全量) / 停用-启用 / 删除；点行进入编辑
 class LibrariesPage extends ConsumerStatefulWidget {
   const LibrariesPage({super.key});
 
@@ -27,6 +28,13 @@ enum _BatchScanAction { incremental, full }
 
 class _LibrariesPageState extends ConsumerState<LibrariesPage> {
   bool _batchScanStarting = false;
+  final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
+
+  @override
+  void dispose() {
+    _openSwipe.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,58 +98,215 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
             body: RefreshIndicator(
               color: c.accent,
               onRefresh: () => ref.refresh(librariesAllProvider.future),
-              child: CustomScrollView(
-                primary: true,
-                slivers: [
-                async.when(
-                  loading: () => const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                  error: (e, _) => SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text('加载失败: $e', style: AppText.body(context)),
-                      ),
-                    ),
-                  ),
-                  data: (libs) {
-                    if (libs.isEmpty) {
-                      return SliverFillRemaining(
+              child: NotificationListener<ScrollUpdateNotification>(
+                // 滚动时收起已展开的左滑操作
+                onNotification: (_) {
+                  if (_openSwipe.value != null) _openSwipe.value = null;
+                  return false;
+                },
+                child: CustomScrollView(
+                  primary: true,
+                  slivers: [
+                    async.when(
+                      loading: () => const SliverFillRemaining(
                         hasScrollBody: false,
-                        child: _Empty(),
-                      );
-                    }
-                    return SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (ctx, i) {
-                            final hue =
-                                AppHues.all[i % AppHues.all.length];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _LibraryCard(
-                                library: libs[i],
-                                hue: hue,
-                              ),
-                            );
-                          },
-                          childCount: libs.length,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                      error: (e, _) => SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              '加载失败: $e',
+                              style: AppText.body(context),
+                            ),
+                          ),
                         ),
                       ),
-                    );
-                  },
+                      data: (libs) {
+                        if (libs.isEmpty) {
+                          return SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: _Empty(),
+                          );
+                        }
+                        // 媒体库数量少且有界：合并为设置页式分组卡，行间细分隔线。
+                        return SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 80),
+                          sliver: SliverToBoxAdapter(
+                            child: Container(
+                              decoration: settingsCardDecoration(context),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Column(
+                                  children: [
+                                    for (var i = 0; i < libs.length; i++) ...[
+                                      if (i > 0)
+                                        Divider(height: 1, color: c.divider),
+                                      SwipeActionCell(
+                                        group: _openSwipe,
+                                        cellKey: libs[i].id,
+                                        actions: _librarySwipeActions(libs[i]),
+                                        enabled: true,
+                                        child: _LibraryCard(
+                                          library: libs[i],
+                                          hue: AppHues
+                                              .all[i % AppHues.all.length],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-                ],
               ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  /// 单个媒体库的左滑操作：停用的库不提供扫描入口。
+  List<SwipeActionData> _librarySwipeActions(LibraryItem lib) {
+    final c = appColors(context);
+    return [
+      if (lib.enabled)
+        SwipeActionData(
+          icon: Icons.refresh,
+          label: '扫描',
+          color: AppHues.top(AppHues.mint),
+          onPressed: () => _showScanActions(lib),
+        ),
+      SwipeActionData(
+        icon: lib.enabled
+            ? Icons.toggle_off_outlined
+            : Icons.toggle_on_outlined,
+        label: lib.enabled ? '停用' : '启用',
+        color: c.warning,
+        onPressed: () => _toggleEnabled(context, ref, lib),
+      ),
+      SwipeActionData(
+        icon: Icons.delete_outline_rounded,
+        label: '删除',
+        color: c.danger,
+        onPressed: () => _confirmDelete(context, ref, lib),
+      ),
+    ];
+  }
+
+  /// 左滑「扫描」后的方式选择：增量 / 全量。
+  Future<void> _showScanActions(LibraryItem lib) async {
+    final incremental = await showAppActionSheet<bool>(
+      context: context,
+      title: '扫描「${lib.name}」',
+      actions: const [
+        AppActionSheetAction(label: '增量扫描', value: true),
+        AppActionSheetAction(label: '全量扫描（重新扫描所有文件）', value: false),
+      ],
+    );
+    if (!mounted || incremental == null) return;
+    await _triggerScan(context, ref, lib, incremental);
+  }
+
+  Future<void> _triggerScan(
+    BuildContext context,
+    WidgetRef ref,
+    LibraryItem lib,
+    bool incremental,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final taskId = await ref
+          .read(librariesRepositoryProvider)
+          .scan(lib.id, incremental: incremental);
+      if (!context.mounted) return;
+      // 注册到常驻 dock, 不再弹模态 sheet
+      ref
+          .read(scanTasksProvider.notifier)
+          .register(libraryId: lib.id, libraryName: lib.name, taskId: taskId);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('${incremental ? '增量' : '全量'}扫描已启动 · 进度见底部'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('扫描失败: ${toApiException(e).message}')),
+      );
+    }
+  }
+
+  Future<void> _toggleEnabled(
+    BuildContext context,
+    WidgetRef ref,
+    LibraryItem lib,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(librariesRepositoryProvider)
+          .update(lib.id, enabled: !lib.enabled);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(lib.enabled ? '已停用' : '已启用'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+      // ignore: unused_result
+      ref.refresh(librariesAllProvider);
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('操作失败: ${toApiException(e).message}')),
+      );
+    }
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    LibraryItem lib,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除媒体库'),
+        content: Text('删除「${lib.name}」?\n库内的影片元数据将一并移除 (硬盘上的文件不会被删除)。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(librariesRepositoryProvider).delete(lib.id);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('媒体库已删除'), duration: Duration(seconds: 1)),
+      );
+      // ignore: unused_result
+      ref.refresh(librariesAllProvider);
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('删除失败: ${toApiException(e).message}')),
+      );
+    }
   }
 
   Future<void> _showBatchScanActions() async {
@@ -153,10 +318,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
           label: '一键增量扫描',
           value: _BatchScanAction.incremental,
         ),
-        AppActionSheetAction(
-          label: '一键全量扫描',
-          value: _BatchScanAction.full,
-        ),
+        AppActionSheetAction(label: '一键全量扫描', value: _BatchScanAction.full),
       ],
     );
     if (!mounted || action == null) return;
@@ -187,8 +349,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
             libraryId: task.libraryId,
             status: task.status,
             incremental: incremental,
-            currentFile:
-                task.status == 'queued' ? queueMessage : '准备扫描',
+            currentFile: task.status == 'queued' ? queueMessage : '准备扫描',
           ),
         );
       }
@@ -196,9 +357,7 @@ class _LibrariesPageState extends ConsumerState<LibrariesPage> {
       String message;
       if (result.acceptedCount == 0) {
         if (result.enabledCount == 0) {
-          message = result.message.isNotEmpty
-              ? result.message
-              : '没有已启用的媒体库可扫描';
+          message = result.message.isNotEmpty ? result.message : '没有已启用的媒体库可扫描';
         } else {
           message = result.message.isNotEmpty
               ? result.message
@@ -242,8 +401,10 @@ class _Empty extends StatelessWidget {
         children: [
           Icon(Icons.folder_outlined, size: 40, color: c.muted),
           const SizedBox(height: 14),
-          Text('还没有媒体库',
-              style: AppText.body(context).copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            '还没有媒体库',
+            style: AppText.body(context).copyWith(fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 4),
           Text('点击右上 + 添加按钮创建第一个', style: AppText.meta(context)),
         ],
@@ -262,36 +423,30 @@ class _LibraryCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
     // 当前库是否在扫描中
-    final tracked = ref.watch(scanTasksProvider).where(
-          (t) => t.libraryId == library.id,
-        );
+    final tracked = ref
+        .watch(scanTasksProvider)
+        .where((t) => t.libraryId == library.id);
     final scan = tracked.isEmpty ? null : tracked.first;
     final isScanning = scan != null;
 
     return InkWell(
       onTap: isScanning
           ? () => ScanProgressSheet.show(
-                context,
-                libraryId: library.id,
-                libraryName: library.name,
-                taskId: scan.taskId,
-              )
+              context,
+              libraryId: library.id,
+              libraryName: library.name,
+              taskId: scan.taskId,
+            )
           : () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => LibraryEditorPage(library: library),
-                ),
+              MaterialPageRoute(
+                builder: (_) => LibraryEditorPage(library: library),
               ),
-      borderRadius: BorderRadius.circular(16),
+            ),
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: c.surface,
-          border: Border.all(
-            color: isScanning ? c.accent.withValues(alpha: 0.55) : c.cardBorder,
-            width: isScanning ? 1.5 : 1,
-          ),
-          borderRadius: BorderRadius.circular(16),
-        ),
+        // 分组连排行：透明背景，由外层分组容器提供表面；
+        // 扫描中的库以浅强调底色提示。
+        color: isScanning ? c.accent.withValues(alpha: 0.06) : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -314,11 +469,14 @@ class _LibraryCard extends ConsumerWidget {
                       ),
                     ),
                     alignment: Alignment.center,
-                    child: const Text('◆',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 18)),
+                    child: const Text(
+                      '◆',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                      ),
+                    ),
                   ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -345,7 +503,9 @@ class _LibraryCard extends ConsumerWidget {
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 2),
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: c.muted.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(4),
@@ -371,224 +531,12 @@ class _LibraryCard extends ConsumerWidget {
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.more_horiz, color: c.muted),
-                  onPressed: () => _showMore(context, ref, library),
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: library.enabled
-                        ? () => _triggerScan(context, ref, library, true)
-                        : null,
-                    icon: const Icon(Icons.refresh, size: 16),
-                    label: const Text(
-                      '增量扫描',
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12.5),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: c.text,
-                      side: BorderSide(color: c.cardBorder),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(vertical: 9),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => LibraryEditorPage(library: library),
-                      ),
-                    ),
-                    icon: const Icon(Icons.edit_outlined, size: 15),
-                    label: const Text(
-                      '编辑',
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12.5),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: c.text,
-                      side: BorderSide(color: c.cardBorder),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(vertical: 9),
-                    ),
-                  ),
-                ),
               ],
             ),
           ],
         ),
       ),
     );
-  }
-
-  Future<void> _showMore(
-    BuildContext context,
-    WidgetRef ref,
-    LibraryItem lib,
-  ) async {
-    final c = appColors(context);
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: c.bg,
-      showDragHandle: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(Icons.refresh, color: c.text),
-                enabled: lib.enabled,
-                title: const Text('全量扫描',
-                    style: TextStyle(
-                        fontFamily: 'Inter', fontWeight: FontWeight.w600)),
-                subtitle: const Text('重新扫描所有文件',
-                    style: TextStyle(fontFamily: 'Inter', fontSize: 12)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _triggerScan(context, ref, lib, false);
-                },
-              ),
-              ListTile(
-                leading: Icon(
-                    lib.enabled ? Icons.toggle_off : Icons.toggle_on,
-                    color: c.text),
-                title: Text(
-                  lib.enabled ? '停用媒体库' : '启用媒体库',
-                  style: const TextStyle(
-                      fontFamily: 'Inter', fontWeight: FontWeight.w600),
-                ),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await _toggleEnabled(context, ref, lib);
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.delete_outline, color: c.danger),
-                title: Text(
-                  '删除媒体库',
-                  style: TextStyle(
-                      color: c.danger,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600),
-                ),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await _confirmDelete(context, ref, lib);
-                },
-              ),
-              const SizedBox(height: 6),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _triggerScan(
-    BuildContext context,
-    WidgetRef ref,
-    LibraryItem lib,
-    bool incremental,
-  ) async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final taskId = await ref
-          .read(librariesRepositoryProvider)
-          .scan(lib.id, incremental: incremental);
-      if (!context.mounted) return;
-      // 注册到常驻 dock, 不再弹模态 sheet
-      ref.read(scanTasksProvider.notifier).register(
-            libraryId: lib.id,
-            libraryName: lib.name,
-            taskId: taskId,
-          );
-      messenger.showSnackBar(SnackBar(
-        content: Text('${incremental ? '增量' : '全量'}扫描已启动 · 进度见底部'),
-        duration: const Duration(seconds: 2),
-      ));
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('扫描失败: ${toApiException(e).message}')),
-      );
-    }
-  }
-
-  Future<void> _toggleEnabled(
-    BuildContext context,
-    WidgetRef ref,
-    LibraryItem lib,
-  ) async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await ref
-          .read(librariesRepositoryProvider)
-          .update(lib.id, enabled: !lib.enabled);
-      messenger.showSnackBar(SnackBar(
-        content: Text(lib.enabled ? '已停用' : '已启用'),
-        duration: const Duration(seconds: 1),
-      ));
-      // ignore: unused_result
-      ref.refresh(librariesAllProvider);
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('操作失败: ${toApiException(e).message}')),
-      );
-    }
-  }
-
-  Future<void> _confirmDelete(
-    BuildContext context,
-    WidgetRef ref,
-    LibraryItem lib,
-  ) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除媒体库'),
-        content: Text('删除「${lib.name}」?\n库内的影片元数据将一并移除 (硬盘上的文件不会被删除)。'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('删除')),
-        ],
-      ),
-    );
-    if (confirm != true || !context.mounted) return;
-
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await ref.read(librariesRepositoryProvider).delete(lib.id);
-      messenger.showSnackBar(const SnackBar(
-        content: Text('媒体库已删除'),
-        duration: Duration(seconds: 1),
-      ));
-      // ignore: unused_result
-      ref.refresh(librariesAllProvider);
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('删除失败: ${toApiException(e).message}')),
-      );
-    }
   }
 }
 

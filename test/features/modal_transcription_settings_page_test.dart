@@ -72,6 +72,14 @@ Future<void> _enableAndSave(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// 左滑令牌行展开操作，并点击指定操作按钮。
+Future<void> _swipeAndTap(WidgetTester tester, Finder row, String label) async {
+  await tester.fling(row, const Offset(-360, 0), 1000);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).hitTestable());
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('展示服务端脱敏令牌并按完整目标列表提交', (tester) async {
     final repository = await _pumpPage(
@@ -136,10 +144,7 @@ void main() {
 
     expect(find.text('新增令牌必须同时填写 Token ID 和 Token Secret'), findsOneWidget);
 
-    await tester.enterText(
-      find.widgetWithText(TextField, '备注（可选）'),
-      '主账号',
-    );
+    await tester.enterText(find.widgetWithText(TextField, '备注（可选）'), '主账号');
     await tester.enterText(
       find.widgetWithText(TextField, 'Token ID'),
       'ak-main',
@@ -165,8 +170,7 @@ void main() {
     expect(find.text('新令牌 · 保存后生效'), findsNothing);
   });
 
-  testWidgets('编辑已有令牌留空凭据只提交 id 与备注，删除令牌提交移除',
-      (tester) async {
+  testWidgets('编辑已有令牌留空凭据只提交 id 与备注，删除令牌提交移除', (tester) async {
     final repository = await _pumpPage(
       tester,
       const ModalTranscriptionConfig(
@@ -185,19 +189,16 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byTooltip('编辑令牌').first);
+    await _swipeAndTap(tester, find.text('主账号'), '编辑');
     await tester.pumpAndSettle();
 
     expect(find.text('编辑令牌'), findsOneWidget);
     expect(find.text('已配置，留空则不修改'), findsNWidgets(2));
-    await tester.enterText(
-      find.widgetWithText(TextField, '备注（可选）'),
-      '主账号改',
-    );
+    await tester.enterText(find.widgetWithText(TextField, '备注（可选）'), '主账号改');
     await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('删除令牌').at(1));
+    await _swipeAndTap(tester, find.text('备用账号'), '删除');
     await tester.pumpAndSettle();
 
     expect(find.text('备用账号'), findsNothing);

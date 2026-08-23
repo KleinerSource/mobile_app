@@ -14,6 +14,7 @@ import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/pagination_footer.dart';
+import '../../shared/swipe_actions.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../settings/settings_common.dart';
 import '../tasks/task_center_provider.dart';
@@ -51,6 +52,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   Timer? _taskReloadDebounce;
   String? _search;
   String _lastTaskSignature = '';
+  bool _lastPageComplete = false;
   int _requestSerial = 0;
   int _totalCount = 0;
   int _totalBytes = 0;
@@ -60,7 +62,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   final Set<String> _busyTaskIds = <String>{};
 
   /// 当前左滑展开的行（资产 id 或 'task:$id'），同一时刻只展开一个。
-  final ValueNotifier<Object?> _openSwipe = ValueNotifier<Object?>(null);
+  final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
   Completer<void>? _refreshCompleter;
 
   @override
@@ -102,8 +104,11 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       });
       final nextOffset = offset + page.items.length;
       if (nextOffset >= page.total || page.items.isEmpty) {
+        // 末页标记：连排列表只有最后一行需要底部圆角。
+        setState(() => _lastPageComplete = true);
         _controller.appendLastPage(page.items);
       } else {
+        if (_lastPageComplete) setState(() => _lastPageComplete = false);
         _controller.appendPage(page.items, nextOffset);
       }
       _scrollRestorer.restoreAfterPage(_scrollController);
@@ -741,47 +746,83 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                 ),
                               ),
                             ),
-                            SliverPadding(
-                              padding: const EdgeInsets.fromLTRB(22, 0, 22, 6),
-                              sliver: SliverList.separated(
-                                itemCount: extractionTasks.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 10),
-                                itemBuilder: (ctx, i) {
-                                  final task = extractionTasks[i];
-                                  return _SwipeActionCell(
-                                    group: _openSwipe,
-                                    cellKey: 'task:${task.id}',
-                                    enabled:
-                                        !_selectionMode &&
-                                        !_busyTaskIds.contains(task.id),
-                                    actions: [
-                                      SwipeActionData(
-                                        icon: Icons.stop_rounded,
-                                        label: '取消提取',
-                                        color: c.danger,
-                                        onPressed: () =>
-                                            _cancelExtraction(task),
-                                      ),
-                                    ],
-                                    child: _ExtractionTaskCard(
-                                      task: task,
-                                      busy: _busyTaskIds.contains(task.id),
+                            // 提取任务少且有界：合并为设置页式分组卡，行间细分隔线。
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  22,
+                                  0,
+                                  22,
+                                  14,
+                                ),
+                                child: Container(
+                                  decoration: settingsCardDecoration(context),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Column(
+                                      children: [
+                                        for (
+                                          var i = 0;
+                                          i < extractionTasks.length;
+                                          i++
+                                        ) ...[
+                                          if (i > 0)
+                                            Divider(
+                                              height: 1,
+                                              color: c.divider,
+                                            ),
+                                          SwipeActionCell(
+                                            group: _openSwipe,
+                                            cellKey:
+                                                'task:${extractionTasks[i].id}',
+                                            enabled:
+                                                !_selectionMode &&
+                                                !_busyTaskIds.contains(
+                                                  extractionTasks[i].id,
+                                                ),
+                                            actions: [
+                                              SwipeActionData(
+                                                icon: Icons.stop_rounded,
+                                                label: '取消提取',
+                                                color: c.danger,
+                                                onPressed: () =>
+                                                    _cancelExtraction(
+                                                      extractionTasks[i],
+                                                    ),
+                                              ),
+                                            ],
+                                            child: _ExtractionTaskCard(
+                                              task: extractionTasks[i],
+                                              busy: _busyTaskIds.contains(
+                                                extractionTasks[i].id,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                     ),
-                                  );
-                                },
+                                  ),
+                                ),
                               ),
                             ),
                           ],
                           SliverPadding(
                             padding: EdgeInsets.fromLTRB(
                               22,
-                              extractionTasks.isEmpty ? 0 : 8,
+                              0,
                               22,
                               _selectionMode ? 136 : 80,
                             ),
-                            sliver: PagedSliverList<int, AudioAsset>(
+                            sliver: PagedSliverList<int, AudioAsset>.separated(
                               pagingController: _controller,
+                              separatorBuilder: (_, itemIndex) {
+                                // 分页组件在末项与状态页脚之间也会排一条
+                                // 分隔线，末行底部圆角下会多出一条线，隐藏之。
+                                final count = _controller.itemList?.length ?? 0;
+                                return itemIndex >= count - 1
+                                    ? const SizedBox.shrink()
+                                    : Divider(height: 1, color: c.divider);
+                              },
                               builderDelegate:
                                   PagedChildBuilderDelegate<AudioAsset>(
                                     itemBuilder: (ctx, asset, index) {
@@ -792,26 +833,41 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                         asset,
                                         activeMovies,
                                       );
-                                      return Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 12,
+                                      // 连排整条列表：首行圆上角、末行圆下角，
+                                      // 操作块沿用同一圆角避免顶出行轮廓。
+                                      final isLastRow =
+                                          _lastPageComplete &&
+                                          index ==
+                                              (_controller.itemList?.length ??
+                                                      0) -
+                                                  1;
+                                      final rowRadius = BorderRadius.vertical(
+                                        top: index == 0
+                                            ? const Radius.circular(16)
+                                            : Radius.zero,
+                                        bottom: isLastRow
+                                            ? const Radius.circular(16)
+                                            : Radius.zero,
+                                      );
+                                      return SwipeActionCell(
+                                        actionBorderRadius: rowRadius,
+                                        group: _openSwipe,
+                                        cellKey: asset.id,
+                                        enabled: !_selectionMode && !busy,
+                                        actions: _assetSwipeActions(
+                                          c,
+                                          asset,
+                                          transcriptionEnabled,
+                                          locked,
                                         ),
-                                        child: _SwipeActionCell(
-                                          group: _openSwipe,
-                                          cellKey: asset.id,
-                                          enabled: !_selectionMode && !busy,
-                                          actions: _assetSwipeActions(
-                                            c,
-                                            asset,
-                                            transcriptionEnabled,
-                                            locked,
-                                          ),
-                                          child: DragSelectionTarget<int>(
-                                            key: ValueKey(asset.id),
-                                            id: asset.id,
-                                            selectionIndex: index,
-                                            selectionHandleAlignment:
-                                                Alignment.centerLeft,
+                                        child: DragSelectionTarget<int>(
+                                          key: ValueKey(asset.id),
+                                          id: asset.id,
+                                          selectionIndex: index,
+                                          selectionHandleAlignment:
+                                              Alignment.centerLeft,
+                                          child: ClipRRect(
+                                            borderRadius: rowRadius,
                                             child: _AssetCard(
                                               asset: asset,
                                               selected: _selectedIds.contains(
@@ -1052,13 +1108,8 @@ class _ExtractionTaskCard extends StatelessWidget {
     return AnimatedOpacity(
       opacity: busy ? 0.55 : 1,
       duration: const Duration(milliseconds: 180),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: c.surface,
-          border: Border.all(color: c.cardBorder),
-          borderRadius: BorderRadius.circular(18),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1160,36 +1211,29 @@ class _AssetCard extends StatelessWidget {
       opacity: busy ? 0.55 : 1,
       duration: const Duration(milliseconds: 180),
       child: Container(
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected ? c.accent.withValues(alpha: 0.55) : c.cardBorder,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(c, status),
-              const SizedBox(height: 6),
-              Text(
-                asset.fileName.isEmpty ? '-' : asset.fileName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppText.mono(context, size: 10.5, color: c.muted),
-              ),
-              const SizedBox(height: 8),
-              _buildSpecs(context, c),
-              if (extracting ||
-                  transcription.isFailed ||
-                  transcription.isCanceled) ...[
-                const SizedBox(height: 10),
-                _buildTranscriptionSection(context, c, transcription),
-              ],
+        // 分组连排行：无独立边框，选中以整行背景提示。
+        color: selected ? c.accent.withValues(alpha: 0.07) : c.surface,
+        padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(c, status),
+            const SizedBox(height: 6),
+            Text(
+              asset.fileName.isEmpty ? '-' : asset.fileName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.mono(context, size: 10.5, color: c.muted),
+            ),
+            const SizedBox(height: 8),
+            _buildSpecs(context, c),
+            if (extracting ||
+                transcription.isFailed ||
+                transcription.isCanceled) ...[
+              const SizedBox(height: 10),
+              _buildTranscriptionSection(context, c, transcription),
             ],
-          ),
+          ],
         ),
       ),
     );
@@ -1534,199 +1578,6 @@ class _PulsingDotState extends State<_PulsingDot>
         width: widget.size,
         height: widget.size,
         decoration: BoxDecoration(shape: BoxShape.circle, color: widget.color),
-      ),
-    );
-  }
-}
-
-// ============ 左滑操作 ============
-/// 左滑展开后显露的单个操作。
-class SwipeActionData {
-  const SwipeActionData({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onPressed;
-}
-
-/// 列表行左滑展开操作，操作按钮贴右缘排在卡片下方。
-///
-/// 同一 [group]（页面持有的展开协调器）内同时只展开一行；
-/// 滚动列表、进入多选或操作失效时自动收起。
-class _SwipeActionCell extends StatefulWidget {
-  const _SwipeActionCell({
-    required this.group,
-    required this.cellKey,
-    required this.actions,
-    required this.enabled,
-    required this.child,
-  });
-
-  final ValueNotifier<Object?> group;
-  final Object cellKey;
-  final List<SwipeActionData> actions;
-  final bool enabled;
-  final Widget child;
-
-  @override
-  State<_SwipeActionCell> createState() => _SwipeActionCellState();
-}
-
-class _SwipeActionCellState extends State<_SwipeActionCell>
-    with SingleTickerProviderStateMixin {
-  static const _actionWidth = 78.0;
-  static const _actionGap = 6.0;
-
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 240),
-  );
-
-  double get _openExtent {
-    final count = widget.actions.length;
-    if (count == 0) return 0;
-    return count * _actionWidth + (count - 1) * _actionGap;
-  }
-
-  bool get _isOpen => widget.group.value == widget.cellKey;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.group.addListener(_handleGroupChange);
-  }
-
-  @override
-  void didUpdateWidget(covariant _SwipeActionCell oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!widget.enabled && _isOpen) widget.group.value = null;
-  }
-
-  @override
-  void dispose() {
-    widget.group.removeListener(_handleGroupChange);
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _handleGroupChange() {
-    if (!mounted) return;
-    if (_isOpen) {
-      _controller.animateTo(1, curve: Curves.easeOutCubic);
-    } else if (_controller.value > 0) {
-      _controller.animateTo(0, curve: Curves.easeOutCubic);
-    }
-  }
-
-  void _setOpen(bool open) {
-    if (open) {
-      AppHaptics.selection();
-      widget.group.value = widget.cellKey;
-    } else if (widget.group.value == widget.cellKey) {
-      widget.group.value = null;
-    } else {
-      _controller.animateTo(0, curve: Curves.easeOutCubic);
-    }
-  }
-
-  void _handleDragUpdate(DragUpdateDetails details) {
-    final next =
-        ((_controller.value * _openExtent) + details.delta.dx) / _openExtent;
-    _controller.value = next.clamp(0.0, 1.0);
-  }
-
-  void _handleDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    final open = velocity.abs() > 350 ? velocity < 0 : _controller.value > 0.5;
-    _setOpen(open);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = widget.enabled && widget.actions.isNotEmpty;
-    return GestureDetector(
-      onHorizontalDragUpdate: enabled ? _handleDragUpdate : null,
-      onHorizontalDragEnd: enabled ? _handleDragEnd : null,
-      onTap: enabled && _isOpen ? () => _setOpen(false) : null,
-      child: AnimatedBuilder(
-        animation: _controller,
-        child: widget.child,
-        builder: (context, child) {
-          final value = _controller.value.clamp(0.0, 1.0);
-          return Stack(
-            children: [
-              if (value > 0.01)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    ignoring: value < 0.99,
-                    child: Opacity(
-                      opacity: value,
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (var i = 0; i < widget.actions.length; i++)
-                              _buildAction(i),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              Transform.translate(
-                offset: Offset(-value * _openExtent, 0),
-                child: AbsorbPointer(absorbing: _isOpen, child: child),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildAction(int index) {
-    final action = widget.actions[index];
-    final isLast = index == widget.actions.length - 1;
-    return GestureDetector(
-      onTap: () {
-        AppHaptics.selection();
-        _setOpen(false);
-        action.onPressed();
-      },
-      child: Container(
-        width: _actionWidth,
-        margin: EdgeInsets.only(left: index == 0 ? 0 : _actionGap),
-        decoration: BoxDecoration(
-          color: action.color,
-          borderRadius: BorderRadius.horizontal(
-            left: const Radius.circular(6),
-            right: Radius.circular(isLast ? 17 : 6),
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(action.icon, size: 20, color: Colors.white),
-            const SizedBox(height: 4),
-            Text(
-              action.label,
-              maxLines: 1,
-              style: const TextStyle(
-                color: Colors.white,
-                fontFamily: 'Inter',
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
