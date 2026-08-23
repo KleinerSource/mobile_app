@@ -22,9 +22,9 @@ void main() {
             key: bodyKey,
             child: Builder(
               builder: (context) => ElevatedButton(
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('顶部通知')),
-                ),
+                onPressed: () => ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('顶部通知'))),
                 child: const Text('显示'),
               ),
             ),

@@ -193,8 +193,8 @@ class _ServerMenuRow extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : active
-                  ? Icon(Icons.check_rounded, color: colors.accent, size: 19)
-                  : null,
+              ? Icon(Icons.check_rounded, color: colors.accent, size: 19)
+              : null,
         );
       },
     );

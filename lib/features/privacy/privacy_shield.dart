@@ -61,7 +61,8 @@ class _PrivacyShieldState extends ConsumerState<PrivacyShield>
 
     // iOS: inactive 发生在 App Switcher 出现时(包括拉控制中心 / 来电等),paused 是真后台
     // Android: paused 是后台。两种都需遮罩。
-    final shouldCover = state == AppLifecycleState.inactive ||
+    final shouldCover =
+        state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden;
 
@@ -75,18 +76,15 @@ class _PrivacyShieldState extends ConsumerState<PrivacyShield>
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
 
     _shakeDetector.reset();
-    _shakeSubscription = userAccelerometerEventStream(
-      samplingPeriod: const Duration(milliseconds: 50),
-    ).listen(
-      (event) => _shakeDetector.handle(
-        x: event.x,
-        y: event.y,
-        z: event.z,
-      ),
-      onError: (_) {
-        _shakeSubscription = null;
-      },
-    );
+    _shakeSubscription =
+        userAccelerometerEventStream(
+          samplingPeriod: const Duration(milliseconds: 50),
+        ).listen(
+          (event) => _shakeDetector.handle(x: event.x, y: event.y, z: event.z),
+          onError: (_) {
+            _shakeSubscription = null;
+          },
+        );
   }
 
   void _stopShakeDetection() {
@@ -116,8 +114,7 @@ class _PrivacyShieldState extends ConsumerState<PrivacyShield>
     return Stack(
       children: [
         widget.child,
-        if (_covered)
-          const Positioned.fill(child: _ShieldOverlay()),
+        if (_covered) const Positioned.fill(child: _ShieldOverlay()),
       ],
     );
   }
@@ -224,11 +221,7 @@ class _Brand extends StatelessWidget {
         ),
       ),
       alignment: Alignment.center,
-      child: const Icon(
-        Icons.lock,
-        color: Colors.white,
-        size: 26,
-      ),
+      child: const Icon(Icons.lock, color: Colors.white, size: 26),
     );
   }
 }

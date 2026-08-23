@@ -20,10 +20,7 @@ class ResourcesSheet extends ConsumerStatefulWidget {
 
   final MovieDetail movie;
 
-  static Future<void> show(
-    BuildContext context, {
-    required MovieDetail movie,
-  }) {
+  static Future<void> show(BuildContext context, {required MovieDetail movie}) {
     return showModalBottomSheet<void>(
       context: context,
       backgroundColor: appColors(context).bg,
@@ -68,8 +65,9 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
   int get _movieId => widget.movie.id;
   String get _movieTitle => widget.movie.title;
 
-  List<({String name, String displayName})> get _ed2kDownloaders =>
-      _downloaders.where((d) => _kEd2kSupportedDownloaders.contains(d.name)).toList();
+  List<({String name, String displayName})> get _ed2kDownloaders => _downloaders
+      .where((d) => _kEd2kSupportedDownloaders.contains(d.name))
+      .toList();
 
   @override
   void initState() {
@@ -104,9 +102,9 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
     int generation,
   ) async {
     try {
-      final res = await repo.getResourcesBySource(_movieId, source).timeout(
-            const Duration(seconds: 20),
-          );
+      final res = await repo
+          .getResourcesBySource(_movieId, source)
+          .timeout(const Duration(seconds: 20));
       if (!_isCurrentLoad(generation)) return;
       setState(() {
         _magnets = [..._magnets, ...res.magnets];
@@ -202,9 +200,9 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
     if (_pushingKey != null) return;
     final downloaders = _activeDownloaders;
     if (downloaders.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('未配置可用下载器')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未配置可用下载器')));
       return;
     }
     String? selected;
@@ -245,22 +243,27 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final protocol = _tab == _ResTab.magnet ? 'magnet' : 'ed2k';
-      final res = await ref.read(moviesRepositoryProvider).pushDownload(
-        urls: [url],
-        downloader: downloader,
-        movieId: _movieId,
-        videoInfo: _buildVideoInfo(),
-        recordResources: [_buildRecordResource(item, protocol, url)],
-      );
+      final res = await ref
+          .read(moviesRepositoryProvider)
+          .pushDownload(
+            urls: [url],
+            downloader: downloader,
+            movieId: _movieId,
+            videoInfo: _buildVideoInfo(),
+            recordResources: [_buildRecordResource(item, protocol, url)],
+          );
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(res.message),
-        duration: const Duration(seconds: 2),
-      ));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(res.message),
+          duration: const Duration(seconds: 2),
+        ),
+      );
       // 刷新下载历史 (静默)
       try {
-        final history =
-            await ref.read(moviesRepositoryProvider).getDownloadHistory(_movieId);
+        final history = await ref
+            .read(moviesRepositoryProvider)
+            .getDownloadHistory(_movieId);
         if (mounted) {
           setState(() {
             _downloadedMagnets = history.magnets;
@@ -270,21 +273,23 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
       } catch (_) {}
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text('推送失败: ${toApiException(e).message}'),
-        duration: const Duration(seconds: 2),
-      ));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('推送失败: ${toApiException(e).message}'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _pushingKey = null);
     }
   }
 
   Map<String, dynamic> _buildVideoInfo() => {
-        'code': (widget.movie.num ?? '').trim(),
-        'title': _movieTitle.trim(),
-        'video_id': '',
-        'date': (widget.movie.year != null ? widget.movie.year.toString() : ''),
-      };
+    'code': (widget.movie.num ?? '').trim(),
+    'title': _movieTitle.trim(),
+    'video_id': '',
+    'date': (widget.movie.year != null ? widget.movie.year.toString() : ''),
+  };
 
   Map<String, dynamic> _buildRecordResource(
     Map<String, dynamic> item,
@@ -297,10 +302,10 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
       'source_type': protocol == 'ed2k'
           ? 'ed2k'
           : (item['source_type'] ??
-                  (item['is_external'] == true ? 'external' : 'javdb'))
-              .toString(),
-      'source_label':
-          (item['site'] ?? (protocol == 'ed2k' ? 'ED2K' : '手动')).toString(),
+                    (item['is_external'] == true ? 'external' : 'javdb'))
+                .toString(),
+      'source_label': (item['site'] ?? (protocol == 'ed2k' ? 'ED2K' : '手动'))
+          .toString(),
       'resource_protocol': protocol,
       'resource_site': (item['site'] ?? '').toString(),
       'resource_flags': _buildResourceFlags(item),
@@ -312,13 +317,15 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
 
   int _buildResourceFlags(Map<String, dynamic> item) {
     final tags = (item['tags'] is List) ? (item['tags'] as List) : const [];
-    final lowered =
-        tags.map((t) => t.toString().toLowerCase()).toList(growable: false);
+    final lowered = tags
+        .map((t) => t.toString().toLowerCase())
+        .toList(growable: false);
     int flags = 1;
     if (lowered.any((t) => t == 'uhd' || t == '4k' || t.contains('4k'))) {
       flags = 4;
-    } else if (lowered.any((t) =>
-        (t.contains('hd') && !t.contains('uhd')) || t.contains('高清'))) {
+    } else if (lowered.any(
+      (t) => (t.contains('hd') && !t.contains('uhd')) || t.contains('高清'),
+    )) {
       flags = 2;
     }
     if (lowered.any((t) => t.contains('字幕') || t.contains('sub'))) flags |= 8;
@@ -348,10 +355,12 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                       children: [
                         Text('在线资源', style: AppText.sectionTitle(context)),
                         const SizedBox(height: 2),
-                        Text(_movieTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppText.meta(context)),
+                        Text(
+                          _movieTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.meta(context),
+                        ),
                       ],
                     ),
                   ),
@@ -405,7 +414,9 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                 padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 6),
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: c.warning.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
@@ -441,9 +452,10 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                           _error!,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                              color: c.danger,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600),
+                            color: c.danger,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     )
@@ -463,10 +475,7 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  '正在加载在线资源…',
-                                  style: AppText.meta(context),
-                                ),
+                                Text('正在加载在线资源…', style: AppText.meta(context)),
                               ],
                             ),
                           ),
@@ -487,7 +496,8 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                                 )
                               : ListView.separated(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 22),
+                                    horizontal: 22,
+                                  ),
                                   itemCount: _activeList.length,
                                   separatorBuilder: (_, __) =>
                                       Divider(height: 1, color: c.divider),
@@ -500,7 +510,8 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                                       url: url,
                                       downloadedAt: downloadedAt,
                                       pushing: _pushingKey == url,
-                                      pushDisabled: _pushingKey != null ||
+                                      pushDisabled:
+                                          _pushingKey != null ||
                                           _activeDownloaders.isEmpty,
                                       onPush: () => _onPush(r),
                                     );
@@ -518,19 +529,17 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
 }
 
 String _pickUrl(Map<String, dynamic> item) {
-  return (item['url'] ??
-          item['link'] ??
-          item['magnet'] ??
-          item['ed2k'] ??
-          '')
+  return (item['url'] ?? item['link'] ?? item['magnet'] ?? item['ed2k'] ?? '')
       .toString();
 }
 
 String _extractMagnetHash(String magnet) {
   final t = magnet.trim();
   if (t.isEmpty) return '';
-  final m = RegExp(r'xt=urn:btih:([A-Za-z0-9]+)', caseSensitive: false)
-      .firstMatch(t);
+  final m = RegExp(
+    r'xt=urn:btih:([A-Za-z0-9]+)',
+    caseSensitive: false,
+  ).firstMatch(t);
   if (m != null) return m.group(1)!.toUpperCase();
   return t.toUpperCase();
 }
@@ -599,9 +608,10 @@ class _TabBtn extends StatelessWidget {
           boxShadow: active
               ? const [
                   BoxShadow(
-                      color: Color(0x14000000),
-                      blurRadius: 3,
-                      offset: Offset(0, 1))
+                    color: Color(0x14000000),
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
                 ]
               : null,
         ),
@@ -638,10 +648,7 @@ class _ResourceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final title = (item['title'] ??
-            item['name'] ??
-            item['filename'] ??
-            '资源')
+    final title = (item['title'] ?? item['name'] ?? item['filename'] ?? '资源')
         .toString();
     final size = _formatResourceSize(item['size_mb'] ?? item['size']);
     final date =
@@ -679,7 +686,9 @@ class _ResourceTile extends StatelessWidget {
                     if (source.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 1),
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: c.chipBg,
                           borderRadius: BorderRadius.circular(4),
@@ -727,8 +736,10 @@ class _ResourceTile extends StatelessWidget {
                     icon: Icon(Icons.copy, size: 18, color: c.accent),
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.all(6),
-                    constraints:
-                        const BoxConstraints(minWidth: 36, minHeight: 36),
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
                     onPressed: url.isEmpty
                         ? null
                         : () async {
@@ -746,8 +757,10 @@ class _ResourceTile extends StatelessWidget {
                     tooltip: pushing ? '推送中' : '推送下载',
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.all(6),
-                    constraints:
-                        const BoxConstraints(minWidth: 36, minHeight: 36),
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
                     icon: pushing
                         ? const SizedBox(
                             width: 16,
@@ -802,13 +815,15 @@ class _ResourceTagBadges extends StatelessWidget {
 
   bool get _hasUHD {
     return _tagsLower.any(
-        (t) => t == '4k' || t.contains('uhd') || t.contains('4k'));
+      (t) => t == '4k' || t.contains('uhd') || t.contains('4k'),
+    );
   }
 
   bool get _hasHD {
     if (_hasUHD) return false;
     return _tagsLower.any(
-        (t) => t == 'hd' || t.contains('hd') || t.contains('高清'));
+      (t) => t == 'hd' || t.contains('hd') || t.contains('高清'),
+    );
   }
 
   bool get _hasSub =>

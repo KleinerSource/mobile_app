@@ -79,7 +79,9 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
     setState(() => _merging = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(moviesRepositoryProvider).mergeDuplicateFiles(
+      await ref
+          .read(moviesRepositoryProvider)
+          .mergeDuplicateFiles(
             movieIds: widget.movieIds,
             targetMovieId: _targetId!,
           );
@@ -88,9 +90,9 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text('合并失败: ${toApiException(e).message}'),
-      ));
+      messenger.showSnackBar(
+        SnackBar(content: Text('合并失败: ${toApiException(e).message}')),
+      );
       setState(() => _merging = false);
     }
   }
@@ -111,11 +113,15 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('合并 ${widget.movieIds.length} 部重复影片',
-                      style: AppText.sectionTitle(context)),
+                  Text(
+                    '合并 ${widget.movieIds.length} 部重复影片',
+                    style: AppText.sectionTitle(context),
+                  ),
                   const SizedBox(height: 2),
-                  Text('选择主导影片, 其他相关文件会移到该影片所在目录',
-                      style: AppText.meta(context)),
+                  Text(
+                    '选择主导影片, 其他相关文件会移到该影片所在目录',
+                    style: AppText.meta(context),
+                  ),
                 ],
               ),
             ),
@@ -124,75 +130,83 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(22),
-                            child: Text(_error!,
-                                style: TextStyle(color: c.danger)),
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(22),
+                        child: Text(_error!, style: TextStyle(color: c.danger)),
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
                           ),
-                        )
-                      : ListView(
-                          padding:
-                              const EdgeInsets.fromLTRB(22, 14, 22, 14),
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: c.warning.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                    color: c.warning.withValues(alpha: 0.4)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.warning_amber_rounded,
-                                      color: c.warning, size: 18),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      '同名视频文件会被覆盖, 文件名冲突时非主导记录将被删除',
-                                      style: TextStyle(
-                                        color: c.warning,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          decoration: BoxDecoration(
+                            color: c.warning.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: c.warning.withValues(alpha: 0.4),
                             ),
-                            if (_allInSameFolder) ...[
-                              const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: c.danger.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                      color: c.danger.withValues(alpha: 0.4)),
-                                ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                color: c.warning,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
                                 child: Text(
-                                  '所有选中影片已在同一目录, 无需合并',
+                                  '同名视频文件会被覆盖, 文件名冲突时非主导记录将被删除',
                                   style: TextStyle(
-                                      color: c.danger,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600),
+                                    color: c.warning,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 12),
-                            for (final m in _movies)
-                              _MovieOption(
-                                movie: m,
-                                selected: _targetId == m.id,
-                                disabled: _allInSameFolder,
-                                onTap: () => setState(() => _targetId = m.id),
-                              ),
-                            const SizedBox(height: 20),
-                          ],
+                          ),
                         ),
+                        if (_allInSameFolder) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: c.danger.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: c.danger.withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: Text(
+                              '所有选中影片已在同一目录, 无需合并',
+                              style: TextStyle(
+                                color: c.danger,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        for (final m in _movies)
+                          _MovieOption(
+                            movie: m,
+                            selected: _targetId == m.id,
+                            disabled: _allInSameFolder,
+                            onTap: () => setState(() => _targetId = m.id),
+                          ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
             ),
             Container(
               padding: const EdgeInsets.fromLTRB(22, 10, 22, 10),
@@ -214,7 +228,8 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
                   Expanded(
                     flex: 2,
                     child: FilledButton.icon(
-                      onPressed: (_merging ||
+                      onPressed:
+                          (_merging ||
                               _targetId == null ||
                               _allInSameFolder ||
                               _loading)
@@ -224,14 +239,11 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
                           ? const SizedBox(
                               width: 14,
                               height: 14,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.merge_rounded, size: 18),
                       label: Text(_merging ? '合并中...' : '确认合并'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: c.warning,
-                      ),
+                      style: FilledButton.styleFrom(backgroundColor: c.warning),
                     ),
                   ),
                 ],
@@ -266,9 +278,7 @@ class _MovieOption extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
           side: BorderSide(
-            color: selected
-                ? c.accent.withValues(alpha: 0.55)
-                : c.cardBorder,
+            color: selected ? c.accent.withValues(alpha: 0.55) : c.cardBorder,
             width: 1,
           ),
         ),
@@ -279,60 +289,60 @@ class _MovieOption extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              selected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
-              color: selected ? c.accent : c.muted,
-              size: 18,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  selected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: selected ? c.accent : c.muted,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        movie.title.isEmpty ? '未命名' : movie.title,
+                        style: TextStyle(
+                          color: c.text,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        movie.num ?? '无番号',
+                        style: TextStyle(
+                          color: c.muted,
+                          fontFamily: 'monospace',
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        movie.filePath ?? '路径不可用',
+                        style: TextStyle(
+                          color: c.muted,
+                          fontFamily: 'monospace',
+                          fontSize: 10.5,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    movie.title.isEmpty ? '未命名' : movie.title,
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13.5,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    movie.num ?? '无番号',
-                    style: TextStyle(
-                      color: c.muted,
-                      fontFamily: 'monospace',
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    movie.filePath ?? '路径不可用',
-                    style: TextStyle(
-                      color: c.muted,
-                      fontFamily: 'monospace',
-                      fontSize: 10.5,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            ],
           ),
         ),
       ),
-    ),
     );
   }
 }

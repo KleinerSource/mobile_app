@@ -14,10 +14,10 @@ class PlayerDecodeStatus {
   });
 
   const PlayerDecodeStatus.local({required bool hardware})
-      : this(
-          location: PlayerDecodeLocation.local,
-          mode: hardware ? PlayerDecodeMode.hardware : PlayerDecodeMode.software,
-        );
+    : this(
+        location: PlayerDecodeLocation.local,
+        mode: hardware ? PlayerDecodeMode.hardware : PlayerDecodeMode.software,
+      );
 
   factory PlayerDecodeStatus.server({
     String? engine,
@@ -25,7 +25,8 @@ class PlayerDecodeStatus {
     bool isFallback = false,
   }) {
     final normalized = engine?.trim().toLowerCase() ?? '';
-    final requestedHardware = normalized.isNotEmpty &&
+    final requestedHardware =
+        normalized.isNotEmpty &&
         normalized != 'none' &&
         normalized != 'software' &&
         normalized != 'cpu';
@@ -81,13 +82,9 @@ class PlayerDecodeStatus {
 
   Color get color {
     if (location == PlayerDecodeLocation.local) {
-      return isHardware
-          ? const Color(0xFF63D9FF)
-          : const Color(0xFFFFC857);
+      return isHardware ? const Color(0xFF63D9FF) : const Color(0xFFFFC857);
     }
-    return isHardware
-        ? const Color(0xFF70E4A8)
-        : const Color(0xFFFF8A65);
+    return isHardware ? const Color(0xFF70E4A8) : const Color(0xFFFF8A65);
   }
 
   String? get _engineLabel {

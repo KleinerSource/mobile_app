@@ -49,7 +49,9 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
     });
     try {
       final apiKey = _apiKey.text.trim();
-      final saved = await ref.read(configsRepositoryProvider).saveAvdb(
+      final saved = await ref
+          .read(configsRepositoryProvider)
+          .saveAvdb(
             AvdbConfig(
               enabled: _enabled,
               baseUrl: _baseUrl.text.trim(),
@@ -64,9 +66,9 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
       }
       ref.invalidate(avdbConfigProvider);
       AppHaptics.medium();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('AVDB 数据源配置已保存')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('AVDB 数据源配置已保存')));
     } catch (e) {
       if (mounted) setState(() => _error = toApiException(e).message);
     } finally {
@@ -84,9 +86,8 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
         child: SafeArea(
           child: async.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(
-              child: Text('加载失败: ${toApiException(error).message}'),
-            ),
+            error: (error, _) =>
+                Center(child: Text('加载失败: ${toApiException(error).message}')),
             data: (cfg) {
               _hydrate(cfg);
               return _buildForm(c);
@@ -109,56 +110,52 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
         padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
         children: [
           _sectionLabel('启用状态'),
-              _switchCard(
-                c,
-                title: '启用 AVDB 数据源',
-                subtitle: _enabled ? '演员同步可选择 AVDB' : '已停用',
-                value: _enabled,
-                onChanged: (value) => setState(() => _enabled = value),
+          _switchCard(
+            c,
+            title: '启用 AVDB 数据源',
+            subtitle: _enabled ? '演员同步可选择 AVDB' : '已停用',
+            value: _enabled,
+            onChanged: (value) => setState(() => _enabled = value),
+          ),
+          const SizedBox(height: 18),
+          _sectionLabel('服务地址'),
+          _field(_baseUrl, hint: 'https://example.com'),
+          const SizedBox(height: 18),
+          _sectionLabel('API Key'),
+          Text(
+            _hasKey ? '已配置 · 留空则保留当前密钥' : '请输入 AVDB API Key',
+            style: AppText.meta(context),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _apiKey,
+            obscureText: !_showKey,
+            decoration: settingsInputDecoration(
+              context,
+              hintText: '留空保留当前密钥',
+              prefixIcon: const Icon(Icons.key_outlined),
+              suffixIcon: IconButton(
+                tooltip: _showKey ? '隐藏密钥' : '显示密钥',
+                icon: Icon(_showKey ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setState(() => _showKey = !_showKey),
               ),
-              const SizedBox(height: 18),
-              _sectionLabel('服务地址'),
-              _field(_baseUrl, hint: 'https://example.com'),
-              const SizedBox(height: 18),
-              _sectionLabel('API Key'),
-              Text(
-                _hasKey ? '已配置 · 留空则保留当前密钥' : '请输入 AVDB API Key',
-                style: AppText.meta(context),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _apiKey,
-                obscureText: !_showKey,
-                decoration: settingsInputDecoration(
-                  context,
-                  hintText: '留空保留当前密钥',
-                  prefixIcon: const Icon(Icons.key_outlined),
-                  suffixIcon: IconButton(
-                    tooltip: _showKey ? '隐藏密钥' : '显示密钥',
-                    icon: Icon(
-                        _showKey ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _showKey = !_showKey),
-                  ),
-                ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                _errorBox(c, _error!),
-              ],
-              const SizedBox(height: 28),
-              SettingsSaveButton(
-                onPressed: _save,
-                saving: _saving,
-              ),
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            _errorBox(c, _error!),
+          ],
+          const SizedBox(height: 28),
+          SettingsSaveButton(onPressed: _save, saving: _saving),
         ],
       ),
     );
   }
 
   Widget _sectionLabel(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(text.toUpperCase(), style: AppText.eyebrow(context)),
-      );
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(text.toUpperCase(), style: AppText.eyebrow(context)),
+  );
 
   Widget _field(TextEditingController controller, {required String hint}) {
     return TextField(
@@ -188,9 +185,10 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: TextStyle(
-                        color: c.text, fontWeight: FontWeight.w700)),
+                Text(
+                  title,
+                  style: TextStyle(color: c.text, fontWeight: FontWeight.w700),
+                ),
                 const SizedBox(height: 2),
                 Text(subtitle, style: AppText.meta(context)),
               ],

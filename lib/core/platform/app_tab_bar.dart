@@ -5,7 +5,11 @@ import 'app_haptics.dart';
 import 'platform_utils.dart';
 
 class AppTabItem {
-  const AppTabItem({required this.icon, required this.label, required this.body});
+  const AppTabItem({
+    required this.icon,
+    required this.label,
+    required this.body,
+  });
   final IconData icon;
   final String label;
   final Widget body;
@@ -36,13 +40,14 @@ class _AppTabsShellState extends State<AppTabsShell> {
           currentIndex: _index,
           onTap: _selectTab,
           items: widget.tabs
-              .map((t) => BottomNavigationBarItem(
-                    icon: Icon(t.icon),
-                    label: t.label,
-                  ))
+              .map(
+                (t) =>
+                    BottomNavigationBarItem(icon: Icon(t.icon), label: t.label),
+              )
               .toList(),
         ),
-        tabBuilder: (ctx, i) => CupertinoTabView(builder: (_) => widget.tabs[i].body),
+        tabBuilder: (ctx, i) =>
+            CupertinoTabView(builder: (_) => widget.tabs[i].body),
       );
     }
     return Scaffold(
@@ -54,7 +59,9 @@ class _AppTabsShellState extends State<AppTabsShell> {
         selectedIndex: _index,
         onDestinationSelected: _selectTab,
         destinations: widget.tabs
-            .map((t) => NavigationDestination(icon: Icon(t.icon), label: t.label))
+            .map(
+              (t) => NavigationDestination(icon: Icon(t.icon), label: t.label),
+            )
             .toList(),
       ),
     );

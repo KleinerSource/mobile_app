@@ -6,9 +6,8 @@ import '../api/dio_factory.dart';
 import '../api/server_compatibility.dart';
 import 'server_config.dart';
 
-typedef ServerLineProbe = Future<ServerLineProbeResult> Function(
-  ServerLine line,
-);
+typedef ServerLineProbe =
+    Future<ServerLineProbeResult> Function(ServerLine line);
 
 class ServerLineProbeResult {
   const ServerLineProbeResult._({
@@ -20,25 +19,25 @@ class ServerLineProbeResult {
   });
 
   const ServerLineProbeResult.success(ServerLine line, int latencyMs)
-      : this._(
-          line: line,
-          success: true,
-          latencyMs: latencyMs,
-          message: '',
-          incompatible: false,
-        );
+    : this._(
+        line: line,
+        success: true,
+        latencyMs: latencyMs,
+        message: '',
+        incompatible: false,
+      );
 
   const ServerLineProbeResult.failure(
     ServerLine line,
     String message, {
     bool incompatible = false,
   }) : this._(
-          line: line,
-          success: false,
-          latencyMs: 0,
-          message: message,
-          incompatible: incompatible,
-        );
+         line: line,
+         success: false,
+         latencyMs: 0,
+         message: message,
+         incompatible: incompatible,
+       );
 
   final ServerLine line;
   final bool success;
@@ -183,11 +182,9 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
     );
     final response = await dio.get<dynamic>(
       '/version',
-      options: Options(extra: const {
-        'skipAuth': true,
-        'skipRefresh': true,
-        'skipRetry': true,
-      }),
+      options: Options(
+        extra: const {'skipAuth': true, 'skipRefresh': true, 'skipRetry': true},
+      ),
     );
     requireCompatibleServerVersion(response.data);
     stopwatch.stop();
@@ -198,7 +195,8 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
     return ServerLineProbeResult.failure(
       line,
       exception.message,
-      incompatible: error is ServerCompatibilityException ||
+      incompatible:
+          error is ServerCompatibilityException ||
           exception.status == 401 ||
           exception.status == 404,
     );

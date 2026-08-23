@@ -34,9 +34,9 @@ PagedResult<T> unwrapMovieList<T>(
   final itemsRaw = data['items'];
   final items = (itemsRaw is List)
       ? itemsRaw
-          .whereType<Map>()
-          .map((e) => decodeItem(Map<String, dynamic>.from(e)))
-          .toList()
+            .whereType<Map>()
+            .map((e) => decodeItem(Map<String, dynamic>.from(e)))
+            .toList()
       : <T>[];
   return PagedResult<T>(
     items: items,
@@ -62,9 +62,9 @@ PagedResult<T> unwrapTopLevelList<T>(
   final dataRaw = raw['data'];
   final items = (dataRaw is List)
       ? dataRaw
-          .whereType<Map>()
-          .map((e) => decodeItem(Map<String, dynamic>.from(e)))
-          .toList()
+            .whereType<Map>()
+            .map((e) => decodeItem(Map<String, dynamic>.from(e)))
+            .toList()
       : <T>[];
   return PagedResult<T>(
     items: items,
@@ -90,9 +90,9 @@ OptionsResult<T> unwrapOptions<T>(
   final dataRaw = raw['data'];
   final items = (dataRaw is List)
       ? dataRaw
-          .whereType<Map>()
-          .map((e) => decodeItem(Map<String, dynamic>.from(e)))
-          .toList()
+            .whereType<Map>()
+            .map((e) => decodeItem(Map<String, dynamic>.from(e)))
+            .toList()
       : <T>[];
   return OptionsResult<T>(
     items: items,

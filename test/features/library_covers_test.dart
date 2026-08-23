@@ -18,8 +18,7 @@ void main() {
     });
 
     test('兼容 data:image/jpeg;base64 前缀', () {
-      final raw =
-          'data:image/jpeg;base64,${base64Encode([9, 9, 9, 9])}';
+      final raw = 'data:image/jpeg;base64,${base64Encode([9, 9, 9, 9])}';
       final bytes = decodeCoverImageBase64(raw);
       expect(bytes, isNotNull);
       expect(bytes!, equals([9, 9, 9, 9]));

@@ -11,11 +11,13 @@ void main() {
   test('并发 401 只触发一次 refresh，并重试原请求', () async {
     final store = _MemoryTokenStore();
     final repository = AuthSessionRepository(store: store);
-    await repository.save(const AuthSession(
-      accessToken: 'old-access',
-      refreshToken: 'refresh-token',
-      expiresIn: 3600,
-    ));
+    await repository.save(
+      const AuthSession(
+        accessToken: 'old-access',
+        refreshToken: 'refresh-token',
+        expiresIn: 3600,
+      ),
+    );
     final adapter = _RefreshAdapter();
     final dio = buildDio(
       const ServerConfig(baseUrl: 'http://media.example:8001'),
@@ -64,10 +66,11 @@ class _RefreshAdapter implements HttpClientAdapter {
       });
     }
     if (_firstFailures.add(options.path)) {
-      return _jsonResponse(
-        {'success': false, 'message': 'expired', 'data': null},
-        status: 401,
-      );
+      return _jsonResponse({
+        'success': false,
+        'message': 'expired',
+        'data': null,
+      }, status: 401);
     }
     return _jsonResponse({'success': true, 'message': 'ok', 'data': {}});
   }
@@ -76,7 +79,9 @@ class _RefreshAdapter implements HttpClientAdapter {
     return ResponseBody.fromString(
       jsonEncode(body),
       status,
-      headers: {Headers.contentTypeHeader: ['application/json']},
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
     );
   }
 }

@@ -28,11 +28,11 @@ class ActorAssociationMember {
 
   /// 子行的编辑/删除复用主行流程，需要转成 ActorItem。
   ActorItem get asActorItem => ActorItem(
-        id: id,
-        name: name,
-        biography: biography,
-        avatarPath: avatarPath,
-      );
+    id: id,
+    name: name,
+    biography: biography,
+    avatarPath: avatarPath,
+  );
 }
 
 /// 演员管理列表行：主演员 + 折叠的关联成员（collapse_associations 响应）。
@@ -60,8 +60,9 @@ class ActorRow {
         if (id == null || membersRaw is! List) continue;
         final members = <ActorAssociationMember>[];
         for (final item in membersRaw.whereType<Map>()) {
-          final member =
-              ActorAssociationMember.tryParse(Map<String, dynamic>.from(item));
+          final member = ActorAssociationMember.tryParse(
+            Map<String, dynamic>.from(item),
+          );
           if (member != null) members.add(member);
         }
         if (members.isNotEmpty) membersByActorId[id] = members;
@@ -71,7 +72,8 @@ class ActorRow {
       for (final actor in items)
         ActorRow(
           actor: actor,
-          members: membersByActorId[actor.id] ?? const <ActorAssociationMember>[],
+          members:
+              membersByActorId[actor.id] ?? const <ActorAssociationMember>[],
         ),
     ];
   }

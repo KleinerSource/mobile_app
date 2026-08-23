@@ -14,10 +14,7 @@ void main() {
               primary: true,
               children: List.generate(
                 40,
-                (index) => SizedBox(
-                  height: 60,
-                  child: Text('$index'),
-                ),
+                (index) => SizedBox(height: 60, child: Text('$index')),
               ),
             ),
           ),

@@ -19,7 +19,7 @@ void main() {
         'total_count': 1,
         'limit': 50,
         'offset': 0,
-      }
+      },
     });
     final repo = MoviesRepository(api, _StubFavoritesApi(), _StubSystemApi());
     final paged = await repo.list(const MovieFilter(), limit: 50, offset: 0);
@@ -37,16 +37,12 @@ void main() {
       'message': 'ok',
       'data': {
         'items': [
-          {
-            'id': 7,
-            'title': 'A',
-            'movie_created_at': '2026-08-12T00:00:00Z',
-          },
+          {'id': 7, 'title': 'A', 'movie_created_at': '2026-08-12T00:00:00Z'},
         ],
         'total_count': 1,
         'limit': 1,
         'offset': 0,
-      }
+      },
     });
     final repo = MoviesRepository(api, _StubFavoritesApi(), _StubSystemApi());
 
@@ -62,11 +58,14 @@ void main() {
   });
 
   test('detail 解 StdEnvelope', () async {
-    final api = _StubMoviesApi({}, detail: {
-      'success': true,
-      'message': 'ok',
-      'data': {'id': 9, 'title': 'D'}
-    });
+    final api = _StubMoviesApi(
+      {},
+      detail: {
+        'success': true,
+        'message': 'ok',
+        'data': {'id': 9, 'title': 'D'},
+      },
+    );
     final repo = MoviesRepository(api, _StubFavoritesApi(), _StubSystemApi());
     final d = await repo.detail(9);
     expect(d.id, 9);
@@ -209,8 +208,7 @@ class _StubMoviesApi implements MoviesApi {
 
   @override
   Future<dynamic> getWatchRecord(int id) async =>
-      watchRecordResponse ??
-      {'success': true, 'message': 'ok', 'data': null};
+      watchRecordResponse ?? {'success': true, 'message': 'ok', 'data': null};
 
   @override
   Future<dynamic> acknowledgeResources(int id) async {
@@ -223,147 +221,230 @@ class _StubMoviesApi implements MoviesApi {
   }
 
   @override
-  Future<dynamic> getExtraFanarts(int id) async =>
-      {'success': true, 'message': 'ok', 'data': <String>[]};
+  Future<dynamic> getExtraFanarts(int id) async => {
+    'success': true,
+    'message': 'ok',
+    'data': <String>[],
+  };
 
   @override
-  Future<dynamic> getMediaInfo(int id) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> getMediaInfo(int id) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> updateMovie(int id, Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> updateMovie(int id, Map<String, dynamic> body) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> deleteMovies(Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> deleteMovies(Map<String, dynamic> body) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> syncNfo(int id) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> syncNfo(int id) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> refreshFromNfo(int id) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> refreshFromNfo(int id) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> getNfoStatus(int id) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> getNfoStatus(int id) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> searchThunderSubtitles(int id) async =>
-      {'success': true, 'message': 'ok', 'data': {'items': []}};
+  Future<dynamic> searchThunderSubtitles(int id) async => {
+    'success': true,
+    'message': 'ok',
+    'data': {'items': []},
+  };
 
   @override
   Future<dynamic> previewThunderSubtitle(
-          int id, Map<String, dynamic> q) async =>
-      {'success': true, 'message': 'ok', 'data': {'content': ''}};
+    int id,
+    Map<String, dynamic> q,
+  ) async => {
+    'success': true,
+    'message': 'ok',
+    'data': {'content': ''},
+  };
 
   @override
   Future<dynamic> downloadThunderSubtitle(
-          int id, Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+    int id,
+    Map<String, dynamic> body,
+  ) async => {'success': true, 'message': 'ok', 'data': null};
 
   @override
   Future<dynamic> updatePosterWatermark(
-          int id, Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+    int id,
+    Map<String, dynamic> body,
+  ) async => {'success': true, 'message': 'ok', 'data': null};
 
   @override
   Future<HttpResponse<List<int>>> previewPosterWatermark(
-          int id, Map<String, dynamic> body) async =>
-      HttpResponse(<int>[], Response(requestOptions: RequestOptions()));
+    int id,
+    Map<String, dynamic> body,
+  ) async => HttpResponse(<int>[], Response(requestOptions: RequestOptions()));
 
   @override
-  Future<dynamic> getDbonlineMetadata(int id) async =>
-      {'success': true, 'message': 'ok', 'data': {}};
+  Future<dynamic> getDbonlineMetadata(int id) async => {
+    'success': true,
+    'message': 'ok',
+    'data': {},
+  };
 
   @override
-  Future<dynamic> getResources(int id, String source) async =>
-      {'success': true, 'message': 'ok', 'data': []};
+  Future<dynamic> getResources(int id, String source) async => {
+    'success': true,
+    'message': 'ok',
+    'data': [],
+  };
 
   @override
-  Future<dynamic> getDownloadHistory(int id) async =>
-      {'success': true, 'message': 'ok', 'data': {'magnets': {}, 'ed2ks': {}}};
+  Future<dynamic> getDownloadHistory(int id) async => {
+    'success': true,
+    'message': 'ok',
+    'data': {'magnets': {}, 'ed2ks': {}},
+  };
 
   @override
-  Future<dynamic> batchAddAssociations(Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> batchAddAssociations(Map<String, dynamic> body) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> batchRemoveAssociations(Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> batchRemoveAssociations(Map<String, dynamic> body) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> batchWatermark(Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> batchWatermark(Map<String, dynamic> body) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> mergeDuplicateFiles(Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> mergeDuplicateFiles(Map<String, dynamic> body) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> compareDuplicateNfo(Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> compareDuplicateNfo(Map<String, dynamic> body) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> applyDuplicateNfo(Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> applyDuplicateNfo(Map<String, dynamic> body) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> requestDownload(Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> requestDownload(Map<String, dynamic> body) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 }
 
 class _StubSystemApi implements SystemApi {
   @override
-  Future<dynamic> health() async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> health() async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> version() async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> version() async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> stats() async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> stats() async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> getDownloaders() async =>
-      {'success': true, 'message': 'ok', 'data': {'downloaders': []}};
+  Future<dynamic> getDownloaders() async => {
+    'success': true,
+    'message': 'ok',
+    'data': {'downloaders': []},
+  };
 
   @override
-  Future<dynamic> pushDownload(Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> pushDownload(Map<String, dynamic> body) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 }
 
 class _StubFavoritesApi implements FavoritesApi {
   @override
   Future<dynamic> list(Map<String, dynamic> q) async => {
-        'success': true,
-        'message': 'ok',
-        'data': {'items': [], 'total_count': 0, 'limit': 50, 'offset': 0}
-      };
+    'success': true,
+    'message': 'ok',
+    'data': {'items': [], 'total_count': 0, 'limit': 50, 'offset': 0},
+  };
 
   @override
   Future<dynamic> toggle(int movieId) async => {
-        'success': true,
-        'message': 'ok',
-        'data': {'is_favorited': true}
-      };
+    'success': true,
+    'message': 'ok',
+    'data': {'is_favorited': true},
+  };
 
   @override
   Future<dynamic> status(int movieId) async => {
-        'success': true,
-        'message': 'ok',
-        'data': {'is_favorited': false}
-      };
+    'success': true,
+    'message': 'ok',
+    'data': {'is_favorited': false},
+  };
 
   @override
-  Future<dynamic> addBatch(Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> addBatch(Map<String, dynamic> body) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> removeBatch(Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> removeBatch(Map<String, dynamic> body) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 }

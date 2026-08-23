@@ -44,7 +44,8 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
 
     _overlayEntry?.remove();
     final messenger = widget as TopSnackBarMessenger;
-    final overlay = messenger.navigatorKey.currentState?.overlay ??
+    final overlay =
+        messenger.navigatorKey.currentState?.overlay ??
         Overlay.maybeOf(context, rootOverlay: true);
     if (overlay == null) {
       return controller;
@@ -96,12 +97,14 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
     final theme = Theme.of(context);
     final snackBarTheme = SnackBarTheme.of(context);
     final action = snackBar.action;
-    final backgroundColor = snackBar.backgroundColor ??
+    final backgroundColor =
+        snackBar.backgroundColor ??
         snackBarTheme.backgroundColor ??
         theme.colorScheme.inverseSurface;
     final contentTextStyle =
         snackBarTheme.contentTextStyle ?? theme.textTheme.bodyMedium!;
-    final actionColor = action?.textColor ??
+    final actionColor =
+        action?.textColor ??
         snackBarTheme.actionTextColor ??
         theme.colorScheme.primary;
 
@@ -112,12 +115,14 @@ class TopSnackBarMessengerState extends ScaffoldMessengerState {
         key: const ValueKey<String>('top-notice-card'),
         color: backgroundColor,
         elevation: snackBar.elevation ?? snackBarTheme.elevation ?? 6,
-        shape: snackBar.shape ??
+        shape:
+            snackBar.shape ??
             snackBarTheme.shape ??
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          padding: snackBar.padding ??
+          padding:
+              snackBar.padding ??
               const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [

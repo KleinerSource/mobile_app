@@ -39,9 +39,7 @@ abstract final class AppHaptics {
   }
 
   static void configureFromPreferences(SharedPreferences prefs) {
-    _intensity = HapticIntensity.fromStorage(
-      prefs.getString(preferenceKey),
-    );
+    _intensity = HapticIntensity.fromStorage(prefs.getString(preferenceKey));
   }
 
   static void selection() {

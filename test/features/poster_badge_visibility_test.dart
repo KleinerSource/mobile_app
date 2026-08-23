@@ -36,11 +36,11 @@ void main() {
         .read(posterBadgeVisibilityProvider.notifier)
         .setEnabled(PosterBadgeKind.hdr, false);
 
+    expect(container.read(posterBadgeVisibilityProvider).hdr, isFalse);
     expect(
-      container.read(posterBadgeVisibilityProvider).hdr,
-      isFalse,
+      prefs.getString('app.posterBadgeVisibility'),
+      contains('"hdr":false'),
     );
-    expect(prefs.getString('app.posterBadgeVisibility'), contains('"hdr":false'));
   });
 
   testWidgets('海报角标预览会随开关实时更新', (tester) async {
@@ -88,9 +88,6 @@ void main() {
     final badgeContainer = tester.widget<Container>(
       find.ancestor(of: find.text('HEVC'), matching: find.byType(Container)),
     );
-    expect(
-      (badgeContainer.decoration! as BoxDecoration).color,
-      badge.color,
-    );
+    expect((badgeContainer.decoration! as BoxDecoration).color, badge.color);
   });
 }

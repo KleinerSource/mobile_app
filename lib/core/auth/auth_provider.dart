@@ -13,8 +13,9 @@ import '../config/server_line_probe.dart';
 import 'auth_session.dart';
 import 'auth_session_provider.dart';
 
-final authControllerProvider =
-    AsyncNotifierProvider<AuthController, AuthState>(AuthController.new);
+final authControllerProvider = AsyncNotifierProvider<AuthController, AuthState>(
+  AuthController.new,
+);
 
 class AuthController extends AsyncNotifier<AuthState> {
   @override
@@ -42,11 +43,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       final current = candidates.firstWhere(
         (line) => line.baseUrl == config.baseUrl,
         orElse: () => candidates.isEmpty
-            ? ServerLine(
-                id: 'active',
-                name: '当前线路',
-                baseUrl: config.baseUrl,
-              )
+            ? ServerLine(id: 'active', name: '当前线路', baseUrl: config.baseUrl)
             : candidates.first,
       );
       final alternatives = candidates.where((line) => line.id != current.id);
@@ -56,8 +53,9 @@ class AuthController extends AsyncNotifier<AuthState> {
       );
       final selected = selection.selected;
       if (selected == null) {
-        final incompatible =
-            selection.results.any((result) => result.incompatible);
+        final incompatible = selection.results.any(
+          (result) => result.incompatible,
+        );
         final detail = selection.results
             .map((result) => '${result.line.name}：${result.message}')
             .join('\n');
@@ -66,8 +64,8 @@ class AuthController extends AsyncNotifier<AuthState> {
           message: incompatible
               ? serverCompatibilityRequirementMessage
               : detail.isEmpty
-                  ? '没有可用的服务器线路'
-                  : detail,
+              ? '没有可用的服务器线路'
+              : detail,
         );
       }
       selectedConfig = _withSelectedLine(config, selected);
@@ -159,8 +157,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     ref
         .read(authSessionRepositoryProvider)
         .setActiveServerId(config.activeServerId);
-    if (config.hasMultipleServers &&
-        !ref.read(serverSelectionReadyProvider)) {
+    if (config.hasMultipleServers && !ref.read(serverSelectionReadyProvider)) {
       const result = AuthState(phase: AuthPhase.serverSelection);
       state = const AsyncData(result);
       return result;
@@ -191,28 +188,31 @@ class AuthController extends AsyncNotifier<AuthState> {
       }
       await ref.read(authSessionRepositoryProvider).save(session);
       final status = await client.auth.status();
-      state = AsyncData(AuthState(
-        phase: AuthPhase.authenticated,
-        status: status,
-      ));
+      state = AsyncData(
+        AuthState(phase: AuthPhase.authenticated, status: status),
+      );
       return true;
     } catch (error) {
       final exception = toApiException(error);
       final data = exception.data;
       final totpRequired = data is Map && data['totp_required'] == true;
       if (totpRequired) {
-        state = AsyncData(AuthState(
-          phase: AuthPhase.totpRequired,
-          status: current?.status,
-          message: exception.message,
-        ));
+        state = AsyncData(
+          AuthState(
+            phase: AuthPhase.totpRequired,
+            status: current?.status,
+            message: exception.message,
+          ),
+        );
         return false;
       }
-      state = AsyncData(AuthState(
-        phase: AuthPhase.needsLogin,
-        status: current?.status,
-        message: exception.message,
-      ));
+      state = AsyncData(
+        AuthState(
+          phase: AuthPhase.needsLogin,
+          status: current?.status,
+          message: exception.message,
+        ),
+      );
       throw exception;
     }
   }
@@ -261,10 +261,9 @@ class AuthController extends AsyncNotifier<AuthState> {
     } finally {
       await ref.read(authSessionRepositoryProvider).clear();
       final current = state.valueOrNull;
-      state = AsyncData(AuthState(
-        phase: AuthPhase.needsLogin,
-        status: current?.status,
-      ));
+      state = AsyncData(
+        AuthState(phase: AuthPhase.needsLogin, status: current?.status),
+      );
     }
   }
 }

@@ -24,10 +24,7 @@ String resolveApiUrl(ServerConfig config, String value) {
   final raw = value.trim();
   final path = raw.startsWith('/') ? raw : '/$raw';
   final hasApiPrefix = path == '/api' || path.startsWith('/api/');
-  return resolveServerUrl(
-    config,
-    hasApiPrefix ? path : '/api$path',
-  );
+  return resolveServerUrl(config, hasApiPrefix ? path : '/api$path');
 }
 
 String appendQueryToken(String value, String? token) {
@@ -59,11 +56,7 @@ bool isExternalUrl(ServerConfig config, String value) {
 }
 
 /// 为同服务器地址追加临时 token；跨服务器地址视为外部媒体源并原样返回。
-String resolveProtectedUrl(
-  ServerConfig config,
-  String value,
-  String? token,
-) {
+String resolveProtectedUrl(ServerConfig config, String value, String? token) {
   if (isExternalUrl(config, value)) return value;
   return appendQueryToken(resolveServerUrl(config, value), token);
 }

@@ -53,11 +53,15 @@ abstract class MappingsApi {
   /// 启动混合渠道渐进预览会话 · body: { actor_name } → { task_id }
   /// 渠道在后台并行采集，每完成一个即增量合并，先到的渠道数据可先渲染
   @POST('/mappings/actors/external-sync/preview/mixed')
-  Future<dynamic> mixedExternalSyncPreviewStart(@Body() Map<String, dynamic> body);
+  Future<dynamic> mixedExternalSyncPreviewStart(
+    @Body() Map<String, dynamic> body,
+  );
 
   /// 获取混合渠道预览会话进度 · { status: running|complete|failed, pending_sources, preview, error? }
   @GET('/mappings/actors/external-sync/preview/mixed/{taskId}')
-  Future<dynamic> mixedExternalSyncPreviewSession(@Path('taskId') String taskId);
+  Future<dynamic> mixedExternalSyncPreviewSession(
+    @Path('taskId') String taskId,
+  );
 
   /// 应用同步演员关联结果 · body: { mapped_value, original_values, biography?, avatar_url?, avatar_overwrite? }
   @POST('/mappings/actors/external-sync/apply')

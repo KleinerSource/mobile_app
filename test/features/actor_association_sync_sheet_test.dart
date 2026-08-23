@@ -17,8 +17,7 @@ import 'package:md_center/features/configs/configs_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('数据源以并排选项卡显示且预览请求中可快速往返切换',
-      (tester) async {
+  testWidgets('数据源以并排选项卡显示且预览请求中可快速往返切换', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final repository = _PendingPreviewRepository();
@@ -82,14 +81,11 @@ void main() {
     await tester.tap(find.text('DB Online'));
     await tester.pump();
 
-    expect(
-      repository.requests,
-      [
-        ActorDataSource.dbonline,
-        ActorDataSource.avdb,
-        ActorDataSource.dbonline,
-      ],
-    );
+    expect(repository.requests, [
+      ActorDataSource.dbonline,
+      ActorDataSource.avdb,
+      ActorDataSource.dbonline,
+    ]);
     expect(find.byType(Checkbox), findsNothing);
 
     oldDbo.complete(_preview('过期 DB Online 结果'));
@@ -112,18 +108,20 @@ void main() {
     expect(repository.requests.last, ActorDataSource.mixed);
 
     // 首个渠道（AVDB）先完成：立即上屏，DB Online 按钮显示补齐状态
-    mixedPartial.complete(const MixedActorPreviewSession(
-      status: 'running',
-      pendingSources: ['dbonline'],
-      preview: ActorAssocPreview(
-        found: true,
-        mappedValue: '混合渠道部分结果',
-        actorName: '演员 A',
-        allAliases: [],
-        existingAliases: [],
-        newAliases: ['部分新别名'],
+    mixedPartial.complete(
+      const MixedActorPreviewSession(
+        status: 'running',
+        pendingSources: ['dbonline'],
+        preview: ActorAssocPreview(
+          found: true,
+          mappedValue: '混合渠道部分结果',
+          actorName: '演员 A',
+          allAliases: [],
+          existingAliases: [],
+          newAliases: ['部分新别名'],
+        ),
       ),
-    ));
+    );
     await tester.pump();
     expect(find.text('混合渠道部分结果'), findsOneWidget);
     expect(find.textContaining('等待DB Online补齐'), findsNothing);
@@ -144,20 +142,22 @@ void main() {
     expect(pendingButton.onPressed, isNotNull);
 
     // DB Online 返回未命中：补齐完成，渠道按钮显示错误图标
-    mixedFinal.complete(const MixedActorPreviewSession(
-      status: 'complete',
-      pendingSources: [],
-      preview: ActorAssocPreview(
-        found: true,
-        mappedValue: '混合渠道完整结果',
-        actorName: '演员 A',
-        allAliases: [],
-        existingAliases: [],
-        newAliases: ['新别名'],
-        externalIds: {'avdb': '290438'},
-        notFoundSources: ['dbonline'],
+    mixedFinal.complete(
+      const MixedActorPreviewSession(
+        status: 'complete',
+        pendingSources: [],
+        preview: ActorAssocPreview(
+          found: true,
+          mappedValue: '混合渠道完整结果',
+          actorName: '演员 A',
+          allAliases: [],
+          existingAliases: [],
+          newAliases: ['新别名'],
+          externalIds: {'avdb': '290438'},
+          notFoundSources: ['dbonline'],
+        ),
       ),
-    ));
+    );
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(find.text('混合渠道完整结果'), findsOneWidget);
@@ -179,15 +179,17 @@ void main() {
     final failedDbo = repository.enqueue(ActorDataSource.dbonline);
     await tester.tap(find.text('DB Online'));
     await tester.pump();
-    failedDbo.complete(const ActorAssocPreview(
-      found: false,
-      mappedValue: '',
-      actorName: '演员 A',
-      allAliases: [],
-      existingAliases: [],
-      newAliases: [],
-      warnings: ['DB Online 渠道查询失败: 请求超时'],
-    ));
+    failedDbo.complete(
+      const ActorAssocPreview(
+        found: false,
+        mappedValue: '',
+        actorName: '演员 A',
+        allAliases: [],
+        existingAliases: [],
+        newAliases: [],
+        warnings: ['DB Online 渠道查询失败: 请求超时'],
+      ),
+    );
     await tester.pumpAndSettle();
 
     final failedIcons = tester.widgetList<Icon>(
@@ -222,11 +224,8 @@ void main() {
             ),
           ),
           avdbConfigProvider.overrideWith(
-            (ref) async => const AvdbConfig(
-              enabled: false,
-              baseUrl: '',
-              apiKey: '',
-            ),
+            (ref) async =>
+                const AvdbConfig(enabled: false, baseUrl: '', apiKey: ''),
           ),
           actorAssociationsRepositoryProvider.overrideWithValue(repository),
         ],
@@ -287,11 +286,8 @@ void main() {
             ),
           ),
           avdbConfigProvider.overrideWith(
-            (ref) async => const AvdbConfig(
-              enabled: false,
-              baseUrl: '',
-              apiKey: '',
-            ),
+            (ref) async =>
+                const AvdbConfig(enabled: false, baseUrl: '', apiKey: ''),
           ),
           actorAssociationsRepositoryProvider.overrideWithValue(repository),
         ],
@@ -467,7 +463,7 @@ class _PendingPreviewRepository extends ActorAssociationsRepository {
 
 class _AvatarPreviewRepository extends ActorAssociationsRepository {
   _AvatarPreviewRepository(this.avatarPreviewFuture, this.applyCompletion)
-      : super(MappingsApi(Dio()));
+    : super(MappingsApi(Dio()));
 
   final Future<List<int>> avatarPreviewFuture;
   final Completer<void> applyCompletion;
@@ -522,7 +518,7 @@ class _AvatarPreviewRepository extends ActorAssociationsRepository {
 
 class _AvatarPickerRepository extends ActorAssociationsRepository {
   _AvatarPickerRepository(this.firstAvatar, this.secondAvatar)
-      : super(MappingsApi(Dio()));
+    : super(MappingsApi(Dio()));
 
   final Future<List<int>> firstAvatar;
   final Future<List<int>> secondAvatar;

@@ -36,10 +36,8 @@ class ActorAssociationEditorSheet extends ConsumerStatefulWidget {
       backgroundColor: appColors(context).bg,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => ActorAssociationEditorSheet(
-        mode: mode,
-        existing: existing,
-      ),
+      builder: (_) =>
+          ActorAssociationEditorSheet(mode: mode, existing: existing),
     );
   }
 
@@ -73,8 +71,9 @@ class _ActorAssociationEditorSheetState
   void initState() {
     super.initState();
     _mapped = TextEditingController(text: widget.existing?.mappedValue ?? '');
-    final initialAliases =
-        _isEdit ? (widget.existing?.originalValues ?? const []).join('\n') : '';
+    final initialAliases = _isEdit
+        ? (widget.existing?.originalValues ?? const []).join('\n')
+        : '';
     _aliases = TextEditingController(text: initialAliases);
   }
 
@@ -89,24 +88,26 @@ class _ActorAssociationEditorSheetState
     if (_saving) return;
     final mapped = _mapped.text.trim();
     if (mapped.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入标准演员名称')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入标准演员名称')));
       return;
     }
-    final inputAliases =
-        ActorAssociationsRepository.parseAliases(_aliases.text, mapped);
+    final inputAliases = ActorAssociationsRepository.parseAliases(
+      _aliases.text,
+      mapped,
+    );
 
     if (_isAppend && inputAliases.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入要追加的别名')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入要追加的别名')));
       return;
     }
     if (_isCreate && inputAliases.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请至少添加一个别名')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请至少添加一个别名')));
       return;
     }
 
@@ -130,9 +131,7 @@ class _ActorAssociationEditorSheetState
           mapped,
         );
         if (merged.length == widget.existing!.originalValues.length) {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('没有可添加的新名称')),
-          );
+          messenger.showSnackBar(const SnackBar(content: Text('没有可添加的新名称')));
           setState(() => _saving = false);
           return;
         }
@@ -148,9 +147,9 @@ class _ActorAssociationEditorSheetState
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text('$_title 失败: ${toApiException(e).message}'),
-      ));
+      messenger.showSnackBar(
+        SnackBar(content: Text('$_title 失败: ${toApiException(e).message}')),
+      );
       setState(() => _saving = false);
     }
   }
@@ -197,8 +196,10 @@ class _ActorAssociationEditorSheetState
                   hintText: '例: 加勒比海岛',
                   prefixIcon: Icon(Icons.person_outline),
                   border: InputBorder.none,
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                 ),
                 style: TextStyle(
                   color: c.text,
@@ -230,8 +231,10 @@ class _ActorAssociationEditorSheetState
                   hintText: '一行一个, 或用 , ; 、 分隔',
                   prefixIcon: Icon(Icons.sell_outlined),
                   border: InputBorder.none,
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                 ),
                 style: TextStyle(
                   color: c.text,

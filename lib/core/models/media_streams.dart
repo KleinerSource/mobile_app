@@ -172,8 +172,10 @@ class MediaStreams {
         json['video'] is Map ? _asMap(json['video']) : null,
       ),
       audioStreams: _mapList(json['audio_streams'], AudioStreamInfo.fromJson),
-      subtitleStreams:
-          _mapList(json['subtitle_streams'], SubtitleStreamInfo.fromJson),
+      subtitleStreams: _mapList(
+        json['subtitle_streams'],
+        SubtitleStreamInfo.fromJson,
+      ),
     );
   }
 }

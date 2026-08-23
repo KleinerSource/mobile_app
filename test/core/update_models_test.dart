@@ -20,7 +20,10 @@ void main() {
       'https://github.com/KleinerSource/mobile_app/releases',
     );
 
-    expect(repository.canonicalUrl, 'https://github.com/KleinerSource/mobile_app');
+    expect(
+      repository.canonicalUrl,
+      'https://github.com/KleinerSource/mobile_app',
+    );
     expect(
       repository.releasesApiUrl,
       'https://api.github.com/repos/KleinerSource/mobile_app/releases?per_page=100',
@@ -100,7 +103,10 @@ void main() {
       UpdatePlatform.android,
     );
 
-    expect(ios?.version, const AppReleaseVersion(major: 0, minor: 1, patch: 60, build: 67));
+    expect(
+      ios?.version,
+      const AppReleaseVersion(major: 0, minor: 1, patch: 60, build: 67),
+    );
     expect(ios?.asset.name, 'md_center_0.1.60+67.ipa');
     expect(android?.asset.name, 'md_center_0.1.60+67.apk');
   });
@@ -119,10 +125,9 @@ void main() {
       ],
     });
 
-    final candidate = GitHubUpdateService.selectLatestCandidate(
-      [release],
-      UpdatePlatform.ios,
-    );
+    final candidate = GitHubUpdateService.selectLatestCandidate([
+      release,
+    ], UpdatePlatform.ios);
 
     expect(candidate?.asset.name, 'md_center_0.1.73+80.ipa');
     expect(
@@ -145,10 +150,7 @@ commit: [d1081e5](https://github.com/example/mobile_app/commit/d1081e5)
 run: [308](https://github.com/example/mobile_app/actions/runs/123)''',
     });
 
-    expect(
-      release.updateNotes,
-      'fix: 修复服务器切换卡住\n - 增加快速鉴权路径',
-    );
+    expect(release.updateNotes, 'fix: 修复服务器切换卡住\n - 增加快速鉴权路径');
   });
 
   test('没有更新说明时返回空内容', () {

@@ -112,10 +112,7 @@ class _PatternPainter extends CustomPainter {
     final cell = size.width / 3;
     final centers = [
       for (var index = 0; index < 9; index++)
-        Offset(
-          (index % 3 + 0.5) * cell,
-          (index ~/ 3 + 0.5) * cell,
-        ),
+        Offset((index % 3 + 0.5) * cell, (index ~/ 3 + 0.5) * cell),
     ];
 
     if (selected.length > 1 || (selected.isNotEmpty && pointer != null)) {
@@ -154,7 +151,11 @@ class _PatternPainter extends CustomPainter {
       final dot = Paint()
         ..color = selectedPoint ? color : mutedColor
         ..style = PaintingStyle.fill;
-      canvas.drawCircle(center, selectedPoint ? cell * 0.075 : cell * 0.045, dot);
+      canvas.drawCircle(
+        center,
+        selectedPoint ? cell * 0.075 : cell * 0.045,
+        dot,
+      );
     }
   }
 

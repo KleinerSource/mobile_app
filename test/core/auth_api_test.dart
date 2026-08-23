@@ -74,31 +74,31 @@ class _AuthAdapter implements HttpClientAdapter {
 
     final data = switch (options.uri.path) {
       '/api/auth/status' => {
-          'enabled': true,
-          'configured': true,
-          'authenticated': false,
-          'password_login_disabled': false,
-          'refresh_token_expire_days': 7,
-          'max_failed_attempts': 5,
-          'lock_minutes': 30,
-          'totp_configured': true,
-          'webauthn_configured': false,
-        },
+        'enabled': true,
+        'configured': true,
+        'authenticated': false,
+        'password_login_disabled': false,
+        'refresh_token_expire_days': 7,
+        'max_failed_attempts': 5,
+        'lock_minutes': 30,
+        'totp_configured': true,
+        'webauthn_configured': false,
+      },
       '/api/auth/config' => {
-          'enabled': true,
-          'configured': true,
-          'password_login_disabled': false,
-          'refresh_token_expire_days': options.method == 'PATCH' ? 14 : 7,
-          'max_failed_attempts': options.method == 'PATCH' ? 8 : 5,
-          'lock_minutes': options.method == 'PATCH' ? 45 : 30,
-          'totp_configured': true,
-          'webauthn_configured': false,
-        },
+        'enabled': true,
+        'configured': true,
+        'password_login_disabled': false,
+        'refresh_token_expire_days': options.method == 'PATCH' ? 14 : 7,
+        'max_failed_attempts': options.method == 'PATCH' ? 8 : 5,
+        'lock_minutes': options.method == 'PATCH' ? 45 : 30,
+        'totp_configured': true,
+        'webauthn_configured': false,
+      },
       '/api/auth/totp/begin' => {
-          'session_id': 'totp-session',
-          'secret': 'TOTPSECRET',
-          'qr_data_url': 'data:image/png;base64,AAAA',
-        },
+        'session_id': 'totp-session',
+        'secret': 'TOTPSECRET',
+        'qr_data_url': 'data:image/png;base64,AAAA',
+      },
       '/api/auth/totp/finish' => {'totp_configured': true},
       '/api/auth/totp' => {'totp_configured': false},
       '/api/auth/verify' => {'valid': true},
@@ -112,7 +112,8 @@ class _AuthAdapter implements HttpClientAdapter {
     final body = {
       'success': true,
       'message': 'ok',
-      'data': options.uri.path.endsWith('/auth/login') ||
+      'data':
+          options.uri.path.endsWith('/auth/login') ||
               options.uri.path.endsWith('/auth/refresh')
           ? session
           : data,
@@ -120,7 +121,9 @@ class _AuthAdapter implements HttpClientAdapter {
     return ResponseBody.fromString(
       jsonEncode(body),
       200,
-      headers: {Headers.contentTypeHeader: ['application/json']},
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
     );
   }
 }

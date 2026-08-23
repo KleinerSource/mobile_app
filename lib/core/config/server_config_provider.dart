@@ -15,8 +15,9 @@ final serverConfigRepoProvider = Provider<ServerConfigRepository>((ref) {
   return ServerConfigRepository(ref.watch(sharedPrefsProvider));
 });
 
-final serverProfileCacheRepoProvider =
-    Provider<ServerProfileCacheRepository>((ref) {
+final serverProfileCacheRepoProvider = Provider<ServerProfileCacheRepository>((
+  ref,
+) {
   return ServerProfileCacheRepository(ref.watch(sharedPrefsProvider));
 });
 
@@ -50,9 +51,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     );
     var servers = cfg.servers
         .map(
-          (server) => server.copyWith(
-            lines: _normalizeLines(server.lines, ''),
-          ),
+          (server) => server.copyWith(lines: _normalizeLines(server.lines, '')),
         )
         .where((server) => server.lines.isNotEmpty)
         .toList();
@@ -67,19 +66,21 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
       servers = [server];
     }
 
-    final activeServerId = servers.any((server) => server.id == cfg.activeServerId)
+    final activeServerId =
+        servers.any((server) => server.id == cfg.activeServerId)
         ? cfg.activeServerId!
         : servers.first.id;
-    final shouldReplaceActiveLines = cfg.lines.isNotEmpty || selectedServer == null;
+    final shouldReplaceActiveLines =
+        cfg.lines.isNotEmpty || selectedServer == null;
     final updatedServers = servers
         .map(
           (server) => server.id == activeServerId
               ? shouldReplaceActiveLines
-                  ? server.copyWith(
-                      lines: currentLines,
-                      activeLineId: _lineForUrl(currentLines, baseUrl).id,
-                    )
-                  : server
+                    ? server.copyWith(
+                        lines: currentLines,
+                        activeLineId: _lineForUrl(currentLines, baseUrl).id,
+                      )
+                    : server
               : server,
         )
         .toList();
@@ -144,10 +145,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     ref.read(serverSelectionReadyProvider.notifier).state = true;
   }
 
-  Future<void> saveServer(
-    ServerProfile server, {
-    bool select = false,
-  }) async {
+  Future<void> saveServer(ServerProfile server, {bool select = false}) async {
     final current = state ?? ref.read(serverConfigRepoProvider).load();
     if (current == null) {
       await save(
@@ -260,22 +258,14 @@ List<ServerLine> _normalizeLines(List<ServerLine> lines, String baseUrl) {
   }
   if (result.isEmpty && normalizedBaseUrl.isNotEmpty) {
     result.add(
-      ServerLine(
-        id: 'legacy',
-        name: '主线路',
-        baseUrl: normalizedBaseUrl,
-      ),
+      ServerLine(id: 'legacy', name: '主线路', baseUrl: normalizedBaseUrl),
     );
   }
   if (normalizedBaseUrl.isNotEmpty &&
       !result.any((line) => line.baseUrl == normalizedBaseUrl)) {
     result.insert(
       0,
-      ServerLine(
-        id: 'active',
-        name: '当前线路',
-        baseUrl: normalizedBaseUrl,
-      ),
+      ServerLine(id: 'active', name: '当前线路', baseUrl: normalizedBaseUrl),
     );
   }
   return result;
@@ -288,10 +278,8 @@ ServerLine _lineForUrl(List<ServerLine> lines, String baseUrl) {
   final normalized = ServerConfig.normalize(baseUrl);
   return lines.firstWhere(
     (line) => line.baseUrl == normalized,
-    orElse: () => lines.firstWhere(
-      (line) => line.enabled,
-      orElse: () => lines.first,
-    ),
+    orElse: () =>
+        lines.firstWhere((line) => line.enabled, orElse: () => lines.first),
   );
 }
 

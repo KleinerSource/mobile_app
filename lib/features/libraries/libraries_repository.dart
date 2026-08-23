@@ -65,7 +65,10 @@ class LibrariesRepository {
 
   // ===== Create / Update / Delete =====
 
-  Future<LibraryItem> create({required String name, bool enabled = true}) async {
+  Future<LibraryItem> create({
+    required String name,
+    bool enabled = true,
+  }) async {
     final raw = await _api.create({'name': name, 'enabled': enabled});
     return unwrapStd<LibraryItem>(
       raw,
@@ -85,7 +88,9 @@ class LibrariesRepository {
   }
 
   Future<void> delete(int id) async {
-    final raw = await _api.delete({'libraries_ids': [id]});
+    final raw = await _api.delete({
+      'libraries_ids': [id],
+    });
     unwrapStd<void>(raw, (_) {});
   }
 
@@ -108,16 +113,13 @@ class LibrariesRepository {
     });
   }
 
-  Future<BatchLibraryScanResult> batchScan({
-    required bool incremental,
-  }) async {
+  Future<BatchLibraryScanResult> batchScan({required bool incremental}) async {
     final raw = await _extendedApi.batchScan({'incremental': incremental});
     final message = raw is Map ? (raw['message'] ?? '').toString() : '';
     final data = unwrapStd<Map<String, dynamic>>(
       raw,
-      (value) => value is Map
-          ? Map<String, dynamic>.from(value)
-          : <String, dynamic>{},
+      (value) =>
+          value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{},
     );
     final tasks = <BatchLibraryScanTask>[];
     final rawTasks = data['tasks'];
@@ -129,8 +131,7 @@ class LibrariesRepository {
         if (libraryId <= 0 || taskId.isEmpty) continue;
         tasks.add((
           libraryId: libraryId,
-          libraryName:
-              (task['library_name'] ?? '媒体库 $libraryId').toString(),
+          libraryName: (task['library_name'] ?? '媒体库 $libraryId').toString(),
           taskId: taskId,
           status: (task['status'] ?? 'queued').toString(),
           queuePosition: _asInt(task['queue_position']),
@@ -158,19 +159,16 @@ class LibrariesRepository {
     final items = data is List
         ? data
         : data is Map && data['active_scans'] is List
-            ? data['active_scans'] as List
-            : data is Map && data['items'] is List
-                ? data['items'] as List
-                : const [];
+        ? data['active_scans'] as List
+        : data is Map && data['items'] is List
+        ? data['items'] as List
+        : const [];
     return items.whereType<Map>().map(_decodeScanTask).toList();
   }
 
   Future<ScanTask> scanProgress(int id, String taskId) async {
     final raw = await _api.scanProgress(id, taskId);
-    return unwrapStd<ScanTask>(
-      raw,
-      (d) => _decodeScanTask(d as Map),
-    );
+    return unwrapStd<ScanTask>(raw, (d) => _decodeScanTask(d as Map));
   }
 
   ScanTask _decodeScanTask(Map raw) {
@@ -207,7 +205,9 @@ class LibrariesRepository {
     final data = raw['data'];
     final list = data is List
         ? data
-        : (data is Map && data['items'] is List ? data['items'] as List : const []);
+        : (data is Map && data['items'] is List
+              ? data['items'] as List
+              : const []);
     return list
         .whereType<Map>()
         .map((e) => DirectoryItem.fromJson(Map<String, dynamic>.from(e)))
@@ -250,10 +250,9 @@ class LibrariesRepository {
   }
 
   Future<void> deleteDirectory(int libraryId, int dirId) async {
-    final raw = await _api.deleteDirectory(
-      libraryId,
-      {'directories_ids': [dirId]},
-    );
+    final raw = await _api.deleteDirectory(libraryId, {
+      'directories_ids': [dirId],
+    });
     unwrapStd<void>(raw, (_) {});
   }
 

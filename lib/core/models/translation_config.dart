@@ -26,10 +26,8 @@ extension TranslationConfigX on TranslationConfig {
 
 @freezed
 abstract class TranslationModel with _$TranslationModel {
-  const factory TranslationModel({
-    required String id,
-    String? name,
-  }) = _TranslationModel;
+  const factory TranslationModel({required String id, String? name}) =
+      _TranslationModel;
 
   factory TranslationModel.fromJson(Map<String, dynamic> json) =>
       _$TranslationModelFromJson(json);

@@ -83,15 +83,15 @@ class _TranslationSettingsPageState
     final url = _apiUrl.text.trim();
     final key = _apiKey.text.trim();
     if (url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先填 API URL')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先填 API URL')));
       return;
     }
     if (key.isEmpty && !_hasSavedKey) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先填 API Key')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先填 API Key')));
       return;
     }
     setState(() => _loadingModels = true);
@@ -103,9 +103,7 @@ class _TranslationSettingsPageState
           .fetchModels(url, key);
       if (!mounted) return;
       if (models.isEmpty) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('未拿到任何模型')),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('未拿到任何模型')));
         return;
       }
       final picked = await showModalBottomSheet<String>(
@@ -120,10 +118,14 @@ class _TranslationSettingsPageState
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
-                  child: Row(children: [
-                    Text('选择模型 (${models.length})',
-                        style: AppText.sectionTitle(ctx)),
-                  ]),
+                  child: Row(
+                    children: [
+                      Text(
+                        '选择模型 (${models.length})',
+                        style: AppText.sectionTitle(ctx),
+                      ),
+                    ],
+                  ),
                 ),
                 Flexible(
                   child: ListView.builder(
@@ -188,10 +190,9 @@ class _TranslationSettingsPageState
           .read(translationRepositoryProvider)
           .saveConfig(cfg, keepApiKey: keepKey);
       AppHaptics.medium();
-      messenger.showSnackBar(const SnackBar(
-        content: Text('已保存'),
-        duration: Duration(seconds: 1),
-      ));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('已保存'), duration: Duration(seconds: 1)),
+      );
       _apiKey.clear();
       // ignore: unused_result
       ref.refresh(translationConfigProvider);
@@ -262,9 +263,7 @@ class _TranslationSettingsPageState
               decoration: settingsCardDecoration(context),
               child: SettingsTile(
                 title: '启用翻译',
-                subtitle: _enabled
-                    ? '已启用 · 翻译功能可用'
-                    : '已禁用 · 保存后不调用翻译服务',
+                subtitle: _enabled ? '已启用 · 翻译功能可用' : '已禁用 · 保存后不调用翻译服务',
                 leadingIcon: Icons.translate_outlined,
                 trailing: SettingsSwitch(
                   value: _enabled,
@@ -274,134 +273,146 @@ class _TranslationSettingsPageState
             ),
           ),
           _label('API URL', '支持 OpenAI / OpenRouter 等兼容服务'),
-              _input(_apiUrl, hint: 'https://api.openai.com/v1',
-                  icon: Icons.link),
-              const SizedBox(height: 18),
-              _label('API Key', _hasSavedKey ? '已配置 · 留空则保留' : 'sk-...'),
-              _passwordInput(),
-              const SizedBox(height: 18),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(child: _label('模型名称', '例: gpt-3.5-turbo / gpt-4')),
-                  TextButton.icon(
-                    icon: _loadingModels
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.refresh, size: 16),
-                    label: const Text('加载模型',
-                        style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12)),
-                    onPressed: _loadingModels ? null : _loadModels,
+          _input(_apiUrl, hint: 'https://api.openai.com/v1', icon: Icons.link),
+          const SizedBox(height: 18),
+          _label('API Key', _hasSavedKey ? '已配置 · 留空则保留' : 'sk-...'),
+          _passwordInput(),
+          const SizedBox(height: 18),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(child: _label('模型名称', '例: gpt-3.5-turbo / gpt-4')),
+              TextButton.icon(
+                icon: _loadingModels
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh, size: 16),
+                label: const Text(
+                  '加载模型',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
                   ),
-                ],
+                ),
+                onPressed: _loadingModels ? null : _loadModels,
               ),
-              _input(_model, hint: 'gpt-3.5-turbo', icon: Icons.smart_toy_outlined),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(child: _label('源语言', '')),
-                  const SizedBox(width: 10),
-                  Expanded(child: _label('目标语言', '')),
-                ],
+            ],
+          ),
+          _input(_model, hint: 'gpt-3.5-turbo', icon: Icons.smart_toy_outlined),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(child: _label('源语言', '')),
+              const SizedBox(width: 10),
+              Expanded(child: _label('目标语言', '')),
+            ],
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: _langDropdown(
+                  value: _source,
+                  options: _sourceLangs,
+                  onChanged: (v) => setState(() => _source = v),
+                ),
               ),
-              Row(
-                children: [
-                  Expanded(
-                    child: _langDropdown(
-                      value: _source,
-                      options: _sourceLangs,
-                      onChanged: (v) => setState(() => _source = v),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _langDropdown(
-                      value: _target,
-                      options: _targetLangs,
-                      onChanged: (v) => setState(() => _target = v),
-                    ),
-                  ),
-                ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: _langDropdown(
+                  value: _target,
+                  options: _targetLangs,
+                  onChanged: (v) => setState(() => _target = v),
+                ),
               ),
-              const SizedBox(height: 18),
-              _label('提示词模板', '需包含 {text} {target_language}'),
-              _input(_prompt, maxLines: 6, hint: 'You are ...',
-                  icon: Icons.edit_note),
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                _errorBox(_error!),
-              ],
-              if (_testResult != null) ...[
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppHues.top(AppHues.mint).withValues(alpha: 0.12),
-                    border: Border.all(
-                        color: AppHues.top(AppHues.mint).withValues(alpha: 0.4)),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            ],
+          ),
+          const SizedBox(height: 18),
+          _label('提示词模板', '需包含 {text} {target_language}'),
+          _input(
+            _prompt,
+            maxLines: 6,
+            hint: 'You are ...',
+            icon: Icons.edit_note,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            _errorBox(_error!),
+          ],
+          if (_testResult != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppHues.top(AppHues.mint).withValues(alpha: 0.12),
+                border: Border.all(
+                  color: AppHues.top(AppHues.mint).withValues(alpha: 0.4),
+                ),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(children: [
-                        Icon(Icons.check_circle_outline,
-                            size: 16,
-                            color: AppHues.top(AppHues.mint)),
-                        const SizedBox(width: 6),
-                        Text('测试结果',
-                            style: TextStyle(
-                              color: AppHues.top(AppHues.mint),
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w800,
-                              fontSize: 11.5,
-                            )),
-                      ]),
-                      const SizedBox(height: 6),
-                      Text(_testResult!, style: AppText.body(context)),
+                      Icon(
+                        Icons.check_circle_outline,
+                        size: 16,
+                        color: AppHues.top(AppHues.mint),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '测试结果',
+                        style: TextStyle(
+                          color: AppHues.top(AppHues.mint),
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11.5,
+                        ),
+                      ),
                     ],
                   ),
-                ),
-              ],
-              const SizedBox(height: 28),
-              SettingsSaveButton(
-                onPressed: _save,
-                saving: _saving,
+                  const SizedBox(height: 6),
+                  Text(_testResult!, style: AppText.body(context)),
+                ],
               ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _testing ? null : _test,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: c.text,
-                    side: BorderSide(color: c.cardBorder),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  icon: _testing
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.translate_outlined, size: 18),
-                  label: const Text(
-                    '测试翻译',
-                    style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14),
-                  ),
+            ),
+          ],
+          const SizedBox(height: 28),
+          SettingsSaveButton(onPressed: _save, saving: _saving),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _testing ? null : _test,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: c.text,
+                side: BorderSide(color: c.cardBorder),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              icon: _testing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.translate_outlined, size: 18),
+              label: const Text(
+                '测试翻译',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
                 ),
               ),
+            ),
+          ),
         ],
       ),
     );
@@ -416,10 +427,7 @@ class _TranslationSettingsPageState
           Text(label.toUpperCase(), style: AppText.eyebrow(context)),
           if (help.isNotEmpty) ...[
             const SizedBox(height: 2),
-            Text(
-              help,
-              style: AppText.meta(context).copyWith(fontSize: 10.5),
-            ),
+            Text(help, style: AppText.meta(context).copyWith(fontSize: 10.5)),
           ],
         ],
       ),
@@ -446,8 +454,10 @@ class _TranslationSettingsPageState
           hintText: hint,
           prefixIcon: icon == null ? null : Icon(icon),
           border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 12,
+          ),
         ),
         style: TextStyle(
           color: c.text,
@@ -478,7 +488,9 @@ class _TranslationSettingsPageState
                 prefixIcon: const Icon(Icons.key_outlined),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 12),
+                  horizontal: 14,
+                  vertical: 12,
+                ),
               ),
               style: TextStyle(
                 color: c.text,
@@ -489,8 +501,11 @@ class _TranslationSettingsPageState
             ),
           ),
           IconButton(
-            icon: Icon(_showKey ? Icons.visibility_off : Icons.visibility,
-                size: 18, color: c.muted),
+            icon: Icon(
+              _showKey ? Icons.visibility_off : Icons.visibility,
+              size: 18,
+              color: c.muted,
+            ),
             onPressed: () => setState(() => _showKey = !_showKey),
           ),
         ],
@@ -519,10 +534,11 @@ class _TranslationSettingsPageState
             .map((v) => DropdownMenuItem(value: v, child: Text(v)))
             .toList(),
         style: TextStyle(
-            color: c.text,
-            fontFamily: 'Inter',
-            fontSize: 14,
-            fontWeight: FontWeight.w600),
+          color: c.text,
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
         onChanged: (v) {
           if (v != null) onChanged(v);
         },

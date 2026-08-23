@@ -25,8 +25,10 @@ void main() {
     expect(PlayerNetworkType.fromValue('wifi'), PlayerNetworkType.wifi);
     expect(PlayerNetworkType.fromValue('lte'), PlayerNetworkType.cellular4G);
     expect(PlayerNetworkType.fromValue('mobile'), PlayerNetworkType.mobile);
-    expect(PlayerNetworkType.fromValue('unsupported'),
-        PlayerNetworkType.unknown);
+    expect(
+      PlayerNetworkType.fromValue('unsupported'),
+      PlayerNetworkType.unknown,
+    );
   });
 
   test('网速格式化按可读单位输出', () {

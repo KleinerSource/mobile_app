@@ -12,9 +12,9 @@ class SecuritySettings {
   });
 
   const SecuritySettings.empty()
-      : hasPin = false,
-        hasGesture = false,
-        biometricEnabled = false;
+    : hasPin = false,
+      hasGesture = false,
+      biometricEnabled = false;
 
   final bool hasPin;
   final bool hasGesture;
@@ -28,9 +28,9 @@ class SecurityRepository {
     required SharedPreferences preferences,
     FlutterSecureStorage? storage,
     LocalAuthentication? localAuthentication,
-  })  : _preferences = preferences,
-        _storage = storage ?? const FlutterSecureStorage(),
-        _localAuthentication = localAuthentication ?? LocalAuthentication();
+  }) : _preferences = preferences,
+       _storage = storage ?? const FlutterSecureStorage(),
+       _localAuthentication = localAuthentication ?? LocalAuthentication();
 
   static const _pinDigestKey = 'md_center.security.pin_digest';
   static const _gestureDigestKey = 'md_center.security.gesture_digest';
@@ -62,10 +62,7 @@ class SecurityRepository {
     if (!isValidSecurityPin(pin)) {
       throw const FormatException('数字密码必须为 6 位数字');
     }
-    await _storage.write(
-      key: _pinDigestKey,
-      value: securitySecretDigest(pin),
-    );
+    await _storage.write(key: _pinDigestKey, value: securitySecretDigest(pin));
   }
 
   Future<void> clearPin() => _storage.delete(key: _pinDigestKey);
@@ -92,8 +89,7 @@ class SecurityRepository {
     if (!isValidSecurityPattern(pattern)) return false;
     final expected = await _storage.read(key: _gestureDigestKey);
     return expected != null &&
-        expected ==
-            securitySecretDigest(encodeSecurityPattern(pattern));
+        expected == securitySecretDigest(encodeSecurityPattern(pattern));
   }
 
   Future<bool> canUseBiometrics() async {

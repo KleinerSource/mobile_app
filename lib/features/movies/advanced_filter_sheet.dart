@@ -28,7 +28,8 @@ class AdvancedFilterSheet extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<AdvancedFilterSheet> createState() => _AdvancedFilterSheetState();
+  ConsumerState<AdvancedFilterSheet> createState() =>
+      _AdvancedFilterSheetState();
 }
 
 enum _SetMode { include, exclude }
@@ -55,8 +56,9 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
     super.initState();
     final f = widget.initial;
     _tagMode = f.excludeTagIds.isNotEmpty ? _SetMode.exclude : _SetMode.include;
-    _genreMode =
-        f.excludeGenreIds.isNotEmpty ? _SetMode.exclude : _SetMode.include;
+    _genreMode = f.excludeGenreIds.isNotEmpty
+        ? _SetMode.exclude
+        : _SetMode.include;
     _tagIds = {
       ...f.tagIds,
       if (_tagMode == _SetMode.exclude) ...f.excludeTagIds,
@@ -115,8 +117,12 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
     final yearTo = int.tryParse(_yearToCtl.text.trim());
     final tagInc = _tagMode == _SetMode.include ? _tagIds.toList() : <int>[];
     final tagExc = _tagMode == _SetMode.exclude ? _tagIds.toList() : <int>[];
-    final genreInc = _genreMode == _SetMode.include ? _genreIds.toList() : <int>[];
-    final genreExc = _genreMode == _SetMode.exclude ? _genreIds.toList() : <int>[];
+    final genreInc = _genreMode == _SetMode.include
+        ? _genreIds.toList()
+        : <int>[];
+    final genreExc = _genreMode == _SetMode.exclude
+        ? _genreIds.toList()
+        : <int>[];
     final next = widget.initial.copyWith(
       tagIds: tagInc,
       excludeTagIds: tagExc,
@@ -163,15 +169,14 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                       children: [
                         Text('高级筛选', style: AppText.sectionTitle(context)),
                         const SizedBox(height: 2),
-                        Text('按标签、分类、系列、年份评分和文件属性组合筛选',
-                            style: AppText.meta(context)),
+                        Text(
+                          '按标签、分类、系列、年份评分和文件属性组合筛选',
+                          style: AppText.meta(context),
+                        ),
                       ],
                     ),
                   ),
-                  TextButton(
-                    onPressed: _onReset,
-                    child: const Text('重置'),
-                  ),
+                  TextButton(onPressed: _onReset, child: const Text('重置')),
                 ],
               ),
             ),
@@ -269,10 +274,14 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                                 hint: '最低评分',
                                 items: <DropdownMenuItem<int?>>[
                                   const DropdownMenuItem<int?>(
-                                      value: null, child: Text('最低评分')),
+                                    value: null,
+                                    child: Text('最低评分'),
+                                  ),
                                   for (var i = 1; i <= 9; i++)
                                     DropdownMenuItem<int?>(
-                                        value: i, child: Text('$i 分以上')),
+                                      value: i,
+                                      child: Text('$i 分以上'),
+                                    ),
                                 ],
                                 onChanged: (v) =>
                                     setState(() => _ratingFrom = v),
@@ -285,10 +294,14 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                                 hint: '最高评分',
                                 items: <DropdownMenuItem<int?>>[
                                   const DropdownMenuItem<int?>(
-                                      value: null, child: Text('最高评分')),
+                                    value: null,
+                                    child: Text('最高评分'),
+                                  ),
                                   for (var i = 10; i >= 2; i--)
                                     DropdownMenuItem<int?>(
-                                        value: i, child: Text('$i 分以下')),
+                                      value: i,
+                                      child: Text('$i 分以下'),
+                                    ),
                                 ],
                                 onChanged: (v) => setState(() => _ratingTo = v),
                               ),
@@ -312,9 +325,13 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                           items: const [
                             DropdownMenuItem(value: '', child: Text('不限')),
                             DropdownMenuItem(
-                                value: 'include', child: Text('包含外挂字幕')),
+                              value: 'include',
+                              child: Text('包含外挂字幕'),
+                            ),
                             DropdownMenuItem(
-                                value: 'exclude', child: Text('排除外挂字幕')),
+                              value: 'exclude',
+                              child: Text('排除外挂字幕'),
+                            ),
                           ],
                           onChanged: (v) =>
                               setState(() => _subtitleMode = v ?? ''),
@@ -328,14 +345,21 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                           items: const [
                             DropdownMenuItem(value: '', child: Text('不限')),
                             DropdownMenuItem(
-                                value: 'standard', child: Text('仅限标准')),
+                              value: 'standard',
+                              child: Text('仅限标准'),
+                            ),
                             DropdownMenuItem(
-                                value: 'crack', child: Text('仅限破解')),
+                              value: 'crack',
+                              child: Text('仅限破解'),
+                            ),
                             DropdownMenuItem(
-                                value: 'subtitle', child: Text('仅限中字')),
+                              value: 'subtitle',
+                              child: Text('仅限中字'),
+                            ),
                             DropdownMenuItem(
-                                value: 'subtitle_crack',
-                                child: Text('仅限中字破解')),
+                              value: 'subtitle_crack',
+                              child: Text('仅限中字破解'),
+                            ),
                           ],
                           onChanged: (v) =>
                               setState(() => _fileFilterMode = v ?? ''),
@@ -394,11 +418,7 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.title,
-    required this.child,
-    this.trailing,
-  });
+  const _SectionCard({required this.title, required this.child, this.trailing});
   final String title;
   final Widget child;
   final Widget? trailing;
@@ -455,7 +475,9 @@ class _ModeToggle extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            color: active ? c.accent.withValues(alpha: 0.18) : Colors.transparent,
+            color: active
+                ? c.accent.withValues(alpha: 0.18)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(100),
           ),
           child: Text(
@@ -480,10 +502,7 @@ class _ModeToggle extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          btn('包含', _SetMode.include),
-          btn('排除', _SetMode.exclude),
-        ],
+        children: [btn('包含', _SetMode.include), btn('排除', _SetMode.exclude)],
       ),
     );
   }
@@ -516,8 +535,10 @@ class _NumberField extends StatelessWidget {
         hintStyle: TextStyle(color: c.muted),
         prefixIcon: icon == null ? null : Icon(icon),
         isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: hasError ? c.danger : c.cardBorder),
@@ -549,8 +570,7 @@ class _DropdownField<T> extends StatelessWidget {
     return InputDecorator(
       decoration: InputDecoration(
         isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: c.cardBorder),
@@ -602,7 +622,8 @@ class _ResourceMultiSelectState extends ConsumerState<_ResourceMultiSelect> {
   @override
   void didUpdateWidget(covariant _ResourceMultiSelect oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.kind != widget.kind || oldWidget.selected != widget.selected) {
+    if (oldWidget.kind != widget.kind ||
+        oldWidget.selected != widget.selected) {
       _loadSelectedNames();
     }
   }
@@ -686,8 +707,10 @@ class _ResourceMultiSelectState extends ConsumerState<_ResourceMultiSelect> {
           children: [
             Expanded(
               child: selectedItems.isEmpty
-                  ? Text('选择${widget.kind.label}...',
-                      style: TextStyle(color: c.muted))
+                  ? Text(
+                      '选择${widget.kind.label}...',
+                      style: TextStyle(color: c.muted),
+                    )
                   : Wrap(
                       spacing: 6,
                       runSpacing: 4,
@@ -695,7 +718,9 @@ class _ResourceMultiSelectState extends ConsumerState<_ResourceMultiSelect> {
                         for (final r in selectedItems.take(3))
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: c.accent.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(100),
@@ -713,7 +738,9 @@ class _ResourceMultiSelectState extends ConsumerState<_ResourceMultiSelect> {
                         if (selectedItems.length > 3)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: c.chipBg,
                               borderRadius: BorderRadius.circular(100),

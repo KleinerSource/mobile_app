@@ -26,11 +26,7 @@ class HeroArt {
 /// - 顶层磨砂遮罩(FrostedScrim)与普通页面共用,保证内容可读
 /// - 隐私模式未揭开该影片时对应层不渲染
 class HeroBackdrop extends ConsumerWidget {
-  const HeroBackdrop({
-    super.key,
-    required this.arts,
-    required this.position,
-  });
+  const HeroBackdrop({super.key, required this.arts, required this.position});
 
   /// 与轮播页对齐的封面艺术列表
   final ValueListenable<List<HeroArt>> arts;

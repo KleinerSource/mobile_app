@@ -44,7 +44,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       _error = null;
     });
     try {
-      final authenticated = await ref.read(authControllerProvider.notifier).login(
+      final authenticated = await ref
+          .read(authControllerProvider.notifier)
+          .login(
             password: password,
             totpCode: _totpRequired ? _totpController.text : null,
           );
@@ -97,8 +99,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final visibleError = localError?.isNotEmpty == true
         ? localError
         : authError?.isNotEmpty == true
-            ? authError
-            : null;
+        ? authError
+        : null;
 
     return Scaffold(
       backgroundColor: c.bg,

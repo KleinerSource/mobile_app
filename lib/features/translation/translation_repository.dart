@@ -17,8 +17,10 @@ class TranslationRepository {
     });
   }
 
-  Future<TranslationConfig> saveConfig(TranslationConfig cfg,
-      {bool keepApiKey = false}) async {
+  Future<TranslationConfig> saveConfig(
+    TranslationConfig cfg, {
+    bool keepApiKey = false,
+  }) async {
     final body = cfg.toJson();
     if (keepApiKey) {
       // 留空 api_key 让后端保留已存的
@@ -34,7 +36,10 @@ class TranslationRepository {
   }
 
   /// 拉可用模型 · 返回 [{id, name?}, ...]
-  Future<List<TranslationModel>> fetchModels(String apiUrl, String apiKey) async {
+  Future<List<TranslationModel>> fetchModels(
+    String apiUrl,
+    String apiKey,
+  ) async {
     final normalizedUrl = apiUrl.trim();
     final normalizedKey = apiKey.trim();
     final raw = await _api.fetchModels({
@@ -59,7 +64,9 @@ class TranslationRepository {
     final raw = await _api.test({});
     return unwrapStd<String>(raw, (d) {
       if (d is Map) {
-        return d['translated_text']?.toString() ?? d['message']?.toString() ?? '';
+        return d['translated_text']?.toString() ??
+            d['message']?.toString() ??
+            '';
       }
       return d?.toString() ?? '';
     });
@@ -68,10 +75,7 @@ class TranslationRepository {
   /// 翻译单个字段
   /// fieldName 例: movie_title / movie_country / movie_outline / movie_plot
   Future<String> translateText(String text, {required String fieldName}) async {
-    final raw = await _api.translate({
-      'text': text,
-      'field_name': fieldName,
-    });
+    final raw = await _api.translate({'text': text, 'field_name': fieldName});
     return unwrapStd<String>(raw, (d) {
       if (d is Map) {
         return d['translated_text']?.toString() ?? '';
@@ -82,12 +86,12 @@ class TranslationRepository {
 
   /// 批量翻译 · 输入 { field_name: text }, 返回 { field_name: translated }
   /// 失败的字段不会出现在返回中
-  Future<Map<String, String>> translateBatch(
-      Map<String, String> fields) async {
+  Future<Map<String, String>> translateBatch(Map<String, String> fields) async {
     final raw = await _api.translateBatch({'fields': fields});
     if (raw is! Map || raw['success'] != true) {
-      throw ApiException((raw is Map ? raw['message'] as String? : null) ??
-          '批量翻译失败');
+      throw ApiException(
+        (raw is Map ? raw['message'] as String? : null) ?? '批量翻译失败',
+      );
     }
     final results = (raw['data'] as Map?)?['results'];
     if (results is! Map) return const {};

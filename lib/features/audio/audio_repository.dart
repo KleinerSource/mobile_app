@@ -16,7 +16,11 @@ class AudioRepository {
     int offset = 0,
     String? search,
   }) async {
-    final raw = await _api.listAssets(limit: limit, offset: offset, search: search);
+    final raw = await _api.listAssets(
+      limit: limit,
+      offset: offset,
+      search: search,
+    );
     return unwrapStd<AudioAssetListResult>(raw, _decodeList);
   }
 
@@ -26,12 +30,16 @@ class AudioRepository {
       if (data is! Map) return const AudioAssetDeleteResult();
       return AudioAssetDeleteResult(
         deleted: [
-          for (final value in (data['deleted'] is List ? data['deleted'] as List : const []))
-            if (int.tryParse(value.toString()) != null) int.parse(value.toString()),
+          for (final value
+              in (data['deleted'] is List ? data['deleted'] as List : const []))
+            if (int.tryParse(value.toString()) != null)
+              int.parse(value.toString()),
         ],
         rejected: [
           for (final value
-              in (data['rejected'] is List ? data['rejected'] as List : const []))
+              in (data['rejected'] is List
+                  ? data['rejected'] as List
+                  : const []))
             if (value is Map)
               AudioAssetDeleteRejection(
                 id: int.tryParse(value['id']?.toString() ?? '') ?? 0,
@@ -46,11 +54,16 @@ class AudioRepository {
     List<int> assetIds, {
     bool overwrite = false,
   }) async {
-    final raw = await _api.enqueueTranscriptions(assetIds, overwrite: overwrite);
+    final raw = await _api.enqueueTranscriptions(
+      assetIds,
+      overwrite: overwrite,
+    );
     return unwrapStd<TranscriptionEnqueueResult>(raw, (data) {
       if (data is! Map) return const TranscriptionEnqueueResult();
       final items = data['items'] is List ? data['items'] as List : const [];
-      final rejected = data['rejected'] is List ? data['rejected'] as List : const [];
+      final rejected = data['rejected'] is List
+          ? data['rejected'] as List
+          : const [];
       return TranscriptionEnqueueResult(
         accepted: items.length,
         rejected: [
@@ -71,10 +84,7 @@ class AudioRepository {
   }
 
   /// [assetId] 为音频资产 ID。
-  Future<void> retryTranscription(
-    int assetId, {
-    bool? overwrite,
-  }) async {
+  Future<void> retryTranscription(int assetId, {bool? overwrite}) async {
     final raw = await _api.retrySubtitleTranscription(
       assetId.toString(),
       overwrite: overwrite,
@@ -92,7 +102,8 @@ AudioAssetListResult _decodeList(Object? data) {
   if (data is! Map) return const AudioAssetListResult();
   return AudioAssetListResult(
     items: [
-      for (final value in (data['items'] is List ? data['items'] as List : const []))
+      for (final value
+          in (data['items'] is List ? data['items'] as List : const []))
         if (value is Map) AudioAsset.fromJson(Map<String, dynamic>.from(value)),
     ],
     total: _asInt(data['total']),

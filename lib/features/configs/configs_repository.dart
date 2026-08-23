@@ -41,10 +41,7 @@ class ConfigsRepository {
     });
   }
 
-  Future<AvdbConfig> saveAvdb(
-    AvdbConfig cfg, {
-    bool keepApiKey = false,
-  }) async {
+  Future<AvdbConfig> saveAvdb(AvdbConfig cfg, {bool keepApiKey = false}) async {
     final body = cfg.toJson();
     // AVDB 密钥同样由服务端数据源配置保存，留空时只更新其它字段。
     if (keepApiKey || cfg.apiKey.trim().isEmpty) body.remove('api_key');
@@ -79,9 +76,7 @@ class ConfigsRepository {
     final raw = await _api.getVideoExtensions();
     return unwrapStd<List<String>>(raw, (d) {
       if (d is Map && d['extensions'] is List) {
-        return (d['extensions'] as List)
-            .whereType<String>()
-            .toList();
+        return (d['extensions'] as List).whereType<String>().toList();
       }
       if (d is List) return d.whereType<String>().toList();
       return const [];

@@ -5,10 +5,7 @@ part 'actor.g.dart';
 
 @freezed
 abstract class ActorRef with _$ActorRef {
-  const factory ActorRef({
-    required int id,
-    required String name,
-  }) = _ActorRef;
+  const factory ActorRef({required int id, required String name}) = _ActorRef;
 
   factory ActorRef.fromJson(Map<String, dynamic> json) =>
       _$ActorRefFromJson(json);

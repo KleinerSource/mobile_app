@@ -114,10 +114,12 @@ class AppHues {
   static const all = [lavender, coral, mint, sky, solar, magenta];
 
   /// HSL(h, 70%, 55%) — 卡片主调
-  static Color top(int hue) => HSLColor.fromAHSL(1, hue.toDouble(), 0.70, 0.55).toColor();
+  static Color top(int hue) =>
+      HSLColor.fromAHSL(1, hue.toDouble(), 0.70, 0.55).toColor();
 
   /// HSL(h+30, 75%, 35%) — 卡片渐变底
-  static Color bottom(int hue) => HSLColor.fromAHSL(1, (hue + 30) % 360, 0.75, 0.35).toColor();
+  static Color bottom(int hue) =>
+      HSLColor.fromAHSL(1, (hue + 30) % 360, 0.75, 0.35).toColor();
 
   /// HSL(h, 90%, 70%) 40% alpha — 高光圆球
   static Color highlight(int hue) =>
@@ -150,7 +152,9 @@ AppColors appColors(BuildContext context) {
 
 ThemeData buildAppTheme(Brightness brightness) {
   final c = brightness == Brightness.dark ? AppColors.dark : AppColors.light;
-  final base = brightness == Brightness.dark ? ThemeData.dark() : ThemeData.light();
+  final base = brightness == Brightness.dark
+      ? ThemeData.dark()
+      : ThemeData.light();
 
   final textTheme = base.textTheme.apply(
     fontFamily: 'Inter',
@@ -172,7 +176,9 @@ ThemeData buildAppTheme(Brightness brightness) {
     colorScheme: ColorScheme(
       brightness: brightness,
       primary: c.accent,
-      onPrimary: brightness == Brightness.dark ? const Color(0xFF1A1A22) : Colors.white,
+      onPrimary: brightness == Brightness.dark
+          ? const Color(0xFF1A1A22)
+          : Colors.white,
       secondary: c.accent,
       onSecondary: Colors.white,
       error: c.danger,
@@ -239,9 +245,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       backgroundColor: overlayBg,
       surfaceTintColor: Colors.transparent,
       elevation: 16,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: overlayBg,
@@ -260,9 +264,7 @@ ThemeData buildAppTheme(Brightness brightness) {
         fontSize: 13.5,
       ),
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       actionTextColor: c.accent,
     ),
     visualDensity: VisualDensity.adaptivePlatformDensity,
@@ -274,57 +276,58 @@ class AppText {
   AppText._();
 
   static TextStyle pageTitle(BuildContext c) => TextStyle(
-        color: appColors(c).text,
-        fontFamily: 'Inter',
-        fontWeight: FontWeight.w800,
-        fontSize: 28,
-        letterSpacing: -0.84,
-        height: 1.05,
-      );
+    color: appColors(c).text,
+    fontFamily: 'Inter',
+    fontWeight: FontWeight.w800,
+    fontSize: 28,
+    letterSpacing: -0.84,
+    height: 1.05,
+  );
 
   static TextStyle sectionTitle(BuildContext c) => TextStyle(
-        color: appColors(c).text,
-        fontFamily: 'Inter',
-        fontWeight: FontWeight.w800,
-        fontSize: 20,
-        letterSpacing: -0.5,
-      );
+    color: appColors(c).text,
+    fontFamily: 'Inter',
+    fontWeight: FontWeight.w800,
+    fontSize: 20,
+    letterSpacing: -0.5,
+  );
 
   static TextStyle cardTitle(BuildContext c) => TextStyle(
-        color: appColors(c).text,
-        fontFamily: 'Inter',
-        fontWeight: FontWeight.w700,
-        fontSize: 14,
-        letterSpacing: -0.14,
-        height: 1.2,
-      );
+    color: appColors(c).text,
+    fontFamily: 'Inter',
+    fontWeight: FontWeight.w700,
+    fontSize: 14,
+    letterSpacing: -0.14,
+    height: 1.2,
+  );
 
   static TextStyle body(BuildContext c) => TextStyle(
-        color: appColors(c).text2,
-        fontFamily: 'Inter',
-        fontWeight: FontWeight.w500,
-        fontSize: 14,
-        height: 1.5,
-      );
+    color: appColors(c).text2,
+    fontFamily: 'Inter',
+    fontWeight: FontWeight.w500,
+    fontSize: 14,
+    height: 1.5,
+  );
 
   static TextStyle meta(BuildContext c) => TextStyle(
-        color: appColors(c).muted,
-        fontFamily: 'Inter',
-        fontWeight: FontWeight.w600,
-        fontSize: 12,
-      );
+    color: appColors(c).muted,
+    fontFamily: 'Inter',
+    fontWeight: FontWeight.w600,
+    fontSize: 12,
+  );
 
   static TextStyle eyebrow(BuildContext c, {Color? color}) => TextStyle(
-        color: color ?? appColors(c).muted,
-        fontFamily: 'Inter',
-        fontWeight: FontWeight.w700,
-        fontSize: 11,
-        letterSpacing: 0.22 * 11,
-        height: 1.2,
-      );
+    color: color ?? appColors(c).muted,
+    fontFamily: 'Inter',
+    fontWeight: FontWeight.w700,
+    fontSize: 11,
+    letterSpacing: 0.22 * 11,
+    height: 1.2,
+  );
 
   /// 等宽 · 数据 / 角标 / 快捷键
-  static TextStyle mono(BuildContext c, {double size = 11, Color? color}) => TextStyle(
+  static TextStyle mono(BuildContext c, {double size = 11, Color? color}) =>
+      TextStyle(
         color: color ?? appColors(c).muted,
         fontFamily: 'monospace',
         fontFeatures: const [FontFeature.tabularFigures()],

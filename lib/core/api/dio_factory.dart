@@ -91,95 +91,101 @@ Dio buildDio(
     });
   }
 
-  dio.interceptors.add(InterceptorsWrapper(
-    onRequest: (options, handler) async {
-      final userAgent = await _appUserAgent();
-      if (userAgent != null) {
-        options.headers['User-Agent'] = userAgent;
-      }
-      if (options.extra['skipAuth'] != true && sessionRepository != null) {
-        final token = await sessionRepository.accessToken();
-        if (token != null && token.isNotEmpty) {
-          options.headers['Authorization'] = 'Bearer $token';
+  dio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final userAgent = await _appUserAgent();
+        if (userAgent != null) {
+          options.headers['User-Agent'] = userAgent;
         }
-      }
-      handler.next(options);
-    },
-    onResponse: (resp, handler) {
-      final data = _decodeBusinessData(resp);
-      if (data is Map && data['success'] == false) {
-        handler.reject(
-          DioException(
-            requestOptions: resp.requestOptions,
-            response: resp,
-            type: DioExceptionType.badResponse,
-            error: ApiException(
-              (data['message'] as String?) ?? '操作失败',
-              status: resp.statusCode,
-              data: data['data'],
-              requestId: resp.headers.value('x-request-id'),
+        if (options.extra['skipAuth'] != true && sessionRepository != null) {
+          final token = await sessionRepository.accessToken();
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+        }
+        handler.next(options);
+      },
+      onResponse: (resp, handler) {
+        final data = _decodeBusinessData(resp);
+        if (data is Map && data['success'] == false) {
+          handler.reject(
+            DioException(
+              requestOptions: resp.requestOptions,
+              response: resp,
+              type: DioExceptionType.badResponse,
+              error: ApiException(
+                (data['message'] as String?) ?? '操作失败',
+                status: resp.statusCode,
+                data: data['data'],
+                requestId: resp.headers.value('x-request-id'),
+              ),
             ),
-          ),
-        );
-        return;
-      }
-      handler.next(resp);
-    },
-    onError: (error, handler) async {
-      final options = error.requestOptions;
-      final status = error.response?.statusCode ??
-          (error.error is ApiException
-              ? (error.error as ApiException).status
-              : null);
-      final canRefresh = sessionRepository != null &&
-          status == 401 &&
-          options.extra['skipRefresh'] != true &&
-          options.extra['authRetried'] != true &&
-          !_isAuthPath(options.path);
-
-      if (canRefresh && await refreshOnce()) {
-        options.extra['authRetried'] = true;
-        final token = await sessionRepository.accessToken();
-        if (token != null && token.isNotEmpty) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        try {
-          final response = await dio.fetch<dynamic>(options);
-          handler.resolve(response);
-          return;
-        } on DioException catch (retryError) {
-          handler.next(_withMappedError(retryError));
+          );
           return;
         }
-      }
+        handler.next(resp);
+      },
+      onError: (error, handler) async {
+        final options = error.requestOptions;
+        final status =
+            error.response?.statusCode ??
+            (error.error is ApiException
+                ? (error.error as ApiException).status
+                : null);
+        final canRefresh =
+            sessionRepository != null &&
+            status == 401 &&
+            options.extra['skipRefresh'] != true &&
+            options.extra['authRetried'] != true &&
+            !_isAuthPath(options.path);
 
-      if (status == 401 &&
-          sessionRepository != null &&
-          !_isAuthPath(options.path)) {
-        await sessionRepository.clear();
-        onSessionExpired?.call();
-      }
-      handler.next(_withMappedError(error));
-    },
-  ));
+        if (canRefresh && await refreshOnce()) {
+          options.extra['authRetried'] = true;
+          final token = await sessionRepository.accessToken();
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          try {
+            final response = await dio.fetch<dynamic>(options);
+            handler.resolve(response);
+            return;
+          } on DioException catch (retryError) {
+            handler.next(_withMappedError(retryError));
+            return;
+          }
+        }
 
-  dio.interceptors.add(RetryInterceptor(
-    dio: dio,
-    retries: 3,
-    retryDelays: const [
-      Duration(milliseconds: 300),
-      Duration(milliseconds: 800),
-      Duration(seconds: 2),
-    ],
-    retryEvaluator: (error, attempt) {
-      final method = error.requestOptions.method.toUpperCase();
-      if (method != 'GET') return false;
-      if (error.requestOptions.extra['skipRetry'] == true) return false;
-      return error.type == DioExceptionType.connectionTimeout ||
-          error.type == DioExceptionType.receiveTimeout ||
-          error.type == DioExceptionType.connectionError;
-    },
-  ));
+        if (status == 401 &&
+            sessionRepository != null &&
+            !_isAuthPath(options.path)) {
+          await sessionRepository.clear();
+          onSessionExpired?.call();
+        }
+        handler.next(_withMappedError(error));
+      },
+    ),
+  );
+
+  dio.interceptors.add(
+    RetryInterceptor(
+      dio: dio,
+      retries: 3,
+      retryDelays: const [
+        Duration(milliseconds: 300),
+        Duration(milliseconds: 800),
+        Duration(seconds: 2),
+      ],
+      retryEvaluator: (error, attempt) {
+        final method = error.requestOptions.method.toUpperCase();
+        if (method != 'GET') return false;
+        if (error.requestOptions.extra['skipRetry'] == true) return false;
+        return error.type == DioExceptionType.connectionTimeout ||
+            error.type == DioExceptionType.receiveTimeout ||
+            error.type == DioExceptionType.connectionError;
+      },
+    ),
+  );
 
   return dio;
 }

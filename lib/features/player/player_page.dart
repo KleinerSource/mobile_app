@@ -822,9 +822,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       url,
     );
     // mpv 解析本地字幕文件仍可能向错误流写入报错，加载前后设置降级窗口。
-    _subtitleLoadGuardUntil = DateTime.now().add(
-      const Duration(seconds: 15),
-    );
+    _subtitleLoadGuardUntil = DateTime.now().add(const Duration(seconds: 15));
     await _host.setSubtitleData(
       content,
       title: track.title.isEmpty ? null : track.title,

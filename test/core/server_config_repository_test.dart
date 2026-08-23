@@ -137,11 +137,7 @@ void main() {
       name: '服务器',
       avatarUrl: 'https://media.example/avatar.png',
       lines: [
-        ServerLine(
-          id: 'line',
-          name: '主线路',
-          baseUrl: 'https://media.example',
-        ),
+        ServerLine(id: 'line', name: '主线路', baseUrl: 'https://media.example'),
       ],
       activeLineId: 'line',
     );

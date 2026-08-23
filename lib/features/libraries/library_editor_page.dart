@@ -71,7 +71,9 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
       setState(() => _error = '请填写媒体库名称');
       return;
     }
-    final dirs = _dirs.where((d) => d.controller.text.trim().isNotEmpty).toList();
+    final dirs = _dirs
+        .where((d) => d.controller.text.trim().isNotEmpty)
+        .toList();
     if (dirs.isEmpty) {
       setState(() => _error = '至少需要一个目录');
       return;
@@ -98,8 +100,7 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
       for (final d in dirs) {
         final path = d.controller.text.trim();
         try {
-          final result = await repo.validatePath(path,
-              directoryId: d.id);
+          final result = await repo.validatePath(path, directoryId: d.id);
           if (result['exists'] != true) {
             throw Exception('目录路径不存在: $path');
           }
@@ -126,7 +127,10 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
       // 同步目录
       if (_isEdit) {
         final existing = widget.library!.directories;
-        final keepIds = dirs.where((d) => d.id != null).map((d) => d.id!).toSet();
+        final keepIds = dirs
+            .where((d) => d.id != null)
+            .map((d) => d.id!)
+            .toSet();
         // 删除原 list 中不在 form 的目录
         for (final old in existing) {
           if (!keepIds.contains(old.id)) {
@@ -139,19 +143,29 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
         final d = dirs[i];
         final path = d.controller.text.trim();
         if (d.id == null) {
-          await repo.createDirectory(libId,
-              path: path, name: '目录 ${i + 1}', enabled: d.enabled);
+          await repo.createDirectory(
+            libId,
+            path: path,
+            name: '目录 ${i + 1}',
+            enabled: d.enabled,
+          );
         } else {
-          await repo.updateDirectory(libId, d.id!,
-              path: path, enabled: d.enabled);
+          await repo.updateDirectory(
+            libId,
+            d.id!,
+            path: path,
+            enabled: d.enabled,
+          );
         }
       }
 
       AppHaptics.medium();
-      messenger.showSnackBar(SnackBar(
-        content: Text(_isEdit ? '已保存' : '已创建'),
-        duration: const Duration(seconds: 1),
-      ));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(_isEdit ? '已保存' : '已创建'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
       // ignore: unused_result
       ref.refresh(librariesAllProvider);
       if (mounted) await Navigator.of(context).maybePop();
@@ -191,154 +205,162 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
               primary: true,
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
               children: [
-                    // 名称
-                    Text(l.libraryEditorName, style: AppText.eyebrow(context)),
-                    const SizedBox(height: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: c.surface,
-                        border: Border.all(color: c.cardBorder),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: TextField(
-                        controller: _nameController,
-                        decoration: const InputDecoration(
-                          hintText: '例: 我的电影',
-                          prefixIcon: Icon(Icons.drive_file_rename_outline),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 14),
-                        ),
-                        style: TextStyle(
-                          color: c.text,
-                          fontFamily: 'Inter',
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
+                // 名称
+                Text(l.libraryEditorName, style: AppText.eyebrow(context)),
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: c.surface,
+                    border: Border.all(color: c.cardBorder),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: TextField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      hintText: '例: 我的电影',
+                      prefixIcon: Icon(Icons.drive_file_rename_outline),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
                       ),
                     ),
-                    const SizedBox(height: 22),
-                    // 启用开关
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: c.surface,
-                        border: Border.all(color: c.cardBorder),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text('启用',
-                                    style: TextStyle(
-                                      color: c.text,
-                                      fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    )),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '关闭后不参与扫描,首页隐藏',
-                                  style: AppText.meta(context),
-                                ),
-              ],
-            ),
-          ),
-                          SettingsSwitch(
-                            value: _enabled,
-                            onChanged: (v) => setState(() => _enabled = v),
-                          ),
-                        ],
-                      ),
+                    style: TextStyle(
+                      color: c.text,
+                      fontFamily: 'Inter',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 28),
-                    // 目录
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            l.libraryEditorDirectories,
-                            style: AppText.eyebrow(context),
-                          ),
-                        ),
-                        TextButton.icon(
-                          onPressed: _addDir,
-                          icon: Icon(Icons.add, size: 16, color: c.accent),
-                          label: Text('添加目录',
+                  ),
+                ),
+                const SizedBox(height: 22),
+                // 启用开关
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: c.surface,
+                    border: Border.all(color: c.cardBorder),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '启用',
                               style: TextStyle(
-                                color: c.accent,
+                                color: c.text,
                                 fontFamily: 'Inter',
                                 fontWeight: FontWeight.w700,
-                                fontSize: 12,
-                              )),
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            minimumSize: const Size(0, 0),
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text('关闭后不参与扫描,首页隐藏', style: AppText.meta(context)),
+                          ],
+                        ),
+                      ),
+                      SettingsSwitch(
+                        value: _enabled,
+                        onChanged: (v) => setState(() => _enabled = v),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 28),
+                // 目录
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        l.libraryEditorDirectories,
+                        style: AppText.eyebrow(context),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: _addDir,
+                      icon: Icon(Icons.add, size: 16, color: c.accent),
+                      label: Text(
+                        '添加目录',
+                        style: TextStyle(
+                          color: c.accent,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0, 0),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                for (var i = 0; i < _dirs.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _DirEditor(
+                      row: _dirs[i],
+                      index: i,
+                      canRemove: _dirs.length > 1,
+                      onRemove: () => _removeDir(i),
+                      onChanged: () => setState(() {}),
+                    ),
+                  ),
+                if (_error != null) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: c.danger.withValues(alpha: 0.1),
+                      border: Border.all(
+                        color: c.danger.withValues(alpha: 0.4),
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, size: 16, color: c.danger),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _error!,
+                            style: TextStyle(
+                              color: c.danger,
+                              fontFamily: 'Inter',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    for (var i = 0; i < _dirs.length; i++)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _DirEditor(
-                          row: _dirs[i],
-                          index: i,
-                          canRemove: _dirs.length > 1,
-                          onRemove: () => _removeDir(i),
-                          onChanged: () => setState(() {}),
-                        ),
-                      ),
-                    if (_error != null) ...[
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: c.danger.withValues(alpha: 0.1),
-                          border: Border.all(
-                              color: c.danger.withValues(alpha: 0.4)),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.error_outline,
-                                size: 16, color: c.danger),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(_error!,
-                                  style: TextStyle(
-                                      color: c.danger,
-                                      fontFamily: 'Inter',
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    if (_saving) ...[
-                      const SizedBox(height: 16),
-                      const Center(child: CircularProgressIndicator()),
-                    ],
-                  ],
-                ),
-              ),
+                  ),
+                ],
+                if (_saving) ...[
+                  const SizedBox(height: 16),
+                  const Center(child: CircularProgressIndicator()),
+                ],
+              ],
+            ),
           ),
         ),
+      ),
     );
   }
 }
 
 class _DirRow {
   _DirRow({this.id, String? path, this.enabled = true})
-      : controller = TextEditingController(text: path ?? '');
+    : controller = TextEditingController(text: path ?? '');
 
   final int? id;
   bool enabled;

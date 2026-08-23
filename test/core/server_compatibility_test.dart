@@ -17,10 +17,7 @@ void main() {
   test('项目名称和版本均正确时通过', () {
     final info = requireCompatibleServerVersion({
       'success': true,
-      'data': {
-        'project_name': 'md_center',
-        'version': '1.6.0',
-      },
+      'data': {'project_name': 'md_center', 'version': '1.6.0'},
     });
 
     expect(info.projectName, 'md_center');

@@ -51,18 +51,17 @@ class AuthStatus {
   final bool webAuthnConfigured;
 
   factory AuthStatus.fromJson(Map<String, dynamic> json) => AuthStatus(
-        enabled: json['enabled'] == true,
-        configured: json['configured'] == true,
-        authenticated: json['authenticated'] == true,
-        passwordLoginDisabled: json['password_login_disabled'] == true,
-        refreshTokenExpireDays:
-            (json['refresh_token_expire_days'] as num?)?.toInt() ?? 0,
-        maxFailedAttempts:
-            (json['max_failed_attempts'] as num?)?.toInt() ?? 0,
-        lockMinutes: (json['lock_minutes'] as num?)?.toInt() ?? 0,
-        totpConfigured: json['totp_configured'] == true,
-        webAuthnConfigured: json['webauthn_configured'] == true,
-      );
+    enabled: json['enabled'] == true,
+    configured: json['configured'] == true,
+    authenticated: json['authenticated'] == true,
+    passwordLoginDisabled: json['password_login_disabled'] == true,
+    refreshTokenExpireDays:
+        (json['refresh_token_expire_days'] as num?)?.toInt() ?? 0,
+    maxFailedAttempts: (json['max_failed_attempts'] as num?)?.toInt() ?? 0,
+    lockMinutes: (json['lock_minutes'] as num?)?.toInt() ?? 0,
+    totpConfigured: json['totp_configured'] == true,
+    webAuthnConfigured: json['webauthn_configured'] == true,
+  );
 }
 
 @immutable
@@ -88,17 +87,16 @@ class AuthConfig {
   final bool webAuthnConfigured;
 
   factory AuthConfig.fromJson(Map<String, dynamic> json) => AuthConfig(
-        enabled: json['enabled'] == true,
-        configured: json['configured'] == true,
-        passwordLoginDisabled: json['password_login_disabled'] == true,
-        refreshTokenExpireDays:
-            (json['refresh_token_expire_days'] as num?)?.toInt() ?? 7,
-        maxFailedAttempts:
-            (json['max_failed_attempts'] as num?)?.toInt() ?? 5,
-        lockMinutes: (json['lock_minutes'] as num?)?.toInt() ?? 30,
-        totpConfigured: json['totp_configured'] == true,
-        webAuthnConfigured: json['webauthn_configured'] == true,
-      );
+    enabled: json['enabled'] == true,
+    configured: json['configured'] == true,
+    passwordLoginDisabled: json['password_login_disabled'] == true,
+    refreshTokenExpireDays:
+        (json['refresh_token_expire_days'] as num?)?.toInt() ?? 7,
+    maxFailedAttempts: (json['max_failed_attempts'] as num?)?.toInt() ?? 5,
+    lockMinutes: (json['lock_minutes'] as num?)?.toInt() ?? 30,
+    totpConfigured: json['totp_configured'] == true,
+    webAuthnConfigured: json['webauthn_configured'] == true,
+  );
 }
 
 @immutable
@@ -114,10 +112,10 @@ class TotpSetup {
   final String qrDataUrl;
 
   factory TotpSetup.fromJson(Map<String, dynamic> json) => TotpSetup(
-        sessionId: json['session_id']?.toString() ?? '',
-        secret: json['secret']?.toString() ?? '',
-        qrDataUrl: json['qr_data_url']?.toString() ?? '',
-      );
+    sessionId: json['session_id']?.toString() ?? '',
+    secret: json['secret']?.toString() ?? '',
+    qrDataUrl: json['qr_data_url']?.toString() ?? '',
+  );
 }
 
 enum AuthPhase {
@@ -132,11 +130,7 @@ enum AuthPhase {
 
 @immutable
 class AuthState {
-  const AuthState({
-    required this.phase,
-    this.status,
-    this.message,
-  });
+  const AuthState({required this.phase, this.status, this.message});
 
   final AuthPhase phase;
   final AuthStatus? status;

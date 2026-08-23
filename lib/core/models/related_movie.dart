@@ -19,7 +19,8 @@ abstract class RelatedMovie with _$RelatedMovie {
     @JsonKey(name: 'thumb_uuid') String? thumbUuid,
     @JsonKey(name: 'fanart_uuid') String? fanartUuid,
     @JsonKey(name: 'matching_actors')
-    @Default(<ActorRef>[]) List<ActorRef> matchingActors,
+    @Default(<ActorRef>[])
+    List<ActorRef> matchingActors,
   }) = _RelatedMovie;
 
   factory RelatedMovie.fromJson(Map<String, dynamic> json) =>

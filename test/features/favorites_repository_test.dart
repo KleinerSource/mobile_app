@@ -54,44 +54,43 @@ class _StubFavoritesApi implements FavoritesApi {
               'id': 1,
               'title': 'Watched movie',
               'runtime': 120,
-              'watch_record': {
-                'progress_ratio': 1.0,
-                'completed': true,
-              },
+              'watch_record': {'progress_ratio': 1.0, 'completed': true},
             },
           },
         ],
         'total_count': 2,
         'limit': q['limit'],
         'offset': q['offset'],
-        if (withStats)
-          'stats': {
-            'watched_count': 2,
-            'watched_minutes': 180,
-          },
+        if (withStats) 'stats': {'watched_count': 2, 'watched_minutes': 180},
       },
     };
   }
 
   @override
   Future<dynamic> toggle(int movieId) async => {
-        'success': true,
-        'message': 'ok',
-        'data': {'is_favorited': true},
-      };
+    'success': true,
+    'message': 'ok',
+    'data': {'is_favorited': true},
+  };
 
   @override
   Future<dynamic> status(int movieId) async => {
-        'success': true,
-        'message': 'ok',
-        'data': {'is_favorited': false},
-      };
+    'success': true,
+    'message': 'ok',
+    'data': {'is_favorited': false},
+  };
 
   @override
-  Future<dynamic> addBatch(Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> addBatch(Map<String, dynamic> body) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 
   @override
-  Future<dynamic> removeBatch(Map<String, dynamic> body) async =>
-      {'success': true, 'message': 'ok', 'data': null};
+  Future<dynamic> removeBatch(Map<String, dynamic> body) async => {
+    'success': true,
+    'message': 'ok',
+    'data': null,
+  };
 }

@@ -47,6 +47,8 @@ class HomeMovieViewState extends ChangeNotifier {
   }
 }
 
-final homeMovieViewStateProvider = ChangeNotifierProvider<HomeMovieViewState>((ref) {
+final homeMovieViewStateProvider = ChangeNotifierProvider<HomeMovieViewState>((
+  ref,
+) {
   return HomeMovieViewState(ref.watch(sharedPrefsProvider));
 });

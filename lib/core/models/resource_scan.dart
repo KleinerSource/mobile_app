@@ -90,10 +90,7 @@ int _intValue(dynamic value) {
 
 List<int> _intList(dynamic value) {
   if (value is! List) return const <int>[];
-  return value
-      .map(_intValue)
-      .where((item) => item > 0)
-      .toList(growable: false);
+  return value.map(_intValue).where((item) => item > 0).toList(growable: false);
 }
 
 DateTime? _dateTimeValue(dynamic value) {

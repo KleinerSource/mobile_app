@@ -156,10 +156,9 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       // ignore: unused_result
       ref.refresh(movieDetailProvider(widget.movie.id));
       AppHaptics.medium();
-      messenger.showSnackBar(const SnackBar(
-        content: Text('已保存'),
-        duration: Duration(seconds: 1),
-      ));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('已保存'), duration: Duration(seconds: 1)),
+      );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
@@ -202,10 +201,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       selectedNames: {for (final e in current) e.id: e.name},
     );
     if (result == null) return;
-    final nameMap = {
-      for (final e in current) e.id: e.name,
-      ...result.names,
-    };
+    final nameMap = {for (final e in current) e.id: e.name, ...result.names};
     final fallbackName = switch (kind) {
       EntityPickerKind.genre => '未命名分类',
       EntityPickerKind.tag => '未命名标签',
@@ -375,8 +371,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('编辑影片',
-                      style: AppText.sectionTitle(context)),
+                  child: Text('编辑影片', style: AppText.sectionTitle(context)),
                 ),
                 TextButton(
                   onPressed: _saving || _flagUpdating ? null : _save,
@@ -456,48 +451,58 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                   Row(
                     children: [
                       Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             _label('番号'),
                             _input(_num, mono: true, icon: Icons.tag),
-                          ])),
+                          ],
+                        ),
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             _label('国家', trailing: _translateBtn('country')),
                             _input(_country, icon: Icons.public),
-                          ])),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 14),
                   Row(
                     children: [
                       Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             _label('年份'),
                             _input(_year, mono: true, numeric: true),
-                          ])),
+                          ],
+                        ),
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             _label('评分'),
                             _input(_rating, mono: true, numeric: true),
-                          ])),
+                          ],
+                        ),
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             _label('时长 (min)'),
                             _input(_runtime, mono: true, numeric: true),
-                          ])),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -521,9 +526,13 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                       label: Text(_batchTranslating ? '批量翻译中' : '批量翻译'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: c.accent,
-                        side: BorderSide(color: c.accent.withValues(alpha: 0.4)),
+                        side: BorderSide(
+                          color: c.accent.withValues(alpha: 0.4),
+                        ),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
                       ),
                     ),
                   ),
@@ -536,15 +545,15 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                     onTap: _pickSeries,
                     onClear: _seriesId != null
                         ? () => setState(() {
-                              _seriesId = null;
-                              _seriesName = null;
-                            })
+                            _seriesId = null;
+                            _seriesName = null;
+                          })
                         : null,
                     emptyHint: '点击选择系列',
                     children: _seriesId != null
                         ? [
                             HueChip(
-                            label: _seriesName ?? '未命名系列',
+                              label: _seriesName ?? '未命名系列',
                               hue: AppHues.sky,
                             ),
                           ]
@@ -561,8 +570,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                             for (var i = 0; i < _genres.length; i++)
                               HueChip(
                                 label: _genres[i].name,
-                                hue: AppHues
-                                    .all[i % AppHues.all.length],
+                                hue: AppHues.all[i % AppHues.all.length],
                               ),
                           ],
                   ),
@@ -577,8 +585,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                             for (var i = 0; i < _tags.length; i++)
                               HueChip(
                                 label: '# ${_tags[i].name}',
-                                hue: AppHues
-                                    .all[(i + 2) % AppHues.all.length],
+                                hue: AppHues.all[(i + 2) % AppHues.all.length],
                               ),
                           ],
                   ),
@@ -593,8 +600,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                             for (var i = 0; i < _actors.length; i++)
                               HueChip(
                                 label: _actors[i].name,
-                                hue: AppHues
-                                    .all[(i + 4) % AppHues.all.length],
+                                hue: AppHues.all[(i + 4) % AppHues.all.length],
                               ),
                           ],
                   ),
@@ -607,7 +613,8 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                       decoration: BoxDecoration(
                         color: c.danger.withValues(alpha: 0.1),
                         border: Border.all(
-                            color: c.danger.withValues(alpha: 0.4)),
+                          color: c.danger.withValues(alpha: 0.4),
+                        ),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
@@ -615,12 +622,16 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
                           Icon(Icons.error_outline, size: 16, color: c.danger),
                           const SizedBox(width: 8),
                           Expanded(
-                              child: Text(_error!,
-                                  style: TextStyle(
-                                      color: c.danger,
-                                      fontFamily: 'Inter',
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600))),
+                            child: Text(
+                              _error!,
+                              style: TextStyle(
+                                color: c.danger,
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -644,8 +655,8 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       child: Row(
         children: [
           Expanded(
-              child: Text(label.toUpperCase(),
-                  style: AppText.eyebrow(context))),
+            child: Text(label.toUpperCase(), style: AppText.eyebrow(context)),
+          ),
           if (trailing != null) trailing,
         ],
       ),
@@ -677,27 +688,25 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     final ctl = _ctlOf(key);
     final text = ctl.text.trim();
     if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$label 内容为空, 无需翻译')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$label 内容为空, 无需翻译')));
       return;
     }
     setState(() => _translating.add(key));
     final messenger = ScaffoldMessenger.of(context);
     try {
       final repo = ref.read(translationRepositoryProvider);
-      final translated = await repo.translateText(text,
-          fieldName: _fieldTypeMap[key] ?? key);
+      final translated = await repo.translateText(
+        text,
+        fieldName: _fieldTypeMap[key] ?? key,
+      );
       if (!mounted) return;
       if (translated.isEmpty) {
-        messenger.showSnackBar(
-          SnackBar(content: Text('$label 翻译为空')),
-        );
+        messenger.showSnackBar(SnackBar(content: Text('$label 翻译为空')));
       } else {
         ctl.text = translated;
-        messenger.showSnackBar(
-          SnackBar(content: Text('$label 翻译成功')),
-        );
+        messenger.showSnackBar(SnackBar(content: Text('$label 翻译成功')));
       }
     } catch (e) {
       if (!mounted) return;
@@ -717,9 +726,9 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       if (txt.isNotEmpty) fields[entry.value] = txt;
     }
     if (fields.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('没有可翻译的内容')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('没有可翻译的内容')));
       return;
     }
     setState(() => _batchTranslating = true);
@@ -728,9 +737,7 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
       final repo = ref.read(translationRepositoryProvider);
       final result = await repo.translateBatch(fields);
       if (!mounted) return;
-      final inverse = {
-        for (final e in _fieldTypeMap.entries) e.value: e.key,
-      };
+      final inverse = {for (final e in _fieldTypeMap.entries) e.value: e.key};
       var ok = 0;
       result.forEach((apiKey, translated) {
         final formKey = inverse[apiKey];
@@ -740,10 +747,13 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
         }
       });
       setState(() {});
-      messenger.showSnackBar(SnackBar(
-        content:
-            Text(ok > 0 ? '批量翻译: 成功 $ok / ${fields.length}' : '批量翻译未返回结果'),
-      ));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            ok > 0 ? '批量翻译: 成功 $ok / ${fields.length}' : '批量翻译未返回结果',
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
@@ -822,7 +832,9 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
           prefixIcon: icon == null ? null : Icon(icon),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14, vertical: 12),
+            horizontal: 14,
+            vertical: 12,
+          ),
         ),
         style: TextStyle(
           color: c.text,
@@ -871,48 +883,44 @@ class _PickerSection extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
             child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, size: 16, color: c.muted),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
+                Row(
+                  children: [
+                    Icon(icon, size: 16, color: c.muted),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          color: c.text,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (onClear != null)
+                      IconButton(
+                        icon: Icon(Icons.close, size: 16, color: c.muted),
+                        onPressed: onClear,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    Icon(Icons.chevron_right, size: 18, color: c.muted),
+                  ],
                 ),
-                if (onClear != null)
-                  IconButton(
-                    icon: Icon(Icons.close, size: 16, color: c.muted),
-                    onPressed: onClear,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                Icon(Icons.chevron_right, size: 18, color: c.muted),
+                const SizedBox(height: 8),
+                if (children == null || children!.isEmpty)
+                  Text(emptyHint, style: AppText.meta(context))
+                else
+                  Wrap(spacing: 6, runSpacing: 6, children: children!),
               ],
             ),
-            const SizedBox(height: 8),
-            if (children == null || children!.isEmpty)
-              Text(emptyHint, style: AppText.meta(context))
-            else
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: children!,
-              ),
-            ],
           ),
         ),
       ),
-    ),
     );
   }
 }
@@ -991,30 +999,30 @@ class _FlagChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(100),
           ),
           child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              transitionBuilder: (child, anim) =>
-                  ScaleTransition(scale: anim, child: child),
-              child: Icon(
-                value ? Icons.check_circle : Icons.circle_outlined,
-                key: ValueKey(value),
-                size: 14,
-                color: value ? c.accent : c.muted2,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                transitionBuilder: (child, anim) =>
+                    ScaleTransition(scale: anim, child: child),
+                child: Icon(
+                  value ? Icons.check_circle : Icons.circle_outlined,
+                  key: ValueKey(value),
+                  size: 14,
+                  color: value ? c.accent : c.muted2,
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: value ? c.accent : c.text,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 12.5,
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: value ? c.accent : c.text,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                ),
               ),
-            ),
-          ],
+            ],
           ),
         ),
       ),

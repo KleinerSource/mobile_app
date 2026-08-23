@@ -55,11 +55,9 @@ void main() {
       },
     );
 
-    expect(refreshed, containsAll(<String>[
-      'recent',
-      'continue',
-      'libraries',
-      'carousel',
-    ]));
+    expect(
+      refreshed,
+      containsAll(<String>['recent', 'continue', 'libraries', 'carousel']),
+    );
   });
 }

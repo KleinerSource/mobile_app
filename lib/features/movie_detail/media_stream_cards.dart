@@ -27,10 +27,7 @@ class MediaStreamCards extends StatelessWidget {
     }
     for (var i = 0; i < streams.audioStreams.length; i++) {
       cards.add(
-        _AudioStreamCard(
-          ordinal: i + 1,
-          track: streams.audioStreams[i],
-        ),
+        _AudioStreamCard(ordinal: i + 1, track: streams.audioStreams[i]),
       );
     }
     if (streams.subtitleStreams.isNotEmpty) {
@@ -145,12 +142,15 @@ class _CardRow extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: valueWidget ??
+            child:
+                valueWidget ??
                 Text(
                   value,
                   textAlign: TextAlign.right,
-                  style: AppText.mono(context, size: 11.5)
-                      .copyWith(color: c.text),
+                  style: AppText.mono(
+                    context,
+                    size: 11.5,
+                  ).copyWith(color: c.text),
                 ),
           ),
         ],
@@ -216,7 +216,8 @@ class _VideoStreamCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final r in _videoRows(video, fallbackBitRate)) _CardRow(r.label, r.value!),
+          for (final r in _videoRows(video, fallbackBitRate))
+            _CardRow(r.label, r.value!),
         ],
       ),
     );
@@ -269,7 +270,8 @@ class _SubtitleStreamCard extends StatelessWidget {
         children: [
           for (final sub in streams)
             _CardRow(
-              _opt(languageLabel(sub.language)) ?? subtitleCodecLabel(sub.codec),
+              _opt(languageLabel(sub.language)) ??
+                  subtitleCodecLabel(sub.codec),
               subtitleCodecLabel(sub.codec),
               valueWidget: Wrap(
                 alignment: WrapAlignment.end,
@@ -279,8 +281,10 @@ class _SubtitleStreamCard extends StatelessWidget {
                 children: [
                   Text(
                     subtitleCodecLabel(sub.codec),
-                    style: AppText.mono(context, size: 11.5)
-                        .copyWith(color: c.text),
+                    style: AppText.mono(
+                      context,
+                      size: 11.5,
+                    ).copyWith(color: c.text),
                   ),
                   if (sub.isDefault) _CardBadge('默认', c.accent),
                   if (sub.forced) _CardBadge('强制', c.warning),
@@ -319,7 +323,7 @@ List<_StreamRow> _videoRows(VideoStreamInfo video, int? fallbackBitRate) {
       label: '分辨率',
       value: video.width != null && video.height != null
           ? '${video.width}×${video.height}'
-          : null
+          : null,
     ),
     (label: '长宽比', value: _opt(formatAspectRatio(video))),
     (label: '帧率', value: _opt(formatFrameRate(video.frameRate))),
@@ -329,13 +333,10 @@ List<_StreamRow> _videoRows(VideoStreamInfo video, int? fallbackBitRate) {
     (label: '色彩范围', value: _opt(colorRangeLabel(video.colorRange))),
     (
       label: '位深',
-      value: video.bitDepth != null ? '${video.bitDepth}-bit' : null
+      value: video.bitDepth != null ? '${video.bitDepth}-bit' : null,
     ),
     (label: '像素格式', value: video.pixFmt),
-    (
-      label: '码率',
-      value: _opt(formatBitrate(video.bitRate ?? fallbackBitRate))
-    ),
+    (label: '码率', value: _opt(formatBitrate(video.bitRate ?? fallbackBitRate))),
   ].where((r) => r.value != null).toList();
 }
 
@@ -347,7 +348,7 @@ List<_StreamRow> _audioRows(AudioStreamInfo track) {
     (label: '布局', value: _opt(channelLayoutLabel(track))),
     (
       label: '声道',
-      value: track.channels != null ? '${track.channels} ch' : null
+      value: track.channels != null ? '${track.channels} ch' : null,
     ),
     (label: '采样率', value: _opt(formatSampleRate(track.sampleRate))),
     (label: '码率', value: _opt(formatBitrate(track.bitRate))),
@@ -446,10 +447,7 @@ const _colorTransferNames = {
   'iec61966-2-1': 'sRGB',
 };
 
-const _colorRangeNames = {
-  'tv': 'Limited (16-235)',
-  'pc': 'Full (0-255)',
-};
+const _colorRangeNames = {'tv': 'Limited (16-235)', 'pc': 'Full (0-255)'};
 
 String _mapLabel(Map<String, String> map, String? raw) {
   if (raw == null || raw.isEmpty) return '-';
@@ -463,7 +461,8 @@ String formatVideoCodec(String? codec) {
 
 String audioCodecLabel(String? codec) => _mapLabel(_audioCodecNames, codec);
 
-String subtitleCodecLabel(String? codec) => _mapLabel(_subtitleCodecNames, codec);
+String subtitleCodecLabel(String? codec) =>
+    _mapLabel(_subtitleCodecNames, codec);
 
 String languageLabel(String? lang) {
   if (lang == null || lang.isEmpty) return '-';

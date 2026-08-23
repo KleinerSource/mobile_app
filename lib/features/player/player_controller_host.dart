@@ -333,7 +333,11 @@ class PlayerControllerHost {
     final file = await _writeSubtitleTempFile(content);
     try {
       await player.setSubtitleTrack(
-        SubtitleTrack.uri(file.uri.toString(), title: title, language: language),
+        SubtitleTrack.uri(
+          file.uri.toString(),
+          title: title,
+          language: language,
+        ),
       );
       _subtitleTempFile = file;
       await _setNativeSubtitleVisibility(false);
@@ -349,7 +353,8 @@ class PlayerControllerHost {
   Future<File> _writeSubtitleTempFile(String content) async {
     final directory = await getTemporaryDirectory();
     // 带上 .vtt 扩展名让 mpv 按扩展名直接选定字幕 demuxer，不依赖内容探测。
-    final name = 'mdc-subtitle-'
+    final name =
+        'mdc-subtitle-'
         '${DateTime.now().microsecondsSinceEpoch}-'
         '${_subtitleFileSeq++}.vtt';
     final file = File('${directory.path}${Platform.pathSeparator}$name');

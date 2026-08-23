@@ -71,7 +71,11 @@ class ListDetailPage extends ConsumerWidget {
                 const SizedBox(width: 6),
               ],
               flexibleSpace: FlexibleSpaceBar(
-                background: _Hero(name: list.name, hue: list.hue, count: list.count),
+                background: _Hero(
+                  name: list.name,
+                  hue: list.hue,
+                  count: list.count,
+                ),
               ),
             ),
 
@@ -90,16 +94,10 @@ class ListDetailPage extends ConsumerWidget {
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 14,
                   ),
-                  delegate: SliverChildBuilderDelegate(
-                    (ctx, i) {
-                      final id = list.movieIds[i];
-                      return _ListMovieCell(
-                        movieId: id,
-                        listId: list.id,
-                      );
-                    },
-                    childCount: list.movieIds.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((ctx, i) {
+                    final id = list.movieIds[i];
+                    return _ListMovieCell(movieId: id, listId: list.id);
+                  }, childCount: list.movieIds.length),
                 ),
               ),
           ],
@@ -128,7 +126,9 @@ class ListDetailPage extends ConsumerWidget {
                 title: const Text(
                   '重命名',
                   style: TextStyle(
-                      fontFamily: 'Inter', fontWeight: FontWeight.w600),
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 onTap: () async {
                   Navigator.pop(ctx);
@@ -152,15 +152,16 @@ class ListDetailPage extends ConsumerWidget {
                       context: context,
                       builder: (cctx) => AlertDialog(
                         title: const Text('删除集合'),
-                        content:
-                            const Text('集合内的影片不会被删除,只是不再属于这个集合。'),
+                        content: const Text('集合内的影片不会被删除,只是不再属于这个集合。'),
                         actions: [
                           TextButton(
-                              onPressed: () => Navigator.pop(cctx, false),
-                              child: const Text('取消')),
+                            onPressed: () => Navigator.pop(cctx, false),
+                            child: const Text('取消'),
+                          ),
                           FilledButton(
-                              onPressed: () => Navigator.pop(cctx, true),
-                              child: const Text('删除')),
+                            onPressed: () => Navigator.pop(cctx, true),
+                            child: const Text('删除'),
+                          ),
                         ],
                       ),
                     );
@@ -200,11 +201,13 @@ class ListDetailPage extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-              child: const Text('保存')),
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('保存'),
+          ),
         ],
       ),
     );
@@ -227,12 +230,14 @@ class _EmptyListView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.collections_bookmark_outlined,
-                size: 40, color: c.muted),
+            Icon(Icons.collections_bookmark_outlined, size: 40, color: c.muted),
             const SizedBox(height: 14),
-            Text('集合是空的',
-                style: AppText.body(context)
-                    .copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              '集合是空的',
+              style: AppText.body(
+                context,
+              ).copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 4),
             Text('在影片详情里点 + List 加入', style: AppText.meta(context)),
           ],
@@ -272,20 +277,14 @@ class _ListMovieCell extends ConsumerWidget {
           child: Text(
             '加载失败',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: c.muted,
-              fontFamily: 'Inter',
-              fontSize: 10,
-            ),
+            style: TextStyle(color: c.muted, fontFamily: 'Inter', fontSize: 10),
           ),
         ),
       ),
       data: (movie) => PrivacyAwareInkWell(
         movieId: movieId,
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => MovieDetailPage(movieId: movieId),
-          ),
+          MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),
         ),
         onLongPress: () => _confirmRemove(context, ref, movie),
         child: Column(
@@ -346,11 +345,13 @@ class _ListMovieCell extends ConsumerWidget {
         content: Text('把「${movie.title}」从这个集合移除?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('移除')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('移除'),
+          ),
         ],
       ),
     );

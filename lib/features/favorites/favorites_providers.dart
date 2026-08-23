@@ -30,5 +30,5 @@ class FavoriteStatusNotifier extends Notifier<Map<int, bool>> {
 
 final favoriteStatusProvider =
     NotifierProvider<FavoriteStatusNotifier, Map<int, bool>>(
-  FavoriteStatusNotifier.new,
-);
+      FavoriteStatusNotifier.new,
+    );

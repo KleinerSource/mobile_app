@@ -156,8 +156,9 @@ class _StackedBadgesState extends State<StackedBadges> {
       child: CompositedTransformFollower(
         link: _layerLink,
         targetAnchor: Alignment.bottomLeft,
-        followerAnchor:
-            widget.expandUpward ? Alignment.bottomLeft : Alignment.topLeft,
+        followerAnchor: widget.expandUpward
+            ? Alignment.bottomLeft
+            : Alignment.topLeft,
         offset: Offset(0, widget.expandUpward ? 0 : widget.spacing),
         child: TapRegion(
           groupId: _stackedBadgesTapGroup,

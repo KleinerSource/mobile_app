@@ -33,20 +33,24 @@ void main() {
     });
 
     test('detail 为对象 message', () {
-      final ex = mapDioError(_resp(400, {
-        'detail': {'message': '冲突'}
-      }));
+      final ex = mapDioError(
+        _resp(400, {
+          'detail': {'message': '冲突'},
+        }),
+      );
       expect(ex.message, '冲突');
     });
 
     test('detail 为数组 → 用 ; 连接 msg/message', () {
-      final ex = mapDioError(_resp(422, {
-        'detail': [
-          {'msg': 'a 不能为空'},
-          {'message': 'b 不合法'},
-          {'foo': 'bar'}
-        ]
-      }));
+      final ex = mapDioError(
+        _resp(422, {
+          'detail': [
+            {'msg': 'a 不能为空'},
+            {'message': 'b 不合法'},
+            {'foo': 'bar'},
+          ],
+        }),
+      );
       expect(ex.message, 'a 不能为空; b 不合法; 验证错误');
     });
 
@@ -59,11 +63,13 @@ void main() {
       final ex = mapDioError(
         _resp(
           401,
-          utf8.encode(jsonEncode({
-            'success': false,
-            'message': '令牌过期',
-            'data': {'reason': 'expired'},
-          })),
+          utf8.encode(
+            jsonEncode({
+              'success': false,
+              'message': '令牌过期',
+              'data': {'reason': 'expired'},
+            }),
+          ),
         ),
       );
       expect(ex.message, '令牌过期');
@@ -98,7 +104,7 @@ DioException _resp(int code, Object body, {String statusText = ''}) {
       statusMessage: statusText,
       data: body,
       headers: Headers.fromMap({
-        'x-request-id': ['req-123']
+        'x-request-id': ['req-123'],
       }),
     ),
     type: DioExceptionType.badResponse,

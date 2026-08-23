@@ -9,11 +9,7 @@ final mappingsRepositoryProvider = Provider<MappingsRepository>((ref) {
 });
 
 class MappingsListKey {
-  const MappingsListKey({
-    required this.type,
-    this.search,
-    this.status = 'all',
-  });
+  const MappingsListKey({required this.type, this.search, this.status = 'all'});
 
   final MappingType type;
   final String? search;
@@ -32,9 +28,7 @@ class MappingsListKey {
 
 final mappingsListProvider = FutureProvider.autoDispose
     .family<List<MappingRule>, MappingsListKey>((ref, key) async {
-  return ref.watch(mappingsRepositoryProvider).list(
-        key.type,
-        search: key.search,
-        status: key.status,
-      );
-});
+      return ref
+          .watch(mappingsRepositoryProvider)
+          .list(key.type, search: key.search, status: key.status);
+    });

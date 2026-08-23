@@ -21,17 +21,23 @@ class ListsNotifier extends Notifier<List<FavoriteList>> {
       src.map((l) => l.copy()).toList();
 
   Future<void> addMovie(String listId, int movieId) async {
-    final next = await ref.read(listsRepositoryProvider).addMovie(listId, movieId);
+    final next = await ref
+        .read(listsRepositoryProvider)
+        .addMovie(listId, movieId);
     state = _clone(next);
   }
 
   Future<void> removeMovie(String listId, int movieId) async {
-    final next = await ref.read(listsRepositoryProvider).removeMovie(listId, movieId);
+    final next = await ref
+        .read(listsRepositoryProvider)
+        .removeMovie(listId, movieId);
     state = _clone(next);
   }
 
   Future<FavoriteList?> create({required String name, required int hue}) async {
-    final lists = await ref.read(listsRepositoryProvider).create(name: name, hue: hue);
+    final lists = await ref
+        .read(listsRepositoryProvider)
+        .create(name: name, hue: hue);
     state = _clone(lists);
     return lists.isEmpty ? null : lists.last;
   }
@@ -55,12 +61,12 @@ class ListsNotifier extends Notifier<List<FavoriteList>> {
   }
 }
 
-final listsProvider =
-    NotifierProvider<ListsNotifier, List<FavoriteList>>(ListsNotifier.new);
+final listsProvider = NotifierProvider<ListsNotifier, List<FavoriteList>>(
+  ListsNotifier.new,
+);
 
 /// 某 list 的实时引用
-final favoriteListProvider =
-    Provider.family<FavoriteList?, String>((ref, id) {
+final favoriteListProvider = Provider.family<FavoriteList?, String>((ref, id) {
   final all = ref.watch(listsProvider);
   try {
     return all.firstWhere((l) => l.id == id);

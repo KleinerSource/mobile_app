@@ -24,21 +24,21 @@ void main() {
     var checkCount = 0;
 
     Widget app(bool enabled) => UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            home: StartupUpdateGate(
-              enabled: enabled,
-              startDelay: Duration.zero,
-              retryDelays: const [Duration.zero],
-              retryAfterFailure: const Duration(hours: 1),
-              checkForUpdate: (_, __) async {
-                checkCount++;
-                return true;
-              },
-              child: const Scaffold(body: Text('home')),
-            ),
-          ),
-        );
+      container: container,
+      child: MaterialApp(
+        home: StartupUpdateGate(
+          enabled: enabled,
+          startDelay: Duration.zero,
+          retryDelays: const [Duration.zero],
+          retryAfterFailure: const Duration(hours: 1),
+          checkForUpdate: (_, __) async {
+            checkCount++;
+            return true;
+          },
+          child: const Scaffold(body: Text('home')),
+        ),
+      ),
+    );
 
     await tester.pumpWidget(app(false));
     await tester.pump();

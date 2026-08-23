@@ -32,7 +32,9 @@ Future<bool> checkConfiguredAppUpdate({
       packageInfo.version,
       packageInfo.buildNumber,
     );
-    final result = await ref.read(appUpdateCoordinatorProvider).check(
+    final result = await ref
+        .read(appUpdateCoordinatorProvider)
+        .check(
           repositoryUrl: repositoryUrl,
           platform: platform,
           currentVersion: currentVersion,
@@ -91,10 +93,9 @@ Future<void> _showUpdatePrompt({
     builder: (_) => UpdatePromptDialog(
       result: result,
       onUpdate: (onProgress) async {
-        await ref.read(appUpdateCoordinatorProvider).install(
-              result,
-              onReceiveProgress: onProgress,
-            );
+        await ref
+            .read(appUpdateCoordinatorProvider)
+            .install(result, onReceiveProgress: onProgress);
       },
       onIgnore: () => repository.ignoreUpdate(
         repositoryUrl: result.repository.canonicalUrl,
@@ -106,9 +107,7 @@ Future<void> _showUpdatePrompt({
 }
 
 void _showUpdateMessage(BuildContext context, String message) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(message)),
-  );
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }
 
 String _updateErrorMessage(Object error) {
@@ -117,10 +116,8 @@ String _updateErrorMessage(Object error) {
   return '检查更新失败，请稍后重试';
 }
 
-typedef StartupUpdateCheck = Future<bool> Function(
-  BuildContext context,
-  WidgetRef ref,
-);
+typedef StartupUpdateCheck =
+    Future<bool> Function(BuildContext context, WidgetRef ref);
 
 class StartupUpdateGate extends ConsumerStatefulWidget {
   const StartupUpdateGate({
@@ -286,9 +283,8 @@ class StartupUpdateGateState extends ConsumerState<StartupUpdateGate> {
   }
 }
 
-typedef UpdatePromptUpdate = Future<void> Function(
-  void Function(int received, int total) onProgress,
-);
+typedef UpdatePromptUpdate =
+    Future<void> Function(void Function(int received, int total) onProgress);
 
 class UpdatePromptDialog extends StatefulWidget {
   const UpdatePromptDialog({
@@ -343,9 +339,9 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
                 const SizedBox(height: 14),
                 Text(
                   '本次构建包含以下更新：',
-                  style: AppText.body(context).copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                  style: AppText.body(
+                    context,
+                  ).copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -363,10 +359,7 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
                 ],
                 if (_error != null) ...[
                   const SizedBox(height: 12),
-                  Text(
-                    _error!,
-                    style: TextStyle(color: colors.danger),
-                  ),
+                  Text(_error!, style: TextStyle(color: colors.danger)),
                 ],
               ],
             ),
@@ -374,10 +367,7 @@ class _UpdatePromptDialogState extends State<UpdatePromptDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: _busy ? null : _ignore,
-          child: const Text('忽略'),
-        ),
+        TextButton(onPressed: _busy ? null : _ignore, child: const Text('忽略')),
         TextButton(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
           child: const Text('稍后'),

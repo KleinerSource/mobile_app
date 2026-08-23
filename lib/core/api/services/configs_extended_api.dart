@@ -26,7 +26,8 @@ class ConfigsExtendedApi {
     await _dio.delete<dynamic>('/configs/key/$key');
   }
 
-  Future<Object?> _get(String path) async => (await _dio.get<dynamic>(path)).data;
+  Future<Object?> _get(String path) async =>
+      (await _dio.get<dynamic>(path)).data;
 
   Future<Object?> _post(String path, Map<String, dynamic> body) async =>
       (await _dio.post<dynamic>(path, data: body)).data;

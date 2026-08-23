@@ -67,13 +67,13 @@ class _PlayerStatusOverlayState extends State<PlayerStatusOverlay> {
         height: 30,
         child: Row(
           children: [
-            if (widget.showSystemTime)
-              _item(null, _formatClock(_now)),
+            if (widget.showSystemTime) _item(null, _formatClock(_now)),
             if (widget.showNetworkSpeed)
               _item(
                 _networkIcon(widget.stats.networkType),
                 formatPlayerNetworkRate(widget.stats.downloadBytesPerSecond),
-                semanticLabel: '${widget.stats.networkType.label} '
+                semanticLabel:
+                    '${widget.stats.networkType.label} '
                     '${formatPlayerNetworkRate(widget.stats.downloadBytesPerSecond)}',
               ),
             Expanded(

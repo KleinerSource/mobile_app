@@ -64,10 +64,7 @@ class _SecurityPinPadState extends State<SecurityPinPad>
       builder: (context, child) {
         final progress = _shakeController.value;
         final offset = math.sin(progress * math.pi * 12) * (1 - progress) * 10;
-        return Transform.translate(
-          offset: Offset(offset, 0),
-          child: child,
-        );
+        return Transform.translate(offset: Offset(offset, 0), child: child);
       },
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -78,9 +75,7 @@ class _SecurityPinPadState extends State<SecurityPinPad>
           const SizedBox(height: 14),
           for (final row in _pinRows)
             Row(
-              children: [
-                for (final digit in row) _digitButton(context, digit),
-              ],
+              children: [for (final digit in row) _digitButton(context, digit)],
             ),
           Row(
             children: [

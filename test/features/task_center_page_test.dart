@@ -16,17 +16,17 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    container.read(taskCenterProvider.notifier).updateFromSchedulerMessage(
-      const <String, dynamic>{
-        'type': 'scheduler_status',
-        'taskId': 'tr-42',
-        'taskName': '字幕转译',
-        'status': 'completed',
-        'isRunning': false,
-        'movieId': 7,
-        'movieTitle': '示例影片',
-      },
-    );
+    container
+        .read(taskCenterProvider.notifier)
+        .updateFromSchedulerMessage(const <String, dynamic>{
+          'type': 'scheduler_status',
+          'taskId': 'tr-42',
+          'taskName': '字幕转译',
+          'status': 'completed',
+          'isRunning': false,
+          'movieId': 7,
+          'movieTitle': '示例影片',
+        });
 
     await tester.pumpWidget(
       UncontrolledProviderScope(

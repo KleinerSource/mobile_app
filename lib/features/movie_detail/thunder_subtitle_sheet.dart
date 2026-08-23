@@ -30,10 +30,8 @@ class ThunderSubtitleSheet extends ConsumerStatefulWidget {
       backgroundColor: appColors(context).bg,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => ThunderSubtitleSheet(
-        movieId: movieId,
-        hostMessenger: hostMessenger,
-      ),
+      builder: (_) =>
+          ThunderSubtitleSheet(movieId: movieId, hostMessenger: hostMessenger),
     );
   }
 
@@ -71,9 +69,8 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
           .searchSubtitles(widget.movieId);
       if (!mounted) return;
       // 字母数字混合自然序排序 (frontend 同)
-      final sorted = [...res.items]..sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-        );
+      final sorted = [...res.items]
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
       setState(() {
         _items = sorted;
         _keyword = res.keyword;
@@ -128,14 +125,19 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
     }
   }
 
-  Future<void> _download(int index, SubtitleSearchItem item,
-      {bool overwrite = false}) async {
+  Future<void> _download(
+    int index,
+    SubtitleSearchItem item, {
+    bool overwrite = false,
+  }) async {
     if (_downloadingIndex == index) return;
     setState(() => _downloadingIndex = index);
     final messenger =
         widget.hostMessenger ?? ScaffoldMessenger.maybeOf(context);
     try {
-      await ref.read(moviesRepositoryProvider).downloadSubtitle(
+      await ref
+          .read(moviesRepositoryProvider)
+          .downloadSubtitle(
             widget.movieId,
             url: item.url,
             ext: item.ext ?? 'srt',
@@ -144,10 +146,12 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
       // ignore: unused_result
       ref.refresh(movieDetailProvider(widget.movieId));
       if (mounted) Navigator.of(context).pop();
-      messenger?.showSnackBar(SnackBar(
-        content: Text('已下载 ${item.name}'),
-        duration: const Duration(seconds: 1),
-      ));
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text('已下载 ${item.name}'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       messenger?.showSnackBar(
@@ -187,8 +191,7 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
                         Text('获取字幕', style: AppText.sectionTitle(context)),
                         if (_keyword.isNotEmpty) ...[
                           const SizedBox(height: 4),
-                          Text('关键词: $_keyword',
-                              style: AppText.meta(context)),
+                          Text('关键词: $_keyword', style: AppText.meta(context)),
                         ],
                       ],
                     ),
@@ -336,7 +339,9 @@ class _SubtitleRow extends StatelessWidget {
                     if (ext.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: c.chipBg,
                           borderRadius: BorderRadius.circular(4),
@@ -369,17 +374,16 @@ class _SubtitleRow extends StatelessWidget {
                         ],
                       )
                     else
-                      Text('—',
-                          style: TextStyle(
-                            color: c.muted2,
-                            fontFamily: 'monospace',
-                            fontSize: 11,
-                          )),
-                    if (size > 0)
                       Text(
-                        _fmtBytes(size),
-                        style: AppText.meta(context),
+                        '—',
+                        style: TextStyle(
+                          color: c.muted2,
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                        ),
                       ),
+                    if (size > 0)
+                      Text(_fmtBytes(size), style: AppText.meta(context)),
                   ],
                 ),
               ],
@@ -511,7 +515,9 @@ class _SubtitlePreviewPageState extends State<_SubtitlePreviewPage> {
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: c.chipBg,
                     borderRadius: BorderRadius.circular(100),

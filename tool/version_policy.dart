@@ -21,9 +21,9 @@ VersionBump versionBumpForCommit(String commitMessage) {
     return VersionBump.buildOnly;
   }
 
-  final type = RegExp(r'^([a-z]+)(?:\([^)]*\))?!?:')
-      .firstMatch(normalized)
-      ?.group(1);
+  final type = RegExp(
+    r'^([a-z]+)(?:\([^)]*\))?!?:',
+  ).firstMatch(normalized)?.group(1);
 
   if (type == 'feat' ||
       type == 'feature' ||
@@ -57,7 +57,8 @@ VersionBump versionBumpForCommit(String commitMessage) {
     return VersionBump.buildOnly;
   }
 
-  final isFix = type == 'fix' ||
+  final isFix =
+      type == 'fix' ||
       normalized.startsWith('fix ') ||
       normalized.contains('修复');
   if (!isFix) return VersionBump.bugFix;
@@ -90,8 +91,9 @@ bool shouldBumpPatchForCommit(String commitMessage) {
 
 /// 根据递增类型生成下一个 `x.y.z+build` 版本。
 String nextAppVersion(String currentVersion, VersionBump bump) {
-  final match = RegExp(r'^(\d+)\.(\d+)\.(\d+)\+(\d+)$')
-      .firstMatch(currentVersion.trim());
+  final match = RegExp(
+    r'^(\d+)\.(\d+)\.(\d+)\+(\d+)$',
+  ).firstMatch(currentVersion.trim());
   if (match == null) {
     throw const FormatException('版本号不是 x.y.z+build 格式');
   }
@@ -104,7 +106,7 @@ String nextAppVersion(String currentVersion, VersionBump bump) {
   final patch = bump == VersionBump.feature
       ? 0
       : bump == VersionBump.bugFix
-          ? currentPatch + 1
-          : currentPatch;
+      ? currentPatch + 1
+      : currentPatch;
   return '$major.$minor.$patch+$build';
 }

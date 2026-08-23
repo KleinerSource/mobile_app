@@ -89,8 +89,8 @@ class CompactSortButton extends StatelessWidget {
       active: active,
       trailingIcon: active
           ? (ascending
-              ? Icons.arrow_upward_rounded
-              : Icons.arrow_downward_rounded)
+                ? Icons.arrow_upward_rounded
+                : Icons.arrow_downward_rounded)
           : null,
       onTap: onTap,
     );

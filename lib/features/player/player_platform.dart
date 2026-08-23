@@ -5,8 +5,7 @@ import 'package:flutter/services.dart';
 
 abstract final class PlayerPlatformCapabilities {
   static const _channel = MethodChannel('md_center/player_capabilities');
-  static Future<void> Function(int positionMs)?
-      _pictureInPictureStoppedHandler;
+  static Future<void> Function(int positionMs)? _pictureInPictureStoppedHandler;
 
   static Future<bool> enterPictureInPicture({
     required String url,
@@ -56,9 +55,7 @@ abstract final class PlayerPlatformCapabilities {
       final callback = _pictureInPictureStoppedHandler;
       if (callback == null) return;
       final arguments = call.arguments;
-      final rawPosition = arguments is Map
-          ? arguments['position_ms']
-          : null;
+      final rawPosition = arguments is Map ? arguments['position_ms'] : null;
       final positionMs = rawPosition is num
           ? rawPosition.toInt()
           : int.tryParse(rawPosition?.toString() ?? '') ?? 0;

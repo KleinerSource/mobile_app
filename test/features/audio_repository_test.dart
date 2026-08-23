@@ -11,7 +11,11 @@ void main() {
     final adapter = _AudioAdapter();
     final repository = AudioRepository(ApiClient(_dio(adapter)).audio);
 
-    final page = await repository.listAssets(limit: 10, offset: 20, search: '关键词');
+    final page = await repository.listAssets(
+      limit: 10,
+      offset: 20,
+      search: '关键词',
+    );
 
     expect(adapter.queries[0]['limit'], 10);
     expect(adapter.queries[0]['offset'], 20);
@@ -53,7 +57,9 @@ void main() {
     final adapter = _AudioAdapter();
     final repository = AudioRepository(ApiClient(_dio(adapter)).audio);
 
-    final result = await repository.enqueueTranscriptions([11], overwrite: true);
+    final result = await repository.enqueueTranscriptions([
+      11,
+    ], overwrite: true);
 
     expect(adapter.requestBodies[0]['audio_asset_ids'], [11]);
     expect(adapter.requestBodies[0]['overwrite'], isTrue);
@@ -82,10 +88,7 @@ void main() {
     final failed = AudioAsset.fromJson(const {
       'id': 21,
       'movie_id': 1,
-      'transcription': {
-        'status': 'failed',
-        'error_message': '云端连接超时',
-      },
+      'transcription': {'status': 'failed', 'error_message': '云端连接超时'},
     });
     expect(failed.transcriptionView.isFailed, isTrue);
     expect(failed.transcriptionView.errorMessage, '云端连接超时');
@@ -97,7 +100,10 @@ void main() {
     });
     expect(canceled.transcriptionView.isCanceled, isTrue);
 
-    final plain = AudioAsset.fromJson(const {'id': 23, 'subtitle_translated': true});
+    final plain = AudioAsset.fromJson(const {
+      'id': 23,
+      'subtitle_translated': true,
+    });
     expect(plain.transcription, isNull);
     expect(plain.isTranscriptionDone, isTrue);
     expect(plain.transcriptionView.stageLabel, '');
@@ -176,10 +182,7 @@ class _AudioAdapter implements HttpClientAdapter {
         data = {
           'deleted': [11],
           'rejected': [
-            {
-              'id': 12,
-              'message': '该音频仍有排队或运行中的字幕转译任务，暂不能删除',
-            },
+            {'id': 12, 'message': '该音频仍有排队或运行中的字幕转译任务，暂不能删除'},
           ],
         };
       case '/api/audios/transcriptions':

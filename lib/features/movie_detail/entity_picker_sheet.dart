@@ -860,80 +860,80 @@ class _PickerTile extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppHues.top(hue), AppHues.bottom(hue)],
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppHues.top(hue), AppHues.bottom(hue)],
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  label.isNotEmpty ? label.characters.first : '·',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
                 ),
               ),
-              alignment: Alignment.center,
-              child: Text(
-                label.isNotEmpty ? label.characters.first : '·',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: c.text,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    if (sub != null) ...[
+                      const SizedBox(height: 2),
+                      Text(sub!, style: AppText.meta(context)),
+                    ],
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: c.text,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
+              // 复选或单选指示器
+              if (multiCheckbox)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? c.accent : Colors.transparent,
+                    border: Border.all(
+                      color: selected ? c.accent : c.muted2,
+                      width: 1.5,
                     ),
                   ),
-                  if (sub != null) ...[
-                    const SizedBox(height: 2),
-                    Text(sub!, style: AppText.meta(context)),
-                  ],
-                ],
-              ),
-            ),
-            // 复选或单选指示器
-            if (multiCheckbox)
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: selected ? c.accent : Colors.transparent,
-                  border: Border.all(
-                    color: selected ? c.accent : c.muted2,
-                    width: 1.5,
-                  ),
+                  child: selected
+                      ? const Icon(Icons.check, color: Colors.white, size: 14)
+                      : null,
+                )
+              else
+                Icon(
+                  selected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: selected ? c.accent : c.muted2,
+                  size: 22,
                 ),
-                child: selected
-                    ? const Icon(Icons.check, color: Colors.white, size: 14)
-                    : null,
-              )
-            else
-              Icon(
-                selected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
-                color: selected ? c.accent : c.muted2,
-                size: 22,
-              ),
-          ],
+            ],
           ),
         ),
       ),

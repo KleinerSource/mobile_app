@@ -70,9 +70,7 @@ void main() {
     expect(controller.offset, 0);
   });
 
-  testWidgets('非激活 Tab（ActiveTabScope.active=false）不响应状态栏点击', (
-    tester,
-  ) async {
+  testWidgets('非激活 Tab（ActiveTabScope.active=false）不响应状态栏点击', (tester) async {
     await tester.pumpWidget(
       _wrap(
         ActiveTabScope(

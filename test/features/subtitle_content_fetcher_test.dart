@@ -42,7 +42,10 @@ void main() {
         },
       ),
     );
-    final content = await fetchSubtitleContent(dio, 'http://server/subtitles/1?format=vtt');
+    final content = await fetchSubtitleContent(
+      dio,
+      'http://server/subtitles/1?format=vtt',
+    );
     expect(content, startsWith('WEBVTT'));
     expect(content, contains('00:00:01.000 --> 00:00:02.000'));
   });
@@ -68,9 +71,7 @@ void main() {
   });
 
   test('错误响应体不是 JSON 时退回通用 HTTP 文案', () async {
-    final dio = _dioWith(
-      () => ResponseBody.fromString('Not Found', 404),
-    );
+    final dio = _dioWith(() => ResponseBody.fromString('Not Found', 404));
     await expectLater(
       fetchSubtitleContent(dio, 'http://server/subtitles/99?format=vtt'),
       throwsA(
@@ -84,17 +85,11 @@ void main() {
   });
 
   test('内容缺少时间轴行时视为无效字幕', () async {
-    final dio = _dioWith(
-      () => ResponseBody.fromString('WEBVTT\n', 200),
-    );
+    final dio = _dioWith(() => ResponseBody.fromString('WEBVTT\n', 200));
     await expectLater(
       fetchSubtitleContent(dio, 'http://server/subtitles/1?format=vtt'),
       throwsA(
-        isA<StateError>().having(
-          (e) => e.message,
-          'message',
-          '字幕内容无效或为空',
-        ),
+        isA<StateError>().having((e) => e.message, 'message', '字幕内容无效或为空'),
       ),
     );
   });
@@ -110,11 +105,7 @@ void main() {
     await expectLater(
       fetchSubtitleContent(dio, 'http://server/subtitles/1?format=vtt'),
       throwsA(
-        isA<ApiException>().having(
-          (e) => e.message,
-          'message',
-          '请求超时，请稍后重试',
-        ),
+        isA<ApiException>().having((e) => e.message, 'message', '请求超时，请稍后重试'),
       ),
     );
   });

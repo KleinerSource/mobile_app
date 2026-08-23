@@ -29,21 +29,18 @@ class ServerLine {
       baseUrl: baseUrl,
       enabled: json['enabled'] != false,
       latencyMs: (json['latency_ms'] as num?)?.toInt(),
-      lastTestedAt: DateTime.tryParse(
-        json['last_tested_at']?.toString() ?? '',
-      ),
+      lastTestedAt: DateTime.tryParse(json['last_tested_at']?.toString() ?? ''),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'base_url': baseUrl,
-        'enabled': enabled,
-        if (latencyMs != null) 'latency_ms': latencyMs,
-        if (lastTestedAt != null)
-          'last_tested_at': lastTestedAt!.toIso8601String(),
-      };
+    'id': id,
+    'name': name,
+    'base_url': baseUrl,
+    'enabled': enabled,
+    if (latencyMs != null) 'latency_ms': latencyMs,
+    if (lastTestedAt != null) 'last_tested_at': lastTestedAt!.toIso8601String(),
+  };
 
   ServerLine copyWith({
     String? id,
@@ -75,14 +72,8 @@ class ServerLine {
           other.lastTestedAt == lastTestedAt;
 
   @override
-  int get hashCode => Object.hash(
-        id,
-        name,
-        baseUrl,
-        enabled,
-        latencyMs,
-        lastTestedAt,
-      );
+  int get hashCode =>
+      Object.hash(id, name, baseUrl, enabled, latencyMs, lastTestedAt);
 }
 
 @immutable
@@ -107,10 +98,12 @@ class ServerProfile {
     final rawLines = json['lines'];
     final lines = rawLines is List
         ? rawLines
-            .whereType<Map>()
-            .map((item) => ServerLine.fromJson(Map<String, dynamic>.from(item)))
-            .where((line) => line.baseUrl.isNotEmpty)
-            .toList()
+              .whereType<Map>()
+              .map(
+                (item) => ServerLine.fromJson(Map<String, dynamic>.from(item)),
+              )
+              .where((line) => line.baseUrl.isNotEmpty)
+              .toList()
         : <ServerLine>[];
     return ServerProfile(
       id: id.isNotEmpty ? id : 'server-${name.hashCode}',
@@ -122,12 +115,12 @@ class ServerProfile {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'lines': lines.map((line) => line.toJson()).toList(),
-        if (activeLineId != null) 'active_line_id': activeLineId,
-        if (avatarUrl != null && avatarUrl!.isNotEmpty) 'avatar_url': avatarUrl,
-      };
+    'id': id,
+    'name': name,
+    'lines': lines.map((line) => line.toJson()).toList(),
+    if (activeLineId != null) 'active_line_id': activeLineId,
+    if (avatarUrl != null && avatarUrl!.isNotEmpty) 'avatar_url': avatarUrl,
+  };
 
   ServerLine? get activeLine {
     if (lines.isEmpty) return null;
@@ -167,13 +160,8 @@ class ServerProfile {
           other.avatarUrl == avatarUrl;
 
   @override
-  int get hashCode => Object.hash(
-        id,
-        name,
-        Object.hashAll(lines),
-        activeLineId,
-        avatarUrl,
-      );
+  int get hashCode =>
+      Object.hash(id, name, Object.hashAll(lines), activeLineId, avatarUrl);
 }
 
 String? _optionalString(Object? value) {
@@ -191,6 +179,7 @@ class ServerConfig {
   });
 
   final String baseUrl;
+
   /// 当前服务器的线路。保留该字段是为了兼容已有 API、播放器和缓存逻辑。
   final List<ServerLine> lines;
   final List<ServerProfile> servers;
@@ -241,9 +230,9 @@ class ServerConfig {
 
   @override
   int get hashCode => Object.hash(
-        baseUrl,
-        Object.hashAll(lines),
-        Object.hashAll(servers),
-        activeServerId,
-      );
+    baseUrl,
+    Object.hashAll(lines),
+    Object.hashAll(servers),
+    activeServerId,
+  );
 }

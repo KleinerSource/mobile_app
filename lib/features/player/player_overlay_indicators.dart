@@ -42,13 +42,12 @@ class PlayerIndicator {
     required Duration target,
     required Duration total,
     required int deltaMs,
-  }) =>
-      PlayerIndicator._(
-        _Kind.seek,
-        seekTarget: target,
-        seekTotal: total,
-        seekDeltaMs: deltaMs,
-      );
+  }) => PlayerIndicator._(
+    _Kind.seek,
+    seekTarget: target,
+    seekTotal: total,
+    seekDeltaMs: deltaMs,
+  );
 
   final _Kind _kind;
   final double value;

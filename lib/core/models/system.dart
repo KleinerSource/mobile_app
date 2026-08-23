@@ -17,10 +17,9 @@ class ServerProfileData {
   }
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        if (avatarUrl != null && avatarUrl!.isNotEmpty)
-          'avatar_url': avatarUrl,
-      };
+    'name': name,
+    if (avatarUrl != null && avatarUrl!.isNotEmpty) 'avatar_url': avatarUrl,
+  };
 }
 
 @immutable
@@ -40,14 +39,14 @@ class ScheduleStatus {
   final String lastSkippedReason;
 
   factory ScheduleStatus.fromJson(Map<String, dynamic> json) => ScheduleStatus(
-        enabled: json['enabled'] == true,
-        times: json['times'] is List
-            ? (json['times'] as List).map((e) => e.toString()).toList()
-            : const [],
-        nextRunAt: _date(json['next_run_at']),
-        lastFiredAt: _date(json['last_fired_at']),
-        lastSkippedReason: json['last_skipped_reason']?.toString() ?? '',
-      );
+    enabled: json['enabled'] == true,
+    times: json['times'] is List
+        ? (json['times'] as List).map((e) => e.toString()).toList()
+        : const [],
+    nextRunAt: _date(json['next_run_at']),
+    lastFiredAt: _date(json['last_fired_at']),
+    lastSkippedReason: json['last_skipped_reason']?.toString() ?? '',
+  );
 }
 
 @immutable
@@ -65,14 +64,14 @@ class Downloader {
   final Map<String, dynamic> capabilities;
 
   factory Downloader.fromJson(Map<String, dynamic> json) => Downloader(
-        name: json['name']?.toString() ?? '',
-        displayName:
-            json['display_name']?.toString() ?? json['name']?.toString() ?? '',
-        enabled: json['enabled'] is bool ? json['enabled'] as bool : true,
-        capabilities: json['capabilities'] is Map
-            ? Map<String, dynamic>.from(json['capabilities'] as Map)
-            : const {},
-      );
+    name: json['name']?.toString() ?? '',
+    displayName:
+        json['display_name']?.toString() ?? json['name']?.toString() ?? '',
+    enabled: json['enabled'] is bool ? json['enabled'] as bool : true,
+    capabilities: json['capabilities'] is Map
+        ? Map<String, dynamic>.from(json['capabilities'] as Map)
+        : const {},
+  );
 }
 
 DateTime? _date(Object? value) =>

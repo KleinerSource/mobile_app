@@ -29,8 +29,8 @@ class GlassPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     // 底色: 完全不透明保底 (解决 scaffold 透明导致的穿透问题)
-    final solidBg = tint ??
-        (isDark ? const Color(0xFF1B1A24) : const Color(0xFFFAFAFA));
+    final solidBg =
+        tint ?? (isDark ? const Color(0xFF1B1A24) : const Color(0xFFFAFAFA));
     // 玻璃高光: 左上更亮的细微渐变叠在底色上 (模拟玻璃表面反光)
     final highlight = isDark
         ? const LinearGradient(
@@ -43,8 +43,9 @@ class GlassPanel extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: [Color(0x66FFFFFF), Color(0x00FFFFFF)],
           );
-    final borderColor =
-        isDark ? const Color(0x33FFFFFF) : const Color(0x1F000000);
+    final borderColor = isDark
+        ? const Color(0x33FFFFFF)
+        : const Color(0x1F000000);
 
     return ClipRRect(
       borderRadius: borderRadius,
@@ -141,9 +142,10 @@ Future<T?> showGlassDialog<T>({
       return FadeTransition(
         opacity: anim,
         child: ScaleTransition(
-          scale: Tween<double>(begin: 0.96, end: 1).animate(
-            CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
-          ),
+          scale: Tween<double>(
+            begin: 0.96,
+            end: 1,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
           child: child,
         ),
       );
@@ -168,8 +170,7 @@ Future<T?> showGlassSheet<T>({
     builder: (ctx) {
       final c = appColors(ctx);
       return GlassPanel(
-        borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

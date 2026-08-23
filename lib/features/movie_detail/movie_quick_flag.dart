@@ -44,10 +44,9 @@ bool hasMovieQuickFlag({
   required Iterable<MovieQuickEntity> tags,
   required Iterable<MovieQuickEntity> genres,
 }) {
-  final keywords = movieQuickFlagConfig(flag)
-      .keywords
-      .map(_normalizeQuickFlagName)
-      .toSet();
+  final keywords = movieQuickFlagConfig(
+    flag,
+  ).keywords.map(_normalizeQuickFlagName).toSet();
   return tags
       .followedBy(genres)
       .any((item) => keywords.contains(_normalizeQuickFlagName(item.name)));
@@ -59,10 +58,7 @@ MovieQuickSelections addMovieQuickFlagSelections({
   required MovieQuickEntity tag,
   required MovieQuickEntity genre,
 }) {
-  return (
-    tags: _appendEntity(tags, tag),
-    genres: _appendEntity(genres, genre),
-  );
+  return (tags: _appendEntity(tags, tag), genres: _appendEntity(genres, genre));
 }
 
 MovieQuickSelections removeMovieQuickFlagSelections({
@@ -70,10 +66,9 @@ MovieQuickSelections removeMovieQuickFlagSelections({
   required List<MovieQuickEntity> tags,
   required List<MovieQuickEntity> genres,
 }) {
-  final keywords = movieQuickFlagConfig(flag)
-      .keywords
-      .map(_normalizeQuickFlagName)
-      .toSet();
+  final keywords = movieQuickFlagConfig(
+    flag,
+  ).keywords.map(_normalizeQuickFlagName).toSet();
   bool keep(MovieQuickEntity item) =>
       !keywords.contains(_normalizeQuickFlagName(item.name));
   return (

@@ -17,10 +17,7 @@ abstract class TagsApi {
   Future<dynamic> create(@Body() Map<String, dynamic> body);
 
   @PATCH('/tags/{id}')
-  Future<dynamic> update(
-    @Path('id') int id,
-    @Body() Map<String, dynamic> body,
-  );
+  Future<dynamic> update(@Path('id') int id, @Body() Map<String, dynamic> body);
 
   @POST('/tags/delete')
   Future<dynamic> batchDelete(@Body() Map<String, dynamic> body);

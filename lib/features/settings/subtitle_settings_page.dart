@@ -14,12 +14,7 @@ import 'settings_common.dart';
 class SubtitleSettingsPage extends ConsumerWidget {
   const SubtitleSettingsPage({super.key});
 
-  static const _fontOptions = <String>[
-    'Inter',
-    'System',
-    'monospace',
-    'serif',
-  ];
+  static const _fontOptions = <String>['Inter', 'System', 'monospace', 'serif'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,10 +29,7 @@ class SubtitleSettingsPage extends ConsumerWidget {
       body: GlowBackground(
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
-            header: const SettingsSubPageHeader(
-              eyebrow: '应用设置',
-              title: '字幕设置',
-            ),
+            header: const SettingsSubPageHeader(eyebrow: '应用设置', title: '字幕设置'),
             body: Column(
               children: [
                 SettingsGroup(
@@ -210,9 +202,9 @@ class SubtitleSettingsPage extends ConsumerWidget {
     AppHaptics.medium();
     await ref.read(subtitleSettingsProvider.notifier).reset();
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('字幕设置已恢复默认')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('字幕设置已恢复默认')));
     }
   }
 }
@@ -317,10 +309,9 @@ class _SubtitleOptionTile<T> extends StatelessWidget {
             ListTile(
               title: Text(
                 labelOf(option),
-                style: AppText.body(ctx).copyWith(
-                  color: c.text,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: AppText.body(
+                  ctx,
+                ).copyWith(color: c.text, fontWeight: FontWeight.w700),
               ),
               trailing: option == value
                   ? Icon(Icons.check, color: c.accent)

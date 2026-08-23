@@ -77,13 +77,15 @@ class _BatchDuplicateNfoCompareSheetState
           .read(moviesRepositoryProvider)
           .compareDuplicateNfo(widget.movieIds);
       if (!mounted) return;
-      final rawScalarFields = (data['scalar_fields'] as List?)
+      final rawScalarFields =
+          (data['scalar_fields'] as List?)
               ?.whereType<Map>()
               .map((e) => Map<String, dynamic>.from(e))
               .toList() ??
           const <Map<String, dynamic>>[];
       final scalarFields = _visibleScalarFields(rawScalarFields);
-      final movies = (data['movies'] as List?)
+      final movies =
+          (data['movies'] as List?)
               ?.whereType<Map>()
               .map((e) => Map<String, dynamic>.from(e))
               .toList() ??
@@ -134,9 +136,10 @@ class _BatchDuplicateNfoCompareSheetState
         for (final lf in listFields.whereType<Map>()) {
           final fieldName = (lf['field'] ?? '').toString();
           final movieValues = (lf['movie_values'] as List?) ?? const [];
-          final mine = movieValues
-              .whereType<Map>()
-              .firstWhere((mv) => mv['movie_id'] == id, orElse: () => {});
+          final mine = movieValues.whereType<Map>().firstWhere(
+            (mv) => mv['movie_id'] == id,
+            orElse: () => {},
+          );
           final values = (mine['values'] as List?) ?? const [];
           if (fieldName == 'actors') {
             entry['actors'] = values.whereType<Map>().map((v) {
@@ -146,9 +149,13 @@ class _BatchDuplicateNfoCompareSheetState
               };
             }).toList();
           } else {
-            entry[fieldName] = values.whereType<Map>().map((v) {
-              return (v['name'] ?? '').toString();
-            }).where((s) => s.isNotEmpty).toList();
+            entry[fieldName] = values
+                .whereType<Map>()
+                .map((v) {
+                  return (v['name'] ?? '').toString();
+                })
+                .where((s) => s.isNotEmpty)
+                .toList();
           }
         }
         movieLists.add(entry);
@@ -164,18 +171,15 @@ class _BatchDuplicateNfoCompareSheetState
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text('应用失败: ${toApiException(e).message}'),
-      ));
+      messenger.showSnackBar(
+        SnackBar(content: Text('应用失败: ${toApiException(e).message}')),
+      );
       setState(() => _saving = false);
     }
   }
 
   String _movieLabel(int id) {
-    final m = _movies.firstWhere(
-      (x) => x['id'] == id,
-      orElse: () => const {},
-    );
+    final m = _movies.firstWhere((x) => x['id'] == id, orElse: () => const {});
     final title = (m['title'] ?? '').toString();
     return title.isEmpty ? '影片 $id' : title;
   }
@@ -196,11 +200,9 @@ class _BatchDuplicateNfoCompareSheetState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('比较重复 NFO',
-                      style: AppText.sectionTitle(context)),
+                  Text('比较重复 NFO', style: AppText.sectionTitle(context)),
                   const SizedBox(height: 2),
-                  Text('为每个字段选择同步来源',
-                      style: AppText.meta(context)),
+                  Text('为每个字段选择同步来源', style: AppText.meta(context)),
                 ],
               ),
             ),
@@ -209,38 +211,37 @@ class _BatchDuplicateNfoCompareSheetState
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(22),
-                            child: Text(_error!,
-                                style: TextStyle(color: c.danger)),
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(22),
+                        child: Text(_error!, style: TextStyle(color: c.danger)),
+                      ),
+                    )
+                  : _scalarFields.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(22),
+                        child: Text(
+                          '影片标题、描述、概要、评分均一致, 无需选择',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: c.muted),
+                        ),
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
+                      children: [
+                        for (final f in _scalarFields)
+                          _FieldCard(
+                            field: f,
+                            selectedValue: _selections[f['field']],
+                            onSelect: (v) =>
+                                setState(() => _selections[f['field']] = v),
+                            movieLabel: _movieLabel,
                           ),
-                        )
-                      : _scalarFields.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(22),
-                                child: Text(
-                                  '影片标题、描述、概要、评分均一致, 无需选择',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: c.muted),
-                                ),
-                              ),
-                            )
-                          : ListView(
-                              padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
-                              children: [
-                                for (final f in _scalarFields)
-                                  _FieldCard(
-                                    field: f,
-                                    selectedValue: _selections[f['field']],
-                                    onSelect: (v) => setState(
-                                        () => _selections[f['field']] = v),
-                                    movieLabel: _movieLabel,
-                                  ),
-                                const SizedBox(height: 20),
-                              ],
-                            ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
             ),
             Container(
               padding: const EdgeInsets.fromLTRB(22, 10, 22, 10),
@@ -269,8 +270,7 @@ class _BatchDuplicateNfoCompareSheetState
                           ? const SizedBox(
                               width: 14,
                               height: 14,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.check, size: 18),
                       label: Text(_saving ? '应用中...' : '应用同步'),
@@ -315,13 +315,15 @@ class _FieldCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: TextStyle(
-                color: c.text,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              )),
+          Text(
+            label,
+            style: TextStyle(
+              color: c.text,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
           const SizedBox(height: 10),
           for (final opt in options.whereType<Map>())
             _ScalarOption(

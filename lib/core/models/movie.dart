@@ -26,9 +26,13 @@ abstract class MovieListItem with _$MovieListItem {
     @JsonKey(name: 'is_favorited') @Default(false) bool isFavorited,
     @JsonKey(name: 'is_updated') @Default(false) bool isUpdated,
     @JsonKey(name: 'has_new_resources') @Default(false) bool hasNewResources,
-    @JsonKey(name: 'has_external_subtitle') @Default(false) bool hasExternalSubtitle,
+    @JsonKey(name: 'has_external_subtitle')
+    @Default(false)
+    bool hasExternalSubtitle,
     @JsonKey(name: 'has_ai_subtitle') @Default(false) bool hasAiSubtitle,
-    @JsonKey(name: 'has_internal_subtitle') @Default(false) bool hasInternalSubtitle,
+    @JsonKey(name: 'has_internal_subtitle')
+    @Default(false)
+    bool hasInternalSubtitle,
     @JsonKey(name: 'video_width') int? videoWidth,
     @JsonKey(name: 'video_height') int? videoHeight,
     @JsonKey(name: 'file_name') String? fileName,
@@ -67,14 +71,13 @@ final _kCrackRegex = RegExp(
 );
 
 // "uc" / "umr-c" 同时含字幕标识 (规则 -uc / -umr-c → 破解+内嵌字幕)
-final _kCrackWithSubRegex = RegExp(
-  r'(?:^|[-_. ])(uc|umr-c)(?=$|[-_. ])',
-);
+final _kCrackWithSubRegex = RegExp(r'(?:^|[-_. ])(uc|umr-c)(?=$|[-_. ])');
 
 final _kUhdRegex = RegExp(r'(?:^|[-_. ])(2160p|4k|uhd)(?=$|[-_. ])');
 final _kProb4Regex = RegExp(r'(?:^|[-_. ])prob[-_. ]?4(?=$|[-_. ])');
-final _kHdRegex =
-    RegExp(r'(?:^|[-_. ])(720p|1080p|1440p|hd|fhd|qhd)(?=$|[-_. ])');
+final _kHdRegex = RegExp(
+  r'(?:^|[-_. ])(720p|1080p|1440p|hd|fhd|qhd)(?=$|[-_. ])',
+);
 const _kUhdSizeThreshold = 15 * 1024 * 1024 * 1024;
 
 // AI 字幕标识 · 文件名中独立的 "ai" 标记段 (例: aaa.ai.chs.srt),
@@ -182,9 +185,13 @@ abstract class MovieDetail with _$MovieDetail {
     @JsonKey(name: 'poster_uuid') String? posterUuid,
     @JsonKey(name: 'fanart_uuid') String? fanartUuid,
     @JsonKey(name: 'thumb_uuid') String? thumbUuid,
-    @JsonKey(name: 'has_external_subtitle') @Default(false) bool hasExternalSubtitle,
+    @JsonKey(name: 'has_external_subtitle')
+    @Default(false)
+    bool hasExternalSubtitle,
     @JsonKey(name: 'has_ai_subtitle') @Default(false) bool hasAiSubtitle,
-    @JsonKey(name: 'has_internal_subtitle') @Default(false) bool hasInternalSubtitle,
+    @JsonKey(name: 'has_internal_subtitle')
+    @Default(false)
+    bool hasInternalSubtitle,
     @JsonKey(name: 'is_favorited') @Default(false) bool isFavorited,
     @Default(<ResourceItem>[]) List<ResourceItem> tags,
     @Default(<ResourceItem>[]) List<ResourceItem> genres,
@@ -192,11 +199,14 @@ abstract class MovieDetail with _$MovieDetail {
     ResourceItem? series,
     @JsonKey(name: 'watch_record') WatchRecordSummary? watchRecord,
     @JsonKey(name: 'part_movies')
-    @Default(<RelatedMovie>[]) List<RelatedMovie> partMovies,
+    @Default(<RelatedMovie>[])
+    List<RelatedMovie> partMovies,
     @JsonKey(name: 'actor_related_movies')
-    @Default(<RelatedMovie>[]) List<RelatedMovie> actorRelatedMovies,
+    @Default(<RelatedMovie>[])
+    List<RelatedMovie> actorRelatedMovies,
     @JsonKey(name: 'related_files')
-    @Default(<RelatedFile>[]) List<RelatedFile> relatedFiles,
+    @Default(<RelatedFile>[])
+    List<RelatedFile> relatedFiles,
   }) = _MovieDetail;
 
   factory MovieDetail.fromJson(Map<String, dynamic> json) =>

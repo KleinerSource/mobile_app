@@ -16,10 +16,7 @@ class HapticSettingsRepository {
   }
 
   Future<void> save(HapticIntensity intensity) async {
-    await _prefs.setString(
-      AppHaptics.preferenceKey,
-      intensity.storageValue,
-    );
+    await _prefs.setString(AppHaptics.preferenceKey, intensity.storageValue);
   }
 }
 
@@ -52,5 +49,5 @@ class HapticIntensityNotifier extends Notifier<HapticIntensity> {
 
 final hapticIntensityProvider =
     NotifierProvider<HapticIntensityNotifier, HapticIntensity>(
-  HapticIntensityNotifier.new,
-);
+      HapticIntensityNotifier.new,
+    );

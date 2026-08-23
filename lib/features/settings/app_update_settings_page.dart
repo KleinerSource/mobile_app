@@ -25,8 +25,7 @@ class AppUpdateSettingsPage extends ConsumerStatefulWidget {
       _AppUpdateSettingsPageState();
 }
 
-class _AppUpdateSettingsPageState
-    extends ConsumerState<AppUpdateSettingsPage> {
+class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
   late final TextEditingController _repositoryController;
   late final FocusNode _repositoryFocusNode;
   UpdateCheckResult? _result;
@@ -40,9 +39,7 @@ class _AppUpdateSettingsPageState
   void initState() {
     super.initState();
     final savedRepository = ref.read(updateRepositoryUrlProvider);
-    _repositoryController = TextEditingController(
-      text: savedRepository ?? '',
-    );
+    _repositoryController = TextEditingController(text: savedRepository ?? '');
     _repositoryFocusNode = FocusNode();
     _editingRepository = savedRepository == null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -67,8 +64,8 @@ class _AppUpdateSettingsPageState
     final colors = appColors(context);
     final savedRepository = ref.watch(updateRepositoryUrlProvider);
     final currentRepository = _repositoryController.text.trim();
-    final hasSavedRepository = savedRepository != null &&
-        savedRepository.trim().isNotEmpty;
+    final hasSavedRepository =
+        savedRepository != null && savedRepository.trim().isNotEmpty;
     final repositoryLocked = hasSavedRepository && !_editingRepository;
     return Scaffold(
       backgroundColor: colors.bg,
@@ -76,115 +73,115 @@ class _AppUpdateSettingsPageState
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             header: const SettingsSubPageHeader(
-                eyebrow: '应用设置',
-                title: '应用更新',
-                subtitle: '填写 GitHub 仓库地址，自动检查对应平台的安装包',
-              ),
+              eyebrow: '应用设置',
+              title: '应用更新',
+              subtitle: '填写 GitHub 仓库地址，自动检查对应平台的安装包',
+            ),
             body: ListView(
               primary: true,
               children: [
-              SettingsGroup(
-                title: '更新源',
-                items: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _repositoryController,
-                            focusNode: _repositoryFocusNode,
-                            keyboardType: TextInputType.url,
-                            autocorrect: false,
-                            enableSuggestions: false,
-                            readOnly: repositoryLocked,
-                            textInputAction: TextInputAction.done,
-                            decoration: settingsInputDecoration(
-                              context,
-                              labelText: 'GitHub 仓库地址',
-                              hintText: 'https://github.com/owner/repository',
-                              prefixIcon: const Icon(Icons.link),
+                SettingsGroup(
+                  title: '更新源',
+                  items: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _repositoryController,
+                              focusNode: _repositoryFocusNode,
+                              keyboardType: TextInputType.url,
+                              autocorrect: false,
+                              enableSuggestions: false,
+                              readOnly: repositoryLocked,
+                              textInputAction: TextInputAction.done,
+                              decoration: settingsInputDecoration(
+                                context,
+                                labelText: 'GitHub 仓库地址',
+                                hintText: 'https://github.com/owner/repository',
+                                prefixIcon: const Icon(Icons.link),
+                              ),
+                              onChanged: (_) => setState(() {}),
+                              onSubmitted: (_) => unawaited(_saveRepository()),
                             ),
-                            onChanged: (_) => setState(() {}),
-                            onSubmitted: (_) => unawaited(_saveRepository()),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: IconButton.filled(
-                            onPressed: _checking || _downloading
+                          const SizedBox(width: 8),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: IconButton.filled(
+                              onPressed: _checking || _downloading
+                                  ? null
+                                  : _saveOrEditRepository,
+                              tooltip: repositoryLocked ? '编辑更新源' : '保存更新源',
+                              icon: Icon(
+                                repositoryLocked
+                                    ? Icons.edit_outlined
+                                    : Icons.save_outlined,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: '清空更新源',
+                            onPressed:
+                                _checking ||
+                                    _downloading ||
+                                    (savedRepository == null &&
+                                        currentRepository.isEmpty)
                                 ? null
-                                : _saveOrEditRepository,
-                            tooltip: repositoryLocked ? '编辑更新源' : '保存更新源',
-                            icon: Icon(
-                              repositoryLocked
-                                  ? Icons.edit_outlined
-                                  : Icons.save_outlined,
-                              size: 20,
-                            ),
+                                : () => unawaited(_clearRepository()),
+                            icon: const Icon(Icons.delete_outline),
                           ),
-                        ),
-                        IconButton(
-                          tooltip: '清空更新源',
-                          onPressed: _checking ||
-                                  _downloading ||
-                                  (savedRepository == null &&
-                                      currentRepository.isEmpty)
-                              ? null
-                              : () => unawaited(_clearRepository()),
-                          icon: const Icon(Icons.delete_outline),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                    child: Text(
-                      '保存后会在启动时自动检查更新；清空后将停止自动检查。',
-                      style: AppText.meta(context),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                      child: Text(
+                        '保存后会在启动时自动检查更新；清空后将停止自动检查。',
+                        style: AppText.meta(context),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              SettingsGroup(
-                title: '当前版本',
-                items: [
-                  FutureBuilder<PackageInfo>(
-                    future: ref.read(appPackageInfoProvider.future),
-                    builder: (context, snapshot) {
-                      final version = snapshot.hasData
-                          ? formatAppVersion(
-                              snapshot.data!.version,
-                              snapshot.data!.buildNumber,
-                            )
-                          : snapshot.hasError
-                              ? '读取失败'
-                              : '读取中…';
-                      return SettingsTile(
-                        title: '已安装版本',
-                        subtitle: version,
-                        leadingIcon: Icons.phone_android_outlined,
-                      );
-                    },
-                  ),
-                ],
-              ),
-              if (_checking)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
-                  child: LinearProgressIndicator(
-                    minHeight: 3,
-                    borderRadius: BorderRadius.circular(10),
-                    color: colors.accent,
-                    backgroundColor: colors.surfaceAlt,
-                  ),
+                  ],
                 ),
-              if (_error != null)
-                _buildError(context, _error!),
-              if (_result != null) _buildResult(context, _result!),
-              const SizedBox(height: 80),
+                SettingsGroup(
+                  title: '当前版本',
+                  items: [
+                    FutureBuilder<PackageInfo>(
+                      future: ref.read(appPackageInfoProvider.future),
+                      builder: (context, snapshot) {
+                        final version = snapshot.hasData
+                            ? formatAppVersion(
+                                snapshot.data!.version,
+                                snapshot.data!.buildNumber,
+                              )
+                            : snapshot.hasError
+                            ? '读取失败'
+                            : '读取中…';
+                        return SettingsTile(
+                          title: '已安装版本',
+                          subtitle: version,
+                          leadingIcon: Icons.phone_android_outlined,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                if (_checking)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
+                    child: LinearProgressIndicator(
+                      minHeight: 3,
+                      borderRadius: BorderRadius.circular(10),
+                      color: colors.accent,
+                      backgroundColor: colors.surfaceAlt,
+                    ),
+                  ),
+                if (_error != null) _buildError(context, _error!),
+                if (_result != null) _buildResult(context, _result!),
+                const SizedBox(height: 80),
               ],
             ),
           ),
@@ -299,19 +296,14 @@ class _AppUpdateSettingsPageState
     );
   }
 
-  Widget _buildDownloadButton(
-    BuildContext context,
-    UpdateCheckResult result,
-  ) {
+  Widget _buildDownloadButton(BuildContext context, UpdateCheckResult result) {
     final colors = appColors(context);
     final isIos = Platform.isIOS;
     final progress = _downloadProgress;
     return SizedBox(
       width: double.infinity,
       child: FilledButton.icon(
-        onPressed: _downloading
-            ? null
-            : () => unawaited(_download(result)),
+        onPressed: _downloading ? null : () => unawaited(_download(result)),
         icon: _downloading
             ? SizedBox(
                 width: 18,
@@ -330,13 +322,13 @@ class _AppUpdateSettingsPageState
         label: Text(
           _downloading
               ? isIos
-                  ? '正在打开安装器…'
-                  : progress == null
-                      ? '下载中…'
-                      : '下载中 ${(progress * 100).round()}%'
+                    ? '正在打开安装器…'
+                    : progress == null
+                    ? '下载中…'
+                    : '下载中 ${(progress * 100).round()}%'
               : isIos
-                  ? '安装更新'
-                  : '下载并安装',
+              ? '安装更新'
+              : '下载并安装',
         ),
       ),
     );
@@ -435,7 +427,9 @@ class _AppUpdateSettingsPageState
         packageInfo.version,
         packageInfo.buildNumber,
       );
-      final result = await ref.read(appUpdateCoordinatorProvider).check(
+      final result = await ref
+          .read(appUpdateCoordinatorProvider)
+          .check(
             repositoryUrl: repository.canonicalUrl,
             platform: platform,
             currentVersion: currentVersion,
@@ -470,7 +464,9 @@ class _AppUpdateSettingsPageState
       _error = null;
     });
     try {
-      final action = await ref.read(appUpdateCoordinatorProvider).install(
+      final action = await ref
+          .read(appUpdateCoordinatorProvider)
+          .install(
             result,
             onReceiveProgress: (received, total) {
               if (!mounted || total <= 0) return;
@@ -506,8 +502,8 @@ class _AppUpdateSettingsPageState
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }

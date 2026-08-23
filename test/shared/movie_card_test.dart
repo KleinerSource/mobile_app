@@ -22,10 +22,14 @@ void main() {
   }
 
   testWidgets('显示标题', (tester) async {
-    await tester.pumpWidget(await wrap(MovieCard(
-      movie: const MovieListItem(id: 1, title: '示例片名'),
-      posterUrlBuilder: (u) => 'http://x/$u',
-    )));
+    await tester.pumpWidget(
+      await wrap(
+        MovieCard(
+          movie: const MovieListItem(id: 1, title: '示例片名'),
+          posterUrlBuilder: (u) => 'http://x/$u',
+        ),
+      ),
+    );
     // 默认隐私遮罩为关 (mock 空 prefs → default false)，正常显示内容。
     // 我们这里直接断言渲染不抛错 (有 MovieCard 即可)
     expect(find.byType(MovieCard), findsOneWidget);
@@ -48,8 +52,10 @@ void main() {
                   movie: const MovieListItem(
                     id: 1,
                     title: 'A',
-                    watchRecord:
-                        WatchRecordSummary(progressRatio: 1.0, completed: true),
+                    watchRecord: WatchRecordSummary(
+                      progressRatio: 1.0,
+                      completed: true,
+                    ),
                   ),
                   posterUrlBuilder: (u) => 'http://x/$u',
                 ),
@@ -111,8 +117,10 @@ void main() {
                   movie: const MovieListItem(
                     id: 1,
                     title: 'A',
-                    watchRecord:
-                        WatchRecordSummary(progressRatio: 0.4, completed: false),
+                    watchRecord: WatchRecordSummary(
+                      progressRatio: 0.4,
+                      completed: false,
+                    ),
                   ),
                   posterUrlBuilder: (u) => 'http://x/$u',
                 ),
@@ -183,15 +191,19 @@ void main() {
   });
 
   testWidgets('外挂字幕与 AI 字幕同时存在时徽章正常堆叠', (tester) async {
-    await tester.pumpWidget(await wrap(MovieCard(
-      movie: const MovieListItem(
-        id: 9,
-        title: 'AI 字幕卡片',
-        hasExternalSubtitle: true,
-        hasAiSubtitle: true,
+    await tester.pumpWidget(
+      await wrap(
+        MovieCard(
+          movie: const MovieListItem(
+            id: 9,
+            title: 'AI 字幕卡片',
+            hasExternalSubtitle: true,
+            hasAiSubtitle: true,
+          ),
+          posterUrlBuilder: (u) => 'http://x/$u',
+        ),
       ),
-      posterUrlBuilder: (u) => 'http://x/$u',
-    )));
+    );
 
     expect(find.byTooltip('外挂字幕'), findsOneWidget);
     expect(find.byTooltip('AI 字幕'), findsOneWidget);

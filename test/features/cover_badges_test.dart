@@ -50,10 +50,11 @@ void main() {
         .where((badge) => badge.kind == PosterBadgeKind.subtitle)
         .toList();
     expect(subtitleBadges, hasLength(3));
-    expect(
-      subtitleBadges.map((badge) => badge.tooltip),
-      ['外挂字幕', '内嵌字幕轨道', '内嵌字幕'],
-    );
+    expect(subtitleBadges.map((badge) => badge.tooltip), [
+      '外挂字幕',
+      '内嵌字幕轨道',
+      '内嵌字幕',
+    ]);
   });
 
   test('内嵌字幕轨道与文件名标识不互相触发', () {
@@ -105,8 +106,7 @@ void main() {
         .where((badge) => badge.kind == PosterBadgeKind.subtitle)
         .toList();
     expect(subtitleBadges, hasLength(2));
-    expect(subtitleBadges.map((badge) => badge.tooltip),
-        ['外挂字幕', 'AI 字幕']);
+    expect(subtitleBadges.map((badge) => badge.tooltip), ['外挂字幕', 'AI 字幕']);
   });
 
   test('四种字幕来源相互独立可同时显示', () {
@@ -121,9 +121,11 @@ void main() {
         .where((badge) => badge.kind == PosterBadgeKind.subtitle)
         .toList();
     expect(subtitleBadges, hasLength(4));
-    expect(
-      subtitleBadges.map((badge) => badge.tooltip),
-      ['外挂字幕', 'AI 字幕', '内嵌字幕轨道', '内嵌字幕'],
-    );
+    expect(subtitleBadges.map((badge) => badge.tooltip), [
+      '外挂字幕',
+      'AI 字幕',
+      '内嵌字幕轨道',
+      '内嵌字幕',
+    ]);
   });
 }

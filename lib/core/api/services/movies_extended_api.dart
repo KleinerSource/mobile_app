@@ -67,7 +67,10 @@ class MoviesExtendedApi {
   }
 
   Future<Object?> batchNfoSync(Map<String, dynamic> body) async {
-    final response = await _dio.post<dynamic>('/movies/batch/nfo-sync', data: body);
+    final response = await _dio.post<dynamic>(
+      '/movies/batch/nfo-sync',
+      data: body,
+    );
     return unwrapStd<Object?>(response.data, (data) => data);
   }
 
@@ -77,7 +80,9 @@ class MoviesExtendedApi {
   }
 
   Future<void> cancelNfoSync(String taskId) async {
-    final response = await _dio.post<dynamic>('/movies/nfo-sync/$taskId/cancel');
+    final response = await _dio.post<dynamic>(
+      '/movies/nfo-sync/$taskId/cancel',
+    );
     unwrapStd<void>(response.data, (_) {});
   }
 

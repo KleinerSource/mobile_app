@@ -30,10 +30,8 @@ class ResourceScanProgressSheet extends ConsumerStatefulWidget {
       isScrollControlled: true,
       backgroundColor: appColors(context).bg,
       showDragHandle: true,
-      builder: (_) => ResourceScanProgressSheet(
-        taskId: taskId,
-        onCompleted: onCompleted,
-      ),
+      builder: (_) =>
+          ResourceScanProgressSheet(taskId: taskId, onCompleted: onCompleted),
     );
   }
 
@@ -158,7 +156,10 @@ class _ResourceScanProgressSheetState
             const SizedBox(height: 20),
             if (task != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: c.surface,
                   border: Border.all(color: c.cardBorder),

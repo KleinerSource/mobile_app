@@ -39,25 +39,13 @@ void main() {
         .toList();
     expect(diff.code, 'ABC-001');
     expect(diff.title, '新标题');
-    expect(info.map((item) => item.field), containsAll([
-          'title',
-          'rating',
-          'runtime',
-          'plot',
-          'year',
-        ]));
     expect(
-      info.firstWhere((item) => item.field == 'rating').value,
-      8.5,
+      info.map((item) => item.field),
+      containsAll(['title', 'rating', 'runtime', 'plot', 'year']),
     );
-    expect(
-      info.firstWhere((item) => item.field == 'runtime').value,
-      120,
-    );
-    expect(
-      info.firstWhere((item) => item.field == 'plot').value,
-      '新简介',
-    );
+    expect(info.firstWhere((item) => item.field == 'rating').value, 8.5);
+    expect(info.firstWhere((item) => item.field == 'runtime').value, 120);
+    expect(info.firstWhere((item) => item.field == 'plot').value, '新简介');
   });
 
   test('分类、演员和系列差异包含增删信息', () {
@@ -87,19 +75,13 @@ void main() {
       diff.items
           .where((item) => item.section == DboMetadataDiffSection.genres)
           .map((item) => item.action),
-      containsAll([
-        DboMetadataDiffAction.add,
-        DboMetadataDiffAction.remove,
-      ]),
+      containsAll([DboMetadataDiffAction.add, DboMetadataDiffAction.remove]),
     );
     expect(
       diff.items
           .where((item) => item.section == DboMetadataDiffSection.actors)
           .map((item) => item.action),
-      containsAll([
-        DboMetadataDiffAction.add,
-        DboMetadataDiffAction.remove,
-      ]),
+      containsAll([DboMetadataDiffAction.add, DboMetadataDiffAction.remove]),
     );
     final addedActor = diff.items.firstWhere(
       (item) =>
@@ -107,8 +89,9 @@ void main() {
           item.action == DboMetadataDiffAction.add,
     );
     expect(addedActor.gender, 'female');
-    final series = diff.items
-        .firstWhere((item) => item.section == DboMetadataDiffSection.series);
+    final series = diff.items.firstWhere(
+      (item) => item.section == DboMetadataDiffSection.series,
+    );
     expect(series.action, DboMetadataDiffAction.replace);
     expect(series.remoteName, '新系列');
     expect(series.localId, 3);

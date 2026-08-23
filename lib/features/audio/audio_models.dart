@@ -118,16 +118,19 @@ class AudioAsset {
   final bool fileExists;
   final AudioTranscription? transcription;
 
-  AudioTranscription get transcriptionView => transcription ?? const AudioTranscription();
+  AudioTranscription get transcriptionView =>
+      transcription ?? const AudioTranscription();
 
   /// 字幕转译完成：行内转译状态优先，其次回退到资产标记。
   bool get isTranscriptionDone =>
-      transcriptionView.isDone || (subtitleTranslated && !transcriptionView.isFailed);
+      transcriptionView.isDone ||
+      (subtitleTranslated && !transcriptionView.isFailed);
 
   bool get isTranscriptionActive => transcriptionView.isActive;
 
-  String get displayTitle =>
-      movieTitle.isNotEmpty ? movieTitle : (movieFileName.isNotEmpty ? movieFileName : '影片 #$movieId');
+  String get displayTitle => movieTitle.isNotEmpty
+      ? movieTitle
+      : (movieFileName.isNotEmpty ? movieFileName : '影片 #$movieId');
 
   String get formatLabel {
     final value = format.trim();
@@ -169,7 +172,10 @@ class AudioAssetDeleteRejection {
 /// POST /audios/delete 的结果。
 @immutable
 class AudioAssetDeleteResult {
-  const AudioAssetDeleteResult({this.deleted = const [], this.rejected = const []});
+  const AudioAssetDeleteResult({
+    this.deleted = const [],
+    this.rejected = const [],
+  });
 
   final List<int> deleted;
   final List<AudioAssetDeleteRejection> rejected;
@@ -186,7 +192,10 @@ class TranscriptionEnqueueRejection {
 /// POST /audios/transcriptions 的入队结果。
 @immutable
 class TranscriptionEnqueueResult {
-  const TranscriptionEnqueueResult({this.accepted = 0, this.rejected = const []});
+  const TranscriptionEnqueueResult({
+    this.accepted = 0,
+    this.rejected = const [],
+  });
 
   final int accepted;
   final List<TranscriptionEnqueueRejection> rejected;

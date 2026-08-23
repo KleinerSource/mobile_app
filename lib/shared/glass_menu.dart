@@ -27,9 +27,7 @@ class GlassMenuPanel extends StatelessWidget {
   final BorderRadius borderRadius;
 
   static double heightFor({required int rows, int dividers = 0}) {
-    return verticalPadding * 2 +
-        rows * rowHeight +
-        dividers * dividerHeight;
+    return verticalPadding * 2 + rows * rowHeight + dividers * dividerHeight;
   }
 
   @override
@@ -52,10 +50,7 @@ class GlassMenuPanel extends StatelessWidget {
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: verticalPadding),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: children,
-              ),
+              child: Column(mainAxisSize: MainAxisSize.min, children: children),
             ),
           ),
         ),
@@ -96,9 +91,9 @@ class GlassMenuRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final foreground = foregroundColor ??
-        (selected ? c.tabActiveText : c.text);
-    final leadingWidget = leading ??
+    final foreground = foregroundColor ?? (selected ? c.tabActiveText : c.text);
+    final leadingWidget =
+        leading ??
         (icon == null
             ? const SizedBox(width: 21)
             : Icon(icon, color: foreground, size: iconSize));
@@ -137,16 +132,14 @@ class GlassMenuRow extends StatelessWidget {
                       color: foreground,
                       fontFamily: 'Inter',
                       fontSize: fontSize,
-                      fontWeight: fontWeight ??
+                      fontWeight:
+                          fontWeight ??
                           (selected ? FontWeight.w700 : FontWeight.w600),
                       decoration: TextDecoration.none,
                     ),
                   ),
                 ),
-                if (trailing != null) ...[
-                  const SizedBox(width: 8),
-                  trailing!,
-                ],
+                if (trailing != null) ...[const SizedBox(width: 8), trailing!],
               ],
             ),
           ),
@@ -177,11 +170,8 @@ class GlassMenuDivider extends StatelessWidget {
   }
 }
 
-typedef GlassMenuItemBuilder<T> = Widget Function(
-  BuildContext context,
-  bool selected,
-  VoidCallback onTap,
-);
+typedef GlassMenuItemBuilder<T> =
+    Widget Function(BuildContext context, bool selected, VoidCallback onTap);
 
 /// 菜单中的可操作行或分隔线。
 class GlassMenuEntry<T> {
@@ -189,14 +179,14 @@ class GlassMenuEntry<T> {
     required this.value,
     required this.builder,
     this.height = GlassMenuPanel.rowHeight,
-  })  : isDivider = false,
-        dividerColor = null;
+  }) : isDivider = false,
+       dividerColor = null;
 
   const GlassMenuEntry.divider({this.dividerColor})
-      : value = null,
-        builder = null,
-        height = GlassMenuPanel.dividerHeight,
-        isDivider = true;
+    : value = null,
+      builder = null,
+      height = GlassMenuPanel.dividerHeight,
+      isDivider = true;
 
   final T? value;
   final GlassMenuItemBuilder<T>? builder;
@@ -282,8 +272,10 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
     };
     const horizontalInset = 12.0;
     final minLeft = overlayRect.left + horizontalInset;
-    final maxLeft = (overlayRect.right - widget.width - horizontalInset)
-        .clamp(minLeft, double.infinity);
+    final maxLeft = (overlayRect.right - widget.width - horizontalInset).clamp(
+      minLeft,
+      double.infinity,
+    );
     final left = rawLeft.clamp(minLeft, maxLeft).toDouble();
 
     final rawTop = switch (widget.placement) {
@@ -293,8 +285,10 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
     };
     const verticalInset = 12.0;
     final minTop = overlayRect.top + verticalInset;
-    final maxTop = (overlayRect.bottom - menuHeight - verticalInset)
-        .clamp(minTop, double.infinity);
+    final maxTop = (overlayRect.bottom - menuHeight - verticalInset).clamp(
+      minTop,
+      double.infinity,
+    );
     final top = rawTop.clamp(minTop, maxTop).toDouble();
     return Rect.fromLTWH(left, top, widget.width, menuHeight);
   }
@@ -358,9 +352,7 @@ class _GlassMenuAnchorState<T> extends State<GlassMenuAnchor<T>> {
                     width: widget.width,
                     onSelect: _select,
                   );
-                  return _interactive
-                      ? panel
-                      : IgnorePointer(child: panel);
+                  return _interactive ? panel : IgnorePointer(child: panel);
                 },
               ),
             ),

@@ -78,8 +78,8 @@ class UpdateRepositoryNotifier extends Notifier<String?> {
 
 final updateRepositoryUrlProvider =
     NotifierProvider<UpdateRepositoryNotifier, String?>(
-  UpdateRepositoryNotifier.new,
-);
+      UpdateRepositoryNotifier.new,
+    );
 
 final gitHubUpdateServiceProvider = Provider<GitHubUpdateService>(
   (ref) => GitHubUpdateService(),

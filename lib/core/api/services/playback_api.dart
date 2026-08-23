@@ -21,9 +21,8 @@ class PlaybackApi {
     );
     return unwrapStd<PlaybackDecision>(
       response.data,
-      (data) => PlaybackDecision.fromJson(
-        Map<String, dynamic>.from(data as Map),
-      ),
+      (data) =>
+          PlaybackDecision.fromJson(Map<String, dynamic>.from(data as Map)),
     );
   }
 
@@ -42,9 +41,8 @@ class PlaybackApi {
     );
     return unwrapStd<TranscodeStatus>(
       response.data,
-      (data) => TranscodeStatus.fromJson(
-        Map<String, dynamic>.from(data as Map),
-      ),
+      (data) =>
+          TranscodeStatus.fromJson(Map<String, dynamic>.from(data as Map)),
     );
   }
 
@@ -55,7 +53,10 @@ class PlaybackApi {
     unwrapStd<void>(response.data, (_) {});
   }
 
-  Stream<TranscodeStatus> events(int movieId, {String quality = 'auto'}) async* {
+  Stream<TranscodeStatus> events(
+    int movieId, {
+    String quality = 'auto',
+  }) async* {
     final response = await _dio.get<ResponseBody>(
       '/movies/id/$movieId/transcode-events',
       queryParameters: {'quality': quality},
@@ -66,16 +67,16 @@ class PlaybackApi {
 
     String? eventName;
     final dataLines = <String>[];
-    await for (final line in utf8.decoder
-        .bind(body.stream)
-        .transform(const LineSplitter())) {
+    await for (final line
+        in utf8.decoder.bind(body.stream).transform(const LineSplitter())) {
       if (line.startsWith('event:')) {
         eventName = line.substring(6).trim();
       } else if (line.startsWith('data:')) {
         dataLines.add(line.substring(5).trimLeft());
       } else if (line.isEmpty) {
         final payload = dataLines.join('\n');
-        if (payload.isNotEmpty && (eventName == null || eventName == 'status')) {
+        if (payload.isNotEmpty &&
+            (eventName == null || eventName == 'status')) {
           final decoded = jsonDecode(payload);
           if (decoded is Map) {
             yield TranscodeStatus.fromJson(Map<String, dynamic>.from(decoded));

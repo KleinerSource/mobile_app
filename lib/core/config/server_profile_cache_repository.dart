@@ -19,9 +19,7 @@ class ServerProfileCacheRepository {
     final cached = _readAll()[id];
     if (cached is! Map) return null;
     try {
-      return ServerProfileData.fromJson(
-        Map<String, dynamic>.from(cached),
-      );
+      return ServerProfileData.fromJson(Map<String, dynamic>.from(cached));
     } catch (_) {
       return null;
     }
@@ -49,8 +47,8 @@ class ServerProfileCacheRepository {
   }
 
   Future<void> clear() => _enqueueWrite(() async {
-        await _prefs.remove(_key);
-      });
+    await _prefs.remove(_key);
+  });
 
   Future<void> _enqueueWrite(Future<void> Function() operation) {
     final result = _writeQueue.then((_) => operation());

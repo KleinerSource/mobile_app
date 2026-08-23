@@ -93,7 +93,9 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
         'after_date': _afterDateCtl.text.trim(),
         'wash_mode': _washMode,
       };
-      final msg = await ref.read(moviesRepositoryProvider).requestDownload(
+      final msg = await ref
+          .read(moviesRepositoryProvider)
+          .requestDownload(
             movieIds: widget.movieIds,
             requirements: requirements,
           );
@@ -105,9 +107,9 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text('下载请求失败: ${toApiException(e).message}'),
-      ));
+      messenger.showSnackBar(
+        SnackBar(content: Text('下载请求失败: ${toApiException(e).message}')),
+      );
       setState(() => _submitting = false);
     }
   }
@@ -128,11 +130,12 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('批量下载 ${widget.movieIds.length} 部',
-                      style: AppText.sectionTitle(context)),
+                  Text(
+                    '批量下载 ${widget.movieIds.length} 部',
+                    style: AppText.sectionTitle(context),
+                  ),
                   const SizedBox(height: 2),
-                  Text('按条件批量提交下载请求, 缺失番号会自动跳过',
-                      style: AppText.meta(context)),
+                  Text('按条件批量提交下载请求, 缺失番号会自动跳过', style: AppText.meta(context)),
                 ],
               ),
             ),
@@ -234,8 +237,7 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
                           ? const SizedBox(
                               width: 14,
                               height: 14,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.cloud_download_outlined, size: 18),
                       label: Text(_submitting ? '提交中...' : '确认提交'),
@@ -277,8 +279,10 @@ class _Field extends StatelessWidget {
             prefixIcon: icon == null ? null : Icon(icon),
             isDense: true,
             border: const OutlineInputBorder(),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
           ),
         ),
       ],
@@ -308,8 +312,10 @@ class _NumField extends StatelessWidget {
             prefixIcon: const Icon(Icons.pin_outlined),
             isDense: true,
             border: const OutlineInputBorder(),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
           ),
         ),
       ],

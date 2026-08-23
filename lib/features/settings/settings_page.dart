@@ -33,103 +33,108 @@ class SettingsPage extends ConsumerWidget {
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
-                eyebrow: l.settingsTitle,
-                title: l.settingsPreferences,
-              ),
+              eyebrow: l.settingsTitle,
+              title: l.settingsPreferences,
+            ),
             body: ListView(
               primary: true,
               children: [
-              SettingsGroup(
-                title: l.settingsPreferences,
-                items: [
-                  SettingsTile(
-                    title: l.settingsServerSettings,
-                    subtitle: l.settingsServerSettingsSub,
-                    leadingIcon: Icons.dns_outlined,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => const ServerSettingsPage()),
+                SettingsGroup(
+                  title: l.settingsPreferences,
+                  items: [
+                    SettingsTile(
+                      title: l.settingsServerSettings,
+                      subtitle: l.settingsServerSettingsSub,
+                      leadingIcon: Icons.dns_outlined,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ServerSettingsPage(),
+                        ),
+                      ),
                     ),
-                  ),
-                  SettingsTile(
-                    title: l.settingsAppSettings,
-                    subtitle: l.settingsAppSettingsSub,
-                    leadingIcon: Icons.tune_rounded,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => const AppSettingsPage()),
+                    SettingsTile(
+                      title: l.settingsAppSettings,
+                      subtitle: l.settingsAppSettingsSub,
+                      leadingIcon: Icons.tune_rounded,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AppSettingsPage(),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              SettingsGroup(
-                title: l.settingsGroupAbout,
-                items: [
-                  _VersionSettingsTile(
-                    subtitle: packageInfo.when(
-                      data: (info) =>
-                          formatAppVersion(info.version, info.buildNumber),
-                      loading: () => '读取中…',
-                      error: (_, __) => '未知',
-                    ),
-                    title: l.settingsVersion,
-                    hasUpdateSource: updateRepository != null,
-                    onCheckForUpdates: () {
-                      if (updateRepository == null) {
-                        unawaited(
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const AppUpdateSettingsPage(),
+                  ],
+                ),
+                SettingsGroup(
+                  title: l.settingsGroupAbout,
+                  items: [
+                    _VersionSettingsTile(
+                      subtitle: packageInfo.when(
+                        data: (info) =>
+                            formatAppVersion(info.version, info.buildNumber),
+                        loading: () => '读取中…',
+                        error: (_, __) => '未知',
+                      ),
+                      title: l.settingsVersion,
+                      hasUpdateSource: updateRepository != null,
+                      onCheckForUpdates: () {
+                        if (updateRepository == null) {
+                          unawaited(
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const AppUpdateSettingsPage(),
+                              ),
                             ),
+                          );
+                          return;
+                        }
+                        checkConfiguredAppUpdate(
+                          context: context,
+                          ref: ref,
+                          showLatestMessage: true,
+                        ).ignore();
+                      },
+                    ),
+                    SettingsTile(
+                      title: l.settingsLogout,
+                      destructive: true,
+                      leadingIcon: Icons.logout,
+                      onTap: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('确认退出登录'),
+                            content: const Text(
+                              '退出后将清理当前会话,下次启动需要重新登录;服务器地址会保留。',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('取消'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: c.danger,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('退出登录'),
+                              ),
+                            ],
                           ),
                         );
-                        return;
-                      }
-                      checkConfiguredAppUpdate(
-                        context: context,
-                        ref: ref,
-                        showLatestMessage: true,
-                      ).ignore();
-                    },
-                  ),
-                  SettingsTile(
-                    title: l.settingsLogout,
-                    destructive: true,
-                    leadingIcon: Icons.logout,
-                    onTap: () async {
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('确认退出登录'),
-                          content: const Text(
-                              '退出后将清理当前会话,下次启动需要重新登录;服务器地址会保留。'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('取消'),
-                            ),
-                            FilledButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: c.danger,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: const Text('退出登录'),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (confirmed != true) return;
-                      if (!context.mounted) return;
-                      await ref.read(authControllerProvider.notifier).logout();
-                      if (context.mounted) {
-                        Navigator.of(context).popUntil((r) => r.isFirst);
-                      }
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 80),
+                        if (confirmed != true) return;
+                        if (!context.mounted) return;
+                        await ref
+                            .read(authControllerProvider.notifier)
+                            .logout();
+                        if (context.mounted) {
+                          Navigator.of(context).popUntil((r) => r.isFirst);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 80),
               ],
             ),
           ),
@@ -202,9 +207,7 @@ class _VersionSettingsTileState extends State<_VersionSettingsTile> {
       _tapCount = 0;
       unawaited(
         Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const AppUpdateSettingsPage(),
-          ),
+          MaterialPageRoute(builder: (_) => const AppUpdateSettingsPage()),
         ),
       );
       return;

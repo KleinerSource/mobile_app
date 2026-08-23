@@ -9,14 +9,8 @@ void main() {
     expect(subtitle.keywords, ['中文字幕', '中字']);
     expect(exsub.canonicalName, subtitle.canonicalName);
     expect(exsub.keywords, subtitle.keywords);
-    expect(
-      movieQuickFlagConfig(MovieQuickFlag.crack).canonicalName,
-      '无码破解',
-    );
-    expect(
-      movieQuickFlagConfig(MovieQuickFlag.crack).keywords,
-      ['无码破解', '破解'],
-    );
+    expect(movieQuickFlagConfig(MovieQuickFlag.crack).canonicalName, '无码破解');
+    expect(movieQuickFlagConfig(MovieQuickFlag.crack).keywords, ['无码破解', '破解']);
     final uhd = movieQuickFlagConfig(MovieQuickFlag.uhd);
     expect(uhd.canonicalName, 'UHD');
     expect(uhd.keywords, ['UHD']);
@@ -36,10 +30,7 @@ void main() {
       genre: const (id: 20, name: '中文字幕'),
     );
 
-    expect(repeated.tags, const [
-      (id: 1, name: '已有标签'),
-      (id: 2, name: '中文字幕'),
-    ]);
+    expect(repeated.tags, const [(id: 1, name: '已有标签'), (id: 2, name: '中文字幕')]);
     expect(repeated.genres, const [
       (id: 10, name: '已有分类'),
       (id: 20, name: '中文字幕'),
@@ -49,14 +40,8 @@ void main() {
   test('关闭快捷操作同时移除标准名和别名且保留无关选择', () {
     final result = removeMovieQuickFlagSelections(
       flag: MovieQuickFlag.subtitle,
-      tags: const [
-        (id: 1, name: '中字'),
-        (id: 2, name: '其他标签'),
-      ],
-      genres: const [
-        (id: 10, name: '中文字幕'),
-        (id: 11, name: '剧情'),
-      ],
+      tags: const [(id: 1, name: '中字'), (id: 2, name: '其他标签')],
+      genres: const [(id: 10, name: '中文字幕'), (id: 11, name: '剧情')],
     );
 
     expect(result.tags, const [(id: 2, name: '其他标签')]);

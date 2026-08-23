@@ -16,16 +16,16 @@ final securityRepositoryProvider = Provider<SecurityRepository>((ref) {
 
 final securityBiometricCoordinatorProvider =
     Provider<SecurityBiometricCoordinator>((ref) {
-  return SecurityBiometricCoordinator();
-});
+      return SecurityBiometricCoordinator();
+    });
 
 /// 启动页只有在应用锁完成初始化/解锁后才允许触发启动更新检查。
 final securityGateReadyProvider = StateProvider<bool>((ref) => false);
 
 final securityControllerProvider =
     AsyncNotifierProvider<SecurityController, SecuritySettings>(
-  SecurityController.new,
-);
+      SecurityController.new,
+    );
 
 class SecurityController extends AsyncNotifier<SecuritySettings> {
   @override

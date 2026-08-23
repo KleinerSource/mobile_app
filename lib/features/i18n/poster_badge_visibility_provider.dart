@@ -68,13 +68,13 @@ class PosterBadgeVisibility {
   }
 
   Map<String, dynamic> toJson() => {
-        'codec': codec,
-        'hdr': hdr,
-        'strm': strm,
-        'subtitle': subtitle,
-        'crack': crack,
-        'resolution': resolution,
-      };
+    'codec': codec,
+    'hdr': hdr,
+    'strm': strm,
+    'subtitle': subtitle,
+    'crack': crack,
+    'resolution': resolution,
+  };
 
   factory PosterBadgeVisibility.fromJson(Map<String, dynamic> json) {
     return PosterBadgeVisibility(
@@ -88,8 +88,7 @@ class PosterBadgeVisibility {
   }
 }
 
-class PosterBadgeVisibilityNotifier
-    extends Notifier<PosterBadgeVisibility> {
+class PosterBadgeVisibilityNotifier extends Notifier<PosterBadgeVisibility> {
   static const _key = 'app.posterBadgeVisibility';
 
   @override
@@ -123,7 +122,7 @@ class PosterBadgeVisibilityNotifier
   }
 }
 
-final posterBadgeVisibilityProvider = NotifierProvider<
-    PosterBadgeVisibilityNotifier, PosterBadgeVisibility>(
-  PosterBadgeVisibilityNotifier.new,
-);
+final posterBadgeVisibilityProvider =
+    NotifierProvider<PosterBadgeVisibilityNotifier, PosterBadgeVisibility>(
+      PosterBadgeVisibilityNotifier.new,
+    );

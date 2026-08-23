@@ -8,21 +8,14 @@ import '../core/config/server_config_provider.dart';
 import '../core/platform/app_theme.dart';
 
 /// 构造演员头像地址。头像接口公开提供，不需要把 access token 放入 URL。
-String actorAvatarUrl(
-  ServerConfig config,
-  int actorId, {
-  String? cacheBust,
-}) {
+String actorAvatarUrl(ServerConfig config, int actorId, {String? cacheBust}) {
   final url = resolveApiUrl(config, '/actors/$actorId/avatar');
   final version = cacheBust?.trim() ?? '';
   if (version.isEmpty) return url;
   final uri = Uri.parse(url);
-  return uri.replace(
-    queryParameters: {
-      ...uri.queryParameters,
-      'v': version,
-    },
-  ).toString();
+  return uri
+      .replace(queryParameters: {...uri.queryParameters, 'v': version})
+      .toString();
 }
 
 /// 演员头像。图片加载失败时自动回退为统一的渐变首字母占位。
@@ -50,7 +43,8 @@ class ActorAvatar extends ConsumerWidget {
     final imageUrl = config == null
         ? null
         : actorAvatarUrl(config, actorId, cacheBust: cacheBust);
-    final shouldLoadImage = avatarPath == null ||
+    final shouldLoadImage =
+        avatarPath == null ||
         avatarPath!.trim().isNotEmpty ||
         cacheBust?.trim().isNotEmpty == true;
     return SizedBox(

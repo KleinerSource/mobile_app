@@ -76,8 +76,13 @@ class _StubAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     final encoded = jsonEncode(body);
-    return ResponseBody.fromString(encoded, 200,
-        headers: {Headers.contentTypeHeader: ['application/json']});
+    return ResponseBody.fromString(
+      encoded,
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
   }
 }
 
@@ -94,7 +99,9 @@ class _BinaryBusinessErrorAdapter implements HttpClientAdapter {
     return ResponseBody.fromString(
       '{"success":false,"message":"预览失败","data":{"reason":"invalid"}}',
       200,
-      headers: {Headers.contentTypeHeader: ['application/json']},
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
     );
   }
 }

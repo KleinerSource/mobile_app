@@ -62,21 +62,21 @@ class MovieCard extends ConsumerWidget {
           if (movie.hasAiSubtitle)
             const _SubtitleBadge(color: Color(0xFF8B5CF6), tooltip: 'AI 字幕'),
           if (movie.hasMuxedSubtitle)
-            const _SubtitleBadge(
-              color: Color(0xFF16A34A),
-              tooltip: '内嵌字幕轨道',
-            ),
+            const _SubtitleBadge(color: Color(0xFF16A34A), tooltip: '内嵌字幕轨道'),
           if (movie.hasFilenameSubtitle)
             const _SubtitleBadge(color: Color(0xFFFFD60A), tooltip: '内嵌字幕'),
         ];
         if (subBadges.length > 1) {
           final corner = positions.subtitle;
-          byCorner[corner]!.add(StackedBadges(
-            tooltip: '字幕 ×${subBadges.length}（点按展开）',
-            expandUpward:
-                corner == BadgeCorner.bottomLeft || corner == BadgeCorner.bottomRight,
-            children: subBadges,
-          ));
+          byCorner[corner]!.add(
+            StackedBadges(
+              tooltip: '字幕 ×${subBadges.length}（点按展开）',
+              expandUpward:
+                  corner == BadgeCorner.bottomLeft ||
+                  corner == BadgeCorner.bottomRight,
+              children: subBadges,
+            ),
+          );
         } else {
           byCorner[positions.subtitle]!.addAll(subBadges);
         }

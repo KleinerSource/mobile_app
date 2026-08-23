@@ -60,12 +60,11 @@ TextStyle subtitleTextStyle(
   }
 
   return TextStyle(
-    fontFamily: settings.fontFamily == 'System' ||
-            settings.fontFamily.trim().isEmpty
+    fontFamily:
+        settings.fontFamily == 'System' || settings.fontFamily.trim().isEmpty
         ? null
         : settings.fontFamily,
-    fontSize:
-        baseFontSize * adjustments.sizeScale.clamp(0.5, 2.0).toDouble(),
+    fontSize: baseFontSize * adjustments.sizeScale.clamp(0.5, 2.0).toDouble(),
     fontWeight: settings.bold ? FontWeight.w700 : FontWeight.normal,
     fontStyle: settings.italic ? FontStyle.italic : FontStyle.normal,
     color: settings.fontColor,
@@ -127,7 +126,7 @@ class PlayerSubtitleOverlay extends StatefulWidget {
   final SubtitleSettings settings;
   final SubtitleAdjustments adjustments;
   final ValueChanged<SubtitleVerticalOffsetBounds>?
-      onVerticalOffsetBoundsChanged;
+  onVerticalOffsetBoundsChanged;
 
   @override
   State<PlayerSubtitleOverlay> createState() => _PlayerSubtitleOverlayState();
@@ -280,8 +279,7 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
               text: TextSpan(text: text, style: style),
               textAlign: TextAlign.center,
               textDirection: TextDirection.ltr,
-            )
-              ..layout(maxWidth: math.max(1.0, constraints.maxWidth - 32));
+            )..layout(maxWidth: math.max(1.0, constraints.maxWidth - 32));
             final bounds = subtitleVerticalOffsetBoundsFor(
               viewportHeight: constraints.maxHeight,
               subtitleHeight: textPainter.height,
@@ -289,15 +287,15 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
             );
             _reportOffsetBounds(bounds);
             final verticalOffset =
-                bounds.clamp(widget.adjustments.verticalOffset) *
-                    viewportScale;
+                bounds.clamp(widget.adjustments.verticalOffset) * viewportScale;
             return Align(
               alignment: Alignment.bottomCenter,
               child: Transform.translate(
                 offset: Offset(0, -verticalOffset),
                 child: Opacity(
-                  opacity:
-                      widget.adjustments.opacity.clamp(0.1, 1.0).toDouble(),
+                  opacity: widget.adjustments.opacity
+                      .clamp(0.1, 1.0)
+                      .toDouble(),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                     child: Text(

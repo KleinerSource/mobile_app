@@ -33,92 +33,93 @@ class AppSettingsPage extends ConsumerWidget {
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
-                eyebrow: l.settingsTitle,
-                title: l.settingsAppSettings,
-              ),
+              eyebrow: l.settingsTitle,
+              title: l.settingsAppSettings,
+            ),
             body: ListView(
               primary: true,
               children: [
-              SettingsGroup(
-                title: l.settingsGroupPrivacy,
-                items: [
-                  const _PrivacyShieldTile(),
-                  const _ShakePrivacyTile(),
-                  SettingsTile(
-                    title: '安全设置',
-                    subtitle: '面容/指纹、进入密码、手势密码',
-                    leadingIcon: Icons.lock_outline,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const SecuritySettingsPage(),
+                SettingsGroup(
+                  title: l.settingsGroupPrivacy,
+                  items: [
+                    const _PrivacyShieldTile(),
+                    const _ShakePrivacyTile(),
+                    SettingsTile(
+                      title: '安全设置',
+                      subtitle: '面容/指纹、进入密码、手势密码',
+                      leadingIcon: Icons.lock_outline,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const SecuritySettingsPage(),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              SettingsGroup(
-                title: '通用',
-                items: [
-                  const _LanguageTile(),
-                  const _ThemeTile(),
-                  const _HapticIntensityTile(),
-                  SettingsTile(
-                    title: l.settingsBadgePositions,
-                    subtitle: l.settingsBadgePositionsSub,
-                    leadingIcon: Icons.grid_view_rounded,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => const BadgePositionPage()),
-                    ),
-                  ),
-                  SettingsTile(
-                    title: '海报角标显示',
-                    subtitle: '编码 / HDR / STRM / 字幕 / 破解 / HD',
-                    leadingIcon: Icons.local_offer_outlined,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const PosterBadgeDisplayPage(),
+                  ],
+                ),
+                SettingsGroup(
+                  title: '通用',
+                  items: [
+                    const _LanguageTile(),
+                    const _ThemeTile(),
+                    const _HapticIntensityTile(),
+                    SettingsTile(
+                      title: l.settingsBadgePositions,
+                      subtitle: l.settingsBadgePositionsSub,
+                      leadingIcon: Icons.grid_view_rounded,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const BadgePositionPage(),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              SettingsGroup(
-                title: '播放器',
-                items: [
-                  SettingsTile(
-                    title: '播放器设置',
-                    subtitle: '播放进度 / 屏幕方向 / OSD / 播放按钮 / 手势反馈',
-                    leadingIcon: Icons.play_circle_outline,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const PlayerSettingsPage(),
+                    SettingsTile(
+                      title: '海报角标显示',
+                      subtitle: '编码 / HDR / STRM / 字幕 / 破解 / HD',
+                      leadingIcon: Icons.local_offer_outlined,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const PosterBadgeDisplayPage(),
+                        ),
                       ),
                     ),
-                  ),
-                  SettingsTile(
-                    title: '字幕设置',
-                    subtitle: '记忆选择 / 字体 / 颜色 / 描边 / 阴影',
-                    leadingIcon: Icons.subtitles_outlined,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const SubtitleSettingsPage(),
+                  ],
+                ),
+                SettingsGroup(
+                  title: '播放器',
+                  items: [
+                    SettingsTile(
+                      title: '播放器设置',
+                      subtitle: '播放进度 / 屏幕方向 / OSD / 播放按钮 / 手势反馈',
+                      leadingIcon: Icons.play_circle_outline,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const PlayerSettingsPage(),
+                        ),
                       ),
                     ),
-                  ),
-                  SettingsTile(
-                    title: '缓存管理',
-                    subtitle: '磁盘缓存额度 / 缓存分类 / 一键清理',
-                    leadingIcon: Icons.cleaning_services_outlined,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const CacheManagementPage(),
+                    SettingsTile(
+                      title: '字幕设置',
+                      subtitle: '记忆选择 / 字体 / 颜色 / 描边 / 阴影',
+                      leadingIcon: Icons.subtitles_outlined,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const SubtitleSettingsPage(),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 80),
+                    SettingsTile(
+                      title: '缓存管理',
+                      subtitle: '磁盘缓存额度 / 缓存分类 / 一键清理',
+                      leadingIcon: Icons.cleaning_services_outlined,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const CacheManagementPage(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 80),
               ],
             ),
           ),
@@ -161,8 +162,7 @@ class _ShakePrivacyTile extends ConsumerWidget {
       leadingIcon: Icons.vibration,
       trailing: SettingsSwitch(
         value: enabled,
-        onChanged: (v) =>
-            ref.read(privacyShakeProvider.notifier).setEnabled(v),
+        onChanged: (v) => ref.read(privacyShakeProvider.notifier).setEnabled(v),
       ),
     );
   }
@@ -211,18 +211,19 @@ class _LanguageTile extends ConsumerWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
-                child: Row(children: [
-                  Text(l.settingsLanguage, style: AppText.sectionTitle(ctx)),
-                ]),
+                child: Row(
+                  children: [
+                    Text(l.settingsLanguage, style: AppText.sectionTitle(ctx)),
+                  ],
+                ),
               ),
               for (final loc in AppLocale.values)
                 ListTile(
                   title: Text(
                     _labelOf(loc, l),
-                    style: AppText.body(ctx).copyWith(
-                      color: c.text,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: AppText.body(
+                      ctx,
+                    ).copyWith(color: c.text, fontWeight: FontWeight.w700),
                   ),
                   trailing: loc == current
                       ? Icon(Icons.check, color: c.accent)
@@ -296,19 +297,20 @@ class _ThemeTile extends ConsumerWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
-                child: Row(children: [
-                  Text(l.settingsTheme, style: AppText.sectionTitle(ctx)),
-                ]),
+                child: Row(
+                  children: [
+                    Text(l.settingsTheme, style: AppText.sectionTitle(ctx)),
+                  ],
+                ),
               ),
               for (final m in AppThemeMode.values)
                 ListTile(
                   leading: Icon(_iconOf(m), color: c.muted, size: 20),
                   title: Text(
                     _labelOf(m, l),
-                    style: AppText.body(ctx).copyWith(
-                      color: c.text,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: AppText.body(
+                      ctx,
+                    ).copyWith(color: c.text, fontWeight: FontWeight.w700),
                   ),
                   trailing: m == current
                       ? Icon(Icons.check, color: c.accent)
@@ -355,10 +357,7 @@ class _HapticIntensityTile extends ConsumerWidget {
 }
 
 class _HapticIntensitySlider extends StatelessWidget {
-  const _HapticIntensitySlider({
-    required this.value,
-    required this.onChanged,
-  });
+  const _HapticIntensitySlider({required this.value, required this.onChanged});
 
   final HapticIntensity value;
   final ValueChanged<double> onChanged;
@@ -387,8 +386,8 @@ class _HapticIntensitySlider extends StatelessWidget {
                   textAlign: i == 0
                       ? TextAlign.left
                       : i == intensities.length - 1
-                          ? TextAlign.right
-                          : TextAlign.center,
+                      ? TextAlign.right
+                      : TextAlign.center,
                   style: AppText.meta(context).copyWith(
                     color: intensities[i] == value ? c.accent : c.muted,
                     fontWeight: intensities[i] == value

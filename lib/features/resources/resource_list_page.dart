@@ -731,8 +731,9 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                           },
                           decoration: InputDecoration(
                             hintText: '${widget.kind.label}名称',
-                            prefixIcon:
-                                const Icon(Icons.drive_file_rename_outline),
+                            prefixIcon: const Icon(
+                              Icons.drive_file_rename_outline,
+                            ),
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 14,

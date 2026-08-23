@@ -15,12 +15,7 @@ import '../../core/platform/app_theme.dart';
 import '../libraries/libraries_providers.dart';
 import 'home_providers.dart';
 
-enum ServerSwitchPhase {
-  idle,
-  checking,
-  needsLogin,
-  error,
-}
+enum ServerSwitchPhase { idle, checking, needsLogin, error }
 
 @immutable
 class ServerSwitchState {
@@ -37,32 +32,32 @@ class ServerSwitchState {
     required String targetServerId,
     String? previousServerId,
   }) : this._(
-          phase: ServerSwitchPhase.checking,
-          targetServerId: targetServerId,
-          previousServerId: previousServerId,
-        );
+         phase: ServerSwitchPhase.checking,
+         targetServerId: targetServerId,
+         previousServerId: previousServerId,
+       );
 
   const ServerSwitchState.needsLogin({
     required String targetServerId,
     String? previousServerId,
     String? message,
   }) : this._(
-          phase: ServerSwitchPhase.needsLogin,
-          targetServerId: targetServerId,
-          previousServerId: previousServerId,
-          message: message,
-        );
+         phase: ServerSwitchPhase.needsLogin,
+         targetServerId: targetServerId,
+         previousServerId: previousServerId,
+         message: message,
+       );
 
   const ServerSwitchState.error({
     required String targetServerId,
     String? previousServerId,
     required String message,
   }) : this._(
-          phase: ServerSwitchPhase.error,
-          targetServerId: targetServerId,
-          previousServerId: previousServerId,
-          message: message,
-        );
+         phase: ServerSwitchPhase.error,
+         targetServerId: targetServerId,
+         previousServerId: previousServerId,
+         message: message,
+       );
 
   final ServerSwitchPhase phase;
   final String? targetServerId;
@@ -72,10 +67,10 @@ class ServerSwitchState {
   bool get isActive => phase != ServerSwitchPhase.idle;
 }
 
-final serverSwitchTransitionProvider = NotifierProvider<
-    ServerSwitchTransitionController, ServerSwitchState>(
-  ServerSwitchTransitionController.new,
-);
+final serverSwitchTransitionProvider =
+    NotifierProvider<ServerSwitchTransitionController, ServerSwitchState>(
+      ServerSwitchTransitionController.new,
+    );
 
 class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   int _operation = 0;
@@ -97,10 +92,9 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       previousServerId: previousServerId,
     );
     try {
-      final authenticated = await ref.read(authControllerProvider.notifier).login(
-            password: password,
-            totpCode: totpCode,
-          );
+      final authenticated = await ref
+          .read(authControllerProvider.notifier)
+          .login(password: password, totpCode: totpCode);
       if (!_isCurrent(operation)) return;
       if (authenticated) {
         await _completeAuthenticatedSwitch(operation);
@@ -149,7 +143,9 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       previousServerId: current.targetServerId,
     );
     try {
-      await ref.read(serverConfigProvider.notifier).selectServer(previousServerId);
+      await ref
+          .read(serverConfigProvider.notifier)
+          .selectServer(previousServerId);
       if (!_isCurrent(operation)) return;
       final auth = await _refreshAuthState();
       if (!_isCurrent(operation)) return;
@@ -218,7 +214,8 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     // 的服务器在清理旧会话或某个首页区块响应较慢时一直停留在检查状态。
     final refresh = refreshHomeProviders(
       refreshRecentlyAdded: () => ref.refresh(recentlyAddedProvider.future),
-      refreshContinueWatching: () => ref.refresh(continueWatchingProvider.future),
+      refreshContinueWatching: () =>
+          ref.refresh(continueWatchingProvider.future),
       refreshLibraries: () => ref.refresh(librariesProvider.future),
       refreshRecommendCarousel: () =>
           ref.refresh(recommendCarouselProvider.future),
@@ -281,7 +278,8 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   /// 状态；超时则转成可重试错误，避免网络异常造成无限等待。
   Future<AuthState> _refreshAuthState() async {
     try {
-      return await ref.read(authControllerProvider.notifier)
+      return await ref
+          .read(authControllerProvider.notifier)
           .refreshCurrentServer()
           .timeout(_authCheckTimeout);
     } on TimeoutException {
@@ -338,38 +336,36 @@ class _ServerSwitchTransitionOverlayState
 
     final auth = ref.watch(authControllerProvider);
     final authState = auth.valueOrNull;
-    final requiresTotp = authState?.phase == AuthPhase.totpRequired ||
+    final requiresTotp =
+        authState?.phase == AuthPhase.totpRequired ||
         authState?.status?.totpConfigured == true;
     final content = switch (transition.phase) {
       ServerSwitchPhase.checking => _TransitionContent(
-          icon: Icons.sync_rounded,
-          title: '连接 ${target.name}',
-          message: '正在检查服务器鉴权状态…',
-          busy: true,
-        ),
+        icon: Icons.sync_rounded,
+        title: '连接 ${target.name}',
+        message: '正在检查服务器鉴权状态…',
+        busy: true,
+      ),
       ServerSwitchPhase.needsLogin => _buildLogin(
-          context,
-          colors,
-          target,
-          requiresTotp,
-          transition.message,
-        ),
+        context,
+        colors,
+        target,
+        requiresTotp,
+        transition.message,
+      ),
       ServerSwitchPhase.error => _buildError(
-          context,
-          colors,
-          target,
-          transition.message,
-        ),
+        context,
+        colors,
+        target,
+        transition.message,
+      ),
       ServerSwitchPhase.idle => const SizedBox.shrink(),
     };
 
     return _buildMaterial(context, content);
   }
 
-  Widget _buildMaterial(
-    BuildContext context,
-    Widget content,
-  ) {
+  Widget _buildMaterial(BuildContext context, Widget content) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Positioned.fill(
       child: Material(
@@ -409,10 +405,7 @@ class _ServerSwitchTransitionOverlayState
                         ).animate(animation);
                         return FadeTransition(
                           opacity: animation,
-                          child: SlideTransition(
-                            position: slide,
-                            child: child,
-                          ),
+                          child: SlideTransition(position: slide, child: child),
                         );
                       },
                       child: content,
@@ -440,10 +433,9 @@ class _ServerSwitchTransitionOverlayState
         ? profile!.name.trim()
         : server.name;
     final avatar = profile?.avatarUrl ?? server.avatarUrl;
-    final error = (_localError?.trim().isNotEmpty == true
-            ? _localError
-            : message)
-        ?.trim();
+    final error =
+        (_localError?.trim().isNotEmpty == true ? _localError : message)
+            ?.trim();
     return Column(
       key: const ValueKey('server-switch-login'),
       children: [
@@ -559,9 +551,7 @@ class _ServerSwitchTransitionOverlayState
         ),
         const SizedBox(height: 10),
         Text(
-          message?.trim().isNotEmpty == true
-              ? message!
-              : '请检查网络或服务器配置。',
+          message?.trim().isNotEmpty == true ? message! : '请检查网络或服务器配置。',
           textAlign: TextAlign.center,
           style: AppText.body(context).copyWith(color: colors.muted),
         ),
@@ -604,7 +594,9 @@ class _ServerSwitchTransitionOverlayState
       _localError = null;
     });
     try {
-      await ref.read(serverSwitchTransitionProvider.notifier).login(
+      await ref
+          .read(serverSwitchTransitionProvider.notifier)
+          .login(
             password: password,
             totpCode: requiresTotp ? _totpController.text.trim() : null,
           );
@@ -665,7 +657,6 @@ class _ServerSwitchTransitionOverlayState
   ServerProfileData? _cachedProfileFor(ServerProfile server) {
     return ref.read(serverProfileCacheRepoProvider).load(server.id);
   }
-
 }
 
 class _TransitionContent extends StatelessWidget {

@@ -111,8 +111,8 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
             _doubleTapZone = x < width / 3
                 ? _DoubleTapZone.left
                 : x > width * 2 / 3
-                    ? _DoubleTapZone.right
-                    : _DoubleTapZone.center;
+                ? _DoubleTapZone.right
+                : _DoubleTapZone.center;
           },
           onDoubleTap: () {
             final zone = _doubleTapZone;
@@ -150,7 +150,10 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
             // 上滑 (dy<0) 提速, 下滑降速; 以长按起点为基准每档 0.1x。
             // 用整数十分位计算, 避免 0.1 浮点累加误差。
             final steps = (-d.localOffsetFromOrigin.dy / _rateStepPx).round();
-            final tenths = (_baseRate * 10 + steps).clamp(_minRate * 10, _maxRate * 10);
+            final tenths = (_baseRate * 10 + steps).clamp(
+              _minRate * 10,
+              _maxRate * 10,
+            );
             final rate = tenths / 10;
             if (rate != _boostRate) {
               _boostRate = rate;

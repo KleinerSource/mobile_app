@@ -176,7 +176,8 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
           _securityInitialized = true;
           // 已验证状态只存在于当前进程。后台切回前台不重新锁定，进程重启
           // 后 coordinator 会重新创建，才会再次执行启动验证。
-          _locked = settings.requiresUnlock &&
+          _locked =
+              settings.requiresUnlock &&
               !ref
                   .read(securityBiometricCoordinatorProvider)
                   .isSessionAuthenticated;
@@ -296,8 +297,7 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
       _busy = true;
       _error = null;
     });
-    final success =
-        await ref.read(securityRepositoryProvider).verifyPin(pin);
+    final success = await ref.read(securityRepositoryProvider).verifyPin(pin);
     if (!mounted) return;
     if (success) {
       ref.read(securityBiometricCoordinatorProvider).markSessionAuthenticated();
@@ -319,8 +319,9 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
       _busy = true;
       _error = null;
     });
-    final success =
-        await ref.read(securityRepositoryProvider).verifyGesture(pattern);
+    final success = await ref
+        .read(securityRepositoryProvider)
+        .verifyGesture(pattern);
     if (!mounted) return;
     if (success) {
       ref.read(securityBiometricCoordinatorProvider).markSessionAuthenticated();
@@ -422,10 +423,7 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                     const SizedBox(height: 18),
                     Text('应用已锁定', style: AppText.sectionTitle(context)),
                     const SizedBox(height: 6),
-                    Text(
-                      '验证身份后继续使用 MD Center',
-                      style: AppText.meta(context),
-                    ),
+                    Text('验证身份后继续使用 MD Center', style: AppText.meta(context)),
                     const SizedBox(height: 24),
                     if (widget.settings.biometricEnabled)
                       SizedBox(
@@ -435,9 +433,7 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                               ? null
                               : () => unawaited(widget.onBiometric()),
                           icon: const Icon(Icons.fingerprint),
-                          label: Text(
-                            widget.busy ? '验证中...' : '使用面容/指纹解锁',
-                          ),
+                          label: Text(widget.busy ? '验证中...' : '使用面容/指纹解锁'),
                         ),
                       ),
                     if (widget.settings.biometricEnabled && methods.isNotEmpty)

@@ -19,10 +19,7 @@ abstract class LibrariesApi {
   Future<dynamic> create(@Body() Map<String, dynamic> body);
 
   @PATCH('/libraries/id/{id}')
-  Future<dynamic> update(
-    @Path('id') int id,
-    @Body() Map<String, dynamic> body,
-  );
+  Future<dynamic> update(@Path('id') int id, @Body() Map<String, dynamic> body);
 
   /// 删除媒体库（统一删除入口，单项删除即提交长度为 1 的数组） · body: { libraries_ids: [int] }
   @POST('/libraries/delete')
@@ -32,10 +29,7 @@ abstract class LibrariesApi {
 
   /// 触发扫描 · body: { incremental: bool }
   @POST('/libraries/id/{id}/scan')
-  Future<dynamic> scan(
-    @Path('id') int id,
-    @Body() Map<String, dynamic> body,
-  );
+  Future<dynamic> scan(@Path('id') int id, @Body() Map<String, dynamic> body);
 
   @GET('/libraries/id/{id}/scan/active')
   Future<dynamic> activeScans(@Path('id') int id);
@@ -47,22 +41,13 @@ abstract class LibrariesApi {
   );
 
   @POST('/libraries/id/{id}/scan/tasks/{taskId}/pause')
-  Future<dynamic> pauseScan(
-    @Path('id') int id,
-    @Path('taskId') String taskId,
-  );
+  Future<dynamic> pauseScan(@Path('id') int id, @Path('taskId') String taskId);
 
   @POST('/libraries/id/{id}/scan/tasks/{taskId}/resume')
-  Future<dynamic> resumeScan(
-    @Path('id') int id,
-    @Path('taskId') String taskId,
-  );
+  Future<dynamic> resumeScan(@Path('id') int id, @Path('taskId') String taskId);
 
   @POST('/libraries/id/{id}/scan/tasks/{taskId}/cancel')
-  Future<dynamic> cancelScan(
-    @Path('id') int id,
-    @Path('taskId') String taskId,
-  );
+  Future<dynamic> cancelScan(@Path('id') int id, @Path('taskId') String taskId);
 
   // ===== 目录 (嵌套在媒体库下) =====
 

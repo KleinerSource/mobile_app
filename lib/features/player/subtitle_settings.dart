@@ -225,11 +225,15 @@ class SubtitleSettingsRepository {
         _backgroundColorKey,
         SubtitleSettings.defaults.backgroundColor,
       ),
-      outlineColor:
-          _readColor(_outlineColorKey, SubtitleSettings.defaults.outlineColor),
+      outlineColor: _readColor(
+        _outlineColorKey,
+        SubtitleSettings.defaults.outlineColor,
+      ),
       outlineWidth: _prefs.getDouble(_outlineWidthKey) ?? 0.0,
-      shadowColor:
-          _readColor(_shadowColorKey, SubtitleSettings.defaults.shadowColor),
+      shadowColor: _readColor(
+        _shadowColorKey,
+        SubtitleSettings.defaults.shadowColor,
+      ),
       shadowSize: _prefs.getDouble(_shadowSizeKey) ?? 0.0,
       adjustments: SubtitleAdjustments(
         delayMs: _prefs.getInt(_delayMsKey) ?? 0,
@@ -322,10 +326,12 @@ class SubtitleSettingsNotifier extends Notifier<SubtitleSettings> {
   }
 
   Future<void> rememberSelection(String key) async {
-    await update(state.copyWith(
-      rememberedSubtitleKey: key,
-      clearRememberedSubtitle: false,
-    ));
+    await update(
+      state.copyWith(
+        rememberedSubtitleKey: key,
+        clearRememberedSubtitle: false,
+      ),
+    );
   }
 
   Future<void> reset() async {
@@ -335,5 +341,5 @@ class SubtitleSettingsNotifier extends Notifier<SubtitleSettings> {
 
 final subtitleSettingsProvider =
     NotifierProvider<SubtitleSettingsNotifier, SubtitleSettings>(
-  SubtitleSettingsNotifier.new,
-);
+      SubtitleSettingsNotifier.new,
+    );

@@ -17,10 +17,7 @@ abstract class GenresApi {
   Future<dynamic> create(@Body() Map<String, dynamic> body);
 
   @PATCH('/genres/{id}')
-  Future<dynamic> update(
-    @Path('id') int id,
-    @Body() Map<String, dynamic> body,
-  );
+  Future<dynamic> update(@Path('id') int id, @Body() Map<String, dynamic> body);
 
   /// 批量删除 · body { ids: [...], force: bool }
   @POST('/genres/delete')

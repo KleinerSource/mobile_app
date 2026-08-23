@@ -330,7 +330,10 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('DB Online 元数据', style: AppText.sectionTitle(context)),
+                        Text(
+                          'DB Online 元数据',
+                          style: AppText.sectionTitle(context),
+                        ),
                         const SizedBox(height: 2),
                         if (dboTitle.isNotEmpty || dboCode.isNotEmpty)
                           Text(

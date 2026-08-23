@@ -48,50 +48,47 @@ class _SecuritySettingsContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return SettingsFixedHeaderLayout(
       header: const SettingsSubPageHeader(
-          eyebrow: '应用设置',
-          title: '安全设置',
-          subtitle: '配置进入 MD Center 时使用的本地验证方式',
-        ),
+        eyebrow: '应用设置',
+        title: '安全设置',
+        subtitle: '配置进入 MD Center 时使用的本地验证方式',
+      ),
       body: ListView(
         primary: true,
         children: [
-        SettingsGroup(
-          title: '解锁方式',
-          items: [
-            _BiometricTile(
-              enabled: settings.biometricEnabled,
-              hasPin: settings.hasPin,
-              onConfigurePin: () => _configurePin(context, ref),
-            ),
-            SettingsTile(
-              title: '进入密码',
-              subtitle: settings.hasPin ? '已设置 · 6 位数字' : '未设置',
-              leadingIcon: Icons.password_outlined,
-              onTap: () => _openPinActions(context, ref, settings.hasPin),
-            ),
-            SettingsTile(
-              title: '手势密码',
-              subtitle: settings.hasGesture ? '已设置 · 3×3 手势图案' : '未设置',
-              leadingIcon: Icons.gesture_rounded,
-              onTap: () => _openGestureActions(
-                context,
-                ref,
-                settings.hasGesture,
+          SettingsGroup(
+            title: '解锁方式',
+            items: [
+              _BiometricTile(
+                enabled: settings.biometricEnabled,
+                hasPin: settings.hasPin,
+                onConfigurePin: () => _configurePin(context, ref),
               ),
-            ),
-          ],
-        ),
-        const SettingsGroup(
-          title: '使用说明',
-          items: [
-            SettingsTile(
-              title: '应用锁定时验证',
-              subtitle: '配置任意一种方式后，应用启动和回到前台时会要求验证。',
-              leadingIcon: Icons.lock_outline,
-            ),
-          ],
-        ),
-        const SizedBox(height: 80),
+              SettingsTile(
+                title: '进入密码',
+                subtitle: settings.hasPin ? '已设置 · 6 位数字' : '未设置',
+                leadingIcon: Icons.password_outlined,
+                onTap: () => _openPinActions(context, ref, settings.hasPin),
+              ),
+              SettingsTile(
+                title: '手势密码',
+                subtitle: settings.hasGesture ? '已设置 · 3×3 手势图案' : '未设置',
+                leadingIcon: Icons.gesture_rounded,
+                onTap: () =>
+                    _openGestureActions(context, ref, settings.hasGesture),
+              ),
+            ],
+          ),
+          const SettingsGroup(
+            title: '使用说明',
+            items: [
+              SettingsTile(
+                title: '应用锁定时验证',
+                subtitle: '配置任意一种方式后，应用启动和回到前台时会要求验证。',
+                leadingIcon: Icons.lock_outline,
+              ),
+            ],
+          ),
+          const SizedBox(height: 80),
         ],
       ),
     );
@@ -121,7 +118,8 @@ class _SecuritySettingsContent extends ConsumerWidget {
       await _clearCredential(
         context,
         title: '清除数字密码',
-        onConfirm: () => ref.read(securityControllerProvider.notifier).clearPin(),
+        onConfirm: () =>
+            ref.read(securityControllerProvider.notifier).clearPin(),
       );
     }
   }
@@ -136,9 +134,9 @@ class _SecuritySettingsContent extends ConsumerWidget {
       await ref.read(securityControllerProvider.notifier).savePin(pin);
       if (context.mounted) {
         AppHaptics.medium();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('数字密码已保存')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('数字密码已保存')));
       }
     } catch (error) {
       if (context.mounted) _showError(context, '数字密码保存失败: $error');
@@ -185,9 +183,9 @@ class _SecuritySettingsContent extends ConsumerWidget {
       await ref.read(securityControllerProvider.notifier).saveGesture(pattern);
       if (context.mounted) {
         AppHaptics.medium();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('手势密码已保存')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('手势密码已保存')));
       }
     } catch (error) {
       if (context.mounted) _showError(context, '手势密码保存失败: $error');
@@ -221,9 +219,9 @@ class _SecuritySettingsContent extends ConsumerWidget {
       await onConfirm();
       if (context.mounted) {
         AppHaptics.medium();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('解锁方式已清除')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('解锁方式已清除')));
       }
     } catch (error) {
       if (context.mounted) _showError(context, '清除失败: $error');
@@ -231,7 +229,9 @@ class _SecuritySettingsContent extends ConsumerWidget {
   }
 
   void _showError(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -250,9 +250,7 @@ class _BiometricTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return SettingsTile(
       title: '面容/指纹解锁',
-      subtitle: enabled
-          ? '已启用 · 进入密码可作为降级解锁'
-          : '需要先配置进入密码',
+      subtitle: enabled ? '已启用 · 进入密码可作为降级解锁' : '需要先配置进入密码',
       leadingIcon: Icons.fingerprint,
       trailing: SettingsSwitch(
         value: enabled,
@@ -277,9 +275,9 @@ class _BiometricTile extends ConsumerWidget {
           pinConfigured =
               ref.read(securityControllerProvider).valueOrNull?.hasPin ?? false;
           if (!pinConfigured) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('请先设置进入密码，再启用生物识别')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('请先设置进入密码，再启用生物识别')));
             return;
           }
         }
@@ -292,16 +290,16 @@ class _BiometricTile extends ConsumerWidget {
       } else {
         await controller.disableBiometrics();
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('面容/指纹解锁已关闭')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('面容/指纹解锁已关闭')));
         }
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('更新生物识别设置失败: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('更新生物识别设置失败: $error')));
       }
     }
   }
@@ -422,10 +420,7 @@ class _PatternSetupDialogState extends State<_PatternSetupDialog> {
         children: [
           Text(_message, style: AppText.meta(context)),
           const SizedBox(height: 12),
-          SecurityPatternPad(
-            size: 240,
-            onCompleted: _handlePattern,
-          ),
+          SecurityPatternPad(size: 240, onCompleted: _handlePattern),
         ],
       ),
       actions: [

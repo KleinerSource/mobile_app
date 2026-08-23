@@ -43,11 +43,11 @@ class ServerConfigRepository {
     final activeUrl = baseUrl.isNotEmpty
         ? baseUrl
         : migratedLines
-            .firstWhere(
-              (line) => line.enabled,
-              orElse: () => migratedLines.first,
-            )
-            .baseUrl;
+              .firstWhere(
+                (line) => line.enabled,
+                orElse: () => migratedLines.first,
+              )
+              .baseUrl;
     final activeLine = migratedLines.firstWhere(
       (line) => line.baseUrl == activeUrl,
       orElse: () => migratedLines.first,
@@ -121,7 +121,9 @@ class ServerConfigRepository {
       if (decoded is! List) return const [];
       return decoded
           .whereType<Map>()
-          .map((item) => ServerProfile.fromJson(Map<String, dynamic>.from(item)))
+          .map(
+            (item) => ServerProfile.fromJson(Map<String, dynamic>.from(item)),
+          )
           .toList();
     } catch (_) {
       return const [];
@@ -144,10 +146,7 @@ class ServerConfigRepository {
     }
   }
 
-  List<ServerLine> _normalizeLines(
-    List<ServerLine> input,
-    String activeUrl,
-  ) {
+  List<ServerLine> _normalizeLines(List<ServerLine> input, String activeUrl) {
     final seenUrls = <String>{};
     final lines = <ServerLine>[];
     for (final line in input) {
@@ -158,21 +157,13 @@ class ServerConfigRepository {
     final normalizedActiveUrl = ServerConfig.normalize(activeUrl);
     if (lines.isEmpty && normalizedActiveUrl.isNotEmpty) {
       lines.add(
-        ServerLine(
-          id: 'legacy',
-          name: '主线路',
-          baseUrl: normalizedActiveUrl,
-        ),
+        ServerLine(id: 'legacy', name: '主线路', baseUrl: normalizedActiveUrl),
       );
     } else if (normalizedActiveUrl.isNotEmpty &&
         !lines.any((line) => line.baseUrl == normalizedActiveUrl)) {
       lines.insert(
         0,
-        ServerLine(
-          id: 'active',
-          name: '当前线路',
-          baseUrl: normalizedActiveUrl,
-        ),
+        ServerLine(id: 'active', name: '当前线路', baseUrl: normalizedActiveUrl),
       );
     }
     return lines;
@@ -215,10 +206,8 @@ class ServerConfigRepository {
     final normalized = ServerConfig.normalize(baseUrl);
     return lines.firstWhere(
       (line) => line.baseUrl == normalized,
-      orElse: () => lines.firstWhere(
-        (line) => line.enabled,
-        orElse: () => lines.first,
-      ),
+      orElse: () =>
+          lines.firstWhere((line) => line.enabled, orElse: () => lines.first),
     );
   }
 }

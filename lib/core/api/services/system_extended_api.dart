@@ -14,19 +14,16 @@ class SystemExtendedApi {
 
   Future<ServerProfileData> serverProfile() async {
     final response = await _dio.get<dynamic>('/public/server-profile');
-    return unwrapStd<ServerProfileData>(
-      response.data,
-      (data) {
-        final json = Map<String, dynamic>.from(data as Map);
-        final avatar = json['avatar_url']?.toString().trim() ?? '';
-        return ServerProfileData(
-          name: json['name']?.toString().trim() ?? '',
-          avatarUrl: config == null || avatar.isEmpty
-              ? null
-              : resolveServerUrl(config!, avatar),
-        );
-      },
-    );
+    return unwrapStd<ServerProfileData>(response.data, (data) {
+      final json = Map<String, dynamic>.from(data as Map);
+      final avatar = json['avatar_url']?.toString().trim() ?? '';
+      return ServerProfileData(
+        name: json['name']?.toString().trim() ?? '',
+        avatarUrl: config == null || avatar.isEmpty
+            ? null
+            : resolveServerUrl(config!, avatar),
+      );
+    });
   }
 
   Future<ScheduleStatus> schedule() async {
@@ -58,8 +55,7 @@ class SystemExtendedApi {
 
   Future<Map<String, dynamic>> ffmpegEnvironment() => _mapGet('/ffmpeg/env');
 
-  Future<Map<String, dynamic>> installFfmpeg() =>
-      _mapPost('/ffmpeg/install');
+  Future<Map<String, dynamic>> installFfmpeg() => _mapPost('/ffmpeg/install');
 
   Future<Map<String, dynamic>> ffmpegInstallStatus() =>
       _mapGet('/ffmpeg/install/status');
@@ -97,7 +93,8 @@ class SystemExtendedApi {
     return _decodeMap(response.data);
   }
 
-  Map<String, dynamic> _decodeMap(Object? raw) => unwrapStd<Map<String, dynamic>>(
+  Map<String, dynamic> _decodeMap(Object? raw) =>
+      unwrapStd<Map<String, dynamic>>(
         raw,
         (data) => data is Map ? Map<String, dynamic>.from(data) : const {},
       );

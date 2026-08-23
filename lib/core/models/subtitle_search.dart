@@ -11,6 +11,7 @@ abstract class SubtitleSearchItem with _$SubtitleSearchItem {
     String? ext,
     String? cid,
     @JsonKey(name: 'file_size') int? fileSize,
+
     /// 字幕时长 (毫秒) · 后端可能返回 null, 此时客户端从预览内容 extract
     int? duration,
   }) = _SubtitleSearchItem;

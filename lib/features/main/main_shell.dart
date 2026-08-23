@@ -202,15 +202,7 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
-enum _YouQuickAction {
-  tasks,
-  libraries,
-  audios,
-  tags,
-  genres,
-  series,
-  actors,
-}
+enum _YouQuickAction { tasks, libraries, audios, tags, genres, series, actors }
 
 class _TabSpec {
   const _TabSpec({required this.label, required this.icon});

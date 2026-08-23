@@ -117,7 +117,10 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
       _error = null;
     });
     try {
-      final config = await ref.read(requiredApiClientProvider).auth.updateConfig(
+      final config = await ref
+          .read(requiredApiClientProvider)
+          .auth
+          .updateConfig(
             enabled: _enabled,
             password: password.isEmpty ? null : password,
             refreshTokenExpireDays: refreshDays,
@@ -128,10 +131,12 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
       setState(() => _applyConfig(config));
       ref.invalidate(authControllerProvider);
       AppHaptics.medium();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('访问控制配置已保存'),
-        duration: Duration(seconds: 1),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('访问控制配置已保存'),
+          duration: Duration(seconds: 1),
+        ),
+      );
     } catch (error) {
       if (mounted) setState(() => _error = toApiException(error).message);
     } finally {
@@ -167,18 +172,20 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
       if (!mounted) return;
       final code = await _showTotpDialog(setup);
       if (!mounted || code == null || code.isEmpty) return;
-      await ref.read(requiredApiClientProvider).auth.finishTotp(
-            sessionId: setup.sessionId,
-            code: code,
-          );
+      await ref
+          .read(requiredApiClientProvider)
+          .auth
+          .finishTotp(sessionId: setup.sessionId, code: code);
       if (!mounted) return;
       setState(() => _totpConfigured = true);
       ref.invalidate(authControllerProvider);
       AppHaptics.medium();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('TOTP 已启用'),
-        duration: Duration(seconds: 1),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('TOTP 已启用'),
+          duration: Duration(seconds: 1),
+        ),
+      );
     } catch (error) {
       if (mounted) setState(() => _error = toApiException(error).message);
     } finally {
@@ -216,10 +223,12 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
       setState(() => _totpConfigured = false);
       ref.invalidate(authControllerProvider);
       AppHaptics.medium();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('TOTP 已删除'),
-        duration: Duration(seconds: 1),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('TOTP 已删除'),
+          duration: Duration(seconds: 1),
+        ),
+      );
     } catch (error) {
       if (mounted) setState(() => _error = toApiException(error).message);
     } finally {
@@ -308,11 +317,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
     final c = appColors(context);
     return Scaffold(
       backgroundColor: c.bg,
-      body: GlowBackground(
-        child: SafeArea(
-          child: _buildBody(c),
-        ),
-      ),
+      body: GlowBackground(child: SafeArea(child: _buildBody(c))),
     );
   }
 
@@ -327,13 +332,13 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
     final statusTitle = active
         ? '访问保护已启用'
         : _configured
-            ? '登录凭据已配置，当前未启用'
-            : '尚未配置登录凭据';
+        ? '登录凭据已配置，当前未启用'
+        : '尚未配置登录凭据';
     final statusDescription = active
         ? 'API、媒体资源与实时任务均需要有效登录会话。'
         : _configured
-            ? '保存并启用后，未登录访问将被拦截。'
-            : '设置至少一个登录凭据后即可启用访问控制。';
+        ? '保存并启用后，未登录访问将被拦截。'
+        : '设置至少一个登录凭据后即可启用访问控制。';
 
     return SettingsFixedHeaderLayout(
       header: const SettingsSubPageHeader(
@@ -345,71 +350,68 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
         primary: true,
         padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
         children: [
-              _statusCard(
-                c,
-                title: statusTitle,
-                description: statusDescription,
-                icon: active ? Icons.verified_user_outlined : Icons.info_outline,
-                color: c.accent,
-              ),
-              const SizedBox(height: 18),
-              _sectionLabel('访问保护', '启用后，服务器 API 和媒体资源需要登录。'),
-              _switchCard(c),
-              const SizedBox(height: 18),
-              _sectionLabel(
-                _configured ? '修改访问密码' : '设置访问密码',
-                _configured ? '留空表示保持当前密码不变。' : '首次启用前需要设置至少 8 位字符的密码。',
-              ),
-              _passwordInput(c),
-              const SizedBox(height: 18),
-              _sectionLabel('会话策略', '限制持久登录时长和连续失败后的锁定行为。'),
-              _numberInput(
-                c,
-                label: '有效期',
-                suffix: '天',
-                controller: _refreshDaysController,
-                icon: Icons.schedule,
-                help: '范围 1-90 天；Access Token 固定 24 小时自动刷新。',
-              ),
-              const SizedBox(height: 12),
-              _numberInput(
-                c,
-                label: '最大失败次数',
-                suffix: '次',
-                controller: _maxAttemptsController,
-                icon: Icons.error_outline,
-                help: '范围 1-100 次，达到后临时锁定。',
-              ),
-              const SizedBox(height: 12),
-              _numberInput(
-                c,
-                label: '锁定时长',
-                suffix: '分钟',
-                controller: _lockMinutesController,
-                icon: Icons.lock_clock,
-                help: '范围 1-1440 分钟。',
-              ),
-              const SizedBox(height: 18),
-              _sectionLabel('登录验证方式', '为当前账户增加 TOTP 两步验证。'),
-              _totpCard(c),
-              if (_webAuthnConfigured || _passwordLoginDisabled) ...[
-                const SizedBox(height: 10),
-                _infoBox(
-                  c,
-                  _passwordLoginDisabled
-                      ? '服务器当前仅允许 Passkey 登录，移动端暂不支持 Passkey 登录或管理，请在网页端访问控制中操作。'
-                      : '服务器已配置 Passkey。移动端暂不支持注册或管理 Passkey，请在网页端访问控制中操作。',
-                ),
-              ],
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                _errorBox(_error!),
-              ],
-              const SizedBox(height: 28),
-              SettingsSaveButton(
-                onPressed: _save,
-                saving: _saving,
-              ),
+          _statusCard(
+            c,
+            title: statusTitle,
+            description: statusDescription,
+            icon: active ? Icons.verified_user_outlined : Icons.info_outline,
+            color: c.accent,
+          ),
+          const SizedBox(height: 18),
+          _sectionLabel('访问保护', '启用后，服务器 API 和媒体资源需要登录。'),
+          _switchCard(c),
+          const SizedBox(height: 18),
+          _sectionLabel(
+            _configured ? '修改访问密码' : '设置访问密码',
+            _configured ? '留空表示保持当前密码不变。' : '首次启用前需要设置至少 8 位字符的密码。',
+          ),
+          _passwordInput(c),
+          const SizedBox(height: 18),
+          _sectionLabel('会话策略', '限制持久登录时长和连续失败后的锁定行为。'),
+          _numberInput(
+            c,
+            label: '有效期',
+            suffix: '天',
+            controller: _refreshDaysController,
+            icon: Icons.schedule,
+            help: '范围 1-90 天；Access Token 固定 24 小时自动刷新。',
+          ),
+          const SizedBox(height: 12),
+          _numberInput(
+            c,
+            label: '最大失败次数',
+            suffix: '次',
+            controller: _maxAttemptsController,
+            icon: Icons.error_outline,
+            help: '范围 1-100 次，达到后临时锁定。',
+          ),
+          const SizedBox(height: 12),
+          _numberInput(
+            c,
+            label: '锁定时长',
+            suffix: '分钟',
+            controller: _lockMinutesController,
+            icon: Icons.lock_clock,
+            help: '范围 1-1440 分钟。',
+          ),
+          const SizedBox(height: 18),
+          _sectionLabel('登录验证方式', '为当前账户增加 TOTP 两步验证。'),
+          _totpCard(c),
+          if (_webAuthnConfigured || _passwordLoginDisabled) ...[
+            const SizedBox(height: 10),
+            _infoBox(
+              c,
+              _passwordLoginDisabled
+                  ? '服务器当前仅允许 Passkey 登录，移动端暂不支持 Passkey 登录或管理，请在网页端访问控制中操作。'
+                  : '服务器已配置 Passkey。移动端暂不支持注册或管理 Passkey，请在网页端访问控制中操作。',
+            ),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            _errorBox(_error!),
+          ],
+          const SizedBox(height: 28),
+          SettingsSaveButton(onPressed: _save, saving: _saving),
         ],
       ),
     );
@@ -491,10 +493,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
         children: [
           Text(label.toUpperCase(), style: AppText.eyebrow(context)),
           const SizedBox(height: 2),
-          Text(
-            help,
-            style: AppText.meta(context).copyWith(fontSize: 10.5),
-          ),
+          Text(help, style: AppText.meta(context).copyWith(fontSize: 10.5)),
         ],
       ),
     );
@@ -572,7 +571,10 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: c.text2, fontWeight: FontWeight.w700)),
+        Text(
+          label,
+          style: TextStyle(color: c.text2, fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 4),
         Container(
           decoration: settingsCardDecoration(context),
@@ -655,8 +657,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                     if (_totpConfigured)
                       IconButton(
                         tooltip: '删除 TOTP',
-                        onPressed:
-                            _totpBusy || !_enabled ? null : _deleteTotp,
+                        onPressed: _totpBusy || !_enabled ? null : _deleteTotp,
                         icon: Icon(Icons.delete_outline, color: c.danger),
                       ),
                   ],

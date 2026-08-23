@@ -11,7 +11,9 @@ class MappingsExtendedApi {
 
   Future<Object?> invalidateCache() => _post('/mappings/cache/invalidate');
 
-  Future<Object?> _get(String path) async => (await _dio.get<dynamic>(path)).data;
+  Future<Object?> _get(String path) async =>
+      (await _dio.get<dynamic>(path)).data;
 
-  Future<Object?> _post(String path) async => (await _dio.post<dynamic>(path)).data;
+  Future<Object?> _post(String path) async =>
+      (await _dio.post<dynamic>(path)).data;
 }

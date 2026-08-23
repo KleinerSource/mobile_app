@@ -121,10 +121,7 @@ class MoviesRepository {
     if (api == null) {
       throw ApiException('资源扫描接口不可用，请更新服务器后重试');
     }
-    final ids = movieIds
-        ?.where((id) => id > 0)
-        .toSet()
-        .toList(growable: false);
+    final ids = movieIds?.where((id) => id > 0).toSet().toList(growable: false);
     final body = ids != null && ids.isNotEmpty
         ? <String, dynamic>{'movie_ids': ids}
         : <String, dynamic>{
@@ -200,11 +197,13 @@ class MoviesRepository {
 
   // ===== 字幕搜索 =====
 
-  Future<({String keyword, List<SubtitleSearchItem> items})>
-      searchSubtitles(int id) async {
+  Future<({String keyword, List<SubtitleSearchItem> items})> searchSubtitles(
+    int id,
+  ) async {
     final raw = await _api.searchThunderSubtitles(id);
-    return unwrapStd<({String keyword, List<SubtitleSearchItem> items})>(raw,
-        (d) {
+    return unwrapStd<({String keyword, List<SubtitleSearchItem> items})>(raw, (
+      d,
+    ) {
       if (d is Map) {
         final m = Map<String, dynamic>.from(d);
         final list = (m['items'] as List?) ?? const [];
@@ -212,8 +211,10 @@ class MoviesRepository {
           keyword: m['keyword']?.toString() ?? '',
           items: list
               .whereType<Map>()
-              .map((e) =>
-                  SubtitleSearchItem.fromJson(Map<String, dynamic>.from(e)))
+              .map(
+                (e) =>
+                    SubtitleSearchItem.fromJson(Map<String, dynamic>.from(e)),
+              )
               .toList(),
         );
       }
@@ -255,8 +256,14 @@ class MoviesRepository {
   }
 
   /// 拉取单个 source 的资源 · 返回 {magnets, ed2ks, warnings}
-  Future<({List<Map<String, dynamic>> magnets, List<Map<String, dynamic>> ed2ks, List<String> warnings})>
-      getResourcesBySource(int id, String source) async {
+  Future<
+    ({
+      List<Map<String, dynamic>> magnets,
+      List<Map<String, dynamic>> ed2ks,
+      List<String> warnings,
+    })
+  >
+  getResourcesBySource(int id, String source) async {
     final raw = await _api.getResources(id, source);
     return unwrapStd(raw, (d) {
       if (d is Map) {
@@ -268,9 +275,9 @@ class MoviesRepository {
               .map((e) => Map<String, dynamic>.from(e))
               .toList();
         }
-        final warnings = (m['warnings'] as List?)
-                ?.whereType<String>()
-                .toList() ??
+
+        final warnings =
+            (m['warnings'] as List?)?.whereType<String>().toList() ??
             const <String>[];
         return (
           magnets: toList(m['magnets']),
@@ -289,24 +296,32 @@ class MoviesRepository {
   /// 合并 detail / custom / nyaa 三个源, 容错单源失败。
   ///
   /// 三个源并发请求，避免单个慢源阻塞其它源。
-  Future<({List<Map<String, dynamic>> magnets, List<Map<String, dynamic>> ed2ks, List<String> warnings})>
-      getAllResources(int id) async {
+  Future<
+    ({
+      List<Map<String, dynamic>> magnets,
+      List<Map<String, dynamic>> ed2ks,
+      List<String> warnings,
+    })
+  >
+  getAllResources(int id) async {
     const sources = ['detail', 'custom', 'nyaa'];
     final magnets = <Map<String, dynamic>>[];
     final ed2ks = <Map<String, dynamic>>[];
     final warnings = <String>[];
     final errors = <String>[];
 
-    await Future.wait(sources.map((s) async {
-      try {
-        final r = await getResourcesBySource(id, s);
-        magnets.addAll(r.magnets);
-        ed2ks.addAll(r.ed2ks);
-        warnings.addAll(r.warnings);
-      } catch (e) {
-        errors.add('$s: ${e is ApiException ? e.message : e.toString()}');
-      }
-    }));
+    await Future.wait(
+      sources.map((s) async {
+        try {
+          final r = await getResourcesBySource(id, s);
+          magnets.addAll(r.magnets);
+          ed2ks.addAll(r.ed2ks);
+          warnings.addAll(r.warnings);
+        } catch (e) {
+          errors.add('$s: ${e is ApiException ? e.message : e.toString()}');
+        }
+      }),
+    );
     if (magnets.isEmpty && ed2ks.isEmpty && errors.isNotEmpty) {
       throw ApiException(errors.first);
     }
@@ -325,18 +340,23 @@ class MoviesRepository {
       } else if (d is List) {
         items = d;
       }
-      return items.whereType<Map>().map((e) {
-        final m = Map<String, dynamic>.from(e);
-        final name = (m['name'] ?? '').toString();
-        final display = (m['display_name'] ?? m['displayName'] ?? name).toString();
-        return (name: name, displayName: display);
-      }).where((e) => e.name.isNotEmpty).toList();
+      return items
+          .whereType<Map>()
+          .map((e) {
+            final m = Map<String, dynamic>.from(e);
+            final name = (m['name'] ?? '').toString();
+            final display = (m['display_name'] ?? m['displayName'] ?? name)
+                .toString();
+            return (name: name, displayName: display);
+          })
+          .where((e) => e.name.isNotEmpty)
+          .toList();
     });
   }
 
   /// 影片下载历史 · 返回大写 hash → 时间字符串
   Future<({Map<String, String> magnets, Map<String, String> ed2ks})>
-      getDownloadHistory(int id) async {
+  getDownloadHistory(int id) async {
     final raw = await _api.getDownloadHistory(id);
     return unwrapStd(raw, (d) {
       Map<String, String> norm(dynamic v) {
@@ -379,11 +399,13 @@ class MoviesRepository {
     if (raw is Map && raw['success'] == false) {
       throw ApiException((raw['message'] as String?) ?? '推送失败');
     }
-    final msg = raw is Map ? (raw['message']?.toString() ?? '下载任务已添加') : '下载任务已添加';
+    final msg = raw is Map
+        ? (raw['message']?.toString() ?? '下载任务已添加')
+        : '下载任务已添加';
     String lastDownloadedAt = '';
     if (raw is Map && raw['data'] is Map) {
-      lastDownloadedAt =
-          ((raw['data'] as Map)['last_downloaded_at'] ?? '').toString();
+      lastDownloadedAt = ((raw['data'] as Map)['last_downloaded_at'] ?? '')
+          .toString();
     }
     return (message: msg, lastDownloadedAt: lastDownloadedAt);
   }
@@ -500,9 +522,7 @@ class MoviesRepository {
     if (raw is Map && raw['success'] == false) {
       throw ApiException((raw['message'] as String?) ?? '下载请求失败');
     }
-    return raw is Map
-        ? (raw['message']?.toString() ?? '下载请求已提交')
-        : '下载请求已提交';
+    return raw is Map ? (raw['message']?.toString() ?? '下载请求已提交') : '下载请求已提交';
   }
 
   // ===== 海报裁剪 + 水印 =====

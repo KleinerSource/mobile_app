@@ -73,9 +73,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(completed, isFalse);
 
-    slowResult.complete(
-      const ServerLineProbeResult.failure(current, '连接超时'),
-    );
+    slowResult.complete(const ServerLineProbeResult.failure(current, '连接超时'));
     final results = await batch.completed;
     expect(results, hasLength(2));
   });

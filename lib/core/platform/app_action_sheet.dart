@@ -25,11 +25,13 @@ Future<T?> showAppActionSheet<T>({
       builder: (ctx) => CupertinoActionSheet(
         title: Text(title),
         actions: actions
-            .map((a) => CupertinoActionSheetAction(
-                  onPressed: () => Navigator.of(ctx).pop(a.value),
-                  isDestructiveAction: a.destructive,
-                  child: Text(a.label),
-                ))
+            .map(
+              (a) => CupertinoActionSheetAction(
+                onPressed: () => Navigator.of(ctx).pop(a.value),
+                isDestructiveAction: a.destructive,
+                child: Text(a.label),
+              ),
+            )
             .toList(),
         cancelButton: CupertinoActionSheetAction(
           onPressed: () => Navigator.of(ctx).pop(),

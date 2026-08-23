@@ -113,8 +113,9 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
       await _poll();
     } catch (e) {
       if (mounted) {
-        setState(() =>
-            _error = '${errPrefix ?? '操作失败'}: ${toApiException(e).message}');
+        setState(
+          () => _error = '${errPrefix ?? '操作失败'}: ${toApiException(e).message}',
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -125,12 +126,14 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final t = _task;
-    final isDone = t != null &&
+    final isDone =
+        t != null &&
         !t.isActive &&
         t.status != 'failed' &&
         t.status != 'error' &&
         t.status != 'cancelled';
-    final isFailed = t?.status == 'failed' ||
+    final isFailed =
+        t?.status == 'failed' ||
         t?.status == 'error' ||
         t?.status == 'cancelled';
     final ratio = t?.progressRatio ?? 0.0;
@@ -152,7 +155,10 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                     children: [
                       Text('SCANNING', style: AppText.eyebrow(context)),
                       const SizedBox(height: 4),
-                      Text(widget.libraryName, style: AppText.sectionTitle(context)),
+                      Text(
+                        widget.libraryName,
+                        style: AppText.sectionTitle(context),
+                      ),
                     ],
                   ),
                 ),
@@ -203,7 +209,10 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
             // 统计
             if (t != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: c.surface,
                   border: Border.all(color: c.cardBorder),
@@ -264,12 +273,15 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                     Icon(Icons.error_outline, size: 16, color: c.danger),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(_error!,
-                          style: TextStyle(
-                              color: c.danger,
-                              fontFamily: 'Inter',
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600)),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(
+                          color: c.danger,
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -287,23 +299,32 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                       onPressed: _busy
                           ? null
                           : () => _act(
-                                () => ref
-                                    .read(librariesRepositoryProvider)
-                                    .cancelScan(widget.libraryId, _effectiveTaskId),
-                                errPrefix: '取消失败',
-                              ),
+                              () => ref
+                                  .read(librariesRepositoryProvider)
+                                  .cancelScan(
+                                    widget.libraryId,
+                                    _effectiveTaskId,
+                                  ),
+                              errPrefix: '取消失败',
+                            ),
                       icon: const Icon(Icons.stop_circle_outlined, size: 18),
-                      label: const Text('取消',
-                          style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13)),
+                      label: const Text(
+                        '取消',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: c.danger,
-                        side: BorderSide(color: c.danger.withValues(alpha: 0.4)),
+                        side: BorderSide(
+                          color: c.danger.withValues(alpha: 0.4),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                   ),
@@ -312,17 +333,21 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                     child: OutlinedButton.icon(
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(Icons.arrow_downward_rounded, size: 18),
-                      label: const Text('后台',
-                          style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13)),
+                      label: const Text(
+                        '后台',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: c.text,
                         side: BorderSide(color: c.cardBorder),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                   ),
@@ -337,34 +362,43 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                                   _act(
                                     () => ref
                                         .read(librariesRepositoryProvider)
-                                        .resumeScan(widget.libraryId, _effectiveTaskId),
+                                        .resumeScan(
+                                          widget.libraryId,
+                                          _effectiveTaskId,
+                                        ),
                                     errPrefix: '恢复失败',
                                   );
                                 } else {
                                   _act(
                                     () => ref
                                         .read(librariesRepositoryProvider)
-                                        .pauseScan(widget.libraryId, _effectiveTaskId),
+                                        .pauseScan(
+                                          widget.libraryId,
+                                          _effectiveTaskId,
+                                        ),
                                     errPrefix: '暂停失败',
                                   );
                                 }
                               },
                         icon: Icon(
-                            t.isPaused ? Icons.play_arrow : Icons.pause,
-                            size: 18),
+                          t.isPaused ? Icons.play_arrow : Icons.pause,
+                          size: 18,
+                        ),
                         label: Text(
                           t.isPaused ? '继续' : '暂停',
                           style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13),
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: c.text,
                           foregroundColor: c.bg,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                       ),
                     ),
@@ -378,16 +412,16 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                       child: Text(
-                        isDone
-                            ? '完成 · 关闭'
-                            : (isFailed ? '出错了 · 关闭' : '关闭'),
+                        isDone ? '完成 · 关闭' : (isFailed ? '出错了 · 关闭' : '关闭'),
                         style: const TextStyle(
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14),
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ),

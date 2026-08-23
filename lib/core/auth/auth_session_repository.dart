@@ -12,44 +12,37 @@ abstract interface class AuthTokenStore {
 
 class SecureAuthTokenStore implements AuthTokenStore {
   SecureAuthTokenStore([FlutterSecureStorage? storage])
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   static const _androidOptions = AndroidOptions();
 
   final FlutterSecureStorage _storage;
 
   @override
-  Future<String?> read(String key) => _storage.read(
-        key: key,
-        aOptions: _androidOptions,
-      );
+  Future<String?> read(String key) =>
+      _storage.read(key: key, aOptions: _androidOptions);
 
   @override
-  Future<void> write(String key, String value) => _storage.write(
-        key: key,
-        value: value,
-        aOptions: _androidOptions,
-      );
+  Future<void> write(String key, String value) =>
+      _storage.write(key: key, value: value, aOptions: _androidOptions);
 
   @override
-  Future<void> delete(String key) => _storage.delete(
-        key: key,
-        aOptions: _androidOptions,
-      );
+  Future<void> delete(String key) =>
+      _storage.delete(key: key, aOptions: _androidOptions);
 }
 
 class AuthSessionRepository {
   AuthSessionRepository({AuthTokenStore? store})
-      : _store = store ?? SecureAuthTokenStore(),
-        _state = _AuthSessionState();
+    : _store = store ?? SecureAuthTokenStore(),
+      _state = _AuthSessionState();
 
   AuthSessionRepository._scoped({
     required AuthTokenStore store,
     required _AuthSessionState state,
     required String? serverId,
-  })  : _store = store,
-        _state = state,
-        _activeServerId = serverId;
+  }) : _store = store,
+       _state = state,
+       _activeServerId = serverId;
 
   static const _accessKey = 'md_center.auth.access_token';
   static const _refreshKey = 'md_center.auth.refresh_token';
@@ -143,7 +136,10 @@ class AuthSessionRepository {
   }) async {
     final access = await _store.read(accessKey);
     final refresh = await _store.read(refreshKey);
-    if (access == null || refresh == null || access.isEmpty || refresh.isEmpty) {
+    if (access == null ||
+        refresh == null ||
+        access.isEmpty ||
+        refresh.isEmpty) {
       return null;
     }
     final expires = int.tryParse(await _store.read(expiresKey) ?? '') ?? 0;
@@ -194,9 +190,7 @@ class AuthSessionRepository {
 
   String _keyFor(String legacyKey, String? serverId) {
     if (serverId == null) return legacyKey;
-    final encoded = base64Url
-        .encode(utf8.encode(serverId))
-        .replaceAll('=', '');
+    final encoded = base64Url.encode(utf8.encode(serverId)).replaceAll('=', '');
     final suffix = legacyKey.substring('md_center.auth.'.length);
     return 'md_center.auth.server.$encoded.$suffix';
   }

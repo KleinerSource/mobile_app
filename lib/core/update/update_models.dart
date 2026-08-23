@@ -117,7 +117,9 @@ class GitHubRepository {
       throw const FormatException('请输入 github.com 仓库地址');
     }
 
-    final segments = uri.pathSegments.where((segment) => segment.isNotEmpty).toList();
+    final segments = uri.pathSegments
+        .where((segment) => segment.isNotEmpty)
+        .toList();
     if (segments.length < 2) {
       throw const FormatException('GitHub 地址应包含 owner 和 repository');
     }
@@ -205,9 +207,12 @@ class GitHubRelease {
 
     return notes
         .split('\n')
-        .where((line) =>
-            !RegExp(r'^\s*(commit|run):\s*', caseSensitive: false)
-                .hasMatch(line))
+        .where(
+          (line) => !RegExp(
+            r'^\s*(commit|run):\s*',
+            caseSensitive: false,
+          ).hasMatch(line),
+        )
         .join('\n')
         .trim();
   }
@@ -222,12 +227,17 @@ class GitHubRelease {
       publishedAt: DateTime.tryParse(json['published_at']?.toString() ?? ''),
       assets: rawAssets is List
           ? rawAssets
-              .whereType<Map>()
-              .map((item) =>
-                  GitHubReleaseAsset.fromJson(Map<String, dynamic>.from(item)))
-              .where((asset) =>
-                  asset.name.isNotEmpty && asset.downloadUrl.isNotEmpty)
-              .toList()
+                .whereType<Map>()
+                .map(
+                  (item) => GitHubReleaseAsset.fromJson(
+                    Map<String, dynamic>.from(item),
+                  ),
+                )
+                .where(
+                  (asset) =>
+                      asset.name.isNotEmpty && asset.downloadUrl.isNotEmpty,
+                )
+                .toList()
           : const [],
     );
   }
@@ -238,8 +248,9 @@ class GitHubRelease {
 
   GitHubReleaseAsset? assetFor(UpdatePlatform platform) {
     final matching = assets
-        .where((asset) =>
-            asset.isHttpsUrl && _matchesPlatformAsset(asset, platform))
+        .where(
+          (asset) => asset.isHttpsUrl && _matchesPlatformAsset(asset, platform),
+        )
         .toList();
     if (matching.isEmpty) return null;
     matching.sort((left, right) {

@@ -25,20 +25,19 @@ import 'shared/glass.dart';
 import 'shared/glow_background.dart';
 import 'shared/top_snack_bar.dart';
 
-final GlobalKey<NavigatorState> _rootNavigatorKey =
-    GlobalKey<NavigatorState>();
+final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
   AppHaptics.configureFromPreferences(prefs);
-  runApp(ProviderScope(
-    overrides: [
-      sharedPrefsProvider.overrideWithValue(prefs),
-    ],
-    child: const MdCenterApp(),
-  ));
+  runApp(
+    ProviderScope(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+      child: const MdCenterApp(),
+    ),
+  );
 }
 
 class MdCenterApp extends ConsumerWidget {
@@ -85,38 +84,35 @@ class MdCenterApp extends ConsumerWidget {
         child: cfg == null
             ? const ServerSetupPage()
             : serverSwitch.isActive
-                ? const _AuthenticatedHomeWithServerSwitch()
-                : auth.when(
-                    loading: () => cfg.hasMultipleServers && serverSelectionReady
+            ? const _AuthenticatedHomeWithServerSwitch()
+            : auth.when(
+                loading: () => cfg.hasMultipleServers && serverSelectionReady
+                    ? const ServerSelectionPage()
+                    : const _StartupLoading(),
+                error: (error, _) => _StartupError(
+                  message: error.toString(),
+                  serverUrl: cfg.baseUrl,
+                  incompatible: error is ServerCompatibilityException,
+                  onRetry: () => ref.invalidate(authControllerProvider),
+                  onChangeServer: changeServer,
+                ),
+                data: (state) => switch (state.phase) {
+                  AuthPhase.needsLogin || AuthPhase.totpRequired =>
+                    cfg.hasMultipleServers && serverSelectionReady
                         ? const ServerSelectionPage()
-                        : const _StartupLoading(),
-                    error: (error, _) => _StartupError(
-                          message: error.toString(),
-                          serverUrl: cfg.baseUrl,
-                          incompatible: error is ServerCompatibilityException,
-                          onRetry: () => ref.invalidate(authControllerProvider),
-                          onChangeServer: changeServer,
-                        ),
-                    data: (state) => switch (state.phase) {
-                      AuthPhase.needsLogin || AuthPhase.totpRequired =>
-                        cfg.hasMultipleServers && serverSelectionReady
-                            ? const ServerSelectionPage()
-                            : const LoginPage(),
-                      AuthPhase.serverSelection =>
-                        const ServerSelectionPage(),
-                      AuthPhase.incompatible || AuthPhase.unavailable =>
-                        _StartupError(
-                          message: state.message ?? '服务器不可用',
-                          serverUrl: cfg.baseUrl,
-                          incompatible:
-                              state.phase == AuthPhase.incompatible,
-                          onRetry: () =>
-                              ref.invalidate(authControllerProvider),
-                          onChangeServer: changeServer,
-                        ),
-                      _ => const _AuthenticatedHome(),
-                    },
+                        : const LoginPage(),
+                  AuthPhase.serverSelection => const ServerSelectionPage(),
+                  AuthPhase.incompatible ||
+                  AuthPhase.unavailable => _StartupError(
+                    message: state.message ?? '服务器不可用',
+                    serverUrl: cfg.baseUrl,
+                    incompatible: state.phase == AuthPhase.incompatible,
+                    onRetry: () => ref.invalidate(authControllerProvider),
+                    onChangeServer: changeServer,
                   ),
+                  _ => const _AuthenticatedHome(),
+                },
+              ),
       ),
     );
   }
@@ -129,10 +125,7 @@ class _AuthenticatedHomeWithServerSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Stack(
       fit: StackFit.expand,
-      children: [
-        _AuthenticatedHome(),
-        ServerSwitchTransitionOverlay(),
-      ],
+      children: [_AuthenticatedHome(), ServerSwitchTransitionOverlay()],
     );
   }
 }
@@ -154,9 +147,7 @@ class _StartupLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
 
@@ -198,7 +189,9 @@ class _StartupError extends StatelessWidget {
                         Text(
                           incompatible ? '服务器需要更新' : '暂时无法连接服务器',
                           textAlign: TextAlign.center,
-                          style: AppText.pageTitle(context).copyWith(fontSize: 25),
+                          style: AppText.pageTitle(
+                            context,
+                          ).copyWith(fontSize: 25),
                         ),
                         const SizedBox(height: 10),
                         Text(
@@ -246,7 +239,9 @@ class _StartupError extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: Icon(
-          incompatible ? Icons.system_update_alt_outlined : Icons.cloud_off_outlined,
+          incompatible
+              ? Icons.system_update_alt_outlined
+              : Icons.cloud_off_outlined,
           color: color,
           size: 30,
         ),

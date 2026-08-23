@@ -26,8 +26,11 @@ class CatalogExtendedApi {
   Future<Object?> merge(String type, Map<String, dynamic> body) =>
       _post('/$type/merge', body);
 
-  Future<Object?> moviesPreview(String type, int id, {Map<String, dynamic>? q}) =>
-      _get('/$type/$id/movies/preview', queryParameters: q);
+  Future<Object?> moviesPreview(
+    String type,
+    int id, {
+    Map<String, dynamic>? q,
+  }) => _get('/$type/$id/movies/preview', queryParameters: q);
 
   Future<Object?> listActors(Map<String, dynamic> q) =>
       _get('/actors', queryParameters: q);
@@ -41,7 +44,10 @@ class CatalogExtendedApi {
   Future<Object?> deleteActors(Map<String, dynamic> body) =>
       _post('/actors/delete', body);
 
-  Future<Object?> _get(String path, {Map<String, dynamic>? queryParameters}) async =>
+  Future<Object?> _get(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) async =>
       (await _dio.get<dynamic>(path, queryParameters: queryParameters)).data;
 
   Future<Object?> _post(String path, Map<String, dynamic> body) async =>

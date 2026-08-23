@@ -7,7 +7,11 @@ import 'lists_providers.dart';
 /// 弹出底部 sheet 让用户把 movieId 加入/移出 多个 list
 /// (复选模式 · 每个 list 独立 checkbox)
 class AddToListSheet extends ConsumerStatefulWidget {
-  const AddToListSheet({super.key, required this.movieId, required this.movieTitle});
+  const AddToListSheet({
+    super.key,
+    required this.movieId,
+    required this.movieTitle,
+  });
 
   final int movieId;
   final String movieTitle;
@@ -91,16 +95,19 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
                                 end: Alignment.bottomRight,
                                 colors: [
                                   AppHues.top(l.hue),
-                                  AppHues.bottom(l.hue)
+                                  AppHues.bottom(l.hue),
                                 ],
                               ),
                             ),
                             child: const Center(
-                              child: Text('◇',
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 14)),
+                              child: Text(
+                                '◇',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -123,11 +130,16 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
                                       const SizedBox(width: 6),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 5, vertical: 1),
+                                          horizontal: 5,
+                                          vertical: 1,
+                                        ),
                                         decoration: BoxDecoration(
-                                          color: c.warning
-                                              .withValues(alpha: 0.18),
-                                          borderRadius: BorderRadius.circular(4),
+                                          color: c.warning.withValues(
+                                            alpha: 0.18,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                         ),
                                         child: Text(
                                           'PIN',
@@ -164,8 +176,11 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
                               ),
                             ),
                             child: inList
-                                ? const Icon(Icons.check,
-                                    color: Colors.white, size: 16)
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 16,
+                                  )
                                 : null,
                           ),
                         ],
@@ -244,7 +259,9 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
                           boxShadow: on
                               ? [
                                   BoxShadow(
-                                    color: AppHues.top(hue).withValues(alpha: 0.4),
+                                    color: AppHues.top(
+                                      hue,
+                                    ).withValues(alpha: 0.4),
                                     blurRadius: 8,
                                   ),
                                 ]
@@ -259,10 +276,13 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-                child: const Text('创建')),
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('创建'),
+            ),
           ],
         );
       },

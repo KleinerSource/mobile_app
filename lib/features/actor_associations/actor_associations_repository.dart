@@ -8,23 +8,19 @@ import '../../core/models/avdb_config.dart';
 import '../../core/models/dbo_config.dart';
 import '../../core/models/mapping_rule.dart';
 
-enum ActorDataSource {
-  dbonline,
-  avdb,
-  mixed,
-}
+enum ActorDataSource { dbonline, avdb, mixed }
 
 extension ActorDataSourceX on ActorDataSource {
   String get value => switch (this) {
-        ActorDataSource.dbonline => 'dbonline',
-        ActorDataSource.avdb => 'avdb',
-        ActorDataSource.mixed => 'mixed',
-      };
+    ActorDataSource.dbonline => 'dbonline',
+    ActorDataSource.avdb => 'avdb',
+    ActorDataSource.mixed => 'mixed',
+  };
 
   String get label => switch (this) {
-        ActorDataSource.dbonline => 'DB Online',
-        ActorDataSource.avdb => 'AVDB',
-        ActorDataSource.mixed => '混合渠道',
+    ActorDataSource.dbonline => 'DB Online',
+    ActorDataSource.avdb => 'AVDB',
+    ActorDataSource.mixed => '混合渠道',
   };
 }
 
@@ -45,10 +41,12 @@ List<ActorDataSource> configuredActorDataSources({
   AvdbConfig? avdb,
 }) {
   final result = <ActorDataSource>[];
-  final dbonlineReady = dbonline?.enabled == true &&
+  final dbonlineReady =
+      dbonline?.enabled == true &&
       dbonline!.baseUrl.trim().isNotEmpty &&
       dbonline.hasApiKey;
-  final avdbReady = avdb?.enabled == true &&
+  final avdbReady =
+      avdb?.enabled == true &&
       avdb!.baseUrl.trim().isNotEmpty &&
       avdb.hasApiKey;
   if (dbonlineReady) {
@@ -131,17 +129,20 @@ class ActorAssocPreview {
     List<String> arr(dynamic v) =>
         (v is List ? v.whereType<String>().toList() : const <String>[]);
     final avatarChoices = (j['avatar_choices'] is List
-            ? (j['avatar_choices'] as List)
-                .whereType<Map>()
-                .map((item) => ActorAssociationAvatarChoice.fromJson(
-                      Map<String, dynamic>.from(item),
-                    ))
-                .where((item) => item.downloadUrl.isNotEmpty)
-                .toList(growable: false)
-            : const <ActorAssociationAvatarChoice>[]);
+        ? (j['avatar_choices'] as List)
+              .whereType<Map>()
+              .map(
+                (item) => ActorAssociationAvatarChoice.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .where((item) => item.downloadUrl.isNotEmpty)
+              .toList(growable: false)
+        : const <ActorAssociationAvatarChoice>[]);
     final externalIds = j['external_ids'] is Map
-        ? (j['external_ids'] as Map)
-            .map((k, v) => MapEntry(k.toString(), v.toString()))
+        ? (j['external_ids'] as Map).map(
+            (k, v) => MapEntry(k.toString(), v.toString()),
+          )
         : const <String, String>{};
     return ActorAssocPreview(
       found: j['found'] == true,
@@ -194,7 +195,8 @@ class MixedActorPreviewSession {
       pendingSources: arr(j['pending_sources']),
       preview: j['preview'] is Map
           ? ActorAssocPreview.fromJson(
-              Map<String, dynamic>.from(j['preview'] as Map))
+              Map<String, dynamic>.from(j['preview'] as Map),
+            )
           : null,
       error: (j['error'] ?? '').toString(),
     );
@@ -203,7 +205,7 @@ class MixedActorPreviewSession {
 
 class ActorAssociationsRepository {
   ActorAssociationsRepository(this._api, {ActorsApi? actorsApi})
-      : _actorsApi = actorsApi;
+    : _actorsApi = actorsApi;
   final MappingsApi _api;
   final ActorsApi? _actorsApi;
 
@@ -293,17 +295,22 @@ class ActorAssociationsRepository {
     final raw = await _api.list(_type, q);
     if (raw is! Map || raw['success'] != true) {
       throw ApiException(
-          (raw is Map ? raw['message'] as String? : null) ?? '加载失败');
+        (raw is Map ? raw['message'] as String? : null) ?? '加载失败',
+      );
     }
     final data = raw['data'];
     final list = data is List
         ? data
-        : (data is Map && data['items'] is List ? data['items'] as List : const []);
+        : (data is Map && data['items'] is List
+              ? data['items'] as List
+              : const []);
     final items = list
         .whereType<Map>()
         .map((e) => MappingRule.fromJson(Map<String, dynamic>.from(e)))
         .toList();
-    final total = data is Map ? (data['total_count'] as num?)?.toInt() ?? items.length : items.length;
+    final total = data is Map
+        ? (data['total_count'] as num?)?.toInt() ?? items.length
+        : items.length;
     return (items: items, totalCount: total);
   }
 

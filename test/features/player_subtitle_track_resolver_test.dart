@@ -10,10 +10,7 @@ void main() {
       SubtitleTrack('7', '中文', 'zh'),
     ];
 
-    expect(
-      resolveSubtitleTrack(tracks, '7', fallbackIndex: 0),
-      tracks.last,
-    );
+    expect(resolveSubtitleTrack(tracks, '7', fallbackIndex: 0), tracks.last);
   });
 
   test('轨道 ID 不一致时按内嵌字幕顺序回退', () {
@@ -24,10 +21,7 @@ void main() {
       SubtitleTrack('4', '中文', 'zh'),
     ];
 
-    expect(
-      resolveSubtitleTrack(tracks, '99', fallbackIndex: 1),
-      tracks[3],
-    );
+    expect(resolveSubtitleTrack(tracks, '99', fallbackIndex: 1), tracks[3]);
     expect(resolveSubtitleTrack(tracks, '99', fallbackIndex: 2), isNull);
   });
 }

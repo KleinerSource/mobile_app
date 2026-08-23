@@ -16,18 +16,19 @@ class UpdateException implements Exception {
 
 class GitHubUpdateService {
   GitHubUpdateService({Dio? dio})
-      : _dio = dio ??
-            Dio(
-              BaseOptions(
-                connectTimeout: const Duration(seconds: 12),
-                receiveTimeout: const Duration(seconds: 20),
-                headers: const {
-                  'Accept': 'application/vnd.github+json',
-                  'X-GitHub-Api-Version': '2022-11-28',
-                  'User-Agent': 'MD-Center-App',
-                },
-              ),
-            );
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              connectTimeout: const Duration(seconds: 12),
+              receiveTimeout: const Duration(seconds: 20),
+              headers: const {
+                'Accept': 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+                'User-Agent': 'MD-Center-App',
+              },
+            ),
+          );
 
   final Dio _dio;
 
@@ -97,7 +98,9 @@ class GitHubUpdateService {
       ...rollingReleases,
       ...rawReleases
           .whereType<Map>()
-          .map((item) => GitHubRelease.fromJson(Map<String, dynamic>.from(item)))
+          .map(
+            (item) => GitHubRelease.fromJson(Map<String, dynamic>.from(item)),
+          )
           .where((release) => !release.draft),
     ];
   }
@@ -113,11 +116,7 @@ class GitHubUpdateService {
       final version = release.versionFor(asset);
       if (version == null) continue;
       candidates.add(
-        GitHubUpdateCandidate(
-          release: release,
-          asset: asset,
-          version: version,
-        ),
+        GitHubUpdateCandidate(release: release, asset: asset, version: version),
       );
     }
     if (candidates.isEmpty) return null;

@@ -5,8 +5,7 @@ import '../../core/api/api_exception.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/api/envelope.dart';
 import '../../core/api/providers.dart';
-import '../../core/config/server_config_provider.dart'
-    show sharedPrefsProvider;
+import '../../core/config/server_config_provider.dart' show sharedPrefsProvider;
 import '../../core/models/movie.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';

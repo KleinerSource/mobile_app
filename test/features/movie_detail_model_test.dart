@@ -20,11 +20,7 @@ void main() {
       'title': '关联字幕测试',
       'has_external_subtitle': false,
       'related_files': [
-        {
-          'type': 'subtitle',
-          'label': '字幕文件',
-          'path': '/movies/test.srt',
-        },
+        {'type': 'subtitle', 'label': '字幕文件', 'path': '/movies/test.srt'},
       ],
     });
 
@@ -87,23 +83,29 @@ void main() {
     expect(detail.hasAiSubtitle, isTrue);
     expect(item.hasAiSubtitle, isTrue);
     // 字段缺省时回退 false,不影响旧接口数据
-    expect(MovieListItem.fromJson({'id': 8, 'title': '旧数据'}).hasAiSubtitle,
-        isFalse);
+    expect(
+      MovieListItem.fromJson({'id': 8, 'title': '旧数据'}).hasAiSubtitle,
+      isFalse,
+    );
   });
 
   test('isAISubtitlePath 识别文件名中的 .ai. 标记段', () {
     expect(isAISubtitlePath('/movies/aaa.ai.chs.srt'), isTrue);
     expect(isAISubtitlePath('/movies/aaa.ai.srt'), isTrue);
     expect(isAISubtitlePath('/movies/aaa.ai.ass'), isTrue);
-    expect(isAISubtitlePath(r'D:\movies\SW-621-UMR.ai.chinese.default.srt'),
-        isTrue);
+    expect(
+      isAISubtitlePath(r'D:\movies\SW-621-UMR.ai.chinese.default.srt'),
+      isTrue,
+    );
     expect(isAISubtitlePath('/movies/SW-621-UMR.AI.chs.srt'), isTrue);
     expect(isAISubtitlePath('ai.srt'), isTrue);
 
     expect(isAISubtitlePath('/movies/aaa.ks.chs.srt'), isFalse);
     expect(isAISubtitlePath('/movies/aaa.ks.chs.default.ass'), isFalse);
-    expect(isAISubtitlePath(r'D:\movies\SW-621-UMR.KS.chinese.default.ass'),
-        isFalse);
+    expect(
+      isAISubtitlePath(r'D:\movies\SW-621-UMR.KS.chinese.default.ass'),
+      isFalse,
+    );
     expect(isAISubtitlePath('/movies/bbb.chs.srt'), isFalse);
     expect(isAISubtitlePath('/movies/abc.sai.srt'), isFalse);
     expect(isAISubtitlePath(null), isFalse);

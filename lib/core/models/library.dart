@@ -11,6 +11,7 @@ abstract class LibraryItem with _$LibraryItem {
     String? description,
     @Default(true) bool enabled,
     @JsonKey(name: 'file_count') @Default(0) int fileCount,
+
     /// 封面图 (JPEG base64, with_cover=true 时后端内联返回)
     @JsonKey(name: 'cover_image_base64') String? coverImageBase64,
     @Default(<DirectoryItem>[]) List<DirectoryItem> directories,

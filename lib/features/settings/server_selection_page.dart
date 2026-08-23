@@ -132,8 +132,9 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
         child: AnimatedBuilder(
           animation: _transitionController,
           builder: (context, child) {
-            final progress =
-                _transitionController.value.clamp(0.0, 1.0).toDouble();
+            final progress = _transitionController.value
+                .clamp(0.0, 1.0)
+                .toDouble();
             final materialize = 4 * progress * (1 - progress);
             return Stack(
               key: _sceneKey,
@@ -181,11 +182,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                     ignoring: _transitionLocked,
                     child: FadeTransition(
                       opacity: _detailOpacity,
-                      child: _buildDetailScene(
-                        context,
-                        colors,
-                        selected,
-                      ),
+                      child: _buildDetailScene(context, colors, selected),
                     ),
                   ),
                 ),
@@ -216,8 +213,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             alignment: Alignment.topLeft,
             child: RepaintBoundary(
               child: _ServerAvatar(
-                displayName:
-                    _transitionDisplayName ?? _transitionServer!.name,
+                displayName: _transitionDisplayName ?? _transitionServer!.name,
                 avatarUrl: _transitionAvatarUrl,
                 size: from.width,
                 busy: false,
@@ -318,10 +314,9 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
         const SizedBox(height: 14),
         Text(
           'MD Center',
-          style: AppText.cardTitle(context).copyWith(
-                fontSize: 17,
-                letterSpacing: 0.2,
-              ),
+          style: AppText.cardTitle(
+            context,
+          ).copyWith(fontSize: 17, letterSpacing: 0.2),
         ),
       ],
     );
@@ -379,10 +374,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
         final contentWidth = servers.length * itemWidth + gaps * gap;
         // 停靠时首尾卡片与标题保持同样的边距，滚动时卡片一直延伸到屏幕边缘。
         final horizontalPadding = contentWidth < constraints.maxWidth
-            ? math.max(
-                restingInset,
-                (constraints.maxWidth - contentWidth) / 2,
-              )
+            ? math.max(restingInset, (constraints.maxWidth - contentWidth) / 2)
             : restingInset;
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -409,7 +401,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                         profileFuture: _profileFor(servers[index]),
                         cachedProfile: _cachedProfileFor(servers[index]),
                         busy: _selectingId == servers[index].id,
-                        hideAvatar: _transitionLocked &&
+                        hideAvatar:
+                            _transitionLocked &&
                             _transitionServer?.id == servers[index].id,
                         onTap: () => _selectServer(servers[index]),
                       ),
@@ -438,8 +431,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     final visibleError = error?.isNotEmpty == true
         ? error
         : authError?.isNotEmpty == true
-            ? authError
-            : null;
+        ? authError
+        : null;
 
     return FutureBuilder<ServerProfileData?>(
       key: ValueKey('server-login-${server.id}'),
@@ -451,7 +444,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             ? profile!.name.trim()
             : server.name;
         final avatarUrl = profile?.avatarUrl ?? server.avatarUrl;
-        final selecting = _selectingId != null ||
+        final selecting =
+            _selectingId != null ||
             (_needsLogin != true && authValue.isLoading);
         return ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 360),
@@ -664,9 +658,9 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
         _needsLogin = null;
         _error = '选择服务器失败：$error';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('选择服务器失败：$error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('选择服务器失败：$error')));
     }
   }
 
@@ -685,7 +679,9 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       _error = null;
     });
     try {
-      final authenticated = await ref.read(authControllerProvider.notifier).login(
+      final authenticated = await ref
+          .read(authControllerProvider.notifier)
+          .login(
             password: password,
             totpCode: _totpRequired ? _totpController.text : null,
           );
@@ -744,16 +740,13 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   }
 
   Future<void> _animateTransition({required bool forward}) async {
-    final reducedMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reducedMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     if (reducedMotion) {
       _transitionController.value = forward ? 1 : 0;
     } else {
       final target = forward ? 1.0 : 0.0;
-      const spring = SpringDescription(
-        mass: 1,
-        stiffness: 190,
-        damping: 27,
-      );
+      const spring = SpringDescription(mass: 1, stiffness: 190, damping: 27);
       try {
         await _transitionController
             .animateWith(
@@ -918,7 +911,10 @@ class _ServerAvatarCard extends StatelessWidget {
               splashColor: colors.accent.withValues(alpha: 0.12),
               highlightColor: colors.accent.withValues(alpha: 0.06),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 4,
+                ),
                 child: Column(
                   children: [
                     Opacity(
@@ -1005,7 +1001,7 @@ class _ServerAvatar extends StatelessWidget {
                     colors.accent.withValues(alpha: 0.95),
                     colors.accent.withValues(alpha: 0.52),
                   ],
-                  ),
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: colors.accent.withValues(alpha: 0.2),

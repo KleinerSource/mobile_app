@@ -26,9 +26,7 @@ Future<void> showSubtitleAdjustmentDialog({
     transitionDuration: const Duration(milliseconds: 180),
     pageBuilder: (ctx, _, __) {
       final isDark = Theme.of(ctx).brightness == Brightness.dark;
-      final tint = isDark
-          ? const Color(0xD91B1A24)
-          : const Color(0xD9FAFAFA);
+      final tint = isDark ? const Color(0xD91B1A24) : const Color(0xD9FAFAFA);
       return SafeArea(
         child: Center(
           child: Padding(
@@ -113,22 +111,12 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
   }
 
   void _changeSize(double delta) {
-    final next = _stepDouble(
-      _adjustments.sizeScale,
-      delta,
-      min: 0.5,
-      max: 2.0,
-    );
+    final next = _stepDouble(_adjustments.sizeScale, delta, min: 0.5, max: 2.0);
     _update(_adjustments.copyWith(sizeScale: next));
   }
 
   void _changeOpacity(double delta) {
-    final next = _stepDouble(
-      _adjustments.opacity,
-      delta,
-      min: 0.1,
-      max: 1.0,
-    );
+    final next = _stepDouble(_adjustments.opacity, delta, min: 0.1, max: 1.0);
     _update(_adjustments.copyWith(opacity: next));
   }
 
@@ -238,9 +226,9 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
                 Expanded(
                   child: Text(
                     '字幕设置',
-                    style: AppText.sectionTitle(context).copyWith(
-                      decoration: TextDecoration.none,
-                    ),
+                    style: AppText.sectionTitle(
+                      context,
+                    ).copyWith(decoration: TextDecoration.none),
                   ),
                 ),
                 IconButton(
@@ -271,12 +259,12 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
               title: '垂直偏移',
               value: _adjustments.verticalOffset.round().toString(),
               onValueTap: _editVerticalOffset,
-              onDecrease: _adjustments.verticalOffset <=
-                      widget.verticalOffsetBounds.min
+              onDecrease:
+                  _adjustments.verticalOffset <= widget.verticalOffsetBounds.min
                   ? null
                   : () => _changeVertical(-5),
-              onIncrease: _adjustments.verticalOffset >=
-                      widget.verticalOffsetBounds.max
+              onIncrease:
+                  _adjustments.verticalOffset >= widget.verticalOffsetBounds.max
                   ? null
                   : () => _changeVertical(5),
             ),
@@ -349,10 +337,7 @@ class _AdjustmentRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               onTap: onValueTap,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                 child: SizedBox(
                   width: 70,
                   child: Text(
@@ -371,10 +356,7 @@ class _AdjustmentRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          _Stepper(
-            onDecrease: onDecrease,
-            onIncrease: onIncrease,
-          ),
+          _Stepper(onDecrease: onDecrease, onIncrease: onIncrease),
         ],
       ),
     );
@@ -470,10 +452,7 @@ class _SubtitleNumericInputDialogState
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('确定'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('确定')),
       ],
     );
   }
@@ -509,11 +488,7 @@ class _Stepper extends StatelessWidget {
             onPressed: onDecrease,
           ),
           Container(width: 1, height: 22, color: c.divider),
-          _StepperButton(
-            icon: Icons.add,
-            tooltip: '增加',
-            onPressed: onIncrease,
-          ),
+          _StepperButton(icon: Icons.add, tooltip: '增加', onPressed: onIncrease),
         ],
       ),
     );

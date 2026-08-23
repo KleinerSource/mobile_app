@@ -5,9 +5,9 @@ import 'package:md_center/core/platform/platform.dart';
 
 void main() {
   Widget wrap(TargetPlatform p, Widget child) => MaterialApp(
-        theme: ThemeData(platform: p),
-        home: child,
-      );
+    theme: ThemeData(platform: p),
+    home: child,
+  );
 
   testWidgets('iOS 下渲染 CupertinoPageScaffold', (tester) async {
     await tester.pumpWidget(
@@ -28,10 +28,20 @@ void main() {
     await tester.pumpWidget(
       wrap(
         TargetPlatform.iOS,
-        const AppTabsShell(tabs: [
-          AppTabItem(icon: CupertinoIcons.film, label: 'A', body: SizedBox.shrink()),
-          AppTabItem(icon: CupertinoIcons.star, label: 'B', body: SizedBox.shrink()),
-        ]),
+        const AppTabsShell(
+          tabs: [
+            AppTabItem(
+              icon: CupertinoIcons.film,
+              label: 'A',
+              body: SizedBox.shrink(),
+            ),
+            AppTabItem(
+              icon: CupertinoIcons.star,
+              label: 'B',
+              body: SizedBox.shrink(),
+            ),
+          ],
+        ),
       ),
     );
     expect(find.byType(CupertinoTabScaffold), findsOneWidget);
@@ -41,10 +51,12 @@ void main() {
     await tester.pumpWidget(
       wrap(
         TargetPlatform.android,
-        const AppTabsShell(tabs: [
-          AppTabItem(icon: Icons.movie, label: 'A', body: SizedBox.shrink()),
-          AppTabItem(icon: Icons.star, label: 'B', body: SizedBox.shrink()),
-        ]),
+        const AppTabsShell(
+          tabs: [
+            AppTabItem(icon: Icons.movie, label: 'A', body: SizedBox.shrink()),
+            AppTabItem(icon: Icons.star, label: 'B', body: SizedBox.shrink()),
+          ],
+        ),
       ),
     );
     expect(find.byType(NavigationBar), findsOneWidget);

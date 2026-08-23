@@ -37,8 +37,14 @@ Future<bool?> showAppConfirmDialog({
       title: Text(title),
       content: Text(message),
       actions: [
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(cancelLabel)),
-        TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(confirmLabel)),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: Text(cancelLabel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: Text(confirmLabel),
+        ),
       ],
     ),
   );

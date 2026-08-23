@@ -135,10 +135,13 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
                     backgroundColor: c.text,
                     foregroundColor: c.bg,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     minimumSize: const Size(48, 44),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                   ),
                   child: const Icon(Icons.add, size: 18),
                 ),
@@ -174,8 +177,7 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
             runSpacing: 7,
             children: extensions.map((ext) {
               return Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                 decoration: BoxDecoration(
                   color: c.chipBg,
                   borderRadius: BorderRadius.circular(100),
@@ -200,8 +202,10 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
                       onPressed: _busy ? null : () => _remove(ext, extensions),
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
-                      constraints:
-                          const BoxConstraints.tightFor(width: 44, height: 44),
+                      constraints: const BoxConstraints.tightFor(
+                        width: 44,
+                        height: 44,
+                      ),
                     ),
                   ],
                 ),

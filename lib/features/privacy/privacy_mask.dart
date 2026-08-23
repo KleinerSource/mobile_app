@@ -56,8 +56,7 @@ class PrivacyMask extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final enabled = ref.watch(privacyShieldProvider);
-    final revealed =
-        ref.watch(_revealedProviderFor(scope)).contains(movieId);
+    final revealed = ref.watch(_revealedProviderFor(scope)).contains(movieId);
     if (!enabled || revealed) return child;
 
     return ClipRRect(
@@ -113,15 +112,9 @@ class PrivacyText extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final enabled = ref.watch(privacyShieldProvider);
-    final revealed =
-        ref.watch(_revealedProviderFor(scope)).contains(movieId);
+    final revealed = ref.watch(_revealedProviderFor(scope)).contains(movieId);
     if (!enabled || revealed) {
-      return Text(
-        text,
-        style: style,
-        maxLines: maxLines,
-        overflow: overflow,
-      );
+      return Text(text, style: style, maxLines: maxLines, overflow: overflow);
     }
     // 用纯 ▆ 替换字符保留宽度感
     final masked = '▆▆▆▆▆';
@@ -160,8 +153,9 @@ class PrivacyAwareInkWell extends ConsumerWidget {
       borderRadius: BorderRadius.circular(borderRadius),
       onTap: () {
         final enabled = ref.read(privacyShieldProvider);
-        final revealed =
-            ref.read(_revealedProviderFor(scope)).contains(movieId);
+        final revealed = ref
+            .read(_revealedProviderFor(scope))
+            .contains(movieId);
         if (enabled && !revealed) {
           ref.read(_revealedProviderFor(scope).notifier).reveal(movieId);
           return;

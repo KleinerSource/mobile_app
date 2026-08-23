@@ -1,10 +1,6 @@
 class ApiException implements Exception {
-  ApiException(
-    String message, {
-    this.status,
-    this.requestId,
-    this.data,
-  }) : message = redactSensitiveText(message);
+  ApiException(String message, {this.status, this.requestId, this.data})
+    : message = redactSensitiveText(message);
 
   final String message;
   final int? status;

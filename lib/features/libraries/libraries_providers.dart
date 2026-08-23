@@ -21,8 +21,9 @@ final librariesProvider = FutureProvider<List<LibraryItem>>((ref) async {
 
 /// 首页媒体库封面 · 单独拉取 with_cover 列表并解码为图片字节,
 /// 到达后叠加到已渲染的卡片上 (对齐 web Dashboard 的渐进式加载)
-final libraryCoverImagesProvider =
-    FutureProvider<Map<int, Uint8List>>((ref) async {
+final libraryCoverImagesProvider = FutureProvider<Map<int, Uint8List>>((
+  ref,
+) async {
   final libs = await ref
       .watch(librariesRepositoryProvider)
       .list(enabledOnly: true, withCover: true);
@@ -58,13 +59,17 @@ final librariesAllProvider = FutureProvider<List<LibraryItem>>((ref) async {
 });
 
 /// 单个媒体库详情 (含 directories)
-final libraryDetailProvider =
-    FutureProvider.family<LibraryItem, int>((ref, id) async {
+final libraryDetailProvider = FutureProvider.family<LibraryItem, int>((
+  ref,
+  id,
+) async {
   return ref.watch(librariesRepositoryProvider).detail(id);
 });
 
 /// 单个媒体库的目录列表
-final directoriesProvider =
-    FutureProvider.family<List<DirectoryItem>, int>((ref, libId) async {
+final directoriesProvider = FutureProvider.family<List<DirectoryItem>, int>((
+  ref,
+  libId,
+) async {
   return ref.watch(librariesRepositoryProvider).listDirectories(libId);
 });

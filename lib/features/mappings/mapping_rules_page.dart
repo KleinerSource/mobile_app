@@ -664,9 +664,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                                       .map((s) => s.trim())
                                       .where((s) => s.isNotEmpty)
                                       .toList()
-                                : (trimmed.isEmpty
-                                      ? <String>[]
-                                      : [trimmed]);
+                                : (trimmed.isEmpty ? <String>[] : [trimmed]);
                             if (originals.isEmpty) return;
                             if (!isDelete && mappedCtrl.text.trim().isEmpty) {
                               return;

@@ -21,7 +21,9 @@ PlayerErrorDisposition classifyPlayerError({
   required DateTime now,
   required bool mainMediaLoaded,
 }) {
-  if (subtitleGuardUntil != null && now.isBefore(subtitleGuardUntil) && mainMediaLoaded) {
+  if (subtitleGuardUntil != null &&
+      now.isBefore(subtitleGuardUntil) &&
+      mainMediaLoaded) {
     return PlayerErrorDisposition.subtitleWarning;
   }
   return PlayerErrorDisposition.fatal;

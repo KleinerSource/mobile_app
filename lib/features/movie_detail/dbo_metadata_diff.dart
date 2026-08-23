@@ -133,16 +133,18 @@ void _appendTextDiff(
   final currentText = _text(current);
   if (remoteText == currentText) return;
 
-  items.add(DboMetadataDiffItem(
-        id: 'info-$field',
-        section: DboMetadataDiffSection.info,
-        action: DboMetadataDiffAction.replace,
-        field: field,
-        label: label,
-        currentText: currentText.isEmpty ? null : currentText,
-        remoteText: remoteText,
-        value: remoteText,
-      ));
+  items.add(
+    DboMetadataDiffItem(
+      id: 'info-$field',
+      section: DboMetadataDiffSection.info,
+      action: DboMetadataDiffAction.replace,
+      field: field,
+      label: label,
+      currentText: currentText.isEmpty ? null : currentText,
+      remoteText: remoteText,
+      value: remoteText,
+    ),
+  );
 }
 
 void _appendNumberDiff(
@@ -159,24 +161,26 @@ void _appendNumberDiff(
       : remote.toInt();
   final currentValue = current != null && current > 0
       ? (decimals > 0
-          ? double.parse(current.toDouble().toStringAsFixed(decimals))
-          : current.toInt())
+            ? double.parse(current.toDouble().toStringAsFixed(decimals))
+            : current.toInt())
       : null;
   if (currentValue != null && currentValue == nextValue) return;
 
   final format = decimals > 0
       ? (num value) => value.toStringAsFixed(decimals)
       : (num value) => value.toInt().toString();
-  items.add(DboMetadataDiffItem(
-        id: 'info-$field',
-        section: DboMetadataDiffSection.info,
-        action: DboMetadataDiffAction.replace,
-        field: field,
-        label: label,
-        currentText: currentValue == null ? null : format(currentValue),
-        remoteText: format(nextValue),
-        value: nextValue,
-      ));
+  items.add(
+    DboMetadataDiffItem(
+      id: 'info-$field',
+      section: DboMetadataDiffSection.info,
+      action: DboMetadataDiffAction.replace,
+      field: field,
+      label: label,
+      currentText: currentValue == null ? null : format(currentValue),
+      remoteText: format(nextValue),
+      value: nextValue,
+    ),
+  );
 }
 
 void _appendSeriesDiff(
@@ -188,39 +192,45 @@ void _appendSeriesDiff(
   final currentName = _text(current?.name);
   final remoteName = _text(remoteItem?['name']);
   if (currentName.isEmpty && remoteName.isNotEmpty) {
-    items.add(DboMetadataDiffItem(
-          id: 'series-add',
-          section: DboMetadataDiffSection.series,
-          action: DboMetadataDiffAction.add,
-          label: '系列',
-          remoteText: remoteName,
-          remoteName: remoteName,
-          gender: _text(remoteItem?['gender']),
-        ));
+    items.add(
+      DboMetadataDiffItem(
+        id: 'series-add',
+        section: DboMetadataDiffSection.series,
+        action: DboMetadataDiffAction.add,
+        label: '系列',
+        remoteText: remoteName,
+        remoteName: remoteName,
+        gender: _text(remoteItem?['gender']),
+      ),
+    );
   } else if (currentName.isNotEmpty && remoteName.isEmpty) {
-    items.add(DboMetadataDiffItem(
-          id: 'series-remove',
-          section: DboMetadataDiffSection.series,
-          action: DboMetadataDiffAction.remove,
-          label: '系列',
-          currentText: currentName,
-          remoteText: '移除',
-          localId: current?.id,
-        ));
+    items.add(
+      DboMetadataDiffItem(
+        id: 'series-remove',
+        section: DboMetadataDiffSection.series,
+        action: DboMetadataDiffAction.remove,
+        label: '系列',
+        currentText: currentName,
+        remoteText: '移除',
+        localId: current?.id,
+      ),
+    );
   } else if (currentName.isNotEmpty &&
       remoteName.isNotEmpty &&
       !_sameName(currentName, remoteName)) {
-    items.add(DboMetadataDiffItem(
-          id: 'series-replace',
-          section: DboMetadataDiffSection.series,
-          action: DboMetadataDiffAction.replace,
-          label: '系列',
-          currentText: currentName,
-          remoteText: remoteName,
-          localId: current?.id,
-          remoteName: remoteName,
-          gender: _text(remoteItem?['gender']),
-        ));
+    items.add(
+      DboMetadataDiffItem(
+        id: 'series-replace',
+        section: DboMetadataDiffSection.series,
+        action: DboMetadataDiffAction.replace,
+        label: '系列',
+        currentText: currentName,
+        remoteText: remoteName,
+        localId: current?.id,
+        remoteName: remoteName,
+        gender: _text(remoteItem?['gender']),
+      ),
+    );
   }
 }
 
@@ -237,8 +247,8 @@ void _appendCollectionDiff(
     final map = item is ResourceItem
         ? (id: item.id, name: item.name)
         : item is ActorItem
-            ? (id: item.id, name: item.name)
-            : null;
+        ? (id: item.id, name: item.name)
+        : null;
     if (map == null) continue;
     final name = _text(map.name);
     if (name.isNotEmpty) currentByName[_nameKey(name)] = map;
@@ -251,36 +261,37 @@ void _appendCollectionDiff(
       final name = _text(item?['name'] ?? raw);
       if (name.isEmpty) continue;
       final key = _nameKey(name);
-      remoteByName[key] = (
-        name: name,
-        gender: _text(item?['gender']),
-      );
+      remoteByName[key] = (name: name, gender: _text(item?['gender']));
     }
   }
 
   for (final entry in remoteByName.entries) {
     if (currentByName.containsKey(entry.key)) continue;
-    items.add(DboMetadataDiffItem(
-          id: '$prefix-add-${entry.key}',
-          section: section,
-          action: DboMetadataDiffAction.add,
-          label: label,
-          remoteText: entry.value.name,
-          remoteName: entry.value.name,
-          gender: entry.value.gender,
-        ));
+    items.add(
+      DboMetadataDiffItem(
+        id: '$prefix-add-${entry.key}',
+        section: section,
+        action: DboMetadataDiffAction.add,
+        label: label,
+        remoteText: entry.value.name,
+        remoteName: entry.value.name,
+        gender: entry.value.gender,
+      ),
+    );
   }
   for (final entry in currentByName.entries) {
     if (remoteByName.containsKey(entry.key)) continue;
-    items.add(DboMetadataDiffItem(
-          id: '$prefix-remove-${entry.value.id}',
-          section: section,
-          action: DboMetadataDiffAction.remove,
-          label: label,
-          currentText: entry.value.name,
-          remoteText: '移除',
-          localId: entry.value.id,
-        ));
+    items.add(
+      DboMetadataDiffItem(
+        id: '$prefix-remove-${entry.value.id}',
+        section: section,
+        action: DboMetadataDiffAction.remove,
+        label: label,
+        currentText: entry.value.name,
+        remoteText: '移除',
+        localId: entry.value.id,
+      ),
+    );
   }
 }
 

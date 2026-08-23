@@ -15,9 +15,7 @@ void main(List<String> args) {
     multiLine: true,
   ).firstMatch(contents);
   if (match == null) {
-    throw const FormatException(
-      'pubspec.yaml 中的 version 不是 x.y.z+build 格式',
-    );
+    throw const FormatException('pubspec.yaml 中的 version 不是 x.y.z+build 格式');
   }
 
   final major = int.parse(match.group(1)!);
@@ -43,9 +41,7 @@ VersionBump _versionBump(List<String> args) {
 
   final index = args.indexOf('--commit-message');
   if (index < 0 || index + 1 >= args.length) {
-    throw const FormatException(
-      '--auto 模式必须同时提供 --commit-message',
-    );
+    throw const FormatException('--auto 模式必须同时提供 --commit-message');
   }
   return versionBumpForCommit(args[index + 1]);
 }

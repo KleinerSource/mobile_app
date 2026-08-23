@@ -73,27 +73,30 @@ class _ActorAssociationSyncSheetState
   bool _avatarManuallySelected = false;
   int _loadRequestId = 0;
 
-  String get _actorName =>
-      widget.actor.mappedValue?.trim().isNotEmpty == true
-          ? widget.actor.mappedValue!
-          : (widget.actor.originalValues.isNotEmpty
-              ? widget.actor.originalValues.first
-              : '');
+  String get _actorName => widget.actor.mappedValue?.trim().isNotEmpty == true
+      ? widget.actor.mappedValue!
+      : (widget.actor.originalValues.isNotEmpty
+            ? widget.actor.originalValues.first
+            : '');
 
   List<ActorAssociationAvatarChoice> _avatarChoicesFor(
     ActorAssocPreview preview,
   ) {
     final seen = <String>{};
     return preview.avatarChoices
-        .where((choice) =>
-            choice.downloadUrl.isNotEmpty && seen.add(choice.downloadUrl))
+        .where(
+          (choice) =>
+              choice.downloadUrl.isNotEmpty && seen.add(choice.downloadUrl),
+        )
         .toList(growable: false);
   }
 
   String _activeAvatarUrlFor(ActorAssocPreview preview) {
     final choices = _avatarChoicesFor(preview);
     if (choices.isNotEmpty) {
-      final index = _avatarChoiceIndex < choices.length ? _avatarChoiceIndex : 0;
+      final index = _avatarChoiceIndex < choices.length
+          ? _avatarChoiceIndex
+          : 0;
       return choices[index].downloadUrl;
     }
     return preview.avatarUrl;
@@ -143,7 +146,8 @@ class _ActorAssociationSyncSheetState
   @override
   void initState() {
     super.initState();
-    _source = ActorAssociationsRepository.loadRememberedSource(
+    _source =
+        ActorAssociationsRepository.loadRememberedSource(
           ref.read(sharedPrefsProvider),
         ) ??
         ActorDataSource.dbonline;
@@ -235,9 +239,7 @@ class _ActorAssociationSyncSheetState
       }
       final repo = ref.read(actorAssociationsRepositoryProvider);
       final p = await repo.previewSource(_actorName, source: actualSource);
-      if (!mounted ||
-          requestId != _loadRequestId ||
-          actualSource != _source) {
+      if (!mounted || requestId != _loadRequestId || actualSource != _source) {
         return;
       }
       setState(() {
@@ -295,8 +297,7 @@ class _ActorAssociationSyncSheetState
       if (session.complete) {
         setState(() {
           _preview = session.preview;
-          _selectedAliases =
-              session.preview?.newAliases.toSet() ?? <String>{};
+          _selectedAliases = session.preview?.newAliases.toSet() ?? <String>{};
           _pendingSources = const [];
           _loading = false;
         });
@@ -307,20 +308,16 @@ class _ActorAssociationSyncSheetState
             unawaited(_loadAvatarPreviews(finalPreview, source));
           }
           final activeUrl = _activeAvatarUrlFor(finalPreview);
-          if (activeUrl.isNotEmpty &&
-              _avatarChoiceFailed.contains(activeUrl)) {
+          if (activeUrl.isNotEmpty && _avatarChoiceFailed.contains(activeUrl)) {
             _advancePastFailedAvatar(finalPreview);
           }
         }
         return;
       }
       if (session.failed) {
-        throw StateError(
-          session.error.isEmpty ? '混合渠道查询失败' : session.error,
-        );
+        throw StateError(session.error.isEmpty ? '混合渠道查询失败' : session.error);
       }
-      if (DateTime.now().difference(startedAt) >
-          const Duration(seconds: 90)) {
+      if (DateTime.now().difference(startedAt) > const Duration(seconds: 90)) {
         throw StateError('混合渠道预览超时');
       }
       await Future<void>.delayed(const Duration(milliseconds: 400));
@@ -343,6 +340,7 @@ class _ActorAssociationSyncSheetState
         await _loadAvatarPreview(preview, source, url);
       }
     }
+
     final workerCount = urls.length < 4 ? urls.length : 4;
     await Future.wait(List.generate(workerCount, (_) => worker()));
   }
@@ -368,10 +366,9 @@ class _ActorAssociationSyncSheetState
     });
     _avatarPickerRevision.value++;
     try {
-      final bytes = await ref.read(actorAssociationsRepositoryProvider).previewAvatar(
-            url,
-            source: _avatarDownloadSource(url),
-          );
+      final bytes = await ref
+          .read(actorAssociationsRepositoryProvider)
+          .previewAvatar(url, source: _avatarDownloadSource(url));
       if (!mounted || _source != source) return;
       if (bytes.isEmpty) throw StateError('头像内容为空');
       setState(() {
@@ -419,9 +416,7 @@ class _ActorAssociationSyncSheetState
       _avatarChoiceIndex = index;
       _avatarManuallySelected = true;
     });
-    unawaited(
-      _loadAvatarPreview(preview, _source, choices[index].downloadUrl),
-    );
+    unawaited(_loadAvatarPreview(preview, _source, choices[index].downloadUrl));
   }
 
   Future<void> _openAvatarPicker() async {
@@ -516,7 +511,9 @@ class _ActorAssociationSyncSheetState
             ? preview.mappedValue
             : widget.actor.mappedValue ?? '',
       );
-      await ref.read(actorAssociationsRepositoryProvider).applySource(
+      await ref
+          .read(actorAssociationsRepositoryProvider)
+          .applySource(
             mappedValue: preview.mappedValue.isNotEmpty
                 ? preview.mappedValue
                 : widget.actor.mappedValue ?? '',
@@ -525,8 +522,11 @@ class _ActorAssociationSyncSheetState
             biography: biographyChanged ? preview.biography : null,
             avatarUrl: avatarChanged ? activeAvatarUrl : null,
             avatarOverwrite: avatarChanged && preview.avatarExists,
-            avatarSource: avatarChanged ? _activeAvatarSourceFor(preview) : null,
-            externalIds: _source == ActorDataSource.mixed &&
+            avatarSource: avatarChanged
+                ? _activeAvatarSourceFor(preview)
+                : null,
+            externalIds:
+                _source == ActorDataSource.mixed &&
                     preview.externalIds.isNotEmpty
                 ? preview.externalIds
                 : null,
@@ -539,15 +539,13 @@ class _ActorAssociationSyncSheetState
       if (avatarChanged) {
         widget.onAvatarApplied?.call();
       }
-      messenger.showSnackBar(
-        const SnackBar(content: Text('同步完成')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('同步完成')));
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text('应用失败: ${toApiException(e).message}'),
-      ));
+      messenger.showSnackBar(
+        SnackBar(content: Text('应用失败: ${toApiException(e).message}')),
+      );
       setState(() => _applying = false);
     }
   }
@@ -579,7 +577,8 @@ class _ActorAssociationSyncSheetState
     final c = appColors(context);
     final mq = MediaQuery.of(context);
     final preview = _preview;
-    final canApply = preview != null &&
+    final canApply =
+        preview != null &&
         preview.found &&
         _hasSyncChanges(preview) &&
         !_applying;
@@ -595,11 +594,12 @@ class _ActorAssociationSyncSheetState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('同步演员关联: $_actorName',
-                      style: AppText.sectionTitle(context)),
+                  Text(
+                    '同步演员关联: $_actorName',
+                    style: AppText.sectionTitle(context),
+                  ),
                   const SizedBox(height: 2),
-                  Text('从选定数据源拉取演员别名预览',
-                      style: AppText.meta(context)),
+                  Text('从选定数据源拉取演员别名预览', style: AppText.meta(context)),
                   const SizedBox(height: 12),
                   _ActorDataSourceSelector(
                     sources: _availableSources,
@@ -617,96 +617,88 @@ class _ActorAssociationSyncSheetState
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
-                      ? _ErrorView(message: _error!, onRetry: _load)
-                      : preview == null
-                          ? const _NoPreviewView()
-                          : !preview.found
-                              ? Column(
-                                  children: [
-                                    Expanded(
-                                      child: _EmptyView(actorName: _actorName),
-                                    ),
-                                    if (_hasChannelStatuses)
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                            22, 0, 22, 12),
-                                        child: _ActorChannelStatusSummary(
-                                          pendingSources: _pendingSources,
-                                          notFoundSources: _notFoundSources,
-                                          failedSources: _failedSources,
-                                        ),
-                                      ),
-                                    if (preview.warnings.isNotEmpty)
-                                      _WarningsSection(warnings: preview.warnings),
-                                  ],
-                                )
-                              : ListView(
-                                  padding: const EdgeInsets.fromLTRB(
-                                      22, 14, 22, 14),
-                                  children: [
-                                    if (preview.warnings.isNotEmpty) ...[
-                                      _WarningsSection(warnings: preview.warnings),
-                                      const SizedBox(height: 16),
-                                    ],
-                                    _ActorIdentitySection(
-                                      mappedValue: preview.mappedValue,
-                                      avatarExists: preview.avatarExists,
-                                      avatarChoices: _avatarChoicesFor(preview),
-                                      activeBytes: _activeAvatarBytes,
-                                      activeLoading: _activeAvatarLoading,
-                                      activeLoadFailed: _activeAvatarLoadFailed,
-                                      avatarManuallySelected:
-                                          _avatarManuallySelected,
-                                      pendingSources: _pendingSources,
-                                      notFoundSources: _notFoundSources,
-                                      failedSources: _failedSources,
-                                      onAvatarTap: _applying
-                                          ? null
-                                          : () => unawaited(_openAvatarPicker()),
-                                    ),
-                                    if (_biographyNeedsSync(preview)) ...[
-                                      const SizedBox(height: 16),
-                                      _BiographySection(
-                                        biography: preview.biography,
-                                      ),
-                                    ],
-                                    const SizedBox(height: 16),
-                                    _AliasSection(
-                                      title:
-                                          '待新增名称（已选 ${_selectedAliases.length}/${preview.newAliases.length}）',
-                                      empty: '没有需要新增的关联名称',
-                                      aliases: preview.newAliases,
-                                      color: c.accent,
-                                      highlight: true,
-                                      selectedAliases: _selectedAliases,
-                                      allSelected: _allAliasesSelected(preview),
-                                      onToggleAll: _applying ||
-                                              preview.newAliases.isEmpty
-                                          ? null
-                                          : () => _toggleAllAliases(preview),
-                                      onToggle: (alias) {
-                                        if (_applying) return;
-                                        setState(() {
-                                          if (_selectedAliases.contains(alias)) {
-                                            _selectedAliases.remove(alias);
-                                          } else {
-                                            _selectedAliases.add(alias);
-                                          }
-                                        });
-                                      },
-                                    ),
-                                    if (preview.existingAliases.isNotEmpty) ...[
-                                      const SizedBox(height: 16),
-                                      _AliasSection(
-                                        title: '已有关联',
-                                        empty: '',
-                                        aliases: preview.existingAliases,
-                                        color: c.muted,
-                                        highlight: false,
-                                      ),
-                                    ],
-                                  ],
-                                ),
+                  ? _ErrorView(message: _error!, onRetry: _load)
+                  : preview == null
+                  ? const _NoPreviewView()
+                  : !preview.found
+                  ? Column(
+                      children: [
+                        Expanded(child: _EmptyView(actorName: _actorName)),
+                        if (_hasChannelStatuses)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                            child: _ActorChannelStatusSummary(
+                              pendingSources: _pendingSources,
+                              notFoundSources: _notFoundSources,
+                              failedSources: _failedSources,
+                            ),
+                          ),
+                        if (preview.warnings.isNotEmpty)
+                          _WarningsSection(warnings: preview.warnings),
+                      ],
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
+                      children: [
+                        if (preview.warnings.isNotEmpty) ...[
+                          _WarningsSection(warnings: preview.warnings),
+                          const SizedBox(height: 16),
+                        ],
+                        _ActorIdentitySection(
+                          mappedValue: preview.mappedValue,
+                          avatarExists: preview.avatarExists,
+                          avatarChoices: _avatarChoicesFor(preview),
+                          activeBytes: _activeAvatarBytes,
+                          activeLoading: _activeAvatarLoading,
+                          activeLoadFailed: _activeAvatarLoadFailed,
+                          avatarManuallySelected: _avatarManuallySelected,
+                          pendingSources: _pendingSources,
+                          notFoundSources: _notFoundSources,
+                          failedSources: _failedSources,
+                          onAvatarTap: _applying
+                              ? null
+                              : () => unawaited(_openAvatarPicker()),
+                        ),
+                        if (_biographyNeedsSync(preview)) ...[
+                          const SizedBox(height: 16),
+                          _BiographySection(biography: preview.biography),
+                        ],
+                        const SizedBox(height: 16),
+                        _AliasSection(
+                          title:
+                              '待新增名称（已选 ${_selectedAliases.length}/${preview.newAliases.length}）',
+                          empty: '没有需要新增的关联名称',
+                          aliases: preview.newAliases,
+                          color: c.accent,
+                          highlight: true,
+                          selectedAliases: _selectedAliases,
+                          allSelected: _allAliasesSelected(preview),
+                          onToggleAll: _applying || preview.newAliases.isEmpty
+                              ? null
+                              : () => _toggleAllAliases(preview),
+                          onToggle: (alias) {
+                            if (_applying) return;
+                            setState(() {
+                              if (_selectedAliases.contains(alias)) {
+                                _selectedAliases.remove(alias);
+                              } else {
+                                _selectedAliases.add(alias);
+                              }
+                            });
+                          },
+                        ),
+                        if (preview.existingAliases.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          _AliasSection(
+                            title: '已有关联',
+                            empty: '',
+                            aliases: preview.existingAliases,
+                            color: c.muted,
+                            highlight: false,
+                          ),
+                        ],
+                      ],
+                    ),
             ),
             Container(
               padding: const EdgeInsets.fromLTRB(22, 10, 22, 10),
@@ -840,10 +832,7 @@ class _ActorDataSourceOption extends StatelessWidget {
         color: selected ? c.accent.withValues(alpha: 0.10) : c.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: BorderSide(
-            color: selected ? c.accent : c.cardBorder,
-            width: 1,
-          ),
+          side: BorderSide(color: selected ? c.accent : c.cardBorder, width: 1),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -868,8 +857,9 @@ class _ActorDataSourceOption extends StatelessWidget {
                           color: enabled
                               ? (selected ? c.accent : c.text)
                               : c.muted,
-                          fontWeight:
-                              selected ? FontWeight.w800 : FontWeight.w700,
+                          fontWeight: selected
+                              ? FontWeight.w800
+                              : FontWeight.w700,
                           fontSize: 13,
                         ),
                       ),
@@ -918,19 +908,19 @@ class _ActorIdentitySection extends StatelessWidget {
     final hasPreview = activeBytes != null && activeBytes!.isNotEmpty;
     final status = activeLoading
         ? avatarExists
-            ? '正在获取数据源头像，可选择后替换本地'
-            : '正在获取头像...'
+              ? '正在获取数据源头像，可选择后替换本地'
+              : '正在获取头像...'
         : avatarExists
-            ? avatarManuallySelected && hasPreview
-                ? '将替换本地头像'
-                : hasPreview
-                    ? '本地已有头像（不覆盖）'
-                    : '本地已有头像，可替换'
-            : activeLoadFailed
-                ? '头像获取失败'
-                : hasPreview
-                    ? '将同步头像'
-                    : '数据源未提供头像';
+        ? avatarManuallySelected && hasPreview
+              ? '将替换本地头像'
+              : hasPreview
+              ? '本地已有头像（不覆盖）'
+              : '本地已有头像，可替换'
+        : activeLoadFailed
+        ? '头像获取失败'
+        : hasPreview
+        ? '将同步头像'
+        : '数据源未提供头像';
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       decoration: BoxDecoration(
@@ -960,8 +950,7 @@ class _ActorIdentitySection extends StatelessWidget {
                             height: 62,
                             child: activeLoading
                                 ? DecoratedBox(
-                                    decoration:
-                                        BoxDecoration(color: c.chipBg),
+                                    decoration: BoxDecoration(color: c.chipBg),
                                     child: const Center(
                                       child: SizedBox(
                                         width: 20,
@@ -973,21 +962,17 @@ class _ActorIdentitySection extends StatelessWidget {
                                     ),
                                   )
                                 : hasPreview
-                                    ? Image.memory(
-                                        activeBytes!,
-                                        fit: BoxFit.cover,
-                                      )
-                                    : DecoratedBox(
-                                        decoration:
-                                            BoxDecoration(color: c.chipBg),
-                                        child: Icon(
-                                          avatarExists
-                                              ? Icons.account_circle_outlined
-                                              : Icons.person_outline,
-                                          color: c.muted,
-                                          size: 32,
-                                        ),
-                                      ),
+                                ? Image.memory(activeBytes!, fit: BoxFit.cover)
+                                : DecoratedBox(
+                                    decoration: BoxDecoration(color: c.chipBg),
+                                    child: Icon(
+                                      avatarExists
+                                          ? Icons.account_circle_outlined
+                                          : Icons.person_outline,
+                                      color: c.muted,
+                                      size: 32,
+                                    ),
+                                  ),
                           ),
                         ),
                         if (avatarChoices.length > 1)
@@ -1192,70 +1177,70 @@ class _AvatarChoicePicker extends StatelessWidget {
                         onTap: () => Navigator.of(context).pop(index),
                         borderRadius: BorderRadius.circular(12),
                         child: Column(
-                            children: [
-                              Expanded(
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    if (bytes != null && bytes.isNotEmpty)
-                                      Image.memory(bytes, fit: BoxFit.cover)
-                                    else if (loading)
-                                      const Center(
-                                        child: SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        ),
-                                      )
-                                    else
-                                      Center(
-                                        child: Icon(
-                                          failed
-                                              ? Icons.broken_image_outlined
-                                              : Icons.person_outline,
-                                          color: failed ? c.danger : c.muted,
-                                          size: 28,
+                          children: [
+                            Expanded(
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  if (bytes != null && bytes.isNotEmpty)
+                                    Image.memory(bytes, fit: BoxFit.cover)
+                                  else if (loading)
+                                    const Center(
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
                                         ),
                                       ),
-                                    if (selected)
-                                      Positioned(
-                                        top: 6,
-                                        right: 6,
-                                        child: DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            color: c.accent,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Icon(
-                                            Icons.check,
-                                            color: c.chipTextActive,
-                                            size: 16,
-                                          ),
-                                        ),
+                                    )
+                                  else
+                                    Center(
+                                      child: Icon(
+                                        failed
+                                            ? Icons.broken_image_outlined
+                                            : Icons.person_outline,
+                                        color: failed ? c.danger : c.muted,
+                                        size: 28,
                                       ),
-                                  ],
-                                ),
-                              ),
-                              SizedBox(
-                                height: 30,
-                                child: Center(
-                                  child: Text(
-                                    failed
-                                        ? '点击重试'
-                                        : selected
-                                            ? '当前头像'
-                                            : '候选 ${index + 1}',
-                                    style: TextStyle(
-                                      color: failed ? c.danger : c.muted,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
                                     ),
+                                  if (selected)
+                                    Positioned(
+                                      top: 6,
+                                      right: 6,
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: c.accent,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.check,
+                                          color: c.chipTextActive,
+                                          size: 16,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(
+                              height: 30,
+                              child: Center(
+                                child: Text(
+                                  failed
+                                      ? '点击重试'
+                                      : selected
+                                      ? '当前头像'
+                                      : '候选 ${index + 1}',
+                                  style: TextStyle(
+                                    color: failed ? c.danger : c.muted,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
-                            ],
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -1329,11 +1314,7 @@ class _ActorChannelStatusSummary extends StatelessWidget {
     );
 
     if (statuses.isEmpty) return const SizedBox.shrink();
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: statuses,
-    );
+    return Wrap(spacing: 6, runSpacing: 6, children: statuses);
   }
 }
 
@@ -1522,13 +1503,15 @@ class _AliasSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: Text(title,
-                  style: TextStyle(
-                    color: c.text,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  )),
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: c.text,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
             ),
             if (onToggleAll != null)
               TextButton.icon(
@@ -1661,10 +1644,7 @@ class _NoPreviewView extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               '暂无预览数据',
-              style: TextStyle(
-                color: c.text,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(color: c.text, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
             Text(
@@ -1697,10 +1677,7 @@ class _ErrorView extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               '请求失败',
-              style: TextStyle(
-                color: c.danger,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(color: c.danger, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
             Text(
@@ -1734,10 +1711,7 @@ class _EmptyView extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               '未找到匹配演员',
-              style: TextStyle(
-                color: c.text,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(color: c.text, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
             Text(

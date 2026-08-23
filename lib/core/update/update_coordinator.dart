@@ -38,9 +38,7 @@ class AppUpdateCoordinator {
         mode: LaunchMode.externalApplication,
       );
       if (!launched) {
-        throw const UpdateException(
-          '无法打开 iOS 安装器，请确认已安装 TrollStore',
-        );
+        throw const UpdateException('无法打开 iOS 安装器，请确认已安装 TrollStore');
       }
       return UpdateInstallAction.iosInstallerOpened;
     }

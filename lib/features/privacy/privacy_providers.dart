@@ -25,8 +25,9 @@ class PrivacyShieldNotifier extends Notifier<bool> {
   }
 }
 
-final privacyShieldProvider =
-    NotifierProvider<PrivacyShieldNotifier, bool>(PrivacyShieldNotifier.new);
+final privacyShieldProvider = NotifierProvider<PrivacyShieldNotifier, bool>(
+  PrivacyShieldNotifier.new,
+);
 
 /// 是否允许通过摇动设备快速切换隐私模式。
 class PrivacyShakeNotifier extends Notifier<bool> {
@@ -43,8 +44,9 @@ class PrivacyShakeNotifier extends Notifier<bool> {
   }
 }
 
-final privacyShakeProvider =
-    NotifierProvider<PrivacyShakeNotifier, bool>(PrivacyShakeNotifier.new);
+final privacyShakeProvider = NotifierProvider<PrivacyShakeNotifier, bool>(
+  PrivacyShakeNotifier.new,
+);
 
 /// 当前 session 内被临时揭开的实体 id 集合 · 不持久化
 /// 隐私模式开启时,内容被遮罩盖住,点击单卡片揭开该张
@@ -77,19 +79,15 @@ class RevealedIdsNotifier extends Notifier<Set<int>> {
   bool isRevealed(int id) => state.contains(id);
 }
 
-final revealedMoviesProvider =
-    NotifierProvider<RevealedIdsNotifier, Set<int>>(
+final revealedMoviesProvider = NotifierProvider<RevealedIdsNotifier, Set<int>>(
   RevealedIdsNotifier.new,
 );
 
 /// 演员域 · 演员管理页的揭示集合 (key 为演员 id)
-final revealedActorsProvider =
-    NotifierProvider<RevealedIdsNotifier, Set<int>>(
+final revealedActorsProvider = NotifierProvider<RevealedIdsNotifier, Set<int>>(
   RevealedIdsNotifier.new,
 );
 
 /// 演员关联域 · 演员关联页的揭示集合 (key 为关联规则 id)
 final revealedActorAssociationsProvider =
-    NotifierProvider<RevealedIdsNotifier, Set<int>>(
-  RevealedIdsNotifier.new,
-);
+    NotifierProvider<RevealedIdsNotifier, Set<int>>(RevealedIdsNotifier.new);

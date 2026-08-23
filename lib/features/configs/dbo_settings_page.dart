@@ -90,10 +90,9 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
         _hasKey = true;
       }
       AppHaptics.medium();
-      messenger.showSnackBar(const SnackBar(
-        content: Text('已保存'),
-        duration: Duration(seconds: 1),
-      ));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('已保存'), duration: Duration(seconds: 1)),
+      );
       // ignore: unused_result
       ref.refresh(dboConfigProvider);
     } catch (e) {
@@ -142,165 +141,168 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
         padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
         children: [
           _label('启用', _enabled ? '已启用 · 所有 DBO 功能可用' : '已停用 · 所有 DBO 功能将被屏蔽'),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                decoration: settingsCardDecoration(context),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '启用 DB Online',
-                        style: TextStyle(
-                          color: c.text,
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            decoration: settingsCardDecoration(context),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '启用 DB Online',
+                    style: TextStyle(
+                      color: c.text,
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
-                    SettingsSwitch(
-                      value: _enabled,
-                      onChanged: (v) => setState(() => _enabled = v),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-              _label('Base URL', '例: http://10.0.0.50:9090'),
-              _input(_baseUrl, hint: 'http://...', icon: Icons.link),
-              const SizedBox(height: 18),
-              _label('API Key', _hasKey ? '已配置 · 留空则保留' : '请输入'),
-              _passwordInput(c),
-              const SizedBox(height: 18),
-              _label('资源过滤器', '按发布日期过滤 · 0 = 不过滤'),
-              Container(
-                decoration: settingsCardDecoration(context),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 80,
-                      child: TextField(
-                        controller: TextEditingController(text: '$_maxAge')
-                          ..selection = TextSelection.collapsed(
-                              offset: '$_maxAge'.length),
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        style: TextStyle(
-                          color: c.text,
-                          fontFamily: 'monospace',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                        onSubmitted: (v) {
-                          final n = int.tryParse(v);
-                          if (n != null && n >= 0 && n <= 120) {
-                            setState(() {
-                              _maxAge = n;
-                              _minResourceMonth.clear();
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                    Text('个月',
-                        style: TextStyle(
-                            color: c.muted,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13)),
-                    const Spacer(),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 14),
-                      child: Text(
-                        _maxAge == 0
-                            ? '不过滤'
-                            : '约 ${(_maxAge / 12).toStringAsFixed(1)} 年',
-                        style: TextStyle(
-                          color: c.muted,
-                          fontFamily: 'Inter',
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 7,
-                runSpacing: 7,
-                children: _presets.map((p) {
-                  final active = _maxAge == p.$1;
-                  return GestureDetector(
-                    onTap: () {
-                      if (active) return;
-                      AppHaptics.selection();
-                      setState(() {
-                        _maxAge = p.$1;
-                        _minResourceMonth.clear();
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: active ? c.chipBgActive : c.chipBg,
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                      child: Text(
-                        p.$2,
-                        style: TextStyle(
-                          color: active ? c.chipTextActive : c.text2,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 18),
-              _label('起始年月', '按发布日期保留该月份及之后的资源 · 格式 YYYY-MM'),
-              Container(
-                decoration: settingsCardDecoration(context),
-                child: TextField(
-                  controller: _minResourceMonth,
-                  keyboardType: TextInputType.datetime,
-                  autocorrect: false,
-                  onChanged: (value) {
-                    if (value.trim().isNotEmpty && _maxAge != 0) {
-                      setState(() => _maxAge = 0);
-                    }
-                  },
-                  decoration: settingsInputDecoration(
-                    context,
-                    hintText: '例如 2024-01',
-                    prefixIcon: const Icon(Icons.calendar_today_outlined),
-                    borderless: true,
-                  ),
-                  style: TextStyle(
-                    color: c.text,
-                    fontFamily: 'monospace',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 14),
-                _errorBox(_error!),
+                SettingsSwitch(
+                  value: _enabled,
+                  onChanged: (v) => setState(() => _enabled = v),
+                ),
               ],
-              const SizedBox(height: 28),
-              SettingsSaveButton(
-                onPressed: _save,
-                saving: _saving,
+            ),
+          ),
+          const SizedBox(height: 18),
+          _label('Base URL', '例: http://10.0.0.50:9090'),
+          _input(_baseUrl, hint: 'http://...', icon: Icons.link),
+          const SizedBox(height: 18),
+          _label('API Key', _hasKey ? '已配置 · 留空则保留' : '请输入'),
+          _passwordInput(c),
+          const SizedBox(height: 18),
+          _label('资源过滤器', '按发布日期过滤 · 0 = 不过滤'),
+          Container(
+            decoration: settingsCardDecoration(context),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 80,
+                  child: TextField(
+                    controller: TextEditingController(text: '$_maxAge')
+                      ..selection = TextSelection.collapsed(
+                        offset: '$_maxAge'.length,
+                      ),
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    style: TextStyle(
+                      color: c.text,
+                      fontFamily: 'monospace',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    onSubmitted: (v) {
+                      final n = int.tryParse(v);
+                      if (n != null && n >= 0 && n <= 120) {
+                        setState(() {
+                          _maxAge = n;
+                          _minResourceMonth.clear();
+                        });
+                      }
+                    },
+                  ),
+                ),
+                Text(
+                  '个月',
+                  style: TextStyle(
+                    color: c.muted,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+                const Spacer(),
+                Padding(
+                  padding: const EdgeInsets.only(right: 14),
+                  child: Text(
+                    _maxAge == 0
+                        ? '不过滤'
+                        : '约 ${(_maxAge / 12).toStringAsFixed(1)} 年',
+                    style: TextStyle(
+                      color: c.muted,
+                      fontFamily: 'Inter',
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: _presets.map((p) {
+              final active = _maxAge == p.$1;
+              return GestureDetector(
+                onTap: () {
+                  if (active) return;
+                  AppHaptics.selection();
+                  setState(() {
+                    _maxAge = p.$1;
+                    _minResourceMonth.clear();
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: active ? c.chipBgActive : c.chipBg,
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(
+                    p.$2,
+                    style: TextStyle(
+                      color: active ? c.chipTextActive : c.text2,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 18),
+          _label('起始年月', '按发布日期保留该月份及之后的资源 · 格式 YYYY-MM'),
+          Container(
+            decoration: settingsCardDecoration(context),
+            child: TextField(
+              controller: _minResourceMonth,
+              keyboardType: TextInputType.datetime,
+              autocorrect: false,
+              onChanged: (value) {
+                if (value.trim().isNotEmpty && _maxAge != 0) {
+                  setState(() => _maxAge = 0);
+                }
+              },
+              decoration: settingsInputDecoration(
+                context,
+                hintText: '例如 2024-01',
+                prefixIcon: const Icon(Icons.calendar_today_outlined),
+                borderless: true,
               ),
+              style: TextStyle(
+                color: c.text,
+                fontFamily: 'monospace',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            _errorBox(_error!),
+          ],
+          const SizedBox(height: 28),
+          SettingsSaveButton(onPressed: _save, saving: _saving),
         ],
       ),
     );
@@ -315,18 +317,18 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
           Text(label.toUpperCase(), style: AppText.eyebrow(context)),
           if (help.isNotEmpty) ...[
             const SizedBox(height: 2),
-            Text(
-              help,
-              style: AppText.meta(context).copyWith(fontSize: 10.5),
-            ),
+            Text(help, style: AppText.meta(context).copyWith(fontSize: 10.5)),
           ],
         ],
       ),
     );
   }
 
-  Widget _input(TextEditingController controller,
-      {String? hint, IconData? icon}) {
+  Widget _input(
+    TextEditingController controller, {
+    String? hint,
+    IconData? icon,
+  }) {
     final c = appColors(context);
     return Container(
       decoration: settingsCardDecoration(context),
@@ -372,8 +374,11 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
             ),
           ),
           IconButton(
-            icon: Icon(_showKey ? Icons.visibility_off : Icons.visibility,
-                size: 18, color: c.muted),
+            icon: Icon(
+              _showKey ? Icons.visibility_off : Icons.visibility,
+              size: 18,
+              color: c.muted,
+            ),
             onPressed: () => setState(() => _showKey = !_showKey),
           ),
         ],

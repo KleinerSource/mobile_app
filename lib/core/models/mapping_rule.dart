@@ -11,7 +11,8 @@ abstract class MappingRule with _$MappingRule {
   const factory MappingRule({
     required int id,
     @JsonKey(name: 'original_values')
-    @Default(<String>[]) List<String> originalValues,
+    @Default(<String>[])
+    List<String> originalValues,
     @JsonKey(name: 'mapped_value') String? mappedValue,
     @JsonKey(name: 'created_at') String? createdAt,
     @JsonKey(name: 'updated_at') String? updatedAt,

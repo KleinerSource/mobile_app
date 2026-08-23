@@ -7,15 +7,12 @@ typedef PinyinSearchTokens = ({
 });
 
 PinyinSearchTokens pinyinSearchTokens(String name) {
-  final syllables = PinyinHelper.getPinyinE(
-    name,
-    separator: ' ',
-    defPinyin: '?',
-  )
-      .toLowerCase()
-      .split(' ')
-      .where((syllable) => syllable.isNotEmpty)
-      .toList(growable: false);
+  final syllables =
+      PinyinHelper.getPinyinE(name, separator: ' ', defPinyin: '?')
+          .toLowerCase()
+          .split(' ')
+          .where((syllable) => syllable.isNotEmpty)
+          .toList(growable: false);
   final offsets = <int>[];
   var offset = 0;
   for (final syllable in syllables) {

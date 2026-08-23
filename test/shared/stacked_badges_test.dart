@@ -3,10 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:md_center/shared/stacked_badges.dart';
 
 Widget _pill(String text) => Container(
-      padding: const EdgeInsets.all(6),
-      color: const Color(0xFF22C55E),
-      child: Text(text),
-    );
+  padding: const EdgeInsets.all(6),
+  color: const Color(0xFF22C55E),
+  child: Text(text),
+);
 
 Widget _app({required Widget child, ScrollController? controller}) {
   return MaterialApp(
@@ -37,7 +37,9 @@ void main() {
           children: [
             StackedBadges(
               tooltip: '规格 ×3（点按展开）',
-              children: [for (final t in ['A', 'B', 'C']) _pill(t)],
+              children: [
+                for (final t in ['A', 'B', 'C']) _pill(t),
+              ],
             ),
             const SizedBox(width: 8),
             _pill('SIBLING'),
@@ -75,7 +77,9 @@ void main() {
   testWidgets('单个徽章时直接显示,无叠加交互', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: Center(child: StackedBadges(children: [_pill('ONLY')]))),
+        home: Scaffold(
+          body: Center(child: StackedBadges(children: [_pill('ONLY')])),
+        ),
       ),
     );
 
@@ -85,7 +89,9 @@ void main() {
   testWidgets('空分组与空徽章安全渲染', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(body: Center(child: StackedBadges(children: []))),
+        home: Scaffold(
+          body: Center(child: StackedBadges(children: [])),
+        ),
       ),
     );
 
@@ -99,7 +105,9 @@ void main() {
         controller: controller,
         child: StackedBadges(
           tooltip: '规格 ×3（点按展开）',
-          children: [for (final t in ['A', 'B', 'C']) _pill(t)],
+          children: [
+            for (final t in ['A', 'B', 'C']) _pill(t),
+          ],
         ),
       ),
     );
@@ -124,7 +132,9 @@ void main() {
         controller: controller,
         child: StackedBadges(
           tooltip: '规格 ×3（点按展开）',
-          children: [for (final t in ['A', 'B', 'C']) _pill(t)],
+          children: [
+            for (final t in ['A', 'B', 'C']) _pill(t),
+          ],
         ),
       ),
     );
@@ -153,7 +163,9 @@ void main() {
         child: StackedBadges(
           tooltip: '规格 ×3（点按展开）',
           expandUpward: false,
-          children: [for (final t in ['A', 'B', 'C']) _pill(t)],
+          children: [
+            for (final t in ['A', 'B', 'C']) _pill(t),
+          ],
         ),
       ),
     );
@@ -179,12 +191,16 @@ void main() {
           children: [
             StackedBadges(
               tooltip: '规格 ×3（点按展开）',
-              children: [for (final t in ['A', 'B', 'C']) _pill(t)],
+              children: [
+                for (final t in ['A', 'B', 'C']) _pill(t),
+              ],
             ),
             const SizedBox(width: 60),
             StackedBadges(
               tooltip: '字幕 ×3（点按展开）',
-              children: [for (final t in ['D', 'E', 'F']) _pill(t)],
+              children: [
+                for (final t in ['D', 'E', 'F']) _pill(t),
+              ],
             ),
           ],
         ),
@@ -217,7 +233,9 @@ void main() {
       _app(
         child: StackedBadges(
           tooltip: '规格 ×3（点按展开）',
-          children: [for (final t in ['A', 'B', 'C']) _pill(t)],
+          children: [
+            for (final t in ['A', 'B', 'C']) _pill(t),
+          ],
         ),
       ),
     );

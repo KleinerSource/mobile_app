@@ -5,10 +5,13 @@ import '../../core/models/translation_config.dart';
 import 'translation_repository.dart';
 
 final translationRepositoryProvider = Provider<TranslationRepository>((ref) {
-  return TranslationRepository(ref.watch(requiredApiClientProvider).translation);
+  return TranslationRepository(
+    ref.watch(requiredApiClientProvider).translation,
+  );
 });
 
-final translationConfigProvider =
-    FutureProvider<TranslationConfig>((ref) async {
+final translationConfigProvider = FutureProvider<TranslationConfig>((
+  ref,
+) async {
   return ref.watch(translationRepositoryProvider).getConfig();
 });

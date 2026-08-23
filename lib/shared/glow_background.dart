@@ -17,10 +17,7 @@ class GlowBackground extends StatelessWidget {
     return FrostedBase(
       child: Stack(
         fit: StackFit.expand,
-        children: [
-          const FrostedScrim(),
-          child,
-        ],
+        children: [const FrostedScrim(), child],
       ),
     );
   }

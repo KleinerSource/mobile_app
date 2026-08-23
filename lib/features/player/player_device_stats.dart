@@ -53,9 +53,7 @@ class PlayerDeviceStats {
       batteryPercent: _asInt(map['battery_percent']),
       downloadBytesPerSecond: _asInt(map['download_bps']),
       uploadBytesPerSecond: _asInt(map['upload_bps']),
-      networkType: PlayerNetworkType.fromValue(
-        map['network_type']?.toString(),
-      ),
+      networkType: PlayerNetworkType.fromValue(map['network_type']?.toString()),
     );
   }
 
