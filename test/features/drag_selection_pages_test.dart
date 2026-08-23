@@ -144,7 +144,7 @@ void main() {
     // 拖过按钮区继续拉长默认磁贴，越过阈值提交移除。
     await tester.timedDrag(
       find.byType(SwipeActionCell).first,
-      const Offset(-320, 0),
+      const Offset(-700, 0),
       const Duration(milliseconds: 250),
     );
     await tester.pumpAndSettle();
@@ -167,7 +167,7 @@ void main() {
     // 拖过按钮区继续拉长默认磁贴（收藏），越过阈值提交执行。
     await tester.timedDrag(
       find.byType(SwipeActionCell).first,
-      const Offset(-320, 0),
+      const Offset(-700, 0),
       const Duration(milliseconds: 250),
     );
     await tester.pumpAndSettle();

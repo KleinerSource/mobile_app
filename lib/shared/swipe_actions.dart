@@ -30,7 +30,9 @@ class SwipeActionData {
 /// - [actions] 为空或 [enabled] 为 false 时禁用滑动
 /// - iOS 风格双逻辑（无甩动速度触发）：拖开可点磁贴执行；无论一次拖到还是
 ///   展开后另起手势继续左滑，[fullSwipeIndex] 对应的默认磁贴都会随手指
-///   拉长铺满腾出的空间，拖过阈值后磁贴以弹簧铺满整行、执行默认操作并回弹
+///   拉长铺满腾出的空间。提交只发生在松手且整体拖拽进度超过行宽 80%
+///   （[_commitFraction] 语义）时——拖过头可原路滑回撤销，不会中途生效；
+///   松手提交后磁贴以弹簧铺满整行、执行默认操作并回弹
 /// - 操作磁贴相连成一个整块，按 [actionBorderRadius] 倒角：
 ///   分组容器内的行传零（外层容器统一裁剪）；连排分页列表首行只圆上角、
 ///   末行只圆下角（与行本身的圆角一致，避免磁贴顶出行轮廓）
@@ -67,9 +69,6 @@ class _SwipeActionCellState extends State<SwipeActionCell>
     with TickerProviderStateMixin {
   static const _actionWidth = 78.0;
 
-  /// 拖过完整展开后再拖多少像素触发默认操作。
-  static const _fullSwipeTriggerExtent = 44.0;
-
   /// 手指跟踪：高刚度小过冲，感觉是 1:1 跟手但带一点弹性。
   static const _trackSpring = SpringDescription(
     mass: 1,
@@ -103,6 +102,9 @@ class _SwipeActionCellState extends State<SwipeActionCell>
     upperBound: double.infinity,
   );
 
+  /// 提交阈值：拖拽整体进度（相对整行宽度）超过该比例，松手才执行默认操作。
+  static const _commitFraction = 0.8;
+
   /// 正在执行拉长直触的提交流程（填充 → 执行 → 收起）。
   bool _committing = false;
 
@@ -115,10 +117,10 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   /// 松手速度（进度/秒），续接到吸附弹簧。
   double _springVelocity = 0;
 
-  double get _openExtent => widget.actions.length * _actionWidth;
+  /// 行宽（build 时由 LayoutBuilder 更新），换算 80% 提交阈值用。
+  double _rowWidth = 0;
 
-  double get _triggerValue =>
-      (_openExtent + _fullSwipeTriggerExtent) / _openExtent;
+  double get _openExtent => widget.actions.length * _actionWidth;
 
   bool get _isOpen => widget.group.value == widget.cellKey;
 
@@ -126,7 +128,15 @@ class _SwipeActionCellState extends State<SwipeActionCell>
       widget.fullSwipeIndex != null &&
       widget.fullSwipeIndex! < widget.actions.length;
 
-  double get _maxDragValue => _hasFullSwipeAction ? _triggerValue : 1.0;
+  /// 可拖至整行宽度；超过按钮区的部分由默认磁贴拉长补齐。
+  double get _maxDragValue =>
+      _hasFullSwipeAction && _rowWidth > 0 ? _rowWidth / _openExtent : 1.0;
+
+  /// 松手时的提交判定：整体拖拽进度达到行宽的 [_commitFraction]。
+  bool get _shouldCommit =>
+      _hasFullSwipeAction &&
+      _rowWidth > 0 &&
+      _target * _openExtent >= _commitFraction * _rowWidth;
 
   @override
   void initState() {
@@ -187,18 +197,20 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   void _handleDragUpdate(DragUpdateDetails details) {
     if (_committing) return;
     // 手指向左 (delta.dx < 0) 展开操作，向右收起；超过完整展开的部分
-    // 由默认磁贴拉长补齐，拖过 [_fullSwipeTriggerExtent] 像素提交执行。
+    // 由默认磁贴拉长补齐。拖动过程不执行任何操作——是否提交只看松手
+    // 时的整体进度，拖过头可以原路滑回撤销。
     final step = -details.delta.dx / _openExtent;
     _target = (_target + step).clamp(0.0, _maxDragValue);
-    if (_hasFullSwipeAction && _target >= _triggerValue) {
-      _commitFullSwipe();
-      return;
-    }
     _springTo(_target, spring: _trackSpring);
   }
 
   void _handleDragEnd(DragEndDetails details) {
     if (_committing) return;
+    // 整体进度超过行宽 80% 才提交默认操作，避免刚拖开按钮就生效。
+    if (_shouldCommit) {
+      _commitFullSwipe();
+      return;
+    }
     final velocityPx = details.primaryVelocity ?? 0;
     _springVelocity = velocityPx / _openExtent;
     final open = velocityPx.abs() > 350
@@ -242,6 +254,7 @@ class _SwipeActionCellState extends State<SwipeActionCell>
           return LayoutBuilder(
             builder: (context, constraints) {
               final rowWidth = constraints.maxWidth;
+              _rowWidth = rowWidth;
               final value = _controller.value;
               final reveal = value.clamp(0.0, 1.0);
               // 超过完整展开的部分由默认磁贴 1:1 拉长补齐。
