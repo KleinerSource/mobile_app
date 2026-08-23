@@ -206,6 +206,30 @@ class AppL10nZh extends AppL10n {
   String get searchNoResult => '没有找到相关内容';
 
   @override
+  String get searchModeTitle => '影片';
+
+  @override
+  String get searchModeNum => '番号';
+
+  @override
+  String get searchModeActor => '演员';
+
+  @override
+  String get searchModeFilename => '文件名';
+
+  @override
+  String get searchPlaceholderTitle => '搜索影片标题...';
+
+  @override
+  String get searchPlaceholderNum => '搜索番号...';
+
+  @override
+  String get searchPlaceholderActor => '搜索演员...';
+
+  @override
+  String get searchPlaceholderFilename => '搜索文件名...';
+
+  @override
   String get detailPlay => '播放';
 
   @override

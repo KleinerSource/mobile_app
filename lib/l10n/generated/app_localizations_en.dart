@@ -206,6 +206,30 @@ class AppL10nEn extends AppL10n {
   String get searchNoResult => 'No matching content';
 
   @override
+  String get searchModeTitle => 'Movies';
+
+  @override
+  String get searchModeNum => 'Code';
+
+  @override
+  String get searchModeActor => 'Actor';
+
+  @override
+  String get searchModeFilename => 'Filename';
+
+  @override
+  String get searchPlaceholderTitle => 'Search movie titles...';
+
+  @override
+  String get searchPlaceholderNum => 'Search codes...';
+
+  @override
+  String get searchPlaceholderActor => 'Search actors...';
+
+  @override
+  String get searchPlaceholderFilename => 'Search filenames...';
+
+  @override
   String get detailPlay => 'Play';
 
   @override

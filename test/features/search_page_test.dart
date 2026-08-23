@@ -72,4 +72,63 @@ void main() {
     expect(find.text('新结果'), findsWidgets);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
+
+  testWidgets('搜索框可以切换影片、番号、演员和文件名类型', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
+    String? searchType;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          searchType = options.queryParameters['search_type']?.toString();
+          handler.resolve(
+            Response<dynamic>(
+              requestOptions: options,
+              data: {
+                'success': true,
+                'data': {
+                  'items': [
+                    {'id': 1, 'title': '演员结果'},
+                  ],
+                  'total_count': 1,
+                  'limit': 60,
+                  'offset': 0,
+                },
+              },
+            ),
+          );
+        },
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          requiredApiClientProvider.overrideWithValue(ApiClient(dio)),
+          sharedPrefsProvider.overrideWithValue(preferences),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: Scaffold(body: SearchPage()),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('影片').first);
+    await tester.pumpAndSettle();
+    expect(find.text('番号'), findsOneWidget);
+    expect(find.text('演员'), findsOneWidget);
+    expect(find.text('文件名'), findsOneWidget);
+    await tester.tap(find.text('演员'));
+
+    await tester.enterText(find.byType(TextField), '演员甲');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    expect(searchType, 'actor');
+    expect(find.text('演员结果'), findsWidgets);
+  });
 }

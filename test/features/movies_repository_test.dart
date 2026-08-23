@@ -152,6 +152,24 @@ void main() {
     });
   });
 
+  test('影片搜索支持四种搜索类型', () {
+    const expected = {
+      MovieSearchType.title: 'title',
+      MovieSearchType.num: 'num',
+      MovieSearchType.actor: 'actor',
+      MovieSearchType.filename: 'filename',
+    };
+
+    for (final entry in expected.entries) {
+      final query = MovieFilter(
+        search: '关键词',
+        searchType: entry.key,
+      ).toQuery(limit: 20, offset: 0);
+      expect(query['search'], '关键词');
+      expect(query['search_type'], entry.value);
+    }
+  });
+
   test('关闭新资源筛选会清除当前状态', () {
     const filter = MovieFilter(hasNewResources: true);
 

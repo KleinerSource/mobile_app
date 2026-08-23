@@ -1,9 +1,21 @@
 import 'package:flutter/foundation.dart';
 
+enum MovieSearchType { title, num, actor, filename }
+
+extension MovieSearchTypeQuery on MovieSearchType {
+  String get queryValue => switch (this) {
+    MovieSearchType.title => 'title',
+    MovieSearchType.num => 'num',
+    MovieSearchType.actor => 'actor',
+    MovieSearchType.filename => 'filename',
+  };
+}
+
 @immutable
 class MovieFilter {
   const MovieFilter({
     this.search,
+    this.searchType = MovieSearchType.title,
     this.tagIds = const [],
     this.excludeTagIds = const [],
     this.genreIds = const [],
@@ -27,6 +39,7 @@ class MovieFilter {
   });
 
   final String? search;
+  final MovieSearchType searchType;
   final List<int> tagIds;
   final List<int> excludeTagIds;
   final List<int> genreIds;
@@ -90,9 +103,12 @@ class MovieFilter {
     };
     if (search != null && search!.trim().isNotEmpty) {
       m['search'] = search!.trim();
+      m['search_type'] = searchType.queryValue;
     }
     if (tagIds.isNotEmpty) m['tag_ids'] = tagIds.join(',');
-    if (excludeTagIds.isNotEmpty) m['exclude_tag_ids'] = excludeTagIds.join(',');
+    if (excludeTagIds.isNotEmpty) {
+      m['exclude_tag_ids'] = excludeTagIds.join(',');
+    }
     if (genreIds.isNotEmpty) m['genre_ids'] = genreIds.join(',');
     if (excludeGenreIds.isNotEmpty) {
       m['exclude_genre_ids'] = excludeGenreIds.join(',');
@@ -130,6 +146,7 @@ class MovieFilter {
 
     if (search != null && search!.trim().isNotEmpty) {
       m['search'] = search!.trim();
+      m['search_type'] = searchType.queryValue;
     }
     addList('tag_ids', tagIds);
     addList('exclude_tag_ids', excludeTagIds);
@@ -158,6 +175,7 @@ class MovieFilter {
 
   MovieFilter copyWith({
     String? search,
+    MovieSearchType? searchType,
     List<int>? tagIds,
     List<int>? excludeTagIds,
     List<int>? genreIds,
@@ -192,6 +210,7 @@ class MovieFilter {
   }) {
     return MovieFilter(
       search: search ?? this.search,
+      searchType: searchType ?? this.searchType,
       tagIds: tagIds ?? this.tagIds,
       excludeTagIds: excludeTagIds ?? this.excludeTagIds,
       genreIds: genreIds ?? this.genreIds,
@@ -228,6 +247,7 @@ class MovieFilter {
     if (identical(this, other)) return true;
     return other is MovieFilter &&
         other.search == search &&
+        other.searchType == searchType &&
         listEquals(other.tagIds, tagIds) &&
         listEquals(other.excludeTagIds, excludeTagIds) &&
         listEquals(other.genreIds, genreIds) &&
@@ -252,26 +272,27 @@ class MovieFilter {
 
   @override
   int get hashCode => Object.hashAll([
-        search,
-        Object.hashAll(tagIds),
-        Object.hashAll(excludeTagIds),
-        Object.hashAll(genreIds),
-        Object.hashAll(excludeGenreIds),
-        Object.hashAll(seriesIds),
-        Object.hashAll(actorIds),
-        directoryId,
-        libraryId,
-        yearFrom,
-        yearTo,
-        ratingFrom,
-        ratingTo,
-        hasExternalSubtitle,
-        excludeHasExternalSubtitle,
-        fileFilterMode,
-        isUpdated,
-        hasNewResources,
-        duplicateNum,
-        sortBy,
-        sortOrder,
-      ]);
+    search,
+    searchType,
+    Object.hashAll(tagIds),
+    Object.hashAll(excludeTagIds),
+    Object.hashAll(genreIds),
+    Object.hashAll(excludeGenreIds),
+    Object.hashAll(seriesIds),
+    Object.hashAll(actorIds),
+    directoryId,
+    libraryId,
+    yearFrom,
+    yearTo,
+    ratingFrom,
+    ratingTo,
+    hasExternalSubtitle,
+    excludeHasExternalSubtitle,
+    fileFilterMode,
+    isUpdated,
+    hasNewResources,
+    duplicateNum,
+    sortBy,
+    sortOrder,
+  ]);
 }

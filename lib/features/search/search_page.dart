@@ -28,6 +28,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   final _controller = TextEditingController();
   Timer? _debounce;
   String _query = '';
+  MovieSearchType _searchType = MovieSearchType.title;
 
   @override
   void dispose() {
@@ -82,13 +83,22 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   children: [
                     const SizedBox(width: 14),
                     Icon(Icons.search, size: 18, color: c.muted),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 4),
+                    _SearchTypeMenu(
+                      value: _searchType,
+                      onChanged: (type) {
+                        setState(() => _searchType = type);
+                      },
+                    ),
+                    const SizedBox(width: 4),
                     Expanded(
                       child: TextField(
                         controller: _controller,
                         autofocus: true,
                         decoration: InputDecoration(
-                          hintText: AppL10n.of(context).searchHintAll,
+                          hintText: _searchType.placeholder(
+                            AppL10n.of(context),
+                          ),
                           hintStyle: TextStyle(
                             color: c.muted,
                             fontWeight: FontWeight.w500,
@@ -122,10 +132,68 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             Expanded(
               child: _query.isEmpty
                   ? _EmptyHint()
-                  : _SearchResults(key: ValueKey(_query), query: _query),
+                  : _SearchResults(
+                      key: ValueKey('${_searchType.queryValue}:$_query'),
+                      query: _query,
+                      searchType: _searchType,
+                    ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+extension on MovieSearchType {
+  String label(AppL10n l) => switch (this) {
+    MovieSearchType.title => l.searchModeTitle,
+    MovieSearchType.num => l.searchModeNum,
+    MovieSearchType.actor => l.searchModeActor,
+    MovieSearchType.filename => l.searchModeFilename,
+  };
+
+  String placeholder(AppL10n l) => switch (this) {
+    MovieSearchType.title => l.searchPlaceholderTitle,
+    MovieSearchType.num => l.searchPlaceholderNum,
+    MovieSearchType.actor => l.searchPlaceholderActor,
+    MovieSearchType.filename => l.searchPlaceholderFilename,
+  };
+}
+
+class _SearchTypeMenu extends StatelessWidget {
+  const _SearchTypeMenu({required this.value, required this.onChanged});
+
+  final MovieSearchType value;
+  final ValueChanged<MovieSearchType> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final l = AppL10n.of(context);
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<MovieSearchType>(
+        value: value,
+        isDense: true,
+        icon: Icon(Icons.expand_more, size: 16, color: c.muted),
+        dropdownColor: c.surface,
+        borderRadius: BorderRadius.circular(12),
+        style: TextStyle(
+          color: c.text,
+          fontWeight: FontWeight.w700,
+          fontSize: 13,
+        ),
+        items: MovieSearchType.values
+            .map(
+              (type) => DropdownMenuItem<MovieSearchType>(
+                value: type,
+                child: Text(type.label(l)),
+              ),
+            )
+            .toList(),
+        onChanged: (type) {
+          if (type != null && type != value) onChanged(type);
+        },
       ),
     );
   }
@@ -154,8 +222,13 @@ class _EmptyHint extends StatelessWidget {
 }
 
 class _SearchResults extends ConsumerStatefulWidget {
-  const _SearchResults({super.key, required this.query});
+  const _SearchResults({
+    super.key,
+    required this.query,
+    required this.searchType,
+  });
   final String query;
+  final MovieSearchType searchType;
 
   @override
   ConsumerState<_SearchResults> createState() => _SearchResultsState();
@@ -198,6 +271,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
           .list(
             MovieFilter(
               search: widget.query,
+              searchType: widget.searchType,
               sortBy: 'created_at',
               sortOrder: 'desc',
             ),
@@ -214,6 +288,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
           .list(
             MovieFilter(
               search: widget.query,
+              searchType: widget.searchType,
               sortBy: 'created_at',
               sortOrder: 'desc',
             ),

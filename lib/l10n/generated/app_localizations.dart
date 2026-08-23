@@ -463,6 +463,54 @@ abstract class AppL10n {
   /// **'没有找到相关内容'**
   String get searchNoResult;
 
+  /// No description provided for @searchModeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'影片'**
+  String get searchModeTitle;
+
+  /// No description provided for @searchModeNum.
+  ///
+  /// In zh, this message translates to:
+  /// **'番号'**
+  String get searchModeNum;
+
+  /// No description provided for @searchModeActor.
+  ///
+  /// In zh, this message translates to:
+  /// **'演员'**
+  String get searchModeActor;
+
+  /// No description provided for @searchModeFilename.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件名'**
+  String get searchModeFilename;
+
+  /// No description provided for @searchPlaceholderTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索影片标题...'**
+  String get searchPlaceholderTitle;
+
+  /// No description provided for @searchPlaceholderNum.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索番号...'**
+  String get searchPlaceholderNum;
+
+  /// No description provided for @searchPlaceholderActor.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索演员...'**
+  String get searchPlaceholderActor;
+
+  /// No description provided for @searchPlaceholderFilename.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索文件名...'**
+  String get searchPlaceholderFilename;
+
   /// No description provided for @detailPlay.
   ///
   /// In zh, this message translates to:
