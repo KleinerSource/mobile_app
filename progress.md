@@ -29,3 +29,20 @@
 - `flutter test`：通过，`312` 项全部通过。
 - `git diff --check`：通过。
 - `dart format --output=none --set-exit-if-changed test/features/drag_selection_pages_test.dart`：通过。
+
+## 2026-08-23
+
+- 开始实施 iOS 16+ 列表滑动菜单重构。
+- 已读取并遵循 `apple-design` 与 `planning-with-files` 技能。
+- 已运行会话恢复检查；现有规划文件属于历史任务，本次只追加独立章节。
+- 已确认工作区仅有未跟踪 `.codegraph/`，将只读使用并保留不动。
+- 已用 CodeGraph 核对 `SwipeActionCell` 当前实现、共享测试和调用影响范围，共有 15 个生产调用点。
+- 已读取组件与测试的完整当前源码；确认需要移除 `_fill`、`fullSwipeIndex`、350/1000/55% 分支，并改为单像素位移控制器、三落点投影和松手提交。
+- 已完成 `SwipeActionCell` 单控制器状态机初版，并根据首次编译反馈补齐手势/语义类型导入。
+- 原有 7 项共享滑动测试现已全部通过，单文件静态分析通过。
+- 共享滑动测试已扩充至 22 项并全部通过，新增覆盖首段位移、纵向竞争、三落点投影、松手提交、全滑连续推进、多动作顺序、禁用全滑、动画反抓、点击拦截、同组切换、禁用/actions/group 更新、减少动态效果和辅助功能动作。
+- `flutter test test/features/drag_selection_pages_test.dart`：8 项全部通过。
+- `flutter analyze`：通过，`No issues found!`。
+- 两个改动 Dart 文件格式检查通过，`git diff --check` 通过。
+- 完整 `flutter test`：355 项全部通过。
+- 最终 `flutter analyze`、格式、`git diff --check` 均通过；未修改业务页面或 `.codegraph/`。

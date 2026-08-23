@@ -41,3 +41,17 @@
 - 断言为 `Expected: no matching candidates`，实际发现 1 个带 key `1` 的 widget；因此更像是测试/实现行为回归，而非平台编译差异。
 - 根因确认：`lib/core/api/services/favorites_api.dart` 与生成文件已使用 `POST /favorites/delete`；`test/features/drag_selection_pages_test.dart` 的 `_fakeResponse` 仍只处理 `POST /favorites/batch-delete`，导致删除请求被 fake Dio 拒绝，`_removeOne` 捕获异常后保留列表项。
 - 修复策略：只更新测试 fake endpoint，不改变已经与后端统一接口的生产 API。
+
+## 当前任务：iOS 16+ 列表滑动菜单重构
+
+- 目标组件是 `lib/shared/swipe_actions.dart` 中的 `SwipeActionCell`，被影片、收藏、演员、资源、音频、映射、媒体库和服务器列表共享。
+- Apple 公开契约：全滑默认开启并执行动作列表的第一个动作；动作按声明顺序从滑动起始边缘排列，因此 `actions.first` 必须最靠近尾缘。
+- 当前实现存在结构性问题：越过 55% 在手指未松开时即提交；快速全滑阶段视觉冻结；多动作时第一个动作不在尾缘；普通吸附动画和手势取消缺少完整的可中断状态管理。
+- 实现采用单一像素位移、`0.998` 速度投影和三个落点（收起/展开/整行），避免继续叠加离散速度阈值。
+- CodeGraph 确认 `SwipeActionCell` 有 15 个生产调用点；共享测试是主要直接覆盖，页面级 `drag_selection_pages_test.dart` 提供业务回归。
+- 所有调用方都未显式传入 `fullSwipeIndex`，因此将接口收敛为 `allowsFullSwipe` 不需要迁移业务页面参数。
+- 多动作普通展开应按 `actions.reversed` 排列，使 `actions.first` 位于行尾缘；全滑阶段按进度压缩其余动作宽度，并让首动作接管剩余宽度，直至整行。
+- `DragStartBehavior.down` 配合 `globalPosition` 起点可把手势竞技场判定前的初始位移计入累计拖动；动画中途开始手势时从控制器当前像素值接续。
+- 减少动态效果时使用短促无回弹 `animateTo`；常规吸附使用 `mass: 1, stiffness: 440, damping: 42` 的近临界阻尼弹簧。
+- 当前 Flutter SDK 的 `CustomSemanticsAction` 定义在 `package:flutter/semantics.dart`，`DragStartBehavior` 定义在 `package:flutter/gestures.dart`；`material.dart` 不转出这两个符号。
+- 全仓库未发现显式 `fullSwipeIndex` 调用，生产调用点无需业务迁移；新增接口只需共享组件测试覆盖 `allowsFullSwipe`。

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/physics.dart';
+import 'package:flutter/semantics.dart';
 
 import '../core/platform/app_haptics.dart';
 
@@ -23,20 +25,9 @@ class SwipeActionData {
 
 /// 列表行左滑展开操作，操作按钮贴右缘排在卡片下方。
 ///
-/// - 拖动期间 1:1 直接跟手（direct manipulation）；弹簧物理（果冻手感）
-///   用于松手后的展开/收起吸附、快甩飞行与提交铺满，松手速度会续接到弹簧
-/// - 同一 [group] 内同时只展开一行；滚动、进入多选或操作失效时由调用方置空收起
-/// - 展开状态下点击卡片本体只收起，不穿透到卡片内部点击
-/// - [actions] 为空或 [enabled] 为 false 时禁用滑动
-/// - iOS 原生触发语义（[fullSwipeIndex] 指定默认操作）：
-///   · 慢拖：拖开按钮后继续拖，默认磁贴随手指拉长铺满腾出的空间，
-///     拖过提交点（不低于按钮区+44px，也不低于行宽的 55%）立即执行
-///     ——未过提交点前随时滑回即撤销；
-///   · 快甩：松手左向速度足够时带惯性飞到满宽并执行（原生整行滑动）；
-///   · 松手未达提交点：按位移/速度正常吸附展开或收起
-/// - 操作磁贴相连成一个整块，按 [actionBorderRadius] 倒角：
-///   分组容器内的行传零（外层容器统一裁剪）；连排分页列表首行只圆上角、
-///   末行只圆下角（与行本身的圆角一致，避免磁贴顶出行轮廓）
+/// 位移始终由一个像素控制器表示：拖动直接修改当前值，松手后用速度投影
+/// 在收起、按钮区展开和整行三个落点中选择目标。整行提交固定执行
+/// [actions.first]，与 iOS 列表滑动操作的默认语义一致。
 class SwipeActionCell extends StatefulWidget {
   const SwipeActionCell({
     super.key,
@@ -46,7 +37,7 @@ class SwipeActionCell extends StatefulWidget {
     required this.enabled,
     required this.child,
     this.actionBorderRadius = BorderRadius.zero,
-    this.fullSwipeIndex = 0,
+    this.allowsFullSwipe = true,
   });
 
   final SwipeActionGroup group;
@@ -58,95 +49,52 @@ class SwipeActionCell extends StatefulWidget {
   /// 操作整块的圆角，应与所在行的可见圆角一致。
   final BorderRadius actionBorderRadius;
 
-  /// 滑到头拉长执行的默认操作下标（从 0 起）。
-  /// 多按钮列表需按列表语义单独指定；传 null 关闭拉长直触。
-  final int? fullSwipeIndex;
+  /// 是否允许继续左滑至整行并执行 [actions.first]。
+  final bool allowsFullSwipe;
 
   @override
   State<SwipeActionCell> createState() => _SwipeActionCellState();
 }
 
+enum _SwipeState { closed, dragging, open, committing }
+
 class _SwipeActionCellState extends State<SwipeActionCell>
     with TickerProviderStateMixin {
   static const _actionWidth = 78.0;
-
-  /// 展开/收起吸附：轻回弹的果冻感。
+  static const _decelerationRate = 0.998;
   static const _settleSpring = SpringDescription(
     mass: 1,
-    stiffness: 340,
-    damping: 26,
+    stiffness: 440,
+    damping: 42,
   );
+  static const _reducedMotionDuration = Duration(milliseconds: 90);
 
-  /// 提交铺满：更明显的果冻过冲。
-  static const _fillSpring = SpringDescription(
-    mass: 1,
-    stiffness: 180,
-    damping: 16,
-  );
-
-  /// 进度：0 收起，1 完整展开，>1 为默认磁贴的拉长量（可超 1 表达弹性）。
-  late final AnimationController _controller = AnimationController(
+  late final AnimationController _offset = AnimationController(
     vsync: this,
     upperBound: double.infinity,
   );
 
-  /// 提交阶段默认磁贴从当前宽度铺满整行的补间（弹簧驱动）。
-  late final AnimationController _fill = AnimationController(
-    vsync: this,
-    upperBound: double.infinity,
-  );
-
-  /// 快甩触发：松手左向速度不超过该值 (px/s) 时带惯性飞到满宽并执行，
-  /// 对应 iOS 原生"快速整行滑动直接执行默认操作"。
-  static const _flingVelocity = -1000;
-
-  /// 慢拖提交的保底触发距离：按钮区完全展开后再拖 44px。
-  static const _fullSwipeTriggerExtent = 44.0;
-
-  /// 慢拖提交距离占行宽的比例。整行宽度从行中部起拖物理上不可达
-  /// （手指到屏幕边缘就没了），取 55% 保证大多数起拖位置都能触发；
-  /// 更短的距离靠快甩触发。
-  static const _commitDragFraction = 0.55;
-
-  /// 正在执行拉长直触的提交流程（填充 → 执行 → 收起）。
-  bool _committing = false;
-
-  /// 触发提交时默认磁贴已被拉长的像素，填充动画从这里继续铺满。
-  double _commitExtra = 0;
-
-  /// 手指目标进度（按累计位移维护，独立于带弹性的视觉进度）。
-  double _target = 0;
-
-  /// 松手速度（进度/秒，进度增大为正），续接到吸附弹簧。
-  double _springVelocity = 0;
-
-  /// 行宽（build 时由 LayoutBuilder 更新），换算提交触发距离用。
+  _SwipeState _state = _SwipeState.closed;
   double _rowWidth = 0;
+  double _dragStartX = 0;
+  double _dragStartOffset = 0;
+  bool _preparedFullSwipe = false;
+  bool _didPrepareHaptic = false;
+  int _animationGeneration = 0;
 
-  double get _openExtent => widget.actions.length * _actionWidth;
+  double get _actionExtent => widget.actions.length * _actionWidth;
 
-  bool get _isOpen => widget.group.value == widget.cellKey;
+  bool get _canSwipe => widget.enabled && widget.actions.isNotEmpty;
 
-  bool get _hasFullSwipeAction =>
-      widget.fullSwipeIndex != null &&
-      widget.fullSwipeIndex! < widget.actions.length;
+  bool get _hasFullSwipe => widget.allowsFullSwipe && _rowWidth > _actionExtent;
 
-  /// 可拖至整行宽度；超过按钮区的部分由默认磁贴拉长补齐。
-  double get _maxDragValue =>
-      _hasFullSwipeAction && _rowWidth > 0 ? _rowWidth / _openExtent : 1.0;
+  double get _maxOffset => _hasFullSwipe ? _rowWidth : _actionExtent;
 
-  /// 慢拖提交触发距离（px）：不低于保底距离，也不低于行宽的 55%。
-  double get _commitDragPx {
-    final floor = _openExtent + _fullSwipeTriggerExtent;
-    final fractional = _rowWidth * _commitDragFraction;
-    return fractional > floor ? fractional : floor;
-  }
+  double get _fullSwipeThreshold =>
+      _actionExtent + (_rowWidth - _actionExtent) / 2;
 
-  /// 拖拽距离是否已过提交点（磁贴拉长越点即触发，iOS 原生语义）。
-  bool get _reachedFullSwipe =>
-      _hasFullSwipeAction &&
-      _rowWidth > 0 &&
-      _target * _openExtent >= _commitDragPx;
+  bool get _reduceMotion =>
+      MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
   @override
   void initState() {
@@ -157,245 +105,414 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   @override
   void didUpdateWidget(covariant SwipeActionCell oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!widget.enabled && _isOpen) widget.group.value = null;
+
+    if (oldWidget.group != widget.group) {
+      oldWidget.group.removeListener(_handleGroupChange);
+      if (oldWidget.group.value == oldWidget.cellKey) {
+        oldWidget.group.value = null;
+      }
+      widget.group.addListener(_handleGroupChange);
+      if (widget.group.value == widget.cellKey) {
+        widget.group.value = null;
+      }
+      _collapseImmediately();
+    }
+
+    final mustClose =
+        oldWidget.cellKey != widget.cellKey ||
+        _actionsChanged(oldWidget.actions, widget.actions) ||
+        oldWidget.allowsFullSwipe != widget.allowsFullSwipe ||
+        !widget.enabled ||
+        widget.actions.isEmpty;
+    if (mustClose) {
+      if (widget.group.value == widget.cellKey) widget.group.value = null;
+      _collapseImmediately();
+    }
   }
 
   @override
   void dispose() {
     widget.group.removeListener(_handleGroupChange);
-    _controller.dispose();
-    _fill.dispose();
+    _stopAnimation();
+    _offset.dispose();
     super.dispose();
   }
 
-  void _springTo(
-    double target, {
-    SpringDescription spring = _settleSpring,
-    double velocity = 0,
-  }) {
-    _controller.animateWith(
-      SpringSimulation(spring, _controller.value, target, velocity),
-    );
+  bool _actionsChanged(
+    List<SwipeActionData> previous,
+    List<SwipeActionData> next,
+  ) {
+    if (previous.length != next.length) return true;
+    for (var i = 0; i < previous.length; i++) {
+      final oldAction = previous[i];
+      final newAction = next[i];
+      if (oldAction.icon != newAction.icon ||
+          oldAction.label != newAction.label ||
+          oldAction.color != newAction.color) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void _stopAnimation() {
+    _animationGeneration++;
+    if (_offset.isAnimating) _offset.stop(canceled: true);
+  }
+
+  void _collapseImmediately() {
+    _stopAnimation();
+    _state = _SwipeState.closed;
+    _preparedFullSwipe = false;
+    _didPrepareHaptic = false;
+    _offset.value = 0;
   }
 
   void _handleGroupChange() {
-    if (!mounted || _committing) return;
-    final target = _isOpen ? 1.0 : 0.0;
-    if (_isOpen || _controller.value > 0) {
-      _springTo(target, velocity: _springVelocity);
-    }
-    _springVelocity = 0;
-  }
-
-  void _setOpen(bool open) {
-    if (open) {
-      AppHaptics.selection();
-    }
-    // 行已是展开状态时再赋同一个 key，ValueNotifier 不会通知监听器，
-    // 吸附弹簧将无人启动——需直接吸附，否则卡在松手位置不回弹。
-    if (open && widget.group.value == widget.cellKey) {
-      _springTo(1.0, velocity: _springVelocity);
-      _springVelocity = 0;
+    if (!mounted || _state == _SwipeState.committing) return;
+    if (_state == _SwipeState.dragging &&
+        widget.group.value == widget.cellKey) {
       return;
     }
-    if (open) {
-      widget.group.value = widget.cellKey; // 监听器内吸附到 1
-    } else if (widget.group.value == widget.cellKey) {
-      widget.group.value = null; // 监听器内吸附到 0
-    } else {
-      _springTo(0, velocity: _springVelocity);
-      _springVelocity = 0;
+    final target = widget.group.value == widget.cellKey ? _actionExtent : 0.0;
+    if ((target - _offset.value).abs() < 0.01) {
+      _state = target == 0 ? _SwipeState.closed : _SwipeState.open;
+      return;
     }
+    _animateTo(target);
+  }
+
+  void _animateTo(
+    double target, {
+    double velocity = 0,
+    bool committing = false,
+  }) {
+    _stopAnimation();
+    final generation = _animationGeneration;
+    _state = committing
+        ? _SwipeState.committing
+        : target == 0
+        ? _SwipeState.closed
+        : target == _actionExtent
+        ? _SwipeState.open
+        : _state;
+
+    final animation = _reduceMotion
+        ? _offset.animateTo(
+            target,
+            duration: _reducedMotionDuration,
+            curve: Curves.easeOut,
+          )
+        : _offset.animateWith(
+            SpringSimulation(_settleSpring, _offset.value, target, velocity),
+          );
+    animation.orCancel.then<void>(
+      (_) {
+        if (!mounted || generation != _animationGeneration || committing) {
+          return;
+        }
+        _state = target == 0 ? _SwipeState.closed : _SwipeState.open;
+        if (target == 0 && widget.group.value == widget.cellKey) {
+          widget.group.value = null;
+        } else if (target == _actionExtent &&
+            widget.group.value != widget.cellKey) {
+          widget.group.value = widget.cellKey;
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (error is! TickerCanceled) {
+          Error.throwWithStackTrace(error, stackTrace);
+        }
+      },
+    );
   }
 
   void _handleDragStart(DragStartDetails details) {
-    if (_committing) return;
-    // 从当前状态续滑：已展开的行也能继续左滑拉长提交。
-    _target = _controller.value.clamp(0.0, 1.0);
+    if (!_canSwipe || _state == _SwipeState.committing) return;
+    _stopAnimation();
+    _state = _SwipeState.dragging;
+    _dragStartX = details.globalPosition.dx;
+    _dragStartOffset = _offset.value.clamp(0.0, _maxOffset);
+    _preparedFullSwipe = false;
+    _didPrepareHaptic = false;
+    if (widget.group.value != widget.cellKey) {
+      widget.group.value = widget.cellKey;
+    }
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
-    if (_committing) return;
-    // 手指向左 (delta.dx < 0) 展开操作，向右收起；超过完整展开的部分
-    // 由默认磁贴拉长补齐。拖过提交点那一刻立即提交——
-    // iOS 原生语义；未拖满前可随时滑回，不会执行任何操作。
-    // 拖动中直接赋值 1:1 跟手（direct manipulation），
-    // 弹簧只用于松手后的吸附/甩动与提交动画。
-    final step = -details.delta.dx / _openExtent;
-    _target = (_target + step).clamp(0.0, _maxDragValue);
-    if (_reachedFullSwipe) {
-      _commitFullSwipe();
-      return;
+    if (_state != _SwipeState.dragging) return;
+    final rawOffset =
+        _dragStartOffset - (details.globalPosition.dx - _dragStartX);
+    final next = rawOffset.clamp(0.0, _maxOffset).toDouble();
+    _offset.value = next;
+
+    final prepared = _hasFullSwipe && next >= _fullSwipeThreshold;
+    if (prepared && !_didPrepareHaptic) {
+      _didPrepareHaptic = true;
+      AppHaptics.selection();
     }
-    _controller.value = _target;
+    _preparedFullSwipe = prepared;
   }
 
   void _handleDragEnd(DragEndDetails details) {
-    if (_committing) return;
-    final velocityPx = details.primaryVelocity ?? 0;
-    // iOS 原生：快速整行左甩带惯性飞到满宽并执行默认操作。
-    if (_hasFullSwipeAction && velocityPx <= _flingVelocity) {
-      _flingFullSwipe(velocityPx);
+    if (_state != _SwipeState.dragging) return;
+    _finishDrag(-(details.primaryVelocity ?? 0));
+  }
+
+  void _handleDragCancel() {
+    if (_state != _SwipeState.dragging) return;
+    _finishDrag(0);
+  }
+
+  void _finishDrag(double openingVelocity) {
+    final projected =
+        _offset.value +
+        openingVelocity / 1000 * _decelerationRate / (1 - _decelerationRate);
+    final targets = <double>[0, _actionExtent];
+    if (_hasFullSwipe) targets.add(_rowWidth);
+
+    var target = targets.first;
+    if (_preparedFullSwipe && projected >= _fullSwipeThreshold) {
+      target = _rowWidth;
+    } else {
+      var distance = (projected - target).abs();
+      for (final candidate in targets.skip(1)) {
+        final candidateDistance = (projected - candidate).abs();
+        if (candidateDistance < distance) {
+          target = candidate;
+          distance = candidateDistance;
+        }
+      }
+    }
+    _preparedFullSwipe = false;
+
+    if (target == _rowWidth && _hasFullSwipe) {
+      _commitFullSwipe(openingVelocity);
       return;
     }
-    // 像素速度（左负右正）换算为进度速度：进度增大为正，故取反。
-    _springVelocity = -velocityPx / _openExtent;
-    final open = velocityPx.abs() > 350
-        ? velocityPx < 0
-        : _controller.value > 0.5 || _target > 0.5;
-    _setOpen(open);
+
+    if (target == 0 && widget.group.value == widget.cellKey) {
+      widget.group.value = null;
+    }
+    _animateTo(target, velocity: openingVelocity);
   }
 
-  /// 快甩提交：带松手速度飞到满宽后走提交流程。
-  void _flingFullSwipe(double velocityPx) {
-    if (_committing) return;
-    _committing = true;
-    _controller
-        .animateWith(
-          SpringSimulation(
-            _settleSpring,
-            _controller.value,
-            _rowWidth / _openExtent,
-            -velocityPx / _openExtent,
-          ),
-        )
-        .whenComplete(() {
-          if (!mounted) return;
-          _committing = false;
-          _commitFullSwipe();
-        });
-  }
-
-  /// 拉长提交：默认磁贴以弹簧铺满整行后执行操作，再带弹回收起。
-  void _commitFullSwipe() {
-    if (!_hasFullSwipeAction || _committing) return;
-    _committing = true;
-    _commitExtra =
-        (_controller.value - 1.0).clamp(0.0, double.infinity) * _openExtent;
-    if (_isOpen) widget.group.value = null;
+  Future<void> _commitFullSwipe(double openingVelocity) async {
+    if (!_hasFullSwipe || _state == _SwipeState.committing) return;
+    _state = _SwipeState.committing;
+    _stopAnimation();
+    if (widget.group.value == widget.cellKey) widget.group.value = null;
     AppHaptics.medium();
-    _fill.animateWith(SpringSimulation(_fillSpring, 0, 1, 0)).whenComplete(() {
-      if (!mounted) return;
-      widget.actions[widget.fullSwipeIndex!].onPressed();
-      _fill.animateWith(SpringSimulation(_settleSpring, 1, 0, 0));
-      _controller
-          .animateWith(SpringSimulation(_settleSpring, _controller.value, 0, 0))
-          .whenComplete(() {
-            if (mounted) _committing = false;
-          });
-    });
+
+    try {
+      final fill = _reduceMotion
+          ? _offset.animateTo(
+              _rowWidth,
+              duration: _reducedMotionDuration,
+              curve: Curves.easeOut,
+            )
+          : _offset.animateWith(
+              SpringSimulation(
+                _settleSpring,
+                _offset.value,
+                _rowWidth,
+                openingVelocity,
+              ),
+            );
+      await fill.orCancel;
+      if (!mounted || _state != _SwipeState.committing) return;
+
+      widget.actions.first.onPressed();
+      if (!mounted || _state != _SwipeState.committing) return;
+
+      final close = _reduceMotion
+          ? _offset.animateTo(
+              0,
+              duration: _reducedMotionDuration,
+              curve: Curves.easeOut,
+            )
+          : _offset.animateWith(
+              SpringSimulation(_settleSpring, _offset.value, 0, 0),
+            );
+      await close.orCancel;
+    } on TickerCanceled {
+      return;
+    } finally {
+      if (mounted && _state == _SwipeState.committing) {
+        _state = _SwipeState.closed;
+      }
+    }
+  }
+
+  void _close() {
+    if (_state == _SwipeState.committing) return;
+    if (widget.group.value == widget.cellKey) {
+      widget.group.value = null;
+    } else {
+      _animateTo(0);
+    }
+  }
+
+  void _performAction(int index) {
+    if (!_canSwipe ||
+        index < 0 ||
+        index >= widget.actions.length ||
+        _state == _SwipeState.committing) {
+      return;
+    }
+    AppHaptics.selection();
+    _close();
+    widget.actions[index].onPressed();
   }
 
   @override
   Widget build(BuildContext context) {
-    final enabled = widget.enabled && widget.actions.isNotEmpty;
-    return GestureDetector(
-      onHorizontalDragStart: enabled ? _handleDragStart : null,
-      onHorizontalDragUpdate: enabled ? _handleDragUpdate : null,
-      onHorizontalDragEnd: enabled ? _handleDragEnd : null,
-      onTap: enabled && _isOpen ? () => _setOpen(false) : null,
-      child: AnimatedBuilder(
-        animation: Listenable.merge([_controller, _fill]),
-        child: widget.child,
-        builder: (context, child) {
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final rowWidth = constraints.maxWidth;
-              _rowWidth = rowWidth;
-              final value = _controller.value;
-              final reveal = value.clamp(0.0, 1.0);
-              // 超过完整展开的部分由默认磁贴 1:1 拉长补齐。
-              final dragExtra = _hasFullSwipeAction
-                  ? (value - 1.0).clamp(0.0, double.infinity) * _openExtent
-                  : 0.0;
-              // 提交阶段：从触发时的宽度继续铺满整行（弹簧过冲被裁剪）。
-              final extra = _committing
-                  ? _commitExtra +
-                        _fill.value *
-                            (rowWidth - _actionWidth - _commitExtra).clamp(
-                              0.0,
-                              double.infinity,
-                            )
-                  : dragExtra;
-              final defaultWidth = _actionWidth + extra;
-              // 卡片随手指平移；按钮块钉在固定坐标系的 `行宽 - 平移量`
-              // 处——左缘恒等于卡片右缘，随卡片尾缘滑入，无定位换算。
-              // Stack 默认按行边界裁剪：收起时按钮在右边界外不可见，
-              // 也保证展开后按钮可正常命中（不会因越界被 hitTest 拦截）。
-              // Positioned 只约束 left/top/bottom，宽度无界，Row 取自然
-              // 宽度即可，拉长/弹簧过冲超出行宽也不会触发布局溢出。
-              final offsetPx = reveal * _openExtent + extra;
-              final actionRow = _buildActionRow(defaultWidth);
-              return Stack(
-                children: [
-                  Transform.translate(
-                    offset: Offset(-offsetPx, 0),
-                    child: AbsorbPointer(absorbing: _isOpen, child: child),
-                  ),
-                  if (value > 0.001 || _committing)
-                    Positioned(
-                      top: 0,
-                      bottom: 0,
-                      left: rowWidth - offsetPx,
-                      child: IgnorePointer(
-                        ignoring: !_committing && reveal < 0.99,
-                        child: widget.actionBorderRadius == BorderRadius.zero
-                            ? actionRow
-                            : ClipRRect(
-                                borderRadius: widget.actionBorderRadius,
-                                child: actionRow,
-                              ),
+    final semanticsActions = <CustomSemanticsAction, VoidCallback>{
+      if (_canSwipe)
+        for (var i = 0; i < widget.actions.length; i++)
+          CustomSemanticsAction(label: widget.actions[i].label): () =>
+              _performAction(i),
+    };
+
+    return Semantics(
+      customSemanticsActions: semanticsActions,
+      child: GestureDetector(
+        dragStartBehavior: DragStartBehavior.down,
+        onHorizontalDragStart: _canSwipe ? _handleDragStart : null,
+        onHorizontalDragUpdate: _canSwipe ? _handleDragUpdate : null,
+        onHorizontalDragEnd: _canSwipe ? _handleDragEnd : null,
+        onHorizontalDragCancel: _canSwipe ? _handleDragCancel : null,
+        child: AnimatedBuilder(
+          animation: _offset,
+          child: widget.child,
+          builder: (context, child) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                _rowWidth = constraints.maxWidth;
+                final offset = _offset.value.clamp(0.0, _maxOffset).toDouble();
+                final panelWidth = offset > _actionExtent
+                    ? offset
+                    : _actionExtent;
+                final rawActionLayer = _buildActionLayer(offset, panelWidth);
+                final actionLayer =
+                    widget.actionBorderRadius == BorderRadius.zero
+                    ? rawActionLayer
+                    : ClipRRect(
+                        borderRadius: widget.actionBorderRadius,
+                        child: rawActionLayer,
+                      );
+                final content = offset > 0.5
+                    ? GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _close,
+                        child: AbsorbPointer(child: child),
+                      )
+                    : child!;
+
+                return ClipRect(
+                  child: Stack(
+                    clipBehavior: Clip.hardEdge,
+                    children: [
+                      if (_canSwipe && offset > 0.001)
+                        Positioned(
+                          top: 0,
+                          bottom: 0,
+                          left: constraints.maxWidth - offset,
+                          width: panelWidth,
+                          child: actionLayer,
+                        ),
+                      Transform.translate(
+                        offset: Offset(-offset, 0),
+                        child: SizedBox(
+                          width: constraints.maxWidth,
+                          child: content,
+                        ),
                       ),
-                    ),
-                ],
-              );
-            },
-          );
-        },
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildActionRow(double defaultWidth) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < widget.actions.length; i++)
-          _buildAction(
-            i,
-            i == widget.fullSwipeIndex ? defaultWidth : _actionWidth,
-          ),
-      ],
+  Widget _buildActionLayer(double offset, double panelWidth) {
+    if (widget.actions.length == 1) {
+      return _buildAction(
+        0,
+        _actionWidth + (offset - _actionExtent).clamp(0.0, double.infinity),
+      );
+    }
+
+    final extra = (offset - _actionExtent).clamp(0.0, double.infinity);
+    final fullProgress = _rowWidth <= _actionExtent
+        ? 0.0
+        : (extra / (_rowWidth - _actionExtent)).clamp(0.0, 1.0);
+    final defaultWidth =
+        _actionWidth + extra + fullProgress * (_actionExtent - _actionWidth);
+    final fixedStart = offset > _actionExtent ? offset - _actionExtent : 0.0;
+    var cursor = fixedStart;
+    final children = <Widget>[];
+    for (var index = widget.actions.length - 1; index >= 1; index--) {
+      children.add(
+        Positioned(
+          left: cursor,
+          top: 0,
+          bottom: 0,
+          width: _actionWidth,
+          child: _buildAction(index, _actionWidth),
+        ),
+      );
+      cursor += _actionWidth;
+    }
+    children.add(
+      Positioned(
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: defaultWidth,
+        child: _buildAction(0, defaultWidth),
+      ),
+    );
+
+    return SizedBox(
+      width: panelWidth,
+      child: Stack(clipBehavior: Clip.hardEdge, children: children),
     );
   }
 
   Widget _buildAction(int index, double width) {
     final action = widget.actions[index];
-    return GestureDetector(
-      onTap: () {
-        AppHaptics.selection();
-        _setOpen(false);
-        action.onPressed();
-      },
-      child: Container(
-        width: width,
-        color: action.color,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(action.icon, size: 20, color: Colors.white),
-            const SizedBox(height: 4),
-            Text(
-              action.label,
-              maxLines: 1,
-              style: const TextStyle(
-                color: Colors.white,
-                fontFamily: 'Inter',
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
+    return IgnorePointer(
+      ignoring: _offset.value < _actionExtent - 0.5,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _performAction(index),
+        child: Container(
+          width: width,
+          color: action.color,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(action.icon, size: 20, color: Colors.white),
+              const SizedBox(height: 4),
+              Text(
+                action.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Inter',
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -45,3 +45,41 @@
 | 当前仓库没有 `.codegraph/` | 跳过 CodeGraph，使用仓库工具和文件检查 |
 | 测试假 API 仍匹配旧的 `/favorites/batch-delete` | 同步为实际客户端使用的 `/favorites/delete` |
 | 预期 workflow 文件名不存在 | 先列出 `.github/workflows`，改读实际的 `android-build.yml` 与 `ios-build.yml` |
+
+## 当前任务：iOS 16+ 列表滑动菜单重构
+
+### 目标
+
+重构共享 `SwipeActionCell`，让 iOS 与 Android 统一采用 iOS 16+ 的列表行滑动语义：直接跟手、速度投影、可中断吸附、松手提交、第一个动作位于尾缘并承担全滑。
+
+### 阶段
+
+- [x] 恢复会话并确认工作区状态
+- [x] 用 CodeGraph 核对当前实现、调用方与影响范围
+- [x] 重写滑动状态机和多动作布局
+- [x] 扩充共享组件测试
+- [x] 运行页面回归、格式化、静态分析和完整测试
+- [x] 检查最终差异并总结
+
+### 约束与决策
+
+- 仅修改列表行左滑交互，不修改 `GlassMenuAnchor`。
+- 两个平台共享同一套行为，不增加平台分支或第三方依赖。
+- 全滑默认开启且只执行 `actions.first`；动作按声明顺序从尾缘向内排列。
+- 手指按住期间不执行动作，越过临界点后允许回滑撤销。
+- 保留现有业务回调、颜色、动作宽度和圆角。
+
+### 当前错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| 工作区存在未跟踪 `.codegraph/` | 视为用户/环境数据，仅只读使用，不纳入本次差异 |
+| `$env:FLUTTER_ROOT` 未设置，无法按该路径检索 Flutter SDK 源码 | 采用项目编译器验证公开 API，不重复依赖该环境变量 |
+| 首次编译提示 `CustomSemanticsAction` 与 `DragStartBehavior` 未导入，且预备状态字段未读取 | 增加 `flutter/semantics.dart`、`flutter/gestures.dart` 导入，并将预备状态纳入松手决策 |
+| 首次 `apply_patch` 同时删除并新增同一路径被拒绝 | 拆成先删除、再新增的两个补丁后成功写入 |
+| 旧版“按钮贴尾缘”测试发现部分展开时按钮固定在屏幕尾缘、与内容尾缘重叠 18px | 动作层在部分展开阶段改为锚定内容当前尾缘，仍由行边界裁剪 |
+| 辅助功能测试首次将 `customAction` 直接调用在 `WidgetTester` | 按当前 Flutter API 改为 `tester.semantics.customAction` |
+| `SemanticsController.customAction` 不接收普通 widget Finder | 改用 `find.semantics.byLabel` 定位合并后的语义节点 |
+| 多动作布局测试首次拖动速度使投影直接选择整行，布局已在断言前收起 | 延长普通展开拖动时间，使该阶段明确落在动作区落点 |
+| 语义句柄用 `addTearDown` 释放晚于框架句柄校验 | 在测试末尾显式调用 `SemanticsHandle.dispose()` |
+| 反向速度测试受测试手势最后采样速度和竞技场时序影响，可能落在普通展开落点 | 断言核心契约为不提交，同时允许普通展开落点保留 |
