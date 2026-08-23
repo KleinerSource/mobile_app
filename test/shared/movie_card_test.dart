@@ -181,4 +181,19 @@ void main() {
     expect(badgeColor(), const Color(0xFF2D6CDF));
     expect(find.text('UHD'), findsNothing);
   });
+
+  testWidgets('外挂字幕与 AI 字幕同时存在时徽章正常堆叠', (tester) async {
+    await tester.pumpWidget(await wrap(MovieCard(
+      movie: const MovieListItem(
+        id: 9,
+        title: 'AI 字幕卡片',
+        hasExternalSubtitle: true,
+        hasAiSubtitle: true,
+      ),
+      posterUrlBuilder: (u) => 'http://x/$u',
+    )));
+
+    expect(find.byTooltip('外挂字幕'), findsOneWidget);
+    expect(find.byTooltip('AI 字幕'), findsOneWidget);
+  });
 }

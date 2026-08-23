@@ -54,11 +54,13 @@ class MovieCard extends ConsumerWidget {
         byCorner[positions.rating]!.add(RatingBadge(rating: movie.rating!));
       }
       if (positions.subtitleEnabled) {
-        // 三种字幕来源: 外挂(橙) / 内嵌轨道(绿) / 文件名标识(黄),
+        // 四种字幕来源: 外挂(橙) / AI(紫,文件名带 .ai. 标记) / 内嵌轨道(绿) / 文件名标识(黄),
         // 多来源时合并为叠加堆,点按展开
         final subBadges = <Widget>[
           if (movie.hasExternalSubtitle)
             const _SubtitleBadge(color: Color(0xFFFF9F1C), tooltip: '外挂字幕'),
+          if (movie.hasAiSubtitle)
+            const _SubtitleBadge(color: Color(0xFF8B5CF6), tooltip: 'AI 字幕'),
           if (movie.hasMuxedSubtitle)
             const _SubtitleBadge(
               color: Color(0xFF16A34A),

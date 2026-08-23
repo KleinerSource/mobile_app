@@ -27,6 +27,7 @@ abstract class MovieListItem with _$MovieListItem {
     @JsonKey(name: 'is_updated') @Default(false) bool isUpdated,
     @JsonKey(name: 'has_new_resources') @Default(false) bool hasNewResources,
     @JsonKey(name: 'has_external_subtitle') @Default(false) bool hasExternalSubtitle,
+    @JsonKey(name: 'has_ai_subtitle') @Default(false) bool hasAiSubtitle,
     @JsonKey(name: 'has_internal_subtitle') @Default(false) bool hasInternalSubtitle,
     @JsonKey(name: 'video_width') int? videoWidth,
     @JsonKey(name: 'video_height') int? videoHeight,
@@ -75,6 +76,21 @@ final _kProb4Regex = RegExp(r'(?:^|[-_. ])prob[-_. ]?4(?=$|[-_. ])');
 final _kHdRegex =
     RegExp(r'(?:^|[-_. ])(720p|1080p|1440p|hd|fhd|qhd)(?=$|[-_. ])');
 const _kUhdSizeThreshold = 15 * 1024 * 1024 * 1024;
+
+// AI 字幕标识 · 文件名中独立的 "ai" 标记段 (例: aaa.ai.chs.srt),
+// 大小写不敏感; "ks"/"chs"/"default" 等其它段不命中。
+// 规则与 Web 端 useCoverBadges.ts 及后端 IsAISubtitlePath 保持一致。
+final _kAISubtitleRegex = RegExp(r'(?:^|[-_. ])ai(?=$|[-_. ])');
+
+/// 判断外挂字幕文件路径是否带 .ai. 标记段 (AI 生成/云转译字幕)
+bool isAISubtitlePath(String? path) {
+  final raw = (path ?? '').trim();
+  if (raw.isEmpty) return false;
+  final name = raw.split(RegExp(r'[\\/]')).last;
+  if (name.isEmpty) return false;
+  final stem = name.replaceFirst(RegExp(r'\.[^.]+$'), '').toLowerCase();
+  return _kAISubtitleRegex.hasMatch(stem);
+}
 
 extension MovieListItemX on MovieListItem {
   /// 文件名 (无扩展名, 小写) · 用于按番号后缀识别 字幕/破解/分辨率
@@ -167,6 +183,7 @@ abstract class MovieDetail with _$MovieDetail {
     @JsonKey(name: 'fanart_uuid') String? fanartUuid,
     @JsonKey(name: 'thumb_uuid') String? thumbUuid,
     @JsonKey(name: 'has_external_subtitle') @Default(false) bool hasExternalSubtitle,
+    @JsonKey(name: 'has_ai_subtitle') @Default(false) bool hasAiSubtitle,
     @JsonKey(name: 'has_internal_subtitle') @Default(false) bool hasInternalSubtitle,
     @JsonKey(name: 'is_favorited') @Default(false) bool isFavorited,
     @Default(<ResourceItem>[]) List<ResourceItem> tags,

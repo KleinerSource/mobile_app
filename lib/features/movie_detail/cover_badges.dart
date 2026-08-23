@@ -48,13 +48,14 @@ String _fileNameStem(String? filePath) {
 }
 
 /// 组合文件名后缀 + 媒体探测结果生成封面徽章(与 Web 端 useCoverBadges 对齐):
-/// 编码 / HDR / STRM / 外挂字幕 / 内嵌字幕轨道 / 文件名内嵌字幕 / 破解 / UHD / HD，
+/// 编码 / HDR / STRM / 外挂字幕 / AI 字幕 / 内嵌字幕轨道 / 文件名内嵌字幕 / 破解 / UHD / HD，
 /// 无数据的项自动省略。
 List<CoverBadgeSpec> buildCoverBadges({
   String? filePath,
   int? fileSize,
   VideoStreamInfo? video,
   bool hasExternalSubtitle = false,
+  bool hasAISubtitle = false,
   bool hasMuxedSubtitle = false,
 }) {
   final badges = <CoverBadgeSpec>[];
@@ -123,6 +124,16 @@ List<CoverBadgeSpec> buildCoverBadges({
       '字幕',
       Color(0xFFFF9F1C),
       '外挂字幕',
+    ));
+  }
+
+  // AI 字幕: 文件名带 .ai. 标记的外挂字幕,与普通外挂字幕徽章同时显示
+  if (hasAISubtitle) {
+    badges.add(const CoverBadgeSpec(
+      PosterBadgeKind.subtitle,
+      'AI字幕',
+      Color(0xFF8B5CF6),
+      'AI 字幕（文件名含 .ai. 标记）',
     ));
   }
 

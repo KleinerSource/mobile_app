@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'player_subtitle_track_resolver.dart';
 
@@ -35,6 +37,8 @@ class PlayerControllerHost {
   /// 运行时属性生效，失败时降级为小缓冲而不是放大内存。
   int preloadBytes = 250 * 1024 * 1024;
   int _openGeneration = 0;
+  int _subtitleFileSeq = 0;
+  File? _subtitleTempFile;
 
   void _createPlayer() {
     player = Player(configuration: PlayerConfiguration(bufferSize: bufferSize));
@@ -315,15 +319,50 @@ class PlayerControllerHost {
     return false;
   }
 
-  Future<void> setSubtitleUrl(
-    String url, {
+  /// 把已下载的字幕内容写入本地临时文件后交给 mpv 加载。
+  ///
+  /// mpv 的 sub-add 网络请求无法携带完整鉴权，失败报错还会混入错误流被
+  /// 上层当成播放失败；改为客户端自行下载内容后本地加载，字幕接口返回
+  /// 404/超时等失败只会抛出 Dart 异常，不会影响正在进行的播放。
+  Future<void> setSubtitleData(
+    String content, {
     String? title,
     String? language,
   }) async {
-    await player.setSubtitleTrack(
-      SubtitleTrack.uri(url, title: title, language: language),
-    );
-    await _setNativeSubtitleVisibility(false);
+    final previous = _subtitleTempFile;
+    final file = await _writeSubtitleTempFile(content);
+    try {
+      await player.setSubtitleTrack(
+        SubtitleTrack.uri(file.uri.toString(), title: title, language: language),
+      );
+      _subtitleTempFile = file;
+      await _setNativeSubtitleVisibility(false);
+    } catch (error) {
+      await _deleteQuietly(file);
+      rethrow;
+    }
+    if (previous != null && previous.path != file.path) {
+      await _deleteQuietly(previous);
+    }
+  }
+
+  Future<File> _writeSubtitleTempFile(String content) async {
+    final directory = await getTemporaryDirectory();
+    // 带上 .vtt 扩展名让 mpv 按扩展名直接选定字幕 demuxer，不依赖内容探测。
+    final name = 'mdc-subtitle-'
+        '${DateTime.now().microsecondsSinceEpoch}-'
+        '${_subtitleFileSeq++}.vtt';
+    final file = File('${directory.path}${Platform.pathSeparator}$name');
+    await file.writeAsString(content, flush: true);
+    return file;
+  }
+
+  Future<void> _deleteQuietly(File file) async {
+    try {
+      if (await file.exists()) await file.delete();
+    } catch (_) {
+      // mpv 可能仍持有句柄，留给系统临时目录清理。
+    }
   }
 
   Future<void> clearSubtitle() async {
@@ -426,6 +465,9 @@ class PlayerControllerHost {
 
   Future<void> dispose() async {
     ++_openGeneration;
+    final subtitleFile = _subtitleTempFile;
+    _subtitleTempFile = null;
     await player.dispose();
+    if (subtitleFile != null) await _deleteQuietly(subtitleFile);
   }
 }

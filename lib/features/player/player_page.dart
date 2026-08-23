@@ -25,6 +25,7 @@ import 'player_controller_host.dart';
 import 'player_controls.dart';
 import 'player_decode_status.dart';
 import 'player_device_stats.dart';
+import 'player_error_disposition.dart';
 import 'player_gesture_layer.dart';
 import 'player_overlay_indicators.dart';
 import 'player_platform.dart';
@@ -34,6 +35,7 @@ import 'player_resume.dart';
 import 'player_settings.dart';
 import 'player_status_overlay.dart';
 import 'subtitle_adjustment_sheet.dart';
+import 'subtitle_content_fetcher.dart';
 import 'subtitle_rendering.dart';
 import 'subtitle_settings.dart';
 
@@ -153,6 +155,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _playbackErrorReported = false;
   String? _pendingPlaybackError;
   Timer? _rateChangeGraceTimer;
+  DateTime? _subtitleLoadGuardUntil;
   bool _isLandscape = true;
   bool _isRateBoosting = false;
   double _playbackRate = 1.0;
@@ -601,14 +604,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     if (rememberedKey != subtitleDisabledSelectionKey) {
       if (rememberedKey != null) {
         for (final track in decision.subtitleTracks) {
-          if (subtitleSelectionKey(track) == rememberedKey) {
+          if (subtitleSelectionKey(track) == rememberedKey && track.canLoad) {
             defaultSubtitle = track;
             break;
           }
         }
       }
       for (final track in decision.subtitleTracks) {
-        if (defaultSubtitle == null && track.isDefault) {
+        // 位图外挂字幕没有可加载地址，跳过以免自动加载注定失败。
+        if (defaultSubtitle == null && track.isDefault && track.canLoad) {
           defaultSubtitle = track;
           break;
         }
@@ -669,11 +673,32 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     if (!mounted || _isLeaving || _playbackErrorReported) {
       return;
     }
+    final disposition = classifyPlayerError(
+      subtitleGuardUntil: _subtitleLoadGuardUntil,
+      now: DateTime.now(),
+      mainMediaLoaded: _mainMediaLoaded,
+    );
+    if (disposition == PlayerErrorDisposition.subtitleWarning) {
+      // 字幕拉取失败不影响主媒体播放，降级为提示并清空选中状态，
+      // 避免字幕菜单停留在一条实际没有加载成功的轨道上。
+      _setSelectedSubtitle(null);
+      _showError('字幕加载失败: ${toApiException(message).message}，视频将继续播放');
+      return;
+    }
     if (_rateChangeGraceTimer != null) {
       _pendingPlaybackError = message;
       return;
     }
     _showPlaybackError(message);
+  }
+
+  /// 主媒体是否已完成装载。字幕加载窗口内收到报错时，只有主媒体已就绪
+  /// 才能断定报错来自字幕请求而非主媒体本身。
+  bool get _mainMediaLoaded {
+    final state = _host.player.state;
+    return state.duration > Duration.zero ||
+        state.tracks.video.isNotEmpty ||
+        state.tracks.audio.isNotEmpty;
   }
 
   void _showPlaybackError(String message) {
@@ -745,22 +770,33 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         return true;
       }
       if (track.isEmbedded) {
-        await _host.setSubtitleTrackById(
-          track.index.toString(),
-          fallbackIndex: embeddedOrdinal,
-          nativeRendering: track.isPgs,
-        );
+        if (_usingHls) {
+          // HLS 转码流不包含字幕轨道（位图字幕由服务端烧录），按轨道 ID
+          // 选择必然失败；文字轨道直接走后端的 VTT 转换端点。
+          if (track.url.trim().isEmpty) {
+            throw StateError('该字幕在转码画质下不可用，请改用原画画质');
+          }
+          await _loadSubtitleTrack(cfg, token, track);
+        } else {
+          try {
+            await _host.setSubtitleTrackById(
+              track.index.toString(),
+              fallbackIndex: embeddedOrdinal,
+              nativeRendering: track.isPgs,
+            );
+          } on StateError {
+            // 直传下轨道 ID 偶发与 mpv 侧不一致时，同样回退到 URL。
+            if (track.url.trim().isEmpty) rethrow;
+            await _loadSubtitleTrack(cfg, token, track);
+          }
+        }
         _setSelectedSubtitle(track);
         return true;
       }
       if (!track.canLoad || track.url.trim().isEmpty) {
         throw StateError('字幕地址不可用');
       }
-      await _host.setSubtitleUrl(
-        _protectedUrl(cfg, track.url, token),
-        title: track.title.isEmpty ? null : track.title,
-        language: track.language.isEmpty ? null : track.language,
-      );
+      await _loadSubtitleTrack(cfg, token, track);
       _setSelectedSubtitle(track);
       return true;
     } catch (error) {
@@ -769,6 +805,31 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       }
       return false;
     }
+  }
+
+  /// 客户端自行下载字幕并交给 mpv 本地加载。
+  ///
+  /// 字幕请求完全走 Dio（带鉴权、令牌刷新与超时重试），接口返回 404/超时
+  /// 等失败只会抛出异常走 SnackBar 提示，不会把错误带进 mpv 错误流中断播放。
+  Future<void> _loadSubtitleTrack(
+    ServerConfig cfg,
+    String? token,
+    playback_models.SubtitleTrack track,
+  ) async {
+    final url = _protectedUrl(cfg, track.url, token);
+    final content = await fetchSubtitleContent(
+      ref.read(requiredApiClientProvider).dio,
+      url,
+    );
+    // mpv 解析本地字幕文件仍可能向错误流写入报错，加载前后设置降级窗口。
+    _subtitleLoadGuardUntil = DateTime.now().add(
+      const Duration(seconds: 15),
+    );
+    await _host.setSubtitleData(
+      content,
+      title: track.title.isEmpty ? null : track.title,
+      language: track.language.isEmpty ? null : track.language,
+    );
   }
 
   Future<void> _onSubtitleChanged(playback_models.SubtitleTrack? track) async {

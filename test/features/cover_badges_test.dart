@@ -82,4 +82,48 @@ void main() {
       isEmpty,
     );
   });
+
+  test('AI 字幕生成独立配色 badge', () {
+    final badges = buildCoverBadges(hasAISubtitle: true);
+
+    final subtitleBadges = badges
+        .where((badge) => badge.kind == PosterBadgeKind.subtitle)
+        .toList();
+    expect(subtitleBadges, hasLength(1));
+    expect(subtitleBadges.single.label, 'AI字幕');
+    expect(subtitleBadges.single.tooltip, 'AI 字幕（文件名含 .ai. 标记）');
+    expect(subtitleBadges.single.color.toARGB32(), 0xFF8B5CF6);
+  });
+
+  test('外挂字幕与 AI 字幕同时存在时都显示', () {
+    final badges = buildCoverBadges(
+      hasExternalSubtitle: true,
+      hasAISubtitle: true,
+    );
+
+    final subtitleBadges = badges
+        .where((badge) => badge.kind == PosterBadgeKind.subtitle)
+        .toList();
+    expect(subtitleBadges, hasLength(2));
+    expect(subtitleBadges.map((badge) => badge.tooltip),
+        ['外挂字幕', 'AI 字幕（文件名含 .ai. 标记）']);
+  });
+
+  test('四种字幕来源相互独立可同时显示', () {
+    final badges = buildCoverBadges(
+      filePath: '/movies/ABCD-001-C.mp4',
+      hasExternalSubtitle: true,
+      hasAISubtitle: true,
+      hasMuxedSubtitle: true,
+    );
+
+    final subtitleBadges = badges
+        .where((badge) => badge.kind == PosterBadgeKind.subtitle)
+        .toList();
+    expect(subtitleBadges, hasLength(4));
+    expect(
+      subtitleBadges.map((badge) => badge.tooltip),
+      ['外挂字幕', 'AI 字幕（文件名含 .ai. 标记）', '内嵌字幕轨道', '内嵌字幕'],
+    );
+  });
 }
