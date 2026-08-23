@@ -5,6 +5,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/library.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../settings/settings_common.dart';
 import 'libraries_providers.dart';
@@ -164,6 +165,7 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     return Scaffold(
       backgroundColor: c.bg,
       body: GlowBackground(
@@ -190,7 +192,7 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
               children: [
                     // 名称
-                    Text('NAME', style: AppText.eyebrow(context)),
+                    Text(l.libraryEditorName, style: AppText.eyebrow(context)),
                     const SizedBox(height: 8),
                     Container(
                       decoration: BoxDecoration(
@@ -259,7 +261,10 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
                     Row(
                       children: [
                         Expanded(
-                          child: Text('DIRECTORIES', style: AppText.eyebrow(context)),
+                          child: Text(
+                            l.libraryEditorDirectories,
+                            style: AppText.eyebrow(context),
+                          ),
                         ),
                         TextButton.icon(
                           onPressed: _addDir,

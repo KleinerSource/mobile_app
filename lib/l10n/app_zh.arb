@@ -123,6 +123,8 @@
   "settingsServerNotConfigured": "未配置",
   "settingsLibraries": "媒体库管理",
   "settingsLibrariesSub": "添加 / 编辑 / 扫描",
+  "libraryEditorName": "名称",
+  "libraryEditorDirectories": "目录",
   "settingsActors": "演员管理",
   "settingsActorsSub": "演员信息、类型与影片关系",
   "settingsGenres": "分类管理",

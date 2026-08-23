@@ -341,6 +341,12 @@ class AppL10nZh extends AppL10n {
   String get settingsLibrariesSub => '添加 / 编辑 / 扫描';
 
   @override
+  String get libraryEditorName => '名称';
+
+  @override
+  String get libraryEditorDirectories => '目录';
+
+  @override
   String get settingsActors => '演员管理';
 
   @override

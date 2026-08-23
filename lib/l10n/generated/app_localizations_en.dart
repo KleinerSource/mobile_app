@@ -344,6 +344,12 @@ class AppL10nEn extends AppL10n {
   String get settingsLibrariesSub => 'Add / edit / scan';
 
   @override
+  String get libraryEditorName => 'Name';
+
+  @override
+  String get libraryEditorDirectories => 'Directories';
+
+  @override
   String get settingsActors => 'Actor management';
 
   @override

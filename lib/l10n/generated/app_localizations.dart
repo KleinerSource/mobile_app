@@ -733,6 +733,18 @@ abstract class AppL10n {
   /// **'添加 / 编辑 / 扫描'**
   String get settingsLibrariesSub;
 
+  /// No description provided for @libraryEditorName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名称'**
+  String get libraryEditorName;
+
+  /// No description provided for @libraryEditorDirectories.
+  ///
+  /// In zh, this message translates to:
+  /// **'目录'**
+  String get libraryEditorDirectories;
+
   /// No description provided for @settingsActors.
   ///
   /// In zh, this message translates to:

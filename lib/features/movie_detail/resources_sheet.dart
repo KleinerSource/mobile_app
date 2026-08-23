@@ -559,6 +559,21 @@ String _formatDownloadedTooltip(String value) {
   return '最近下载 $y-$mo-$d $h:$mi';
 }
 
+String _formatResourceSize(dynamic value) {
+  final sizeMb = value is num
+      ? value.toDouble()
+      : double.tryParse(value?.toString().trim() ?? '');
+  if (sizeMb == null || sizeMb <= 0) return '';
+
+  if (sizeMb >= 1024) {
+    return '${(sizeMb / 1024).toStringAsFixed(2)} GB';
+  }
+  final display = sizeMb == sizeMb.roundToDouble()
+      ? sizeMb.toInt().toString()
+      : sizeMb.toStringAsFixed(2);
+  return '$display MB';
+}
+
 class _TabBtn extends StatelessWidget {
   const _TabBtn({
     required this.label,
@@ -628,10 +643,10 @@ class _ResourceTile extends StatelessWidget {
             item['filename'] ??
             '资源')
         .toString();
-    final size = item['size']?.toString() ?? '';
+    final size = _formatResourceSize(item['size_mb'] ?? item['size']);
     final date =
         item['date']?.toString() ?? item['publish_date']?.toString() ?? '';
-    final source = item['source']?.toString() ?? '';
+    final source = (item['site'] ?? item['source'] ?? '').toString().trim();
     final isDownloaded = downloadedAt != null && downloadedAt!.isNotEmpty;
     final tile = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
@@ -670,7 +685,7 @@ class _ResourceTile extends StatelessWidget {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          source,
+                          '来自 $source',
                           style: TextStyle(
                             color: c.muted,
                             fontFamily: 'monospace',

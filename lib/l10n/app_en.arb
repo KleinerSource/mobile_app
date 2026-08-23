@@ -123,6 +123,8 @@
   "settingsServerNotConfigured": "Not configured",
   "settingsLibraries": "Libraries",
   "settingsLibrariesSub": "Add / edit / scan",
+  "libraryEditorName": "Name",
+  "libraryEditorDirectories": "Directories",
   "settingsActors": "Actor management",
   "settingsActorsSub": "Actor metadata and movie relationships",
   "settingsGenres": "Genres",
