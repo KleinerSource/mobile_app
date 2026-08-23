@@ -391,56 +391,51 @@ class _AssocCard extends StatelessWidget {
               ],
             ),
             if (rule.originalValues.isNotEmpty) ...[
+              // 关联名称 chips 固定单行：超出部分裁掉并在右缘渐隐，
+              // 不显示 +x 标记；总数见标题行右侧胶囊。
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final v in rule.originalValues.take(8))
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: c.chipBg,
-                        borderRadius: BorderRadius.circular(100),
-                        border: Border.all(color: c.cardBorder),
-                      ),
-                      child: PrivacyText(
-                        movieId: rule.id,
-                        scope: PrivacyScope.actorAssociation,
-                        text: v,
-                        style: TextStyle(
-                          color: c.text,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11.5,
-                        ),
-                      ),
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [Colors.white, Colors.white, Colors.transparent],
+                  stops: [0, 0.82, 1],
+                ).createShader(bounds),
+                blendMode: BlendMode.dstIn,
+                child: SizedBox(
+                  height: 27,
+                  child: ClipRect(
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final v in rule.originalValues)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: c.chipBg,
+                              borderRadius: BorderRadius.circular(100),
+                              border: Border.all(color: c.cardBorder),
+                            ),
+                            child: PrivacyText(
+                              movieId: rule.id,
+                              scope: PrivacyScope.actorAssociation,
+                              text: v,
+                              style: TextStyle(
+                                color: c.text,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                  if (rule.originalValues.length > 8)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: c.chipBg,
-                        borderRadius: BorderRadius.circular(100),
-                        border: Border.all(color: c.cardBorder),
-                      ),
-                      child: Text(
-                        '+${rule.originalValues.length - 8}',
-                        style: TextStyle(
-                          color: c.muted,
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                    ),
-                ],
+                  ),
+                ),
               ),
             ],
           ],
