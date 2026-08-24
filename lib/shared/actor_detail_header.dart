@@ -92,10 +92,7 @@ class _ActorHeroHeaderState extends ConsumerState<ActorHeroHeader>
   static const _autoplayInterval = Duration(seconds: 5);
   static const _fadeDuration = Duration(milliseconds: 800);
 
-  late final AnimationController _fade = AnimationController(
-    vsync: this,
-    duration: _fadeDuration,
-  )..addListener(_syncPagePosition);
+  late final AnimationController _fade;
   Timer? _autoplay;
   int _previousIndex = 0;
   int _index = 0;
@@ -109,6 +106,10 @@ class _ActorHeroHeaderState extends ConsumerState<ActorHeroHeader>
   @override
   void initState() {
     super.initState();
+    _fade = AnimationController(
+      vsync: this,
+      duration: _fadeDuration,
+    )..addListener(_syncPagePosition);
     _startAutoplay();
   }
 
