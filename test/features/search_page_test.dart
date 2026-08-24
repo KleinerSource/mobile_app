@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:md_center/core/api/api_client.dart';
 import 'package:md_center/core/api/providers.dart';
 import 'package:md_center/core/config/server_config_provider.dart';
-import 'package:md_center/features/movies/movie_filter.dart';
 import 'package:md_center/features/search/search_page.dart';
 import 'package:md_center/l10n/generated/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -147,7 +146,7 @@ void main() {
       ),
     );
 
-    final anchor = find.byType(DropdownButton<MovieSearchType>);
+    final anchor = find.text('影片').first;
     expect(anchor, findsOneWidget);
 
     final gesture = await tester.startGesture(tester.getCenter(anchor));

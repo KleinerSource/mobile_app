@@ -187,10 +187,11 @@ class _SearchTypeMenuState extends State<_SearchTypeMenu> {
   OverlayEntry? _overlayEntry;
   Rect? _menuRect;
   MovieSearchType? _hovered;
+  bool _interactive = false;
 
   @override
   void dispose() {
-    _closeLongPressMenu();
+    _closeMenu();
     super.dispose();
   }
 
@@ -228,30 +229,60 @@ class _SearchTypeMenuState extends State<_SearchTypeMenu> {
     return MovieSearchType.values[index];
   }
 
-  void _startLongPress(LongPressStartDetails details) {
+  void _openMenu({required bool interactive, Offset? initialPosition}) {
     final rect = _calculateMenuRect();
     if (rect == null) return;
-    _closeLongPressMenu();
+    _closeMenu();
     _menuRect = rect;
-    _hovered = null;
-    AppHaptics.medium();
+    _interactive = interactive;
+    _hovered = interactive ? widget.value : null;
 
     final overlay = Overlay.of(context, rootOverlay: true);
     final overlayObject = overlay.context.findRenderObject();
     if (overlayObject is! RenderBox) return;
     final localTopLeft = overlayObject.globalToLocal(rect.topLeft);
     final entry = OverlayEntry(
-      builder: (context) => Positioned(
-        left: localTopLeft.dx,
-        top: localTopLeft.dy,
-        width: rect.width,
-        height: rect.height,
-        child: IgnorePointer(child: _SearchTypeLongPressMenu(state: this)),
+      builder: (context) => Positioned.fill(
+        child: Stack(
+          children: [
+            if (_interactive)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _closeMenu,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            Positioned(
+              left: localTopLeft.dx,
+              top: localTopLeft.dy,
+              width: rect.width,
+              height: rect.height,
+              child: IgnorePointer(
+                ignoring: !_interactive,
+                child: _SearchTypeMenuPopup(state: this),
+              ),
+            ),
+          ],
+        ),
       ),
     );
     _overlayEntry = entry;
     overlay.insert(entry);
-    _updateHover(details.globalPosition);
+    if (initialPosition != null) _updateHover(initialPosition);
+  }
+
+  void _startLongPress(LongPressStartDetails details) {
+    AppHaptics.medium();
+    _openMenu(interactive: false, initialPosition: details.globalPosition);
+  }
+
+  void _toggleMenu() {
+    if (_overlayEntry == null) {
+      _openMenu(interactive: true);
+    } else {
+      _closeMenu();
+    }
   }
 
   void _updateHover(Offset globalPosition) {
@@ -265,74 +296,45 @@ class _SearchTypeMenuState extends State<_SearchTypeMenu> {
 
   void _finishLongPress(LongPressEndDetails details) {
     final selected = _valueAt(details.globalPosition);
-    _closeLongPressMenu();
-    if (selected != null && selected != widget.value) {
-      widget.onChanged(selected);
+    if (selected != null) {
+      _select(selected);
+    } else {
+      _closeMenu();
     }
   }
 
-  void _closeLongPressMenu() {
+  void _select(MovieSearchType type) {
+    _closeMenu();
+    if (type == widget.value) return;
+    AppHaptics.selection();
+    widget.onChanged(type);
+  }
+
+  void _closeMenu() {
     final entry = _overlayEntry;
     _overlayEntry = null;
     _menuRect = null;
     _hovered = null;
+    _interactive = false;
     entry?.remove();
   }
 
   @override
   Widget build(BuildContext context) {
-    final c = appColors(context);
-    final l = AppL10n.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      onTap: _toggleMenu,
       onLongPressStart: _startLongPress,
       onLongPressMoveUpdate: (details) => _updateHover(details.globalPosition),
       onLongPressEnd: _finishLongPress,
-      onLongPressCancel: _closeLongPressMenu,
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<MovieSearchType>(
-          value: widget.value,
-          isDense: true,
-          icon: Icon(Icons.expand_more, size: 16, color: c.muted),
-          dropdownColor: Color.alphaBlend(c.surface, c.bg),
-          borderRadius: BorderRadius.circular(12),
-          style: TextStyle(
-            color: c.text,
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
-          selectedItemBuilder: (context) => MovieSearchType.values
-              .map(
-                (type) => _SearchTypeItem(
-                  type: type,
-                  label: type.label(l),
-                  color: c.text,
-                ),
-              )
-              .toList(),
-          items: MovieSearchType.values
-              .map(
-                (type) => DropdownMenuItem<MovieSearchType>(
-                  value: type,
-                  child: _SearchTypeItem(
-                    type: type,
-                    label: type.label(l),
-                    color: c.text,
-                  ),
-                ),
-              )
-              .toList(),
-          onChanged: (type) {
-            if (type != null && type != widget.value) widget.onChanged(type);
-          },
-        ),
-      ),
+      onLongPressCancel: _closeMenu,
+      child: _SearchTypeButton(type: widget.value),
     );
   }
 }
 
-class _SearchTypeLongPressMenu extends StatelessWidget {
-  const _SearchTypeLongPressMenu({required this.state});
+class _SearchTypeMenuPopup extends StatelessWidget {
+  const _SearchTypeMenuPopup({required this.state});
 
   final _SearchTypeMenuState state;
 
@@ -360,20 +362,30 @@ class _SearchTypeLongPressMenu extends StatelessWidget {
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 14),
-                      Icon(type.icon, size: 18, color: c.text),
-                      const SizedBox(width: 10),
-                      Text(
-                        type.label(AppL10n.of(context)),
-                        style: TextStyle(
-                          color: c.text,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                        ),
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    child: InkWell(
+                      onTap: state._interactive
+                          ? () => state._select(type)
+                          : null,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 14),
+                          Icon(type.icon, size: 18, color: c.text),
+                          const SizedBox(width: 10),
+                          Text(
+                            type.label(AppL10n.of(context)),
+                            style: TextStyle(
+                              color: c.text,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -384,25 +396,29 @@ class _SearchTypeLongPressMenu extends StatelessWidget {
   }
 }
 
-class _SearchTypeItem extends StatelessWidget {
-  const _SearchTypeItem({
-    required this.type,
-    required this.label,
-    required this.color,
-  });
+class _SearchTypeButton extends StatelessWidget {
+  const _SearchTypeButton({required this.type});
 
   final MovieSearchType type;
-  final String label;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
+    final c = appColors(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(type.icon, size: 16, color: color),
-        const SizedBox(width: 6),
-        Text(label),
+        Icon(type.icon, size: 16, color: c.text),
+        const SizedBox(width: 5),
+        Text(
+          type.label(AppL10n.of(context)),
+          style: TextStyle(
+            color: c.text,
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
+        ),
+        const SizedBox(width: 2),
+        Icon(Icons.expand_more, size: 16, color: c.muted),
       ],
     );
   }
