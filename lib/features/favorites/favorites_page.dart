@@ -462,218 +462,234 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
             child: GlowBackground(
               child: SafeArea(
                 bottom: false,
-                child: StatusBarScrollToTop(
-                  scrollController: _scrollController,
-                  child: RefreshIndicator(
-                    color: c.accent,
-                    onRefresh: _refresh,
-                    child: DragSelectionScope<int>(
-                      scrollController: _scrollController,
-                      selectionLayout: _viewMode == FavoritesViewMode.grid
-                          ? DragSelectionLayout.grid
-                          : DragSelectionLayout.list,
-                      isSelected: _selected.contains,
-                      onSelectionStart: _startSelectionSweep,
-                      onSelectionChanged: _applySelectionSweep,
-                      onSelectionEnd: _finishSelectionSweep,
-                      selectionMode: _selecting,
-                      child: CustomScrollView(
-                        controller: _scrollController,
-                        slivers: [
-                          // ===== 顶部 =====
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                22,
-                                16,
-                                22,
-                                22,
+                // 固定 header(标题 + 扫描/设置按钮)不随内容滚动;
+                // 统计条、集合卡片与收藏网格在下方滚动区内。
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 16, 22, 22),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  AppL10n.of(context).tabYou.toUpperCase(),
+                                  style: AppText.eyebrow(context),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  AppL10n.of(context).favoritesTitle,
+                                  style: AppText.pageTitle(context),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: c.surface,
+                                border: Border.all(color: c.cardBorder),
                               ),
-                              child: Row(
-                                children: [
-                                  Expanded(
+                              child: _resourceScanStarting
+                                  ? SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: c.accent,
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.cloud_download_outlined,
+                                      size: 18,
+                                      color: c.text,
+                                    ),
+                            ),
+                            tooltip: '扫描资源',
+                            onPressed: _resourceScanStarting || _totalCount <= 0
+                                ? null
+                                : _startResourceScan,
+                          ),
+                          IconButton(
+                            icon: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: c.surface,
+                                border: Border.all(color: c.cardBorder),
+                              ),
+                              child: Icon(
+                                Icons.settings,
+                                size: 18,
+                                color: c.text,
+                              ),
+                            ),
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const SettingsPage(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: StatusBarScrollToTop(
+                        scrollController: _scrollController,
+                        child: RefreshIndicator(
+                          color: c.accent,
+                          onRefresh: _refresh,
+                          child: DragSelectionScope<int>(
+                            scrollController: _scrollController,
+                            selectionLayout: _viewMode == FavoritesViewMode.grid
+                                ? DragSelectionLayout.grid
+                                : DragSelectionLayout.list,
+                            isSelected: _selected.contains,
+                            onSelectionStart: _startSelectionSweep,
+                            onSelectionChanged: _applySelectionSweep,
+                            onSelectionEnd: _finishSelectionSweep,
+                            selectionMode: _selecting,
+                            child: CustomScrollView(
+                              controller: _scrollController,
+                              slivers: [
+                                // ===== 统计条 =====
+                                SliverToBoxAdapter(
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      22,
+                                      0,
+                                      22,
+                                      22,
+                                    ),
+                                    child: _StatsCard(
+                                      totalCount: _totalCount,
+                                      items: _controller.itemList ?? const [],
+                                    ),
+                                  ),
+                                ),
+
+                                // ===== Lists 多彩卡片 =====
+                                SliverToBoxAdapter(
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      22,
+                                      0,
+                                      22,
+                                      12,
+                                    ),
+                                    child: Text(
+                                      AppL10n.of(context).yourLists,
+                                      style: AppText.sectionTitle(context),
+                                    ),
+                                  ),
+                                ),
+                                SliverToBoxAdapter(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 28),
+                                    child: _ListsGrid(),
+                                  ),
+                                ),
+
+                                // ===== All favorites · header + 排序 + 视图切换 =====
+                                SliverToBoxAdapter(
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      22,
+                                      0,
+                                      22,
+                                      12,
+                                    ),
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          AppL10n.of(
-                                            context,
-                                          ).tabYou.toUpperCase(),
+                                          '全部收藏',
                                           style: AppText.eyebrow(context),
                                         ),
                                         const SizedBox(height: 3),
                                         Text(
-                                          AppL10n.of(context).favoritesTitle,
-                                          style: AppText.pageTitle(context),
+                                          '$_totalCount 部影片',
+                                          style: AppText.sectionTitle(context),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  IconButton(
-                                    icon: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: c.surface,
-                                        border: Border.all(color: c.cardBorder),
-                                      ),
-                                      child: _resourceScanStarting
-                                          ? SizedBox(
-                                              width: 18,
-                                              height: 18,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: c.accent,
-                                              ),
-                                            )
-                                          : Icon(
-                                              Icons.cloud_download_outlined,
-                                              size: 18,
-                                              color: c.text,
-                                            ),
-                                    ),
-                                    tooltip: '扫描资源',
-                                    onPressed:
-                                        _resourceScanStarting ||
-                                            _totalCount <= 0
-                                        ? null
-                                        : _startResourceScan,
-                                  ),
-                                  IconButton(
-                                    icon: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: c.surface,
-                                        border: Border.all(color: c.cardBorder),
-                                      ),
-                                      child: Icon(
-                                        Icons.settings,
-                                        size: 18,
-                                        color: c.text,
-                                      ),
-                                    ),
-                                    onPressed: () => Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => const SettingsPage(),
+                                ),
+                                SliverToBoxAdapter(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 14),
+                                    child: SizedBox(
+                                      height: 32,
+                                      child: ListView(
+                                        scrollDirection: Axis.horizontal,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 22,
+                                        ),
+                                        children: [
+                                          _FavoriteFilterPill(
+                                            active: _newResourcesOnly,
+                                            onTap: _toggleNewResourcesFilter,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          _SortPill(
+                                            label: _sort.label,
+                                            onTap: _showSortSheet,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          _ViewToggle(
+                                            mode: _viewMode,
+                                            onChange: (m) =>
+                                                unawaited(_setViewMode(m)),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
+                                ),
 
-                          // ===== 统计条 =====
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
-                              child: _StatsCard(
-                                totalCount: _totalCount,
-                                items: _controller.itemList ?? const [],
-                              ),
-                            ),
-                          ),
-
-                          // ===== Lists 多彩卡片 =====
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                              child: Text(
-                                AppL10n.of(context).yourLists,
-                                style: AppText.sectionTitle(context),
-                              ),
-                            ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: 28),
-                              child: _ListsGrid(),
-                            ),
-                          ),
-
-                          // ===== All favorites · header + 排序 + 视图切换 =====
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('全部收藏', style: AppText.eyebrow(context)),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    '$_totalCount 部影片',
-                                    style: AppText.sectionTitle(context),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: 14),
-                              child: SizedBox(
-                                height: 32,
-                                child: ListView(
-                                  scrollDirection: Axis.horizontal,
+                                // ===== 收藏网格 / 列表 =====
+                                SliverPadding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 22,
                                   ),
-                                  children: [
-                                    _FavoriteFilterPill(
-                                      active: _newResourcesOnly,
-                                      onTap: _toggleNewResourcesFilter,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    _SortPill(
-                                      label: _sort.label,
-                                      onTap: _showSortSheet,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    _ViewToggle(
-                                      mode: _viewMode,
-                                      onChange: (m) =>
-                                          unawaited(_setViewMode(m)),
-                                    ),
-                                  ],
+                                  sliver: _viewMode == FavoritesViewMode.grid
+                                      ? PagedSliverGrid<int, MovieListItem>(
+                                          pagingController: _controller,
+                                          showNoMoreItemsIndicatorAsGridChild:
+                                              false,
+                                          gridDelegate:
+                                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                                crossAxisCount: 3,
+                                                childAspectRatio: 0.5,
+                                                crossAxisSpacing: 10,
+                                                mainAxisSpacing: 14,
+                                              ),
+                                          builderDelegate: _buildGridDelegate(
+                                            urlBuilder,
+                                          ),
+                                        )
+                                      : PagedSliverList<int, MovieListItem>(
+                                          pagingController: _controller,
+                                          builderDelegate: _buildListDelegate(
+                                            urlBuilder,
+                                          ),
+                                        ),
                                 ),
-                              ),
+                                const SliverToBoxAdapter(
+                                  child: SizedBox(height: 120),
+                                ),
+                              ],
                             ),
                           ),
-
-                          // ===== 收藏网格 / 列表 =====
-                          SliverPadding(
-                            padding: const EdgeInsets.symmetric(horizontal: 22),
-                            sliver: _viewMode == FavoritesViewMode.grid
-                                ? PagedSliverGrid<int, MovieListItem>(
-                                    pagingController: _controller,
-                                    showNoMoreItemsIndicatorAsGridChild: false,
-                                    gridDelegate:
-                                        const SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: 3,
-                                          childAspectRatio: 0.5,
-                                          crossAxisSpacing: 10,
-                                          mainAxisSpacing: 14,
-                                        ),
-                                    builderDelegate: _buildGridDelegate(
-                                      urlBuilder,
-                                    ),
-                                  )
-                                : PagedSliverList<int, MovieListItem>(
-                                    pagingController: _controller,
-                                    builderDelegate: _buildListDelegate(
-                                      urlBuilder,
-                                    ),
-                                  ),
-                          ),
-                          const SliverToBoxAdapter(
-                            child: SizedBox(height: 120),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
