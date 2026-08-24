@@ -68,6 +68,9 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
     super.initState();
     _biography = widget.actor.biography?.trim() ?? '';
     _avatarPaths = widget.actor.avatarPaths;
+    // 影片详情入口的 ActorItem 不含 avatar_path 数组(影片详情接口未返回),
+    // 需拉取演员详情补全,否则封面与氛围背景张数未知无法轮播
+    if (_avatarPaths == null) unawaited(_refreshActorProfile());
     _controller.addPageRequestListener(_fetch);
   }
 
@@ -176,9 +179,13 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
         (d) => ActorItem.fromJson(Map<String, dynamic>.from(d as Map)),
       );
       if (!mounted || _sameAvatarPaths(_avatarPaths, actor.avatarPaths)) return;
+      // 首次补全(null → 数组)时首图 URL 不变,无需换缓存版本强制重载
+      final hadSnapshot = _avatarPaths != null;
       setState(() {
         _avatarPaths = actor.avatarPaths;
-        _avatarCacheBust = DateTime.now().microsecondsSinceEpoch.toString();
+        if (hadSnapshot) {
+          _avatarCacheBust = DateTime.now().microsecondsSinceEpoch.toString();
+        }
       });
     } catch (_) {
       // 保留当前封面,作品集刷新不受影响

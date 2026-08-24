@@ -16,6 +16,79 @@ import 'package:md_center/shared/actor_detail_header.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  testWidgets('影片详情入口缺失头像数组时进页拉取详情补全并启动轮播', (tester) async {
+    tester.view.physicalSize = const Size(600, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    SharedPreferences.setMockInitialValues({
+      'privacy.app_switcher_shield': false,
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          requiredApiClientProvider.overrideWithValue(_buildFakeClient()),
+          sharedPrefsProvider.overrideWithValue(prefs),
+          imageUrlBuilderProvider.overrideWithValue((uuid) => ''),
+          dboConfigProvider.overrideWith(
+            (ref) async => const DboConfig(
+              enabled: true,
+              baseUrl: 'https://dbo.example',
+              apiKey: 'dbo-key',
+            ),
+          ),
+          avdbConfigProvider.overrideWith(
+            (ref) async =>
+                const AvdbConfig(enabled: false, baseUrl: '', apiKey: ''),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: PersonDetailPage(
+            actor: ActorItem(
+              id: 7,
+              name: '演员 10',
+              // 影片详情接口的 actors 数组不含 avatar_path,解析为 null
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    ActorHeroHeader heroHeader() =>
+        tester.widget<ActorHeroHeader>(find.byType(ActorHeroHeader));
+    FadeTransition heroFade() => tester.widget<FadeTransition>(
+          find.descendant(
+            of: find.byKey(const ValueKey('person-hero')),
+            matching: find.byType(FadeTransition),
+          ),
+        );
+
+    // 进页即拉取演员详情补全: null → 两张,首图 URL 不变无需换缓存版本
+    expect(heroHeader().avatarPaths, hasLength(2));
+    expect(heroHeader().cacheBust, isNull);
+    // 多张后封面进入轮播模式(出现交叉淡化层)
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('person-hero')),
+        matching: find.byType(FadeTransition),
+      ),
+      findsOneWidget,
+    );
+
+    // 轮播间隔 5 秒后自动开始交叉淡化(800ms 淡入推进到中段)
+    await tester.pump(const Duration(seconds: 5));
+    expect(heroFade().opacity.status, AnimationStatus.forward);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(heroFade().opacity.value, closeTo(0.5, 0.05));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('同步演员关联后重新拉取演员头像数组刷新封面', (tester) async {
     tester.view.physicalSize = const Size(600, 900);
     tester.view.devicePixelRatio = 1.0;
