@@ -17,11 +17,11 @@ env:
   CI: "true"
   COCOAPODS_DISABLE_STATS: "true"
   KSPLAYER_REPOSITORY: "https://github.com/KleinerSource/KSPlayer.git"
-  KSPLAYER_COMMIT: "257191be92295faf14867b7f2e4dccc185225b6b"
+  KSPLAYER_COMMIT: "38e706c09114eff18c5ec93365621d4c3d7661b9"
   FFMPEGKIT_REPOSITORY: "https://github.com/kingslay/FFmpegKit.git"
   FFMPEGKIT_VERSION: "6.1.4"
   DISPLAYCRITERIA_REPOSITORY: "https://github.com/KleinerSource/KSPlayer.git"
-  DISPLAYCRITERIA_COMMIT: "257191be92295faf14867b7f2e4dccc185225b6b"
+  DISPLAYCRITERIA_COMMIT: "38e706c09114eff18c5ec93365621d4c3d7661b9"
   LIBASS_REPOSITORY: "https://github.com/kingslay/FFmpegKit.git"
   LIBASS_VERSION: "6.1.4"
 
