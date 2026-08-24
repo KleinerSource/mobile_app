@@ -9,7 +9,6 @@ import 'package:md_center/core/config/server_config_provider.dart';
 import 'package:md_center/features/movies/movie_filter.dart';
 import 'package:md_center/features/search/search_page.dart';
 import 'package:md_center/l10n/generated/app_localizations.dart';
-import 'package:md_center/shared/glass_menu.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -148,7 +147,7 @@ void main() {
       ),
     );
 
-    final anchor = find.byType(GlassMenuAnchor<MovieSearchType>);
+    final anchor = find.byType(DropdownButton<MovieSearchType>);
     expect(anchor, findsOneWidget);
 
     final gesture = await tester.startGesture(tester.getCenter(anchor));
