@@ -29,9 +29,9 @@ class AppColors {
     required this.warning,
   });
 
-  /// Light · 纯白主题
+  /// Light · 浅灰紫主题
   static final AppColors light = AppColors._(
-    bg: const Color(0xFFFFFFFF),
+    bg: const Color(0xFFF3F2F8),
     surface: const Color(0xFFFFFFFF),
     surfaceAlt: const Color(0xFFF2EDE5),
     text: const Color(0xFF1A1A22),
