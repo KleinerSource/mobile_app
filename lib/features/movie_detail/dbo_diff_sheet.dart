@@ -864,30 +864,22 @@ class _DboGenderBadge extends StatelessWidget {
         ? Icons.male
         : Icons.person_outline;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontFamily: 'Inter',
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              height: 1,
-            ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: color),
+        const SizedBox(width: 2),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontFamily: 'Inter',
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            height: 1,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
