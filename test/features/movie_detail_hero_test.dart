@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,9 +62,11 @@ void main() {
         ),
       ),
     );
-    await navigatorKey.currentState!.push(
-      MaterialPageRoute<void>(
-        builder: (_) => const MovieDetailPage(movieId: 7),
+    unawaited(
+      navigatorKey.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const MovieDetailPage(movieId: 7),
+        ),
       ),
     );
     await tester.pumpAndSettle();
