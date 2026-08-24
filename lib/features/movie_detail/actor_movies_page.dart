@@ -66,18 +66,33 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
     super.dispose();
   }
 
-  /// 头像同步刷新后 cacheBust 变化,氛围背景 URL 跟随更新
+  /// 封面数组/缓存版本变化时同步氛围背景艺术列表
   void _syncHeroArt(ServerConfig? config) {
-    final url = config == null
-        ? ''
-        : actorAvatarUrl(config, widget.actor.id, cacheBust: _avatarCacheBust);
+    final paths = widget.actor.avatarPaths;
+    final count = paths == null ? 1 : paths.length;
+    final arts = (config == null || count == 0)
+        ? const <HeroArt>[]
+        : [
+            for (var i = 0; i < count; i++)
+              HeroArt(
+                movieId: widget.actor.id,
+                url: actorAvatarUrl(
+                  config,
+                  widget.actor.id,
+                  cacheBust: _avatarCacheBust,
+                  index: i,
+                ),
+              ),
+          ];
     final current = _heroArts.value;
-    if (current.length == 1 &&
-        current[0].movieId == widget.actor.id &&
-        current[0].url == url) {
-      return;
-    }
-    _heroArts.value = [HeroArt(movieId: widget.actor.id, url: url)];
+    final same =
+        current.length == arts.length &&
+        [
+          for (var i = 0; i < arts.length; i++)
+            current[i].movieId == arts[i].movieId &&
+                current[i].url == arts[i].url,
+        ].every((ok) => ok);
+    if (!same) _heroArts.value = arts;
   }
 
   Future<void> _fetch(int offset) async {
@@ -186,7 +201,7 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
             child: CustomScrollView(
               controller: _scrollController,
               slivers: [
-                // -------- 封面 (整屏满铺 · 信息压毛玻璃区) --------
+                // -------- 封面 (上滑先收窄再推出 · 多张时轮播) --------
                 SliverPersistentHeader(
                   pinned: false,
                   delegate: ActorHeroDelegate(
@@ -199,9 +214,9 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
                         name: widget.actor.name,
                         hue: hue,
                         actorType: widget.actor.actorType,
-                        movieCount: _totalCount,
-                        avatarPath: widget.actor.avatarPath,
+                        avatarPaths: widget.actor.avatarPaths,
                         cacheBust: _avatarCacheBust,
+                        pagePosition: _heroPagePosition,
                       ),
                     ),
                   ),

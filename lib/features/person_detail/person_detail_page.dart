@@ -10,6 +10,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/models/movie.dart';
 import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_theme.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/actor_avatar.dart';
 import '../../shared/actor_detail_header.dart';
 import '../../shared/empty_view.dart';
@@ -32,7 +33,7 @@ class PersonDetailPage extends ConsumerStatefulWidget {
     required this.name,
     this.actorType,
     this.biography,
-    this.avatarPath,
+    this.avatarPaths,
     this.onUpdated,
   });
 
@@ -40,7 +41,9 @@ class PersonDetailPage extends ConsumerStatefulWidget {
   final String name;
   final String? actorType;
   final String? biography;
-  final String? avatarPath;
+
+  /// 后端 avatar_path 数组 · 多张时详情页封面轮播
+  final List<String>? avatarPaths;
   final Future<void> Function()? onUpdated;
 
   @override
@@ -60,7 +63,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
   int? _totalCount;
   int _requestSerial = 0;
 
-  /// 氛围背景 · 演员头像大模糊,页位恒为 0
+  /// 氛围背景 · 演员头像大模糊,跟随封面轮播切换
   final _heroArts = ValueNotifier<List<HeroArt>>(const []);
   final _heroPagePosition = ValueNotifier(0.0);
 
@@ -80,18 +83,33 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
     super.dispose();
   }
 
-  /// 头像同步刷新后 cacheBust 变化,氛围背景 URL 跟随更新
+  /// 封面数组/缓存版本变化时同步氛围背景艺术列表
   void _syncHeroArt(ServerConfig? config) {
-    final url = config == null
-        ? ''
-        : actorAvatarUrl(config, widget.actorId, cacheBust: _avatarCacheBust);
+    final paths = widget.avatarPaths;
+    final count = paths == null ? 1 : paths.length;
+    final arts = (config == null || count == 0)
+        ? const <HeroArt>[]
+        : [
+            for (var i = 0; i < count; i++)
+              HeroArt(
+                movieId: widget.actorId,
+                url: actorAvatarUrl(
+                  config,
+                  widget.actorId,
+                  cacheBust: _avatarCacheBust,
+                  index: i,
+                ),
+              ),
+          ];
     final current = _heroArts.value;
-    if (current.length == 1 &&
-        current[0].movieId == widget.actorId &&
-        current[0].url == url) {
-      return;
-    }
-    _heroArts.value = [HeroArt(movieId: widget.actorId, url: url)];
+    final same =
+        current.length == arts.length &&
+        [
+          for (var i = 0; i < arts.length; i++)
+            current[i].movieId == arts[i].movieId &&
+                current[i].url == arts[i].url,
+        ].every((ok) => ok);
+    if (!same) _heroArts.value = arts;
   }
 
   Future<void> _fetch(int offset) async {
@@ -184,6 +202,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final l = AppL10n.of(context);
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
     final hue = actorHueFromName(widget.name);
     // 状态栏穿透: 封面延伸到状态栏底下,悬浮操作行单独避开状态栏
@@ -205,7 +224,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
             child: CustomScrollView(
               controller: _scrollController,
               slivers: [
-                // -------- 封面 (整屏满铺 · 信息压毛玻璃区) --------
+                // -------- 封面 (上滑先收窄再推出 · 多张时轮播) --------
                 SliverPersistentHeader(
                   pinned: false,
                   delegate: ActorHeroDelegate(
@@ -218,9 +237,9 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                         name: widget.name,
                         hue: hue,
                         actorType: widget.actorType,
-                        movieCount: _totalCount,
-                        avatarPath: widget.avatarPath,
+                        avatarPaths: widget.avatarPaths,
                         cacheBust: _avatarCacheBust,
+                        pagePosition: _heroPagePosition,
                       ),
                     ),
                   ),
@@ -241,7 +260,7 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Filmography',
+                            l.detailFilmography,
                             style: AppText.sectionTitle(context),
                           ),
                         ),

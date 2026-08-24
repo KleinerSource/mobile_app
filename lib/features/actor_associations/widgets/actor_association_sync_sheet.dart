@@ -69,7 +69,8 @@ class _ActorAssociationSyncSheetState
   final Set<String> _avatarChoiceLoading = <String>{};
   final Set<String> _avatarChoiceFailed = <String>{};
   final ValueNotifier<int> _avatarPickerRevision = ValueNotifier<int>(0);
-  int _avatarChoiceIndex = 0;
+  // 多选候选索引 · 默认全选,用户调整后不再自动跟随新增候选
+  Set<int> _selectedAvatarChoices = <int>{};
   bool _avatarManuallySelected = false;
   int _loadRequestId = 0;
 
@@ -83,23 +84,46 @@ class _ActorAssociationSyncSheetState
     ActorAssocPreview preview,
   ) {
     final seen = <String>{};
-    return preview.avatarChoices
+    final choices = preview.avatarChoices
         .where(
           (choice) =>
               choice.downloadUrl.isNotEmpty && seen.add(choice.downloadUrl),
         )
         .toList(growable: false);
+    if (choices.isEmpty && preview.avatarUrl.trim().isNotEmpty) {
+      // 无候选列表但返回了单一头像地址 · 视为唯一隐式候选,多选退化为单张
+      return [
+        ActorAssociationAvatarChoice(downloadUrl: preview.avatarUrl.trim()),
+      ];
+    }
+    return choices;
   }
 
-  String _activeAvatarUrlFor(ActorAssocPreview preview) {
+  /// 未手动调整过选择时,默认全选所有候选(含渐进补齐的新候选)
+  void _syncDefaultAvatarSelection(ActorAssocPreview preview) {
+    if (_avatarManuallySelected) return;
+    _selectedAvatarChoices = {
+      for (var i = 0; i < _avatarChoicesFor(preview).length; i++) i,
+    };
+  }
+
+  /// 已选且预览加载未失败的候选,按候选顺序排列(提交顺序与此一致)
+  List<(int, ActorAssociationAvatarChoice)> _selectedChoicesFor(
+    ActorAssocPreview preview,
+  ) {
     final choices = _avatarChoicesFor(preview);
-    if (choices.isNotEmpty) {
-      final index = _avatarChoiceIndex < choices.length
-          ? _avatarChoiceIndex
-          : 0;
-      return choices[index].downloadUrl;
-    }
-    return preview.avatarUrl;
+    return [
+      for (var i = 0; i < choices.length; i++)
+        if (_selectedAvatarChoices.contains(i) &&
+            !_avatarChoiceFailed.contains(choices[i].downloadUrl))
+          (i, choices[i]),
+    ];
+  }
+
+  /// 预览圆形大头像 · 取第一张已选候选;无可用时返回空串走占位兜底
+  String _previewAvatarUrlFor(ActorAssocPreview preview) {
+    final selected = _selectedChoicesFor(preview);
+    return selected.isEmpty ? '' : selected.first.$2.downloadUrl;
   }
 
   /// 混合渠道的候选携带具体来源（dbonline/avdb），代理下载按候选来源选择下载方式；
@@ -115,32 +139,34 @@ class _ActorAssociationSyncSheetState
     return _source;
   }
 
-  /// 混合渠道 apply 时提交所选候选的来源；单渠道返回 null（后端按 source 下载）。
-  String? _activeAvatarSourceFor(ActorAssocPreview preview) {
+  /// 混合渠道 apply 时按所选候选构建 地址 → 来源 映射；单渠道返回 null。
+  Map<String, String>? _avatarSourcesFor(ActorAssocPreview preview) {
     if (_source != ActorDataSource.mixed) return null;
-    final choices = _avatarChoicesFor(preview);
-    if (choices.isEmpty) return null;
-    final index = _avatarChoiceIndex < choices.length ? _avatarChoiceIndex : 0;
-    final source = choices[index].source;
-    return source.isEmpty ? null : source;
+    final sources = <String, String>{};
+    for (final (_, choice) in _selectedChoicesFor(preview)) {
+      if (choice.source.isNotEmpty) {
+        sources[choice.downloadUrl] = choice.source;
+      }
+    }
+    return sources;
   }
 
-  Uint8List? get _activeAvatarBytes {
+  Uint8List? get _previewAvatarBytes {
     final preview = _preview;
     if (preview == null) return null;
-    return _avatarChoiceBytes[_activeAvatarUrlFor(preview)];
+    return _avatarChoiceBytes[_previewAvatarUrlFor(preview)];
   }
 
-  bool get _activeAvatarLoading {
+  bool get _previewAvatarLoading {
     final preview = _preview;
-    return preview != null &&
-        _avatarChoiceLoading.contains(_activeAvatarUrlFor(preview));
+    if (preview == null) return false;
+    return _avatarChoiceLoading.contains(_previewAvatarUrlFor(preview));
   }
 
-  bool get _activeAvatarLoadFailed {
+  bool get _previewAvatarLoadFailed {
     final preview = _preview;
-    return preview != null &&
-        _avatarChoiceFailed.contains(_activeAvatarUrlFor(preview));
+    if (preview == null) return false;
+    return _avatarChoiceFailed.contains(_previewAvatarUrlFor(preview));
   }
 
   @override
@@ -163,14 +189,12 @@ class _ActorAssociationSyncSheetState
   bool _hasSyncChanges(ActorAssocPreview preview) {
     return _selectedAliases.isNotEmpty ||
         _biographyNeedsSync(preview) ||
-        _canSyncAvatar(preview);
+        _canSyncAvatars(preview);
   }
 
-  bool _canSyncAvatar(ActorAssocPreview preview) {
+  bool _canSyncAvatars(ActorAssocPreview preview) {
     final canReplace = !preview.avatarExists || _avatarManuallySelected;
-    return canReplace &&
-        _activeAvatarUrlFor(preview).isNotEmpty &&
-        !_activeAvatarLoadFailed;
+    return canReplace && _selectedChoicesFor(preview).isNotEmpty;
   }
 
   bool _allAliasesSelected(ActorAssocPreview preview) {
@@ -209,7 +233,7 @@ class _ActorAssociationSyncSheetState
       _avatarChoiceBytes.clear();
       _avatarChoiceLoading.clear();
       _avatarChoiceFailed.clear();
-      _avatarChoiceIndex = 0;
+      _selectedAvatarChoices = <int>{};
       _avatarManuallySelected = false;
     });
     try {
@@ -245,6 +269,7 @@ class _ActorAssociationSyncSheetState
       setState(() {
         _preview = p;
         _selectedAliases = p.newAliases.toSet();
+        _syncDefaultAvatarSelection(p);
         _loading = false;
       });
       unawaited(_loadAvatarPreviews(p, actualSource));
@@ -277,6 +302,7 @@ class _ActorAssociationSyncSheetState
         setState(() {
           _preview = p;
           _selectedAliases = p.newAliases.toSet();
+          _syncDefaultAvatarSelection(p);
           _pendingSources = session.pendingSources;
           if (!rendered) {
             rendered = true;
@@ -288,16 +314,15 @@ class _ActorAssociationSyncSheetState
           lastChoiceCount = choiceCount;
           unawaited(_loadAvatarPreviews(p, source));
         }
-        // 当前停留的候选此前已失败，且补齐引入了新的可加载候选时自动切换
-        final activeUrl = _activeAvatarUrlFor(p);
-        if (activeUrl.isNotEmpty && _avatarChoiceFailed.contains(activeUrl)) {
-          _advancePastFailedAvatar(p);
-        }
       }
       if (session.complete) {
         setState(() {
           _preview = session.preview;
           _selectedAliases = session.preview?.newAliases.toSet() ?? <String>{};
+          final finalPreview = session.preview;
+          if (finalPreview != null && finalPreview.found) {
+            _syncDefaultAvatarSelection(finalPreview);
+          }
           _pendingSources = const [];
           _loading = false;
         });
@@ -306,10 +331,6 @@ class _ActorAssociationSyncSheetState
           final choiceCount = _avatarChoicesFor(finalPreview).length;
           if (choiceCount != lastChoiceCount) {
             unawaited(_loadAvatarPreviews(finalPreview, source));
-          }
-          final activeUrl = _activeAvatarUrlFor(finalPreview);
-          if (activeUrl.isNotEmpty && _avatarChoiceFailed.contains(activeUrl)) {
-            _advancePastFailedAvatar(finalPreview);
           }
         }
         return;
@@ -384,39 +405,7 @@ class _ActorAssociationSyncSheetState
         _avatarChoiceFailed.add(url);
       });
       _avatarPickerRevision.value++;
-      // 加载失败的候选不占主位：自动切到下一张未失败候选（全部失败时保持原位由状态文案兜底）
-      final current = _preview;
-      if (current != null) {
-        _advancePastFailedAvatar(current);
-      }
     }
-  }
-
-  void _advancePastFailedAvatar(ActorAssocPreview preview) {
-    final choices = _avatarChoicesFor(preview);
-    for (var i = 0; i < choices.length; i++) {
-      if (i == _avatarChoiceIndex) continue;
-      final url = choices[i].downloadUrl;
-      if (url.isNotEmpty && !_avatarChoiceFailed.contains(url)) {
-        setState(() => _avatarChoiceIndex = i);
-        unawaited(_loadAvatarPreview(preview, _source, url));
-        return;
-      }
-    }
-  }
-
-  void _selectAvatarChoice(int index) {
-    final preview = _preview;
-    if (_applying || preview == null) return;
-    final choices = _avatarChoicesFor(preview);
-    if (index < 0 || index >= choices.length || index == _avatarChoiceIndex) {
-      return;
-    }
-    setState(() {
-      _avatarChoiceIndex = index;
-      _avatarManuallySelected = true;
-    });
-    unawaited(_loadAvatarPreview(preview, _source, choices[index].downloadUrl));
   }
 
   Future<void> _openAvatarPicker() async {
@@ -425,7 +414,7 @@ class _ActorAssociationSyncSheetState
     final choices = _avatarChoicesFor(preview);
     if (choices.length <= 1) return;
 
-    final selectedIndex = await showModalBottomSheet<int>(
+    final result = await showModalBottomSheet<Set<int>>(
       context: context,
       backgroundColor: appColors(context).bg,
       isScrollControlled: true,
@@ -433,15 +422,20 @@ class _ActorAssociationSyncSheetState
       builder: (_) => _AvatarChoicePicker(
         mappedValue: preview.mappedValue,
         choices: choices,
-        selectedIndex: _avatarChoiceIndex,
+        selectedIndices: _selectedAvatarChoices,
         avatarBytes: _avatarChoiceBytes,
         avatarLoading: _avatarChoiceLoading,
         avatarLoadFailed: _avatarChoiceFailed,
         revision: _avatarPickerRevision,
+        onRetry: (url) => unawaited(_loadAvatarPreview(preview, _source, url)),
       ),
     );
-    if (!mounted || selectedIndex == null) return;
-    _selectAvatarChoice(selectedIndex);
+    if (!mounted || result == null) return;
+    if (_applying) return;
+    setState(() {
+      _selectedAvatarChoices = result;
+      _avatarManuallySelected = true;
+    });
   }
 
   Future<List<ActorDataSource>> _loadAvailableSources() async {
@@ -478,7 +472,7 @@ class _ActorAssociationSyncSheetState
       _avatarChoiceBytes.clear();
       _avatarChoiceLoading.clear();
       _avatarChoiceFailed.clear();
-      _avatarChoiceIndex = 0;
+      _selectedAvatarChoices = <int>{};
       _avatarManuallySelected = false;
     });
     unawaited(
@@ -496,11 +490,17 @@ class _ActorAssociationSyncSheetState
     if (!_hasSyncChanges(preview)) return;
 
     final biographyChanged = _biographyNeedsSync(preview);
-    final avatarChanged = _canSyncAvatar(preview);
-    final activeAvatarUrl = _activeAvatarUrlFor(preview);
+    final avatarChanged = _canSyncAvatars(preview);
     final selectedAliases = preview.newAliases
         .where(_selectedAliases.contains)
         .toList(growable: false);
+    // 按候选顺序提交所选头像,后端依次下载保存为多张可轮播封面
+    final avatarUrls = avatarChanged
+        ? [
+            for (final (_, choice) in _selectedChoicesFor(preview))
+              choice.downloadUrl,
+          ]
+        : const <String>[];
     setState(() => _applying = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -520,11 +520,9 @@ class _ActorAssociationSyncSheetState
             originalValues: merged,
             source: _source,
             biography: biographyChanged ? preview.biography : null,
-            avatarUrl: avatarChanged ? activeAvatarUrl : null,
+            avatarUrls: avatarUrls,
             avatarOverwrite: avatarChanged && preview.avatarExists,
-            avatarSource: avatarChanged
-                ? _activeAvatarSourceFor(preview)
-                : null,
+            avatarSources: avatarChanged ? _avatarSourcesFor(preview) : null,
             externalIds:
                 _source == ActorDataSource.mixed &&
                     preview.externalIds.isNotEmpty
@@ -648,9 +646,12 @@ class _ActorAssociationSyncSheetState
                           mappedValue: preview.mappedValue,
                           avatarExists: preview.avatarExists,
                           avatarChoices: _avatarChoicesFor(preview),
-                          activeBytes: _activeAvatarBytes,
-                          activeLoading: _activeAvatarLoading,
-                          activeLoadFailed: _activeAvatarLoadFailed,
+                          selectedAvatarCount: _selectedChoicesFor(
+                            preview,
+                          ).length,
+                          activeBytes: _previewAvatarBytes,
+                          activeLoading: _previewAvatarLoading,
+                          activeLoadFailed: _previewAvatarLoadFailed,
                           avatarManuallySelected: _avatarManuallySelected,
                           pendingSources: _pendingSources,
                           notFoundSources: _notFoundSources,
@@ -880,6 +881,7 @@ class _ActorIdentitySection extends StatelessWidget {
     required this.mappedValue,
     required this.avatarExists,
     required this.avatarChoices,
+    required this.selectedAvatarCount,
     required this.activeBytes,
     required this.activeLoading,
     required this.activeLoadFailed,
@@ -893,6 +895,7 @@ class _ActorIdentitySection extends StatelessWidget {
   final String mappedValue;
   final bool avatarExists;
   final List<ActorAssociationAvatarChoice> avatarChoices;
+  final int selectedAvatarCount;
   final Uint8List? activeBytes;
   final bool activeLoading;
   final bool activeLoadFailed;
@@ -906,21 +909,20 @@ class _ActorIdentitySection extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final hasPreview = activeBytes != null && activeBytes!.isNotEmpty;
+    final total = avatarChoices.length;
     final status = activeLoading
         ? avatarExists
-              ? '正在获取数据源头像，可选择后替换本地'
+              ? '正在获取数据源头像，可多选后替换本地'
               : '正在获取头像...'
+        : selectedAvatarCount == 0
+        ? '未选择头像（点头像候选调整）'
         : avatarExists
-        ? avatarManuallySelected && hasPreview
-              ? '将替换本地头像'
-              : hasPreview
-              ? '本地已有头像（不覆盖）'
-              : '本地已有头像，可替换'
+        ? avatarManuallySelected
+              ? '将替换本地头像（已选 $selectedAvatarCount 张）'
+              : '本地已有头像（不覆盖）'
         : activeLoadFailed
         ? '头像获取失败'
-        : hasPreview
-        ? '将同步头像'
-        : '数据源未提供头像';
+        : '将同步头像（已选 $selectedAvatarCount 张）';
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       decoration: BoxDecoration(
@@ -935,7 +937,7 @@ class _ActorIdentitySection extends StatelessWidget {
             children: [
               Semantics(
                 button: onAvatarTap != null,
-                label: avatarChoices.length > 1 ? '选择候选头像' : '演员头像',
+                label: total > 1 ? '选择候选头像' : '演员头像',
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -975,7 +977,7 @@ class _ActorIdentitySection extends StatelessWidget {
                                   ),
                           ),
                         ),
-                        if (avatarChoices.length > 1)
+                        if (total > 1)
                           Positioned(
                             right: -5,
                             bottom: -5,
@@ -1000,7 +1002,7 @@ class _ActorIdentitySection extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 2),
                                   Text(
-                                    '${avatarChoices.length}',
+                                    '$selectedAvatarCount/$total',
                                     style: TextStyle(
                                       color: c.chipTextActive,
                                       fontSize: 11,
@@ -1053,16 +1055,10 @@ class _ActorIdentitySection extends StatelessWidget {
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              else if (hasPreview)
-                Icon(
-                  avatarExists && !avatarManuallySelected
-                      ? Icons.visibility_outlined
-                      : Icons.check_circle,
-                  color: avatarExists && !avatarManuallySelected
-                      ? c.muted
-                      : c.accent,
-                  size: 20,
-                )
+              else if (avatarExists && !avatarManuallySelected)
+                Icon(Icons.visibility_outlined, color: c.muted, size: 20)
+              else if (selectedAvatarCount > 0)
+                Icon(Icons.check_circle, color: c.accent, size: 20)
               else if (activeLoadFailed)
                 Icon(Icons.error_outline, color: c.danger, size: 20),
             ],
@@ -1083,29 +1079,67 @@ class _ActorIdentitySection extends StatelessWidget {
   }
 }
 
-class _AvatarChoicePicker extends StatelessWidget {
+/// 头像候选多选 · 点选切换,失败候选点击重试,确定后回传所选索引集合
+class _AvatarChoicePicker extends StatefulWidget {
   const _AvatarChoicePicker({
     required this.mappedValue,
     required this.choices,
-    required this.selectedIndex,
+    required this.selectedIndices,
     required this.avatarBytes,
     required this.avatarLoading,
     required this.avatarLoadFailed,
     required this.revision,
+    this.onRetry,
   });
 
   final String mappedValue;
   final List<ActorAssociationAvatarChoice> choices;
-  final int selectedIndex;
+  final Set<int> selectedIndices;
   final Map<String, Uint8List> avatarBytes;
   final Set<String> avatarLoading;
   final Set<String> avatarLoadFailed;
   final ValueListenable<int> revision;
+  final ValueChanged<String>? onRetry;
+
+  @override
+  State<_AvatarChoicePicker> createState() => _AvatarChoicePickerState();
+}
+
+class _AvatarChoicePickerState extends State<_AvatarChoicePicker> {
+  late Set<int> _selected = {...widget.selectedIndices};
+
+  @override
+  void initState() {
+    super.initState();
+    // 剔除已丢失/加载失败且不在候选范围内的索引
+    _selected.removeWhere(
+      (index) => index < 0 || index >= widget.choices.length,
+    );
+  }
+
+  void _toggle(int index) {
+    setState(() {
+      if (!_selected.add(index)) {
+        _selected.remove(index);
+      }
+    });
+  }
+
+  /// 全选对象为加载未失败的候选;已全选时清空
+  void _toggleAll() {
+    final all = {
+      for (var i = 0; i < widget.choices.length; i++)
+        if (!widget.avatarLoadFailed.contains(widget.choices[i].downloadUrl)) i,
+    };
+    setState(() {
+      _selected = _selected.containsAll(all) ? <int>{} : all;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<int>(
-      valueListenable: revision,
+      valueListenable: widget.revision,
       builder: (context, _, __) => _buildPicker(context),
     );
   }
@@ -1115,10 +1149,12 @@ class _AvatarChoicePicker extends StatelessWidget {
     final height = MediaQuery.of(context).size.height * 0.58;
     // 加载失败的候选滞后到末尾展示，不占靠前的位置；保留原始索引供选中回传
     final ordered = <(int, ActorAssociationAvatarChoice)>[
-      for (var i = 0; i < choices.length; i++)
-        if (!avatarLoadFailed.contains(choices[i].downloadUrl)) (i, choices[i]),
-      for (var i = 0; i < choices.length; i++)
-        if (avatarLoadFailed.contains(choices[i].downloadUrl)) (i, choices[i]),
+      for (var i = 0; i < widget.choices.length; i++)
+        if (!widget.avatarLoadFailed.contains(widget.choices[i].downloadUrl))
+          (i, widget.choices[i]),
+      for (var i = 0; i < widget.choices.length; i++)
+        if (widget.avatarLoadFailed.contains(widget.choices[i].downloadUrl))
+          (i, widget.choices[i]),
     ];
     return SafeArea(
       child: SizedBox(
@@ -1131,11 +1167,38 @@ class _AvatarChoicePicker extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('选择演员头像', style: AppText.sectionTitle(context)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '选择演员头像',
+                          style: AppText.sectionTitle(context),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: _toggleAll,
+                        icon: Icon(
+                          _selected.length == ordered.length
+                              ? Icons.deselect
+                              : Icons.select_all,
+                          size: 16,
+                        ),
+                        label: Text(
+                          _selected.length == ordered.length ? '清空' : '全选',
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          minimumSize: const Size(0, 30),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 3),
                   Text(
-                    '${mappedValue.isEmpty ? '演员' : mappedValue} · 共 ${choices.length} 张候选'
-                    '${avatarLoadFailed.isEmpty ? '' : '（${avatarLoadFailed.length} 张加载失败已后置）'}',
+                    '${widget.mappedValue.isEmpty ? '演员' : widget.mappedValue} · '
+                    '已选 ${_selected.length}/${widget.choices.length} 张'
+                    '${widget.avatarLoadFailed.isEmpty ? '' : '（${widget.avatarLoadFailed.length} 张加载失败已后置，点击可重试）'}',
                     style: AppText.meta(context),
                   ),
                 ],
@@ -1155,14 +1218,16 @@ class _AvatarChoicePicker extends StatelessWidget {
                 itemBuilder: (context, slot) {
                   final (index, choice) = ordered[slot];
                   final url = choice.downloadUrl;
-                  final bytes = avatarBytes[url];
-                  final loading = avatarLoading.contains(url);
-                  final failed = avatarLoadFailed.contains(url);
-                  final selected = selectedIndex == index;
+                  final bytes = widget.avatarBytes[url];
+                  final loading = widget.avatarLoading.contains(url);
+                  final failed = widget.avatarLoadFailed.contains(url);
+                  final selected = _selected.contains(index);
                   return Semantics(
                     button: true,
-                    selected: selected,
-                    label: '选择第 ${index + 1} 张演员头像',
+                    toggled: selected,
+                    label: failed
+                        ? '重试第 ${index + 1} 张演员头像'
+                        : '选择第 ${index + 1} 张演员头像',
                     child: Material(
                       color: c.surface,
                       shape: RoundedRectangleBorder(
@@ -1174,7 +1239,9 @@ class _AvatarChoicePicker extends StatelessWidget {
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: InkWell(
-                        onTap: () => Navigator.of(context).pop(index),
+                        onTap: failed
+                            ? () => widget.onRetry?.call(url)
+                            : () => _toggle(index),
                         borderRadius: BorderRadius.circular(12),
                         child: Column(
                           children: [
@@ -1198,7 +1265,7 @@ class _AvatarChoicePicker extends StatelessWidget {
                                     Center(
                                       child: Icon(
                                         failed
-                                            ? Icons.broken_image_outlined
+                                            ? Icons.refresh
                                             : Icons.person_outline,
                                         color: failed ? c.danger : c.muted,
                                         size: 28,
@@ -1230,7 +1297,7 @@ class _AvatarChoicePicker extends StatelessWidget {
                                   failed
                                       ? '点击重试'
                                       : selected
-                                      ? '当前头像'
+                                      ? '已选'
                                       : '候选 ${index + 1}',
                                   style: TextStyle(
                                     color: failed ? c.danger : c.muted,
@@ -1246,6 +1313,17 @@ class _AvatarChoicePicker extends StatelessWidget {
                     ),
                   );
                 },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 8, 22, 12),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.of(context).pop(_selected),
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: Text('确定（${_selected.length} 张）'),
+                ),
               ),
             ),
           ],

@@ -245,6 +245,9 @@ class AppL10nZh extends AppL10n {
   String get detailDetails => '详情';
 
   @override
+  String get detailFilmography => '作品集';
+
+  @override
   String get detailFavorited => '已收藏';
 
   @override

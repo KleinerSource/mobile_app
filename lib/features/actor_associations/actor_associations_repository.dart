@@ -407,16 +407,17 @@ class ActorAssociationsRepository {
 
   /// 应用同步演员关联结果 (mapped_value + 合并后的所有别名)
   ///
-  /// 混合渠道：avatarSource 为所选头像候选的来源（决定下载方式），
+  /// 混合渠道：avatarSources 为所选各头像候选的 地址 → 来源 映射（决定下载方式），
   /// externalIds 为预览返回的 source → ID 映射（一次事务保存多来源身份）。
+  /// 头像按候选顺序提交数组，后端依次下载保存为多张可轮播封面。
   Future<void> applySource({
     required String mappedValue,
     required List<String> originalValues,
     ActorDataSource source = ActorDataSource.dbonline,
     String? biography,
-    String? avatarUrl,
+    List<String> avatarUrls = const [],
     bool avatarOverwrite = false,
-    String? avatarSource,
+    Map<String, String>? avatarSources,
     Map<String, String>? externalIds,
   }) async {
     final body = <String, dynamic>{
@@ -428,15 +429,25 @@ class ActorAssociationsRepository {
     if (trimmedBiography.isNotEmpty) {
       body['biography'] = trimmedBiography;
     }
-    final trimmedAvatarUrl = avatarUrl?.trim() ?? '';
-    if (trimmedAvatarUrl.isNotEmpty) {
-      body['avatar_url'] = trimmedAvatarUrl;
+    final trimmedAvatarUrls = [
+      for (final url in avatarUrls)
+        if (url.trim().isNotEmpty) url.trim(),
+    ];
+    if (trimmedAvatarUrls.isNotEmpty) {
+      body['avatar_urls'] = trimmedAvatarUrls;
       body['avatar_overwrite'] = avatarOverwrite;
     }
     if (source == ActorDataSource.mixed) {
-      final trimmedAvatarSource = avatarSource?.trim() ?? '';
-      if (trimmedAvatarSource.isNotEmpty) {
-        body['avatar_source'] = trimmedAvatarSource;
+      final trimmedAvatarSources = <String, String>{};
+      avatarSources?.forEach((url, value) {
+        final trimmedUrl = url.trim();
+        final trimmedValue = value.trim();
+        if (trimmedUrl.isNotEmpty && trimmedValue.isNotEmpty) {
+          trimmedAvatarSources[trimmedUrl] = trimmedValue;
+        }
+      });
+      if (trimmedAvatarSources.isNotEmpty) {
+        body['avatar_sources'] = trimmedAvatarSources;
       }
       if (externalIds != null && externalIds.isNotEmpty) {
         body['external_ids'] = externalIds;

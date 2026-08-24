@@ -150,4 +150,36 @@ void main() {
     expect(find.text('Test Actor'), findsOneWidget);
     expect(find.text('演员'), findsWidgets);
   });
+
+  testWidgets('avatar_path 多张时封面自动淡入淡出轮播且禁止手动', (tester) async {
+    await pumpActorPage(
+      tester,
+      const PersonDetailPage(
+        actorId: 7,
+        name: 'Carousel Actor',
+        avatarPaths: ['a.jpg', 'b.jpg', 'c.jpg'],
+      ),
+    );
+
+    final hero = find.byKey(const ValueKey('person-hero'));
+    // 禁止手动: 无可滑动 PageView,也无圆点指示条
+    expect(
+      find.descendant(of: hero, matching: find.byType(PageView)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: hero, matching: find.byType(AnimatedContainer)),
+      findsNothing,
+    );
+
+    // 推进超过自动轮播间隔与淡入时长,自动切换交叉淡化不崩溃
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    // 再经历一轮完整切换仍稳定
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(milliseconds: 900));
+    await tester.pumpAndSettle();
+  });
 }

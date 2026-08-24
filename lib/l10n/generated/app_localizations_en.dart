@@ -245,6 +245,9 @@ class AppL10nEn extends AppL10n {
   String get detailDetails => 'Details';
 
   @override
+  String get detailFilmography => 'Filmography';
+
+  @override
   String get detailFavorited => 'Added to favorites';
 
   @override

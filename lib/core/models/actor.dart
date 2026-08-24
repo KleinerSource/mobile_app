@@ -18,7 +18,8 @@ abstract class ActorItem with _$ActorItem {
     required String name,
     String? biography,
     @JsonKey(name: 'actor_type') String? actorType,
-    @JsonKey(name: 'avatar_path') String? avatarPath,
+    // 后端改为返回 avatar_path 数组(按序多张头像),支持封面轮播
+    @JsonKey(name: 'avatar_path') List<String>? avatarPaths,
     @JsonKey(name: 'movie_count') @Default(0) int movieCount,
   }) = _ActorItem;
 

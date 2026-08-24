@@ -541,6 +541,12 @@ abstract class AppL10n {
   /// **'详情'**
   String get detailDetails;
 
+  /// No description provided for @detailFilmography.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品集'**
+  String get detailFilmography;
+
   /// No description provided for @detailFavorited.
   ///
   /// In zh, this message translates to:

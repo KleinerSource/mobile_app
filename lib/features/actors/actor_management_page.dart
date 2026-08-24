@@ -554,7 +554,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                                             name: actor.name,
                                             actorType: actor.actorType,
                                             biography: actor.biography,
-                                            avatarPath: actor.avatarPath,
+                                            avatarPaths: actor.avatarPaths,
                                             onUpdated: () =>
                                                 _refresh(preserveScroll: true),
                                           ),
@@ -949,7 +949,7 @@ class _ActorTile extends StatelessWidget {
       name: actor.name,
       hue: hue,
       size: 42,
-      avatarPath: actor.avatarPath,
+      avatarPaths: actor.avatarPaths,
     );
     // 有关联成员的主行：头像边框提示可展开，点击头像单独展开/收起子行。
     final expandableAvatar =

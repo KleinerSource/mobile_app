@@ -257,7 +257,7 @@ void main() {
     await tester.tap(find.text('确认添加'));
     await tester.pump();
 
-    expect(repository.appliedAvatarUrl, 'https://dbo.example/avatar.jpg');
+    expect(repository.appliedAvatarUrls, ['https://dbo.example/avatar.jpg']);
     expect(repository.appliedAvatarOverwrite, isFalse);
 
     applyCompletion.complete();
@@ -468,7 +468,7 @@ class _AvatarPreviewRepository extends ActorAssociationsRepository {
   final Future<List<int>> avatarPreviewFuture;
   final Completer<void> applyCompletion;
   bool avatarPreviewRequested = false;
-  String? appliedAvatarUrl;
+  List<String> appliedAvatarUrls = const [];
   bool? appliedAvatarOverwrite;
 
   @override
@@ -504,12 +504,12 @@ class _AvatarPreviewRepository extends ActorAssociationsRepository {
     required List<String> originalValues,
     ActorDataSource source = ActorDataSource.dbonline,
     String? biography,
-    String? avatarUrl,
+    List<String> avatarUrls = const [],
     bool avatarOverwrite = false,
-    String? avatarSource,
+    Map<String, String>? avatarSources,
     Map<String, String>? externalIds,
   }) async {
-    appliedAvatarUrl = avatarUrl;
+    appliedAvatarUrls = avatarUrls;
     appliedAvatarOverwrite = avatarOverwrite;
     await applyCompletion.future;
     return true;

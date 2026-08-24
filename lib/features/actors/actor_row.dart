@@ -6,23 +6,28 @@ class ActorAssociationMember {
     required this.id,
     required this.name,
     this.biography,
-    this.avatarPath,
+    this.avatarPaths,
   });
 
   final int id;
   final String name;
   final String? biography;
-  final String? avatarPath;
+
+  /// 后端 avatar_path 数组(按序多张头像)
+  final List<String>? avatarPaths;
 
   static ActorAssociationMember? tryParse(Map<String, dynamic> json) {
     final id = (json['id'] as num?)?.toInt();
     final name = (json['name'] as String?)?.trim() ?? '';
     if (id == null || name.isEmpty) return null;
+    final pathsRaw = json['avatar_path'];
     return ActorAssociationMember(
       id: id,
       name: name,
       biography: json['biography'] as String?,
-      avatarPath: json['avatar_path'] as String?,
+      avatarPaths: pathsRaw is List
+          ? [for (final e in pathsRaw.whereType<String>()) e]
+          : null,
     );
   }
 
@@ -31,7 +36,7 @@ class ActorAssociationMember {
     id: id,
     name: name,
     biography: biography,
-    avatarPath: avatarPath,
+    avatarPaths: avatarPaths,
   );
 }
 

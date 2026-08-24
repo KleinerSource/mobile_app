@@ -8,17 +8,28 @@ import '../core/config/server_config_provider.dart';
 import '../core/platform/app_theme.dart';
 
 /// 构造演员头像地址。头像接口公开提供，不需要把 access token 放入 URL。
-String actorAvatarUrl(ServerConfig config, int actorId, {String? cacheBust}) {
+/// [index] 选择 avatar_path 数组中的第几张(默认第一张),供封面轮播使用。
+String actorAvatarUrl(
+  ServerConfig config,
+  int actorId, {
+  String? cacheBust,
+  int index = 0,
+}) {
   final url = resolveApiUrl(config, '/actors/$actorId/avatar');
-  final version = cacheBust?.trim() ?? '';
-  if (version.isEmpty) return url;
   final uri = Uri.parse(url);
+  final extra = <String, String>{
+    if (index > 0) 'index': '$index',
+    if ((cacheBust?.trim() ?? '').isNotEmpty) 'v': cacheBust!.trim(),
+  };
+  if (extra.isEmpty) return url;
   return uri
-      .replace(queryParameters: {...uri.queryParameters, 'v': version})
+      .replace(queryParameters: {...uri.queryParameters, ...extra})
       .toString();
 }
 
-/// 演员头像。图片加载失败时自动回退为统一的渐变首字母占位。
+/// 演员头像(列表/卡片等小头像场景)。图片加载失败时自动回退为统一的
+/// 渐变首字母占位。[avatarPaths] 为后端返回的 avatar_path 数组;
+/// 小头像固定只显示第一张,轮播仅演员详情页的封面负责。
 class ActorAvatar extends ConsumerWidget {
   const ActorAvatar({
     super.key,
@@ -26,7 +37,7 @@ class ActorAvatar extends ConsumerWidget {
     required this.name,
     required this.hue,
     required this.size,
-    this.avatarPath,
+    this.avatarPaths,
     this.cacheBust,
   });
 
@@ -34,7 +45,7 @@ class ActorAvatar extends ConsumerWidget {
   final String name;
   final int hue;
   final double size;
-  final String? avatarPath;
+  final List<String>? avatarPaths;
   final String? cacheBust;
 
   @override
@@ -43,10 +54,8 @@ class ActorAvatar extends ConsumerWidget {
     final imageUrl = config == null
         ? null
         : actorAvatarUrl(config, actorId, cacheBust: cacheBust);
-    final shouldLoadImage =
-        avatarPath == null ||
-        avatarPath!.trim().isNotEmpty ||
-        cacheBust?.trim().isNotEmpty == true;
+    // null = 字段缺失,仍尝试加载;空数组 = 明确无头像,跳过请求
+    final shouldLoadImage = avatarPaths == null || avatarPaths!.isNotEmpty;
     return SizedBox(
       width: size,
       height: size,

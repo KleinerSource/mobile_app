@@ -1814,7 +1814,7 @@ class _CastSection extends StatelessWidget {
                             name: a.name,
                             hue: hue,
                             size: 76,
-                            avatarPath: a.avatarPath,
+                            avatarPaths: a.avatarPaths,
                           ),
                         ),
                         const SizedBox(height: 8),
