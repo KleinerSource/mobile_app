@@ -153,6 +153,13 @@ extension on MovieSearchType {
     MovieSearchType.filename => l.searchModeFilename,
   };
 
+  IconData get icon => switch (this) {
+    MovieSearchType.title => Icons.movie_outlined,
+    MovieSearchType.num => Icons.numbers_rounded,
+    MovieSearchType.actor => Icons.person_outline_rounded,
+    MovieSearchType.filename => Icons.description_outlined,
+  };
+
   String placeholder(AppL10n l) => switch (this) {
     MovieSearchType.title => l.searchPlaceholderTitle,
     MovieSearchType.num => l.searchPlaceholderNum,
@@ -171,23 +178,39 @@ class _SearchTypeMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
+    // 暗色主题的 surface 是半透明色，直接作为下拉菜单背景会透出底层内容。
+    final menuSurface = Color.alphaBlend(c.surface, c.bg);
+
     return DropdownButtonHideUnderline(
       child: DropdownButton<MovieSearchType>(
         value: value,
         isDense: true,
         icon: Icon(Icons.expand_more, size: 16, color: c.muted),
-        dropdownColor: c.surface,
+        dropdownColor: menuSurface,
         borderRadius: BorderRadius.circular(12),
         style: TextStyle(
           color: c.text,
           fontWeight: FontWeight.w700,
           fontSize: 13,
         ),
+        selectedItemBuilder: (context) => MovieSearchType.values
+            .map(
+              (type) => _SearchTypeItem(
+                type: type,
+                label: type.label(l),
+                color: c.text,
+              ),
+            )
+            .toList(),
         items: MovieSearchType.values
             .map(
               (type) => DropdownMenuItem<MovieSearchType>(
                 value: type,
-                child: Text(type.label(l)),
+                child: _SearchTypeItem(
+                  type: type,
+                  label: type.label(l),
+                  color: c.text,
+                ),
               ),
             )
             .toList(),
@@ -195,6 +218,30 @@ class _SearchTypeMenu extends StatelessWidget {
           if (type != null && type != value) onChanged(type);
         },
       ),
+    );
+  }
+}
+
+class _SearchTypeItem extends StatelessWidget {
+  const _SearchTypeItem({
+    required this.type,
+    required this.label,
+    required this.color,
+  });
+
+  final MovieSearchType type;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(type.icon, size: 16, color: color),
+        const SizedBox(width: 6),
+        Text(label),
+      ],
     );
   }
 }

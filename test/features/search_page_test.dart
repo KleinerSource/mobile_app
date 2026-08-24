@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:md_center/core/api/api_client.dart';
 import 'package:md_center/core/api/providers.dart';
 import 'package:md_center/core/config/server_config_provider.dart';
+import 'package:md_center/core/platform/app_theme.dart';
+import 'package:md_center/features/movies/movie_filter.dart';
 import 'package:md_center/features/search/search_page.dart';
 import 'package:md_center/l10n/generated/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -130,5 +132,35 @@ void main() {
 
     expect(searchType, 'actor');
     expect(find.text('演员结果'), findsWidgets);
+  });
+
+  testWidgets('暗色模式下搜索类型菜单不透出内容并显示 icon', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: ThemeData(brightness: Brightness.dark),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: const Locale('zh'),
+          home: const Scaffold(body: SearchPage()),
+        ),
+      ),
+    );
+
+    final dropdown = tester.widget<DropdownButton<MovieSearchType>>(
+      find.byType(DropdownButton<MovieSearchType>),
+    );
+    expect(
+      dropdown.dropdownColor,
+      Color.alphaBlend(AppColors.dark.surface, AppColors.dark.bg),
+    );
+
+    await tester.tap(find.text('影片').first);
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.movie_outlined), findsWidgets);
+    expect(find.byIcon(Icons.numbers_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.person_outline_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.description_outlined), findsOneWidget);
   });
 }
