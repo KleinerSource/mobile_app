@@ -10,7 +10,7 @@ import 'package:md_center/l10n/generated/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('详情顶部封面上滑先收窄再整体推出,悬浮操作按钮常驻', (tester) async {
+  testWidgets('详情顶部封面上滑先收窄再整体推出,状态栏穿透且悬浮返回可用', (tester) async {
     tester.view.physicalSize = const Size(600, 500);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -27,6 +27,7 @@ void main() {
       tags: [for (var i = 0; i < 12; i++) ResourceItem(id: i, name: 'tag$i')],
     );
 
+    final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -37,20 +38,31 @@ void main() {
           movieWatchRecordProvider(7).overrideWith((ref) async => null),
         ],
         child: MaterialApp(
+          navigatorKey: navigatorKey,
+          // 模拟 44px 状态栏: 封面应穿透到屏幕顶部,按钮行避开状态栏
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              padding: const EdgeInsets.fromLTRB(0, 44, 0, 0),
+            ),
+            child: child!,
+          ),
           theme: ThemeData(brightness: Brightness.dark),
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
           locale: const Locale('zh'),
-          home: const MovieDetailPage(movieId: 7),
+          home: const Scaffold(body: Center(child: Text('root'))),
         ),
       ),
+    );
+    navigatorKey.currentState!.push(
+      MaterialPageRoute<void>(builder: (_) => const MovieDetailPage(movieId: 7)),
     );
     await tester.pumpAndSettle();
 
     final hero = find.byKey(const ValueKey('detail-hero'));
     var rect = tester.getRect(hero);
     expect(rect.height, moreOrLessEquals(320, epsilon: 1));
-    expect(rect.top, 0);
+    expect(rect.top, 0, reason: '封面应穿透到状态栏底下,而不是从状态栏下方开始');
 
     // 上滑约 100px(触摸 slop 损耗约 20px): 封面按滚动量收窄,顶部保持锚定
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -100));
@@ -86,5 +98,13 @@ void main() {
       tester.getRect(find.byKey(const ValueKey('detail-hero'))).height,
       moreOrLessEquals(320, epsilon: 1),
     );
+
+    // 悬浮返回按钮避开状态栏区域,点击可正常返回上一页
+    final backButtonRect = tester.getRect(find.byIcon(Icons.arrow_back));
+    expect(backButtonRect.top, greaterThanOrEqualTo(44));
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    expect(find.byType(MovieDetailPage), findsNothing);
+    expect(find.text('root'), findsOneWidget);
   });
 }
