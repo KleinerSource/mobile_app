@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:md_center/core/models/playback.dart' as playback_models;
 import 'package:md_center/features/player/playback_engine.dart';
+import 'package:md_center/features/player/ks_player_playback_engine.dart';
 import 'package:md_center/features/player/player_session_controller.dart';
 import 'package:md_center/features/player/player_session_factory.dart';
 
@@ -281,7 +282,7 @@ void main() {
     );
   });
 
-  test('KSPlayer 失败时回退到 libmpv 且只允许一次', () async {
+  test('KSPlayer 失败不会自动回退到 libmpv', () async {
     final ks = FakePlaybackEngine(PlaybackEngineKind.ksPlayer);
     final fallback = FakePlaybackEngine(PlaybackEngineKind.libmpv);
     var fallbackCount = 0;
@@ -293,10 +294,33 @@ void main() {
       },
     );
 
-    expect(await session.fallbackToLibmpvForReload('KSPlayer failed'), isTrue);
-    expect(session.kind, PlaybackEngineKind.libmpv);
+    expect(await session.fallbackToLibmpvForReload('KSPlayer failed'), isFalse);
+    expect(session.kind, PlaybackEngineKind.ksPlayer);
     expect(await session.fallbackToLibmpvForReload('second failure'), isFalse);
-    expect(fallbackCount, 1);
+    expect(fallbackCount, 0);
     await session.dispose();
+  });
+
+  test('KSPlayer 首帧前错误仍然保留，播放后的迟到错误被忽略', () {
+    const opening = PlaybackViewState(
+      engineKind: PlaybackEngineKind.ksPlayer,
+      lifecycle: PlaybackLifecycle.opening,
+    );
+    const playing = PlaybackViewState(
+      engineKind: PlaybackEngineKind.ksPlayer,
+      lifecycle: PlaybackLifecycle.ready,
+      playing: true,
+      firstFrameRendered: true,
+      position: Duration(seconds: 1),
+    );
+    const pausedAtFirstFrame = PlaybackViewState(
+      engineKind: PlaybackEngineKind.ksPlayer,
+      lifecycle: PlaybackLifecycle.ready,
+      firstFrameRendered: true,
+    );
+
+    expect(shouldIgnoreKsPlayerError(opening), isFalse);
+    expect(shouldIgnoreKsPlayerError(playing), isTrue);
+    expect(shouldIgnoreKsPlayerError(pausedAtFirstFrame), isFalse);
   });
 }

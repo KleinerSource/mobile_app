@@ -234,6 +234,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
       !_fallbackAttempted &&
       !_fallbackInProgress &&
       _engine.kind != PlaybackEngineKind.libmpv &&
+      _engine.kind != PlaybackEngineKind.ksPlayer &&
       _libmpvFallbackFactory != null;
 
   bool get _canFallback => _fallbackAvailable && _lastOpenRequest != null;
