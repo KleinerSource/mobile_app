@@ -530,7 +530,9 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     if let trackId = Int32(id), let track = tracks.first(where: { $0.trackID == trackId }) {
       return track
     }
-    if let index = Int(fallbackIndex ?? -1), tracks.indices.contains(index) {
+    if let fallbackIndex,
+       let index = Int(exactly: fallbackIndex),
+       tracks.indices.contains(index) {
       return tracks[index]
     }
     if let index = Int(id), tracks.indices.contains(index) {
