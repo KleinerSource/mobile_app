@@ -8,10 +8,9 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
-import '../../shared/drag_selection.dart';
 import '../../shared/error_view.dart';
-import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/glass_menu.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/pagination_footer.dart';
@@ -180,70 +179,65 @@ class _SearchTypeMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    // 暗色主题的 surface 是半透明色，直接作为下拉菜单背景会透出底层内容。
-    final menuSurface = Color.alphaBlend(c.surface, c.bg);
-
-    return DropdownButtonHideUnderline(
-      child: DropdownButton<MovieSearchType>(
-        value: value,
-        isDense: true,
-        icon: Icon(Icons.expand_more, size: 16, color: c.muted),
-        dropdownColor: menuSurface,
-        borderRadius: BorderRadius.circular(12),
-        style: TextStyle(
-          color: c.text,
-          fontWeight: FontWeight.w700,
-          fontSize: 13,
-        ),
-        selectedItemBuilder: (context) => MovieSearchType.values
-            .map(
-              (type) => _SearchTypeItem(
-                type: type,
-                label: type.label(l),
-                color: c.text,
-              ),
-            )
-            .toList(),
-        items: MovieSearchType.values
-            .map(
-              (type) => DropdownMenuItem<MovieSearchType>(
-                value: type,
-                child: _SearchTypeItem(
-                  type: type,
-                  label: type.label(l),
-                  color: c.text,
-                ),
-              ),
-            )
-            .toList(),
-        onChanged: (type) {
-          if (type != null && type != value) onChanged(type);
-        },
-      ),
+    return GlassMenuAnchor<MovieSearchType>(
+      width: 204,
+      offset: const Offset(0, 4),
+      placement: GlassMenuPlacement.below,
+      alignment: GlassMenuAlignment.start,
+      initialSelection: value,
+      entries: [
+        for (final type in MovieSearchType.values)
+          GlassMenuEntry<MovieSearchType>.action(
+            value: type,
+            builder: (context, selected, onTap) => GlassMenuRow(
+              icon: type.icon,
+              iconSize: 18,
+              label: type.label(l),
+              selected: selected,
+              onTap: onTap,
+            ),
+          ),
+      ],
+      onSelected: (type) {
+        if (type != value) onChanged(type);
+      },
+      child: _SearchTypeButton(type: value, color: c.text, muted: c.muted),
     );
   }
 }
 
-class _SearchTypeItem extends StatelessWidget {
-  const _SearchTypeItem({
+class _SearchTypeButton extends StatelessWidget {
+  const _SearchTypeButton({
     required this.type,
-    required this.label,
     required this.color,
+    required this.muted,
   });
 
   final MovieSearchType type;
-  final String label;
   final Color color;
+  final Color muted;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(type.icon, size: 16, color: color),
-        const SizedBox(width: 6),
-        Text(label),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(type.icon, size: 16, color: color),
+          const SizedBox(width: 5),
+          Text(
+            type.label(AppL10n.of(context)),
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(width: 2),
+          Icon(Icons.expand_more, size: 16, color: muted),
+        ],
+      ),
     );
   }
 }
@@ -291,10 +285,6 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
   late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
     _controller,
   );
-  final Set<int> _selected = {};
-  bool _selectionMode = false;
-
-  bool get _selecting => _selectionMode;
 
   @override
   void initState() {
@@ -363,155 +353,54 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     }
   }
 
-  void _toggleSelect(int id) {
-    setState(() {
-      if (_selected.remove(id)) {
-        if (_selected.isEmpty) _selectionMode = false;
-      } else {
-        _selectionMode = true;
-        _selected.add(id);
-      }
-    });
-  }
-
-  void _startSelectionSweep(int id, bool selected) {
-    setState(() {
-      _selectionMode = true;
-      _setSelectionValue(id, selected);
-    });
-  }
-
-  void _applySelectionSweep(int id, bool selected) {
-    if (_selected.contains(id) == selected) return;
-    setState(() => _setSelectionValue(id, selected));
-  }
-
-  void _finishSelectionSweep() {
-    if (_selected.isEmpty) _clearSelection();
-  }
-
-  void _setSelectionValue(int id, bool selected) {
-    if (selected) {
-      _selected.add(id);
-    } else {
-      _selected.remove(id);
-    }
-  }
-
-  void _clearSelection() {
-    setState(() {
-      _selectionMode = false;
-      _selected.clear();
-    });
-  }
-
-  void _selectAllLoaded() {
-    final loaded = _controller.itemList ?? const <MovieListItem>[];
-    setState(() {
-      _selected
-        ..clear()
-        ..addAll(loaded.map((movie) => movie.id));
-    });
-  }
-
-  void _handleMovieTap(MovieListItem movie) {
-    if (_selecting) {
-      _toggleSelect(movie.id);
-    } else {
-      unawaited(_openMovie(movie.id));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
-    return PopScope(
-      canPop: !_selecting,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _selecting) _clearSelection();
-      },
-      child: Stack(
-        children: [
-          DragSelectionScope<int>(
-            scrollController: _scrollController,
-            selectionLayout: DragSelectionLayout.grid,
-            isSelected: _selected.contains,
-            onSelectionStart: _startSelectionSweep,
-            onSelectionChanged: _applySelectionSweep,
-            onSelectionEnd: _finishSelectionSweep,
-            selectionMode: _selecting,
-            child: CustomScrollView(
-              controller: _scrollController,
-              primary: false,
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
-                  sliver: PagedSliverGrid<int, MovieListItem>(
-                    pagingController: _controller,
-                    showNoMoreItemsIndicatorAsGridChild: false,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          childAspectRatio: 0.5,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 14,
-                        ),
-                    builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
-                      itemBuilder: (ctx, movie, index) =>
-                          DragSelectionTarget<int>(
-                            key: ValueKey(movie.id),
-                            id: movie.id,
-                            selectionIndex: index,
-                            child: SelectableMovieCard(
-                              movie: movie,
-                              posterUrlBuilder: urlBuilder,
-                              selecting: _selecting,
-                              selected: _selected.contains(movie.id),
-                              onTap: () => _handleMovieTap(movie),
-                            ),
-                          ),
-                      firstPageProgressIndicatorBuilder: (_) =>
-                          const Center(child: CircularProgressIndicator()),
-                      firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                        message: _controller.error?.toString() ?? '加载失败',
-                        onRetry: _controller.refresh,
-                      ),
-                      newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                        onRetry: _controller.retryLastFailedRequest,
-                      ),
-                      noItemsFoundIndicatorBuilder: (_) => Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            AppL10n.of(context).searchNoResult,
-                            style: AppText.body(
-                              context,
-                            ).copyWith(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                      ),
-                      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
-                    ),
+    return CustomScrollView(
+      controller: _scrollController,
+      primary: false,
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
+          sliver: PagedSliverGrid<int, MovieListItem>(
+            pagingController: _controller,
+            showNoMoreItemsIndicatorAsGridChild: false,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              childAspectRatio: 0.5,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 14,
+            ),
+            builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
+              itemBuilder: (ctx, movie, _) => MovieCard(
+                movie: movie,
+                posterUrlBuilder: urlBuilder,
+                onTap: () => unawaited(_openMovie(movie.id)),
+              ),
+              firstPageProgressIndicatorBuilder: (_) =>
+                  const Center(child: CircularProgressIndicator()),
+              firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                message: _controller.error?.toString() ?? '加载失败',
+                onRetry: _controller.refresh,
+              ),
+              newPageErrorIndicatorBuilder: (_) =>
+                  PaginationRetry(onRetry: _controller.retryLastFailedRequest),
+              noItemsFoundIndicatorBuilder: (_) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    AppL10n.of(context).searchNoResult,
+                    style: AppText.body(
+                      context,
+                    ).copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
-              ],
+              ),
+              noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
             ),
           ),
-          if (_selecting)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: EntityBatchToolbar(
-                selectedCount: _selected.length,
-                onSelectAll: _selectAllLoaded,
-                onClear: _clearSelection,
-                onClose: _clearSelection,
-                actions: const [],
-              ),
-            ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

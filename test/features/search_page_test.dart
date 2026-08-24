@@ -6,10 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:md_center/core/api/api_client.dart';
 import 'package:md_center/core/api/providers.dart';
 import 'package:md_center/core/config/server_config_provider.dart';
-import 'package:md_center/core/platform/app_theme.dart';
 import 'package:md_center/features/movies/movie_filter.dart';
 import 'package:md_center/features/search/search_page.dart';
 import 'package:md_center/l10n/generated/app_localizations.dart';
+import 'package:md_center/shared/glass_menu.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -92,10 +92,9 @@ void main() {
                 'success': true,
                 'data': {
                   'items': [
-                    {'id': 1, 'title': '演员结果 1'},
-                    {'id': 2, 'title': '演员结果 2'},
+                    {'id': 1, 'title': '演员结果'},
                   ],
-                  'total_count': 2,
+                  'total_count': 1,
                   'limit': 60,
                   'offset': 0,
                 },
@@ -133,24 +132,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(searchType, 'actor');
-    expect(find.text('演员结果 1'), findsWidgets);
-    expect(find.text('演员结果 2'), findsWidgets);
-
-    final first = find.byKey(const ValueKey<int>(1));
-    final second = find.byKey(const ValueKey<int>(2));
-    final gesture = await tester.startGesture(tester.getCenter(first));
-    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
-    expect(find.text('1 已选'), findsOneWidget);
-
-    await gesture.moveTo(tester.getCenter(second));
-    await tester.pump();
-    expect(find.text('2 已选'), findsOneWidget);
-
-    await gesture.up();
-    await tester.pump();
+    expect(find.text('演员结果'), findsWidgets);
   });
 
-  testWidgets('暗色模式下搜索类型菜单不透出内容并显示 icon', (tester) async {
+  testWidgets('暗色模式下搜索类型菜单支持长按滑动选择并显示 icon', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
@@ -163,20 +148,22 @@ void main() {
       ),
     );
 
-    final dropdown = tester.widget<DropdownButton<MovieSearchType>>(
-      find.byType(DropdownButton<MovieSearchType>),
-    );
-    expect(
-      dropdown.dropdownColor,
-      Color.alphaBlend(AppColors.dark.surface, AppColors.dark.bg),
-    );
+    final anchor = find.byType(GlassMenuAnchor<MovieSearchType>);
+    expect(anchor, findsOneWidget);
 
-    await tester.tap(find.text('影片').first);
-    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(tester.getCenter(anchor));
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
 
     expect(find.byIcon(Icons.movie_outlined), findsWidgets);
     expect(find.byIcon(Icons.numbers_rounded), findsOneWidget);
     expect(find.byIcon(Icons.person_outline_rounded), findsOneWidget);
     expect(find.byIcon(Icons.description_outlined), findsOneWidget);
+
+    await gesture.moveTo(tester.getCenter(find.text('演员')));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('演员'), findsOneWidget);
   });
 }
