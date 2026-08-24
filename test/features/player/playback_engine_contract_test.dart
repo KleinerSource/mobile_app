@@ -39,7 +39,7 @@ void main() {
     );
   });
 
-  test('AVPlayer 打开失败只回退一次并恢复位置、暂停状态和倍速', () async {
+  test('AVPlayer 打开失败先切换内核，再由页面用新决策恢复状态', () async {
     final av = FakePlaybackEngine(
       PlaybackEngineKind.avPlayer,
       failOnOpen: true,
@@ -60,10 +60,25 @@ void main() {
       },
     );
 
-    await session.open('https://example.com/video.mp4');
+    await expectLater(
+      session.open('https://example.com/avplayer.mp4'),
+      throwsStateError,
+    );
 
-    expect(fallbackCount, 1);
+    expect(fallbackCount, 0);
+    expect(
+      await session.fallbackToLibmpvForReload('AVPlayer open failed'),
+      isTrue,
+    );
     expect(session.kind, PlaybackEngineKind.libmpv);
+    expect(fallback.openCount, 0);
+
+    await session.open(
+      'https://example.com/libmpv.mkv',
+      startAt: const Duration(seconds: 31),
+      play: false,
+    );
+    await session.setRate(1.75);
     expect(
       (session.position - const Duration(seconds: 31)).abs(),
       lessThanOrEqualTo(const Duration(seconds: 1)),
@@ -71,6 +86,48 @@ void main() {
     expect(session.playing, isFalse);
     expect(session.value.rate, 1.75);
     expect(fallback.openCount, 1);
+    expect(fallbackCount, 1);
+    await session.dispose();
+  });
+
+  test('AVPlayer 运行时失败通知页面重新决策且不复用旧 URL', () async {
+    final av = FakePlaybackEngine(PlaybackEngineKind.avPlayer);
+    final fallback = FakePlaybackEngine(PlaybackEngineKind.libmpv);
+    final session = PlayerSessionController(
+      engine: av,
+      libmpvFallbackFactory: () => fallback,
+    );
+    await session.open(
+      'https://example.com/avplayer-stream.m3u8',
+      startAt: const Duration(seconds: 31),
+    );
+    await session.setRate(1.5);
+    final reloadFuture = session.reloadRequiredStream.first;
+
+    av.notifier.value = av.notifier.value.copyWith(
+      lifecycle: PlaybackLifecycle.failed,
+      playing: false,
+      buffering: false,
+      error: 'runtime failed',
+    );
+    final request = await reloadFuture.timeout(const Duration(seconds: 1));
+
+    expect(session.kind, PlaybackEngineKind.libmpv);
+    expect(fallback.openCount, 0);
+    expect(request.position, const Duration(seconds: 31));
+    expect(request.wasPlaying, isTrue);
+    expect(request.rate, 1.5);
+
+    await session.open(
+      'https://example.com/libmpv-source.mkv',
+      startAt: request.position,
+      play: request.wasPlaying,
+    );
+    await session.setRate(request.rate);
+    expect(fallback.openCount, 1);
+    expect(session.position, request.position);
+    expect(session.playing, isTrue);
+    expect(session.value.rate, 1.5);
     await session.dispose();
   });
 

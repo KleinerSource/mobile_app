@@ -112,10 +112,7 @@ final class MdCenterAvplayerPluginTests: XCTestCase {
     ) { _ in }
     let item = try XCTUnwrap(player.currentItem)
     XCTAssertEqual(AvPlayerSession.preferredForwardBufferDuration, 60)
-    XCTAssertEqual(
-      item.preferredForwardBufferDuration,
-      AvPlayerSession.preferredForwardBufferDuration
-    )
+    XCTAssertEqual(item.preferredForwardBufferDuration, 0)
 
     session.play()
     NotificationCenter.default.post(name: .AVPlayerItemPlaybackStalled, object: item)

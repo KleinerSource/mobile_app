@@ -9,6 +9,21 @@ import 'playback_engine.dart';
 
 typedef PlaybackEngineFactory = PlaybackEngine Function();
 
+@immutable
+class PlaybackReloadRequest {
+  const PlaybackReloadRequest({
+    required this.position,
+    required this.wasPlaying,
+    required this.rate,
+    required this.reason,
+  });
+
+  final Duration position;
+  final bool wasPlaying;
+  final double rate;
+  final String reason;
+}
+
 /// 播放页面与具体内核之间唯一的会话边界。
 ///
 /// 页面只读取统一状态并发送统一命令；内核失败切换、状态恢复、旧事件隔离
@@ -21,6 +36,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   }) : _engine = engine,
        _libmpvFallbackFactory = libmpvFallbackFactory,
        _state = ValueNotifier(engine.state.value) {
+    _playbackIntent = engine.state.value.playing;
     _bindEngine();
   }
 
@@ -37,15 +53,16 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
       StreamController<bool>.broadcast();
   final StreamController<String> _errorController =
       StreamController<String>.broadcast();
+  final StreamController<PlaybackReloadRequest> _reloadRequiredController =
+      StreamController<PlaybackReloadRequest>.broadcast();
 
   PlaybackOpenRequest? _lastOpenRequest;
   int _generation = 0;
   bool _fallbackAttempted = false;
   bool _fallbackInProgress = false;
-  Future<void>? _fallbackFuture;
+  int? _openingGeneration;
+  bool _playbackIntent = false;
   bool _disposed = false;
-  String? _selectedAudioTrackId;
-  String? _selectedSubtitleTrackId;
 
   @override
   PlaybackViewState get value => _state.value;
@@ -69,6 +86,8 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   Stream<Duration> get durationStream => _durationController.stream;
   Stream<bool> get completedStream => _completedController.stream;
   Stream<String> get errorStream => _errorController.stream;
+  Stream<PlaybackReloadRequest> get reloadRequiredStream =>
+      _reloadRequiredController.stream;
 
   EnginePlaybackRoute playbackRoute({
     required String quality,
@@ -185,13 +204,14 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     }
     if (next.lifecycle == PlaybackLifecycle.completed &&
         previous.lifecycle != PlaybackLifecycle.completed) {
+      _playbackIntent = false;
       _completedController.add(true);
     }
     final error = next.error;
     if (error != null && error.isNotEmpty && error != previous.error) {
-      if (_canFallback) {
-        unawaited(_fallbackToLibmpv(error));
-      } else {
+      if (_canFallback && _openingGeneration == null) {
+        unawaited(_switchToLibmpvAndRequestReload(error));
+      } else if (_openingGeneration == null) {
         _errorController.add(error);
       }
     }
@@ -211,6 +231,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     Map<String, String>? headers,
     bool play = true,
   }) async {
+    _playbackIntent = play;
     final request = PlaybackOpenRequest(
       url: url,
       startAt: startAt,
@@ -219,40 +240,35 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     );
     _lastOpenRequest = request;
     final generation = ++_generation;
+    _openingGeneration = generation;
     try {
       await _engine.open(request);
-    } catch (error) {
-      if (generation != _generation || _disposed) return;
-      final activeFallback = _fallbackFuture;
-      if (activeFallback != null) {
-        await activeFallback;
-        return;
-      }
-      if (_canFallback) {
-        await _fallbackToLibmpv(error.toString());
-        return;
-      }
-      rethrow;
+    } finally {
+      if (_openingGeneration == generation) _openingGeneration = null;
     }
   }
 
-  Future<void> _fallbackToLibmpv(String reason) async {
-    final active = _fallbackFuture;
-    if (active != null) return active;
-    if (!_canFallback) return;
-    final future = _performFallbackToLibmpv(reason);
-    _fallbackFuture = future;
-    return future;
+  Future<void> _switchToLibmpvAndRequestReload(String reason) async {
+    final snapshot = _engine.state.value;
+    final request = _lastOpenRequest;
+    final position = snapshot.position > Duration.zero
+        ? snapshot.position
+        : request?.startAt ?? Duration.zero;
+    final switched = await fallbackToLibmpvForReload(reason);
+    if (!switched || _disposed) return;
+    _reloadRequiredController.add(
+      PlaybackReloadRequest(
+        position: position,
+        wasPlaying: _playbackIntent,
+        rate: snapshot.rate,
+        reason: reason,
+      ),
+    );
   }
 
   /// AVPlayer 播放决策在首次 [open] 前失败时，切换到 libmpv 供调用方
   /// 使用 libmpv capabilities 重新请求播放决策。
   Future<bool> fallbackToLibmpvForReload(String reason) async {
-    final active = _fallbackFuture;
-    if (active != null) {
-      await active;
-      return _engine.kind == PlaybackEngineKind.libmpv;
-    }
     if (!_fallbackAvailable) return false;
 
     _fallbackAttempted = true;
@@ -281,81 +297,6 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     }
   }
 
-  Future<void> _performFallbackToLibmpv(String reason) async {
-    _fallbackAttempted = true;
-    _fallbackInProgress = true;
-    final generation = ++_generation;
-    final oldEngine = _engine;
-    final snapshot = oldEngine.state.value;
-    final request = _lastOpenRequest!;
-    try {
-      try {
-        await oldEngine.pause();
-      } catch (_) {}
-      final fallback = _libmpvFallbackFactory!();
-      _unbindEngine();
-      _engine = fallback;
-      _bindEngine();
-      _surfaceRevision.value++;
-      await fallback.open(
-        PlaybackOpenRequest(
-          url: request.url,
-          headers: request.headers,
-          startAt: snapshot.position > Duration.zero
-              ? snapshot.position
-              : request.startAt,
-          play: snapshot.playing,
-        ),
-      );
-      await _waitForFirstFrame(fallback, generation);
-      if (_disposed || generation != _generation) {
-        await fallback.dispose();
-        return;
-      }
-      if (snapshot.rate != 1) await fallback.setRate(snapshot.rate);
-      final audioId = _selectedAudioTrackId;
-      if (audioId != null) {
-        try {
-          await fallback.setAudioTrackById(audioId);
-        } catch (_) {}
-      }
-      final subtitleId = _selectedSubtitleTrackId;
-      if (subtitleId != null) {
-        try {
-          await fallback.setSubtitleTrackById(subtitleId);
-        } catch (_) {}
-      }
-      await oldEngine.dispose();
-      onFallback?.call('AVPlayer 播放失败，已切换至 libmpv');
-    } catch (error) {
-      _errorController.add(
-        error.toString().isEmpty ? reason : error.toString(),
-      );
-    } finally {
-      _fallbackInProgress = false;
-    }
-  }
-
-  Future<void> _waitForFirstFrame(PlaybackEngine engine, int generation) async {
-    if (engine.state.value.firstFrameRendered) return;
-    final completer = Completer<void>();
-    void listener() {
-      if (engine.state.value.firstFrameRendered && !completer.isCompleted) {
-        completer.complete();
-      }
-    }
-
-    engine.state.addListener(listener);
-    try {
-      await completer.future.timeout(const Duration(seconds: 5));
-    } on TimeoutException {
-      // 某些 libmpv 平台不回报首帧事件，保持已有超时降级行为。
-    } finally {
-      engine.state.removeListener(listener);
-    }
-    if (_disposed || generation != _generation) return;
-  }
-
   Future<void> configure({
     bool? hardwareAcceleration,
     int? preloadBytes,
@@ -367,15 +308,22 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     _surfaceRevision.value++;
   }
 
-  Future<void> play() => _engine.play();
-  Future<void> pause() => _engine.pause();
-  Future<void> playOrPause() => _engine.playOrPause();
+  Future<void> play() {
+    _playbackIntent = true;
+    return _engine.play();
+  }
+
+  Future<void> pause() {
+    _playbackIntent = false;
+    return _engine.pause();
+  }
+
+  Future<void> playOrPause() => _playbackIntent ? pause() : play();
   Future<void> seek(Duration position) => _engine.seek(position);
   Future<void> setRate(double rate) => _engine.setRate(rate);
 
   Future<void> setAudioTrackById(String id) async {
     await _engine.setAudioTrackById(id);
-    _selectedAudioTrackId = id;
   }
 
   Future<void> setSubtitleTrackById(
@@ -388,7 +336,6 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
       fallbackIndex: fallbackIndex,
       nativeRendering: nativeRendering,
     );
-    _selectedSubtitleTrackId = id;
   }
 
   Future<void> setSubtitleData(
@@ -401,7 +348,6 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
 
   Future<void> clearSubtitle() async {
     await _engine.clearSubtitle();
-    _selectedSubtitleTrackId = null;
   }
 
   Future<void> setSubtitleDelay(Duration delay) =>
@@ -428,6 +374,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
 
   Future<void> stop() async {
     ++_generation;
+    _playbackIntent = false;
     await _engine.stop();
   }
 
@@ -448,6 +395,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     await _durationController.close();
     await _completedController.close();
     await _errorController.close();
+    await _reloadRequiredController.close();
     _surfaceRevision.dispose();
     _state.dispose();
   }

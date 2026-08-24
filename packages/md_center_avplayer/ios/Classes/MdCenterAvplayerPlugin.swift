@@ -207,6 +207,7 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
 
   private var item: AVPlayerItem?
   private var statusObservation: NSKeyValueObservation?
+  private var durationObservation: NSKeyValueObservation?
   private var loadedRangesObservation: NSKeyValueObservation?
   private var sizeObservation: NSKeyValueObservation?
   private var timeControlObservation: NSKeyValueObservation?
@@ -223,6 +224,7 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
   private var wantsToPlay = false
   private var stallRecoveryAttempted = false
   private var reportedFailure = false
+  private var currentLoadedRanges: [CMTimeRange] = []
   private var previewGenerator: AVAssetImageGenerator?
   private var pictureInPictureController: AVPictureInPictureController?
   private var pictureInPictureCompletion: ((Result<Bool, Error>) -> Void)?
@@ -273,12 +275,13 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
     wantsToPlay = false
     stallRecoveryAttempted = false
     reportedFailure = false
+    currentLoadedRanges = []
 
     let asset = AVURLAsset(url: mediaUrl)
     let nextItem = AVPlayerItem(asset: asset)
-    // 播放期间持续向前预取的目标窗口；首次播放使用立即启动，
-    // 因此这里不会成为起播或断流恢复门槛。
-    nextItem.preferredForwardBufferDuration = Self.preferredForwardBufferDuration
+    // 首帧前不扩大系统默认缓冲，避免 60 秒预取目标参与起播决策。
+    // 首帧显示后再启用持续前向预取。
+    nextItem.preferredForwardBufferDuration = 0
     item = nextItem
     player.replaceCurrentItem(with: nextItem)
     observe(item: nextItem)
@@ -325,7 +328,11 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
   ) {
     let time = AvPlayerTime.time(milliseconds: positionMs)
     player.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero) {
-      finished in
+      [weak self] finished in
+      if finished {
+        self?.send(.position, numberValue: AvPlayerTime.milliseconds(time))
+        self?.sendBufferedProgress(position: time)
+      }
       completion(finished ? .success(()) : .failure(AvPlayerPluginError.cancelled))
     }
   }
@@ -340,7 +347,10 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
       preferredTimescale: 600
     )
     player.seek(to: time, toleranceBefore: tolerance, toleranceAfter: tolerance) {
-      _ in completion()
+      [weak self] _ in
+      self?.send(.position, numberValue: AvPlayerTime.milliseconds(time))
+      self?.sendBufferedProgress(position: time)
+      completion()
     }
   }
 
@@ -517,6 +527,7 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
       guard let self else { return }
       let milliseconds = AvPlayerTime.milliseconds(time)
       self.send(.position, numberValue: milliseconds)
+      self.sendBufferedProgress(position: time)
     }
   }
 
@@ -525,16 +536,17 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
       [weak self] item, _ in
       self?.handleStatus(item.status)
     }
+    durationObservation = item.observe(\.duration, options: [.initial, .new]) {
+      [weak self] item, _ in
+      self?.sendDuration(item.duration)
+    }
     loadedRangesObservation = item.observe(
       \.loadedTimeRanges,
       options: [.initial, .new]
     ) { [weak self] item, _ in
       guard let self else { return }
-      let end = Self.continuousBufferedEnd(
-        ranges: item.loadedTimeRanges.map(\.timeRangeValue),
-        position: self.player.currentTime()
-      )
-      self.send(.buffered, numberValue: end * 1000)
+      self.currentLoadedRanges = item.loadedTimeRanges.map(\.timeRangeValue)
+      self.sendBufferedProgress()
     }
     sizeObservation = item.observe(\.presentationSize, options: [.initial, .new]) {
       [weak self] item, _ in
@@ -547,8 +559,14 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
     firstFrameObservation = playerLayer.observe(
       \.isReadyForDisplay,
       options: [.initial, .new]
-    ) { [weak self] layer, _ in
-      if layer.isReadyForDisplay { self?.send(.firstFrame, boolValue: true) }
+    ) { [weak self, weak item] layer, _ in
+      guard let self,
+            let item,
+            self.item === item,
+            layer.isReadyForDisplay
+      else { return }
+      item.preferredForwardBufferDuration = Self.preferredForwardBufferDuration
+      self.send(.firstFrame, boolValue: true)
     }
     endObserver = NotificationCenter.default.addObserver(
       forName: .AVPlayerItemDidPlayToEndTime,
@@ -581,8 +599,7 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
     switch status {
     case .readyToPlay:
       guard let item else { return }
-      let seconds = item.duration.seconds
-      send(.duration, numberValue: seconds.isFinite ? max(0, seconds * 1000) : 0)
+      sendDuration(item.duration)
       send(.ready, boolValue: true)
       let finishOpen = { [weak self] in
         guard let self else { return }
@@ -612,7 +629,9 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
   private func clearItemObservers() {
     cancelStallRecovery()
     statusObservation = nil
+    durationObservation = nil
     loadedRangesObservation = nil
+    currentLoadedRanges = []
     sizeObservation = nil
     firstFrameObservation = nil
     if let endObserver {
@@ -667,6 +686,19 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
       end = max(end, range.end)
     }
     return max(0, end)
+  }
+
+  private func sendDuration(_ duration: CMTime) {
+    let seconds = duration.seconds
+    send(.duration, numberValue: seconds.isFinite ? max(0, seconds * 1000) : 0)
+  }
+
+  private func sendBufferedProgress(position: CMTime? = nil) {
+    let end = Self.continuousBufferedEnd(
+      ranges: currentLoadedRanges,
+      position: position ?? player.currentTime()
+    )
+    send(.buffered, numberValue: end * 1000)
   }
 
   private func sendPlaybackState() {

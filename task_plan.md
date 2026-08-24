@@ -235,3 +235,41 @@
 | Windows 下 `rg` 参数中的 `app_localizations*.dart` 通配符未被 shell 展开 | 后续改用目录级 `rg -g` 过滤或读取明确文件，不重复该参数形式。 |
 | 最终本地化扫描再次把 `app_*.arb` 作为 Windows 路径参数传给 `rg` | 改用目录参数配合 `-g 'app_*.arb'`；生成文件扫描结果已正常返回。 |
 | Windows 环境无法执行 Swift/XCTest 和 iOS 真机起播计时 | 已完成 Swift 静态复核与 XCTest 用例补充；真实起播耗时交由 macOS CI/iOS 真机验证。 |
+
+# 当前任务：AVPlayer 起播、回退与进度修复（2026-08-24）
+
+## 目标
+
+修复用户真机反馈的三个关联问题：AVPlayer 仍需数秒才可见起播、AVPlayer 失败自动切换 libmpv 后不能正常播放，以及 AVPlayer duration/buffered/position 导致的进度条异常。
+
+## 成功标准
+
+- [x] 播放 Surface 在 AVPlayer 装载前即挂载，首帧不再被页面加载结构和默认轨道应用阻塞。
+- [x] AVPlayer 初次打开失败与运行时失败均重新按 libmpv 能力请求播放决策，并以位置、播放状态和倍速恢复当前会话。
+- [x] AVPlayer 对 HLS/延迟确定时长持续上报 duration，seek 后及时刷新 position 与连续 buffered 区间。
+- [x] 不改变 Android 依赖和 libmpv 正常路径；统一控制 UI 不新增内核分支。
+- [x] Dart contract/Widget 测试、完整 analyze/test 和补丁检查通过；Swift 测试补充对应状态计算。
+
+## 阶段
+
+1. [已完成] 还原起播、回退、Surface 切换与进度事件的完整调用链。
+2. [已完成] 修复 Surface/加载时序和默认轨道非阻塞应用。
+3. [已完成] 修复 AVPlayer → libmpv 重新决策与状态恢复。
+4. [已完成] 修复 duration/position/buffered 事件与进度条。
+5. [已完成] 补充测试并执行完整验证。
+
+## 约束与假设
+
+- 用户反馈来自 iOS 真机，优先处理代码中可确认的确定性阻塞和状态错误；不以 Windows 环境臆测具体网络耗时。
+- AVPlayer 失败后不能继续复用可能专用于 AVPlayer 的 stream URL，回退应让页面用 libmpv capabilities 重新走后端决策。
+- 60 秒仍是播放期间前向预取目标，不作为起播或恢复门槛。
+- 保留工作区现有 staged/unstaged 修改，不重置、不覆盖用户或上一阶段改动。
+
+## 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| 暂无 | — |
+| 首次定向测试编译失败：移除内部回退轨道快照字段后 `clearSubtitle()` 仍残留一次赋值 | 删除该孤立赋值；统一轨道状态继续由 engine state 与页面后端索引管理。 |
+| Windows 环境无法运行 Swift XCTest 与 iOS 真机首帧计时 | 已完成 Swift 生命周期和 API 静态复核；保留 macOS CI 与 iOS 16+ 真机验收。 |
+| 最终 UI 扫描引用了不存在的 `player_subtitle_overlay.dart` | 改用 `rg --files` 获取实际字幕文件名后重新扫描，不重复使用假定路径。 |

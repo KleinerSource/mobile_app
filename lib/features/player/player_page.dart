@@ -137,6 +137,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   StreamSubscription<Duration>? _durSub;
   StreamSubscription<bool>? _completedSub;
   StreamSubscription<String>? _errorSub;
+  StreamSubscription<PlaybackReloadRequest>? _reloadRequiredSub;
   StreamSubscription<playback_models.TranscodeStatus>? _eventsSub;
   Timer? _transcodePollTimer;
   Timer? _deviceStatsTimer;
@@ -179,6 +180,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       onFallback: (message) {
         if (mounted && !_isLeaving) _showError(message);
       },
+    );
+    _reloadRequiredSub = _host.reloadRequiredStream.listen(
+      _onPlaybackReloadRequired,
     );
     _subtitleAdjustments = ref.read(subtitleSettingsProvider).adjustments;
     WidgetsBinding.instance.addObserver(this);
@@ -327,6 +331,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _durSub?.cancel();
     _completedSub?.cancel();
     _errorSub?.cancel();
+    _reloadRequiredSub?.cancel();
     _eventsSub?.cancel();
     _transcodePollTimer?.cancel();
     _deviceStatsTimer?.cancel();
@@ -561,13 +566,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
       if (!mounted || generation != _loadGeneration) return;
       _bindProgress();
-      await _applyDefaultTracks(cfg, token, decision);
       if (usesManagedTranscode) {
         _transcodeSessionActive = true;
         _startTranscodeMonitoring(selectedQuality);
       }
       setState(() => _loading = false);
       _restartHideTimer();
+      await _applyDefaultTracks(cfg, token, decision);
     } catch (error) {
       if (!mounted || generation != _loadGeneration) return;
       if (await _host.fallbackToLibmpvForReload(error.toString())) {
@@ -760,6 +765,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       return;
     }
     _showPlaybackError(message);
+  }
+
+  void _onPlaybackReloadRequired(PlaybackReloadRequest request) {
+    if (!mounted || _isLeaving) return;
+    _playbackRate = request.rate;
+    unawaited(_reloadAfterEngineFallback(request));
+  }
+
+  Future<void> _reloadAfterEngineFallback(PlaybackReloadRequest request) async {
+    // 显式传入 quality，避免沿用 AVPlayer 的旧 decision；新请求必须按
+    // libmpv capabilities 重新协商 stream_url。
+    await _load(quality: _quality, resume: request.position);
+    if (!request.wasPlaying && mounted && !_isLeaving) {
+      await _host.pause();
+    }
   }
 
   /// 主媒体是否已完成装载。字幕加载窗口内收到报错时，只有主媒体已就绪
@@ -1550,7 +1570,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final settings = ref.watch(playerSettingsProvider);
     final subtitleSettings = ref.watch(subtitleSettingsProvider);
     if (_loading) {
-      return _LoadingView(onExit: () => unawaited(_exitPlayer()));
+      return Stack(
+        children: [
+          Positioned.fill(child: _host.buildSurface()),
+          Positioned.fill(
+            child: _LoadingView(onExit: () => unawaited(_exitPlayer())),
+          ),
+        ],
+      );
     }
     if (_error != null) {
       return _ErrorView(

@@ -334,3 +334,18 @@
 - 现有 Dart contract 测试已覆盖 AVPlayer 音轨映射与平台内核解析，适合直接补充单音轨快速路径和可选择内核列表测试。
 - AVPlayer 缓冲进度改为取“包含当前位置并向后连续”的 `loadedTimeRanges`，避免 seek 后把旧的不连续缓存区间误显示成当前可用缓冲。
 - 有续播位置时仍需先定位再播放，但初始 seek 使用 0.5 秒容差，用户拖动 seek 继续保持原有精确语义。
+
+# AVPlayer 起播、回退与进度故障发现（2026-08-24）
+
+- `PlayerPage._body()` 在 `_loading=true` 时完全不构建 `_host.buildSurface()`；AVPlayer 的 `AVPlayerLayer` 因此要等后端决策、`readyToPlay`、默认字幕/音轨全部完成后才挂载，首帧优化无法在加载期间产生可见效果。
+- `_loadInternal()` 在 `_host.open()` 后仍同步等待 `_applyDefaultTracks()` 才关闭加载页，多音轨或默认字幕网络请求会继续放大可见起播时间。
+- AVPlayer 原生错误事件会由 `PlayerSessionController._handleEngineState()` 抢先触发内部 `_performFallbackToLibmpv()`；该路径直接让 libmpv 打开 AVPlayer 的旧 `stream_url`，不会用 libmpv capabilities 重新请求后端决策，且与 `open()` 抛错存在并发回退竞态。
+- 页面已有 `fallbackToLibmpvForReload()` 后重新执行 `_loadInternal()` 的正确决策级回退路径；运行时错误需要改为同样的“切内核 → 通知页面重新决策”，不能继续在会话层复用旧 URL。
+- AVPlayer 只在 `readyToPlay` 瞬间读取一次 `item.duration`；HLS/远程流当时常为 indefinite，后续没有 duration KVO，导致统一进度条总时长保持 0。
+- AVPlayer 缓冲只在 `loadedTimeRanges` 变化时按当时的 currentTime 计算；seek 或播放位置跨区间但 ranges 未变化时不会刷新，可能残留错误 secondary progress。
+- `AvPlayerPlaybackEngine.open()` 未清零上一媒体的 duration/buffered，切源和回退期间会短暂保留旧进度状态。
+- Swift 复核确认 `duration` 与 `loadedTimeRanges` 均为 item 级 KVO，通知型 stalled/failed/end 观察器显式使用主队列；seek 完成后同时上报 position 与按当前位置计算的连续 buffered 末端。
+- 会话层运行时错误先切换到全新 libmpv engine，再通过 `PlaybackReloadRequest` 要求页面重新走后端决策；页面显式携带当前 quality 和恢复位置，已不复用 AVPlayer 的旧 `stream_url`。
+- 新发现：AVPlayer 的 `reportPlaybackFailure` 会先将 `wantsToPlay=false` 并上报 `playing=false`，之后才上报 error；运行时回退若从失败后的 `PlaybackViewState.playing` 推断恢复意图，会错误得到暂停状态。这会让重新打开成功的 libmpv 随即被页面暂停，必须由 `PlayerSessionController` 独立保存用户播放意图。
+- 统一进度条把 `PlaybackViewState.buffered` 当作媒体时间轴上的绝对结束位置传给 `Slider.secondaryTrackValue`；AVPlayer 的连续缓存计算单位与此一致。当前 UI 只把 buffered 限制在 `[0, duration]`，如果 seek 后暂时没有覆盖当前位置的 loaded range，原生会上报 0，次进度可能落到主进度后方；显示层应至少钳制到当前 position。
+- 起播路径虽调用 `playImmediately(atRate:)`，但 `AVPlayerItem` 在首帧前已设置 `preferredForwardBufferDuration=60`；该值不是硬性起播门槛，但会参与 AVPlayer 的缓冲策略。为从实现上隔离起播与预取，首帧前应保持 0，`AVPlayerLayer.isReadyForDisplay` 后立即切换为 60 秒持续前向预取。

@@ -129,3 +129,23 @@
 - AVPlayer 缓冲进度已改为当前位置连续缓存区间，续播初始 seek 使用 0.5 秒容差；用户拖动定位仍保持精确 seek。
 - staged 与工作树补丁卫生检查均通过，本地化中英文生成结果已核对。
 - 当前 Windows 环境不能运行 Swift XCTest 或测量 iOS 真机首帧耗时；原生实现与新增 XCTest 需由 macOS CI/真机完成最终确认。
+
+- 开始处理 AVPlayer 真机反馈：起播仍慢、失败回退 libmpv 不播放、进度条异常。
+- 已重新读取 `planning-with-files` 并恢复现有规划记录；后续保留当前 staged/unstaged 工作区状态。
+- 已用 CodeGraph 还原三条故障链路，确认是 Surface 挂载时序、回退复用旧 AVPlayer URL/并发竞态，以及 duration/buffered 更新不完整三个确定性问题。
+- 播放加载页现在始终在统一 Surface 上方显示，AVPlayer 的 PlatformView/AVPlayerLayer 可在媒体装载前完成挂载；主媒体 open 后立即关闭加载页，再异步完成默认轨道应用。
+- 已移除会话层“libmpv 直接打开旧 AVPlayer URL”的内部回退；open 失败由页面 catch 切换内核后重新决策，运行时失败通过 `PlaybackReloadRequest` 通知页面以 libmpv capabilities 重新请求。
+- 运行时回退请求保留位置、播放意图和倍速；页面显式传入当前 quality，避免 `_loadInternal` 复用旧 AVPlayer decision。
+- AVPlayer 新增 duration KVO、周期性连续 buffered 刷新和 seek 后 position/buffered 即时刷新；Dart open 同时清零上一媒体的 duration/buffered/size。
+- contract 测试已改为覆盖“打开失败重新决策”和“运行时失败不复用旧 URL”两条路径。
+- 首次定向测试发现删除旧 URL 内部回退后残留 `_selectedSubtitleTrackId` 赋值，已按编译错误清理，未重复失败操作。
+- 收尾静态复核确认 Swift item KVO、周期位置观察器和通知观察器均有对应释放路径；seek 完成会即时刷新 position 与连续 buffered。
+- 新发现运行时错误上报前 AVPlayer 会先清空 `playing`，现有测试没有模拟该顺序，导致回退恢复播放意图的缺陷未被覆盖；进入针对性修复与回归测试。
+- `PlayerSessionController` 已独立记录 open/play/pause/playOrPause/stop 的播放意图；运行时错误回退不再读取失败事件清空后的 `playing`。契约测试现会模拟 AVPlayer 先上报 `playing=false` 再报错的真实顺序。
+- 统一进度条现将 secondary buffered 下限钳制为当前 position，避免 AVPlayer seek/换区间后短暂上报 0 时缓冲进度落到已播放进度后方；同一 Widget 测试覆盖 libmpv 与原生两种 fake engine。
+- 定向验证通过：播放器 contract 与控制栏 parity 共 9 项全部通过；四个相关 Dart 文件定向 analyze 无问题。
+- AVPlayer 的 60 秒 `preferredForwardBufferDuration` 已从 open 时点延后到 `AVPlayerLayer` 首帧 ready 后启用；首帧前为 0，确保持续预取目标不参与起播。Swift 测试期望同步调整。
+- 完整 `flutter test --no-pub`：382 项全部通过；完整 `flutter analyze --no-pub`：`No issues found!`。
+- Dart 格式检查、staged/unstaged `git diff --check` 均通过；Android 与 Android libmpv 包 staged/unstaged 均为零差异。Swift 观察器创建/释放和本轮差异已完成静态复核。
+- 最终 UI 边界复核中，`player_subtitle_track_resolver.dart` 仍按设计作为 MediaKit adapter 内部解析器导入 `media_kit`；播放页、控制栏、字幕渲染 UI 和详情页需按实际 UI 文件名单独扫描。
+- 按实际 UI 文件清单复扫无具体 `media_kit`/`media_kit_video` 导入；最终 staged/unstaged 补丁检查再次通过。本任务状态更新为完成。

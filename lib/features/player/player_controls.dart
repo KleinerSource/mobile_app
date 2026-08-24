@@ -445,7 +445,7 @@ class _PlayerControlsState extends State<PlayerControls> {
         final buffer = state.buffered.inMilliseconds;
         final max = dur > 0 ? dur.toDouble() : 1.0;
         final live = pos.clamp(0, max.toInt()).toDouble();
-        final buffered = buffer.clamp(0, max.toInt()).toDouble();
+        final buffered = buffer.toDouble().clamp(live, max).toDouble();
         final value = _dragValue ?? live;
         final previewPosition = _framePreviewController.position;
         return LayoutBuilder(
