@@ -440,6 +440,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     return ValueListenableBuilder<PlaybackViewState>(
       valueListenable: widget.controller,
       builder: (context, state, _) {
+        final capabilities = widget.controller.capabilities;
         final dur = state.duration.inMilliseconds;
         final pos = state.position.inMilliseconds;
         final buffer = state.buffered.inMilliseconds;
@@ -447,7 +448,9 @@ class _PlayerControlsState extends State<PlayerControls> {
         final live = pos.clamp(0, max.toInt()).toDouble();
         final buffered = buffer.toDouble().clamp(live, max).toDouble();
         final value = _dragValue ?? live;
-        final previewPosition = _framePreviewController.position;
+        final previewPosition = capabilities.framePreview
+            ? _framePreviewController.position
+            : null;
         return LayoutBuilder(
           builder: (context, constraints) {
             final fraction = max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
@@ -480,11 +483,16 @@ class _PlayerControlsState extends State<PlayerControls> {
                     min: 0,
                     max: max,
                     value: value.clamp(0, max),
-                    secondaryTrackValue: buffered,
+                    secondaryTrackValue: capabilities.customBuffering
+                        ? buffered
+                        : null,
                     semanticFormatterCallback: (sliderValue) {
                       final current = Duration(
                         milliseconds: sliderValue.round(),
                       );
+                      if (!capabilities.customBuffering) {
+                        return '当前播放 ${formatDuration(current)}';
+                      }
                       final cached = Duration(milliseconds: buffered.round());
                       return '当前播放 ${formatDuration(current)}，'
                           '已缓冲 ${formatDuration(cached)}';
@@ -494,7 +502,8 @@ class _PlayerControlsState extends State<PlayerControls> {
                     onChangeEnd: dur <= 0 ? null : (v) => _endSliderDrag(v),
                   ),
                 ),
-                if (_sliderDragging &&
+                if (capabilities.framePreview &&
+                    _sliderDragging &&
                     previewPosition != null &&
                     _framePreviewController.frame != null)
                   Positioned(
@@ -524,7 +533,9 @@ class _PlayerControlsState extends State<PlayerControls> {
     setState(() {
       _dragValue = value;
     });
-    _framePreviewController.request(position);
+    if (widget.controller.capabilities.framePreview) {
+      _framePreviewController.request(position);
+    }
     widget.onInteraction();
   }
 
@@ -538,7 +549,9 @@ class _PlayerControlsState extends State<PlayerControls> {
     setState(() {
       _dragValue = value;
     });
-    _framePreviewController.request(position);
+    if (widget.controller.capabilities.framePreview) {
+      _framePreviewController.request(position);
+    }
     widget.onInteraction();
   }
 

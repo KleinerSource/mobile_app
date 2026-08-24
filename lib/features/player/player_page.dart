@@ -483,18 +483,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         quality: selectedQuality,
         decision: decision,
       );
-      final useAvPlayerDecision = engineRoute.useBackendStream;
+      final useBackendStream = engineRoute.useBackendStream;
       final useServerRoute = engineRoute.useServerRoute;
       final usesManagedTranscode = engineRoute.usesManagedTranscode;
       _transcodeSessionActive = usesManagedTranscode;
       String? directUrl;
       Map<String, String>? directHeaders;
-      if (useAvPlayerDecision) {
+      if (useBackendStream) {
         final rawDecisionUrl = decision.streamUrl.trim();
         if (rawDecisionUrl.isEmpty) {
-          throw StateError('AVPlayer 播放决策未返回 stream_url');
+          throw StateError('播放决策未返回 stream_url');
         }
-        // AVPlayer 不使用非公开 header 注入。站内地址统一转换为 token query，
+        // 受限原生内核不使用非公开 header 注入。站内地址统一转换为 token query，
         // 外部 header-only 地址由后端 remux/direct-stream/transcode 适配。
         directUrl = _protectedUrl(cfg, rawDecisionUrl, token);
       } else if (!useServerRoute) {
@@ -544,8 +544,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       final startAt =
           resume ??
           (resumePositionSec > 0 ? Duration(seconds: resumePositionSec) : null);
-      if (useAvPlayerDecision) {
-        await _openAvPlayerDecision(directUrl!, startAt, decision);
+      if (useBackendStream) {
+        await _openBackendStream(directUrl!, startAt, decision);
       } else if (direct) {
         await _openDirectWithClientFallback(
           directUrl!,
@@ -630,7 +630,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _pictureInPictureHeaders = null;
   }
 
-  Future<void> _openAvPlayerDecision(
+  Future<void> _openBackendStream(
     String url,
     Duration? startAt,
     playback_models.PlaybackDecision decision,
@@ -871,8 +871,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
               fallbackIndex: embeddedOrdinal,
               nativeRendering: track.isPgs,
             );
-          } on StateError {
-            // 直传下轨道 ID 偶发与 mpv 侧不一致时，同样回退到 URL。
+          } catch (_) {
+            // 直传下轨道 ID 偶发与原生内核侧不一致时，同样回退到 URL。
             if (track.url.trim().isEmpty) rethrow;
             await _loadSubtitleTrack(cfg, token, track);
           }
@@ -922,7 +922,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       track,
       hasBackendSelection: _subtitleTrackId != null,
     )) {
-      await _applyAvPlayerSubtitleDecision(track);
+      await _applyBackendSubtitleDecision(track);
       return;
     }
     final cfg = ref.read(serverConfigProvider);
@@ -955,7 +955,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     }
   }
 
-  Future<void> _applyAvPlayerSubtitleDecision(
+  Future<void> _applyBackendSubtitleDecision(
     playback_models.SubtitleTrack? track,
   ) async {
     final nextId = track == null
@@ -1329,7 +1329,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       );
     }
 
-    // iOS AVPlayer 无法直接播放 media_kit 常用的 MKV 等容器。PiP 单独
+    // iOS 受限原生内核无法直接播放 media_kit 常用的 MKV 等容器。PiP 单独
     // 使用一个短生命周期的 HLS 会话，退出时由 _stopPictureInPictureFallback
     // 释放它，主播放器仍保持原来的 media_kit 直传链路。
     final cfg = ref.read(serverConfigProvider);
@@ -1569,6 +1569,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Widget _body() {
     final settings = ref.watch(playerSettingsProvider);
     final subtitleSettings = ref.watch(subtitleSettingsProvider);
+    final capabilities = _host.capabilities;
     if (_loading) {
       return Stack(
         children: [
@@ -1597,15 +1598,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     return Stack(
       children: [
         Positioned.fill(child: _host.buildSurface()),
-        Positioned.fill(
-          child: PlayerSubtitleOverlay(
-            controller: _host,
-            selectedTrack: _selectedSubtitle,
-            settings: subtitleSettings,
-            adjustments: _subtitleAdjustments,
-            onVerticalOffsetBoundsChanged: _onSubtitleOffsetBoundsChanged,
+        if (capabilities.textSubtitles)
+          Positioned.fill(
+            child: PlayerSubtitleOverlay(
+              controller: _host,
+              selectedTrack: _selectedSubtitle,
+              settings: subtitleSettings,
+              adjustments: _subtitleAdjustments,
+              onVerticalOffsetBoundsChanged: _onSubtitleOffsetBoundsChanged,
+            ),
           ),
-        ),
         Positioned.fill(
           child: PlayerGestureLayer(
             positionGetter: () => _host.position,
@@ -1618,6 +1620,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             hapticLongPress: settings.hapticLongPress,
             hapticSeek: settings.hapticSeek,
             hapticRate: settings.hapticRate,
+            rateControlEnabled: capabilities.playbackRate,
             onRateBoost: _onRateBoost,
             onRateBoostEnd: _onRateBoostEnd,
             onSeekPreview: _onSeekPreview,
@@ -1654,20 +1657,26 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 quality: _quality,
                 showQualityButton: !_isDirectPlayback,
                 onQualityChanged: _onQualityChanged,
-                subtitleTracks: decision.subtitleTracks,
+                subtitleTracks: capabilities.textSubtitles
+                    ? decision.subtitleTracks
+                    : const [],
                 selectedSubtitle: _selectedSubtitle,
                 onSubtitleChanged: (track) =>
                     unawaited(_onSubtitleChanged(track)),
                 onOpenSubtitleSettings: () =>
                     unawaited(_showSubtitleSettings()),
-                audioTracks: decision.audioTracks,
+                audioTracks: capabilities.audioTracks
+                    ? decision.audioTracks
+                    : const [],
                 onAudioChanged: (track) => unawaited(_applyAudioTrack(track)),
                 decodeStatuses: _decodeStatuses,
                 hapticProgressBar: settings.hapticProgressBar,
                 showPlayPauseButton: settings.showPlayPauseButton,
                 showSeekButtons: settings.showSeekButtons,
-                showSpeedButton: settings.showSpeedButton,
-                showPipButton: settings.showPipButton,
+                showSpeedButton:
+                    settings.showSpeedButton && capabilities.playbackRate,
+                showPipButton:
+                    settings.showPipButton && capabilities.pictureInPicture,
                 showOrientationButton: settings.showOrientationButton,
                 showMediaSwitchButton: settings.showMediaSwitchButton,
                 playbackRate: _playbackRate,

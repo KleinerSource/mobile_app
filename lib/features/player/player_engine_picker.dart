@@ -32,15 +32,15 @@ Future<PlaybackEngineKind?> showPlaybackEnginePicker(
             for (final engineKind in engineKinds)
               ListTile(
                 key: ValueKey('player-engine-${engineKind.value}'),
-                leading: Icon(
-                  engineKind == PlaybackEngineKind.libmpv
-                      ? Icons.video_library_outlined
-                      : Icons.phone_iphone,
-                ),
+                leading: Icon(switch (engineKind) {
+                  PlaybackEngineKind.libmpv => Icons.video_library_outlined,
+                  PlaybackEngineKind.avPlayer => Icons.phone_iphone,
+                  PlaybackEngineKind.ksPlayer => Icons.movie_outlined,
+                }),
                 title: Text(
-                  engineKind == PlaybackEngineKind.libmpv
-                      ? 'libmpv'
-                      : l.playerEngineNative,
+                  engineKind == PlaybackEngineKind.avPlayer
+                      ? l.playerEngineNative
+                      : engineKind.label,
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(sheetContext).pop(engineKind),

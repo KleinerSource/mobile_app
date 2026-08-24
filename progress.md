@@ -149,3 +149,12 @@
 - Dart 格式检查、staged/unstaged `git diff --check` 均通过；Android 与 Android libmpv 包 staged/unstaged 均为零差异。Swift 观察器创建/释放和本轮差异已完成静态复核。
 - 最终 UI 边界复核中，`player_subtitle_track_resolver.dart` 仍按设计作为 MediaKit adapter 内部解析器导入 `media_kit`；播放页、控制栏、字幕渲染 UI 和详情页需按实际 UI 文件名单独扫描。
 - 按实际 UI 文件清单复扫无具体 `media_kit`/`media_kit_video` 导入；最终 staged/unstaged 补丁检查再次通过。本任务状态更新为完成。
+
+## iOS 接入 KSPlayer 完成记录
+
+- Flutter 播放抽象、KSPlayer session、统一 UI capabilities 和一次性 libmpv fallback 已完成。
+- `flutter analyze` 通过；`flutter test` 通过，`394` 项全部通过。
+- KSPlayer Pigeon 生成文件已加入 Git 忽略例外，干净 checkout 不依赖本地生成产物。
+- Swift 静态复核已完成：KSPlayerLayer delegate、轨道选择、截图、PIP、header 和 Platform View 签名与固定 commit 对齐；dispose 的 MainActor 生命周期边界已修正。
+- 外挂字幕保留 Flutter 下载/解析/延迟调整；原生轨道失败且存在外挂地址时会统一降级到外挂字幕。
+- 已记录 Windows 无法执行 iOS 原生工具链，需在 macOS CI/真机完成最终验收。

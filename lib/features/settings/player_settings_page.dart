@@ -79,8 +79,7 @@ class PlayerSettingsPage extends ConsumerWidget {
                   items: [
                     _PlayerOptionTile<PlayerPreloadSize>(
                       title: '预载缓冲大小',
-                      subtitle:
-                          settings.iosEngine == PlaybackEngineKind.avPlayer
+                      subtitle: settings.iosEngine != PlaybackEngineKind.libmpv
                           ? '${settings.preloadSize.label} · 仅 libmpv 内核生效'
                           : null,
                       icon: Icons.memory,

@@ -273,3 +273,34 @@
 | 首次定向测试编译失败：移除内部回退轨道快照字段后 `clearSubtitle()` 仍残留一次赋值 | 删除该孤立赋值；统一轨道状态继续由 engine state 与页面后端索引管理。 |
 | Windows 环境无法运行 Swift XCTest 与 iOS 真机首帧计时 | 已完成 Swift 生命周期和 API 静态复核；保留 macOS CI 与 iOS 16+ 真机验收。 |
 | 最终 UI 扫描引用了不存在的 `player_subtitle_overlay.dart` | 改用 `rg --files` 获取实际字幕文件名后重新扫描，不重复使用假定路径。 |
+
+## iOS 接入 KSPlayer 并统一播放器行为
+
+### 目标
+
+在 iOS 增加可选 KSPlayer 内核，由 Flutter 继续统一承载播放器 UI、手势和操作逻辑；Android/Web 保持 libmpv；非 libmpv 内核失败最多回退一次到 libmpv。
+
+### 阶段
+
+- [x] 复核并保留 KSPlayer 仓库已有改动，提交并推送固定版本
+- [x] 完成 Flutter 播放抽象、能力声明、路由和 fallback
+- [x] 新增 md_center_ksplayer Pigeon/Platform View 插件
+- [x] 完成 iOS CI 依赖注入和许可证声明
+- [x] 通过 Dart analyze/test
+- [x] 完成原生桥接静态复核，记录 Windows 无法执行的 macOS/iOS 验证
+- [x] 检查 diff、工作区状态并交付
+
+### 成功标准
+
+1. `flutter analyze` 和 `flutter test` 通过（本地 `394` 项）。
+2. Android/Web 不选择或实例化 KSPlayer，Flutter UI 仅依赖统一 capabilities/state。
+3. iOS 具备 libmpv、AVPlayer、KSPlayer 三种选择，非 libmpv 失败只回退一次。
+4. KSPlayer 依赖固定远程 commit，CI 可注入 Pod 依赖；原生构建需在 macOS CI/真机补验。
+
+### 验证记录
+
+- `flutter analyze`：通过，无问题。
+- `flutter test`：通过，`394` 项全部通过。
+- `git diff --check`：通过；仅有 Windows Git 的 LF/CRLF 提示。
+- KSPlayer 远程 `main` 已确认包含 `2fdbf6636ab19c72d5055bbcdb9b1af3f401bd85`.
+- Windows 无 `swift`、`xcodebuild`、`pod` 和 Ruby，以下仍需 macOS CI/真机验收：Pigeon/Swift 编译、`pod install`、`flutter build ios --release --no-codesign`、网络视频/音轨/字幕/PIP/后台及错误回退。

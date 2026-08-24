@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 
 enum PlaybackEngineKind {
   libmpv('libmpv', 'libmpv'),
-  avPlayer('avplayer', 'AVPlayer');
+  avPlayer('avplayer', 'AVPlayer'),
+  ksPlayer('ksplayer', 'KSPlayer');
 
   const PlaybackEngineKind(this.value, this.label);
 
@@ -33,6 +34,7 @@ class PlaybackEngineCapabilities {
     required this.textSubtitles,
     required this.bitmapSubtitles,
     required this.customBuffering,
+    this.playbackRate = true,
     this.pictureInPictureRequiresNativeSource = false,
     this.pictureInPictureUsesSeparatePlayer = false,
   });
@@ -45,7 +47,8 @@ class PlaybackEngineCapabilities {
        audioTracks = true,
        textSubtitles = true,
        bitmapSubtitles = true,
-       customBuffering = true;
+       customBuffering = true,
+       playbackRate = true;
 
   const PlaybackEngineCapabilities.avPlayer()
     : pictureInPicture = true,
@@ -53,7 +56,19 @@ class PlaybackEngineCapabilities {
       audioTracks = true,
       textSubtitles = true,
       bitmapSubtitles = false,
+      customBuffering = true,
+      playbackRate = true,
+      pictureInPictureRequiresNativeSource = false,
+      pictureInPictureUsesSeparatePlayer = false;
+
+  const PlaybackEngineCapabilities.ksPlayer()
+    : pictureInPicture = true,
+      framePreview = true,
+      audioTracks = true,
+      textSubtitles = true,
+      bitmapSubtitles = false,
       customBuffering = false,
+      playbackRate = true,
       pictureInPictureRequiresNativeSource = false,
       pictureInPictureUsesSeparatePlayer = false;
 
@@ -63,6 +78,7 @@ class PlaybackEngineCapabilities {
   final bool textSubtitles;
   final bool bitmapSubtitles;
   final bool customBuffering;
+  final bool playbackRate;
   final bool pictureInPictureRequiresNativeSource;
   final bool pictureInPictureUsesSeparatePlayer;
 }

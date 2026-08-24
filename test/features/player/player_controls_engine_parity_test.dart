@@ -108,7 +108,7 @@ void main() {
       expect(find.byIcon(Icons.picture_in_picture_alt), findsOneWidget);
       expect(
         tester.widget<Slider>(find.byType(Slider)).secondaryTrackValue,
-        50000,
+        kind == PlaybackEngineKind.ksPlayer ? null : 50000,
       );
 
       engine.notifier.value = engine.notifier.value.copyWith(
@@ -117,7 +117,7 @@ void main() {
       await tester.pump();
       expect(
         tester.widget<Slider>(find.byType(Slider)).secondaryTrackValue,
-        20000,
+        kind == PlaybackEngineKind.ksPlayer ? null : 20000,
       );
 
       await tester.tap(find.byIcon(Icons.speed));

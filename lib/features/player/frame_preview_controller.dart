@@ -114,7 +114,9 @@ class FramePreviewController extends ChangeNotifier {
     unavailable = false;
     if (clearCache) _cache.clear();
     if (!_disposed) notifyListeners();
-    unawaited(_session.clearFramePreview());
+    if (_session.capabilities.framePreview) {
+      unawaited(_session.clearFramePreview());
+    }
   }
 
   @override
@@ -123,7 +125,9 @@ class FramePreviewController extends ChangeNotifier {
     _generation++;
     _pending = null;
     _cache.clear();
-    unawaited(_session.clearFramePreview());
+    if (_session.capabilities.framePreview) {
+      unawaited(_session.clearFramePreview());
+    }
     super.dispose();
   }
 }

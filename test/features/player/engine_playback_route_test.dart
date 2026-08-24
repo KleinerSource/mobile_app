@@ -53,6 +53,18 @@ void main() {
     expect(fixed.useServerRoute, isTrue);
   });
 
+  test('KSPlayer 使用宽格式客户端路线', () {
+    final route = playbackRouteForEngine(
+      engineKind: PlaybackEngineKind.ksPlayer,
+      quality: 'original',
+      decision: _decision('transcode'),
+    );
+
+    expect(route.useBackendStream, isFalse);
+    expect(route.useServerRoute, isFalse);
+    expect(route.usesManagedTranscode, isFalse);
+  });
+
   test('AVPlayer PGS 与 burn_in 字幕要求后端重决策', () {
     const pgs = SubtitleTrack(
       id: 'pgs-1',
@@ -87,6 +99,10 @@ void main() {
     expect(
       subtitleRequiresBackendDecision(PlaybackEngineKind.libmpv, pgs),
       isFalse,
+    );
+    expect(
+      subtitleRequiresBackendDecision(PlaybackEngineKind.ksPlayer, pgs),
+      isTrue,
     );
   });
 }

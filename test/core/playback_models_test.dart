@@ -118,4 +118,14 @@ void main() {
     expect(json['audio_stream_index'], 2);
     expect(json['subtitle_track_id'], 'pgs-3');
   });
+
+  test('KSPlayer 能力声明宽格式客户端容器和编解码', () {
+    final json = PlaybackClientCaps.ksPlayer(
+      qualityPreset: 'original',
+    ).toJson();
+
+    expect(json['containers'], contains('mkv'));
+    expect((json['video_codecs'] as Map).keys, contains('vp9'));
+    expect((json['audio_codecs'] as Map).keys, contains('flac'));
+  });
 }

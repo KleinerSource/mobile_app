@@ -349,3 +349,17 @@
 - 新发现：AVPlayer 的 `reportPlaybackFailure` 会先将 `wantsToPlay=false` 并上报 `playing=false`，之后才上报 error；运行时回退若从失败后的 `PlaybackViewState.playing` 推断恢复意图，会错误得到暂停状态。这会让重新打开成功的 libmpv 随即被页面暂停，必须由 `PlayerSessionController` 独立保存用户播放意图。
 - 统一进度条把 `PlaybackViewState.buffered` 当作媒体时间轴上的绝对结束位置传给 `Slider.secondaryTrackValue`；AVPlayer 的连续缓存计算单位与此一致。当前 UI 只把 buffered 限制在 `[0, duration]`，如果 seek 后暂时没有覆盖当前位置的 loaded range，原生会上报 0，次进度可能落到主进度后方；显示层应至少钳制到当前 position。
 - 起播路径虽调用 `playImmediately(atRate:)`，但 `AVPlayerItem` 在首帧前已设置 `preferredForwardBufferDuration=60`；该值不是硬性起播门槛，但会参与 AVPlayer 的缓冲策略。为从实现上隔离起播与预取，首帧前应保持 0，`AVPlayerLayer.isReadyForDisplay` 后立即切换为 60 秒持续前向预取。
+
+## 本次实施：iOS 接入 KSPlayer
+
+- KSPlayer 仓库已有改动已提交并推送：`9a80ee3`、`2fdbf66`；工作区应保持 clean。
+- `mobile_app` 只应引用固定远程 KSPlayer commit，不引用相邻本地目录。
+- Flutter 统一播放抽象已增加 `PlaybackEngineKind.ksPlayer`、KSPlayer capabilities 和泛化 fallback；Android/Web 仍强制 `libmpv`。
+- KSPlayer 插件位于 `packages/md_center_ksplayer`，使用 Pigeon、Swift Platform View 和 KSPlayerLayer，不启用原生控制栏/手势。
+- KSPlayer 的 PGS/burn-in 字幕走能力声明并触发后端重决策；外挂文本字幕仍由 Flutter 统一处理，原生轨道失败且存在外挂地址时会降级到外挂字幕。
+- KSPlayer 无可靠 `loadedTimeRanges` 结束点时不伪造缓冲百分比。
+- Windows 环境无法编译 Swift、执行 CocoaPods 或 `flutter build ios`；必须记录为 macOS CI/真机验收项。
+- KSPlayer 的 CocoaPods README 与 Podspec 还依赖 `DisplayCriteria`、`Libass`；CI 已补充固定来源注入，许可证声明覆盖这两个相关 Pod。
+- `KsPlayerManager.dispose` 已通过 `MainActor.assumeIsolated` 调用 `KsPlayerSession.dispose`，避免跨 actor 直接访问。
+- KSPlayer 生成的 `lib/src/ks_player_api.g.dart` 已加入 `.gitignore` 例外；`git diff --check` 通过。
+- Dart 最终验证：`flutter analyze` 无问题，`flutter test` 共 `394` 项全部通过。

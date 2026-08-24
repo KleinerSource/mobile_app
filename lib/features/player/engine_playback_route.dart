@@ -41,7 +41,10 @@ bool subtitleRequiresBackendDecision(
   PlaybackEngineKind engineKind,
   playback_models.SubtitleTrack track,
 ) {
-  if (engineKind != PlaybackEngineKind.avPlayer) return false;
+  if (engineKind != PlaybackEngineKind.avPlayer &&
+      engineKind != PlaybackEngineKind.ksPlayer) {
+    return false;
+  }
   final renderMode = track.renderMode.trim().toLowerCase();
   return track.isPgs ||
       renderMode == 'burn_in' ||

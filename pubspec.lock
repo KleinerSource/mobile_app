@@ -612,6 +612,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  md_center_ksplayer:
+    dependency: "direct main"
+    description:
+      path: "packages/md_center_ksplayer"
+      relative: true
+    source: path
+    version: "0.1.0"
   media_kit:
     dependency: "direct main"
     description:

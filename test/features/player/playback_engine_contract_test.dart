@@ -9,7 +9,7 @@ import 'package:md_center/features/player/player_session_factory.dart';
 import 'fake_playback_engine.dart';
 
 void main() {
-  test('两个内核执行相同命令序列产生一致统一状态', () async {
+  test('所有内核执行相同命令序列产生一致统一状态', () async {
     final states = <PlaybackViewState>[];
     for (final kind in PlaybackEngineKind.values) {
       final engine = FakePlaybackEngine(kind);
@@ -230,6 +230,10 @@ void main() {
       PlayerEnginePreference.fromValue('avplayer'),
       PlaybackEngineKind.avPlayer,
     );
+    expect(
+      PlayerEnginePreference.fromValue('ksplayer'),
+      PlaybackEngineKind.ksPlayer,
+    );
   });
 
   test('仅 iOS 采纳内核偏好和会话覆盖，其他平台固定 libmpv', () {
@@ -262,7 +266,11 @@ void main() {
         targetPlatform: TargetPlatform.iOS,
         isWeb: false,
       ),
-      [PlaybackEngineKind.libmpv, PlaybackEngineKind.avPlayer],
+      [
+        PlaybackEngineKind.libmpv,
+        PlaybackEngineKind.avPlayer,
+        PlaybackEngineKind.ksPlayer,
+      ],
     );
     expect(
       availablePlaybackEngineKinds(
@@ -271,5 +279,24 @@ void main() {
       ),
       [PlaybackEngineKind.libmpv],
     );
+  });
+
+  test('KSPlayer 失败时回退到 libmpv 且只允许一次', () async {
+    final ks = FakePlaybackEngine(PlaybackEngineKind.ksPlayer);
+    final fallback = FakePlaybackEngine(PlaybackEngineKind.libmpv);
+    var fallbackCount = 0;
+    final session = PlayerSessionController(
+      engine: ks,
+      libmpvFallbackFactory: () {
+        fallbackCount++;
+        return fallback;
+      },
+    );
+
+    expect(await session.fallbackToLibmpvForReload('KSPlayer failed'), isTrue);
+    expect(session.kind, PlaybackEngineKind.libmpv);
+    expect(await session.fallbackToLibmpvForReload('second failure'), isFalse);
+    expect(fallbackCount, 1);
+    await session.dispose();
   });
 }

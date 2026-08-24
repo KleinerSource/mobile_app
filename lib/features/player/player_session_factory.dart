@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'av_player_playback_engine.dart';
+import 'ks_player_playback_engine.dart';
 import 'playback_engine.dart';
 import 'player_controller_host.dart';
 import 'player_session_controller.dart';
@@ -18,8 +19,9 @@ PlayerSessionController createPlayerSession({
     engine: switch (selectedEngine) {
       PlaybackEngineKind.libmpv => MediaKitPlaybackEngine(),
       PlaybackEngineKind.avPlayer => AvPlayerPlaybackEngine(),
+      PlaybackEngineKind.ksPlayer => KsPlayerPlaybackEngine(),
     },
-    libmpvFallbackFactory: selectedEngine == PlaybackEngineKind.avPlayer
+    libmpvFallbackFactory: selectedEngine != PlaybackEngineKind.libmpv
         ? MediaKitPlaybackEngine.new
         : null,
     onFallback: onFallback,
@@ -35,7 +37,11 @@ List<PlaybackEngineKind> availablePlaybackEngineKinds({
   if (web || platform != TargetPlatform.iOS) {
     return const [PlaybackEngineKind.libmpv];
   }
-  return const [PlaybackEngineKind.libmpv, PlaybackEngineKind.avPlayer];
+  return const [
+    PlaybackEngineKind.libmpv,
+    PlaybackEngineKind.avPlayer,
+    PlaybackEngineKind.ksPlayer,
+  ];
 }
 
 PlaybackEngineKind resolvePlaybackEngineKind({
@@ -49,5 +55,10 @@ PlaybackEngineKind resolvePlaybackEngineKind({
   if (web || platform != TargetPlatform.iOS) {
     return PlaybackEngineKind.libmpv;
   }
-  return engineKind ?? iosEnginePreference;
+  final selected = engineKind ?? iosEnginePreference;
+  return selected == PlaybackEngineKind.libmpv ||
+          selected == PlaybackEngineKind.avPlayer ||
+          selected == PlaybackEngineKind.ksPlayer
+      ? selected
+      : PlaybackEngineKind.libmpv;
 }

@@ -29,6 +29,7 @@ class PlayerGestureLayer extends StatefulWidget {
     required this.hapticLongPress,
     required this.hapticSeek,
     required this.hapticRate,
+    this.rateControlEnabled = true,
     required this.onRateBoost,
     required this.onRateBoostEnd,
     required this.onSeekPreview,
@@ -49,6 +50,7 @@ class PlayerGestureLayer extends StatefulWidget {
   final bool hapticLongPress;
   final bool hapticSeek;
   final bool hapticRate;
+  final bool rateControlEnabled;
 
   /// 长按加速 · [rate] 当前倍速 (起始 2.0, 长按中上/下滑变化)
   final void Function(double rate) onRateBoost;
@@ -140,29 +142,36 @@ class _PlayerGestureLayerState extends State<PlayerGestureLayer> {
                 break;
             }
           },
-          onLongPressStart: (_) {
-            _isBoosting = true;
-            _boostRate = _baseRate;
-            if (widget.hapticLongPress) PlayerHaptics.medium();
-            widget.onRateBoost(_boostRate);
-          },
-          onLongPressMoveUpdate: (d) {
-            // 上滑 (dy<0) 提速, 下滑降速; 以长按起点为基准每档 0.1x。
-            // 用整数十分位计算, 避免 0.1 浮点累加误差。
-            final steps = (-d.localOffsetFromOrigin.dy / _rateStepPx).round();
-            final tenths = (_baseRate * 10 + steps).clamp(
-              _minRate * 10,
-              _maxRate * 10,
-            );
-            final rate = tenths / 10;
-            if (rate != _boostRate) {
-              _boostRate = rate;
-              if (widget.hapticRate) PlayerHaptics.selection();
-              widget.onRateBoost(rate);
-            }
-          },
-          onLongPressEnd: (_) => _endRateBoost(),
-          onLongPressCancel: _endRateBoost,
+          onLongPressStart: widget.rateControlEnabled
+              ? (_) {
+                  _isBoosting = true;
+                  _boostRate = _baseRate;
+                  if (widget.hapticLongPress) PlayerHaptics.medium();
+                  widget.onRateBoost(_boostRate);
+                }
+              : null,
+          onLongPressMoveUpdate: widget.rateControlEnabled
+              ? (d) {
+                  // 上滑 (dy<0) 提速, 下滑降速; 以长按起点为基准每档 0.1x。
+                  // 用整数十分位计算, 避免 0.1 浮点累加误差。
+                  final steps = (-d.localOffsetFromOrigin.dy / _rateStepPx)
+                      .round();
+                  final tenths = (_baseRate * 10 + steps).clamp(
+                    _minRate * 10,
+                    _maxRate * 10,
+                  );
+                  final rate = tenths / 10;
+                  if (rate != _boostRate) {
+                    _boostRate = rate;
+                    if (widget.hapticRate) PlayerHaptics.selection();
+                    widget.onRateBoost(rate);
+                  }
+                }
+              : null,
+          onLongPressEnd: widget.rateControlEnabled
+              ? (_) => _endRateBoost()
+              : null,
+          onLongPressCancel: widget.rateControlEnabled ? _endRateBoost : null,
           onHorizontalDragStart: (_) {
             _baseMs = widget.positionGetter().inMilliseconds;
             _totalMs = widget.durationGetter().inMilliseconds;

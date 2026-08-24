@@ -108,26 +108,39 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     final os = kIsWeb
         ? 'flutter-web'
         : defaultTargetPlatform.name.toLowerCase();
-    return _engine.kind == PlaybackEngineKind.avPlayer
-        ? playback_models.PlaybackClientCaps.avPlayer(
-            qualityPreset: quality,
-            userAgent: 'md_center/$os',
-            audioStreamIndex: audioStreamIndex,
-            subtitleTrackId: subtitleTrackId,
-          )
-        : playback_models.PlaybackClientCaps.mediaKit(
-            qualityPreset: quality,
-            userAgent: 'md_center/$os',
-            audioStreamIndex: audioStreamIndex,
-            subtitleTrackId: subtitleTrackId,
-          );
+    switch (_engine.kind) {
+      case PlaybackEngineKind.avPlayer:
+        return playback_models.PlaybackClientCaps.avPlayer(
+          qualityPreset: quality,
+          userAgent: 'md_center/$os',
+          audioStreamIndex: audioStreamIndex,
+          subtitleTrackId: subtitleTrackId,
+        );
+      case PlaybackEngineKind.ksPlayer:
+        return playback_models.PlaybackClientCaps.ksPlayer(
+          qualityPreset: quality,
+          userAgent: 'md_center/$os',
+          audioStreamIndex: audioStreamIndex,
+          subtitleTrackId: subtitleTrackId,
+        );
+      case PlaybackEngineKind.libmpv:
+        return playback_models.PlaybackClientCaps.mediaKit(
+          qualityPreset: quality,
+          userAgent: 'md_center/$os',
+          audioStreamIndex: audioStreamIndex,
+          subtitleTrackId: subtitleTrackId,
+        );
+    }
   }
 
   bool shouldReloadForSubtitle(
     playback_models.SubtitleTrack? track, {
     required bool hasBackendSelection,
   }) {
-    if (_engine.kind != PlaybackEngineKind.avPlayer) return false;
+    if (_engine.kind != PlaybackEngineKind.avPlayer &&
+        _engine.kind != PlaybackEngineKind.ksPlayer) {
+      return false;
+    }
     return track == null
         ? hasBackendSelection
         : subtitleRequiresBackendDecision(_engine.kind, track);
@@ -220,7 +233,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   bool get _fallbackAvailable =>
       !_fallbackAttempted &&
       !_fallbackInProgress &&
-      _engine.kind == PlaybackEngineKind.avPlayer &&
+      _engine.kind != PlaybackEngineKind.libmpv &&
       _libmpvFallbackFactory != null;
 
   bool get _canFallback => _fallbackAvailable && _lastOpenRequest != null;
@@ -266,11 +279,12 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     );
   }
 
-  /// AVPlayer 播放决策在首次 [open] 前失败时，切换到 libmpv 供调用方
-  /// 使用 libmpv capabilities 重新请求播放决策。
+  /// 受限原生内核在首次 [open] 前失败时，切换到 libmpv 供调用方
+  /// 使用新的 capabilities 重新请求播放决策。
   Future<bool> fallbackToLibmpvForReload(String reason) async {
     if (!_fallbackAvailable) return false;
 
+    final failedEngine = _engine.kind;
     _fallbackAttempted = true;
     _fallbackInProgress = true;
     ++_generation;
@@ -285,7 +299,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
       try {
         await oldEngine.dispose();
       } catch (_) {}
-      onFallback?.call('AVPlayer 播放失败，已切换至 libmpv');
+      onFallback?.call('${failedEngine.label} 播放失败，已切换至 libmpv');
       return true;
     } catch (error) {
       _errorController.add(

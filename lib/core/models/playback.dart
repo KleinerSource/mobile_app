@@ -114,6 +114,32 @@ class PlaybackClientCaps {
     );
   }
 
+  /// KSPlayer 同时包含 AVPlayer 和 FFmpeg 内核，使用宽格式能力声明。
+  factory PlaybackClientCaps.ksPlayer({
+    required String qualityPreset,
+    String? userAgent,
+    int? audioStreamIndex,
+    String? subtitleTrackId,
+  }) {
+    return PlaybackClientCaps(
+      containers: const [
+        'mp4',
+        'mov',
+        'm4v',
+        'matroska',
+        'mkv',
+        'webm',
+        'mpegts',
+      ],
+      videoCodecs: _mobileVideoCodecs,
+      audioCodecs: _mobileAudioCodecs,
+      qualityPreset: qualityPreset,
+      userAgent: userAgent,
+      audioStreamIndex: audioStreamIndex,
+      subtitleTrackId: subtitleTrackId,
+    );
+  }
+
   factory PlaybackClientCaps.mobile({
     required String qualityPreset,
     String? userAgent,

@@ -20,10 +20,11 @@ class FakePlaybackEngine implements PlaybackEngine {
   int openCount = 0;
 
   @override
-  PlaybackEngineCapabilities get capabilities =>
-      kind == PlaybackEngineKind.avPlayer
-      ? const PlaybackEngineCapabilities.avPlayer()
-      : const PlaybackEngineCapabilities.libmpv();
+  PlaybackEngineCapabilities get capabilities => switch (kind) {
+    PlaybackEngineKind.avPlayer => const PlaybackEngineCapabilities.avPlayer(),
+    PlaybackEngineKind.ksPlayer => const PlaybackEngineCapabilities.ksPlayer(),
+    PlaybackEngineKind.libmpv => const PlaybackEngineCapabilities.libmpv(),
+  };
 
   @override
   ValueListenable<PlaybackViewState> get state => notifier;
