@@ -212,6 +212,15 @@ void main() {
     expect(initialCover, findsOneWidget);
     final initialRect = tester.getRect(initialCover);
 
+    // 封面底部通过 dstIn 渐隐溶入氛围背景,不再渐变到纯色底
+    expect(
+      find.descendant(
+        of: find.byType(RecommendCarousel),
+        matching: find.byType(ShaderMask),
+      ),
+      findsOneWidget,
+    );
+
     await tester.drag(find.byType(PageView), const Offset(-150, 0));
     await tester.pump(const Duration(milliseconds: 40));
 

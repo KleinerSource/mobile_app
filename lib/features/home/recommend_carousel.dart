@@ -11,7 +11,7 @@ import '../privacy/privacy_mask.dart';
 /// 首页 hero 轮播 · 固定封面 + 信息层横向切换:
 /// - 封面固定在 viewport 内,切换时按垂直边缘直切,不随页面横向位移
 /// - 影片信息由透明 PageView 承载,保留左右滑动手势和信息切换
-/// - 底部渐隐 + 大标题 + 信息胶囊叠加在固定封面之上,圆点指示器压底部
+/// - 封面底部渐隐溶入氛围背景 + 大标题 + 信息胶囊叠加其上,圆点指示器压底部
 /// - 5 秒自动切换,虚拟页无限循环(取模映射首尾相连)
 /// - 通过 [pagePosition] 输出归一化连续页位,驱动氛围背景跟随滑动
 class RecommendCarousel extends StatefulWidget {
@@ -243,26 +243,29 @@ class _HeroCoverStage extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _HeroCover(movie: current, imageUrl: currentImageUrl),
-        if (progress > 0)
-          Positioned.fill(
-            child: ClipRect(
-              key: const ValueKey('hero-cover-edge-clip'),
-              clipper: _RightRevealClipper(split),
-              child: _HeroCover(movie: next, imageUrl: nextImageUrl),
-            ),
-          ),
-        // 底部渐隐 · 与氛围背景色调衔接
-        const IgnorePointer(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black87],
-                stops: [0.42, 1.0],
-              ),
-            ),
+        // 封面层整体底部渐隐 · 不渐变到纯色底,直接透出页面底层
+        // 同图的模糊氛围背景,与影片详情页一致的溶入式一体衔接
+        ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (bounds) => const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.white, Colors.white, Colors.transparent],
+            stops: [0.0, 0.45, 1.0],
+          ).createShader(bounds),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _HeroCover(movie: current, imageUrl: currentImageUrl),
+              if (progress > 0)
+                Positioned.fill(
+                  child: ClipRect(
+                    key: const ValueKey('hero-cover-edge-clip'),
+                    clipper: _RightRevealClipper(split),
+                    child: _HeroCover(movie: next, imageUrl: nextImageUrl),
+                  ),
+                ),
+            ],
           ),
         ),
       ],
