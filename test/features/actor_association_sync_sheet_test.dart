@@ -484,7 +484,11 @@ class _AvatarPreviewRepository extends ActorAssociationsRepository {
         allAliases: [],
         existingAliases: [],
         newAliases: [],
-        avatarUrl: 'https://dbo.example/avatar.jpg',
+        avatarChoices: [
+          ActorAssociationAvatarChoice(
+            downloadUrl: 'https://dbo.example/avatar.jpg',
+          ),
+        ],
       ),
     );
   }

@@ -84,19 +84,12 @@ class _ActorAssociationSyncSheetState
     ActorAssocPreview preview,
   ) {
     final seen = <String>{};
-    final choices = preview.avatarChoices
+    return preview.avatarChoices
         .where(
           (choice) =>
               choice.downloadUrl.isNotEmpty && seen.add(choice.downloadUrl),
         )
         .toList(growable: false);
-    if (choices.isEmpty && preview.avatarUrl.trim().isNotEmpty) {
-      // 无候选列表但返回了单一头像地址 · 视为唯一隐式候选,多选退化为单张
-      return [
-        ActorAssociationAvatarChoice(downloadUrl: preview.avatarUrl.trim()),
-      ];
-    }
-    return choices;
   }
 
   /// 未手动调整过选择时,默认全选所有候选(含渐进补齐的新候选)
@@ -349,10 +342,9 @@ class _ActorAssociationSyncSheetState
     ActorAssocPreview preview,
     ActorDataSource source,
   ) async {
-    final choices = _avatarChoicesFor(preview);
-    final urls = choices.isNotEmpty
-        ? choices.map((choice) => choice.downloadUrl)
-        : <String>[preview.avatarUrl];
+    final urls = [
+      for (final choice in _avatarChoicesFor(preview)) choice.downloadUrl,
+    ];
     if (urls.isEmpty) return;
     var cursor = 0;
     Future<void> worker() async {
