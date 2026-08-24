@@ -1,9 +1,11 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:md_center/core/config/server_config_provider.dart';
 import 'package:md_center/core/models/movie.dart';
 import 'package:md_center/core/models/resource.dart';
+import 'package:md_center/features/home/hero_backdrop.dart';
 import 'package:md_center/features/movie_detail/movie_detail_page.dart';
 import 'package:md_center/features/movies/movies_providers.dart';
 import 'package:md_center/l10n/generated/app_localizations.dart';
@@ -24,6 +26,7 @@ void main() {
       id: 7,
       title: 'Test Movie',
       plot: plot,
+      fanartUuid: 'fanart',
       tags: [for (var i = 0; i < 12; i++) ResourceItem(id: i, name: 'tag$i')],
     );
 
@@ -32,6 +35,9 @@ void main() {
       ProviderScope(
         overrides: [
           sharedPrefsProvider.overrideWithValue(prefs),
+          imageUrlBuilderProvider.overrideWithValue(
+            (uuid) => 'http://test/$uuid.jpg',
+          ),
           movieDetailProvider(7).overrideWith((ref) async => movie),
           mediaInfoProvider(7).overrideWith((ref) async => null),
           extraFanartsProvider(7).overrideWith((ref) async => const <String>[]),
@@ -41,9 +47,9 @@ void main() {
           navigatorKey: navigatorKey,
           // 模拟 44px 状态栏: 封面应穿透到屏幕顶部,按钮行避开状态栏
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              padding: const EdgeInsets.fromLTRB(0, 44, 0, 0),
-            ),
+            data: MediaQuery.of(
+              context,
+            ).copyWith(padding: const EdgeInsets.fromLTRB(0, 44, 0, 0)),
             child: child!,
           ),
           theme: ThemeData(brightness: Brightness.dark),
@@ -55,7 +61,9 @@ void main() {
       ),
     );
     navigatorKey.currentState!.push(
-      MaterialPageRoute<void>(builder: (_) => const MovieDetailPage(movieId: 7)),
+      MaterialPageRoute<void>(
+        builder: (_) => const MovieDetailPage(movieId: 7),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -63,6 +71,23 @@ void main() {
     var rect = tester.getRect(hero);
     expect(rect.height, moreOrLessEquals(320, epsilon: 1));
     expect(rect.top, 0, reason: '封面应穿透到状态栏底下,而不是从状态栏下方开始');
+
+    // 氛围背景挂载在页面最底层并使用封面 URL(下拉回弹时露出的是封面色调而非纯色底)
+    expect(find.byType(HeroBackdrop), findsOneWidget);
+    final backdropImages = tester
+        .widgetList<CachedNetworkImage>(find.byType(CachedNetworkImage))
+        .where((w) => w.width == double.infinity)
+        .map((w) => w.imageUrl)
+        .toList();
+    expect(backdropImages, ['http://test/fanart.jpg']);
+    // 封面通过底部渐隐(dstIn ShaderMask)溶入氛围背景,不再渐变到纯色底
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('detail-hero')),
+        matching: find.byType(ShaderMask),
+      ),
+      findsOneWidget,
+    );
 
     // 上滑约 100px(触摸 slop 损耗约 20px): 封面按滚动量收窄,顶部保持锚定
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -100));

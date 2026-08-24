@@ -138,9 +138,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     final heroMinHeight = heroMaxHeight * 0.62;
 
     // 问候行 · 有 hero 时叠加在 hero 顶部,否则作为普通行;
-    // 叠加态文本忽略命中,避免挡住下方 PageView 的滑动
+    // 叠加态文本忽略命中,避免挡住下方 PageView 的滑动;
+    // 顶部无 SafeArea,自行让出状态栏高度
+    final topInset = MediaQuery.paddingOf(context).top;
     Widget greetingRow({required bool onHero}) => Padding(
-      padding: const EdgeInsets.fromLTRB(22, 12, 22, 0),
+      padding: EdgeInsets.fromLTRB(22, 12 + topInset, 22, 0),
       child: Row(
         children: [
           Expanded(
@@ -197,7 +199,9 @@ class _HomePageState extends ConsumerState<HomePage> {
         // -------- 氛围背景: 当前 hero 封面 + 毛玻璃 --------
         HeroBackdrop(arts: _heroArts, position: _heroPagePosition),
         // -------- 滚动内容 --------
+        // 顶部不设 SafeArea,hero 轮播延伸至状态栏下方
         SafeArea(
+          top: false,
           bottom: false,
           child: RefreshIndicator(
             onRefresh: _refreshHome,

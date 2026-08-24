@@ -39,6 +39,7 @@ import 'cover_badges.dart';
 import 'media_stream_cards.dart';
 import 'thunder_subtitle_sheet.dart';
 import 'audio_extraction_sheet.dart';
+import '../home/hero_backdrop.dart';
 import '../home/home_movie_view_state.dart';
 import '../i18n/poster_badge_visibility_provider.dart';
 
@@ -115,14 +116,63 @@ class _MovieDetailPageState extends ConsumerState<MovieDetailPage> {
   }
 }
 
-class _DetailBody extends ConsumerWidget {
+class _DetailBody extends ConsumerStatefulWidget {
   const _DetailBody({required this.movie, required this.urlBuilder});
   final MovieDetail movie;
   final String Function(String) urlBuilder;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_DetailBody> createState() => _DetailBodyState();
+}
+
+class _DetailBodyState extends ConsumerState<_DetailBody> {
+  /// 氛围背景 · 单张封面,页位恒为 0
+  final _heroArts = ValueNotifier<List<HeroArt>>(const []);
+  final _heroPagePosition = ValueNotifier(0.0);
+
+  @override
+  void initState() {
+    super.initState();
+    _syncHeroArts();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DetailBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 元数据刷新可能更换封面;urlBuilder 缓存版本变化也会改写 URL
+    _syncHeroArts();
+  }
+
+  @override
+  void dispose() {
+    _heroArts.dispose();
+    _heroPagePosition.dispose();
+    super.dispose();
+  }
+
+  /// 封面 uuid 与 _HeroHeader 同源: fanart → poster → thumb
+  void _syncHeroArts() {
+    final movie = widget.movie;
+    final uuid = movie.fanartUuid?.isNotEmpty == true
+        ? movie.fanartUuid
+        : (movie.posterUuid?.isNotEmpty == true
+              ? movie.posterUuid
+              : (movie.thumbUuid?.isNotEmpty == true ? movie.thumbUuid : null));
+    final url = uuid != null && uuid.isNotEmpty ? widget.urlBuilder(uuid) : '';
+    final current = _heroArts.value;
+    if (current.length == 1 &&
+        current[0].movieId == movie.id &&
+        current[0].url == url) {
+      return;
+    }
+    _heroArts.value = [HeroArt(movieId: movie.id, url: url)];
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final c = appColors(context);
+    final movie = widget.movie;
+    final urlBuilder = widget.urlBuilder;
     final favStatus = ref.watch(favoriteStatusProvider);
     // 初始化收藏状态种子
     if (!favStatus.containsKey(movie.id)) {
@@ -142,7 +192,10 @@ class _DetailBody extends ConsumerWidget {
     final statusBarTop = MediaQuery.paddingOf(context).top;
 
     return Stack(
+      fit: StackFit.expand,
       children: [
+        // -------- 氛围背景: 封面大模糊毛玻璃(同首页),下拉回弹露出的是封面色调而非纯色底 --------
+        HeroBackdrop(arts: _heroArts, position: _heroPagePosition),
         CustomScrollView(
           slivers: [
             // -------- 顶部封面 (上滑先收窄再推出 · 同首页 hero 轮播) --------
@@ -412,35 +465,29 @@ class _HeroHeader extends ConsumerWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // ---------- 横版主图 (满铺 cover) ----------
-        if (heroUuid != null)
-          Poster(
-            url: urlBuilder(heroUuid),
-            title: movie.title,
-            year: movie.year,
-            aspectRatio: 16 / 9,
-            radius: 0,
-            imageAlignment: const Alignment(0, -0.6),
-          )
-        else
-          ColoredBox(color: c.surfaceAlt),
-        // ---------- 底部渐变让标题区可读 ----------
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                c.bg.withValues(alpha: 0.0),
-                c.bg.withValues(alpha: 0.0),
-                c.bg.withValues(alpha: 0.85),
-                c.bg,
-              ],
-              stops: const [0.0, 0.45, 0.85, 1.0],
-            ),
-          ),
+        // ---------- 横版主图 (满铺 cover · 底部渐隐) ----------
+        // 封面不渐变到纯色底,而是整体向下淡出为透明,
+        // 与页面底层同图的模糊氛围背景无缝衔接,避免出现分割线
+        ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (bounds) => const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.white, Colors.white, Colors.transparent],
+            stops: [0.0, 0.45, 1.0],
+          ).createShader(bounds),
+          child: heroUuid != null
+              ? Poster(
+                  url: urlBuilder(heroUuid),
+                  title: movie.title,
+                  year: movie.year,
+                  aspectRatio: 16 / 9,
+                  radius: 0,
+                  imageAlignment: const Alignment(0, -0.6),
+                )
+              : ColoredBox(color: c.surfaceAlt),
         ),
-        // ---------- 顶部小渐变让 AppBar 按钮可读 ----------
+        // ---------- 顶部小渐变让悬浮按钮/状态栏文字可读 ----------
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
