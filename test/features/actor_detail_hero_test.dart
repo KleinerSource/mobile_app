@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -48,8 +50,10 @@ void main() {
         ),
       ),
     );
-    navigatorKey.currentState!.push(
-      MaterialPageRoute<void>(builder: (_) => page),
+    unawaited(
+      navigatorKey.currentState!.push(
+        MaterialPageRoute<void>(builder: (_) => page),
+      ),
     );
     await tester.pumpAndSettle();
     return navigatorKey;
