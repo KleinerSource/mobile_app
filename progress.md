@@ -81,3 +81,23 @@
 - 已形成七类 iOS 播放内核/SDK 对比表与五项项目建议，进入最终证据与工作区检查。
 - 最终检查完成：业务代码无改动；仅更新 `task_plan.md`、`findings.md`、`progress.md` 调查记录；`git diff --check` 通过。
 - 状态：完成。
+
+## 2026-08-24
+
+- 开始实施 iOS 多播放器内核与 libmpv v0.7.2 升级。
+- 已沿用 `planning-with-files` 持久化规划流程并运行会话恢复脚本。
+- 已确认 `.codegraph/` 存在，后续源码定位优先使用 CodeGraph。
+- 已确认规划文件含历史任务内容，本任务仅追加章节，不覆盖已有记录。
+- 已建立六阶段实施与验证清单；当前正在核对播放器代码、依赖和测试基线。
+- 已补齐详情页完整预告片入口的会话级 `libmpv` 覆盖，普通影片仍在创建新会话时读取 iOS 默认内核。
+- Swift 静态复核修正了非可选 `manager` 的错误可选链；Pigeon Host API 签名与 Swift 实现一致。
+- 已删除新插件不应提交的独立 `pubspec.lock`；生成缓存 `.dart_tool/` 由仓库根忽略规则排除。
+- `flutter analyze`：通过，`No issues found!`。
+- 完整 `flutter test`：374 项全部通过（包含新增双内核 contract、UI 一致性、路由与单次回退测试）。
+- 补齐首次 `open` 前的 AVPlayer 播放决策失败回退：切换至 libmpv 后以其 capabilities 重新决策，并与运行时回退共用一次性门闩。
+- 最终完整 `flutter test`：377 项全部通过。
+- 最终 UI 具体播放器类型扫描无命中；Android 目录零差异；`git diff --check` 通过。
+- Pigeon 生成 Dart/Swift 文件均已进入可提交清单；插件级 `pubspec.lock` 已移除，`.dart_tool/` 由根忽略规则排除。
+- 当前 Windows 环境无法执行 CocoaPods/Xcode/Swift XCTest；iOS 无签名构建与真机媒体矩阵保留给 macOS CI 和 iOS 16+/最新稳定系统验收。
+- 将平台默认解析、client caps、播放路由、AVPlayer 音轨映射和字幕重决策判断继续下沉至统一会话层，`PlayerPage` 不再按平台或具体内核分支。
+- 新增平台解析与 AVPlayer 音轨映射契约测试；最终 `flutter analyze`、UI 边界扫描、Android 零差异和补丁卫生检查全部通过。

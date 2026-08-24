@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:media_kit/media_kit.dart';
 
 import '../../core/models/playback.dart' as playback_models;
+import 'player_session_controller.dart';
 import 'subtitle_settings.dart';
 
 SubtitleVerticalOffsetBounds subtitleVerticalOffsetBoundsFor({
@@ -110,18 +111,18 @@ String _sanitizeSubtitleLine(
   return value;
 }
 
-/// 自定义字幕层，统一接管 media_kit 字幕流的样式、位置和显示延迟。
+/// 自定义字幕层，只消费统一会话字幕状态，不感知具体播放器内核。
 class PlayerSubtitleOverlay extends StatefulWidget {
   const PlayerSubtitleOverlay({
     super.key,
-    required this.player,
+    required this.controller,
     required this.selectedTrack,
     required this.settings,
     required this.adjustments,
     this.onVerticalOffsetBoundsChanged,
   });
 
-  final Player player;
+  final PlayerSessionController controller;
   final playback_models.SubtitleTrack? selectedTrack;
   final SubtitleSettings settings;
   final SubtitleAdjustments adjustments;
@@ -133,7 +134,6 @@ class PlayerSubtitleOverlay extends StatefulWidget {
 }
 
 class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
-  StreamSubscription<List<String>>? _subscription;
   final List<Timer> _delayTimers = <Timer>[];
   List<String> _rawSubtitle = const [];
   List<String> _displayedSubtitle = const [];
@@ -142,7 +142,7 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
   @override
   void initState() {
     super.initState();
-    _rawSubtitle = widget.player.state.subtitle;
+    _rawSubtitle = widget.controller.value.subtitleText;
     _subscribe();
     _syncNativeSubtitleDelay();
     _scheduleDisplay();
@@ -151,10 +151,10 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
   @override
   void didUpdateWidget(covariant PlayerSubtitleOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.player != widget.player) {
+    if (oldWidget.controller != widget.controller) {
       _cancelSubscription();
       _cancelDelayTimers();
-      _rawSubtitle = widget.player.state.subtitle;
+      _rawSubtitle = widget.controller.value.subtitleText;
       _displayedSubtitle = const [];
       _subscribe();
       _syncNativeSubtitleDelay();
@@ -173,10 +173,14 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
   }
 
   void _subscribe() {
-    _subscription = widget.player.stream.subtitle.listen((value) {
-      _rawSubtitle = List<String>.from(value);
-      _scheduleDisplay(_rawSubtitle);
-    });
+    widget.controller.addListener(_onPlaybackStateChanged);
+  }
+
+  void _onPlaybackStateChanged() {
+    final value = widget.controller.value.subtitleText;
+    if (listEquals(value, _rawSubtitle)) return;
+    _rawSubtitle = List<String>.from(value);
+    _scheduleDisplay(_rawSubtitle);
   }
 
   void _scheduleDisplay([List<String>? subtitle]) {
@@ -195,21 +199,14 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
   }
 
   void _syncNativeSubtitleDelay() {
-    final platform = widget.player.platform;
-    if (platform == null) return;
-    final delay = widget.adjustments.delayMs < 0
-        ? widget.adjustments.delayMs / 1000
+    final delayMs = widget.adjustments.delayMs < 0
+        ? widget.adjustments.delayMs
         : 0;
-    // media_kit 没有跨平台公开的字幕延迟 API，原生平台通过 mpv 属性补足负偏移。
-    unawaited(_setNativeSubtitleDelay(platform, delay.toString()));
-  }
-
-  Future<void> _setNativeSubtitleDelay(Object platform, String value) async {
-    try {
-      await (platform as dynamic).setProperty('sub-delay', value);
-    } catch (_) {
-      // Web 或不支持原生属性的平台继续使用客户端字幕层。
-    }
+    unawaited(
+      widget.controller
+          .setSubtitleDelay(Duration(milliseconds: delayMs))
+          .catchError((_) {}),
+    );
   }
 
   void _applySubtitle(List<String> subtitle) {
@@ -232,9 +229,7 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
   }
 
   void _cancelSubscription() {
-    final subscription = _subscription;
-    _subscription = null;
-    if (subscription != null) unawaited(subscription.cancel());
+    widget.controller.removeListener(_onPlaybackStateChanged);
   }
 
   void _reportOffsetBounds(SubtitleVerticalOffsetBounds bounds) {

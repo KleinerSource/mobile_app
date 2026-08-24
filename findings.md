@@ -275,3 +275,37 @@
 - FFmpeg 通常是解封装/编解码基础库，不等于完整 Flutter 播放器内核；在本项目中它位于 libmpv 内部。
 - Chewie、Better Player 是控制/UI/业务功能封装，iOS 最终仍落到 `video_player` 的 AVPlayer。
 - Flutter `Video`/texture 是画面嵌入层，也不是解码内核。
+
+# iOS 多内核实施记录（2026-08-24）
+
+## 已确认决策
+
+- iOS 使用自研 AVPlayer Flutter 插件；Android 继续固定 media_kit/libmpv。
+- `player.ios_engine` 缺失或未知值回退 `libmpv`，设置只影响下一次媒体会话。
+- AVPlayer 回退顺序固定为原生直放、后端 remux/direct-stream/transcode、当前会话一次性 libmpv 回退。
+- 统一 UI 依赖 `PlayerSessionController`，能力差异由 `PlaybackEngineCapabilities` 驱动，不在 Widget 内写平台/内核分支。
+
+## 待实现证据点
+
+- iOS 本地 wrapper 版本、podspec、Makefile 和 lockfile必须同步升级。
+- 需要确认当前 `PlayerControllerHost`、`PlayerControls`、字幕 Overlay、预览帧和 `_TrailerViewer` 的精确调用面，再做最小迁移。
+- 需要确认移动端 playback DTO 已解析的后端字段，避免重复造模型或丢弃 `audio_stream_index` / `subtitle_track_id`。
+
+## 多内核收尾发现
+
+- 详情页嵌入式 `_TrailerViewer` 已固定 `MediaKitPlaybackEngine`，但 `_playTrailer()` 打开的完整 `PlayerPage` 未传递内核约束，会错误读取 iOS 默认 AVPlayer 设置。
+- 最小修复是在 `PlayerPage` 增加只读的可选会话级 `engineKind` 覆盖；仅预告片完整播放入口传 `libmpv`，普通影片仍在新会话初始化时读取设置。
+- Pigeon 26.3.4 生成的 Swift `MdCenterAvPlayerHostApi` 方法签名与 `AvPlayerManager` 实现逐项一致，包括同步 `throws` 方法和异步 `Result<..., Error>` completion 方法。
+- CodeGraph 能定位 `AvPlayerSession` 的预览帧与 PiP 方法，但响应未展开这些方法体；后续只对该未覆盖区间做精确文件读取，不重复检索已返回源码。
+- Swift 静态复核发现 `AvPlayerViewFactory.manager` 为非可选属性却使用 `manager?.attach(...)`，会导致 iOS 编译错误；应改为直接调用 `manager.attach(...)`。
+- AVPlayer 预览帧复用当前 `AVPlayerItem.asset`，新请求先取消旧 `AVAssetImageGenerator`；PiP 由当前同一个 `AVPlayerLayer` 构造，结束后清理 delegate/controller，`dispose()` 可重复调用。
+- 新插件目录存在生成期 `.dart_tool/` 和独立 `pubspec.lock`；仓库其他 `packages/*` 不提交插件级 lock，二者均不属于交付源码。
+- 现有测试未覆盖详情页 `_playTrailer()` 到 `PlayerPage` 的路由；本次保持修复为构造参数直传，避免为了单一静态约束引入播放器插件初始化型 Widget 测试。
+- 最终边界扫描发现 `PlayerPage` 和 `_TrailerViewer` 虽已不使用 `media_kit` 类型，仍直接实例化具体 engine adapter；新增统一 `createPlayerSession` 工厂后，UI 只传 `PlaybackEngineKind` 并持有 `PlayerSessionController`。
+- AVPlayer 的 engine open/运行时错误已有单次回退，但播放决策请求失败或 `stream_url` 缺失发生在首次 `open` 之前，当前 `_canFallback` 因没有 `_lastOpenRequest` 不会触发；需由会话控制器提供“切换内核后重新决策”的同一单次回退门闩。
+- 现有 `FakePlaybackEngine` 已能验证“不打开旧 URL、只更换内核”的决策阶段回退；新增测试应确认第二次请求不会再次创建 libmpv，确保与 open/运行时回退共用一次性门闩。
+- 最终 UI 扫描确认 `PlayerPage`、`PlayerControls`、字幕层和详情页均不再引用 `media_kit` package、`Player`、`VideoController` 或具体 engine adapter；具体内核创建只存在于统一会话工厂。
+- iOS libmpv 元数据最终一致：wrapper/pubspec/podspec 均为 `1.1.5`，Makefile 固定 `v0.7.2`、`video-full` 下载名和指定 SHA-256。
+- Pigeon 生成的 Dart 文件被根 `.gitignore` 的 `*.g.dart` 规则排除；必须仅对 `packages/md_center_avplayer/lib/src/av_player_api.g.dart` 增加例外，才能满足生成 Dart/Swift 一并提交。
+- 更严格按“UI 不写平台或内核判断”复核后，`PlayerPage` 仍有 iOS 默认选择和 AVPlayer 路由/音轨/字幕分支；应继续把默认内核解析、client caps、路由和轨道策略收进会话层，只让页面读取 capabilities/统一决策结果。
+- 策略下沉完成后，四个 UI/页面文件对 `_host.kind`、`PlaybackEngineKind.avPlayer`、平台判断和具体 adapter 的联合扫描无命中；Android 显式 AVPlayer 覆盖也由会话工厂强制回落 libmpv。

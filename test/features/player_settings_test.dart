@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:md_center/features/player/player_settings.dart';
+import 'package:md_center/features/player/playback_engine.dart';
 
 void main() {
   test('播放器设置默认值保持现有播放行为', () async {
@@ -13,6 +14,7 @@ void main() {
     expect(settings.landscapeSide, PlayerLandscapeSide.cameraRight);
     expect(settings.entryOrientation, PlayerEntryOrientation.forceLandscape);
     expect(settings.preloadSize, PlayerPreloadSize.mb250);
+    expect(settings.iosEngine, PlaybackEngineKind.libmpv);
     expect(settings.doubleTapCenter, isTrue);
     expect(settings.doubleTapEdges, isTrue);
     expect(settings.hapticLongPress, isTrue);
@@ -90,6 +92,7 @@ void main() {
       landscapeSide: PlayerLandscapeSide.cameraRight,
       entryOrientation: PlayerEntryOrientation.forcePortrait,
       preloadSize: PlayerPreloadSize.mb500,
+      iosEngine: PlaybackEngineKind.avPlayer,
       doubleTapCenter: false,
       doubleTapEdges: true,
       hapticLongPress: false,
@@ -115,6 +118,7 @@ void main() {
     expect(actual.landscapeSide, PlayerLandscapeSide.cameraRight);
     expect(actual.entryOrientation, PlayerEntryOrientation.forcePortrait);
     expect(actual.preloadSize, PlayerPreloadSize.mb500);
+    expect(actual.iosEngine, PlaybackEngineKind.avPlayer);
     expect(actual.doubleTapCenter, isFalse);
     expect(actual.doubleTapEdges, isTrue);
     expect(actual.hapticLongPress, isFalse);

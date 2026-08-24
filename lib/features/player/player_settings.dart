@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/server_config_provider.dart';
+import 'playback_engine.dart';
 
 enum PlayerLandscapeSide {
   cameraLeft('camera_left', '摄像头在左侧'),
@@ -74,6 +75,7 @@ class PlayerSettings {
     this.landscapeSide = PlayerLandscapeSide.cameraRight,
     this.entryOrientation = PlayerEntryOrientation.forceLandscape,
     this.preloadSize = PlayerPreloadSize.mb250,
+    this.iosEngine = PlaybackEngineKind.libmpv,
     this.doubleTapCenter = true,
     this.doubleTapEdges = true,
     this.hapticLongPress = true,
@@ -96,6 +98,7 @@ class PlayerSettings {
   final PlayerLandscapeSide landscapeSide;
   final PlayerEntryOrientation entryOrientation;
   final PlayerPreloadSize preloadSize;
+  final PlaybackEngineKind iosEngine;
   final bool doubleTapCenter;
   final bool doubleTapEdges;
   final bool hapticLongPress;
@@ -118,6 +121,7 @@ class PlayerSettings {
     PlayerLandscapeSide? landscapeSide,
     PlayerEntryOrientation? entryOrientation,
     PlayerPreloadSize? preloadSize,
+    PlaybackEngineKind? iosEngine,
     bool? doubleTapCenter,
     bool? doubleTapEdges,
     bool? hapticLongPress,
@@ -141,6 +145,7 @@ class PlayerSettings {
       landscapeSide: landscapeSide ?? this.landscapeSide,
       entryOrientation: entryOrientation ?? this.entryOrientation,
       preloadSize: preloadSize ?? this.preloadSize,
+      iosEngine: iosEngine ?? this.iosEngine,
       doubleTapCenter: doubleTapCenter ?? this.doubleTapCenter,
       doubleTapEdges: doubleTapEdges ?? this.doubleTapEdges,
       hapticLongPress: hapticLongPress ?? this.hapticLongPress,
@@ -201,6 +206,9 @@ class PlayerSettingsRepository {
       preloadSize: PlayerPreloadSize.fromValue(
         _prefs.getString(_preloadSizeKey),
       ),
+      iosEngine: PlayerEnginePreference.fromValue(
+        _prefs.getString(PlayerEnginePreference.storageKey),
+      ),
       doubleTapCenter: _prefs.getBool(_doubleTapCenterKey) ?? true,
       doubleTapEdges: _prefs.getBool(_doubleTapEdgesKey) ?? true,
       hapticLongPress: _prefs.getBool(_hapticLongPressKey) ?? true,
@@ -226,6 +234,10 @@ class PlayerSettingsRepository {
       _prefs.setString(_landscapeSideKey, settings.landscapeSide.value),
       _prefs.setString(_entryOrientationKey, settings.entryOrientation.value),
       _prefs.setString(_preloadSizeKey, settings.preloadSize.value),
+      _prefs.setString(
+        PlayerEnginePreference.storageKey,
+        settings.iosEngine.value,
+      ),
       _prefs.setBool(_doubleTapCenterKey, settings.doubleTapCenter),
       _prefs.setBool(_doubleTapEdgesKey, settings.doubleTapEdges),
       _prefs.setBool(_hapticLongPressKey, settings.hapticLongPress),

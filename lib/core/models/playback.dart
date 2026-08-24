@@ -42,6 +42,8 @@ class PlaybackClientCaps {
     this.maxHeight = 0,
     this.qualityPreset = 'original',
     this.userAgent,
+    this.audioStreamIndex,
+    this.subtitleTrackId,
   });
 
   final List<String> containers;
@@ -51,15 +53,19 @@ class PlaybackClientCaps {
   final int maxHeight;
   final String qualityPreset;
   final String? userAgent;
+  final int? audioStreamIndex;
+  final String? subtitleTrackId;
 
   /// 移动端使用 media_kit/libmpv 播放，并默认启用系统硬解。
   ///
   /// H.264/HEVC 的级别由设备解码器处理；这里不能把缺少级别上限的
   /// HEVC 声明发送给后端，否则后端会按“不支持 HEVC”强制创建转码会话。
   /// 具体画质限制仍通过 [qualityPreset] 交给后端决定。
-  factory PlaybackClientCaps.mobile({
+  factory PlaybackClientCaps.mediaKit({
     required String qualityPreset,
     String? userAgent,
+    int? audioStreamIndex,
+    String? subtitleTrackId,
   }) {
     return PlaybackClientCaps(
       containers: const [
@@ -75,8 +81,46 @@ class PlaybackClientCaps {
       audioCodecs: _mobileAudioCodecs,
       qualityPreset: qualityPreset,
       userAgent: userAgent,
+      audioStreamIndex: audioStreamIndex,
+      subtitleTrackId: subtitleTrackId,
     );
   }
+
+  factory PlaybackClientCaps.avPlayer({
+    required String qualityPreset,
+    String? userAgent,
+    int? audioStreamIndex,
+    String? subtitleTrackId,
+  }) {
+    return PlaybackClientCaps(
+      containers: const ['mp4', 'mov', 'm4v'],
+      videoCodecs: const {
+        'h264': VideoCodecCapability(maxLevel: 999, pixFormats: ['yuv420p']),
+        'avc1': VideoCodecCapability(maxLevel: 999, pixFormats: ['yuv420p']),
+        'hevc': VideoCodecCapability(maxLevel: 999, pixFormats: ['yuv420p']),
+        'h265': VideoCodecCapability(maxLevel: 999, pixFormats: ['yuv420p']),
+        'hvc1': VideoCodecCapability(maxLevel: 999, pixFormats: ['yuv420p']),
+      },
+      audioCodecs: const {
+        'aac': AudioCodecCapability(maxChannels: 8),
+        'ac3': AudioCodecCapability(maxChannels: 8),
+        'eac3': AudioCodecCapability(maxChannels: 8),
+        'mp3': AudioCodecCapability(maxChannels: 2),
+      },
+      qualityPreset: qualityPreset,
+      userAgent: userAgent,
+      audioStreamIndex: audioStreamIndex,
+      subtitleTrackId: subtitleTrackId,
+    );
+  }
+
+  factory PlaybackClientCaps.mobile({
+    required String qualityPreset,
+    String? userAgent,
+  }) => PlaybackClientCaps.mediaKit(
+    qualityPreset: qualityPreset,
+    userAgent: userAgent,
+  );
 
   static const _mobilePixelFormats = <String>[
     'yuv420p',
@@ -127,6 +171,9 @@ class PlaybackClientCaps {
     'max_height': maxHeight,
     'quality_preset': qualityPreset,
     if (userAgent != null && userAgent!.isNotEmpty) 'ua': userAgent,
+    if (audioStreamIndex != null) 'audio_stream_index': audioStreamIndex,
+    if (subtitleTrackId != null && subtitleTrackId!.isNotEmpty)
+      'subtitle_track_id': subtitleTrackId,
   };
 }
 
@@ -161,6 +208,7 @@ class AudioTrack {
 @immutable
 class SubtitleTrack {
   const SubtitleTrack({
+    this.id = '',
     required this.index,
     required this.source,
     required this.language,
@@ -168,8 +216,12 @@ class SubtitleTrack {
     required this.codec,
     required this.url,
     required this.isDefault,
+    this.renderMode = '',
+    this.playable = true,
+    this.forced = false,
   });
 
+  final String id;
   final int index;
   final String source;
   final String language;
@@ -177,6 +229,9 @@ class SubtitleTrack {
   final String codec;
   final String url;
   final bool isDefault;
+  final String renderMode;
+  final bool playable;
+  final bool forced;
 
   bool get isEmbedded => source.trim().toLowerCase() == 'embedded';
 
@@ -213,9 +268,10 @@ class SubtitleTrack {
     return source.trim().isEmpty ? '未知来源' : source.trim();
   }
 
-  bool get canLoad => isEmbedded || url.trim().isNotEmpty;
+  bool get canLoad => playable && (isEmbedded || url.trim().isNotEmpty);
 
   factory SubtitleTrack.fromJson(Map<String, dynamic> json) => SubtitleTrack(
+    id: _asString(json['id']),
     index: _asInt(json['index']),
     source: _asString(json['source']),
     language: _asString(json['language']),
@@ -223,6 +279,9 @@ class SubtitleTrack {
     codec: _asString(json['codec']),
     url: _asString(json['url']),
     isDefault: json['default'] == true,
+    renderMode: _asString(json['render_mode']),
+    playable: json['playable'] != false,
+    forced: json['forced'] == true,
   );
 }
 

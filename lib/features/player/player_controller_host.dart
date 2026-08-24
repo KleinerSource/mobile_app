@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'playback_engine.dart';
+import 'player_platform.dart';
 import 'player_subtitle_track_resolver.dart';
 
 /// 后向（已播放）demuxer 缓冲上限，固定值：既服务回看拖动，也把最坏
@@ -19,18 +22,41 @@ const playerPreloadWindowFallbackSeconds = 3600;
 ///
 /// 把命令式播放 API + 状态流收拢到一个对象, 供 PlayerPage 编排。
 /// PlayerPage 只通过本类的方法/getter 访问内核, 不直接接触 media_kit 类型。
-class PlayerControllerHost {
-  PlayerControllerHost({
+class MediaKitPlaybackEngine implements PlaybackEngine {
+  MediaKitPlaybackEngine({
     this.hardwareAcceleration = true,
     this.bufferSize = 32 * 1024 * 1024,
   }) {
     _createPlayer();
+    _bindState();
   }
 
   late Player player;
   late VideoController controller;
   bool hardwareAcceleration;
   int bufferSize;
+
+  final ValueNotifier<PlaybackViewState> _state = ValueNotifier(
+    const PlaybackViewState(engineKind: PlaybackEngineKind.libmpv),
+  );
+  final List<StreamSubscription<Object?>> _stateSubscriptions = [];
+  Player? _previewPlayer;
+  String? _previewSourceUrl;
+  Map<String, String>? _previewHeaders;
+  PlaybackOpenRequest? _openRequest;
+
+  @override
+  PlaybackEngineKind get kind => PlaybackEngineKind.libmpv;
+
+  @override
+  PlaybackEngineCapabilities get capabilities =>
+      PlaybackEngineCapabilities.libmpv(
+        pictureInPictureRequiresNativeSource: !kIsWeb && Platform.isIOS,
+        pictureInPictureUsesSeparatePlayer: !kIsWeb && Platform.isIOS,
+      );
+
+  @override
+  ValueListenable<PlaybackViewState> get state => _state;
 
   /// 预载（前向 demuxer 缓冲）的内存档位字节数，由播放页在每次打开前按
   /// 用户设置写入；[bufferSize] 只是播放器创建时的安全默认值，档位通过
@@ -50,19 +76,122 @@ class PlayerControllerHost {
     );
   }
 
+  void _updateState(PlaybackViewState Function(PlaybackViewState) update) {
+    _state.value = update(_state.value);
+  }
+
+  void _bindState() {
+    for (final subscription in _stateSubscriptions) {
+      unawaited(subscription.cancel());
+    }
+    _stateSubscriptions.clear();
+    _stateSubscriptions.addAll([
+      player.stream.playing.listen(
+        (value) => _updateState((state) => state.copyWith(playing: value)),
+      ),
+      player.stream.buffering.listen(
+        (value) => _updateState((state) => state.copyWith(buffering: value)),
+      ),
+      player.stream.position.listen(
+        (value) => _updateState((state) => state.copyWith(position: value)),
+      ),
+      player.stream.duration.listen(
+        (value) => _updateState((state) => state.copyWith(duration: value)),
+      ),
+      player.stream.buffer.listen(
+        (value) => _updateState((state) => state.copyWith(buffered: value)),
+      ),
+      player.stream.rate.listen(
+        (value) => _updateState((state) => state.copyWith(rate: value)),
+      ),
+      player.stream.width.listen((value) {
+        if (value == null) return;
+        _updateState(
+          (state) => state.copyWith(
+            videoSize: Size(value.toDouble(), state.videoSize.height),
+          ),
+        );
+      }),
+      player.stream.height.listen((value) {
+        if (value == null) return;
+        _updateState(
+          (state) => state.copyWith(
+            videoSize: Size(state.videoSize.width, value.toDouble()),
+          ),
+        );
+      }),
+      player.stream.subtitle.listen(
+        (value) => _updateState((state) => state.copyWith(subtitleText: value)),
+      ),
+      player.stream.tracks.listen((tracks) {
+        final selectedId = player.state.track.audio.id;
+        _updateState(
+          (state) => state.copyWith(
+            audioTracks: [
+              for (final track in tracks.audio)
+                PlaybackAudioTrackState(
+                  id: track.id,
+                  title: track.title ?? '',
+                  language: track.language ?? '',
+                  isSelected: track.id == selectedId,
+                ),
+            ],
+            selectedAudioTrackId: selectedId,
+          ),
+        );
+      }),
+      player.stream.completed.listen((completed) {
+        if (!completed) return;
+        _updateState(
+          (state) => state.copyWith(
+            lifecycle: PlaybackLifecycle.completed,
+            playing: false,
+          ),
+        );
+      }),
+      player.stream.error.listen(
+        (error) => _updateState(
+          (state) =>
+              state.copyWith(lifecycle: PlaybackLifecycle.failed, error: error),
+        ),
+      ),
+    ]);
+  }
+
   /// 打开网络源并起播 · [startAt] 为起播定位 (续播 / 切源保位)
-  Future<void> open(
-    String url, {
-    Duration? startAt,
-    Map<String, String>? headers,
-  }) {
-    return _openWithBufferOptions(url, startAt: startAt, headers: headers);
+  @override
+  Future<void> open(PlaybackOpenRequest request) async {
+    _openRequest = request;
+    _updateState(
+      (state) => state.copyWith(
+        lifecycle: PlaybackLifecycle.opening,
+        playing: false,
+        buffering: true,
+        position: request.startAt ?? Duration.zero,
+        firstFrameRendered: false,
+        clearError: true,
+      ),
+    );
+    await _openWithBufferOptions(
+      request.url,
+      startAt: request.startAt,
+      headers: request.headers,
+      play: request.play,
+    );
+    _updateState(
+      (state) => state.copyWith(
+        lifecycle: PlaybackLifecycle.ready,
+        playing: request.play,
+      ),
+    );
+    unawaited(_markFirstFrameRendered());
   }
 
   Future<void> _openWithBufferOptions(
     String url, {
     Duration? startAt,
     Map<String, String>? headers,
+    bool play = true,
   }) async {
     final openGeneration = ++_openGeneration;
     final targetPlayer = player;
@@ -102,7 +231,7 @@ class PlayerControllerHost {
     }
     await targetPlayer.open(
       Media(url, start: startAt, httpHeaders: headers),
-      play: true,
+      play: play,
     );
     // Player.open() 内部会先 stop 再 loadlist，open 完成后回读确认缓冲
     // 属性仍然生效，避免媒体加载边界覆盖运行时配置。
@@ -119,6 +248,19 @@ class PlayerControllerHost {
         preloadBytes: targetPreloadBytes,
       ),
     );
+  }
+
+  Future<void> _markFirstFrameRendered() async {
+    try {
+      await controller.waitUntilFirstFrameRendered.timeout(
+        const Duration(seconds: 8),
+      );
+      _updateState(
+        (state) => state.copyWith(firstFrameRendered: true, buffering: false),
+      );
+    } catch (_) {
+      // 部分平台不回报首帧；播放状态仍由 media_kit 流继续驱动。
+    }
   }
 
   Future<void> _applyPreloadWindow(
@@ -324,6 +466,7 @@ class PlayerControllerHost {
   /// mpv 的 sub-add 网络请求无法携带完整鉴权，失败报错还会混入错误流被
   /// 上层当成播放失败；改为客户端自行下载内容后本地加载，字幕接口返回
   /// 404/超时等失败只会抛出 Dart 异常，不会影响正在进行的播放。
+  @override
   Future<void> setSubtitleData(
     String content, {
     String? title,
@@ -370,11 +513,13 @@ class PlayerControllerHost {
     }
   }
 
+  @override
   Future<void> clearSubtitle() async {
     await player.setSubtitleTrack(SubtitleTrack.no());
     await _setNativeSubtitleVisibility(false);
   }
 
+  @override
   Future<void> setSubtitleTrackById(
     String id, {
     int? fallbackIndex,
@@ -386,6 +531,7 @@ class PlayerControllerHost {
     }
     await player.setSubtitleTrack(track);
     await _setNativeSubtitleVisibility(nativeRendering);
+    _updateState((state) => state.copyWith(selectedSubtitleTrackId: track.id));
   }
 
   Future<void> _setNativeSubtitleVisibility(bool visible) async {
@@ -422,12 +568,14 @@ class PlayerControllerHost {
     return track;
   }
 
+  @override
   Future<void> setAudioTrackById(String id) async {
     final track = player.state.tracks.audio.firstWhere(
       (item) => item.id == id,
       orElse: AudioTrack.auto,
     );
     await player.setAudioTrack(track);
+    _updateState((state) => state.copyWith(selectedAudioTrackId: track.id));
   }
 
   /// 重建播放器以应用硬解或播放缓冲配置。
@@ -444,19 +592,48 @@ class PlayerControllerHost {
     hardwareAcceleration = enableHardwareAcceleration;
     this.bufferSize = nextBufferSize;
     _createPlayer();
+    _bindState();
     await previous.dispose();
   }
 
+  @override
+  Future<void> configure({
+    bool? hardwareAcceleration,
+    int? preloadBytes,
+  }) async {
+    if (preloadBytes != null) this.preloadBytes = preloadBytes;
+    if (hardwareAcceleration != null) {
+      await recreate(enableHardwareAcceleration: hardwareAcceleration);
+    }
+  }
+
+  @override
   Future<void> seek(Duration position) => player.seek(position);
 
+  @override
+  Future<void> play() => player.play();
+
+  @override
+  Future<void> pause() => player.pause();
+
   /// 停止当前媒体但保留播放器实例, 用于退出播放页前的停播。
+  @override
   Future<void> stop() async {
     ++_openGeneration;
     await player.stop();
+    _updateState(
+      (state) => state.copyWith(
+        lifecycle: PlaybackLifecycle.stopped,
+        playing: false,
+        buffering: false,
+      ),
+    );
   }
 
+  @override
   Future<void> setRate(double rate) => player.setRate(rate);
 
+  @override
   Future<void> playOrPause() => player.playOrPause();
 
   /// 当前播放位置 / 总时长 (同步快照)
@@ -468,11 +645,162 @@ class PlayerControllerHost {
   Stream<bool> get completedStream => player.stream.completed;
   Stream<String> get errorStream => player.stream.error;
 
+  @override
+  Future<void> setSubtitleDelay(Duration delay) async {
+    final platform = player.platform;
+    if (platform is! NativePlayer) return;
+    final seconds = delay.inMilliseconds / Duration.millisecondsPerSecond;
+    await _setNativeProperty(platform, 'sub-delay', '$seconds');
+  }
+
+  @override
+  Future<Uint8List?> captureFrame(
+    Duration position, {
+    String? sourceUrl,
+    Map<String, String>? headers,
+  }) async {
+    final fallbackRequest = _openRequest;
+    final url = sourceUrl?.trim().isNotEmpty == true
+        ? sourceUrl!.trim()
+        : fallbackRequest?.url;
+    if (url == null || url.isEmpty) return null;
+    final sourceHeaders = sourceUrl?.trim().isNotEmpty == true
+        ? headers
+        : fallbackRequest?.headers;
+    final previewPlayer = await _ensurePreviewPlayer(
+      url,
+      sourceHeaders,
+      position,
+    );
+    if (previewPlayer == null) return null;
+    try {
+      await previewPlayer.seek(position).timeout(const Duration(seconds: 2));
+      await previewPlayer.play();
+      for (var attempt = 0; attempt < 15; attempt++) {
+        final frame = await previewPlayer
+            .screenshot(format: 'image/jpeg')
+            .timeout(const Duration(milliseconds: 400), onTimeout: () => null);
+        if (frame != null && frame.isNotEmpty) return frame;
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+      }
+      return null;
+    } finally {
+      try {
+        await previewPlayer.pause();
+      } catch (_) {}
+    }
+  }
+
+  Future<Player?> _ensurePreviewPlayer(
+    String url,
+    Map<String, String>? headers,
+    Duration startAt,
+  ) async {
+    if (_previewPlayer != null &&
+        _previewSourceUrl == url &&
+        mapEquals(_previewHeaders, headers)) {
+      return _previewPlayer;
+    }
+    await _disposePreviewPlayer();
+    final previewPlayer = Player(
+      configuration: const PlayerConfiguration(
+        muted: true,
+        bufferSize: 8 * 1024 * 1024,
+      ),
+    );
+    final previewController = VideoController(
+      previewPlayer,
+      configuration: const VideoControllerConfiguration(
+        enableHardwareAcceleration: true,
+      ),
+    );
+    _previewPlayer = previewPlayer;
+    _previewSourceUrl = url;
+    _previewHeaders = headers == null
+        ? null
+        : Map<String, String>.from(headers);
+    try {
+      await previewPlayer
+          .open(Media(url, httpHeaders: headers, start: startAt), play: true)
+          .timeout(const Duration(seconds: 3));
+      try {
+        await previewController.waitUntilFirstFrameRendered.timeout(
+          const Duration(seconds: 5),
+        );
+      } catch (_) {}
+      return previewPlayer;
+    } catch (_) {
+      await _disposePreviewPlayer();
+      return null;
+    }
+  }
+
+  Future<void> _disposePreviewPlayer() async {
+    final previewPlayer = _previewPlayer;
+    _previewPlayer = null;
+    _previewSourceUrl = null;
+    _previewHeaders = null;
+    try {
+      await previewPlayer?.dispose();
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> clearFramePreview() => _disposePreviewPlayer();
+
+  @override
+  Future<bool> enterPictureInPicture(
+    PlaybackPictureInPictureRequest request,
+  ) async {
+    PlayerPlatformCapabilities.setPictureInPictureStoppedHandler((
+      positionMs,
+    ) async {
+      _updateState((state) => state.copyWith(inPictureInPicture: false));
+      await request.onStopped?.call(Duration(milliseconds: positionMs));
+    });
+    final entered = await PlayerPlatformCapabilities.enterPictureInPicture(
+      url: request.url,
+      headers: request.headers,
+      position: request.position,
+      autoplay: request.autoplay,
+    );
+    if (entered) {
+      _updateState((state) => state.copyWith(inPictureInPicture: true));
+    } else {
+      PlayerPlatformCapabilities.clearPictureInPictureStoppedHandler();
+    }
+    return entered;
+  }
+
+  @override
+  Future<void> stopPictureInPicture() =>
+      PlayerPlatformCapabilities.stopPictureInPicture();
+
+  @override
+  Widget buildSurface({BoxFit fit = BoxFit.contain}) {
+    return Video(
+      controller: controller,
+      controls: NoVideoControls,
+      fit: fit,
+      subtitleViewConfiguration: const SubtitleViewConfiguration(
+        visible: false,
+      ),
+    );
+  }
+
+  @override
   Future<void> dispose() async {
     ++_openGeneration;
+    PlayerPlatformCapabilities.clearPictureInPictureStoppedHandler();
+    for (final subscription in _stateSubscriptions) {
+      await subscription.cancel();
+    }
+    _stateSubscriptions.clear();
+    await _disposePreviewPlayer();
     final subtitleFile = _subtitleTempFile;
     _subtitleTempFile = null;
     await player.dispose();
     if (subtitleFile != null) await _deleteQuietly(subtitleFile);
+    _state.dispose();
   }
 }

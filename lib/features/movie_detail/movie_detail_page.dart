@@ -4,8 +4,6 @@ import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
@@ -25,7 +23,10 @@ import '../favorites/favorites_providers.dart';
 import '../lists/add_to_list_sheet.dart';
 import '../movies/movies_providers.dart';
 import '../player/player_page.dart';
+import '../player/playback_engine.dart';
 import '../player/player_queue.dart';
+import '../player/player_session_controller.dart';
+import '../player/player_session_factory.dart';
 import '../resources/resource_movies_page.dart';
 import 'actor_movies_page.dart';
 import 'dbo_diff_sheet.dart';
@@ -1034,6 +1035,7 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
         movieId: widget.movieId,
         title: '${widget.movieTitle} · 预告片',
         directUrl: url,
+        engineKind: PlaybackEngineKind.libmpv,
       ),
     );
   }
@@ -1446,8 +1448,7 @@ class _TrailerViewer extends StatefulWidget {
 }
 
 class _TrailerViewerState extends State<_TrailerViewer> {
-  late final Player _player;
-  late final VideoController _videoController;
+  late final PlayerSessionController _player;
   bool _opened = false;
   bool _opening = false;
   String? _error;
@@ -1455,8 +1456,7 @@ class _TrailerViewerState extends State<_TrailerViewer> {
   @override
   void initState() {
     super.initState();
-    _player = Player();
-    _videoController = VideoController(_player);
+    _player = createPlayerSession(engineKind: PlaybackEngineKind.libmpv);
   }
 
   @override
@@ -1485,7 +1485,7 @@ class _TrailerViewerState extends State<_TrailerViewer> {
       _error = null;
     });
     try {
-      await _player.open(Media(widget.url), play: true);
+      await _player.open(widget.url, play: true);
       if (mounted) {
         setState(() => _opened = true);
         if (!widget.active) await _player.pause();
@@ -1609,22 +1609,17 @@ class _TrailerViewerState extends State<_TrailerViewer> {
       );
     }
 
-    return StreamBuilder<bool>(
-      stream: _player.stream.playing,
-      initialData: _player.state.playing,
-      builder: (context, snapshot) {
-        final isPlaying = snapshot.data ?? false;
+    return ValueListenableBuilder<PlaybackViewState>(
+      valueListenable: _player,
+      builder: (context, state, _) {
+        final isPlaying = state.playing;
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: _togglePlayback,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Video(
-                controller: _videoController,
-                controls: NoVideoControls,
-                fit: BoxFit.contain,
-              ),
+              _player.buildSurface(),
               if (!isPlaying || _opening)
                 Center(child: _playButton(context, loading: _opening)),
             ],

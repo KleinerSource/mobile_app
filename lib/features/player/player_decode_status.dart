@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'playback_engine.dart';
+
 enum PlayerDecodeLocation { local, server }
 
 enum PlayerDecodeMode { hardware, software }
@@ -10,14 +12,17 @@ class PlayerDecodeStatus {
     required this.location,
     required this.mode,
     this.engine,
+    this.clientEngine,
     this.isFallback = false,
   });
 
-  const PlayerDecodeStatus.local({required bool hardware})
-    : this(
-        location: PlayerDecodeLocation.local,
-        mode: hardware ? PlayerDecodeMode.hardware : PlayerDecodeMode.software,
-      );
+  const PlayerDecodeStatus.local({
+    required bool hardware,
+    this.clientEngine = PlaybackEngineKind.libmpv,
+  }) : location = PlayerDecodeLocation.local,
+       mode = hardware ? PlayerDecodeMode.hardware : PlayerDecodeMode.software,
+       engine = hardware ? 'videotoolbox' : 'ffmpeg',
+       isFallback = false;
 
   factory PlayerDecodeStatus.server({
     String? engine,
@@ -42,6 +47,7 @@ class PlayerDecodeStatus {
   final PlayerDecodeLocation location;
   final PlayerDecodeMode mode;
   final String? engine;
+  final PlaybackEngineKind? clientEngine;
   final bool isFallback;
 
   bool get isHardware => mode == PlayerDecodeMode.hardware;
@@ -49,10 +55,16 @@ class PlayerDecodeStatus {
   static List<PlayerDecodeStatus> primary({
     required bool usingHls,
     required bool localHardware,
+    PlaybackEngineKind clientEngine = PlaybackEngineKind.libmpv,
     PlayerDecodeStatus? serverStatus,
   }) {
     if (usingHls && serverStatus != null) return [serverStatus];
-    return [PlayerDecodeStatus.local(hardware: localHardware)];
+    return [
+      PlayerDecodeStatus.local(
+        hardware: localHardware,
+        clientEngine: clientEngine,
+      ),
+    ];
   }
 
   String get shortLabel {
@@ -65,6 +77,12 @@ class PlayerDecodeStatus {
 
   String get fullLabel {
     final engineName = _engineLabel;
+    if (location == PlayerDecodeLocation.local) {
+      final clientName = clientEngine?.label ?? PlaybackEngineKind.libmpv.label;
+      return engineName == null
+          ? '$shortLabel · $clientName'
+          : '$clientName · $engineName';
+    }
     if (location == PlayerDecodeLocation.server &&
         isHardware &&
         engineName != null) {
@@ -97,6 +115,7 @@ class PlayerDecodeStatus {
     }
     return switch (normalized) {
       'videotoolbox' || 'vt' => 'VideoToolbox',
+      'ffmpeg' => 'FFmpeg',
       'nvenc' => 'NVENC',
       'qsv' => 'Quick Sync',
       'amf' => 'AMF',

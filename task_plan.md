@@ -120,3 +120,47 @@
 | 浏览器读取 Apple AVPlayer 文档 JSON 被客户端阻止（`ERR_BLOCKED_BY_CLIENT`） | 1 | 不重复同一路径的浏览器导航；改用只读 HTTP CLI 获取 Apple 官方 JSON。 |
 | 查询 pub.dev 包状态的 PowerShell `foreach` 后直接管道导致 `ParserError` | 1 | 用变量接收 foreach 输出后再 `Format-Table`，不重复原管道结构。 |
 | GStreamer 官方 iOS 文档页返回 503 backend timeout | 1 | 不重复刷新页面；改读 GStreamer 官方 GitLab 文档源文件。 |
+
+# 当前任务：iOS 多播放器内核与 libmpv 升级（2026-08-24）
+
+## 目标
+
+在保持 Android 播放路径不变的前提下，将 iOS libmpv 升级到 v0.7.2，并建立统一播放会话接口；iOS 新增 AVPlayer 内核，设置只影响下一次打开媒体，AVPlayer 致命失败时当前会话最多自动回退一次 libmpv。
+
+## 成功标准
+
+- [x] iOS wrapper 统一为 1.1.5，固定 video-full v0.7.2 资产及指定 SHA-256；Android 依赖无差异。
+- [x] 播放页、控制栏、字幕层和详情页预告片不再访问具体播放器类型。
+- [x] AVPlayer 插件以 iOS 16 为目标，具备播放状态、音轨、PiP、预览帧与类型安全桥接。
+- [x] iOS 设置页可选择默认内核，默认 libmpv，且只在新会话读取。
+- [x] AVPlayer 按 direct-play → 后端适配 → 单次 libmpv 回退执行，并恢复会话状态。
+- [x] Dart 静态分析与测试通过；iOS 原生构建由 macOS CI/真机继续验证。
+
+## 阶段
+
+1. [已完成] 恢复规划记录并核对播放器代码、依赖与测试基线。
+2. [已完成] 升级 iOS libmpv wrapper 与固定二进制资产。
+3. [已完成] 抽象 MediaKit 为统一 PlaybackEngine 并迁移所有 UI 调用点。
+4. [已完成] 新建 AVPlayer 插件、原生实现及 Dart adapter。
+5. [已完成] 接入内核偏好、后端播放决策、字幕/音轨与单次回退。
+6. [已完成] 补充测试并执行 analyze/test/diff 验证。
+
+## 约束与假设
+
+- 现有用户修改与历史规划记录全部保留，只做本任务所需的外科式变更。
+- iOS 默认保持 libmpv；播放中不提供手动热切换。
+- 详情页预告片强制 libmpv，但复用统一接口。
+- AVPlayer 不模拟 libmpv 的字节缓冲属性；能力差异由 capabilities 表达。
+- Windows 环境无法完成 Swift 编译与 iOS 真机验收，原生代码仍需静态检查并交由 CI 验证。
+
+## 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| `session-catchup.py` 只输出 PowerShell profile 警告 | 直接读取现有规划文件与 Git 状态继续恢复，不把该警告视为任务失败 |
+| 首次追加规划补丁的上下文标题层级不匹配 | 读取文件尾部后以稳定末行追加，未覆盖历史内容 |
+| 清理插件生成缓存的 `Remove-Item` 命令被执行策略拒绝 | 用补丁删除不应提交的插件级 `pubspec.lock`；`.dart_tool/` 已被根 `.gitignore` 排除，不进入交付差异 |
+| 首次下沉 UI 内核判断的组合补丁因 `dart:io` import 精确文本不匹配而整体未应用 | 读取精确上下文后拆分为会话工厂、控制器和页面三个小补丁，避免部分写入 |
+| 策略下沉后的首次 analyze 提示 `player_page.dart` 的 `foundation.dart` 已由 Material 导出 | 删除冗余 import 后重新验证 |
+| 新增平台解析测试首次缺少 `TargetPlatform` import，测试和 analyze 均报 undefined identifier | 在测试文件显式导入 `flutter/foundation.dart` 后重新运行 |
+| 音轨映射测试初次构造 `PlaybackAudioTrackState` 缺少必填 `isSelected`，导致全量测试加载失败 | 补齐 `isSelected: false` 并先重跑定向测试，再重跑全量 |

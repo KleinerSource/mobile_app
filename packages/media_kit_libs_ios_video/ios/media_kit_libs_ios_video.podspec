@@ -2,7 +2,7 @@ Pod::Spec.new do |s|
   system("make")
 
   s.name             = 'media_kit_libs_ios_video'
-  s.version          = '1.0.4'
+  s.version          = '1.1.5'
   s.summary          = 'iOS dependency package for package:media_kit'
   s.description      = 'iOS dependency package for package:media_kit.'
   s.homepage         = 'https://github.com/media-kit/media-kit.git'
@@ -14,7 +14,7 @@ Pod::Spec.new do |s|
   s.dependency 'Flutter'
 
   s.vendored_frameworks = 'Frameworks/*.xcframework'
-  s.platform = :ios, '9.0'
+  s.platform = :ios, '16.0'
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',

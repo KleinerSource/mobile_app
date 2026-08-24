@@ -1,15 +1,15 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/models/playback.dart' as playback_models;
+import 'frame_preview_controller.dart';
+import 'playback_engine.dart';
 import 'player_decode_status.dart';
 import 'player_haptics.dart';
 import 'player_overlay_indicators.dart' show formatDuration;
+import 'player_session_controller.dart';
 
 enum _SubtitleMenuAction { openSettings }
 
@@ -19,7 +19,7 @@ enum _SubtitleMenuAction { openSettings }
 class PlayerControls extends StatefulWidget {
   const PlayerControls({
     super.key,
-    required this.player,
+    required this.controller,
     this.previewSourceUri,
     this.previewSourceHeaders,
     required this.quality,
@@ -54,7 +54,7 @@ class PlayerControls extends StatefulWidget {
     required this.onExit,
   });
 
-  final Player player;
+  final PlayerSessionController controller;
   final String? previewSourceUri;
   final Map<String, String>? previewSourceHeaders;
   final String quality;
@@ -97,7 +97,6 @@ class PlayerControls extends StatefulWidget {
 
 class _PlayerControlsState extends State<PlayerControls> {
   static const int _sliderHapticStepMs = 5000;
-  static const Duration _framePreviewInterval = Duration(milliseconds: 250);
   static const double _framePreviewWidth = 136;
   static const _noSubtitleTrack = playback_models.SubtitleTrack(
     index: -1,
@@ -113,36 +112,48 @@ class _PlayerControlsState extends State<PlayerControls> {
   double? _dragValue;
   int? _lastSliderHapticBucket;
   bool _sliderDragging = false;
-  Uint8List? _framePreview;
-  Duration? _framePreviewPosition;
-  Duration? _pendingFramePreviewPosition;
-  DateTime? _lastFramePreviewAt;
-  int _framePreviewSession = 0;
-  bool _framePreviewBusy = false;
-  bool _framePreviewUnavailable = false;
-  Player? _framePreviewPlayer;
-  String? _framePreviewSourceUri;
-  Map<String, String>? _framePreviewSourceHeaders;
+  late FramePreviewController _framePreviewController;
+
+  @override
+  void initState() {
+    super.initState();
+    _createFramePreviewController();
+  }
+
+  void _createFramePreviewController() {
+    _framePreviewController = FramePreviewController(widget.controller)
+      ..configureSource(widget.previewSourceUri, widget.previewSourceHeaders)
+      ..addListener(_onFramePreviewChanged);
+  }
+
+  void _onFramePreviewChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void didUpdateWidget(covariant PlayerControls oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.player != widget.player ||
-        oldWidget.previewSourceUri != widget.previewSourceUri ||
-        !mapEquals(
-          oldWidget.previewSourceHeaders,
-          widget.previewSourceHeaders,
-        )) {
-      _cancelFramePreview();
+    if (oldWidget.controller != widget.controller) {
+      _framePreviewController
+        ..removeListener(_onFramePreviewChanged)
+        ..dispose();
+      _createFramePreviewController();
       _dragValue = null;
-      unawaited(_disposeFramePreviewPlayer());
+    } else if (oldWidget.previewSourceUri != widget.previewSourceUri ||
+        oldWidget.previewSourceHeaders != widget.previewSourceHeaders) {
+      _framePreviewController.configureSource(
+        widget.previewSourceUri,
+        widget.previewSourceHeaders,
+      );
+      _dragValue = null;
     }
   }
 
   @override
   void dispose() {
-    _cancelFramePreview();
-    unawaited(_disposeFramePreviewPlayer());
+    _framePreviewController
+      ..removeListener(_onFramePreviewChanged)
+      ..dispose();
     super.dispose();
   }
 
@@ -375,11 +386,10 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   Widget _playPauseButton() {
-    return StreamBuilder<bool>(
-      stream: widget.player.stream.playing,
-      initialData: widget.player.state.playing,
-      builder: (context, snap) {
-        final playing = snap.data ?? false;
+    return ValueListenableBuilder<PlaybackViewState>(
+      valueListenable: widget.controller,
+      builder: (context, state, _) {
+        final playing = state.playing;
         return IconButton(
           enableFeedback: false,
           padding: EdgeInsets.zero,
@@ -401,24 +411,16 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   Widget _positionText() {
-    return StreamBuilder<Duration>(
-      stream: widget.player.stream.position,
-      initialData: widget.player.state.position,
-      builder: (context, snap) {
-        final pos = snap.data ?? Duration.zero;
-        return _timeLabel(formatDuration(pos));
-      },
+    return ValueListenableBuilder<PlaybackViewState>(
+      valueListenable: widget.controller,
+      builder: (_, state, __) => _timeLabel(formatDuration(state.position)),
     );
   }
 
   Widget _durationText() {
-    return StreamBuilder<Duration>(
-      stream: widget.player.stream.duration,
-      initialData: widget.player.state.duration,
-      builder: (context, snap) {
-        final dur = snap.data ?? Duration.zero;
-        return _timeLabel(formatDuration(dur));
-      },
+    return ValueListenableBuilder<PlaybackViewState>(
+      valueListenable: widget.controller,
+      builder: (_, state, __) => _timeLabel(formatDuration(state.duration)),
     );
   }
 
@@ -435,92 +437,78 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   Widget _progressSlider() {
-    return StreamBuilder<Duration>(
-      stream: widget.player.stream.buffer,
-      initialData: widget.player.state.buffer,
-      builder: (context, bufferSnapshot) {
-        return StreamBuilder<Duration>(
-          stream: widget.player.stream.position,
-          initialData: widget.player.state.position,
-          builder: (context, snap) {
-            final dur = widget.player.state.duration.inMilliseconds;
-            final pos = (snap.data ?? Duration.zero).inMilliseconds;
-            final buffer =
-                (bufferSnapshot.data ?? Duration.zero).inMilliseconds;
-            final max = dur > 0 ? dur.toDouble() : 1.0;
-            final live = pos.clamp(0, max.toInt()).toDouble();
-            final buffered = buffer.clamp(0, max.toInt()).toDouble();
-            final value = _dragValue ?? live;
-            final previewPosition = _framePreviewPosition;
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final fraction = max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
-                final maxLeft = (constraints.maxWidth - _framePreviewWidth)
-                    .clamp(0.0, double.infinity)
+    return ValueListenableBuilder<PlaybackViewState>(
+      valueListenable: widget.controller,
+      builder: (context, state, _) {
+        final dur = state.duration.inMilliseconds;
+        final pos = state.position.inMilliseconds;
+        final buffer = state.buffered.inMilliseconds;
+        final max = dur > 0 ? dur.toDouble() : 1.0;
+        final live = pos.clamp(0, max.toInt()).toDouble();
+        final buffered = buffer.clamp(0, max.toInt()).toDouble();
+        final value = _dragValue ?? live;
+        final previewPosition = _framePreviewController.position;
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final fraction = max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
+            final maxLeft = (constraints.maxWidth - _framePreviewWidth)
+                .clamp(0.0, double.infinity)
+                .toDouble();
+            final previewLeft =
+                (constraints.maxWidth * fraction - _framePreviewWidth / 2)
+                    .clamp(0.0, maxLeft)
                     .toDouble();
-                final previewLeft =
-                    (constraints.maxWidth * fraction - _framePreviewWidth / 2)
-                        .clamp(0.0, maxLeft)
-                        .toDouble();
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 3,
-                        thumbShape: const RoundSliderThumbShape(
-                          enabledThumbRadius: 5,
-                        ),
-                        overlayShape: const RoundSliderOverlayShape(
-                          overlayRadius: 14,
-                        ),
-                        activeTrackColor: Colors.white,
-                        secondaryActiveTrackColor: Colors.white60,
-                        inactiveTrackColor: Colors.white30,
-                        thumbColor: Colors.white,
-                        overlayColor: Colors.white24,
-                      ),
-                      child: Slider(
-                        min: 0,
-                        max: max,
-                        value: value.clamp(0, max),
-                        secondaryTrackValue: buffered,
-                        semanticFormatterCallback: (sliderValue) {
-                          final current = Duration(
-                            milliseconds: sliderValue.round(),
-                          );
-                          final cached = Duration(
-                            milliseconds: buffered.round(),
-                          );
-                          return '当前播放 ${formatDuration(current)}，'
-                              '已缓冲 ${formatDuration(cached)}';
-                        },
-                        onChangeStart: dur <= 0
-                            ? null
-                            : (v) => _beginSliderDrag(v),
-                        onChanged: dur <= 0
-                            ? null
-                            : (v) => _updateSliderDrag(v),
-                        onChangeEnd: dur <= 0 ? null : (v) => _endSliderDrag(v),
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 3,
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 5,
+                    ),
+                    overlayShape: const RoundSliderOverlayShape(
+                      overlayRadius: 14,
+                    ),
+                    activeTrackColor: Colors.white,
+                    secondaryActiveTrackColor: Colors.white60,
+                    inactiveTrackColor: Colors.white30,
+                    thumbColor: Colors.white,
+                    overlayColor: Colors.white24,
+                  ),
+                  child: Slider(
+                    min: 0,
+                    max: max,
+                    value: value.clamp(0, max),
+                    secondaryTrackValue: buffered,
+                    semanticFormatterCallback: (sliderValue) {
+                      final current = Duration(
+                        milliseconds: sliderValue.round(),
+                      );
+                      final cached = Duration(milliseconds: buffered.round());
+                      return '当前播放 ${formatDuration(current)}，'
+                          '已缓冲 ${formatDuration(cached)}';
+                    },
+                    onChangeStart: dur <= 0 ? null : (v) => _beginSliderDrag(v),
+                    onChanged: dur <= 0 ? null : (v) => _updateSliderDrag(v),
+                    onChangeEnd: dur <= 0 ? null : (v) => _endSliderDrag(v),
+                  ),
+                ),
+                if (_sliderDragging &&
+                    previewPosition != null &&
+                    _framePreviewController.frame != null)
+                  Positioned(
+                    left: previewLeft,
+                    bottom: 38,
+                    child: IgnorePointer(
+                      child: _SliderFramePreview(
+                        frame: _framePreviewController.frame,
+                        position: previewPosition,
+                        unavailable: _framePreviewController.unavailable,
                       ),
                     ),
-                    if (_sliderDragging &&
-                        previewPosition != null &&
-                        _framePreview != null)
-                      Positioned(
-                        left: previewLeft,
-                        bottom: 38,
-                        child: IgnorePointer(
-                          child: _SliderFramePreview(
-                            frame: _framePreview,
-                            position: previewPosition,
-                            unavailable: _framePreviewUnavailable,
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
+                  ),
+              ],
             );
           },
         );
@@ -530,19 +518,13 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   void _beginSliderDrag(double value) {
     final position = Duration(milliseconds: value.round());
-    _framePreviewSession++;
     _sliderDragging = true;
-    _lastFramePreviewAt = null;
-    _pendingFramePreviewPosition = null;
     _lastSliderHapticBucket = (value / _sliderHapticStepMs).floor();
     if (widget.hapticProgressBar) PlayerHaptics.selection();
     setState(() {
       _dragValue = value;
-      _framePreview = null;
-      _framePreviewPosition = position;
-      _framePreviewUnavailable = false;
     });
-    _queueFramePreview(position);
+    _framePreviewController.request(position);
     widget.onInteraction();
   }
 
@@ -555,10 +537,8 @@ class _PlayerControlsState extends State<PlayerControls> {
     final position = Duration(milliseconds: value.round());
     setState(() {
       _dragValue = value;
-      _framePreviewPosition = position;
-      _framePreview = null;
     });
-    _queueFramePreview(position);
+    _framePreviewController.request(position);
     widget.onInteraction();
   }
 
@@ -569,19 +549,8 @@ class _PlayerControlsState extends State<PlayerControls> {
     _cancelFramePreview();
     setState(() => _dragValue = null);
     _lastSliderHapticBucket = null;
-    // 预览播放器使用独立的 native 解码器和视频纹理，拖动结束后立即释放，
-    // 避免它在整个播放页生命周期内持续占用 iOS VideoToolbox/Metal 资源。
-    unawaited(_disposeFramePreviewPlayer());
     widget.onInteraction();
     unawaited(_commitSliderSeek(position, commitSeek));
-  }
-
-  void _queueFramePreview(Duration position) {
-    if (!_sliderDragging || _framePreviewUnavailable) return;
-    _pendingFramePreviewPosition = position;
-    if (_framePreviewBusy) return;
-    _framePreviewBusy = true;
-    unawaited(_runFramePreviewLoop(_framePreviewSession));
   }
 
   Future<void> _commitSliderSeek(
@@ -595,184 +564,9 @@ class _PlayerControlsState extends State<PlayerControls> {
     }
   }
 
-  Future<void> _runFramePreviewLoop(int session) async {
-    try {
-      while (mounted && _sliderDragging && session == _framePreviewSession) {
-        var position = _pendingFramePreviewPosition;
-        if (position == null) break;
-        _pendingFramePreviewPosition = null;
-
-        final lastCapture = _lastFramePreviewAt;
-        if (lastCapture != null) {
-          final elapsed = DateTime.now().difference(lastCapture);
-          final remaining = _framePreviewInterval - elapsed;
-          if (remaining > Duration.zero) await Future<void>.delayed(remaining);
-          if (!mounted || !_sliderDragging || session != _framePreviewSession) {
-            break;
-          }
-          position = _pendingFramePreviewPosition ?? position;
-          _pendingFramePreviewPosition = null;
-        }
-
-        try {
-          final previewPlayer = await _ensureFramePreviewPlayer(position);
-          if (previewPlayer == null) {
-            _markFramePreviewUnavailable(session);
-            break;
-          }
-          final frame = await _captureFrame(previewPlayer, position);
-          _lastFramePreviewAt = DateTime.now();
-          if (frame != null &&
-              mounted &&
-              _sliderDragging &&
-              session == _framePreviewSession) {
-            setState(() {
-              _framePreview = frame;
-              _framePreviewUnavailable = false;
-            });
-          } else if (frame == null) {
-            _markFramePreviewUnavailable(session);
-            break;
-          }
-        } catch (_) {
-          _lastFramePreviewAt = DateTime.now();
-          _markFramePreviewUnavailable(session);
-          break;
-        }
-      }
-    } finally {
-      _framePreviewBusy = false;
-      final pending = _pendingFramePreviewPosition;
-      if (mounted && _sliderDragging && pending != null) {
-        _queueFramePreview(pending);
-      }
-    }
-  }
-
-  Future<Player?> _ensureFramePreviewPlayer(Duration startAt) async {
-    final playlist = widget.player.state.playlist;
-    final previewUri = widget.previewSourceUri?.trim();
-    final sourceUri = previewUri == null || previewUri.isEmpty
-        ? playlist.index >= 0 && playlist.index < playlist.medias.length
-              ? playlist.medias[playlist.index].uri
-              : null
-        : previewUri;
-    if (sourceUri == null || sourceUri.isEmpty) return null;
-    final sourceHeaders = previewUri == null || previewUri.isEmpty
-        ? playlist.index >= 0 && playlist.index < playlist.medias.length
-              ? playlist.medias[playlist.index].httpHeaders
-              : null
-        : widget.previewSourceHeaders;
-    final existing = _framePreviewPlayer;
-    if (existing != null &&
-        _framePreviewSourceUri == sourceUri &&
-        mapEquals(_framePreviewSourceHeaders, sourceHeaders)) {
-      return existing;
-    }
-
-    await _disposeFramePreviewPlayer();
-    final player = Player(
-      configuration: const PlayerConfiguration(
-        muted: true,
-        bufferSize: 8 * 1024 * 1024,
-      ),
-    );
-    final controller = VideoController(
-      player,
-      configuration: const VideoControllerConfiguration(
-        enableHardwareAcceleration: true,
-      ),
-    );
-    _framePreviewPlayer = player;
-    _framePreviewSourceUri = sourceUri;
-    _framePreviewSourceHeaders = sourceHeaders == null
-        ? null
-        : Map<String, String>.from(sourceHeaders);
-    try {
-      await player
-          .open(
-            Media(sourceUri, httpHeaders: sourceHeaders, start: startAt),
-            // screenshot 只有在解码出视频帧后才会返回数据。预览内核保持
-            // 静音，只在取帧期间短暂播放，绝不影响主播放器位置。
-            play: true,
-          )
-          .timeout(const Duration(seconds: 3));
-      final width = player.state.width;
-      if (width == null || width <= 0) {
-        await player.stream.width
-            .firstWhere((value) => value != null && value > 0)
-            .timeout(const Duration(milliseconds: 2500));
-      }
-      try {
-        await controller.waitUntilFirstFrameRendered.timeout(
-          const Duration(seconds: 5),
-        );
-      } catch (_) {
-        // 某些平台不会回报首帧事件，继续使用 screenshot 的重试机制。
-      }
-      return player;
-    } catch (_) {
-      if (identical(_framePreviewPlayer, player)) {
-        _framePreviewPlayer = null;
-        _framePreviewSourceUri = null;
-        _framePreviewSourceHeaders = null;
-      }
-      try {
-        await player.dispose();
-      } catch (_) {}
-      return null;
-    }
-  }
-
-  Future<Uint8List?> _captureFrame(
-    Player previewPlayer,
-    Duration position,
-  ) async {
-    try {
-      await previewPlayer.seek(position).timeout(const Duration(seconds: 2));
-      await previewPlayer.play();
-      for (var attempt = 0; attempt < 15; attempt++) {
-        final frame = await previewPlayer
-            .screenshot(format: 'image/jpeg')
-            .timeout(const Duration(milliseconds: 400), onTimeout: () => null);
-        if (frame != null && frame.isNotEmpty) return frame;
-        await Future<void>.delayed(const Duration(milliseconds: 80));
-      }
-      return null;
-    } finally {
-      try {
-        await previewPlayer.pause();
-      } catch (_) {}
-    }
-  }
-
-  void _markFramePreviewUnavailable(int session) {
-    if (!mounted || !_sliderDragging || session != _framePreviewSession) return;
-    setState(() {
-      _framePreview = null;
-      _framePreviewUnavailable = true;
-    });
-  }
-
-  Future<void> _disposeFramePreviewPlayer() async {
-    final player = _framePreviewPlayer;
-    _framePreviewPlayer = null;
-    _framePreviewSourceUri = null;
-    _framePreviewSourceHeaders = null;
-    if (player == null) return;
-    try {
-      await player.dispose();
-    } catch (_) {}
-  }
-
   void _cancelFramePreview() {
     _sliderDragging = false;
-    _framePreviewSession++;
-    _pendingFramePreviewPosition = null;
-    _framePreview = null;
-    _framePreviewPosition = null;
-    _lastFramePreviewAt = null;
-    _framePreviewUnavailable = false;
+    _framePreviewController.cancel();
   }
 
   Widget _qualityButton() {

@@ -28,6 +28,7 @@ void main() {
       ],
       'subtitle_tracks': [
         {
+          'id': 'subtitle-2',
           'index': 2,
           'source': 'external',
           'language': 'zh',
@@ -35,6 +36,9 @@ void main() {
           'codec': 'ass',
           'url': '/api/movies/id/1/subtitles/2?format=vtt',
           'default': true,
+          'render_mode': 'overlay',
+          'playable': true,
+          'forced': true,
         },
       ],
     });
@@ -44,6 +48,9 @@ void main() {
     expect(decision.subtitleTracks.single.url, contains('format=vtt'));
     expect(decision.subtitleTracks.single.isExternal, isTrue);
     expect(decision.subtitleTracks.single.canLoad, isTrue);
+    expect(decision.subtitleTracks.single.id, 'subtitle-2');
+    expect(decision.subtitleTracks.single.renderMode, 'overlay');
+    expect(decision.subtitleTracks.single.forced, isTrue);
     expect(decision.targetHeight, 1080);
     expect(decision.container, 'matroska,webm');
     expect(decision.durationSec, 123.5);
@@ -95,5 +102,20 @@ void main() {
     expect(track.isPgs, isFalse);
     expect(track.typeLabel, 'ASS');
     expect(track.sourceLabel, '内嵌');
+  });
+
+  test('AVPlayer 能力只声明系统原生容器和编解码并传递选轨字段', () {
+    final json = PlaybackClientCaps.avPlayer(
+      qualityPreset: 'original',
+      audioStreamIndex: 2,
+      subtitleTrackId: 'pgs-3',
+    ).toJson();
+
+    expect(json['containers'], ['mp4', 'mov', 'm4v']);
+    expect((json['video_codecs'] as Map).keys, isNot(contains('vp9')));
+    expect((json['video_codecs'] as Map).keys, isNot(contains('av1')));
+    expect((json['audio_codecs'] as Map).keys, isNot(contains('flac')));
+    expect(json['audio_stream_index'], 2);
+    expect(json['subtitle_track_id'], 'pgs-3');
   });
 }

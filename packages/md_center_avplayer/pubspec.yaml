@@ -1,0 +1,25 @@
+name: md_center_avplayer
+description: iOS AVPlayer engine for md_center.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: '>=3.8.0 <4.0.0'
+  flutter: '>=3.32.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  plugin_platform_interface: ^2.1.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  pigeon: 26.3.4
+
+flutter:
+  plugin:
+    platforms:
+      ios:
+        pluginClass: MdCenterAvplayerPlugin

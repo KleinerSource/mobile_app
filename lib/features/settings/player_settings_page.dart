@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +10,7 @@ import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../player/player_settings.dart';
+import '../player/playback_engine.dart';
 import 'settings_common.dart';
 
 class PlayerSettingsPage extends ConsumerWidget {
@@ -49,11 +52,31 @@ class PlayerSettingsPage extends ConsumerWidget {
                     ),
                   ],
                 ),
+                if (!kIsWeb && Platform.isIOS)
+                  SettingsGroup(
+                    title: 'iOS 播放内核',
+                    items: [
+                      _PlayerOptionTile<PlaybackEngineKind>(
+                        title: '默认播放内核',
+                        subtitle: '${settings.iosEngine.label} · 下次打开媒体生效',
+                        icon: Icons.video_settings,
+                        value: settings.iosEngine,
+                        options: PlaybackEngineKind.values,
+                        optionLabel: (value) => value.label,
+                        onChanged: (value) =>
+                            update(settings.copyWith(iosEngine: value)),
+                      ),
+                    ],
+                  ),
                 SettingsGroup(
                   title: '播放缓冲',
                   items: [
                     _PlayerOptionTile<PlayerPreloadSize>(
                       title: '预载缓冲大小',
+                      subtitle:
+                          settings.iosEngine == PlaybackEngineKind.avPlayer
+                          ? '${settings.preloadSize.label} · 仅 libmpv 内核生效'
+                          : null,
                       icon: Icons.memory,
                       value: settings.preloadSize,
                       options: PlayerPreloadSize.values,
@@ -271,6 +294,7 @@ class _PlayerOptionTile<T> extends StatelessWidget {
     required this.options,
     required this.optionLabel,
     required this.onChanged,
+    this.subtitle,
   });
 
   final String title;
@@ -279,6 +303,7 @@ class _PlayerOptionTile<T> extends StatelessWidget {
   final List<T> options;
   final String Function(T) optionLabel;
   final ValueChanged<T> onChanged;
+  final String? subtitle;
 
   Future<void> _pick(BuildContext context) async {
     final c = appColors(context);
@@ -326,7 +351,7 @@ class _PlayerOptionTile<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return SettingsTile(
       title: title,
-      subtitle: optionLabel(value),
+      subtitle: subtitle ?? optionLabel(value),
       leadingIcon: icon,
       onTap: () => _pick(context),
     );
