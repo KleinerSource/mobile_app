@@ -128,6 +128,10 @@ jobs:
             ruby -e '
               path = "ios/Podfile"
               text = File.read(path)
+              text = text.gsub(
+                /^[ \t]*use_frameworks!\s*$/,
+                "  use_frameworks! :linkage => :static"
+              )
               marker = "target '\''Runner'\'' do"
               abort "Runner target not found in ios/Podfile" unless text.include?(marker)
               insertion = <<~PODS
@@ -138,6 +142,7 @@ jobs:
                   pod "Libass", :git => ENV.fetch("LIBASS_REPOSITORY"), :tag => ENV.fetch("LIBASS_VERSION")
               PODS
               text = text.sub(marker, insertion) unless text.include?("pod \"KSPlayer\"")
+              abort "use_frameworks! must use static linkage for KSPlayer" unless text.include?("use_frameworks! :linkage => :static")
               File.write(path, text)
             '
             echo "---- ios/Podfile with pinned KSPlayer ----"
