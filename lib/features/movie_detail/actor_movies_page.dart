@@ -6,19 +6,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import '../../core/api/dio_factory.dart';
+import '../../core/config/server_config.dart';
+import '../../core/config/server_config_provider.dart';
 import '../../core/models/actor.dart';
 import '../../core/models/mapping_rule.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/actor_detail_header.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
-import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/actor_avatar.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/status_bar_scroll_to_top.dart';
 import '../actor_associations/widgets/actor_association_sync_sheet.dart';
+import '../home/hero_backdrop.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
 import 'movie_detail_page.dart';
@@ -43,6 +46,10 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
   late String _currentBiography;
   String? _avatarCacheBust;
 
+  /// 氛围背景 · 演员头像大模糊,页位恒为 0
+  final _heroArts = ValueNotifier<List<HeroArt>>(const []);
+  final _heroPagePosition = ValueNotifier(0.0);
+
   @override
   void initState() {
     super.initState();
@@ -52,9 +59,25 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
 
   @override
   void dispose() {
+    _heroArts.dispose();
+    _heroPagePosition.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 头像同步刷新后 cacheBust 变化,氛围背景 URL 跟随更新
+  void _syncHeroArt(ServerConfig? config) {
+    final url = config == null
+        ? ''
+        : actorAvatarUrl(config, widget.actor.id, cacheBust: _avatarCacheBust);
+    final current = _heroArts.value;
+    if (current.length == 1 &&
+        current[0].movieId == widget.actor.id &&
+        current[0].url == url) {
+      return;
+    }
+    _heroArts.value = [HeroArt(movieId: widget.actor.id, url: url)];
   }
 
   Future<void> _fetch(int offset) async {
@@ -139,53 +162,47 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
     if (mounted && refreshed) setState(() {});
   }
 
-  int get _hue {
-    return (widget.actor.name.codeUnits.fold(0, (a, b) => a + b) * 31) % 360;
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
+    final hue = actorHueFromName(widget.actor.name);
+    // 状态栏穿透: 封面延伸到状态栏底下,悬浮操作行单独避开状态栏
+    final statusBarTop = MediaQuery.paddingOf(context).top;
+    _syncHeroArt(ref.watch(serverConfigProvider));
+    // 封面占版面上部约 42%: 名称/数量压封面底部,影片列表首屏即可见
+    final heroMaxHeight = MediaQuery.sizeOf(context).height * 0.42;
+    final heroMinHeight = heroMaxHeight * 0.62;
 
     return Scaffold(
       backgroundColor: c.bg,
-      body: GlowBackground(
-        child: SafeArea(
-          child: StatusBarScrollToTop(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // -------- 氛围背景: 演员头像大模糊(同首页/影片详情体系) --------
+          HeroBackdrop(arts: _heroArts, position: _heroPagePosition),
+          StatusBarScrollToTop(
             scrollController: _scrollController,
             child: CustomScrollView(
               controller: _scrollController,
               slivers: [
-                SliverAppBar(
-                  expandedHeight: 220,
-                  pinned: true,
-                  backgroundColor: c.bg,
-                  surfaceTintColor: Colors.transparent,
-                  leading: IconButton(
-                    icon: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: c.surface.withValues(alpha: 0.6),
-                        shape: BoxShape.circle,
+                // -------- 封面 (整屏满铺 · 信息压毛玻璃区) --------
+                SliverPersistentHeader(
+                  pinned: false,
+                  delegate: ActorHeroDelegate(
+                    minHeight: heroMinHeight,
+                    maxHeight: heroMaxHeight,
+                    child: KeyedSubtree(
+                      key: const ValueKey('actor-hero'),
+                      child: ActorHeroHeader(
+                        actorId: widget.actor.id,
+                        name: widget.actor.name,
+                        hue: hue,
+                        actorType: widget.actor.actorType,
+                        movieCount: _totalCount,
+                        avatarPath: widget.actor.avatarPath,
+                        cacheBust: _avatarCacheBust,
                       ),
-                      child: const Icon(Icons.arrow_back, size: 18),
-                    ),
-                    onPressed: () => Navigator.of(context).maybePop(),
-                  ),
-                  actions: [
-                    IconButton(
-                      tooltip: '同步演员关联',
-                      icon: const Icon(Icons.cloud_sync_outlined),
-                      onPressed: _syncActor,
-                    ),
-                  ],
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: _ActorHero(
-                      actor: widget.actor,
-                      hue: _hue,
-                      count: _totalCount,
-                      cacheBust: _avatarCacheBust,
                     ),
                   ),
                 ),
@@ -248,153 +265,44 @@ class _ActorMoviesPageState extends ConsumerState<ActorMoviesPage> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ActorHero extends StatelessWidget {
-  const _ActorHero({
-    required this.actor,
-    required this.hue,
-    this.count,
-    this.cacheBust,
-  });
-  final ActorItem actor;
-  final int hue;
-  final int? count;
-  final String? cacheBust;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppHues.top(hue), AppHues.bottom(hue)],
-        ),
-      ),
-      child: Stack(
-        children: [
+          // -------- 悬浮操作行 · 头图推出屏外后返回/同步仍可达 --------
           Positioned(
-            top: -60,
-            right: -60,
-            width: 240,
-            height: 240,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppHues.highlight(hue),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 52,
-            right: 22,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.45),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: ActorAvatar(
-                actorId: actor.id,
-                name: actor.name,
-                hue: hue,
-                size: 78,
-                avatarPath: actor.avatarPath,
-                cacheBust: cacheBust,
-              ),
-            ),
-          ),
-          SafeArea(
+            top: 0,
+            left: 0,
+            right: 0,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 56, 22, 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
+              padding: EdgeInsets.fromLTRB(6, statusBarTop + 6, 6, 0),
+              child: Row(
                 children: [
-                  Text(
-                    '演员资料',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                      letterSpacing: 2.4,
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: c.surface.withValues(alpha: 0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.arrow_back, size: 18),
                     ),
+                    onPressed: () => Navigator.of(context).maybePop(),
                   ),
                   const Spacer(),
-                  Text(
-                    actor.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 30,
-                      letterSpacing: -0.9,
-                      height: 1.05,
+                  IconButton(
+                    tooltip: '同步演员关联',
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: c.surface.withValues(alpha: 0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.cloud_sync_outlined, size: 18),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      if (actor.actorType?.trim().isNotEmpty == true)
-                        _HeroPill(label: actor.actorType!.trim()),
-                      _HeroPill(label: '${count ?? '—'} 部影片'),
-                    ],
+                    onPressed: _syncActor,
                   ),
                 ],
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _HeroPill extends StatelessWidget {
-  const _HeroPill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xE6FFFFFF),
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w700,
-            fontSize: 11,
-          ),
-        ),
       ),
     );
   }

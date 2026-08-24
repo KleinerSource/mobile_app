@@ -5,18 +5,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import '../../core/api/dio_factory.dart';
+import '../../core/config/server_config.dart';
+import '../../core/config/server_config_provider.dart';
 import '../../core/models/movie.dart';
 import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/actor_avatar.dart';
+import '../../shared/actor_detail_header.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/error_view.dart';
-import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/status_bar_scroll_to_top.dart';
 import '../actor_associations/widgets/actor_association_sync_sheet.dart';
+import '../home/hero_backdrop.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
@@ -57,6 +60,10 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
   int? _totalCount;
   int _requestSerial = 0;
 
+  /// 氛围背景 · 演员头像大模糊,页位恒为 0
+  final _heroArts = ValueNotifier<List<HeroArt>>(const []);
+  final _heroPagePosition = ValueNotifier(0.0);
+
   @override
   void initState() {
     super.initState();
@@ -66,9 +73,25 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
 
   @override
   void dispose() {
+    _heroArts.dispose();
+    _heroPagePosition.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 头像同步刷新后 cacheBust 变化,氛围背景 URL 跟随更新
+  void _syncHeroArt(ServerConfig? config) {
+    final url = config == null
+        ? ''
+        : actorAvatarUrl(config, widget.actorId, cacheBust: _avatarCacheBust);
+    final current = _heroArts.value;
+    if (current.length == 1 &&
+        current[0].movieId == widget.actorId &&
+        current[0].url == url) {
+      return;
+    }
+    _heroArts.value = [HeroArt(movieId: widget.actorId, url: url)];
   }
 
   Future<void> _fetch(int offset) async {
@@ -162,143 +185,150 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
   Widget build(BuildContext context) {
     final c = appColors(context);
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
-    final hue = (widget.name.codeUnits.fold(0, (a, b) => a + b) * 31) % 360;
+    final hue = actorHueFromName(widget.name);
+    // 状态栏穿透: 封面延伸到状态栏底下,悬浮操作行单独避开状态栏
+    final statusBarTop = MediaQuery.paddingOf(context).top;
+    _syncHeroArt(ref.watch(serverConfigProvider));
+    // 封面占版面上部约 42%: 名称/数量压封面底部,影片列表首屏即可见
+    final heroMaxHeight = MediaQuery.sizeOf(context).height * 0.42;
+    final heroMinHeight = heroMaxHeight * 0.62;
 
     return Scaffold(
       backgroundColor: c.bg,
-      body: GlowBackground(
-        child: StatusBarScrollToTop(
-          scrollController: _scrollController,
-          child: CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              SliverAppBar(
-                expandedHeight: 280,
-                pinned: true,
-                backgroundColor: c.bg,
-                surfaceTintColor: Colors.transparent,
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.of(context).maybePop(),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // -------- 氛围背景: 演员头像大模糊(同首页/影片详情体系) --------
+          HeroBackdrop(arts: _heroArts, position: _heroPagePosition),
+          StatusBarScrollToTop(
+            scrollController: _scrollController,
+            child: CustomScrollView(
+              controller: _scrollController,
+              slivers: [
+                // -------- 封面 (整屏满铺 · 信息压毛玻璃区) --------
+                SliverPersistentHeader(
+                  pinned: false,
+                  delegate: ActorHeroDelegate(
+                    minHeight: heroMinHeight,
+                    maxHeight: heroMaxHeight,
+                    child: KeyedSubtree(
+                      key: const ValueKey('person-hero'),
+                      child: ActorHeroHeader(
+                        actorId: widget.actorId,
+                        name: widget.name,
+                        hue: hue,
+                        actorType: widget.actorType,
+                        movieCount: _totalCount,
+                        avatarPath: widget.avatarPath,
+                        cacheBust: _avatarCacheBust,
+                      ),
+                    ),
+                  ),
                 ),
-                actions: [
+                if (_biography.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
+                      child: Text(_biography, style: AppText.body(context)),
+                    ),
+                  ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Filmography',
+                            style: AppText.sectionTitle(context),
+                          ),
+                        ),
+                        if (_totalCount != null)
+                          Text(
+                            '${_totalCount!} 部',
+                            style: AppText.meta(context),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+                  sliver: PagedSliverGrid<int, MovieListItem>(
+                    pagingController: _controller,
+                    showNoMoreItemsIndicatorAsGridChild: false,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          childAspectRatio: 0.55,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 14,
+                        ),
+                    builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
+                      itemBuilder: (ctx, movie, _) => MovieCard(
+                        movie: movie,
+                        posterUrlBuilder: urlBuilder,
+                        onTap: () => unawaited(_openMovie(movie.id)),
+                      ),
+                      firstPageProgressIndicatorBuilder: (_) =>
+                          const Center(child: CircularProgressIndicator()),
+                      firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                        message: _controller.error?.toString() ?? '加载失败',
+                        onRetry: () => _controller.refresh,
+                      ),
+                      newPageErrorIndicatorBuilder: (_) => PaginationRetry(
+                        onRetry: () => _controller.retryLastFailedRequest,
+                      ),
+                      noItemsFoundIndicatorBuilder: (_) =>
+                          const EmptyView(message: '没有该演员的影片'),
+                      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+                    ),
+                  ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 60)),
+              ],
+            ),
+          ),
+          // -------- 悬浮操作行 · 头图推出屏外后返回/同步仍可达 --------
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(6, statusBarTop + 6, 6, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: c.surface.withValues(alpha: 0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.arrow_back, size: 18),
+                    ),
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                  const Spacer(),
                   IconButton(
                     tooltip: '同步演员关联',
-                    icon: const Icon(Icons.cloud_sync_outlined),
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: c.surface.withValues(alpha: 0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.cloud_sync_outlined, size: 18),
+                    ),
                     onPressed: _syncActor,
                   ),
                 ],
-                flexibleSpace: FlexibleSpaceBar(
-                  background: SafeArea(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppHues.top(
-                                    hue,
-                                  ).withValues(alpha: 0.4),
-                                  blurRadius: 28,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ],
-                            ),
-                            child: ActorAvatar(
-                              actorId: widget.actorId,
-                              name: widget.name,
-                              hue: hue,
-                              size: 110,
-                              avatarPath: widget.avatarPath,
-                              cacheBust: _avatarCacheBust,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Text(widget.name, style: AppText.pageTitle(context)),
-                          if (widget.actorType != null) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              widget.actorType!.toUpperCase(),
-                              style: TextStyle(
-                                color: c.muted,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w700,
-                                fontSize: 11,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
               ),
-              if (_biography.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
-                    child: Text(_biography, style: AppText.body(context)),
-                  ),
-                ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Filmography',
-                          style: AppText.sectionTitle(context),
-                        ),
-                      ),
-                      if (_totalCount != null)
-                        Text('${_totalCount!} 部', style: AppText.meta(context)),
-                    ],
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-                sliver: PagedSliverGrid<int, MovieListItem>(
-                  pagingController: _controller,
-                  showNoMoreItemsIndicatorAsGridChild: false,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: 0.55,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 14,
-                  ),
-                  builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
-                    itemBuilder: (ctx, movie, _) => MovieCard(
-                      movie: movie,
-                      posterUrlBuilder: urlBuilder,
-                      onTap: () => unawaited(_openMovie(movie.id)),
-                    ),
-                    firstPageProgressIndicatorBuilder: (_) =>
-                        const Center(child: CircularProgressIndicator()),
-                    firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                      message: _controller.error?.toString() ?? '加载失败',
-                      onRetry: _controller.refresh,
-                    ),
-                    newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                      onRetry: _controller.retryLastFailedRequest,
-                    ),
-                    noItemsFoundIndicatorBuilder: (_) =>
-                        const EmptyView(message: '没有该演员的影片'),
-                    noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
-                  ),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 60)),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
