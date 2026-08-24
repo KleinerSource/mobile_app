@@ -1779,7 +1779,9 @@ class _CastSection extends StatelessWidget {
             height: 132,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 22),
+              clipBehavior: Clip.none,
+              // 顶部预留泛光渐隐空间,避免 BoxShadow 上溢被视口硬切
+              padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
               itemCount: actors.length,
               separatorBuilder: (_, __) => const SizedBox(width: 16),
               itemBuilder: (ctx, i) {
