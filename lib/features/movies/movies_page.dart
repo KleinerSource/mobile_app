@@ -275,207 +275,189 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
             bottom: false,
             child: Stack(
               children: [
-                StatusBarScrollToTop(
-                  scrollController: _scrollController,
-                  child: RefreshIndicator(
-                    onRefresh: _refreshMovies,
-                    child: DragSelectionScope<int>(
-                      scrollController: _scrollController,
-                      selectionLayout: _viewMode == _ViewMode.grid
-                          ? DragSelectionLayout.grid
-                          : DragSelectionLayout.list,
-                      isSelected: _selectedIds.contains,
-                      onSelectionStart: _startSelectionSweep,
-                      onSelectionChanged: _applySelectionSweep,
-                      onSelectionEnd: _finishSelectionSweep,
-                      selectionMode: _selectionMode,
-                      child: CustomScrollView(
-                        controller: _scrollController,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        slivers: [
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                22,
-                                16,
-                                22,
-                                18,
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          AppL10n.of(
-                                            context,
-                                          ).libraryTitle.toUpperCase(),
-                                          style: AppText.eyebrow(context),
-                                        ),
-                                        const SizedBox(height: 3),
-                                        Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.baseline,
-                                          textBaseline: TextBaseline.alphabetic,
-                                          children: [
-                                            Text(
-                                              _totalCount > 0
-                                                  ? '$_totalCount'
-                                                  : '—',
-                                              style: AppText.pageTitle(context),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              AppL10n.of(
-                                                context,
-                                              ).libraryCountSuffix,
-                                              style: TextStyle(
-                                                color: c.muted,
-                                                fontFamily: 'Inter',
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _SortButton(
-                                    sortBy: _currentFilter.sortBy,
-                                    sortOrder: _currentFilter.sortOrder,
-                                    onChanged: (sortBy, sortOrder) =>
-                                        _applyFilter(
-                                          _currentFilter.copyWith(
-                                            sortBy: sortBy,
-                                            sortOrder: sortOrder,
-                                          ),
-                                        ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _FilterButton(
-                                    activeCount:
-                                        _currentFilter.activeAdvancedCount,
-                                    onTap: _openAdvancedFilter,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _ViewModeToggle(
-                                    mode: _viewMode,
-                                    onChanged: (m) =>
-                                        unawaited(_setViewMode(m)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          // 筛选按钮行固定在顶部,不随内容滚走。
-                          SliverPersistentHeader(
-                            pinned: true,
-                            delegate: _PinnedFilterBarDelegate(
-                              child: SizedBox(
-                                height: 36,
-                                child: ListView(
-                                  scrollDirection: Axis.horizontal,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 22,
-                                  ),
+                // 固定 header:标题行 + 筛选按钮行,不随内容滚动。
+                Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  AppL10n.of(
+                                    context,
+                                  ).libraryTitle.toUpperCase(),
+                                  style: AppText.eyebrow(context),
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.baseline,
+                                  textBaseline: TextBaseline.alphabetic,
                                   children: [
-                                    _UpdatedDropdownChip(
-                                      value: _currentFilter.isUpdated,
-                                      onChanged: (v) => _applyFilter(
-                                        _currentFilter.copyWith(
-                                          isUpdated: v,
-                                          clearIsUpdated: v == null,
-                                        ),
+                                    Text(
+                                      _totalCount > 0 ? '$_totalCount' : '—',
+                                      style: AppText.pageTitle(context),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      AppL10n.of(context).libraryCountSuffix,
+                                      style: TextStyle(
+                                        color: c.muted,
+                                        fontFamily: 'Inter',
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
                                       ),
-                                    ),
-                                    const SizedBox(width: 7),
-                                    CompactFilterButton(
-                                      label: '重复番号',
-                                      icon: Icons.copy_all_outlined,
-                                      active: _currentFilter.duplicateNum,
-                                      onTap: () => _applyFilter(
-                                        _currentFilter.copyWith(
-                                          duplicateNum:
-                                              !_currentFilter.duplicateNum,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 7),
-                                    CompactFilterButton(
-                                      label: '新资源',
-                                      icon: Icons.fiber_new_rounded,
-                                      active:
-                                          _currentFilter.hasNewResources ==
-                                          true,
-                                      onTap: () {
-                                        final enabled =
-                                            _currentFilter.hasNewResources ==
-                                            true;
-                                        _applyFilter(
-                                          _currentFilter.copyWith(
-                                            hasNewResources: enabled
-                                                ? null
-                                                : true,
-                                            clearHasNewResources: enabled,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    const SizedBox(width: 7),
-                                    CompactFilterButton(
-                                      label: _resourceScanStarting
-                                          ? '扫描中'
-                                          : '扫描资源',
-                                      icon: _resourceScanStarting
-                                          ? Icons.sync_rounded
-                                          : Icons.cloud_download_outlined,
-                                      active: _resourceScanStarting,
-                                      onTap: _resourceScanStarting
-                                          ? () {}
-                                          : () => _startResourceScan(),
                                     ),
                                   ],
                                 ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _SortButton(
+                            sortBy: _currentFilter.sortBy,
+                            sortOrder: _currentFilter.sortOrder,
+                            onChanged: (sortBy, sortOrder) => _applyFilter(
+                              _currentFilter.copyWith(
+                                sortBy: sortBy,
+                                sortOrder: sortOrder,
                               ),
                             ),
                           ),
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
-                            sliver: _viewMode == _ViewMode.grid
-                                ? PagedSliverGrid<int, MovieListItem>(
-                                    pagingController: _controller,
-                                    showNoMoreItemsIndicatorAsGridChild: false,
-                                    gridDelegate:
-                                        SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: crossAxisCount,
-                                          childAspectRatio: 0.5,
-                                          mainAxisSpacing: 14,
-                                          crossAxisSpacing: 10,
-                                        ),
-                                    builderDelegate: _buildDelegate(
-                                      urlBuilder,
-                                      crossAxisCount: crossAxisCount,
-                                    ),
-                                  )
-                                : PagedSliverList<int, MovieListItem>(
-                                    pagingController: _controller,
-                                    builderDelegate: _buildListDelegate(
-                                      urlBuilder,
-                                    ),
-                                  ),
+                          const SizedBox(width: 8),
+                          _FilterButton(
+                            activeCount: _currentFilter.activeAdvancedCount,
+                            onTap: _openAdvancedFilter,
                           ),
-                          const SliverToBoxAdapter(
-                            child: SizedBox(height: 120),
+                          const SizedBox(width: 8),
+                          _ViewModeToggle(
+                            mode: _viewMode,
+                            onChanged: (m) => unawaited(_setViewMode(m)),
                           ),
                         ],
                       ),
                     ),
-                  ),
+                    SizedBox(
+                      height: 36,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 22),
+                        children: [
+                          _UpdatedDropdownChip(
+                            value: _currentFilter.isUpdated,
+                            onChanged: (v) => _applyFilter(
+                              _currentFilter.copyWith(
+                                isUpdated: v,
+                                clearIsUpdated: v == null,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          CompactFilterButton(
+                            label: '重复番号',
+                            icon: Icons.copy_all_outlined,
+                            active: _currentFilter.duplicateNum,
+                            onTap: () => _applyFilter(
+                              _currentFilter.copyWith(
+                                duplicateNum: !_currentFilter.duplicateNum,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          CompactFilterButton(
+                            label: '新资源',
+                            icon: Icons.fiber_new_rounded,
+                            active: _currentFilter.hasNewResources == true,
+                            onTap: () {
+                              final enabled =
+                                  _currentFilter.hasNewResources == true;
+                              _applyFilter(
+                                _currentFilter.copyWith(
+                                  hasNewResources: enabled ? null : true,
+                                  clearHasNewResources: enabled,
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 7),
+                          CompactFilterButton(
+                            label: _resourceScanStarting ? '扫描中' : '扫描资源',
+                            icon: _resourceScanStarting
+                                ? Icons.sync_rounded
+                                : Icons.cloud_download_outlined,
+                            active: _resourceScanStarting,
+                            onTap: _resourceScanStarting
+                                ? () {}
+                                : () => _startResourceScan(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: StatusBarScrollToTop(
+                        scrollController: _scrollController,
+                        child: RefreshIndicator(
+                          onRefresh: _refreshMovies,
+                          child: DragSelectionScope<int>(
+                            scrollController: _scrollController,
+                            selectionLayout: _viewMode == _ViewMode.grid
+                                ? DragSelectionLayout.grid
+                                : DragSelectionLayout.list,
+                            isSelected: _selectedIds.contains,
+                            onSelectionStart: _startSelectionSweep,
+                            onSelectionChanged: _applySelectionSweep,
+                            onSelectionEnd: _finishSelectionSweep,
+                            selectionMode: _selectionMode,
+                            child: CustomScrollView(
+                              controller: _scrollController,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              slivers: [
+                                SliverPadding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    22,
+                                    14,
+                                    22,
+                                    0,
+                                  ),
+                                  sliver: _viewMode == _ViewMode.grid
+                                      ? PagedSliverGrid<int, MovieListItem>(
+                                          pagingController: _controller,
+                                          showNoMoreItemsIndicatorAsGridChild:
+                                              false,
+                                          gridDelegate:
+                                              SliverGridDelegateWithFixedCrossAxisCount(
+                                                crossAxisCount: crossAxisCount,
+                                                childAspectRatio: 0.5,
+                                                mainAxisSpacing: 14,
+                                                crossAxisSpacing: 10,
+                                              ),
+                                          builderDelegate: _buildDelegate(
+                                            urlBuilder,
+                                            crossAxisCount: crossAxisCount,
+                                          ),
+                                        )
+                                      : PagedSliverList<int, MovieListItem>(
+                                          pagingController: _controller,
+                                          builderDelegate: _buildListDelegate(
+                                            urlBuilder,
+                                          ),
+                                        ),
+                                ),
+                                const SliverToBoxAdapter(
+                                  child: SizedBox(height: 120),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 if (_selectionMode)
                   Positioned(
@@ -811,45 +793,6 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       _reload(preserveScroll: true);
     }
   }
-}
-
-/// 影片库筛选按钮行的固定头。
-///
-/// 未遮挡内容时保持透明以露出背景晕染;滚动内容进入下方后铺底色
-/// 并压一条分隔线,保证按钮行始终可读。
-class _PinnedFilterBarDelegate extends SliverPersistentHeaderDelegate {
-  const _PinnedFilterBarDelegate({required this.child});
-
-  final Widget child;
-
-  static const barHeight = 36.0;
-
-  @override
-  double get minExtent => barHeight;
-
-  @override
-  double get maxExtent => barHeight;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    final c = appColors(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: overlapsContent ? c.bg : null,
-        border: overlapsContent
-            ? Border(bottom: BorderSide(color: c.divider))
-            : null,
-      ),
-      child: child,
-    );
-  }
-
-  @override
-  bool shouldRebuild(_PinnedFilterBarDelegate oldDelegate) => true;
 }
 
 const _kSortOptions = <({String value, String label})>[

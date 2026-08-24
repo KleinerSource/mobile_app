@@ -12,22 +12,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// 影片库筛选按钮行与收藏夹 header 固定在顶部,不随内容滚动。
 void main() {
-  testWidgets('影片库筛选按钮行滚动后固定在顶部', (tester) async {
+  testWidgets('影片库标题与筛选按钮行滚动后保持固定', (tester) async {
     await _pumpPage(tester, const MoviesPage());
 
+    final titleBefore = tester.getTopLeft(find.text('影片库'));
     final chipBefore = tester.getTopLeft(find.text('更新状态'));
-    expect(chipBefore.dy, greaterThan(0));
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
     await tester.pumpAndSettle();
 
-    // 按钮行钉在滚动区顶部:继续滚动位置保持不变,标题行随内容滚出。
-    final chipPinned = tester.getTopLeft(find.text('更新状态'));
-    expect(chipPinned.dy, lessThan(chipBefore.dy));
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(find.text('更新状态')), chipPinned);
-    expect(find.text('影片库'), findsNothing);
+    // header 整体固定:标题行与按钮行位置不变,内容区确实发生了滚动。
+    final controller = tester
+        .widget<CustomScrollView>(find.byType(CustomScrollView))
+        .controller;
+    expect(controller!.offset, greaterThan(0));
+    expect(tester.getTopLeft(find.text('影片库')), titleBefore);
+    expect(tester.getTopLeft(find.text('更新状态')), chipBefore);
   });
 
   testWidgets('收藏夹标题与操作按钮滚动后保持固定', (tester) async {
@@ -39,10 +39,7 @@ void main() {
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
     await tester.pumpAndSettle();
 
-    expect(
-      tester.getTopLeft(find.text('收藏夹')),
-      titleBefore,
-    );
+    expect(tester.getTopLeft(find.text('收藏夹')), titleBefore);
     expect(tester.getTopLeft(find.byIcon(Icons.settings)), scanButtonBefore);
     // 固定区之外的内容正常滚走。
     expect(find.text('已收藏'), findsNothing);
@@ -130,8 +127,9 @@ Object? _fakeResponse(String method, String path) {
     return {'success': true, 'data': []};
   }
 
-  if (method == 'POST' && (normalizedPath == '/favorites' ||
-      normalizedPath == '/favorites/delete')) {
+  if (method == 'POST' &&
+      (normalizedPath == '/favorites' ||
+          normalizedPath == '/favorites/delete')) {
     return {'success': true, 'data': null};
   }
 
