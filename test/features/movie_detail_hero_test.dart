@@ -60,7 +60,7 @@ void main() {
         ),
       ),
     );
-    navigatorKey.currentState!.push(
+    await navigatorKey.currentState!.push(
       MaterialPageRoute<void>(
         builder: (_) => const MovieDetailPage(movieId: 7),
       ),
