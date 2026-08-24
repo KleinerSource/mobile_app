@@ -159,6 +159,10 @@
   "settingsVersion": "版本",
   "settingsLogout": "退出登录",
 
+  "playerEngineNative": "原生",
+  "playerEnginePickerTitle": "选择播放器",
+  "playerEnginePickerSubtitle": "仅用于本次播放，不会修改默认设置",
+
   "languageSystem": "跟随系统",
   "languageZh": "简体中文",
   "languageEn": "English",

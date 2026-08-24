@@ -26,6 +26,11 @@ class PlayerSettingsPage extends ConsumerWidget {
       unawaited(ref.read(playerSettingsProvider.notifier).update(next));
     }
 
+    String engineLabel(PlaybackEngineKind engine) =>
+        engine == PlaybackEngineKind.avPlayer
+        ? l.playerEngineNative
+        : engine.label;
+
     return Scaffold(
       backgroundColor: c.bg,
       body: GlowBackground(
@@ -58,11 +63,12 @@ class PlayerSettingsPage extends ConsumerWidget {
                     items: [
                       _PlayerOptionTile<PlaybackEngineKind>(
                         title: '默认播放内核',
-                        subtitle: '${settings.iosEngine.label} · 下次打开媒体生效',
+                        subtitle:
+                            '${engineLabel(settings.iosEngine)} · 下次打开媒体生效',
                         icon: Icons.video_settings,
                         value: settings.iosEngine,
                         options: PlaybackEngineKind.values,
-                        optionLabel: (value) => value.label,
+                        optionLabel: engineLabel,
                         onChanged: (value) =>
                             update(settings.copyWith(iosEngine: value)),
                       ),

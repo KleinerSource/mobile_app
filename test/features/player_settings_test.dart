@@ -1,10 +1,26 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:md_center/features/player/player_settings.dart';
 import 'package:md_center/features/player/playback_engine.dart';
+import 'package:md_center/l10n/generated/app_localizations.dart';
 
 void main() {
+  test('播放器内核测试入口文案支持中英文', () {
+    final zh = lookupAppL10n(const Locale('zh'));
+    final en = lookupAppL10n(const Locale('en'));
+    expect(zh.playerEngineNative, '原生');
+    expect(zh.playerEnginePickerTitle, '选择播放器');
+    expect(zh.playerEnginePickerSubtitle, '仅用于本次播放，不会修改默认设置');
+    expect(en.playerEngineNative, 'Native');
+    expect(en.playerEnginePickerTitle, 'Choose player');
+    expect(
+      en.playerEnginePickerSubtitle,
+      'Applies to this playback only and does not change your default',
+    );
+  });
+
   test('播放器设置默认值保持现有播放行为', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();

@@ -943,6 +943,24 @@ abstract class AppL10n {
   /// **'退出登录'**
   String get settingsLogout;
 
+  /// No description provided for @playerEngineNative.
+  ///
+  /// In zh, this message translates to:
+  /// **'原生'**
+  String get playerEngineNative;
+
+  /// No description provided for @playerEnginePickerTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择播放器'**
+  String get playerEnginePickerTitle;
+
+  /// No description provided for @playerEnginePickerSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅用于本次播放，不会修改默认设置'**
+  String get playerEnginePickerSubtitle;
+
   /// No description provided for @languageSystem.
   ///
   /// In zh, this message translates to:

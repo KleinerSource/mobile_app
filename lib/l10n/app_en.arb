@@ -159,6 +159,10 @@
   "settingsVersion": "Version",
   "settingsLogout": "Log out",
 
+  "playerEngineNative": "Native",
+  "playerEnginePickerTitle": "Choose player",
+  "playerEnginePickerSubtitle": "Applies to this playback only and does not change your default",
+
   "languageSystem": "System default",
   "languageZh": "简体中文",
   "languageEn": "English",

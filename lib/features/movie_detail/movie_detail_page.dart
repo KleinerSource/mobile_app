@@ -24,6 +24,7 @@ import '../lists/add_to_list_sheet.dart';
 import '../movies/movies_providers.dart';
 import '../player/player_page.dart';
 import '../player/playback_engine.dart';
+import '../player/player_engine_picker.dart';
 import '../player/player_queue.dart';
 import '../player/player_session_controller.dart';
 import '../player/player_session_factory.dart';
@@ -633,6 +634,23 @@ class _ActionRow extends ConsumerWidget {
     final playerQueueIndex = playerQueue.indexWhere(
       (item) => item.movieId == movie.id,
     );
+    final engineKinds = availablePlaybackEngineKinds();
+
+    Future<void> openPlayer(PlaybackEngineKind? engineKind) async {
+      await PlayerPage.open(
+        context,
+        movieId: movie.id,
+        title: movie.title,
+        engineKind: engineKind,
+        startPositionSec: startPositionSec,
+        queue: playerQueue,
+        queueIndex: playerQueueIndex < 0 ? 0 : playerQueueIndex,
+      );
+      if (context.mounted) {
+        ref.invalidate(movieWatchRecordProvider(movie.id));
+      }
+    }
+
     return Row(
       children: [
         Expanded(
@@ -661,19 +679,18 @@ class _ActionRow extends ConsumerWidget {
                       ),
                     ),
                   ElevatedButton(
-                    onPressed: () async {
-                      await PlayerPage.open(
-                        context,
-                        movieId: movie.id,
-                        title: movie.title,
-                        startPositionSec: startPositionSec,
-                        queue: playerQueue,
-                        queueIndex: playerQueueIndex < 0 ? 0 : playerQueueIndex,
-                      );
-                      if (context.mounted) {
-                        ref.invalidate(movieWatchRecordProvider(movie.id));
-                      }
-                    },
+                    onPressed: () => openPlayer(null),
+                    onLongPress: engineKinds.length < 2
+                        ? null
+                        : () async {
+                            final engineKind = await showPlaybackEnginePicker(
+                              context,
+                              engineKinds: engineKinds,
+                            );
+                            if (engineKind != null && context.mounted) {
+                              await openPlayer(engineKind);
+                            }
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       foregroundColor: c.bg,

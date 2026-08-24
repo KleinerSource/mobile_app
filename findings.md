@@ -309,3 +309,28 @@
 - Pigeon 生成的 Dart 文件被根 `.gitignore` 的 `*.g.dart` 规则排除；必须仅对 `packages/md_center_avplayer/lib/src/av_player_api.g.dart` 增加例外，才能满足生成 Dart/Swift 一并提交。
 - 更严格按“UI 不写平台或内核判断”复核后，`PlayerPage` 仍有 iOS 默认选择和 AVPlayer 路由/音轨/字幕分支；应继续把默认内核解析、client caps、路由和轨道策略收进会话层，只让页面读取 capabilities/统一决策结果。
 - 策略下沉完成后，四个 UI/页面文件对 `_host.kind`、`PlaybackEngineKind.avPlayer`、平台判断和具体 adapter 的联合扫描无命中；Android 显式 AVPlayer 覆盖也由会话工厂强制回落 libmpv。
+
+# AVPlayer 弱网缓冲改造发现（2026-08-24）
+
+- 当前原生会话使用 `playImmediately(atRate:)`，会优先立即起播，未充分使用 AVPlayer 的最小化卡顿等待策略。
+- 改造前 `AVPlayerItem` 未设置 `preferredForwardBufferDuration`，插件也没有 AVPlayer 专属时间型缓冲配置。
+- `timeControlStatus == .waitingToPlayAtSpecifiedRate` 当前同时上报 `playing=false` 与 `buffering=true`，把系统等待错误映射为用户暂停语义。
+- 当前只监听正常播放结束，未监听 `AVPlayerItemPlaybackStalled` 和 `AVPlayerItemFailedToPlayToEndTime`。
+- 最终方案为固定 60 秒 `preferredForwardBufferDuration`、`automaticallyWaitsToMinimizeStalling=true`、独立 `wantsToPlay`，并对卡顿执行一次有界恢复。
+- 固定缓冲属于 AVPlayer 内部默认策略，因此 `customBuffering` 仍保持 `false`；现有 libmpv 字节档位继续只作用于 libmpv。
+- `AVPlayerItemFailedToPlayToEndTime` 现在统一进入既有 Dart 错误流，可触发现有当前会话单次 libmpv 回退。
+
+# AVPlayer 起播与详情页测试入口发现（2026-08-24）
+
+- AVPlayer 当前设置 `automaticallyWaitsToMinimizeStalling=true`、60 秒 `preferredForwardBufferDuration`，初始自动播放调用普通 `play()`；在弱网或系统预测不足时会延迟真正播放。
+- AVPlayer 的 `open` 在 `readyToPlay` 后才完成；存在续播位置时还会等待零容差精确 seek。
+- 页面在 `open` 之后继续同步等待默认字幕/音轨，AVPlayer 原生音轨状态为空时最多等待 2 秒，期间 `_loading` 仍为 true，播放器 Surface 不渲染。
+- AVPlayer 仍可保留 60 秒继续预取；首次播放与断流恢复使用 `playImmediately(atRate:)`，60 秒窗口在播放期间后台继续填充，不成为首帧或恢复门槛。
+- 影片详情播放入口位于 `_MovieActionRow` 的 `ElevatedButton`，当前直接调用 `PlayerPage.open`，而 `PlayerPage` 已支持可选 `engineKind` 会话级覆盖，因此长按入口无需修改播放页协议或持久化设置。
+- `resolvePlaybackEngineKind` 已保证非 iOS 平台强制回落 libmpv；可在同一工厂模块提供“当前平台可选择内核”列表，避免详情页自行写平台判断。
+- 现有本地化资源已经有 `playerEngineLibmpv` 与 `playerEngineNative`，只需补充测试选择器标题/说明类文案。
+- 实际资源只有 `playerEngineNative`，`libmpv` 在设置页作为不可翻译产品名直接显示；选择器可沿用该规则，并新增“选择播放器 / 仅用于本次播放”两项 ARB 文案。
+- Swift 卡顿恢复原先调用普通 `player.play()`，会重新进入系统最小化卡顿等待；按用户澄清改为有限次 `playImmediately(atRate:)`，尽快恢复后继续填充 60 秒窗口。
+- 现有 Dart contract 测试已覆盖 AVPlayer 音轨映射与平台内核解析，适合直接补充单音轨快速路径和可选择内核列表测试。
+- AVPlayer 缓冲进度改为取“包含当前位置并向后连续”的 `loadedTimeRanges`，避免 seek 后把旧的不连续缓存区间误显示成当前可用缓冲。
+- 有续播位置时仍需先定位再播放，但初始 seek 使用 0.5 秒容差，用户拖动 seek 继续保持原有精确语义。

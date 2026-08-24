@@ -125,6 +125,44 @@ void main() {
     await session.dispose();
   });
 
+  test('AVPlayer 单音轨不等待原生音轨枚举即可起播', () async {
+    final engine = FakePlaybackEngine(PlaybackEngineKind.avPlayer);
+    final session = PlayerSessionController(engine: engine);
+    const backendTrack = playback_models.AudioTrack(
+      index: 0,
+      codec: 'aac',
+      language: 'zh',
+      title: '默认',
+      channels: 2,
+      isDefault: true,
+    );
+    const decision = playback_models.PlaybackDecision(
+      mode: 'direct_play',
+      streamUrl: 'https://example.com/video.mp4',
+      mimeType: 'video/mp4',
+      hwAccel: '',
+      targetVideo: '',
+      targetAudio: '',
+      targetHeight: 0,
+      targetBitrate: 0,
+      reasons: [],
+      audioTracks: [backendTrack],
+      subtitleTracks: [],
+      startSec: 0,
+    );
+
+    final selected = await session
+        .trySelectAudioTrack(backendTrack, decision)
+        .timeout(const Duration(milliseconds: 100));
+
+    expect(selected, isTrue);
+    expect(
+      engine.commands.where((command) => command.startsWith('audio:')),
+      isEmpty,
+    );
+    await session.dispose();
+  });
+
   test('未知 iOS 内核偏好安全回退 libmpv', () {
     expect(PlayerEnginePreference.fromValue(null), PlaybackEngineKind.libmpv);
     expect(
@@ -161,6 +199,20 @@ void main() {
         isWeb: true,
       ),
       PlaybackEngineKind.libmpv,
+    );
+    expect(
+      availablePlaybackEngineKinds(
+        targetPlatform: TargetPlatform.iOS,
+        isWeb: false,
+      ),
+      [PlaybackEngineKind.libmpv, PlaybackEngineKind.avPlayer],
+    );
+    expect(
+      availablePlaybackEngineKinds(
+        targetPlatform: TargetPlatform.android,
+        isWeb: false,
+      ),
+      [PlaybackEngineKind.libmpv],
     );
   });
 }

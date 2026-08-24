@@ -26,6 +26,18 @@ PlayerSessionController createPlayerSession({
   );
 }
 
+List<PlaybackEngineKind> availablePlaybackEngineKinds({
+  bool? isWeb,
+  TargetPlatform? targetPlatform,
+}) {
+  final web = isWeb ?? kIsWeb;
+  final platform = targetPlatform ?? defaultTargetPlatform;
+  if (web || platform != TargetPlatform.iOS) {
+    return const [PlaybackEngineKind.libmpv];
+  }
+  return const [PlaybackEngineKind.libmpv, PlaybackEngineKind.avPlayer];
+}
+
 PlaybackEngineKind resolvePlaybackEngineKind({
   PlaybackEngineKind? engineKind,
   PlaybackEngineKind iosEnginePreference = PlaybackEngineKind.libmpv,

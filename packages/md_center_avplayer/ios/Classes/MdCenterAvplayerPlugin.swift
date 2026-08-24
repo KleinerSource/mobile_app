@@ -196,9 +196,13 @@ final class PlayerContainerView: UIView {
 }
 
 final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
+  static let preferredForwardBufferDuration: TimeInterval = 60
+  static let stallRecoveryDelay: TimeInterval = 2
+  static let initialSeekTolerance: TimeInterval = 0.5
+
   private let playerId: Int64
   private let flutterApi: MdCenterAvPlayerFlutterApiProtocol
-  private let player = AVPlayer()
+  private let player: AVPlayer
   private let playerLayer: AVPlayerLayer
 
   private var item: AVPlayerItem?
@@ -209,20 +213,33 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
   private var firstFrameObservation: NSKeyValueObservation?
   private var timeObserver: Any?
   private var endObserver: NSObjectProtocol?
+  private var stalledObserver: NSObjectProtocol?
+  private var failedToEndObserver: NSObjectProtocol?
+  private var stallRecoveryWorkItem: DispatchWorkItem?
   private var pendingOpen: ((Result<Void, Error>) -> Void)?
   private var pendingStartPositionMs: Double = 0
   private var pendingAutoplay = true
   private var desiredRate: Float = 1
+  private var wantsToPlay = false
+  private var stallRecoveryAttempted = false
+  private var reportedFailure = false
   private var previewGenerator: AVAssetImageGenerator?
   private var pictureInPictureController: AVPictureInPictureController?
   private var pictureInPictureCompletion: ((Result<Bool, Error>) -> Void)?
 
-  init(playerId: Int64, flutterApi: MdCenterAvPlayerFlutterApiProtocol) {
+  init(
+    playerId: Int64,
+    flutterApi: MdCenterAvPlayerFlutterApiProtocol,
+    player: AVPlayer = AVPlayer()
+  ) {
     self.playerId = playerId
     self.flutterApi = flutterApi
+    self.player = player
     playerLayer = AVPlayerLayer(player: player)
     playerLayer.videoGravity = .resizeAspect
     super.init()
+    player.automaticallyWaitsToMinimizeStalling = true
+    player.defaultRate = desiredRate
     observePlayer()
   }
 
@@ -253,20 +270,53 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
     pendingOpen = completion
     pendingStartPositionMs = max(0, startPositionMs ?? 0)
     pendingAutoplay = autoplay
+    wantsToPlay = false
+    stallRecoveryAttempted = false
+    reportedFailure = false
 
     let asset = AVURLAsset(url: mediaUrl)
     let nextItem = AVPlayerItem(asset: asset)
+    // 播放期间持续向前预取的目标窗口；首次播放使用立即启动，
+    // 因此这里不会成为起播或断流恢复门槛。
+    nextItem.preferredForwardBufferDuration = Self.preferredForwardBufferDuration
     item = nextItem
     player.replaceCurrentItem(with: nextItem)
     observe(item: nextItem)
+    if Self.shouldStartImmediatelyOnOpen(
+      autoplay: autoplay,
+      startPositionMs: pendingStartPositionMs
+    ) {
+      startPlayback(immediately: true)
+    }
   }
 
   func play() {
-    player.playImmediately(atRate: desiredRate)
+    startPlayback(immediately: false)
+  }
+
+  static func shouldStartImmediatelyOnOpen(
+    autoplay: Bool,
+    startPositionMs: Double
+  ) -> Bool {
+    autoplay && startPositionMs <= 0
+  }
+
+  private func startPlayback(immediately: Bool) {
+    wantsToPlay = true
+    player.defaultRate = desiredRate
+    if immediately {
+      player.playImmediately(atRate: desiredRate)
+    } else {
+      player.play()
+    }
+    sendPlaybackState()
   }
 
   func pause() {
+    wantsToPlay = false
+    cancelStallRecovery()
     player.pause()
+    sendPlaybackState()
   }
 
   func seek(
@@ -280,8 +330,23 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
     }
   }
 
+  private func seekForOpen(
+    positionMs: Double,
+    completion: @escaping () -> Void
+  ) {
+    let time = AvPlayerTime.time(milliseconds: positionMs)
+    let tolerance = CMTime(
+      seconds: Self.initialSeekTolerance,
+      preferredTimescale: 600
+    )
+    player.seek(to: time, toleranceBefore: tolerance, toleranceAfter: tolerance) {
+      _ in completion()
+    }
+  }
+
   func setRate(_ rate: Double) {
     desiredRate = Float(max(0.25, min(4, rate)))
+    player.defaultRate = desiredRate
     if player.timeControlStatus == .playing {
       player.rate = desiredRate
     }
@@ -413,6 +478,8 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
   }
 
   func dispose() {
+    wantsToPlay = false
+    cancelStallRecovery()
     pendingOpen?(.failure(AvPlayerPluginError.cancelled))
     pendingOpen = nil
     pictureInPictureCompletion?(.success(false))
@@ -438,11 +505,10 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
       options: [.initial, .new]
     ) { [weak self] player, _ in
       guard let self else { return }
-      self.send(.playing, boolValue: player.timeControlStatus == .playing)
-      self.send(
-        .buffering,
-        boolValue: player.timeControlStatus == .waitingToPlayAtSpecifiedRate
-      )
+      if player.timeControlStatus == .playing {
+        self.cancelStallRecovery()
+      }
+      self.sendPlaybackState()
     }
     timeObserver = player.addPeriodicTimeObserver(
       forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
@@ -463,12 +529,12 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
       \.loadedTimeRanges,
       options: [.initial, .new]
     ) { [weak self] item, _ in
-      let end = item.loadedTimeRanges
-        .compactMap { $0.timeRangeValue }
-        .map { $0.start.seconds + $0.duration.seconds }
-        .filter { $0.isFinite }
-        .max() ?? 0
-      self?.send(.buffered, numberValue: max(0, end * 1000))
+      guard let self else { return }
+      let end = Self.continuousBufferedEnd(
+        ranges: item.loadedTimeRanges.map(\.timeRangeValue),
+        position: self.player.currentTime()
+      )
+      self.send(.buffered, numberValue: end * 1000)
     }
     sizeObservation = item.observe(\.presentationSize, options: [.initial, .new]) {
       [weak self] item, _ in
@@ -489,7 +555,25 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
       object: item,
       queue: .main
     ) { [weak self] _ in
-      self?.send(.completed, boolValue: true)
+      self?.handlePlaybackCompleted()
+    }
+    stalledObserver = NotificationCenter.default.addObserver(
+      forName: .AVPlayerItemPlaybackStalled,
+      object: item,
+      queue: .main
+    ) { [weak self, weak item] _ in
+      guard let item else { return }
+      self?.handlePlaybackStalled(item)
+    }
+    failedToEndObserver = NotificationCenter.default.addObserver(
+      forName: .AVPlayerItemFailedToPlayToEndTime,
+      object: item,
+      queue: .main
+    ) { [weak self, weak item] notification in
+      guard let self, let item else { return }
+      let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey]
+        as? Error ?? item.error ?? AvPlayerPluginError.openFailed
+      self.reportPlaybackFailure(error)
     }
   }
 
@@ -502,33 +586,31 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
       send(.ready, boolValue: true)
       let finishOpen = { [weak self] in
         guard let self else { return }
-        if self.pendingAutoplay { self.play() }
+        if self.pendingAutoplay && !self.wantsToPlay {
+          self.startPlayback(immediately: true)
+        }
         let completion = self.pendingOpen
         self.pendingOpen = nil
         completion?(.success(()))
       }
       if pendingStartPositionMs > 0 {
-        seek(positionMs: pendingStartPositionMs) { _ in finishOpen() }
+        seekForOpen(positionMs: pendingStartPositionMs, completion: finishOpen)
       } else {
         finishOpen()
       }
     case .failed:
       let error = item?.error ?? AvPlayerPluginError.openFailed
-      send(.error, stringValue: error.localizedDescription)
-      let completion = pendingOpen
-      pendingOpen = nil
-      completion?(.failure(error))
+      reportPlaybackFailure(error)
     case .unknown:
       break
     @unknown default:
       let error = AvPlayerPluginError.openFailed
-      send(.error, stringValue: error.localizedDescription)
-      pendingOpen?(.failure(error))
-      pendingOpen = nil
+      reportPlaybackFailure(error)
     }
   }
 
   private func clearItemObservers() {
+    cancelStallRecovery()
     statusObservation = nil
     loadedRangesObservation = nil
     sizeObservation = nil
@@ -537,6 +619,114 @@ final class AvPlayerSession: NSObject, AVPictureInPictureControllerDelegate {
       NotificationCenter.default.removeObserver(endObserver)
       self.endObserver = nil
     }
+    if let stalledObserver {
+      NotificationCenter.default.removeObserver(stalledObserver)
+      self.stalledObserver = nil
+    }
+    if let failedToEndObserver {
+      NotificationCenter.default.removeObserver(failedToEndObserver)
+      self.failedToEndObserver = nil
+    }
+  }
+
+  static func playbackState(
+    for status: AVPlayer.TimeControlStatus,
+    wantsToPlay: Bool
+  ) -> (playing: Bool, buffering: Bool) {
+    (
+      playing: wantsToPlay,
+      buffering: wantsToPlay && status == .waitingToPlayAtSpecifiedRate
+    )
+  }
+
+  static func continuousBufferedEnd(
+    ranges: [CMTimeRange],
+    position: CMTime
+  ) -> Double {
+    let positionSeconds = position.seconds
+    guard positionSeconds.isFinite else { return 0 }
+    let tolerance = 0.25
+    let validRanges = ranges.compactMap { range -> (start: Double, end: Double)? in
+      let start = range.start.seconds
+      let duration = range.duration.seconds
+      let end = start + duration
+      guard start.isFinite, duration.isFinite, duration >= 0, end.isFinite else {
+        return nil
+      }
+      return (start, end)
+    }.sorted { $0.start < $1.start }
+
+    guard let index = validRanges.firstIndex(where: {
+      $0.start <= positionSeconds + tolerance &&
+        $0.end >= positionSeconds - tolerance
+    }) else { return 0 }
+
+    var end = validRanges[index].end
+    for range in validRanges.dropFirst(index + 1) {
+      if range.start > end + tolerance { break }
+      end = max(end, range.end)
+    }
+    return max(0, end)
+  }
+
+  private func sendPlaybackState() {
+    let state = Self.playbackState(
+      for: player.timeControlStatus,
+      wantsToPlay: wantsToPlay
+    )
+    send(.playing, boolValue: state.playing)
+    send(.buffering, boolValue: state.buffering)
+  }
+
+  private func handlePlaybackCompleted() {
+    wantsToPlay = false
+    cancelStallRecovery()
+    sendPlaybackState()
+    send(.completed, boolValue: true)
+  }
+
+  private func handlePlaybackStalled(_ stalledItem: AVPlayerItem) {
+    guard item === stalledItem, wantsToPlay else { return }
+    send(.buffering, boolValue: true)
+    guard !stallRecoveryAttempted, stallRecoveryWorkItem == nil else { return }
+
+    let workItem = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      self.stallRecoveryWorkItem = nil
+      guard self.item === stalledItem,
+            self.wantsToPlay,
+            self.player.timeControlStatus != .playing,
+            !self.stallRecoveryAttempted
+      else { return }
+      self.stallRecoveryAttempted = true
+      self.player.defaultRate = self.desiredRate
+      // 60 秒只作为播放期间持续向前预取的目标；断流恢复不等待重新
+      // 填满该窗口，有数据可播时立即继续。
+      self.player.playImmediately(atRate: self.desiredRate)
+      self.sendPlaybackState()
+    }
+    stallRecoveryWorkItem = workItem
+    DispatchQueue.main.asyncAfter(
+      deadline: .now() + Self.stallRecoveryDelay,
+      execute: workItem
+    )
+  }
+
+  private func cancelStallRecovery() {
+    stallRecoveryWorkItem?.cancel()
+    stallRecoveryWorkItem = nil
+  }
+
+  private func reportPlaybackFailure(_ error: Error) {
+    guard !reportedFailure else { return }
+    reportedFailure = true
+    wantsToPlay = false
+    cancelStallRecovery()
+    sendPlaybackState()
+    send(.error, stringValue: error.localizedDescription)
+    let completion = pendingOpen
+    pendingOpen = nil
+    completion?(.failure(error))
   }
 
   private func finishPictureInPictureStart(_ started: Bool) {

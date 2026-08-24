@@ -1413,6 +1413,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             builder: (_) => PlayerPage(
               movieId: item.movieId,
               title: item.title,
+              engineKind: widget.engineKind,
               startPositionSec: item.startPositionSec,
               queue: widget.queue,
               queueIndex: index,

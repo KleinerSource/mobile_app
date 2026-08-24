@@ -101,3 +101,31 @@
 - 当前 Windows 环境无法执行 CocoaPods/Xcode/Swift XCTest；iOS 无签名构建与真机媒体矩阵保留给 macOS CI 和 iOS 16+/最新稳定系统验收。
 - 将平台默认解析、client caps、播放路由、AVPlayer 音轨映射和字幕重决策判断继续下沉至统一会话层，`PlayerPage` 不再按平台或具体内核分支。
 - 新增平台解析与 AVPlayer 音轨映射契约测试；最终 `flutter analyze`、UI 边界扫描、Android 零差异和补丁卫生检查全部通过。
+- 开始 AVPlayer 弱网缓冲与自动续播改造；已读取 `planning-with-files` 技能并执行会话恢复检查。
+- 已确认本轮采用固定 60 秒前向缓冲，不复用 libmpv 字节档位、不新增设置项、不修改 Android。
+- 已在原生会话启用 `automaticallyWaitsToMinimizeStalling` 和 60 秒 `preferredForwardBufferDuration`，并以 `play()` + `defaultRate` 替代 `playImmediately(atRate:)`。
+- 已增加独立播放意图、卡顿通知、单次延迟恢复、播放到结尾失败上报及完整观察器清理。
+- 已补充 Swift 测试，覆盖缓冲状态映射、前向缓冲配置、卡顿事件和错误去重。
+- `flutter analyze --no-pub`：通过，`No issues found!`。
+- 完整 `flutter test --no-pub`：377 项全部通过。
+- `git diff --check`：通过；Android 与 `packages/media_kit_libs_android_video` 零差异。
+- 当前 Windows 环境无 Swift/Xcode 工具链，Swift XCTest 需由 macOS CI 执行。
+
+- 开始 AVPlayer 起播优化与详情页长按选择内核任务。
+- 已恢复既有规划记录并确认工作区包含上一轮播放器改动，后续将在其上做外科式增量修改。
+- 已确认起播链路存在系统初始等待、默认音轨最多 2 秒等待以及加载页阻止 Surface 挂载三项可见延迟来源。
+- 已记录 PowerShell 多值 `-Filter` 和首次规划追加上下文错误，并分别改用直接读取与稳定末行追加。
+- 已定位影片详情播放按钮和 `PlayerPage.open(engineKind:)` 的现有一次性覆盖接缝。
+- 已确认播放器工厂是平台能力判断的合适归属，详情页长按只消费可选内核列表。
+- 已按用户澄清区分“播放期间持续预取”与“停顿后重新攒缓冲”：60 秒只用于前者，首次起播和有限恢复均不等待填满该窗口。
+- 已核对本地化生成配置和现有 contract 测试结构，准备进入实现阶段。
+- 已保留 `preferredForwardBufferDuration = 60` 作为播放期间持续预取目标；首次无续播位置时在 item 装载后立即表达播放意图，断流有限恢复也不等待填满 60 秒窗口。
+- 已为 AVPlayer 单音轨加入无需等待原生轨道枚举的快速路径，移除最多 2 秒无意义阻塞。
+- 已在播放器工厂增加当前平台可选内核列表；详情页播放按钮普通点击不变，iOS 长按弹出本次会话的 `libmpv / 原生` 选择器，Android 不启用长按入口。
+- 已补齐中英文 ARB 文案并重新生成本地化文件；已新增内核列表、单音轨快速路径和选择器 Widget 测试。
+- 定向测试通过：播放器 contract、内核选择器和设置本地化共 14 项全部通过。
+- `flutter analyze --no-pub` 通过，`No issues found!`；`git diff --check` 通过；Android 目录保持零差异。
+- 完整 `flutter test --no-pub`：380 项全部通过。
+- AVPlayer 缓冲进度已改为当前位置连续缓存区间，续播初始 seek 使用 0.5 秒容差；用户拖动定位仍保持精确 seek。
+- staged 与工作树补丁卫生检查均通过，本地化中英文生成结果已核对。
+- 当前 Windows 环境不能运行 Swift XCTest 或测量 iOS 真机首帧耗时；原生实现与新增 XCTest 需由 macOS CI/真机完成最终确认。

@@ -452,6 +452,16 @@ class AppL10nEn extends AppL10n {
   String get settingsLogout => 'Log out';
 
   @override
+  String get playerEngineNative => 'Native';
+
+  @override
+  String get playerEnginePickerTitle => 'Choose player';
+
+  @override
+  String get playerEnginePickerSubtitle =>
+      'Applies to this playback only and does not change your default';
+
+  @override
   String get languageSystem => 'System default';
 
   @override

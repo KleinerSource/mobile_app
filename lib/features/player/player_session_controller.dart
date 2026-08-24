@@ -122,6 +122,11 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
       await setAudioTrackById(track.index.toString());
       return true;
     }
+    if (decision != null && decision.audioTracks.length <= 1) {
+      // 单音轨没有可切换目标，AVPlayer 已自动选中该轨；不要为了等待
+      // 不存在的 AVMediaSelectionGroup 阻塞起播最多 2 秒。
+      return true;
+    }
 
     var nativeTracks = value.audioTracks;
     if (nativeTracks.isEmpty) {
