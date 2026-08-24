@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -91,9 +92,10 @@ void main() {
                 'success': true,
                 'data': {
                   'items': [
-                    {'id': 1, 'title': '演员结果'},
+                    {'id': 1, 'title': '演员结果 1'},
+                    {'id': 2, 'title': '演员结果 2'},
                   ],
-                  'total_count': 1,
+                  'total_count': 2,
                   'limit': 60,
                   'offset': 0,
                 },
@@ -131,7 +133,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(searchType, 'actor');
-    expect(find.text('演员结果'), findsWidgets);
+    expect(find.text('演员结果 1'), findsWidgets);
+    expect(find.text('演员结果 2'), findsWidgets);
+
+    final first = find.byKey(const ValueKey<int>(1));
+    final second = find.byKey(const ValueKey<int>(2));
+    final gesture = await tester.startGesture(tester.getCenter(first));
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    expect(find.text('1 已选'), findsOneWidget);
+
+    await gesture.moveTo(tester.getCenter(second));
+    await tester.pump();
+    expect(find.text('2 已选'), findsOneWidget);
+
+    await gesture.up();
+    await tester.pump();
   });
 
   testWidgets('暗色模式下搜索类型菜单不透出内容并显示 icon', (tester) async {

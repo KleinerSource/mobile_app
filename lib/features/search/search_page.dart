@@ -8,7 +8,9 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../shared/drag_selection.dart';
 import '../../shared/error_view.dart';
+import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
@@ -289,6 +291,10 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
   late final _scrollRestorer = PagedScrollPositionRestorer<MovieListItem>(
     _controller,
   );
+  final Set<int> _selected = {};
+  bool _selectionMode = false;
+
+  bool get _selecting => _selectionMode;
 
   @override
   void initState() {
@@ -357,54 +363,155 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
     }
   }
 
+  void _toggleSelect(int id) {
+    setState(() {
+      if (_selected.remove(id)) {
+        if (_selected.isEmpty) _selectionMode = false;
+      } else {
+        _selectionMode = true;
+        _selected.add(id);
+      }
+    });
+  }
+
+  void _startSelectionSweep(int id, bool selected) {
+    setState(() {
+      _selectionMode = true;
+      _setSelectionValue(id, selected);
+    });
+  }
+
+  void _applySelectionSweep(int id, bool selected) {
+    if (_selected.contains(id) == selected) return;
+    setState(() => _setSelectionValue(id, selected));
+  }
+
+  void _finishSelectionSweep() {
+    if (_selected.isEmpty) _clearSelection();
+  }
+
+  void _setSelectionValue(int id, bool selected) {
+    if (selected) {
+      _selected.add(id);
+    } else {
+      _selected.remove(id);
+    }
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectionMode = false;
+      _selected.clear();
+    });
+  }
+
+  void _selectAllLoaded() {
+    final loaded = _controller.itemList ?? const <MovieListItem>[];
+    setState(() {
+      _selected
+        ..clear()
+        ..addAll(loaded.map((movie) => movie.id));
+    });
+  }
+
+  void _handleMovieTap(MovieListItem movie) {
+    if (_selecting) {
+      _toggleSelect(movie.id);
+    } else {
+      unawaited(_openMovie(movie.id));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
-    return CustomScrollView(
-      controller: _scrollController,
-      primary: false,
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
-          sliver: PagedSliverGrid<int, MovieListItem>(
-            pagingController: _controller,
-            showNoMoreItemsIndicatorAsGridChild: false,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              childAspectRatio: 0.5,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 14,
-            ),
-            builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
-              itemBuilder: (ctx, movie, _) => MovieCard(
-                movie: movie,
-                posterUrlBuilder: urlBuilder,
-                onTap: () => unawaited(_openMovie(movie.id)),
-              ),
-              firstPageProgressIndicatorBuilder: (_) =>
-                  const Center(child: CircularProgressIndicator()),
-              firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                message: _controller.error?.toString() ?? '加载失败',
-                onRetry: _controller.refresh,
-              ),
-              newPageErrorIndicatorBuilder: (_) =>
-                  PaginationRetry(onRetry: _controller.retryLastFailedRequest),
-              noItemsFoundIndicatorBuilder: (_) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    AppL10n.of(context).searchNoResult,
-                    style: AppText.body(
-                      context,
-                    ).copyWith(fontWeight: FontWeight.w700),
+    return PopScope(
+      canPop: !_selecting,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _selecting) _clearSelection();
+      },
+      child: Stack(
+        children: [
+          DragSelectionScope<int>(
+            scrollController: _scrollController,
+            selectionLayout: DragSelectionLayout.grid,
+            isSelected: _selected.contains,
+            onSelectionStart: _startSelectionSweep,
+            onSelectionChanged: _applySelectionSweep,
+            onSelectionEnd: _finishSelectionSweep,
+            selectionMode: _selecting,
+            child: CustomScrollView(
+              controller: _scrollController,
+              primary: false,
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
+                  sliver: PagedSliverGrid<int, MovieListItem>(
+                    pagingController: _controller,
+                    showNoMoreItemsIndicatorAsGridChild: false,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          childAspectRatio: 0.5,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 14,
+                        ),
+                    builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
+                      itemBuilder: (ctx, movie, index) =>
+                          DragSelectionTarget<int>(
+                            key: ValueKey(movie.id),
+                            id: movie.id,
+                            selectionIndex: index,
+                            child: SelectableMovieCard(
+                              movie: movie,
+                              posterUrlBuilder: urlBuilder,
+                              selecting: _selecting,
+                              selected: _selected.contains(movie.id),
+                              onTap: () => _handleMovieTap(movie),
+                            ),
+                          ),
+                      firstPageProgressIndicatorBuilder: (_) =>
+                          const Center(child: CircularProgressIndicator()),
+                      firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                        message: _controller.error?.toString() ?? '加载失败',
+                        onRetry: _controller.refresh,
+                      ),
+                      newPageErrorIndicatorBuilder: (_) => PaginationRetry(
+                        onRetry: _controller.retryLastFailedRequest,
+                      ),
+                      noItemsFoundIndicatorBuilder: (_) => Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            AppL10n.of(context).searchNoResult,
+                            style: AppText.body(
+                              context,
+                            ).copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                      noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+                    ),
                   ),
                 ),
-              ),
-              noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+              ],
             ),
           ),
-        ),
-      ],
+          if (_selecting)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: EntityBatchToolbar(
+                selectedCount: _selected.length,
+                onSelectAll: _selectAllLoaded,
+                onClear: _clearSelection,
+                onClose: _clearSelection,
+                actions: const [],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
