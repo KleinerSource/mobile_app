@@ -29,7 +29,7 @@ import '../player/player_queue.dart';
 import '../player/player_session_controller.dart';
 import '../player/player_session_factory.dart';
 import '../resources/resource_movies_page.dart';
-import 'actor_movies_page.dart';
+import '../person_detail/person_detail_page.dart';
 import 'dbo_diff_sheet.dart';
 import 'resources_sheet.dart';
 import '../resources/resources_repository.dart';
@@ -1792,7 +1792,7 @@ class _CastSection extends StatelessWidget {
                   child: InkWell(
                     onTap: () => Navigator.of(ctx).push(
                       MaterialPageRoute(
-                        builder: (_) => ActorMoviesPage(actor: a),
+                        builder: (_) => PersonDetailPage(actor: a),
                       ),
                     ),
                     borderRadius: BorderRadius.circular(12),

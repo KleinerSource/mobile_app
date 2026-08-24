@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:md_center/core/config/server_config_provider.dart';
 import 'package:md_center/core/models/actor.dart';
 import 'package:md_center/features/home/hero_backdrop.dart';
-import 'package:md_center/features/movie_detail/actor_movies_page.dart';
 import 'package:md_center/features/movies/movies_providers.dart';
 import 'package:md_center/features/person_detail/person_detail_page.dart';
 import 'package:md_center/l10n/generated/app_localizations.dart';
@@ -116,14 +115,19 @@ void main() {
     final navigatorKey = await pumpActorPage(
       tester,
       PersonDetailPage(
-        actorId: 7,
-        name: 'Test Actor',
-        actorType: '演员',
-        biography: List.filled(40, '这是一段用于撑高页面内容的演员简介文本。').join(),
+        actor: ActorItem(
+          id: 7,
+          name: 'Test Actor',
+          actorType: '演员',
+          biography: List.filled(40, '这是一段用于撑高页面内容的演员简介文本。').join(),
+        ),
       ),
     );
 
     await expectUnifiedHeroBehavior(tester, const ValueKey('person-hero'));
+    // 信息层: 姓名 + 类型胶囊压封面底部
+    expect(find.text('Test Actor'), findsOneWidget);
+    expect(find.text('演员'), findsWidgets);
 
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
@@ -132,32 +136,15 @@ void main() {
     expect(navigatorKey.currentState, isNotNull);
   });
 
-  testWidgets('ActorMoviesPage 与 PersonDetailPage 头图行为一致', (tester) async {
-    await pumpActorPage(
-      tester,
-      ActorMoviesPage(
-        actor: ActorItem(
-          id: 9,
-          name: 'Test Actor',
-          actorType: '演员',
-          biography: List.filled(40, '这是一段用于撑高页面内容的演员简介文本。').join(),
-        ),
-      ),
-    );
-
-    await expectUnifiedHeroBehavior(tester, const ValueKey('actor-hero'));
-    // 统一标题块: 头像 + 姓名 + 信息胶囊位于头图下方
-    expect(find.text('Test Actor'), findsOneWidget);
-    expect(find.text('演员'), findsWidgets);
-  });
-
   testWidgets('avatar_path 多张时封面自动淡入淡出轮播且禁止手动', (tester) async {
     await pumpActorPage(
       tester,
       const PersonDetailPage(
-        actorId: 7,
-        name: 'Carousel Actor',
-        avatarPaths: ['a.jpg', 'b.jpg', 'c.jpg'],
+        actor: ActorItem(
+          id: 7,
+          name: 'Carousel Actor',
+          avatarPaths: ['a.jpg', 'b.jpg', 'c.jpg'],
+        ),
       ),
     );
 

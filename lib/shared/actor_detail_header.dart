@@ -53,7 +53,7 @@ class ActorHeroDelegate extends SliverPersistentHeaderDelegate {
 /// - 头像照片 cover 满铺头图,顶部对齐;多张时自动淡入淡出轮播
 ///   (无指示条、禁止手动),并通过 [pagePosition] 驱动页面氛围背景
 ///   以相同的交叉淡化节奏跟随切换
-/// - 上部保持清晰;自 40% 分界线起单一渐变淡出为透明,
+/// - 上部保持清晰;自封面 50% 分界点起单一渐变淡出为透明,
 ///   透出页面底层同图的大模糊毛玻璃(含全页统一遮罩),
 ///   不叠加任何额外渐变层,分界两侧同源,不会出现分割线
 /// - 演员名称 + 影片数量压在头图底部的毛玻璃区,影片列表紧随其后,
@@ -245,7 +245,7 @@ class _ActorHeroHeaderState extends ConsumerState<ActorHeroHeader>
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 封面层 · 上部清晰,自 40% 分界线起单一渐变淡出为透明,
+        // 封面层 · 上部清晰,自封面 50% 分界点起单一渐变淡出为透明,
         // 透出页面底层同图的大模糊毛玻璃(含全页统一遮罩)
         ShaderMask(
           blendMode: BlendMode.dstIn,
@@ -253,7 +253,7 @@ class _ActorHeroHeaderState extends ConsumerState<ActorHeroHeader>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [Colors.white, Colors.white, Colors.transparent],
-            stops: [0.0, 0.40, 1.0],
+            stops: [0.0, 0.50, 1.0],
           ).createShader(bounds),
           child: content,
         ),

@@ -550,11 +550,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                                       onTap: () => Navigator.of(context).push(
                                         MaterialPageRoute(
                                           builder: (_) => PersonDetailPage(
-                                            actorId: actor.id,
-                                            name: actor.name,
-                                            actorType: actor.actorType,
-                                            biography: actor.biography,
-                                            avatarPaths: actor.avatarPaths,
+                                            actor: actor,
                                             onUpdated: () =>
                                                 _refresh(preserveScroll: true),
                                           ),
