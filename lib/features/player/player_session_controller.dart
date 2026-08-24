@@ -150,13 +150,13 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     playback_models.AudioTrack track,
     playback_models.PlaybackDecision? decision,
   ) async {
-    if (_engine.kind != PlaybackEngineKind.avPlayer) {
+    if (_engine.kind == PlaybackEngineKind.libmpv) {
       await setAudioTrackById(track.index.toString());
       return true;
     }
     if (decision != null && decision.audioTracks.length <= 1) {
-      // 单音轨没有可切换目标，AVPlayer 已自动选中该轨；不要为了等待
-      // 不存在的 AVMediaSelectionGroup 阻塞起播最多 2 秒。
+      // 单音轨没有可切换目标，原生播放器已自动选中该轨；不要为了等待
+      // 不存在的原生音轨选择组阻塞起播。
       return true;
     }
 

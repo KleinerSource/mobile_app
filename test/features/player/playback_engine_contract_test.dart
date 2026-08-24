@@ -153,7 +153,7 @@ void main() {
     await session.dispose();
   });
 
-  test('统一会话按语言和标题映射 AVPlayer 原生音轨', () async {
+  test('统一会话按语言和标题映射原生音轨', () async {
     final engine = FakePlaybackEngine(
       PlaybackEngineKind.avPlayer,
       initialState: const PlaybackViewState(
@@ -180,6 +180,152 @@ void main() {
 
     expect(await session.trySelectAudioTrack(backendTrack, null), isTrue);
     expect(engine.commands, contains('audio:native-en'));
+    await session.dispose();
+  });
+
+  test('KSPlayer 不直接使用后端音轨 index，而是映射原生音轨 ID', () async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.ksPlayer,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.ksPlayer,
+        audioTracks: [
+          PlaybackAudioTrackState(
+            id: 'native-en',
+            title: 'Commentary',
+            language: 'en',
+            isSelected: false,
+          ),
+        ],
+      ),
+    );
+    final session = PlayerSessionController(engine: engine);
+    const backendTrack = playback_models.AudioTrack(
+      index: 4,
+      codec: 'aac',
+      language: 'en',
+      title: 'Commentary',
+      channels: 2,
+      isDefault: false,
+    );
+
+    expect(await session.trySelectAudioTrack(backendTrack, null), isTrue);
+    expect(engine.commands, contains('audio:native-en'));
+    expect(engine.commands, isNot(contains('audio:4')));
+    await session.dispose();
+  });
+
+  test('KSPlayer 在语言和标题不匹配时按音轨 ordinal 映射', () async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.ksPlayer,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.ksPlayer,
+        audioTracks: [
+          PlaybackAudioTrackState(
+            id: 'native-1',
+            title: 'Track 1',
+            language: 'und',
+            isSelected: false,
+          ),
+          PlaybackAudioTrackState(
+            id: 'native-2',
+            title: 'Track 2',
+            language: 'und',
+            isSelected: false,
+          ),
+        ],
+      ),
+    );
+    final session = PlayerSessionController(engine: engine);
+    const first = playback_models.AudioTrack(
+      index: 2,
+      codec: 'aac',
+      language: 'de',
+      title: 'German',
+      channels: 2,
+      isDefault: false,
+    );
+    const second = playback_models.AudioTrack(
+      index: 7,
+      codec: 'aac',
+      language: 'fr',
+      title: 'French',
+      channels: 2,
+      isDefault: false,
+    );
+    const decision = playback_models.PlaybackDecision(
+      mode: 'direct_play',
+      streamUrl: 'https://example.com/video.mkv',
+      mimeType: 'video/x-matroska',
+      hwAccel: '',
+      targetVideo: '',
+      targetAudio: '',
+      targetHeight: 0,
+      targetBitrate: 0,
+      reasons: [],
+      audioTracks: [first, second],
+      subtitleTracks: [],
+      startSec: 0,
+    );
+
+    expect(await session.trySelectAudioTrack(second, decision), isTrue);
+    expect(engine.commands, contains('audio:native-2'));
+    expect(engine.commands, isNot(contains('audio:7')));
+    await session.dispose();
+  });
+
+  test('KSPlayer 单音轨不调用原生切换命令', () async {
+    final engine = FakePlaybackEngine(PlaybackEngineKind.ksPlayer);
+    final session = PlayerSessionController(engine: engine);
+    const backendTrack = playback_models.AudioTrack(
+      index: 4,
+      codec: 'aac',
+      language: 'en',
+      title: 'English',
+      channels: 2,
+      isDefault: true,
+    );
+    const decision = playback_models.PlaybackDecision(
+      mode: 'direct_play',
+      streamUrl: 'https://example.com/video.mp4',
+      mimeType: 'video/mp4',
+      hwAccel: '',
+      targetVideo: '',
+      targetAudio: '',
+      targetHeight: 0,
+      targetBitrate: 0,
+      reasons: [],
+      audioTracks: [backendTrack],
+      subtitleTracks: [],
+      startSec: 0,
+    );
+
+    expect(
+      await session
+          .trySelectAudioTrack(backendTrack, decision)
+          .timeout(const Duration(milliseconds: 100)),
+      isTrue,
+    );
+    expect(
+      engine.commands.where((command) => command.startsWith('audio:')),
+      isEmpty,
+    );
+    await session.dispose();
+  });
+
+  test('libmpv 仍按后端音轨 index 选择', () async {
+    final engine = FakePlaybackEngine(PlaybackEngineKind.libmpv);
+    final session = PlayerSessionController(engine: engine);
+    const backendTrack = playback_models.AudioTrack(
+      index: 4,
+      codec: 'aac',
+      language: 'en',
+      title: 'English',
+      channels: 2,
+      isDefault: false,
+    );
+
+    expect(await session.trySelectAudioTrack(backendTrack, null), isTrue);
+    expect(engine.commands, contains('audio:4'));
     await session.dispose();
   });
 

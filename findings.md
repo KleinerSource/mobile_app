@@ -363,3 +363,10 @@
 - `KsPlayerManager.dispose` 已通过 `MainActor.assumeIsolated` 调用 `KsPlayerSession.dispose`，避免跨 actor 直接访问。
 - KSPlayer 生成的 `lib/src/ks_player_api.g.dart` 已加入 `.gitignore` 例外；`git diff --check` 通过。
 - Dart 最终验证：`flutter analyze` 无问题，`flutter test` 共 `394` 项全部通过。
+
+## KSPlayer 音轨切换故障（2026-08-25）
+
+- `PlayerSessionController.trySelectAudioTrack` 原先将所有非 AVPlayer 内核直接传入 `track.index.toString()`；这会把 KSPlayer 当作 `libmpv`。
+- `MdCenterKsplayerPlugin.audioTracks()` 返回 `String(track.trackID)`，其值是 AVFoundation 原生 `trackID`，不保证等于后端音轨 index。
+- KSPlayer 的 `selectAudioTrack` 以原生 `trackID` 查找轨道；找不到时返回 `KsPlayerPluginError.missingTrack`，Pigeon 最终表现为截图中的 `PlatformException`。
+- 修复方向是仅 `libmpv` 继续直传 index，AVPlayer/KSPlayer 共用现有语言、标题、ordinal 原生轨道映射；单音轨不发起不必要的原生选择。

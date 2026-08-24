@@ -304,3 +304,28 @@
 - `git diff --check`：通过；仅有 Windows Git 的 LF/CRLF 提示。
 - KSPlayer 远程 `main` 已确认包含 `2fdbf6636ab19c72d5055bbcdb9b1af3f401bd85`.
 - Windows 无 `swift`、`xcodebuild`、`pod` 和 Ruby，以下仍需 macOS CI/真机验收：Pigeon/Swift 编译、`pod install`、`flutter build ios --release --no-codesign`、网络视频/音轨/字幕/PIP/后台及错误回退。
+
+# 当前任务：修复 KSPlayer 音轨切换误报 missingTrack（2026-08-25）
+
+## 目标
+
+修复 KSPlayer 播放页切换音轨时因把后端音轨 index 当作原生 `trackID` 而触发的 `PlatformException(missingTrack)`，并保持 Android/Web 与 `libmpv` 原有选择逻辑不变。
+
+## 阶段
+
+- [x] 定位 KSPlayer 原生轨道 ID 与 Flutter 后端 index 的不一致
+- [x] 让非 `libmpv` 内核统一使用原生轨道映射
+- [x] 补充并运行回归测试、静态分析和完整测试
+- [ ] 提交、推送 `dev` 并确认 iOS GitHub Action
+
+## 约束
+
+- `libmpv` 继续直接使用后端音轨 index。
+- AVPlayer 与 KSPlayer 均通过语言、标题和 ordinal 映射到原生轨道 ID。
+- 不修改外部 `KSPlayer` 仓库，不改变 Android/Web 播放器选择。
+
+## 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| 暂无 | — |

@@ -158,3 +158,12 @@
 - Swift 静态复核已完成：KSPlayerLayer delegate、轨道选择、截图、PIP、header 和 Platform View 签名与固定 commit 对齐；dispose 的 MainActor 生命周期边界已修正。
 - 外挂字幕保留 Flutter 下载/解析/延迟调整；原生轨道失败且存在外挂地址时会统一降级到外挂字幕。
 - 已记录 Windows 无法执行 iOS 原生工具链，需在 macOS CI/真机完成最终验收。
+
+## 2026-08-25 KSPlayer 音轨切换修复
+
+- 已用 CodeGraph 和当前源码确认 `trySelectAudioTrack` 的错误分支，以及 KSPlayer 返回原生 `trackID` 的实现。
+- 已将后端 index 直传逻辑收窄为仅 `libmpv`；AVPlayer/KSPlayer 统一使用原生轨道映射，单音轨直接视为已选择。
+- 已新增 KSPlayer 语言/标题映射、ordinal 映射、单音轨跳过选择和 `libmpv` index 保持不变的 contract 测试。
+- 定向 `playback_engine_contract_test.dart`：15 项全部通过。
+- `flutter analyze --no-pub`：通过，无问题；完整 `flutter test --no-pub`：399 项全部通过。
+- `git diff --check`：通过，准备提交并推送 `dev`。
