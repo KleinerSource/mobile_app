@@ -342,60 +342,64 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                         ],
                       ),
                     ),
-                    SizedBox(
-                      height: 36,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 22),
-                        children: [
-                          _UpdatedDropdownChip(
-                            value: _currentFilter.isUpdated,
-                            onChanged: (v) => _applyFilter(
-                              _currentFilter.copyWith(
-                                isUpdated: v,
-                                clearIsUpdated: v == null,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 7),
-                          CompactFilterButton(
-                            label: '重复番号',
-                            icon: Icons.copy_all_outlined,
-                            active: _currentFilter.duplicateNum,
-                            onTap: () => _applyFilter(
-                              _currentFilter.copyWith(
-                                duplicateNum: !_currentFilter.duplicateNum,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 7),
-                          CompactFilterButton(
-                            label: '新资源',
-                            icon: Icons.fiber_new_rounded,
-                            active: _currentFilter.hasNewResources == true,
-                            onTap: () {
-                              final enabled =
-                                  _currentFilter.hasNewResources == true;
-                              _applyFilter(
+                    // 底部边距放在固定区内,滚动内容始终与按钮行保持间距。
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: SizedBox(
+                        height: 36,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 22),
+                          children: [
+                            _UpdatedDropdownChip(
+                              value: _currentFilter.isUpdated,
+                              onChanged: (v) => _applyFilter(
                                 _currentFilter.copyWith(
-                                  hasNewResources: enabled ? null : true,
-                                  clearHasNewResources: enabled,
+                                  isUpdated: v,
+                                  clearIsUpdated: v == null,
                                 ),
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 7),
-                          CompactFilterButton(
-                            label: _resourceScanStarting ? '扫描中' : '扫描资源',
-                            icon: _resourceScanStarting
-                                ? Icons.sync_rounded
-                                : Icons.cloud_download_outlined,
-                            active: _resourceScanStarting,
-                            onTap: _resourceScanStarting
-                                ? () {}
-                                : () => _startResourceScan(),
-                          ),
-                        ],
+                              ),
+                            ),
+                            const SizedBox(width: 7),
+                            CompactFilterButton(
+                              label: '重复番号',
+                              icon: Icons.copy_all_outlined,
+                              active: _currentFilter.duplicateNum,
+                              onTap: () => _applyFilter(
+                                _currentFilter.copyWith(
+                                  duplicateNum: !_currentFilter.duplicateNum,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 7),
+                            CompactFilterButton(
+                              label: '新资源',
+                              icon: Icons.fiber_new_rounded,
+                              active: _currentFilter.hasNewResources == true,
+                              onTap: () {
+                                final enabled =
+                                    _currentFilter.hasNewResources == true;
+                                _applyFilter(
+                                  _currentFilter.copyWith(
+                                    hasNewResources: enabled ? null : true,
+                                    clearHasNewResources: enabled,
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 7),
+                            CompactFilterButton(
+                              label: _resourceScanStarting ? '扫描中' : '扫描资源',
+                              icon: _resourceScanStarting
+                                  ? Icons.sync_rounded
+                                  : Icons.cloud_download_outlined,
+                              active: _resourceScanStarting,
+                              onTap: _resourceScanStarting
+                                  ? () {}
+                                  : () => _startResourceScan(),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     Expanded(
@@ -418,11 +422,8 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                               physics: const AlwaysScrollableScrollPhysics(),
                               slivers: [
                                 SliverPadding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    22,
-                                    14,
-                                    22,
-                                    0,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 22,
                                   ),
                                   sliver: _viewMode == _ViewMode.grid
                                       ? PagedSliverGrid<int, MovieListItem>(

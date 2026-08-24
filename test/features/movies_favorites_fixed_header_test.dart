@@ -28,6 +28,11 @@ void main() {
     expect(controller!.offset, greaterThan(0));
     expect(tester.getTopLeft(find.text('影片库')), titleBefore);
     expect(tester.getTopLeft(find.text('更新状态')), chipBefore);
+
+    // 按钮行下方保留固定边距,滚动区不紧贴按钮行。
+    final chipsBottom = tester.getBottomRight(find.text('扫描资源')).dy;
+    final scrollTop = tester.getTopLeft(find.byType(CustomScrollView)).dy;
+    expect(scrollTop - chipsBottom, greaterThan(14));
   });
 
   testWidgets('收藏夹标题与操作按钮滚动后保持固定', (tester) async {
