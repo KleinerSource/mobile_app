@@ -1,6 +1,5 @@
 package com.mdcenter
 
-import android.app.PictureInPictureParams
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -12,7 +11,6 @@ import android.os.Build
 import android.os.SystemClock
 import android.net.TrafficStats
 import android.telephony.TelephonyManager
-import android.util.Rational
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -54,16 +52,6 @@ class MainActivity : FlutterFragmentActivity() {
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "readStats" -> result.success(readStats())
-                else -> result.notImplemented()
-            }
-        }
-
-        MethodChannel(
-            flutterEngine.dartExecutor.binaryMessenger,
-            CAPABILITIES_CHANNEL,
-        ).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "enterPictureInPicture" -> enterPictureInPicture(result)
                 else -> result.notImplemented()
             }
         }
@@ -271,21 +259,6 @@ class MainActivity : FlutterFragmentActivity() {
         } catch (_: Exception) {
             null
         }
-    }
-
-    private fun enterPictureInPicture(result: MethodChannel.Result) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            result.success(false)
-            return
-        }
-        if (isInPictureInPictureMode) {
-            result.success(true)
-            return
-        }
-        val params = PictureInPictureParams.Builder()
-            .setAspectRatio(Rational(16, 9))
-            .build()
-        result.success(enterPictureInPictureMode(params))
     }
 
     private data class CpuSnapshot(
