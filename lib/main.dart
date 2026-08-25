@@ -35,13 +35,13 @@ Future<void> main() async {
   runApp(
     ProviderScope(
       overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-      child: const MdCenterApp(),
+      child: const OmmApp(),
     ),
   );
 }
 
-class MdCenterApp extends ConsumerWidget {
-  const MdCenterApp({super.key});
+class OmmApp extends ConsumerWidget {
+  const OmmApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -62,7 +62,7 @@ class MdCenterApp extends ConsumerWidget {
     }
 
     return MaterialApp(
-      title: 'MD Center',
+      title: 'Oh-My-Media',
       debugShowCheckedModeBanner: false,
       navigatorKey: _rootNavigatorKey,
       theme: buildAppTheme(Brightness.light),
@@ -196,7 +196,7 @@ class _StartupError extends StatelessWidget {
                         const SizedBox(height: 10),
                         Text(
                           incompatible
-                              ? '当前 App 已更新，但连接的 MD Center 服务端版本较旧。请先更新服务端，或切换到已兼容的服务器。'
+                              ? '当前 App 已更新，但连接的 Oh-My-Media 服务端版本较旧。请先更新服务端，或切换到已兼容的服务器。'
                               : '请检查服务器地址和网络连接，然后重试。',
                           textAlign: TextAlign.center,
                           style: AppText.body(context),

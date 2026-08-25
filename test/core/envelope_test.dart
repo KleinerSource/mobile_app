@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/api_exception.dart';
-import 'package:md_center/core/api/envelope.dart';
+import 'package:omm/core/api/api_exception.dart';
+import 'package:omm/core/api/envelope.dart';
 
 void main() {
   group('unwrapStd', () {

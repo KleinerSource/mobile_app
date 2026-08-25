@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart';
 class DeviceLockMonitor {
   DeviceLockMonitor._();
 
-  static const EventChannel _channel = EventChannel('md_center/device_lock');
+  static const EventChannel _channel = EventChannel('omm/device_lock');
 
   static Stream<String> get events {
     if (kIsWeb) return const Stream<String>.empty();

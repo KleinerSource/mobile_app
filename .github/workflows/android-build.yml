@@ -80,9 +80,9 @@ jobs:
             flutter create . \
               --no-pub \
               --platforms=android \
-              --org com.mdcenter \
-              --project-name md_center \
-              --description "md_center 移动端"
+              --org com.ohmymedia \
+              --project-name omm \
+              --description "omm 移动端"
           else
             echo "Android Gradle project exists, skipping bootstrap"
           fi
@@ -189,9 +189,9 @@ jobs:
         run: |
           set -euo pipefail
           version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
-          artifact_prefix="md_center"
+          artifact_prefix="omm"
           if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
-            artifact_prefix="md_center_dev"
+            artifact_prefix="omm_dev"
           fi
           artifact_path="build/app/outputs/flutter-apk/${artifact_prefix}_${version}.apk"
           cp build/app/outputs/flutter-apk/app-release.apk "${artifact_path}"
@@ -201,7 +201,7 @@ jobs:
       - name: 上传 Android Actions 产物
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ startsWith(github.ref, 'refs/heads/dev') && 'md_center_dev_' || 'md_center_' }}${{ steps.android_artifact.outputs.version }}.apk
+          name: ${{ startsWith(github.ref, 'refs/heads/dev') && 'omm_dev_' || 'omm_' }}${{ steps.android_artifact.outputs.version }}.apk
           path: ${{ steps.android_artifact.outputs.path }}
           if-no-files-found: error
           retention-days: 14

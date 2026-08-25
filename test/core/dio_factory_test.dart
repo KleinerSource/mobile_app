@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/dio_factory.dart';
-import 'package:md_center/core/config/server_config.dart';
+import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/config/server_config.dart';
 
 void main() {
   test('baseUrl 拼接 /api', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/auth/auth_session.dart';
-import 'package:md_center/core/auth/auth_session_repository.dart';
+import 'package:omm/core/auth/auth_session.dart';
+import 'package:omm/core/auth/auth_session_repository.dart';
 
 void main() {
   test('会话只在保存时写入 token，clear 会清理所有字段', () async {
@@ -64,7 +64,7 @@ void main() {
     expect(await repository.accessToken(), 'access-b');
     expect(
       store.values.keys,
-      everyElement(startsWith('md_center.auth.server.')),
+      everyElement(startsWith('omm.auth.server.')),
     );
   });
 
@@ -83,7 +83,7 @@ void main() {
     expect(await repository.accessToken(), 'legacy-access');
     expect(
       store.values.keys,
-      everyElement(startsWith('md_center.auth.server.')),
+      everyElement(startsWith('omm.auth.server.')),
     );
   });
 

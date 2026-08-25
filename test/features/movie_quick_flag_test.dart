@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/features/movie_detail/movie_quick_flag.dart';
+import 'package:omm/features/movie_detail/movie_quick_flag.dart';
 
 void main() {
   test('快捷操作配置与网页端标准名和别名一致', () {

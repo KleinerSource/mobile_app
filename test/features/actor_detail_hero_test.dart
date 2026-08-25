@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/config/server_config_provider.dart';
-import 'package:md_center/core/models/actor.dart';
-import 'package:md_center/features/home/hero_backdrop.dart';
-import 'package:md_center/features/movies/movies_providers.dart';
-import 'package:md_center/features/person_detail/person_detail_page.dart';
-import 'package:md_center/l10n/generated/app_localizations.dart';
+import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/models/actor.dart';
+import 'package:omm/features/home/hero_backdrop.dart';
+import 'package:omm/features/movies/movies_providers.dart';
+import 'package:omm/features/person_detail/person_detail_page.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

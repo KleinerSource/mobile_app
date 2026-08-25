@@ -1,11 +1,11 @@
 Pod::Spec.new do |s|
-  s.name             = 'md_center_ksplayer'
+  s.name             = 'omm_ksplayer'
   s.version          = '0.1.0'
-  s.summary          = 'KSPlayer engine bridge for md_center.'
-  s.description      = 'Typed Flutter bridge around KSPlayer for md_center.'
+  s.summary          = 'KSPlayer engine bridge for omm.'
+  s.description      = 'Typed Flutter bridge around KSPlayer for omm.'
   s.homepage         = 'https://github.com/KleinerSource/mobile_app'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'md_center' => 'dev@md-center.local' }
+  s.author           = { 'omm' => 'dev@oh-my-media.local' }
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*'
   s.dependency 'Flutter'

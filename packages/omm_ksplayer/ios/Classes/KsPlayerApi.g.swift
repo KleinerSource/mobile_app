@@ -345,7 +345,7 @@ class KsPlayerApiPigeonCodec: FlutterStandardMessageCodec, @unchecked Sendable {
 
 
 /// Generated protocol from Pigeon that represents a handler of messages from Flutter.
-protocol MdCenterKsPlayerHostApi {
+protocol OmmKsPlayerHostApi {
   func create(playerId: Int64) throws
   func open(playerId: Int64, url: String, startPositionMs: Double?, autoplay: Bool, headers: [String: String]?, formatHint: String?, videoCodec: String?, completion: @escaping (Result<Void, Error>) -> Void)
   func play(playerId: Int64) throws
@@ -365,12 +365,12 @@ protocol MdCenterKsPlayerHostApi {
 }
 
 /// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
-class MdCenterKsPlayerHostApiSetup {
+class OmmKsPlayerHostApiSetup {
   static var codec: FlutterStandardMessageCodec { KsPlayerApiPigeonCodec.shared }
-  /// Sets up an instance of `MdCenterKsPlayerHostApi` to handle messages through the `binaryMessenger`.
-  static func setUp(binaryMessenger: FlutterBinaryMessenger, api: MdCenterKsPlayerHostApi?, messageChannelSuffix: String = "") {
+  /// Sets up an instance of `OmmKsPlayerHostApi` to handle messages through the `binaryMessenger`.
+  static func setUp(binaryMessenger: FlutterBinaryMessenger, api: OmmKsPlayerHostApi?, messageChannelSuffix: String = "") {
     let channelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""
-    let createChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.create\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let createChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.create\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       createChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -385,7 +385,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       createChannel.setMessageHandler(nil)
     }
-    let openChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.open\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let openChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.open\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       openChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -408,7 +408,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       openChannel.setMessageHandler(nil)
     }
-    let playChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.play\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let playChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.play\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       playChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -423,7 +423,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       playChannel.setMessageHandler(nil)
     }
-    let pauseChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.pause\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let pauseChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.pause\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       pauseChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -438,7 +438,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       pauseChannel.setMessageHandler(nil)
     }
-    let stopChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.stop\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let stopChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.stop\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       stopChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -453,7 +453,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       stopChannel.setMessageHandler(nil)
     }
-    let seekChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.seek\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let seekChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.seek\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       seekChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -471,7 +471,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       seekChannel.setMessageHandler(nil)
     }
-    let setRateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.setRate\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let setRateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.setRate\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       setRateChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -487,7 +487,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       setRateChannel.setMessageHandler(nil)
     }
-    let audioTracksChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.audioTracks\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let audioTracksChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.audioTracks\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       audioTracksChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -504,7 +504,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       audioTracksChannel.setMessageHandler(nil)
     }
-    let selectAudioTrackChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.selectAudioTrack\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let selectAudioTrackChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.selectAudioTrack\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       selectAudioTrackChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -522,7 +522,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       selectAudioTrackChannel.setMessageHandler(nil)
     }
-    let selectSubtitleTrackChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.selectSubtitleTrack\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let selectSubtitleTrackChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.selectSubtitleTrack\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       selectSubtitleTrackChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -541,7 +541,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       selectSubtitleTrackChannel.setMessageHandler(nil)
     }
-    let clearSubtitleTrackChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.clearSubtitleTrack\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let clearSubtitleTrackChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.clearSubtitleTrack\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       clearSubtitleTrackChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -558,7 +558,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       clearSubtitleTrackChannel.setMessageHandler(nil)
     }
-    let captureFrameChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.captureFrame\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let captureFrameChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.captureFrame\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       captureFrameChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -576,7 +576,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       captureFrameChannel.setMessageHandler(nil)
     }
-    let cancelFramePreviewChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.cancelFramePreview\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let cancelFramePreviewChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.cancelFramePreview\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       cancelFramePreviewChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -591,7 +591,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       cancelFramePreviewChannel.setMessageHandler(nil)
     }
-    let startPictureInPictureChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.startPictureInPicture\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let startPictureInPictureChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.startPictureInPicture\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       startPictureInPictureChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -608,7 +608,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       startPictureInPictureChannel.setMessageHandler(nil)
     }
-    let stopPictureInPictureChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.stopPictureInPicture\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let stopPictureInPictureChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.stopPictureInPicture\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       stopPictureInPictureChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -623,7 +623,7 @@ class MdCenterKsPlayerHostApiSetup {
     } else {
       stopPictureInPictureChannel.setMessageHandler(nil)
     }
-    let disposeChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.dispose\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let disposeChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.dispose\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       disposeChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -641,10 +641,10 @@ class MdCenterKsPlayerHostApiSetup {
   }
 }
 /// Generated protocol from Pigeon that represents Flutter messages that can be called from Swift.
-protocol MdCenterKsPlayerFlutterApiProtocol {
+protocol OmmKsPlayerFlutterApiProtocol {
   func onEvent(event eventArg: KsPlayerEvent, completion: @escaping (Result<Void, PigeonError>) -> Void)
 }
-class MdCenterKsPlayerFlutterApi: MdCenterKsPlayerFlutterApiProtocol {
+class OmmKsPlayerFlutterApi: OmmKsPlayerFlutterApiProtocol {
   private let binaryMessenger: FlutterBinaryMessenger
   private let messageChannelSuffix: String
   init(binaryMessenger: FlutterBinaryMessenger, messageChannelSuffix: String = "") {
@@ -655,7 +655,7 @@ class MdCenterKsPlayerFlutterApi: MdCenterKsPlayerFlutterApiProtocol {
     return KsPlayerApiPigeonCodec.shared
   }
   func onEvent(event eventArg: KsPlayerEvent, completion: @escaping (Result<Void, PigeonError>) -> Void) {
-    let channelName: String = "dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerFlutterApi.onEvent\(messageChannelSuffix)"
+    let channelName: String = "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerFlutterApi.onEvent\(messageChannelSuffix)"
     let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
     channel.sendMessage([eventArg] as [Any?]) { response in
       guard let listResponse = response as? [Any?] else {

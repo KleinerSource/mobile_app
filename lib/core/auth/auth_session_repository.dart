@@ -44,9 +44,9 @@ class AuthSessionRepository {
        _state = state,
        _activeServerId = serverId;
 
-  static const _accessKey = 'md_center.auth.access_token';
-  static const _refreshKey = 'md_center.auth.refresh_token';
-  static const _expiresKey = 'md_center.auth.expires_in';
+  static const _accessKey = 'omm.auth.access_token';
+  static const _refreshKey = 'omm.auth.refresh_token';
+  static const _expiresKey = 'omm.auth.expires_in';
 
   final AuthTokenStore _store;
   final _AuthSessionState _state;
@@ -191,8 +191,8 @@ class AuthSessionRepository {
   String _keyFor(String legacyKey, String? serverId) {
     if (serverId == null) return legacyKey;
     final encoded = base64Url.encode(utf8.encode(serverId)).replaceAll('=', '');
-    final suffix = legacyKey.substring('md_center.auth.'.length);
-    return 'md_center.auth.server.$encoded.$suffix';
+    final suffix = legacyKey.substring('omm.auth.'.length);
+    return 'omm.auth.server.$encoded.$suffix';
   }
 }
 

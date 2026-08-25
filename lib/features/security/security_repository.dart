@@ -32,9 +32,9 @@ class SecurityRepository {
        _storage = storage ?? const FlutterSecureStorage(),
        _localAuthentication = localAuthentication ?? LocalAuthentication();
 
-  static const _pinDigestKey = 'md_center.security.pin_digest';
-  static const _gestureDigestKey = 'md_center.security.gesture_digest';
-  static const _biometricEnabledKey = 'md_center.security.biometric_enabled';
+  static const _pinDigestKey = 'omm.security.pin_digest';
+  static const _gestureDigestKey = 'omm.security.gesture_digest';
+  static const _biometricEnabledKey = 'omm.security.biometric_enabled';
 
   final SharedPreferences _preferences;
   final FlutterSecureStorage _storage;
@@ -105,7 +105,7 @@ class SecurityRepository {
   Future<bool> authenticateBiometric() async {
     try {
       return await _localAuthentication.authenticate(
-        localizedReason: '请验证身份以进入 MD Center',
+        localizedReason: '请验证身份以进入 Oh-My-Media',
         options: const AuthenticationOptions(
           biometricOnly: false,
           stickyAuth: true,

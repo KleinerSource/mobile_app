@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/api_client.dart';
-import 'package:md_center/features/resources/resources_repository.dart';
+import 'package:omm/core/api/api_client.dart';
+import 'package:omm/features/resources/resources_repository.dart';
 
 void main() {
   test('资源编辑请求携带自动映射开关', () async {

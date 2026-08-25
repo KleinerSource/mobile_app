@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/features/player/player_error_disposition.dart';
+import 'package:omm/features/player/player_error_disposition.dart';
 
 void main() {
   final now = DateTime(2026, 1, 1, 12);

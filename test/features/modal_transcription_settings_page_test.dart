@@ -2,11 +2,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/services/modal_transcription_api.dart';
-import 'package:md_center/core/models/modal_transcription_config.dart';
-import 'package:md_center/features/translation/modal_transcription_providers.dart';
-import 'package:md_center/features/translation/modal_transcription_repository.dart';
-import 'package:md_center/features/translation/modal_transcription_settings_page.dart';
+import 'package:omm/core/api/services/modal_transcription_api.dart';
+import 'package:omm/core/models/modal_transcription_config.dart';
+import 'package:omm/features/translation/modal_transcription_providers.dart';
+import 'package:omm/features/translation/modal_transcription_repository.dart';
+import 'package:omm/features/translation/modal_transcription_settings_page.dart';
 
 /// 模拟服务端行为：保存后回显脱敏令牌，并为新增令牌分配稳定 id。
 class _FakeModalRepository extends ModalTranscriptionRepository {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/shared/top_snack_bar.dart';
+import 'package:omm/shared/top_snack_bar.dart';
 
 void main() {
   testWidgets('顶部通知居中并支持点击和上滑关闭', (tester) async {

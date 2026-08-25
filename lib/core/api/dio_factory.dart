@@ -12,7 +12,7 @@ import 'api_exception.dart';
 import 'envelope.dart';
 import 'error_mapper.dart';
 
-// 缓存的 User-Agent：形如 mdcenter/0.10.6，避免每个请求都读取 PackageInfo。
+// 缓存的 User-Agent：形如 omm/0.10.6，避免每个请求都读取 PackageInfo。
 String? _cachedUserAgent;
 
 Future<String?> _appUserAgent() async {
@@ -20,7 +20,7 @@ Future<String?> _appUserAgent() async {
   if (cached != null) return cached;
   try {
     final info = await PackageInfo.fromPlatform();
-    final ua = 'mdcenter/${info.version}';
+    final ua = 'omm/${info.version}';
     _cachedUserAgent = ua;
     return ua;
   } catch (_) {

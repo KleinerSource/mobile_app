@@ -423,7 +423,7 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                     const SizedBox(height: 18),
                     Text('应用已锁定', style: AppText.sectionTitle(context)),
                     const SizedBox(height: 6),
-                    Text('验证身份后继续使用 MD Center', style: AppText.meta(context)),
+                    Text('验证身份后继续使用 Oh-My-Media', style: AppText.meta(context)),
                     const SizedBox(height: 24),
                     if (widget.settings.biometricEnabled)
                       SizedBox(

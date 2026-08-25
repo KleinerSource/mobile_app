@@ -613,13 +613,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.13.0"
-  md_center_ksplayer:
-    dependency: "direct main"
-    description:
-      path: "packages/md_center_ksplayer"
-      relative: true
-    source: path
-    version: "0.1.0"
   media_kit:
     dependency: "direct main"
     description:
@@ -682,6 +675,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.0"
+  omm_ksplayer:
+    dependency: "direct main"
+    description:
+      path: "packages/omm_ksplayer"
+      relative: true
+    source: path
+    version: "0.1.0"
   package_config:
     dependency: transitive
     description:

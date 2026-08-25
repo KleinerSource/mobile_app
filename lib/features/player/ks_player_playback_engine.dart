@@ -2,20 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:md_center_ksplayer/md_center_ksplayer.dart';
+import 'package:omm_ksplayer/omm_ksplayer.dart';
 
 import 'playback_engine.dart';
 
 class KsPlayerPlaybackEngine implements PlaybackEngine {
   KsPlayerPlaybackEngine()
-    : _playerFuture = MdCenterKsPlayer.create(),
+    : _playerFuture = OmmKsPlayer.create(),
       _state = ValueNotifier(
         const PlaybackViewState(engineKind: PlaybackEngineKind.ksPlayer),
       );
 
-  final Future<MdCenterKsPlayer> _playerFuture;
+  final Future<OmmKsPlayer> _playerFuture;
   final ValueNotifier<PlaybackViewState> _state;
-  MdCenterKsPlayer? _player;
+  OmmKsPlayer? _player;
   StreamSubscription<KsPlayerEvent>? _eventSubscription;
   PlaybackPictureInPictureRequest? _pictureInPictureRequest;
   List<_WebVttCue> _subtitleCues = const [];
@@ -32,7 +32,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   @override
   ValueListenable<PlaybackViewState> get state => _state;
 
-  Future<MdCenterKsPlayer> _ensurePlayer() async {
+  Future<OmmKsPlayer> _ensurePlayer() async {
     final existing = _player;
     if (existing != null) return existing;
     final player = await _playerFuture;
@@ -314,7 +314,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
 
   @override
   Widget buildSurface({BoxFit fit = BoxFit.contain}) {
-    return FutureBuilder<MdCenterKsPlayer>(
+    return FutureBuilder<OmmKsPlayer>(
       future: _playerFuture,
       builder: (_, snapshot) {
         final player = snapshot.data;

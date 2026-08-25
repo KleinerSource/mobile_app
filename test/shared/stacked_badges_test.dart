@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/shared/stacked_badges.dart';
+import 'package:omm/shared/stacked_badges.dart';
 
 Widget _pill(String text) => Container(
   padding: const EdgeInsets.all(6),

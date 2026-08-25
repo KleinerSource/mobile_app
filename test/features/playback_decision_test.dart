@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/models/media_info.dart';
-import 'package:md_center/core/models/playback.dart';
-import 'package:md_center/features/player/playback_decision.dart'
+import 'package:omm/core/models/media_info.dart';
+import 'package:omm/core/models/playback.dart';
+import 'package:omm/features/player/playback_decision.dart'
     as player_decision;
 
 void main() {
   test('移动端能力声明允许原画 H.264/HEVC 直传', () {
     final caps = PlaybackClientCaps.mobile(
       qualityPreset: 'original',
-      userAgent: 'md_center/test',
+      userAgent: 'omm/test',
     );
     final json = caps.toJson();
     final videoCodecs = json['video_codecs'] as Map<String, dynamic>;

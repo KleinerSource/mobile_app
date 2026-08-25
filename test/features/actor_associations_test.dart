@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/models/avdb_config.dart';
-import 'package:md_center/core/models/dbo_config.dart';
-import 'package:md_center/features/actor_associations/actor_associations_repository.dart';
+import 'package:omm/core/models/avdb_config.dart';
+import 'package:omm/core/models/dbo_config.dart';
+import 'package:omm/features/actor_associations/actor_associations_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

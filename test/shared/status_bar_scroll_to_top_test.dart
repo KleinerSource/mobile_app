@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/shared/status_bar_scroll_to_top.dart';
+import 'package:omm/shared/status_bar_scroll_to_top.dart';
 
 Widget _wrap(Widget child) {
   return MaterialApp(home: Scaffold(body: child));

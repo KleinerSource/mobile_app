@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/models/watch_record.dart';
-import 'package:md_center/features/player/player_resume.dart';
+import 'package:omm/core/models/watch_record.dart';
+import 'package:omm/features/player/player_resume.dart';
 
 void main() {
   const record = WatchRecord(

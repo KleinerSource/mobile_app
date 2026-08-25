@@ -2,9 +2,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:md_center/features/player/player_settings.dart';
-import 'package:md_center/features/player/playback_engine.dart';
-import 'package:md_center/l10n/generated/app_localizations.dart';
+import 'package:omm/features/player/player_settings.dart';
+import 'package:omm/features/player/playback_engine.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   test('播放器内核测试入口文案支持中英文', () {

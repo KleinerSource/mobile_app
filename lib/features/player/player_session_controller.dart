@@ -77,14 +77,14 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
       case PlaybackEngineKind.ksPlayer:
         return playback_models.PlaybackClientCaps.ksPlayer(
           qualityPreset: quality,
-          userAgent: 'md_center/$os',
+          userAgent: 'omm/$os',
           audioStreamIndex: audioStreamIndex,
           subtitleTrackId: subtitleTrackId,
         );
       case PlaybackEngineKind.libmpv:
         return playback_models.PlaybackClientCaps.mediaKit(
           qualityPreset: quality,
-          userAgent: 'md_center/$os',
+          userAgent: 'omm/$os',
           audioStreamIndex: audioStreamIndex,
           subtitleTrackId: subtitleTrackId,
         );

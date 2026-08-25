@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/server_compatibility.dart';
+import 'package:omm/core/api/server_compatibility.dart';
 
 void main() {
   test('最低版本满足要求', () {
@@ -17,10 +17,10 @@ void main() {
   test('项目名称和版本均正确时通过', () {
     final info = requireCompatibleServerVersion({
       'success': true,
-      'data': {'project_name': 'md_center', 'version': '1.7.0'},
+      'data': {'project_name': 'omm', 'version': '1.7.0'},
     });
 
-    expect(info.projectName, 'md_center');
+    expect(info.projectName, 'omm');
     expect(info.version, '1.7.0');
   });
 
@@ -38,7 +38,7 @@ void main() {
     expect(
       () => requireCompatibleServerVersion({
         'success': true,
-        'data': {'project_name': 'md_center', 'version': '1.5.9'},
+        'data': {'project_name': 'omm', 'version': '1.5.9'},
       }),
       throwsA(isA<ServerCompatibilityException>()),
     );

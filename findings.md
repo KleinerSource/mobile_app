@@ -27,7 +27,7 @@
 
 ## 当前任务：GitHub Actions 编译失败
 
-- 工作区：`D:\Projects\MyProject\ghs\md_center\mobile_app`。
+- 工作区：`D:\Projects\MyProject\ghs\omm\mobile_app`。
 - 当前分支：`master`，相对 `origin/master` 落后 1 个提交；工作区初始无未提交代码改动。
 - 仓库未包含 `.codegraph/`，本任务不使用 CodeGraph。
 - 项目是 Flutter/Dart 工程，存在 `pubspec.yaml`、`android/build.gradle.kts`、`android/app/build.gradle.kts`。
@@ -153,10 +153,10 @@
 
 ## 项目原生桥接与辅助模块
 
-- Dart 侧 `PlayerPlatformCapabilities` 通过 `md_center/player_capabilities` MethodChannel 请求进入/停止 PiP，并在 `pictureInPictureStopped` 回调中接收 AVPlayer 的最终进度。
+- Dart 侧 `PlayerPlatformCapabilities` 通过 `omm/player_capabilities` MethodChannel 请求进入/停止 PiP，并在 `pictureInPictureStopped` 回调中接收 AVPlayer 的最终进度。
 - iOS `AppDelegate.swift` 创建临时 `AVPlayerItem`、`AVPlayer`、`AVPlayerLayer` 与 `AVPictureInPictureController`；等待 item ready 和 PiP possible 后按主播放器位置 seek，再启动 PiP。PiP 停止后把当前位置毫秒值回传 Dart，并完整释放 AVPlayer 相关对象。
 - 这是一种“双内核接力”：全屏/内嵌主播放是 libmpv，系统 PiP 阶段是 AVPlayer。其边界是 PiP URL 必须为 AVPlayer 能识别的资源；项目代码因此对常见 MKV 直传源改用 HLS 作为 PiP 源。
-- `PlayerDeviceStatsReader` 通过 `md_center/player_stats` 读取 iOS/Android 的 CPU、电量、上下行速率与网络类型，为播放器状态面板提供信息，不参与解码。
+- `PlayerDeviceStatsReader` 通过 `omm/player_stats` 读取 iOS/Android 的 CPU、电量、上下行速率与网络类型，为播放器状态面板提供信息，不参与解码。
 
 ## Apple 与 IJK 状态补充
 
@@ -295,7 +295,7 @@
 
 - 详情页嵌入式 `_TrailerViewer` 已固定 `MediaKitPlaybackEngine`，但 `_playTrailer()` 打开的完整 `PlayerPage` 未传递内核约束，会错误读取 iOS 默认 AVPlayer 设置。
 - 最小修复是在 `PlayerPage` 增加只读的可选会话级 `engineKind` 覆盖；仅预告片完整播放入口传 `libmpv`，普通影片仍在新会话初始化时读取设置。
-- Pigeon 26.3.4 生成的 Swift `MdCenterAvPlayerHostApi` 方法签名与 `AvPlayerManager` 实现逐项一致，包括同步 `throws` 方法和异步 `Result<..., Error>` completion 方法。
+- Pigeon 26.3.4 生成的 Swift `OmmAvPlayerHostApi` 方法签名与 `AvPlayerManager` 实现逐项一致，包括同步 `throws` 方法和异步 `Result<..., Error>` completion 方法。
 - CodeGraph 能定位 `AvPlayerSession` 的预览帧与 PiP 方法，但响应未展开这些方法体；后续只对该未覆盖区间做精确文件读取，不重复检索已返回源码。
 - Swift 静态复核发现 `AvPlayerViewFactory.manager` 为非可选属性却使用 `manager?.attach(...)`，会导致 iOS 编译错误；应改为直接调用 `manager.attach(...)`。
 - AVPlayer 预览帧复用当前 `AVPlayerItem.asset`，新请求先取消旧 `AVAssetImageGenerator`；PiP 由当前同一个 `AVPlayerLayer` 构造，结束后清理 delegate/controller，`dispose()` 可重复调用。
@@ -306,7 +306,7 @@
 - 现有 `FakePlaybackEngine` 已能验证“不打开旧 URL、只更换内核”的决策阶段回退；新增测试应确认第二次请求不会再次创建 libmpv，确保与 open/运行时回退共用一次性门闩。
 - 最终 UI 扫描确认 `PlayerPage`、`PlayerControls`、字幕层和详情页均不再引用 `media_kit` package、`Player`、`VideoController` 或具体 engine adapter；具体内核创建只存在于统一会话工厂。
 - iOS libmpv 元数据最终一致：wrapper/pubspec/podspec 均为 `1.1.5`，Makefile 固定 `v0.7.2`、`video-full` 下载名和指定 SHA-256。
-- Pigeon 生成的 Dart 文件被根 `.gitignore` 的 `*.g.dart` 规则排除；必须仅对 `packages/md_center_avplayer/lib/src/av_player_api.g.dart` 增加例外，才能满足生成 Dart/Swift 一并提交。
+- Pigeon 生成的 Dart 文件被根 `.gitignore` 的 `*.g.dart` 规则排除；必须仅对 `packages/omm_avplayer/lib/src/av_player_api.g.dart` 增加例外，才能满足生成 Dart/Swift 一并提交。
 - 更严格按“UI 不写平台或内核判断”复核后，`PlayerPage` 仍有 iOS 默认选择和 AVPlayer 路由/音轨/字幕分支；应继续把默认内核解析、client caps、路由和轨道策略收进会话层，只让页面读取 capabilities/统一决策结果。
 - 策略下沉完成后，四个 UI/页面文件对 `_host.kind`、`PlaybackEngineKind.avPlayer`、平台判断和具体 adapter 的联合扫描无命中；Android 显式 AVPlayer 覆盖也由会话工厂强制回落 libmpv。
 
@@ -355,7 +355,7 @@
 - KSPlayer 仓库已有改动已提交并推送：`9a80ee3`、`2fdbf66`；工作区应保持 clean。
 - `mobile_app` 只应引用固定远程 KSPlayer commit，不引用相邻本地目录。
 - Flutter 统一播放抽象已增加 `PlaybackEngineKind.ksPlayer`、KSPlayer capabilities 和泛化 fallback；Android/Web 仍强制 `libmpv`。
-- KSPlayer 插件位于 `packages/md_center_ksplayer`，使用 Pigeon、Swift Platform View 和 KSPlayerLayer，不启用原生控制栏/手势。
+- KSPlayer 插件位于 `packages/omm_ksplayer`，使用 Pigeon、Swift Platform View 和 KSPlayerLayer，不启用原生控制栏/手势。
 - KSPlayer 的 PGS/burn-in 字幕走能力声明并触发后端重决策；外挂文本字幕仍由 Flutter 统一处理，原生轨道失败且存在外挂地址时会降级到外挂字幕。
 - KSPlayer 无可靠 `loadedTimeRanges` 结束点时不伪造缓冲百分比。
 - Windows 环境无法编译 Swift、执行 CocoaPods 或 `flutter build ios`；必须记录为 macOS CI/真机验收项。
@@ -367,7 +367,7 @@
 ## KSPlayer 音轨切换故障（2026-08-25）
 
 - `PlayerSessionController.trySelectAudioTrack` 原先将所有非 AVPlayer 内核直接传入 `track.index.toString()`；这会把 KSPlayer 当作 `libmpv`。
-- `MdCenterKsplayerPlugin.audioTracks()` 返回 `String(track.trackID)`，其值是 AVFoundation 原生 `trackID`，不保证等于后端音轨 index。
+- `OmmKsplayerPlugin.audioTracks()` 返回 `String(track.trackID)`，其值是 AVFoundation 原生 `trackID`，不保证等于后端音轨 index。
 - KSPlayer 的 `selectAudioTrack` 以原生 `trackID` 查找轨道；找不到时返回 `KsPlayerPluginError.missingTrack`，Pigeon 最终表现为截图中的 `PlatformException`。
 - 修复方向是仅 `libmpv` 继续直传 index，AVPlayer/KSPlayer 共用现有语言、标题、ordinal 原生轨道映射；单音轨不发起不必要的原生选择。
 

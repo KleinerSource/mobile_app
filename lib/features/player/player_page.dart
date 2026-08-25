@@ -1119,15 +1119,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         RegExp(r'[^0-9]'),
         '',
       );
-      final fileName = 'md-center-playback-error-$stamp.txt';
+      final fileName = 'oh-my-media-playback-error-$stamp.txt';
       final renderObject = context.findRenderObject();
       final sharePositionOrigin = renderObject is RenderBox
           ? renderObject.localToGlobal(Offset.zero) & renderObject.size
           : null;
       final result = await SharePlus.instance.share(
         ShareParams(
-          subject: 'MD Center 播放错误',
-          text: 'MD Center 播放错误日志',
+          subject: 'Oh-My-Media 播放错误',
+          text: 'Oh-My-Media 播放错误日志',
           sharePositionOrigin: sharePositionOrigin,
           files: [
             XFile.fromData(

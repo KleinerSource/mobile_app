@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/models/movie.dart';
+import 'package:omm/core/models/movie.dart';
 
 void main() {
   test('详情模型解析 thumb_uuid', () {

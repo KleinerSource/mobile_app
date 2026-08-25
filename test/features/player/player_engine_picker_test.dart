@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/features/player/playback_engine.dart';
-import 'package:md_center/features/player/player_engine_picker.dart';
-import 'package:md_center/l10n/generated/app_localizations.dart';
+import 'package:omm/features/player/playback_engine.dart';
+import 'package:omm/features/player/player_engine_picker.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   testWidgets('播放器测试选择器显示两个内核并返回选择结果', (tester) async {

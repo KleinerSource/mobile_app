@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/features/player/player_error_view.dart';
+import 'package:omm/features/player/player_error_view.dart';
 
 void main() {
   test('播放错误摘要会压缩空白并截断长堆栈', () {

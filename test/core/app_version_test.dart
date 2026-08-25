@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/platform/app_version.dart';
+import 'package:omm/core/platform/app_version.dart';
 
 void main() {
   test('版本号包含 pubspec 注入的构建号', () {

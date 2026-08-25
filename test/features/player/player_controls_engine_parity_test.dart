@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/core/models/playback.dart';
-import 'package:md_center/features/player/playback_engine.dart';
-import 'package:md_center/features/player/player_controls.dart';
-import 'package:md_center/features/player/player_decode_status.dart';
-import 'package:md_center/features/player/player_session_controller.dart';
+import 'package:omm/core/models/playback.dart';
+import 'package:omm/features/player/playback_engine.dart';
+import 'package:omm/features/player/player_controls.dart';
+import 'package:omm/features/player/player_decode_status.dart';
+import 'package:omm/features/player/player_session_controller.dart';
 
 import 'fake_playback_engine.dart';
 

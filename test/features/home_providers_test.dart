@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/models/movie.dart';
-import 'package:md_center/features/home/home_providers.dart';
+import 'package:omm/core/models/movie.dart';
+import 'package:omm/features/home/home_providers.dart';
 
 void main() {
   test('continue watching 过滤未完成且有有效进度的影片', () {

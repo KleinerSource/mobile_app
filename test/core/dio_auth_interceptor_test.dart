@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/dio_factory.dart';
-import 'package:md_center/core/auth/auth_session.dart';
-import 'package:md_center/core/auth/auth_session_repository.dart';
-import 'package:md_center/core/config/server_config.dart';
+import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/auth/auth_session.dart';
+import 'package:omm/core/auth/auth_session_repository.dart';
+import 'package:omm/core/config/server_config.dart';
 
 void main() {
   test('并发 401 只触发一次 refresh，并重试原请求', () async {

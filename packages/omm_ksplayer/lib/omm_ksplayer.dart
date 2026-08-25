@@ -7,11 +7,11 @@ import 'src/ks_player_api.g.dart';
 export 'src/ks_player_api.g.dart'
     show KsPlayerAudioTrack, KsPlayerEvent, KsPlayerEventType;
 
-class MdCenterKsPlayer {
-  MdCenterKsPlayer._(this.playerId, this._events);
+class OmmKsPlayer {
+  OmmKsPlayer._(this.playerId, this._events);
 
-  static const viewType = 'md_center_ksplayer/view';
-  static final MdCenterKsPlayerHostApi _api = MdCenterKsPlayerHostApi();
+  static const viewType = 'omm_ksplayer/view';
+  static final OmmKsPlayerHostApi _api = OmmKsPlayerHostApi();
   static final Map<int, StreamController<KsPlayerEvent>> _controllers = {};
   static int _nextPlayerId = 1;
   static bool _callbacksRegistered = false;
@@ -22,9 +22,9 @@ class MdCenterKsPlayer {
 
   Stream<KsPlayerEvent> get events => _events.stream;
 
-  static Future<MdCenterKsPlayer> create() async {
+  static Future<OmmKsPlayer> create() async {
     if (!_callbacksRegistered) {
-      MdCenterKsPlayerFlutterApi.setUp(_KsPlayerCallbacks());
+      OmmKsPlayerFlutterApi.setUp(_KsPlayerCallbacks());
       _callbacksRegistered = true;
     }
     final id = _nextPlayerId++;
@@ -32,7 +32,7 @@ class MdCenterKsPlayer {
     _controllers[id] = controller;
     try {
       await _api.create(id);
-      return MdCenterKsPlayer._(id, controller);
+      return OmmKsPlayer._(id, controller);
     } catch (_) {
       _controllers.remove(id);
       await controller.close();
@@ -103,9 +103,9 @@ class MdCenterKsPlayer {
   }
 }
 
-class _KsPlayerCallbacks implements MdCenterKsPlayerFlutterApi {
+class _KsPlayerCallbacks implements OmmKsPlayerFlutterApi {
   @override
   void onEvent(KsPlayerEvent event) {
-    MdCenterKsPlayer._controllers[event.playerId]?.add(event);
+    OmmKsPlayer._controllers[event.playerId]?.add(event);
   }
 }

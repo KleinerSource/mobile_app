@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/update/update_installer.dart';
-import 'package:md_center/core/update/update_models.dart';
-import 'package:md_center/core/update/update_service.dart';
+import 'package:omm/core/update/update_installer.dart';
+import 'package:omm/core/update/update_models.dart';
+import 'package:omm/core/update/update_service.dart';
 
 void main() {
   test('版本号支持语义版本和 build 号比较', () {
     final current = AppReleaseVersion.parse('0.1.60+67');
-    final nextPatch = AppReleaseVersion.parse('md_center_0.1.61+68.apk');
+    final nextPatch = AppReleaseVersion.parse('omm_0.1.61+68.apk');
     final nextBuild = AppReleaseVersion.parse('v0.1.60+68');
 
     expect(current.display, '0.1.60+67');
@@ -45,7 +45,7 @@ void main() {
   test('iOS 安装器 URI 会正确编码 GitHub IPA 下载地址', () {
     const downloadUrl =
         'https://github.com/KleinerSource/mobile_app/releases/download/'
-        'latest/md_center_0.1.64+71.ipa';
+        'latest/omm_0.1.64+71.ipa';
 
     final installerUrl = IosUpdateInstaller.installUri(downloadUrl);
 
@@ -62,7 +62,7 @@ void main() {
         'published_at': '2026-08-10T05:20:00Z',
         'assets': [
           {
-            'name': 'md_center_0.1.60+67.ipa',
+            'name': 'omm_0.1.60+67.ipa',
             'browser_download_url': 'https://github.com/o/r/releases/ipa',
             'size': 100,
           },
@@ -74,7 +74,7 @@ void main() {
         'published_at': '2026-08-10T05:21:00Z',
         'assets': [
           {
-            'name': 'md_center_0.1.60+67.apk',
+            'name': 'omm_0.1.60+67.apk',
             'browser_download_url': 'https://github.com/o/r/releases/apk',
             'size': 200,
           },
@@ -86,7 +86,7 @@ void main() {
         'published_at': '2026-08-09T05:21:00Z',
         'assets': [
           {
-            'name': 'md_center_0.1.59+66.apk',
+            'name': 'omm_0.1.59+66.apk',
             'browser_download_url': 'https://github.com/o/r/releases/old',
             'size': 180,
           },
@@ -107,8 +107,8 @@ void main() {
       ios?.version,
       const AppReleaseVersion(major: 0, minor: 1, patch: 60, build: 67),
     );
-    expect(ios?.asset.name, 'md_center_0.1.60+67.ipa');
-    expect(android?.asset.name, 'md_center_0.1.60+67.apk');
+    expect(ios?.asset.name, 'omm_0.1.60+67.ipa');
+    expect(android?.asset.name, 'omm_0.1.60+67.apk');
   });
 
   test('滚动 Release 标签中的 IPA 资产可识别', () {
@@ -117,9 +117,9 @@ void main() {
       'name': 'Latest unsigned iOS build',
       'assets': [
         {
-          'name': 'md_center_0.1.73+80.ipa',
+          'name': 'omm_0.1.73+80.ipa',
           'browser_download_url':
-              'https://github.com/o/r/releases/download/latest/md_center_0.1.73%2B80.ipa',
+              'https://github.com/o/r/releases/download/latest/omm_0.1.73%2B80.ipa',
           'size': 100,
         },
       ],
@@ -129,7 +129,7 @@ void main() {
       release,
     ], UpdatePlatform.ios);
 
-    expect(candidate?.asset.name, 'md_center_0.1.73+80.ipa');
+    expect(candidate?.asset.name, 'omm_0.1.73+80.ipa');
     expect(
       candidate?.version,
       const AppReleaseVersion(major: 0, minor: 1, patch: 73, build: 80),

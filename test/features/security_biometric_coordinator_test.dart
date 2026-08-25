@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/features/security/security_biometric_coordinator.dart';
+import 'package:omm/features/security/security_biometric_coordinator.dart';
 
 void main() {
   test('启用生物识别的系统页返回不会再次触发应用锁', () {

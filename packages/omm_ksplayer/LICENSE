@@ -1,4 +1,4 @@
-This package is part of md_center and contains only the Flutter bridge.
+This package is part of omm and contains only the Flutter bridge.
 
 The native KSPlayer and FFmpegKit dependencies are distributed under their
 respective licenses. See the dependency repositories and the app's release

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/features/player/player_decode_status.dart';
+import 'package:omm/features/player/player_decode_status.dart';
 
 void main() {
   test('本地和服务端状态使用不同标签、图标和颜色', () {

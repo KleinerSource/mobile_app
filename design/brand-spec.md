@@ -1,4 +1,4 @@
-# md_center · Brand Spec
+# omm · Brand Spec
 
 > 定稿日期: 2026-05-22
 > 设计方向: **多彩集合派** (Playful · Apple Music / Spotify 同气质)

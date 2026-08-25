@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'package:md_center/features/player/playback_engine.dart';
+import 'package:omm/features/player/playback_engine.dart';
 
 class FakePlaybackEngine implements PlaybackEngine {
   FakePlaybackEngine(

@@ -28,7 +28,7 @@ import 'server_switcher.dart';
 const _homeSectionGap = 24.0;
 const _homeSectionTitleGap = 14.0;
 
-/// md_center 首页 · 现代化半屏 hero 设计:
+/// omm 首页 · 现代化半屏 hero 设计:
 /// - 背景为当前轮播封面的大模糊毛玻璃氛围层
 /// - hero 轮播满铺占半屏,上滑先收窄再推出,显出下方卡片
 /// - 模块顺序 (对齐 frontend_new Dashboard.vue):

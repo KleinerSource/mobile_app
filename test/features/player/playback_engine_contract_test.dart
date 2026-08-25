@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/core/models/playback.dart' as playback_models;
-import 'package:md_center/features/player/playback_engine.dart';
-import 'package:md_center/features/player/ks_player_playback_engine.dart';
-import 'package:md_center/features/player/player_session_controller.dart';
-import 'package:md_center/features/player/player_session_factory.dart';
+import 'package:omm/core/models/playback.dart' as playback_models;
+import 'package:omm/features/player/playback_engine.dart';
+import 'package:omm/features/player/ks_player_playback_engine.dart';
+import 'package:omm/features/player/player_session_controller.dart';
+import 'package:omm/features/player/player_session_factory.dart';
 
 import 'fake_playback_engine.dart';
 

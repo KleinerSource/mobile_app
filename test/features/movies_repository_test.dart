@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/services/favorites_api.dart';
-import 'package:md_center/core/api/services/movies_api.dart';
-import 'package:md_center/core/api/services/system_api.dart';
-import 'package:md_center/features/movies/movie_filter.dart';
-import 'package:md_center/features/movies/movies_repository.dart';
+import 'package:omm/core/api/services/favorites_api.dart';
+import 'package:omm/core/api/services/movies_api.dart';
+import 'package:omm/core/api/services/system_api.dart';
+import 'package:omm/features/movies/movie_filter.dart';
+import 'package:omm/features/movies/movies_repository.dart';
 import 'package:retrofit/retrofit.dart';
 
 void main() {

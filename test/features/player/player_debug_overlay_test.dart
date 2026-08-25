@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/features/player/playback_engine.dart';
-import 'package:md_center/features/player/player_debug_overlay.dart';
+import 'package:omm/features/player/playback_engine.dart';
+import 'package:omm/features/player/player_debug_overlay.dart';
 
 void main() {
   test('媒体调试信息可以从 KSPlayer 原生事件解析', () {

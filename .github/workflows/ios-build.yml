@@ -75,9 +75,9 @@ jobs:
             flutter create . \
               --no-pub \
               --platforms=ios \
-              --org com.mdcenter \
-              --project-name md_center \
-              --description "md_center 移动端"
+              --org com.ohmymedia \
+              --project-name omm \
+              --description "omm 移动端"
             # iOS deployment target 16.0
             sed -i '' "s/# platform :ios, '12.0'/platform :ios, '16.0'/" ios/Podfile || true
             sed -i '' "s/platform :ios, '12.0'/platform :ios, '16.0'/" ios/Podfile || true
@@ -194,9 +194,9 @@ jobs:
         run: |
           set -euo pipefail
           version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
-          artifact_prefix="md_center"
+          artifact_prefix="omm"
           if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
-            artifact_prefix="md_center_dev"
+            artifact_prefix="omm_dev"
           fi
           cd build/ios/iphoneos
           mkdir Payload
@@ -209,7 +209,7 @@ jobs:
       - name: 上传 iOS Actions 产物
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ startsWith(github.ref, 'refs/heads/dev') && 'md_center_dev_' || 'md_center_' }}${{ steps.ios_artifact.outputs.version }}.ipa
+          name: ${{ startsWith(github.ref, 'refs/heads/dev') && 'omm_dev_' || 'omm_' }}${{ steps.ios_artifact.outputs.version }}.ipa
           path: ${{ steps.ios_artifact.outputs.path }}
           if-no-files-found: error
           retention-days: 14

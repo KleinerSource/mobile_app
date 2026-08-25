@@ -9,7 +9,7 @@ import '../features/privacy/privacy_providers.dart';
 import 'poster.dart';
 import 'stacked_badges.dart';
 
-/// md_center 标准影片卡片 · 海报 + 评分角标 + 进度条 + 标题元数据
+/// omm 标准影片卡片 · 海报 + 评分角标 + 进度条 + 标题元数据
 ///
 /// 隐私模式开启时,海报盖 blur 暗罩,标题用方块代替;
 /// 单击卡片揭开当张 (而不进 detail),再次点击才进详情。

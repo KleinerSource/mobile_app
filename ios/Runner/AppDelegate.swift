@@ -17,11 +17,11 @@ import UIKit
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
 
-    guard let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MdCenterPlayer") else {
+    guard let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "OmmPlayer") else {
       return
     }
     let statsChannel = FlutterMethodChannel(
-      name: "md_center/player_stats",
+      name: "omm/player_stats",
       binaryMessenger: registrar.messenger()
     )
     let statsReader = PlayerStatsReader()
@@ -35,7 +35,7 @@ import UIKit
     }
 
     let deviceLockChannel = FlutterEventChannel(
-      name: "md_center/device_lock",
+      name: "omm/device_lock",
       binaryMessenger: registrar.messenger()
     )
     deviceLockChannel.setStreamHandler(DeviceLockStreamHandler())
@@ -87,7 +87,7 @@ private final class DeviceLockStreamHandler: NSObject, FlutterStreamHandler {
 
 private final class PlayerStatsReader {
   private let pathMonitor = NWPathMonitor()
-  private let pathMonitorQueue = DispatchQueue(label: "md_center.player_stats.network")
+  private let pathMonitorQueue = DispatchQueue(label: "omm.player_stats.network")
   private let pathLock = NSLock()
   private var latestPath: NWPath?
   private let telephonyInfo = CTTelephonyNetworkInfo()

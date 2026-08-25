@@ -233,7 +233,7 @@ Future<void> applyAndroidFlagSecure(bool enabled) async {
   if (kIsWeb || !Platform.isAndroid) return;
   try {
     // 通过 MethodChannel 设置 Activity flag
-    const channel = MethodChannel('md_center/privacy');
+    const channel = MethodChannel('omm/privacy');
     await channel.invokeMethod(enabled ? 'enableSecure' : 'disableSecure');
   } catch (_) {
     // 没注册 native handler 也不影响 widget 层遮罩

@@ -6,7 +6,7 @@ import 'package:pigeon/pigeon.dart';
     dartOptions: DartOptions(),
     swiftOut: 'ios/Classes/KsPlayerApi.g.swift',
     swiftOptions: SwiftOptions(),
-    dartPackageName: 'md_center_ksplayer',
+    dartPackageName: 'omm_ksplayer',
   ),
 )
 enum KsPlayerEventType {
@@ -55,7 +55,7 @@ class KsPlayerAudioTrack {
 }
 
 @HostApi()
-abstract class MdCenterKsPlayerHostApi {
+abstract class OmmKsPlayerHostApi {
   void create(int playerId);
 
   @async
@@ -103,6 +103,6 @@ abstract class MdCenterKsPlayerHostApi {
 }
 
 @FlutterApi()
-abstract class MdCenterKsPlayerFlutterApi {
+abstract class OmmKsPlayerFlutterApi {
   void onEvent(KsPlayerEvent event);
 }

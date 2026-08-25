@@ -1,5 +1,5 @@
-name: md_center
-description: md_center 移动端 (iOS + Android)
+name: omm
+description: omm 移动端 (iOS + Android)
 publish_to: 'none'
 version: 0.38.21+408
 environment:
@@ -34,8 +34,8 @@ dependencies:
     path: packages/media_kit_libs_android_video
   media_kit_libs_ios_video:
     path: packages/media_kit_libs_ios_video
-  md_center_ksplayer:
-    path: packages/md_center_ksplayer
+  omm_ksplayer:
+    path: packages/omm_ksplayer
   screen_brightness: ^2.1.11
   flutter_volume_controller: ^2.0.1
   wakelock_plus: ^1.4.0

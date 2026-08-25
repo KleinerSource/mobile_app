@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/features/player/player_gesture_layer.dart';
+import 'package:omm/features/player/player_gesture_layer.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

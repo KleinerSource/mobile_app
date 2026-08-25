@@ -6,7 +6,7 @@ build/
 .pub-cache/
 .pub/
 *.g.dart
-!packages/md_center_ksplayer/lib/src/ks_player_api.g.dart
+!packages/omm_ksplayer/lib/src/ks_player_api.g.dart
 *.freezed.dart
 
 # iOS
@@ -65,8 +65,8 @@ android/app/*
 !android/app/src/main/AndroidManifest.xml
 !android/app/src/main/kotlin/
 !android/app/src/main/kotlin/com/
-!android/app/src/main/kotlin/com/mdcenter/
-!android/app/src/main/kotlin/com/mdcenter/MainActivity.kt
+!android/app/src/main/kotlin/com/omm/
+!android/app/src/main/kotlin/com/omm/MainActivity.kt
 android/app/src/debug/
 android/app/src/profile/
 android/app/src/main/res/

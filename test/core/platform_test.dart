@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/platform/platform.dart';
+import 'package:omm/core/platform/platform.dart';
 
 void main() {
   Widget wrap(TargetPlatform p, Widget child) => MaterialApp(

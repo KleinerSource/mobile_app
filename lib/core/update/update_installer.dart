@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 class AndroidUpdateInstaller {
   AndroidUpdateInstaller._();
 
-  static const _channel = MethodChannel('md_center/app_update');
+  static const _channel = MethodChannel('omm/app_update');
 
   static Future<bool> install(File apk) async {
     if (!Platform.isAndroid) return false;

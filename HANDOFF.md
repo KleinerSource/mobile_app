@@ -1,4 +1,4 @@
-# md_center mobile_app · 设计对接 · 交付说明
+# omm mobile_app · 设计对接 · 交付说明
 
 > 完成日期: 2026-05-22
 > 范围: 设计稿 → Flutter 全量对接 (4 Tab + 主题系统 + 二级页)
@@ -10,7 +10,7 @@
 ### 1. 生成代码 (freezed / json_serializable / retrofit)
 
 ```bash
-cd D:\Projects\MyProject\ghs\md_center\mobile_app\.claude\worktrees\mystifying-euclid-302347
+cd D:\Projects\MyProject\ghs\omm\mobile_app\.claude\worktrees\mystifying-euclid-302347
 flutter pub get
 dart run build_runner build
 ```
@@ -135,7 +135,7 @@ lib/
 
 启动后请确认:
 
-- [ ] 首次启动进入 ServerSetupPage,大字号 "连接到 md_center"
+- [ ] 首次启动进入 ServerSetupPage,大字号 "连接到 omm"
 - [ ] 填地址后进入主界面,底部悬浮 4-Tab 胶囊
 - [ ] Home 显示问候 / Continue Watching (若有看过的) / Libraries / Recently Added
 - [ ] Library Tab 显示 3 列网格 + Grid/List 切换 + filter chips

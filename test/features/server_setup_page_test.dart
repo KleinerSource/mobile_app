@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/config/server_config_provider.dart';
-import 'package:md_center/features/settings/server_setup_page.dart';
+import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/features/settings/server_setup_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

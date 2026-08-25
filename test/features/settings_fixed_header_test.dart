@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/features/settings/settings_common.dart';
-import 'package:md_center/shared/status_bar_scroll_to_top.dart';
+import 'package:omm/features/settings/settings_common.dart';
+import 'package:omm/shared/status_bar_scroll_to_top.dart';
 
 void main() {
   testWidgets('设置页响应 iOS 状态栏点击并滚动到顶部', (tester) async {

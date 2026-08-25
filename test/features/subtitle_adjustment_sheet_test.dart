@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/features/player/subtitle_adjustment_sheet.dart';
-import 'package:md_center/features/player/subtitle_settings.dart';
+import 'package:omm/features/player/subtitle_adjustment_sheet.dart';
+import 'package:omm/features/player/subtitle_settings.dart';
 
 void main() {
   testWidgets('字幕调节浮层使用紧凑步进控件并实时回调', (tester) async {

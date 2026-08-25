@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/update/update_models.dart';
-import 'package:md_center/core/update/update_repository.dart';
+import 'package:omm/core/update/update_models.dart';
+import 'package:omm/core/update/update_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

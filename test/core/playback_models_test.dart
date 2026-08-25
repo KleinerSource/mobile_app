@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/models/playback.dart';
+import 'package:omm/core/models/playback.dart';
 
 void main() {
   test('播放决策解析模式、音轨和字幕轨', () {

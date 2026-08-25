@@ -49,7 +49,7 @@ String formatCacheBytes(int bytes) {
 class DiskCacheService {
   DiskCacheService({Directory? rootDirectory}) : _rootOverride = rootDirectory;
 
-  static const _rootName = 'md_center_cache';
+  static const _rootName = 'omm_cache';
   static const _otherDirName = 'other';
 
   final Directory? _rootOverride;

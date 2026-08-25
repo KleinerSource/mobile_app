@@ -1,6 +1,6 @@
 # 第三方组件许可证声明
 
-本文件随 md_center iOS 构建产物提供。
+本文件随 omm iOS 构建产物提供。
 
 ## KSPlayer
 

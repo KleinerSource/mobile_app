@@ -286,11 +286,11 @@ class _PigeonCodec extends StandardMessageCodec {
   }
 }
 
-class MdCenterKsPlayerHostApi {
-  /// Constructor for [MdCenterKsPlayerHostApi].  The [binaryMessenger] named argument is
+class OmmKsPlayerHostApi {
+  /// Constructor for [OmmKsPlayerHostApi].  The [binaryMessenger] named argument is
   /// available for dependency injection.  If it is left null, the default
   /// BinaryMessenger will be used which routes to the host platform.
-  MdCenterKsPlayerHostApi({
+  OmmKsPlayerHostApi({
     BinaryMessenger? binaryMessenger,
     String messageChannelSuffix = '',
   }) : pigeonVar_binaryMessenger = binaryMessenger,
@@ -305,7 +305,7 @@ class MdCenterKsPlayerHostApi {
 
   Future<void> create(int playerId) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.create$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.create$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -333,7 +333,7 @@ class MdCenterKsPlayerHostApi {
     String? videoCodec,
   ) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.open$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.open$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -361,7 +361,7 @@ class MdCenterKsPlayerHostApi {
 
   Future<void> play(int playerId) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.play$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.play$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -381,7 +381,7 @@ class MdCenterKsPlayerHostApi {
 
   Future<void> pause(int playerId) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.pause$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.pause$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -401,7 +401,7 @@ class MdCenterKsPlayerHostApi {
 
   Future<void> stop(int playerId) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.stop$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.stop$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -421,7 +421,7 @@ class MdCenterKsPlayerHostApi {
 
   Future<void> seek(int playerId, double positionMs) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.seek$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.seek$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -441,7 +441,7 @@ class MdCenterKsPlayerHostApi {
 
   Future<void> setRate(int playerId, double rate) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.setRate$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.setRate$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -461,7 +461,7 @@ class MdCenterKsPlayerHostApi {
 
   Future<List<KsPlayerAudioTrack>> audioTracks(int playerId) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.audioTracks$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.audioTracks$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -482,7 +482,7 @@ class MdCenterKsPlayerHostApi {
 
   Future<void> selectAudioTrack(int playerId, String trackId) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.selectAudioTrack$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.selectAudioTrack$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -506,7 +506,7 @@ class MdCenterKsPlayerHostApi {
     int? fallbackIndex,
   ) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.selectSubtitleTrack$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.selectSubtitleTrack$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -526,7 +526,7 @@ class MdCenterKsPlayerHostApi {
 
   Future<void> clearSubtitleTrack(int playerId) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.clearSubtitleTrack$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.clearSubtitleTrack$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -546,7 +546,7 @@ class MdCenterKsPlayerHostApi {
 
   Future<Uint8List?> captureFrame(int playerId, double positionMs) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.captureFrame$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.captureFrame$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -567,7 +567,7 @@ class MdCenterKsPlayerHostApi {
 
   Future<void> cancelFramePreview(int playerId) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.cancelFramePreview$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.cancelFramePreview$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -587,7 +587,7 @@ class MdCenterKsPlayerHostApi {
 
   Future<bool> startPictureInPicture(int playerId) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.startPictureInPicture$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.startPictureInPicture$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -608,7 +608,7 @@ class MdCenterKsPlayerHostApi {
 
   Future<void> stopPictureInPicture(int playerId) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.stopPictureInPicture$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.stopPictureInPicture$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -628,7 +628,7 @@ class MdCenterKsPlayerHostApi {
 
   Future<void> dispose(int playerId) async {
     final pigeonVar_channelName =
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.dispose$pigeonVar_messageChannelSuffix';
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.dispose$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -647,13 +647,13 @@ class MdCenterKsPlayerHostApi {
   }
 }
 
-abstract class MdCenterKsPlayerFlutterApi {
+abstract class OmmKsPlayerFlutterApi {
   static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
 
   void onEvent(KsPlayerEvent event);
 
   static void setUp(
-    MdCenterKsPlayerFlutterApi? api, {
+    OmmKsPlayerFlutterApi? api, {
     BinaryMessenger? binaryMessenger,
     String messageChannelSuffix = '',
   }) {
@@ -662,7 +662,7 @@ abstract class MdCenterKsPlayerFlutterApi {
         : '';
     {
       final pigeonVar_channel = BasicMessageChannel<Object?>(
-        'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerFlutterApi.onEvent$messageChannelSuffix',
+        'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerFlutterApi.onEvent$messageChannelSuffix',
         pigeonChannelCodec,
         binaryMessenger: binaryMessenger,
       );

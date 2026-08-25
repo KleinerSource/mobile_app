@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/core/models/playback.dart';
-import 'package:md_center/features/player/engine_playback_route.dart';
-import 'package:md_center/features/player/playback_engine.dart';
+import 'package:omm/core/models/playback.dart';
+import 'package:omm/features/player/engine_playback_route.dart';
+import 'package:omm/features/player/playback_engine.dart';
 
 PlaybackDecision _decision(String mode) => PlaybackDecision(
   mode: mode,

@@ -284,7 +284,7 @@
 
 - [x] 复核并保留 KSPlayer 仓库已有改动，提交并推送固定版本
 - [x] 完成 Flutter 播放抽象、能力声明、路由和 fallback
-- [x] 新增 md_center_ksplayer Pigeon/Platform View 插件
+- [x] 新增 omm_ksplayer Pigeon/Platform View 插件
 - [x] 完成 iOS CI 依赖注入和许可证声明
 - [x] 通过 Dart analyze/test
 - [x] 完成原生桥接静态复核，记录 Windows 无法执行的 macOS/iOS 验证

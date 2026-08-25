@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/config/server_profile_cache_repository.dart';
-import 'package:md_center/core/models/system.dart';
+import 'package:omm/core/config/server_profile_cache_repository.dart';
+import 'package:omm/core/models/system.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

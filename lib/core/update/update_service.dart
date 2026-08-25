@@ -140,7 +140,7 @@ class GitHubUpdateService {
     final directory = await getTemporaryDirectory();
     final fileName = _safeFileName(asset.name);
     final file = File(
-      '${directory.path}${Platform.pathSeparator}md_center_update_$fileName',
+      '${directory.path}${Platform.pathSeparator}omm_update_$fileName',
     );
     if (await file.exists()) await file.delete();
     try {

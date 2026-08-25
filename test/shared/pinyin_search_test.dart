@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/shared/pinyin_search.dart';
+import 'package:omm/shared/pinyin_search.dart';
 
 void main() {
   test('支持名称、全拼和拼音首字母搜索', () {

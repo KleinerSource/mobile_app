@@ -1,5 +1,5 @@
-name: md_center_ksplayer
-description: KSPlayer engine bridge for md_center on iOS.
+name: omm_ksplayer
+description: KSPlayer engine bridge for omm on iOS.
 publish_to: none
 version: 0.1.0
 
@@ -22,4 +22,4 @@ flutter:
   plugin:
     platforms:
       ios:
-        pluginClass: MdCenterKsplayerPlugin
+        pluginClass: OmmKsplayerPlugin

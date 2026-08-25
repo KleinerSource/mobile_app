@@ -6,26 +6,26 @@ import Foundation
 import KSPlayer
 import UIKit
 
-public final class MdCenterKsplayerPlugin: NSObject, FlutterPlugin {
+public final class OmmKsplayerPlugin: NSObject, FlutterPlugin {
   public static func register(with registrar: FlutterPluginRegistrar) {
     let manager = KsPlayerManager(messenger: registrar.messenger())
-    MdCenterKsPlayerHostApiSetup.setUp(
+    OmmKsPlayerHostApiSetup.setUp(
       binaryMessenger: registrar.messenger(),
       api: manager
     )
     registrar.register(
       KsPlayerViewFactory(manager: manager),
-      withId: "md_center_ksplayer/view"
+      withId: "omm_ksplayer/view"
     )
   }
 }
 
-private final class KsPlayerManager: NSObject, MdCenterKsPlayerHostApi {
-  private let flutterApi: MdCenterKsPlayerFlutterApi
+private final class KsPlayerManager: NSObject, OmmKsPlayerHostApi {
+  private let flutterApi: OmmKsPlayerFlutterApi
   private var sessions: [Int64: KsPlayerSession] = [:]
 
   init(messenger: FlutterBinaryMessenger) {
-    flutterApi = MdCenterKsPlayerFlutterApi(binaryMessenger: messenger)
+    flutterApi = OmmKsPlayerFlutterApi(binaryMessenger: messenger)
   }
 
   func create(playerId: Int64) throws {
@@ -265,7 +265,7 @@ private final class KsPlayerContainerView: UIView {
 @MainActor
 private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
   private let playerId: Int64
-  private let flutterApi: MdCenterKsPlayerFlutterApiProtocol
+  private let flutterApi: OmmKsPlayerFlutterApiProtocol
   private let layer: KSPlayerLayer
   private var pipCancellable: AnyCancellable?
   private var pendingOpen: ((Result<Void, Error>) -> Void)?
@@ -275,7 +275,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
   private var disposed = false
   private var lastVideoSize = CGSize.zero
 
-  init(playerId: Int64, flutterApi: MdCenterKsPlayerFlutterApiProtocol) {
+  init(playerId: Int64, flutterApi: OmmKsPlayerFlutterApiProtocol) {
     self.playerId = playerId
     self.flutterApi = flutterApi
     let options = KSOptions()

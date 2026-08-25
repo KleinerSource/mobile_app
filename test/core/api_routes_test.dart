@@ -2,25 +2,25 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/services/actors_api.dart';
-import 'package:md_center/core/api/services/audio_api.dart';
-import 'package:md_center/core/api/services/configs_extended_api.dart';
-import 'package:md_center/core/api/services/genres_api.dart';
-import 'package:md_center/core/api/services/libraries_api.dart';
-import 'package:md_center/core/api/services/libraries_extended_api.dart';
-import 'package:md_center/core/api/services/mappings_api.dart';
-import 'package:md_center/core/api/services/movies_api.dart';
-import 'package:md_center/core/api/services/movies_extended_api.dart';
-import 'package:md_center/core/api/services/modal_transcription_api.dart';
-import 'package:md_center/core/api/services/playback_api.dart';
-import 'package:md_center/core/api/services/series_api.dart';
-import 'package:md_center/core/api/services/tags_api.dart';
-import 'package:md_center/core/api/services/translation_api.dart';
-import 'package:md_center/core/api/services/system_extended_api.dart';
-import 'package:md_center/core/config/server_config.dart';
-import 'package:md_center/core/models/playback.dart';
-import 'package:md_center/features/libraries/libraries_repository.dart';
-import 'package:md_center/features/translation/translation_repository.dart';
+import 'package:omm/core/api/services/actors_api.dart';
+import 'package:omm/core/api/services/audio_api.dart';
+import 'package:omm/core/api/services/configs_extended_api.dart';
+import 'package:omm/core/api/services/genres_api.dart';
+import 'package:omm/core/api/services/libraries_api.dart';
+import 'package:omm/core/api/services/libraries_extended_api.dart';
+import 'package:omm/core/api/services/mappings_api.dart';
+import 'package:omm/core/api/services/movies_api.dart';
+import 'package:omm/core/api/services/movies_extended_api.dart';
+import 'package:omm/core/api/services/modal_transcription_api.dart';
+import 'package:omm/core/api/services/playback_api.dart';
+import 'package:omm/core/api/services/series_api.dart';
+import 'package:omm/core/api/services/tags_api.dart';
+import 'package:omm/core/api/services/translation_api.dart';
+import 'package:omm/core/api/services/system_extended_api.dart';
+import 'package:omm/core/config/server_config.dart';
+import 'package:omm/core/models/playback.dart';
+import 'package:omm/features/libraries/libraries_repository.dart';
+import 'package:omm/features/translation/translation_repository.dart';
 
 void main() {
   test('映射 Retrofit 路径使用后端实际的 /mappings/type/{type}', () async {

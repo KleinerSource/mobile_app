@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/models/movie.dart';
-import 'package:md_center/features/home/home_movie_view_state.dart';
+import 'package:omm/core/models/movie.dart';
+import 'package:omm/features/home/home_movie_view_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
