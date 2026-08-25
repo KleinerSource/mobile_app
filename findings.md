@@ -436,3 +436,29 @@
 - Android/iOS workflow 都会调用 `bump_app_version.dart` 修改当前 checkout 的 `pubspec.yaml`，但只有 iOS workflow 负责提交持久化。
 - iOS 当前写回条件只允许 `refs/heads/master`，并固定执行 `git push origin HEAD:master`，因此 dev 每次 push 都从分支中未更新的版本重新计算。
 - 最小修复是把允许分支扩展为 master/dev，并使用 `GITHUB_REF_NAME` 将版本提交推回触发构建的当前分支；Android workflow 无需修改。
+
+# KSPlayer 连续切换清晰度失效（2026-08-26）
+
+- 质量菜单与播放路由正常；故障发生在 `PlayerPage._loadInternal` 的旧源清理阶段。
+- 当前顺序在显示 loading 和停止本地播放器之前同步等待 `_stopTranscodeSession()`；后端会逐个等待 FFmpeg 会话退出，单会话最坏约 4 秒。
+- 等待期间 KSPlayer/AVPlayer 仍消费旧 HLS，旧画面继续播放，后续质量请求又被 `_loadQueue` 串行阻塞，因此表现为点击后无反馈。
+- `自动 → 转码` 没有旧转码会话所以正常；从转码档继续切换时稳定触发该阻塞窗口。libmpv 对此更不敏感，但共享编排仍应保持一致。
+- 最小修复顺序确定为：立即写入目标质量和 loading → 解绑旧监听 → 停止本地播放器 → 等待旧服务端转码清理 → 请求决策并打开新源。
+- `_onQualityChanged` 已在发起新加载前捕获播放位置；需同时传递统一会话的 `playbackIntent`，避免暂停状态切换质量后被默认恢复为播放，无需增加新的状态或公共注入 API。
+
+# KSPlayer 二次切换后无限加载（2026-08-26）
+
+- 当前已提交代码仍包含上一轮顺序修复；工作区的业务代码干净，仅历史规划文件未提交。
+- 第二次切换是首次存在 `_eventsSub` 和活动转码会话的路径；`自动 → 转码` 时两者均不存在，因此仍可成功。
+- 初步怀疑 `_stopTranscodeSession()` 中的 `await _eventsSub?.cancel()` 是第二次切换独有的无界等待点，随后已用悬挂底层取消测试排除。
+- KSPlayer Dart/Swift 的 `stop()` 都是直接返回的命令路径，Swift 后续 `open()` 还会重建 layer；目前没有证据表明本地 stop 本身会无限等待。
+- 后端 DELETE 会先把该影片全部会话从 manager 摘除，再逐个 `Stop()`；单会话最多等待 FFmpeg 约 4 秒，不持有 manager 全局锁，因此新会话创建不应永久阻塞。
+- SSE handler 在断连时会执行 `unsubscribe` 并获取同一个 session 锁；客户端若同时先发 DELETE 再等待 SSE cancel，取消完成会与服务端 `Stop()` 的 session 锁竞争，至少放大清理等待。
+- 前端 Web 已明确弃用 `/transcode-events`，改为每 2 秒轮询，原因是 SSE 生命周期和切档时序不可靠；移动端当前实际上已同时保持 SSE 和每 3 秒轮询，因此 SSE 不是状态监控必需路径。
+- 常规 API 的 Dio `receiveTimeout` 为 30 秒，DELETE 即使异常也会最终超时；曾据此优先验证 SSE 取消，但测试证明对外 cancel 已经有界。
+- 实际回归测试表明，即使底层 `ResponseBody.stream.onCancel` 永不完成，`PlaybackApi.events(...).listen(...).cancel()` 仍在 200ms 内完成；Dart `async*` 已把该清理从调用方取消 Future 中隔离，SSE 不是无限 loading 根因，测试已删除。
+- 第二次切换通常发生在播放位置已大于 0 时。KSPlayer 的 HLS/AVPlayer `open()` 在 `.readyToPlay` 后调用 `layer.seek`，并且只有 seek completion 回调触发才向 Dart 完成 `open`；该回调当前没有超时，是实际无界的加载边界。
+- 首次 `自动 → 转码` 若位置接近 0，会直接完成 native open，不经过非零 seek 等待；这与“第一次正常、第二次无限加载”的差异完全吻合。
+- `finishPendingOpenIfReady()` 的 seek 分支没有任何兜底完成；同文件已有 `openGeneration` 和 `Task.sleep` 代次校验模式，可用一个短的 generation-aware 超时只解除 Dart open 等待，同时保留原 seek 和后续位置校验。
+- `packages/omm_ksplayer` 没有 Swift/XCTest 测试目标，Windows 也无法编译 iOS 插件；需要用 Dart 契约测试覆盖统一 stop/open 状态，并把 Swift 编译与真机复测列为平台验收。
+- 最终修复不再等待 AVPlayer 初始 seek completion 才完成 Pigeon open；非零起点同时启用既有延迟定位校验，校验重试使用 `pendingAutoplay` 保留播放意图。

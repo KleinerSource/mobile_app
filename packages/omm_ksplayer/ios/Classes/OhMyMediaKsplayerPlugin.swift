@@ -350,7 +350,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       pendingStartVerificationMs = startSeconds >= 2.5 ? startSeconds * 1000 : 0
     } else {
       pendingStartPositionMs = startSeconds * 1000
-      pendingStartVerificationMs = 0
+      pendingStartVerificationMs = startSeconds >= 2.5 ? startSeconds * 1000 : 0
     }
     layer.set(url: mediaURL, options: options)
     layer.prepareToPlay()
@@ -633,20 +633,18 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     }
     if pendingStartPositionMs > 0 {
       let start = pendingStartPositionMs / 1000
-      currentLayer.seek(time: start, autoPlay: pendingAutoplay) { [weak self] _ in
-        guard let self,
-              self.openGeneration == generation
-        else { return }
-        finish()
-      }
+      // AVPlayer 切换 HLS 时可能不回调 seek completion。媒体已经 ready 后，
+      // 初始 seek 只负责定位，不应继续阻塞 Pigeon open；稍后的定位校验负责兜底。
+      currentLayer.seek(time: start, autoPlay: pendingAutoplay) { _ in }
+      finish()
     } else {
       if pendingAutoplay { currentLayer.play() }
       finish()
     }
   }
 
-  /// startPlayTime 快路径的兜底校验：个别容器 start_time 缺失时，内核换算出的
-  /// 定位目标会落在 0 附近；就绪片刻后比对实际播放位置，失准则退回 seek 补救。
+  /// 初始定位的兜底校验：FFmpeg startPlayTime 或 AVPlayer ready 后的 seek
+  /// 都可能落在 0 附近；就绪片刻后比对实际播放位置，失准则再 seek 补救。
   /// 只能从 .readyToPlay 调度——那之前读线程可能尚未定位，位置恒为 0 会误判。
   private func verifyStartPositionLater() {
     let targetMs = pendingStartVerificationMs
@@ -663,7 +661,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       guard player.currentPlaybackTime + 1.5 < target else { return }
       let duration = player.duration
       guard duration <= 0 || target < duration else { return }
-      self.layer.seek(time: target, autoPlay: player.isPlaying) { _ in }
+      self.layer.seek(time: target, autoPlay: self.pendingAutoplay) { _ in }
     }
   }
 

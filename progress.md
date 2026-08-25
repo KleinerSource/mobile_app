@@ -268,3 +268,30 @@
 - master 的 Android `32868044178` 与 iOS `32868044174` 已完成且结论均为 `success`。
 - `latest-android` 已发布 `omm_0.39.0+410.apk`，`latest` 已发布 `omm_0.39.0+410.ipa`。
 - 开发版 `latest-android-dev` / `latest-ios-dev` 仍分别保持 `omm_dev_0.39.0+409.apk/.ipa`，确认标准与开发渠道没有互相覆盖。
+
+## 2026-08-26 KSPlayer 连续切换清晰度失效
+
+- 已读取并遵循 `planning-with-files`，恢复上下文时工作区干净。
+- 首次同时追加三个规划文件因 `findings.md` 锚点不存在而整体失败，未修改任何文件；已改用真实 EOF 锚点分别追加并记录错误。
+- 已按仓库规则使用 CodeGraph 复核 `PlayerPage._loadInternal` 调用链；确认当前仍是先停服务端转码、后停本地播放器、最后显示 loading。
+- CodeGraph 对少数无关/测试依赖文件提示索引同步中；`player_page.dart` 返回的是当前磁盘源码，测试文件将按提示直接读取。
+- 下一步调整共享切源顺序并补充 libmpv/KSPlayer 的 `open → stop → open` 契约测试。
+- 已将目标质量、loading 和旧决策清理提前到服务端等待之前；随后按“解绑监听 → 停本地播放器 → 等服务端清理”执行，并在两个异步边界检查任务代次。
+- 已让质量切换同时捕获并传递 `_host.playbackIntent`，暂停切换保持暂停，播放中切换继续自动播放。
+- 已新增统一契约测试，libmpv/KSPlayer 均覆盖 `open → stop → open`、84 秒续播点以及播放/暂停两种意图。
+- 定向播放器与模型测试 27 项通过；`flutter analyze --no-pub` 无问题；完整 `flutter test --no-pub` 419 项全部通过。
+- Windows 环境无法执行 iOS 真机验证，最终仍需按既定连续切换矩阵验证 KSPlayer，并用 libmpv 重跑同路径。
+
+## 2026-08-26 KSPlayer 二次切换后无限加载
+
+- 用户真机反馈第二次切换分辨率进入无限 loading，已重新读取并启用 `planning-with-files`。
+- 会话恢复确认上一轮播放器代码已进入当前 HEAD；工作区仅三个规划文件有未提交记录。
+- CodeGraph 复核确认第二次切换新增的独有等待点是 `_stopTranscodeSession()` 中对 Dio SSE 订阅取消的无界等待，后续仍需结合服务端停止实现验证并补测试。
+- 后端复核确认 StopByMovie 有界但 SSE 断连清理会竞争 session 锁；Web 端已有轮询替代 SSE 的同类时序结论，移动端现有 3 秒轮询可作为可靠状态来源。
+- Dio 配置复核确认 DELETE 最长有 30 秒接收超时，SSE cancel 则无界；开始设计 API 层取消契约测试，避免依赖 iOS 私有状态或扩大 PlayerPage 注入面。
+- SSE 悬挂取消测试未能复现且当前实现已通过，已删除该无效测试并记录；诊断转向 KSPlayer 原生 `finishPendingOpenIfReady()` 对非零 seek 回调的无界依赖。
+- 已确认原生插件没有 Swift 单元测试目标；拟为 ready 后的初始 seek 增加 generation-aware 有界完成兜底，并扩展现有统一播放器连续打开契约覆盖非零位置。
+- 已实施最小原生修复：ready 后提交初始 seek 即完成 Pigeon open，不再等待可能缺失的 seek completion；AVPlayer 非零起点启用既有延迟位置校验，校验重试沿用原始 autoplay 意图。
+- CodeGraph 已复核修改后的 Swift 源码和影响范围；播放器契约、路由、菜单一致性及播放模型定向测试 27 项通过。
+- 当前 Windows 没有 Swift 编译/格式化工具，已明确保留 iOS CI/真机验证，不以 Dart 测试替代原生编译结论。
+- `flutter analyze --no-pub` 通过；完整 `flutter test --no-pub` 419 项全部通过；最终空白和改动范围检查通过。
