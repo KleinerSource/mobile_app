@@ -270,6 +270,8 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
   private var pipCancellable: AnyCancellable?
   private var pendingOpen: ((Result<Void, Error>) -> Void)?
   private var pendingStartPositionMs: Double = 0
+  private var pendingStartVerificationMs: Double = 0
+  private var startVerificationGeneration = 0
   private var pendingAutoplay = true
   private var desiredRate: Float = 1
   private var disposed = false
@@ -312,23 +314,43 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     }
     pendingOpen?(.failure(KsPlayerPluginError.cancelled))
     pendingOpen = completion
-    pendingStartPositionMs = max(0, startPositionMs ?? 0)
     pendingAutoplay = autoplay
+    let startSeconds = max(0, startPositionMs ?? 0) / 1000
+    startVerificationGeneration += 1
 
+    // 上一轮播放可能把 isAutoPlay 置真，url didSet 会据此抢先 prepareToPlay，
+    // 与下方显式调用叠加成双重探测（open 线程串行跑两遍）；先归一化成 false，
+    // 由这里统一驱动起播。
+    layer.pause()
     layer.stop()
     // Flutter 统一处理播放失败，不允许 KSPlayer 在内部再切换到第二套内核。
     KSOptions.secondPlayerType = nil
-    KSOptions.firstPlayerType = prefersFfmpegPlayer(
+    let useFfmpegPlayer = prefersFfmpegPlayer(
       url: mediaURL,
       formatHint: formatHint,
       videoCodec: videoCodec
-    ) ? KSMEPlayer.self : KSAVPlayer.self
+    )
+    KSOptions.firstPlayerType = useFfmpegPlayer ? KSMEPlayer.self : KSAVPlayer.self
     lastVideoSize = .zero
     let options = KSOptions()
     options.startPlayRate = desiredRate
     options.isSeekedAutoPlay = autoplay
+    // KSPlayer 内核自带的秒开门控：首批解码帧就绪即起播，
+    // 不必先攒满 preferredForwardBufferDuration（默认 3 秒）的前向缓冲。
+    options.isSecondOpen = true
     if let headers, !headers.isEmpty {
       options.appendHeader(headers)
+    }
+    if useFfmpegPlayer, startSeconds > 0 {
+      // FFmpeg 内核在读线程首次读包前直接定位到续播点，省掉 readyToPlay 后
+      // 再 seek 的第二轮探测与缓冲。个别容器缺少 start_time 时定位会失准，
+      // 起播后由 verifyStartPositionLater() 校验兜底。
+      options.startPlayTime = startSeconds
+      pendingStartPositionMs = 0
+      pendingStartVerificationMs = startSeconds >= 2.5 ? startSeconds * 1000 : 0
+    } else {
+      pendingStartPositionMs = startSeconds * 1000
+      pendingStartVerificationMs = 0
     }
     layer.set(url: mediaURL, options: options)
     layer.prepareToPlay()
@@ -376,6 +398,8 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
 
   func stop() throws {
     guard !disposed else { throw KsPlayerPluginError.disposed }
+    pendingStartVerificationMs = 0
+    startVerificationGeneration += 1
     layer.stop()
   }
 
@@ -387,6 +411,8 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       completion(.failure(KsPlayerPluginError.disposed))
       return
     }
+    pendingStartVerificationMs = 0
+    startVerificationGeneration += 1
     layer.seek(time: max(0, positionMs) / 1000, autoPlay: layer.state.isPlaying) { finished in
       completion(finished ? .success(()) : .failure(KsPlayerPluginError.cancelled))
     }
@@ -507,6 +533,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       send(.ready)
       sendVideoSizeIfNeeded()
       finishPendingOpenIfReady()
+      verifyStartPositionLater()
     case .buffering:
       send(.playing, boolValue: true)
       send(.buffering, boolValue: true)
@@ -563,6 +590,28 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     } else {
       if pendingAutoplay { layer.play() }
       finish()
+    }
+  }
+
+  /// startPlayTime 快路径的兜底校验：个别容器 start_time 缺失时，内核换算出的
+  /// 定位目标会落在 0 附近；就绪片刻后比对实际播放位置，失准则退回 seek 补救。
+  /// 只能从 .readyToPlay 调度——那之前读线程可能尚未定位，位置恒为 0 会误判。
+  private func verifyStartPositionLater() {
+    let targetMs = pendingStartVerificationMs
+    guard targetMs > 0 else { return }
+    let generation = startVerificationGeneration
+    Task { @MainActor [weak self] in
+      try? await Task.sleep(nanoseconds: 350_000_000)
+      guard let self, !self.disposed, self.startVerificationGeneration == generation else {
+        return
+      }
+      self.pendingStartVerificationMs = 0
+      let target = targetMs / 1000
+      let player = self.layer.player
+      guard player.currentPlaybackTime + 1.5 < target else { return }
+      let duration = player.duration
+      guard duration <= 0 || target < duration else { return }
+      self.layer.seek(time: target, autoPlay: player.isPlaying) { _ in }
     }
   }
 
