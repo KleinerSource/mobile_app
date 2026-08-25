@@ -40,6 +40,7 @@ private final class KsPlayerManager: NSObject, MdCenterKsPlayerHostApi {
     startPositionMs: Double?,
     autoplay: Bool,
     headers: [String: String]?,
+    formatHint: String?,
     completion: @escaping (Result<Void, Error>) -> Void
   ) {
     guard let session = sessions[playerId] else {
@@ -52,6 +53,7 @@ private final class KsPlayerManager: NSObject, MdCenterKsPlayerHostApi {
         startPositionMs: startPositionMs,
         autoplay: autoplay,
         headers: headers,
+        formatHint: formatHint,
         completion: completion
       )
     }
@@ -297,6 +299,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     startPositionMs: Double?,
     autoplay: Bool,
     headers: [String: String]?,
+    formatHint: String?,
     completion: @escaping (Result<Void, Error>) -> Void
   ) {
     guard let mediaURL = URL(string: url), mediaURL.scheme != nil else {
@@ -309,6 +312,13 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     pendingAutoplay = autoplay
 
     layer.stop()
+    // Flutter 统一处理播放失败，不允许 KSPlayer 在内部再切换到第二套内核。
+    KSOptions.secondPlayerType = nil
+    KSOptions.firstPlayerType = prefersFfmpegPlayer(
+      url: mediaURL,
+      formatHint: formatHint
+    ) ? KSMEPlayer.self : KSAVPlayer.self
+    lastVideoSize = .zero
     let options = KSOptions()
     options.startPlayRate = desiredRate
     options.isSeekedAutoPlay = autoplay
@@ -317,6 +327,16 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     }
     layer.set(url: mediaURL, options: options)
     layer.prepareToPlay()
+  }
+
+  private func prefersFfmpegPlayer(url: URL, formatHint: String?) -> Bool {
+    let hint = [formatHint, url.pathExtension]
+      .compactMap { $0?.lowercased() }
+      .joined(separator: ",")
+    let tokens = hint.split { !$0.isLetter && !$0.isNumber }
+    return tokens.contains { token in
+      token == "mkv" || token == "matroska" || token == "webm"
+    }
   }
 
   func play() throws {

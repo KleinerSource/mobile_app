@@ -537,6 +537,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         await _openDirectWithClientFallback(
           directUrl!,
           startAt,
+          formatHint: decision.container,
           headers: directHeaders,
         );
       } else {
@@ -576,14 +577,25 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     String url,
     Duration? startAt, {
     Map<String, String>? headers,
+    String? formatHint,
   }) async {
     try {
-      await _host.open(url, startAt: startAt, headers: headers);
+      await _host.open(
+        url,
+        startAt: startAt,
+        headers: headers,
+        formatHint: formatHint,
+      );
     } catch (_) {
       if (!_clientHardwareAcceleration) rethrow;
       await _host.configure(hardwareAcceleration: false);
       _clientHardwareAcceleration = false;
-      await _host.open(url, startAt: startAt, headers: headers);
+      await _host.open(
+        url,
+        startAt: startAt,
+        headers: headers,
+        formatHint: formatHint,
+      );
     }
     _usingHls = false;
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);

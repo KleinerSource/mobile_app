@@ -18,6 +18,7 @@ class FakePlaybackEngine implements PlaybackEngine {
   final ValueNotifier<PlaybackViewState> notifier;
   final List<String> commands = [];
   int openCount = 0;
+  PlaybackOpenRequest? lastOpenRequest;
 
   @override
   PlaybackEngineCapabilities get capabilities => switch (kind) {
@@ -36,6 +37,7 @@ class FakePlaybackEngine implements PlaybackEngine {
   Future<void> open(PlaybackOpenRequest request) async {
     commands.add('open');
     openCount++;
+    lastOpenRequest = request;
     if (failOnOpen) throw StateError('open failed');
     _update(
       (state) => state.copyWith(

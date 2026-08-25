@@ -40,6 +40,19 @@ void main() {
     );
   });
 
+  test('容器提示随统一会话传递给 KSPlayer', () async {
+    final engine = FakePlaybackEngine(PlaybackEngineKind.ksPlayer);
+    final session = PlayerSessionController(engine: engine);
+
+    await session.open(
+      'https://example.com/stream',
+      formatHint: 'matroska,webm',
+    );
+
+    expect(engine.lastOpenRequest?.formatHint, 'matroska,webm');
+    await session.dispose();
+  });
+
   test('统一会话按语言和标题映射原生音轨', () async {
     final engine = FakePlaybackEngine(
       PlaybackEngineKind.ksPlayer,

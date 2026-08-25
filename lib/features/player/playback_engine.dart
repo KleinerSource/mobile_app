@@ -175,12 +175,17 @@ class PlaybackOpenRequest {
     this.startAt,
     this.headers,
     this.play = true,
+    this.formatHint,
   });
 
   final String url;
   final Duration? startAt;
   final Map<String, String>? headers;
   final bool play;
+
+  /// 后端探测到的容器提示，例如 `matroska` 或 `mkv`。
+  /// 仅供需要按容器选择原生播放实现的内核使用。
+  final String? formatHint;
 }
 
 @immutable

@@ -172,6 +172,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
       startAt: request.startAt,
       autoplay: request.play,
       headers: request.headers,
+      formatHint: request.formatHint,
     );
   }
 

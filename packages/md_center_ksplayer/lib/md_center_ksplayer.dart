@@ -61,12 +61,14 @@ class MdCenterKsPlayer {
     Duration? startAt,
     bool autoplay = true,
     Map<String, String>? headers,
+    String? formatHint,
   }) => _api.open(
     playerId,
     url,
     startAt?.inMilliseconds.toDouble(),
     autoplay,
     headers,
+    formatHint,
   );
 
   Future<void> play() => _api.play(playerId);

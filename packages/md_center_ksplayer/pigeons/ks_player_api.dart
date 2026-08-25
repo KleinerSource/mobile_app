@@ -65,6 +65,7 @@ abstract class MdCenterKsPlayerHostApi {
     double? startPositionMs,
     bool autoplay,
     Map<String, String>? headers,
+    String? formatHint,
   );
 
   void play(int playerId);
