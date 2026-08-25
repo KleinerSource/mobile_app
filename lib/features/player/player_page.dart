@@ -26,6 +26,7 @@ import 'player_debug_overlay.dart';
 import 'player_device_stats.dart';
 import 'player_error_disposition.dart';
 import 'player_error_view.dart';
+import 'player_exit_button.dart';
 import 'player_gesture_layer.dart';
 import 'player_overlay_indicators.dart';
 import 'player_queue.dart';
@@ -1747,21 +1748,7 @@ class _LoadingView extends StatelessWidget {
             ],
           ),
         ),
-        Positioned(
-          top: 8,
-          right: 8,
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              color: Colors.black54,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              onPressed: onExit,
-              tooltip: '退出播放',
-              icon: const Icon(Icons.close, color: Colors.white),
-            ),
-          ),
-        ),
+        PlayerExitButton(onExit: onExit),
       ],
     );
   }
