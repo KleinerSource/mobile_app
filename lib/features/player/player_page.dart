@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:screen_brightness/screen_brightness.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/api/dio_factory.dart';
@@ -15,7 +17,6 @@ import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/playback.dart' as playback_models;
 import '../../core/models/watch_record.dart';
-import '../../core/platform/app_theme.dart';
 import '../home/home_providers.dart';
 import '../movies/movies_providers.dart';
 import 'playback_engine.dart';
@@ -24,6 +25,7 @@ import 'player_decode_status.dart';
 import 'player_debug_overlay.dart';
 import 'player_device_stats.dart';
 import 'player_error_disposition.dart';
+import 'player_error_view.dart';
 import 'player_gesture_layer.dart';
 import 'player_overlay_indicators.dart';
 import 'player_queue.dart';
@@ -1098,6 +1100,53 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> _copyPlaybackError() async {
+    final message = _error;
+    if (message == null || message.isEmpty) return;
+    try {
+      await Clipboard.setData(ClipboardData(text: message));
+      if (mounted) _showError('完整播放错误已复制');
+    } catch (_) {
+      if (mounted) _showError('复制播放错误失败');
+    }
+  }
+
+  Future<void> _exportPlaybackError() async {
+    final message = _error;
+    if (message == null || message.isEmpty) return;
+    try {
+      final stamp = DateTime.now().toIso8601String().replaceAll(
+        RegExp(r'[^0-9]'),
+        '',
+      );
+      final fileName = 'md-center-playback-error-$stamp.txt';
+      final renderObject = context.findRenderObject();
+      final sharePositionOrigin = renderObject is RenderBox
+          ? renderObject.localToGlobal(Offset.zero) & renderObject.size
+          : null;
+      final result = await SharePlus.instance.share(
+        ShareParams(
+          subject: 'MD Center 播放错误',
+          text: 'MD Center 播放错误日志',
+          sharePositionOrigin: sharePositionOrigin,
+          files: [
+            XFile.fromData(
+              Uint8List.fromList(utf8.encode(message)),
+              name: fileName,
+              mimeType: 'text/plain',
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (result.status == ShareResultStatus.unavailable) {
+        _showError('当前设备不支持导出，请复制完整错误');
+      }
+    } catch (_) {
+      if (mounted) _showError('导出播放错误失败，可尝试复制完整错误');
+    }
+  }
+
   Future<void> _stopTranscodeSession({bool waitForServer = true}) async {
     final shouldStopServerSession = _transcodeSessionActive;
     _transcodeSessionActive = false;
@@ -1544,17 +1593,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       );
     }
     if (_error != null) {
-      return _ErrorView(
+      return PlayerErrorView(
         message: _error!,
         onRetry: _load,
+        onCopy: _copyPlaybackError,
+        onExport: _exportPlaybackError,
         onExit: () => unawaited(_exitPlayer()),
       );
     }
     final decision = _decision;
     if (decision == null) {
-      return _ErrorView(
+      return PlayerErrorView(
         message: '播放决策为空',
         onRetry: _load,
+        onCopy: _copyPlaybackError,
+        onExport: _exportPlaybackError,
         onExit: () => unawaited(_exitPlayer()),
       );
     }
@@ -1719,61 +1772,4 @@ class _PictureInPictureSource {
 
   final String url;
   final Map<String, String>? headers;
-}
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({
-    required this.message,
-    required this.onRetry,
-    required this.onExit,
-  });
-
-  final String message;
-  final VoidCallback onRetry;
-  final VoidCallback onExit;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline, color: c.danger, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('重试'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white54),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: onExit,
-                  icon: const Icon(Icons.close, size: 16),
-                  label: const Text('退出播放'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.white),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
