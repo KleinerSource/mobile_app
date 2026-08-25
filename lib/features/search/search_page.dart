@@ -483,13 +483,13 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
   }
 
   Future<void> _openMovie(int movieId) async {
-    final changesBeforeVisit = MovieDataChanges.snapshot();
+    final changesBeforeVisit = MovieDataChanges.snapshot(movieId: movieId);
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),
     );
     if (!mounted) return;
     // 详情页内没有任何真实变更时沿用缓存,不刷新。
-    final now = MovieDataChanges.snapshot();
+    final now = changesBeforeVisit.latest;
     if (now.imagesChangedSince(changesBeforeVisit)) refreshImageCache(ref);
     if (now.metadata != changesBeforeVisit.metadata ||
         now.progress != changesBeforeVisit.progress) {
@@ -564,6 +564,7 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
             ),
             builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
               itemBuilder: (ctx, movie, _) => MovieCard(
+                key: ValueKey(movie.id),
                 movie: movie,
                 posterUrlBuilder: urlBuilder,
                 onTap: () => unawaited(_openMovie(movie.id)),

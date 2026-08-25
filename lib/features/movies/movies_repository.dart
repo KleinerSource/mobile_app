@@ -89,13 +89,13 @@ class MoviesRepository {
       }
       return false;
     });
-    MovieDataChanges.bumpMetadata();
+    MovieDataChanges.bumpMetadata(movieId: id);
     return value;
   }
 
   Future<void> markWatched(int id, bool completed) async {
     await _api.upsertWatchRecord(id, {'ended': completed});
-    MovieDataChanges.bumpProgress();
+    MovieDataChanges.bumpProgress(movieId: id);
   }
 
   Future<WatchRecord?> watchRecord(int id) async {
@@ -168,7 +168,7 @@ class MoviesRepository {
     if (completed != null) body['ended'] = completed;
     await _api.upsertWatchRecord(id, body);
     // 播放器实际上报过进度,返回列表/首页时才需要刷新进度展示。
-    MovieDataChanges.bumpProgress();
+    MovieDataChanges.bumpProgress(movieId: id);
   }
 
   // ===== 详情页操作 =====
@@ -180,7 +180,7 @@ class MoviesRepository {
       raw,
       (d) => MovieDetail.fromJson(Map<String, dynamic>.from(d as Map)),
     );
-    MovieDataChanges.bumpMetadata();
+    MovieDataChanges.bumpMetadata(movieId: id);
     return detail;
   }
 
@@ -191,7 +191,7 @@ class MoviesRepository {
       'force': force,
     });
     unwrapStd<void>(raw, (_) {});
-    MovieDataChanges.bumpMetadata();
+    MovieDataChanges.bumpMetadata(movieId: id);
   }
 
   /// NFO 同步 (元数据 → nfo 文件)
@@ -205,8 +205,8 @@ class MoviesRepository {
     final raw = await _api.refreshFromNfo(id);
     unwrapStd<void>(raw, (_) {});
     // NFO 重载可能同时改写元数据与封面图片。
-    MovieDataChanges.bumpMetadata();
-    MovieDataChanges.bumpImages();
+    MovieDataChanges.bumpMetadata(movieId: id);
+    MovieDataChanges.bumpImages(movieId: id);
   }
 
   // ===== 字幕搜索 =====
@@ -561,7 +561,7 @@ class MoviesRepository {
       throw ApiException((raw['message'] as String?) ?? '裁剪失败');
     }
     // 裁剪/水印在原 UUID 上替换了封面内容,需要刷新图片缓存。
-    MovieDataChanges.bumpImages();
+    MovieDataChanges.bumpImages(movieId: id);
   }
 
   /// 预览裁剪 · 返回 JPEG bytes

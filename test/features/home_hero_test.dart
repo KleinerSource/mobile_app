@@ -157,7 +157,7 @@ void main() {
             child: RecommendCarousel(
               items: carouselItems,
               urlBuilder: (uuid) => 'http://test/$uuid.jpg',
-              onMovieReturned: () {},
+              onMovieReturned: (_) {},
               pagePosition: position,
             ),
           ),
@@ -199,7 +199,7 @@ void main() {
               child: RecommendCarousel(
                 items: items,
                 urlBuilder: (uuid) => 'http://test/$uuid.jpg',
-                onMovieReturned: () {},
+                onMovieReturned: (_) {},
               ),
             ),
           ),

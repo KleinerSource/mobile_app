@@ -402,3 +402,15 @@
 - CodeGraph 当前源码确认：`result` 是 `MethodChannel.Result` 参数，`getBrightness` 和 `setWindowBrightness` 应调用 `result.success(...)`，而不是把对象当函数调用。
 - Dart 通道契约要求 `getBrightness` 返回 `double?`，`setBrightness` 返回空结果。
 - 本地 `flutter build apk --release --target-platform android-arm64 --no-pub --dart-define=BUILD_CHANNEL=dev` 无法启动，Flutter 报 `No Android SDK found`；不是本次 Kotlin 修复引起的构建错误。
+
+# KSPlayer 服务器解码切回设备解码故障（2026-08-25）
+
+- 普通影片入口由 `home_page.dart` 或 `movie_detail_page.dart` 调用 `PlayerPage.open`，不传 `directUrl`；`directUrl` 仅用于预告片，因此 `_onQualityChanged` 的早退不是普通影片质量切换根因。
+- 质量切换流程是：`PlayerControls._qualityButton` → `PlayerPage._onQualityChanged` → `_load` → `_loadInternal`；`original` 由 `playbackRouteForQuality` 解析为 direct，固定质量解析为 HLS。
+- `_loadInternal` 在新加载开始时先 `_stopTranscodeSession()`、`_stopPlayer()`，但旧 `_bindProgress` 的 `_errorSub` 在 `_bindProgress()` 重新执行前仍监听同一个 `PlayerSessionController.errorStream`。
+- KSPlayer 原生 `stop()` 调用 `layer.stop()`，KSPlayer 可能在切源时迟到发送 `.error`/finish error；这条旧媒体错误会进入 `_showPlaybackError`，而 `_load` 已重置 `_playbackErrorReported`，导致当前质量切换加载被判定为失败。
+- `KsPlayerPlaybackEngine` 目前将所有错误直接更新为 `PlaybackLifecycle.failed`，没有区分 stop/open 代次；`PlayerPage` 也没有在切源阶段屏蔽旧错误订阅。
+- 低风险修复方向：在播放器页切换质量/媒体时先取消当前进度与错误订阅，完成新媒体打开并绑定新订阅；同时在 KSPlayer Dart engine/native bridge 对 stop 产生的迟到错误做代次隔离，避免旧错误污染下一次 open。
+- 已实施：`PlayerPage._loadInternal` 在停止旧媒体前调用 `_unbindProgress()`；KSPlayer engine 在 `stop()` 到下一次 `open()` 前抑制错误，并在 `opening` 状态忽略由 `open()` Future 负责返回的打开错误。
+- 已补充质量路由回归断言：KSPlayer 的 `original` 为设备直传，固定档位为服务端 HLS/托管转码；`libmpv` 路径未改动。
+- 定向播放器测试 16 项、完整 Flutter 测试 401 项和静态分析均通过；未修改 KSPlayer Swift 依赖或 Android 播放路径。

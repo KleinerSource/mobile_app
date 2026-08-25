@@ -98,13 +98,13 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
   }
 
   Future<void> _openMovie(MovieListItem movie) async {
-    final changesBeforeVisit = MovieDataChanges.snapshot();
+    final changesBeforeVisit = MovieDataChanges.snapshot(movieId: movie.id);
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
     );
     if (!mounted) return;
     // 详情页内没有任何真实变更时沿用缓存,不刷新。
-    final now = MovieDataChanges.snapshot();
+    final now = changesBeforeVisit.latest;
     if (now.imagesChangedSince(changesBeforeVisit)) refreshImageCache(ref);
     if (now.metadata != changesBeforeVisit.metadata ||
         now.progress != changesBeforeVisit.progress) {
@@ -174,6 +174,7 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
                   ),
                   builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
                     itemBuilder: (ctx, m, idx) => MovieCard(
+                      key: ValueKey(m.id),
                       movie: m,
                       posterUrlBuilder: urlBuilder,
                       onTap: () => unawaited(_openMovie(m)),

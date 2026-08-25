@@ -93,7 +93,7 @@ class FavoritesRepository {
       return false;
     });
     // 收藏状态影响列表展示与收藏页成员,视为一次元数据变更。
-    MovieDataChanges.bumpMetadata();
+    MovieDataChanges.bumpMetadata(movieId: movieId);
     return value;
   }
 
@@ -110,12 +110,16 @@ class FavoritesRepository {
   Future<void> addBatch(List<int> movieIds) async {
     final raw = await _api.addBatch({'movie_ids': movieIds});
     unwrapStd<void>(raw, (_) {});
-    MovieDataChanges.bumpMetadata();
+    for (final movieId in movieIds) {
+      MovieDataChanges.bumpMetadata(movieId: movieId);
+    }
   }
 
   Future<void> removeBatch(List<int> movieIds) async {
     final raw = await _api.removeBatch({'movie_ids': movieIds});
     unwrapStd<void>(raw, (_) {});
-    MovieDataChanges.bumpMetadata();
+    for (final movieId in movieIds) {
+      MovieDataChanges.bumpMetadata(movieId: movieId);
+    }
   }
 }

@@ -391,3 +391,44 @@
 - `flutter test --no-pub`：通过，`399` 项全部通过。
 - `git diff --check`：通过；仅保留仓库原有的 LF/CRLF 提示。
 - 未修改既有业务逻辑；`MainActivity.kt` 的用户改动保持原样。
+
+# 当前任务：修复 KSPlayer 服务器解码后无法切回设备解码/切换档位（2026-08-25）
+
+## 目标
+
+修复 iOS `KSPlayer` 在固定质量进入服务器 HLS/转码路线后，重新选择 `original` 或其他质量无效的问题；保持 `libmpv` 当前正常行为，以及工作区已有的非播放器改动。
+
+## 阶段
+
+- [x] 用 CodeGraph 和源码还原质量切换、服务器会话与 KSPlayer 停止/重开链路
+- [x] 确认并修复 KSPlayer 切源时的旧错误/旧事件竞态
+- [x] 补充回归测试覆盖服务器路线 ↔ 设备路线和质量切换
+- [x] 运行定向测试、静态分析、完整测试与差异检查
+
+## 当前假设与边界
+
+- 普通影片播放页没有 `directUrl`，质量按钮应始终可用；预告片的 `directUrl` 仍保持不可切换质量的既有语义。
+- `original/auto` 走设备直传，固定质量走服务端 HLS；两条路线都复用同一个 KSPlayer 会话。
+- 不修改 `libmpv` 路径和工作区已有首页/启动页改动。
+
+## 当前发现
+
+- `PlayerPage._onQualityChanged` 对普通影片会调用 `_load(quality: ..., resume: ...)`，不是 UI 入口被永久禁用。
+- KSPlayer 切换质量时先执行 `_stopPlayer()`，旧 `_bindProgress` 的错误订阅仍然存在，随后才重新绑定；原生 `layer.stop()`/旧媒体迟到错误可能被当作新媒体致命错误。
+- `_load()` 会在停止旧 KSPlayer 前清空 `_playbackErrorReported`，因此旧错误可能触发 `_showPlaybackError()`，使新一轮加载失效；`libmpv` 正常路径不容易产生同样的迟到错误。
+- `playbackRouteForEngine` 已按质量区分 `original` 直传与固定质量 HLS；问题更像 KSPlayer 切源生命周期/事件竞态，而不是质量路由计算。
+
+## 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| 暂无 | — |
+
+## 验证结果
+
+- 定向播放器测试：16 项全部通过。
+- `flutter analyze --no-pub`：通过，`No issues found!`。
+- `flutter test --no-pub`：通过，401 项全部通过。
+- `dart format --output=none --set-exit-if-changed`：通过。
+- `git diff --check`：通过；Windows Git 仅提示 LF/CRLF 转换。
+- Windows 无法执行 iOS Swift/Xcode/真机媒体切换验证，保留 macOS CI 与真机回归。

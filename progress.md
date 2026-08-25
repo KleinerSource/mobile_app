@@ -197,3 +197,15 @@
 - `flutter analyze --no-pub`：通过，`No issues found!`。
 - `flutter test --no-pub`：通过，`399` 项全部通过。
 - `git diff --check`：通过；已确认 Logo 资源和 `assets/branding/` 是此前工作区已有改动，未触碰。
+
+## 2026-08-25 KSPlayer 质量切换修复
+
+- 已恢复历史规划并确认工作区已有 6 个非播放器文件修改，后续不触碰、不重置。
+- 已按项目规则先使用 CodeGraph 调查 `PlayerPage` 质量切换、`PlayerSessionController` 路由和 `KsPlayerPlaybackEngine`/Swift stop-open 生命周期。
+- 已确认普通影片质量按钮没有被 `_isDirectPlayback` 禁用；故障集中在 KSPlayer 切换 HLS 与 direct 时的旧媒体错误事件竞态。
+- 已确认下一步需先完成订阅/代次隔离修复，再补回归测试和执行验证。
+- 已完成播放器页旧进度/错误订阅隔离，以及 KSPlayer `opening/stopping` 旧错误抑制。
+- 已更新 KSPlayer 错误状态契约测试和质量路由测试，并完成格式、定向测试与分析。
+- 定向测试 16 项通过；`flutter analyze --no-pub` 通过；完整 `flutter test --no-pub` 401 项通过。
+- 格式检查和 `git diff --check` 通过；iOS 原生/真机切换仍需 macOS CI 验证。
+- 本轮未处理工作区其他并行修改，也未主动执行提交、暂存或回滚；当前工作区同时存在既有 staged/unstaged 改动。

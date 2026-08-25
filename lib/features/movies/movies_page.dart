@@ -186,7 +186,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   }
 
   Future<void> _openMovie(MovieListItem item) async {
-    final changesBeforeVisit = MovieDataChanges.snapshot();
+    final changesBeforeVisit = MovieDataChanges.snapshot(movieId: item.id);
     final acknowledge = item.hasNewResources
         ? ref.read(moviesRepositoryProvider).acknowledgeResources(item.id)
         : null;
@@ -204,14 +204,14 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       try {
         await acknowledge;
         // 只有确知存在新资源标记的确认才是真实变更(徽标需要消失)。
-        MovieDataChanges.bumpMetadata();
+        MovieDataChanges.bumpMetadata(movieId: item.id);
       } catch (_) {
         if (!mounted) return;
         try {
           await ref
               .read(moviesRepositoryProvider)
               .acknowledgeResources(item.id);
-          MovieDataChanges.bumpMetadata();
+          MovieDataChanges.bumpMetadata(movieId: item.id);
         } catch (_) {
           // 确认失败时保留当前项，下一次查看或刷新时重试。
         }
@@ -219,7 +219,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     }
     if (!mounted) return;
     // 详情页内没有任何真实变更(编辑/播放/确认资源等)时沿用缓存,不刷新。
-    final now = MovieDataChanges.snapshot();
+    final now = changesBeforeVisit.latest;
     if (now.imagesChangedSince(changesBeforeVisit)) refreshImageCache(ref);
     if (now.metadata != changesBeforeVisit.metadata ||
         now.progress != changesBeforeVisit.progress) {

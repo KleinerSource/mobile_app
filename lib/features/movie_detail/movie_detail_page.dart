@@ -750,7 +750,7 @@ class _ActionRow extends ConsumerWidget {
     final engineKinds = availablePlaybackEngineKinds();
 
     Future<void> openPlayer(PlaybackEngineKind? engineKind) async {
-      final changesBeforePlayback = MovieDataChanges.snapshot();
+      final changesBeforePlayback = MovieDataChanges.snapshot(movieId: movie.id);
       await PlayerPage.open(
         context,
         movieId: movie.id,
@@ -762,7 +762,7 @@ class _ActionRow extends ConsumerWidget {
       );
       // 播放器确实上报过进度时才重新拉取观看记录,没看就退出则沿用缓存。
       if (context.mounted &&
-          MovieDataChanges.snapshot().progressChangedSince(
+          changesBeforePlayback.latest.progressChangedSince(
             changesBeforePlayback,
           )) {
         ref.invalidate(movieWatchRecordProvider(movie.id));
@@ -1927,7 +1927,7 @@ class _ActorRelatedMoviesSection extends StatelessWidget {
                         posterUrlBuilder: urlBuilder,
                         onTap: () async {
                           final changesBeforeVisit =
-                              MovieDataChanges.snapshot();
+                              MovieDataChanges.snapshot(movieId: related.id);
                           await Navigator.of(ctx).push(
                             MaterialPageRoute(
                               builder: (_) =>
@@ -1937,7 +1937,7 @@ class _ActorRelatedMoviesSection extends StatelessWidget {
                           // 关联影片的元数据/封面变更会影响本区块展示;
                           // 仅浏览未编辑时沿用缓存,不重新拉取详情。
                           if (ctx.mounted &&
-                              MovieDataChanges.snapshot().displayChangedSince(
+                              changesBeforeVisit.latest.displayChangedSince(
                                 changesBeforeVisit,
                               )) {
                             onMovieReturned();
