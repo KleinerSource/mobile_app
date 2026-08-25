@@ -10,7 +10,7 @@ void main() {
 
   test('低于最低版本或格式非法时拒绝', () {
     expect(isSupportedServerVersion('1.5.99'), isFalse);
-    expect(isSupportedServerVersion('2.0.0-beta'), isFalse);
+    expect(isSupportedServerVersion('1.9.0-beta'), isFalse);
     expect(isSupportedServerVersion('dev'), isFalse);
   });
 
