@@ -2,6 +2,7 @@ import AVFoundation
 import AVKit
 import Combine
 import Flutter
+import Foundation
 import KSPlayer
 import UIKit
 
@@ -565,8 +566,45 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     let size = layer.player.naturalSize
     guard size.width > 0, size.height > 0, size != lastVideoSize else { return }
     lastVideoSize = size
-    send(.size, numberValue: size.width, secondaryNumberValue: size.height)
+    send(
+      .size,
+      numberValue: size.width,
+      secondaryNumberValue: size.height,
+      stringValue: mediaInfoPayload()
+    )
     send(.firstFrame, boolValue: true)
+  }
+
+  private func mediaInfoPayload() -> String? {
+    let videoTrack = layer.player.tracks(mediaType: .video).first
+    let audioTrack = layer.player.tracks(mediaType: .audio).first
+    var payload: [String: Any] = [
+      "internal_player": internalPlayerLabel,
+    ]
+    if let videoTrack {
+      let codec = videoTrack.description.split(separator: ",", maxSplits: 1).first
+      if let codec, !codec.isEmpty { payload["video_codec"] = String(codec) }
+      if videoTrack.bitRate > 0 { payload["video_bitrate"] = videoTrack.bitRate }
+      if videoTrack.nominalFrameRate > 0 {
+        payload["video_fps"] = Double(videoTrack.nominalFrameRate)
+      }
+    }
+    if let audioTrack {
+      let codec = audioTrack.description.split(separator: ",", maxSplits: 1).first
+      if let codec, !codec.isEmpty { payload["audio_codec"] = String(codec) }
+      if audioTrack.bitRate > 0 { payload["audio_bitrate"] = audioTrack.bitRate }
+    }
+    guard JSONSerialization.isValidJSONObject(payload),
+          let data = try? JSONSerialization.data(withJSONObject: payload),
+          let value = String(data: data, encoding: .utf8)
+    else { return nil }
+    return value
+  }
+
+  private var internalPlayerLabel: String {
+    if layer.player is KSMEPlayer { return "KSMEPlayer" }
+    if layer.player is KSAVPlayer { return "AVPlayer" }
+    return String(describing: type(of: layer.player))
   }
 
   private func send(

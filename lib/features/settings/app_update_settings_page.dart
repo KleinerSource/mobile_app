@@ -13,6 +13,7 @@ import '../../core/update/update_models.dart';
 import '../../core/update/update_repository.dart';
 import '../../core/update/update_service.dart';
 import '../../shared/glow_background.dart';
+import '../player/player_settings.dart';
 import 'settings_common.dart';
 
 class AppUpdateSettingsPage extends ConsumerStatefulWidget {
@@ -166,6 +167,28 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                           leadingIcon: Icons.phone_android_outlined,
                         );
                       },
+                    ),
+                  ],
+                ),
+                SettingsGroup(
+                  title: '调试',
+                  items: [
+                    SettingsTile(
+                      title: '播放器 Debug 模式',
+                      subtitle: '在播放画面显示内核、编码、码率、帧率等信息',
+                      leadingIcon: Icons.bug_report_outlined,
+                      trailing: SettingsSwitch(
+                        value: ref.watch(playerSettingsProvider).debugMode,
+                        onChanged: (value) => unawaited(
+                          ref
+                              .read(playerSettingsProvider.notifier)
+                              .update(
+                                ref
+                                    .read(playerSettingsProvider)
+                                    .copyWith(debugMode: value),
+                              ),
+                        ),
+                      ),
                     ),
                   ],
                 ),

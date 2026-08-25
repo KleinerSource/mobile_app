@@ -189,6 +189,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     Map<String, String>? headers,
     bool play = true,
     String? formatHint,
+    PlaybackMediaInfo? mediaInfo,
   }) async {
     _playbackIntent = play;
     final request = PlaybackOpenRequest(
@@ -197,6 +198,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
       headers: headers,
       play: play,
       formatHint: formatHint,
+      mediaInfo: mediaInfo,
     );
     await _engine.open(request);
   }

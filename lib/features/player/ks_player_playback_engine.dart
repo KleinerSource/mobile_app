@@ -80,12 +80,16 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
           ),
         );
       case KsPlayerEventType.size:
+        final nativeMediaInfo = PlaybackMediaInfo.fromJsonString(
+          event.stringValue,
+        );
         _update(
           (state) => state.copyWith(
             videoSize: Size(
               event.numberValue ?? 0,
               event.secondaryNumberValue ?? 0,
             ),
+            mediaInfo: _mergeMediaInfo(state.mediaInfo, nativeMediaInfo),
           ),
         );
       case KsPlayerEventType.completed:
@@ -161,6 +165,8 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
         duration: Duration.zero,
         buffered: Duration.zero,
         videoSize: Size.zero,
+        mediaInfo: _initialMediaInfo(request),
+        clearMediaInfo: true,
         subtitleText: const [],
         firstFrameRendered: false,
         clearError: true,
@@ -326,6 +332,40 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
     final player = _player ?? await _playerFuture;
     await player.dispose();
     _state.dispose();
+  }
+
+  PlaybackMediaInfo _initialMediaInfo(PlaybackOpenRequest request) {
+    final initial =
+        request.mediaInfo ??
+        PlaybackMediaInfo.fromSource(
+          url: request.url,
+          formatHint: request.formatHint,
+        );
+    final inferredInternalPlayer =
+        PlaybackMediaInfo.inferInternalPlayer(
+          request.url,
+          request.formatHint,
+        ) ??
+        PlaybackMediaInfo.inferInternalPlayer('', initial.container);
+    return initial.copyWith(internalPlayer: inferredInternalPlayer);
+  }
+
+  PlaybackMediaInfo? _mergeMediaInfo(
+    PlaybackMediaInfo? current,
+    PlaybackMediaInfo? incoming,
+  ) {
+    if (incoming == null) return current;
+    final info = current ?? const PlaybackMediaInfo();
+    return info.copyWith(
+      container: incoming.container,
+      videoCodec: incoming.videoCodec,
+      videoBitrate: incoming.videoBitrate,
+      videoFps: incoming.videoFps,
+      videoDecoder: incoming.videoDecoder,
+      audioCodec: incoming.audioCodec,
+      audioBitrate: incoming.audioBitrate,
+      internalPlayer: incoming.internalPlayer,
+    );
   }
 }
 

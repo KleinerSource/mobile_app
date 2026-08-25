@@ -76,6 +76,65 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
     _state.value = update(_state.value);
   }
 
+  VideoTrack? _findSelectedVideoTrack(
+    List<VideoTrack> tracks,
+    String selectedId,
+  ) {
+    if (tracks.isEmpty) return null;
+    for (final track in tracks) {
+      if (track.id == selectedId && track.id != 'auto' && track.id != 'no') {
+        return track;
+      }
+    }
+    for (final track in tracks) {
+      if (track.id != 'auto' && track.id != 'no') return track;
+    }
+    return null;
+  }
+
+  AudioTrack? _findSelectedAudioTrack(
+    List<AudioTrack> tracks,
+    String selectedId,
+  ) {
+    if (tracks.isEmpty) return null;
+    for (final track in tracks) {
+      if (track.id == selectedId && track.id != 'auto' && track.id != 'no') {
+        return track;
+      }
+    }
+    for (final track in tracks) {
+      if (track.id != 'auto' && track.id != 'no') return track;
+    }
+    return null;
+  }
+
+  PlaybackMediaInfo? _mergeMediaInfo(
+    PlaybackMediaInfo? current, {
+    VideoTrack? videoTrack,
+    AudioTrack? audioTrack,
+  }) {
+    if (videoTrack == null && audioTrack == null) return current;
+    final info = current ?? const PlaybackMediaInfo();
+    return info.copyWith(
+      videoCodec: _nonEmpty(videoTrack?.codec),
+      videoBitrate: _positiveInt(videoTrack?.bitrate),
+      videoFps: _positiveDouble(videoTrack?.fps),
+      videoDecoder: _nonEmpty(videoTrack?.decoder),
+      audioCodec: _nonEmpty(audioTrack?.codec),
+      audioBitrate: _positiveInt(audioTrack?.bitrate),
+    );
+  }
+
+  String? _nonEmpty(String? value) {
+    final normalized = value?.trim() ?? '';
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  int? _positiveInt(int? value) => value == null || value <= 0 ? null : value;
+
+  double? _positiveDouble(double? value) =>
+      value == null || !value.isFinite || value <= 0 ? null : value;
+
   void _bindState() {
     for (final subscription in _stateSubscriptions) {
       unawaited(subscription.cancel());
@@ -121,6 +180,12 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
       ),
       player.stream.tracks.listen((tracks) {
         final selectedId = player.state.track.audio.id;
+        final selectedVideoId = player.state.track.video.id;
+        final videoTrack = _findSelectedVideoTrack(
+          tracks.video,
+          selectedVideoId,
+        );
+        final audioTrack = _findSelectedAudioTrack(tracks.audio, selectedId);
         _updateState(
           (state) => state.copyWith(
             audioTracks: [
@@ -133,6 +198,11 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
                 ),
             ],
             selectedAudioTrackId: selectedId,
+            mediaInfo: _mergeMediaInfo(
+              state.mediaInfo,
+              videoTrack: videoTrack,
+              audioTrack: audioTrack,
+            ),
           ),
         );
       }),
@@ -165,6 +235,13 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
         buffering: true,
         position: request.startAt ?? Duration.zero,
         firstFrameRendered: false,
+        mediaInfo:
+            request.mediaInfo ??
+            PlaybackMediaInfo.fromSource(
+              url: request.url,
+              formatHint: request.formatHint,
+            ),
+        clearMediaInfo: true,
         clearError: true,
       ),
     );

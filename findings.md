@@ -370,3 +370,11 @@
 - `MdCenterKsplayerPlugin.audioTracks()` 返回 `String(track.trackID)`，其值是 AVFoundation 原生 `trackID`，不保证等于后端音轨 index。
 - KSPlayer 的 `selectAudioTrack` 以原生 `trackID` 查找轨道；找不到时返回 `KsPlayerPluginError.missingTrack`，Pigeon 最终表现为截图中的 `PlatformException`。
 - 修复方向是仅 `libmpv` 继续直传 index，AVPlayer/KSPlayer 共用现有语言、标题、ordinal 原生轨道映射；单音轨不发起不必要的原生选择。
+
+# 播放器调试模式（2026-08-25）
+
+- 应用更新入口为 `AppUpdateSettingsPage`；设置主页版本卡片五击后进入该页面。
+- `PlayerSettings` 已集中持久化播放器显示偏好，但当前没有 debug 模式字段。
+- `PlaybackViewState` 当前只有内核、尺寸、时间、轨道等状态，没有码率、FPS、编码/容器字段。
+- KSPlayer Pigeon 事件当前只有 ready/playing/buffering/position/duration/size/completed/error/firstFrame/PiP，需要新增受控媒体元数据事件或字段。
+- 调试信息应通过统一 `PlaybackViewState` 供 Flutter overlay 使用；关闭开关时不构建 overlay，不影响播放命令和性能。

@@ -21,6 +21,7 @@ import '../movies/movies_providers.dart';
 import 'playback_engine.dart';
 import 'player_controls.dart';
 import 'player_decode_status.dart';
+import 'player_debug_overlay.dart';
 import 'player_device_stats.dart';
 import 'player_error_disposition.dart';
 import 'player_gesture_layer.dart';
@@ -539,10 +540,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           startAt,
           formatHint: decision.container,
           headers: directHeaders,
+          mediaInfo: _mediaInfoForDecision(decision),
         );
       } else {
         final hlsUrl = _fallbackHlsUrl(cfg, token, selectedQuality);
-        await _openHlsWithClientFallback(hlsUrl, startAt);
+        await _openHlsWithClientFallback(
+          hlsUrl,
+          startAt,
+          mediaInfo: _mediaInfoForDecision(decision),
+        );
       }
       if (!mounted || generation != _loadGeneration) {
         await _stopPlayer();
@@ -578,6 +584,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     Duration? startAt, {
     Map<String, String>? headers,
     String? formatHint,
+    PlaybackMediaInfo? mediaInfo,
   }) async {
     try {
       await _host.open(
@@ -585,6 +592,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         startAt: startAt,
         headers: headers,
         formatHint: formatHint,
+        mediaInfo: mediaInfo,
       );
     } catch (_) {
       if (!_clientHardwareAcceleration) rethrow;
@@ -595,6 +603,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         startAt: startAt,
         headers: headers,
         formatHint: formatHint,
+        mediaInfo: mediaInfo,
       );
     }
     _usingHls = false;
@@ -604,14 +613,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         : Map<String, String>.from(headers);
   }
 
-  Future<void> _openHlsWithClientFallback(String url, Duration? startAt) async {
+  Future<void> _openHlsWithClientFallback(
+    String url,
+    Duration? startAt, {
+    PlaybackMediaInfo? mediaInfo,
+  }) async {
     try {
-      await _host.open(url, startAt: startAt);
+      await _host.open(url, startAt: startAt, mediaInfo: mediaInfo);
     } catch (_) {
       if (!_clientHardwareAcceleration) rethrow;
       await _host.configure(hardwareAcceleration: false);
       _clientHardwareAcceleration = false;
-      await _host.open(url, startAt: startAt);
+      await _host.open(url, startAt: startAt, mediaInfo: mediaInfo);
     }
     _usingHls = true;
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
@@ -623,11 +636,42 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     Duration? startAt,
     playback_models.PlaybackDecision decision,
   ) async {
-    await _host.open(url, startAt: startAt);
     final lowerUrl = url.toLowerCase();
-    _usingHls = decision.isTranscode || lowerUrl.contains('.m3u8');
+    final isHls = decision.isTranscode || lowerUrl.contains('.m3u8');
+    await _host.open(
+      url,
+      startAt: startAt,
+      formatHint: isHls ? null : decision.container,
+      mediaInfo: _mediaInfoForDecision(decision),
+    );
+    _usingHls = isHls;
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
     _pictureInPictureHeaders = null;
+  }
+
+  PlaybackMediaInfo? _mediaInfoForDecision(
+    playback_models.PlaybackDecision decision,
+  ) {
+    final container = decision.container.trim();
+    final videoCodec = decision.targetVideo.trim();
+    final audioCodec = decision.targetAudio.trim();
+    final bitrate = decision.targetBitrate > 0
+        ? decision.targetBitrate
+        : decision.bitRate > 0
+        ? decision.bitRate
+        : null;
+    if (container.isEmpty &&
+        videoCodec.isEmpty &&
+        audioCodec.isEmpty &&
+        bitrate == null) {
+      return null;
+    }
+    return PlaybackMediaInfo(
+      container: container.isEmpty ? null : container,
+      videoCodec: videoCodec.isEmpty ? null : videoCodec,
+      videoBitrate: bitrate,
+      audioCodec: audioCodec.isEmpty ? null : audioCodec,
+    );
   }
 
   Future<void> _applyDefaultTracks(
@@ -1561,6 +1605,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             showBattery: settings.showBattery,
           ),
         ),
+        if (settings.debugMode)
+          Positioned(
+            top: 42,
+            left: 20,
+            right: 20,
+            child: PlayerDebugOverlay(stateListenable: _host),
+          ),
         Positioned.fill(
           child: IgnorePointer(
             ignoring: !_controlsVisible,

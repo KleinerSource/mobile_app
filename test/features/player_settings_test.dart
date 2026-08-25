@@ -29,6 +29,7 @@ void main() {
     expect(settings.entryOrientation, PlayerEntryOrientation.forceLandscape);
     expect(settings.preloadSize, PlayerPreloadSize.mb250);
     expect(settings.iosEngine, PlaybackEngineKind.libmpv);
+    expect(settings.debugMode, isFalse);
     expect(settings.doubleTapCenter, isTrue);
     expect(settings.doubleTapEdges, isTrue);
     expect(settings.hapticLongPress, isTrue);
@@ -107,6 +108,7 @@ void main() {
       entryOrientation: PlayerEntryOrientation.forcePortrait,
       preloadSize: PlayerPreloadSize.mb500,
       iosEngine: PlaybackEngineKind.ksPlayer,
+      debugMode: true,
       doubleTapCenter: false,
       doubleTapEdges: true,
       hapticLongPress: false,
@@ -133,6 +135,7 @@ void main() {
     expect(actual.entryOrientation, PlayerEntryOrientation.forcePortrait);
     expect(actual.preloadSize, PlayerPreloadSize.mb500);
     expect(actual.iosEngine, PlaybackEngineKind.ksPlayer);
+    expect(actual.debugMode, isTrue);
     expect(actual.doubleTapCenter, isFalse);
     expect(actual.doubleTapEdges, isTrue);
     expect(actual.hapticLongPress, isFalse);
