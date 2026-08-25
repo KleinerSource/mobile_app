@@ -497,3 +497,54 @@
 - Git for Windows Bash 语法检查通过；`push + dev` 与 `workflow_dispatch + master` 分别写回当前分支，PR 和其他分支跳过。
 - 版本脚本调用保持不变，仅扩展其结果的持久化条件与目标分支。
 - `git diff --check` 通过；仅有 Windows Git 的 LF/CRLF 转换提示。
+
+## 当前任务：合并 dev 到 master
+
+### 目标
+
+将当前 `dev` 的新版本代码完整同步到远端，并合并到最新 `master` 后推送；确认两个分支的提交关系和 GitHub Actions 状态。
+
+### 阶段
+
+- [x] 恢复计划并确认本地 `dev` 工作区干净
+- [x] 获取远端最新状态并复核待合并提交
+- [x] 推送 `dev` 并确认开发版构建
+- [x] 合并到最新 `master` 并推送
+- [x] 确认标准版构建和最终分支状态
+
+### 约束
+
+- 不改写历史，不使用强制推送。
+- 合并前必须以 `origin/master` 与 `origin/dev` 的最新状态为准。
+- 若 CI 失败，先定位原因；不把失败状态直接当作完成。
+
+### 当前发现
+
+- `dev` 相对 `origin/dev` 有 3 个待推送提交：播放器测试、播放器修复、开发版更新检查与版本持久化。
+- `origin/master...dev` 分叉计数为 `1/39`：master 有 1 个 dev 尚未包含的提交，dev 有 39 个 master 尚未包含的提交。
+- 本轮计划记录本身尚未提交；推送前需临时保存，避免额外记录提交遮蔽最新 `feat(update)` 提交消息并影响自动版本分类。
+- `git merge-tree --write-tree origin/master dev` 预演无冲突；master 当前版本 `0.38.22+409`，dev 当前版本 `0.38.21+408`。
+- 已将 3 个提交正常快进推送到 `origin/dev`；首次按提交 SHA 查询时 Actions 尚未出现在列表中，需继续等待而非重复推送。
+- dev push 的 Android `32866052468` 与 iOS `32866052358` 均已成功。
+- iOS workflow 已把 `0.39.0+409` 以提交 `57c9d66` 写回 `origin/dev`；两个 dev Release 都已刷新为对应的 APK/IPA。
+- 使用最新远端引用重新预演时，仅 `pubspec.yaml` 发生预期版本冲突：master 为 `0.38.22+409`，dev 为 `0.39.0+409`；其余文件自动合并。
+- 版本策略把普通 `Merge ...` 识别为 bug fix；合并提交必须带 `[no-version]`，使 master 只把 `0.39.0+409` 的 build 递增到 `0.39.0+410`，避免误变为 `0.39.1`。
+- master 合并提交为 `56ba45d`，父提交是 `fc51a0b` 与 `57c9d66`；已正常推送，标准版 Android/iOS Actions 正在运行。
+- 用户反馈 GitHub Actions 界面出现 dev 信息；API 复核两条运行的 `headBranch` 均为 `master`、`headSha` 均为 `56ba45d`。界面中的 dev 来自合并提交标题和同时列出双渠道的步骤名称，不代表运行渠道已切换。
+- 远端 master 已新增 `fb3510f chore: bump build metadata to 0.39.0+410 [skip ci]`，实证 iOS workflow 写回的是 master；origin/dev 仍为独立的 `0.39.0+409`。
+- 标准 Release 已发布 `omm_0.39.0+410.apk/.ipa`；开发 Release 仍保持 `omm_dev_0.39.0+409.apk/.ipa`，四个滚动标签互不覆盖。
+
+### 验证结果
+
+- dev Android/iOS Actions：均成功。
+- master Android/iOS Actions：均成功。
+- origin/dev：`57c9d66`，版本 `0.39.0+409`。
+- origin/master：`fb3510f`，版本 `0.39.0+410`。
+- 标准与开发 Release 的标签、名称和资产前缀均正确隔离。
+
+### 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| 并行只读核验的 JavaScript 包装参数多出一个引号，导致调用在执行前报 `SyntaxError` | 四个子查询均未执行；修正参数拼写后重新发起，不重复错误输入 |
+| 最新 master/dev 都有各自的版本机器人提交，合并预演在 `pubspec.yaml` 报内容冲突 | 这是双分支版本持久化后的预期单文件冲突；合并时保留 dev 的 `0.39.0+409` 功能版本基线，再由 master workflow 增加标准构建号 |

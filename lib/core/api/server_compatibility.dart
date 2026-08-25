@@ -2,8 +2,8 @@ import 'package:flutter/foundation.dart';
 
 import 'api_exception.dart';
 
-const requiredServerProjectName = 'omm';
-const minimumSupportedServerVersion = '1.7.0';
+const requiredServerProjectName = 'oh-my-media';
+const minimumSupportedServerVersion = '2.0.0';
 
 String get serverCompatibilityRequirementMessage =>
     '服务器不兼容，需要 $requiredServerProjectName 版本不低于 '

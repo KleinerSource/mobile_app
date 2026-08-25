@@ -241,3 +241,30 @@
 - 已用 `C:\Program Files\Git\bin\bash.exe` 通过 Shell 语法检查和真值表验证：`push + dev` → `dev`、`workflow_dispatch + master` → `master`，PR 与 feature 分支均跳过。
 - `.github/workflows/ios-build.yml` 已通过 UTF-8 YAML 解析；`git diff --check` 通过，仅有 LF/CRLF 转换提示。
 - 最终差异仅把 iOS workflow 的版本持久化从 master 扩展到 master/dev；Android workflow 和版本计算脚本均未修改。
+
+## 2026-08-25 合并 dev 到 master
+
+- 已读取并遵循 `planning-with-files`，会话恢复脚本无额外输出。
+- 合并前本地位于 `dev`，工作区干净，当前相对 `origin/dev` 领先 3 个提交。
+- 已刷新远端引用；待推送提交为 `1c2404b`、`0a675ea`、`162ca24`，最新提交是开发版更新检查与版本持久化功能。
+- `origin/master...dev` 当前分叉为 master 独有 1 个、dev 独有 39 个提交；合并时需保留 master 的独有提交。
+- master 独有提交仅为 `fc51a0b chore: bump build metadata to 0.38.22+409 [skip ci]`；最新 dev 功能提交 `162ca24` 包含更新检测开关、workflow 与对应测试。
+- 合并预演生成树 `66b723fc9e6ab809cb2b78b4c0e1b7e854d85b27` 且无冲突；合并需要保留 master 较新的 `0.38.22+409` 版本基线。
+- 已临时保存本轮计划日志后执行 `git push origin dev`，远端从 `230122f` 快进到 `162ca24`；随后已恢复计划日志。
+- 推送后首次查询提交 `162ca24` 的 Actions 返回空列表，判断为 GitHub 尚未创建/索引运行，后续只轮询状态，不重复推送。
+- 已确认本次 dev push 创建两条运行：Android `32866052468`、iOS `32866052358`，两者当前均为 `in_progress`。
+- dev 的 Android `32866052468` 与 iOS `32866052358` 已完成且结论均为 `success`。
+- 首次并行查询远端版本、iOS 日志和 Release 时，JavaScript 包装参数拼写错误导致调用未执行；未产生任何仓库或远端变更，已改用修正后的调用。
+- 已确认版本持久化实测成功：iOS 日志显示生成 `0.39.0+409`、提交 `57c9d66` 并推送 `HEAD -> dev`。
+- `latest-android-dev` 已发布 `omm_dev_0.39.0+409.apk`，`latest-ios-dev` 已发布 `omm_dev_0.39.0+409.ipa`，均为非草稿 prerelease。
+- 最新合并预演仅在 `pubspec.yaml` 出现版本冲突；计划在真实合并时保留 dev 的 `0.39.0+409`，避免标准版退回 master 的 `0.38.22` 功能版本。
+- 已用 CodeGraph 核对 `version_policy.dart`：普通 merge message 会走 bugFix；因此合并提交使用 `[no-version]`，让 master workflow 只增加 build 号而不重复增加 patch/minor。
+- 已更新本地 dev 到版本回写提交 `57c9d66`，切换并快进本地 master 到 `fc51a0b`。
+- 真实合并仅冲突 `pubspec.yaml`；已保留 `0.39.0+409`，无其他未解决文件，`git diff --check` 通过。
+- 已创建双父合并提交 `56ba45d chore: merge dev into master [no-version]` 并正常推送 `origin/master`。
+- master push 已启动 Android `32868044178` 与 iOS `32868044174`，当前均为 `in_progress`。
+- 收到用户关于 master Actions 显示 dev 信息的反馈后已暂停完成判断并核验：两条运行 API 均明确返回 `headBranch: master`、`headSha: 56ba45d`；workflow 的构建、资产和 Release 渠道仍按 `GITHUB_REF == refs/heads/dev` 分支判断。
+- 已刷新远端确认 master 版本持久化成功：`fb3510f` 将版本写为 `0.39.0+410`；dev 仍是 `57c9d66 / 0.39.0+409`，不存在渠道串线。
+- master 的 Android `32868044178` 与 iOS `32868044174` 已完成且结论均为 `success`。
+- `latest-android` 已发布 `omm_0.39.0+410.apk`，`latest` 已发布 `omm_0.39.0+410.ipa`。
+- 开发版 `latest-android-dev` / `latest-ios-dev` 仍分别保持 `omm_dev_0.39.0+409.apk/.ipa`，确认标准与开发渠道没有互相覆盖。
