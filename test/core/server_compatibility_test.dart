@@ -5,7 +5,7 @@ void main() {
   test('最低版本满足要求', () {
     expect(isSupportedServerVersion('2.0.0'), isTrue);
     expect(isSupportedServerVersion('2.0.1'), isTrue);
-    expect(isSupportedServerVersion('1.10.0'), isTrue);
+    expect(isSupportedServerVersion('2.10.0'), isTrue);
   });
 
   test('低于最低版本或格式非法时拒绝', () {
