@@ -295,3 +295,47 @@
 - CodeGraph 已复核修改后的 Swift 源码和影响范围；播放器契约、路由、菜单一致性及播放模型定向测试 27 项通过。
 - 当前 Windows 没有 Swift 编译/格式化工具，已明确保留 iOS CI/真机验证，不以 Dart 测试替代原生编译结论。
 - `flutter analyze --no-pub` 通过；完整 `flutter test --no-pub` 419 项全部通过；最终空白和改动范围检查通过。
+
+## 2026-08-26 KSPlayer 二次切换仍无限加载（续查）
+
+- 用户确认完整重建后问题仍存在，上一轮解除初始 seek completion 等待未解决故障。
+- 会话恢复确认工作区干净，当前 `master` 与 `origin/master` 一致，排除未推送或旧工作树干扰。
+- CodeGraph 复核当前加载链：页面进入 loading 后依次等待 `_stopPlayer()`、`_stopTranscodeSession()`、播放决策与 KSPlayer `open()`；KSPlayer Dart `stop()` 会直接等待原生 Pigeon `stop` 回复。
+- 原生 `KsPlayerSession.stop()` 与 `recreateLayer()` 都同步调用 `KSPlayerLayer.stop()`；其中 `open()` 在 `recreateLayer()` 中再次停止旧 layer，现阶段这是最需要验证的无界完成边界。
+- Pigeon 的 `stop` 是同步 HostApi：Dart 会等待 iOS 主线程执行完 `session.stop()` 后才继续；原生当前直接在该调用栈内执行 `layer.stop()`。
+- 每次新 `open()` 又会在 `recreateLayer()` 中对同一旧 layer 执行一次 `stop()`，形成“显式 stop → 再次 stop → 新 prepare”的双重停止序列；该序列没有原生测试覆盖。
+- 已定位到固定 KSPlayer 源码副本：`KSPlayerLayer.stop()` 会同步执行 `player.shutdown()`，因此真正阻塞点还要下钻到 `KSAVPlayer`/`KSMEPlayer` 的 shutdown 实现。
+- 外部源码检索首次假定 podspec 名为 `omm_ksplayer.podspec`，实际路径不存在；后续先枚举插件目录确认真实文件名，不重复该假设。
+- 已确认真实 podspec 位于 `packages/omm_ksplayer/ios/omm_ksplayer.podspec`，插件通过 CocoaPods 依赖 `KSPlayer`。
+- 固定 KSPlayer 源码显示：HLS 使用的 `KSAVPlayer.shutdown()` 是同步取消 asset loading、移除 resource loader 并 `replaceCurrentItem(nil)`；FFmpeg 的 `KSMEPlayer.shutdown()` 只调度异步 close operation，不会等待解码线程退出。
+- 因此“原生 stop 等待 FFmpeg close 永久阻塞”的假设不成立；下一步转向检查页面 `_loadQueue` 代次串行化和转码 DELETE 的真实 Future 边界，同时核对新 layer 的 `set/prepare` 状态机。
+- 页面当前会在 `_transcodeSessionActive` 为 true 时先发起 DELETE，再取消 SSE，随后等待 DELETE；SSE cancel 已在上一轮单测中排除，但 DELETE Future 仍是进入下一播放决策前的硬门槛。
+- CodeGraph 返回了 `_onQualityChanged` 与转码清理主体，但没有返回 `_load` 队列封装源码；按其限制，下一步只针对该未覆盖片段做精确文件读取。
+- 精确读取确认 `_load` 会把所有请求串到 `_loadQueue`；任一旧任务中真正不返回的 Future 会永久阻塞后续质量选择，即使 `_loadGeneration` 已让旧任务失效。
+- 服务端 `StopByMovie` 会先从 manager map 摘除旧会话，再逐个执行 `TranscodeSession.Stop()`；SSE handler 的取消只负责 unsubscribe，不持有 manager 锁，未发现与 DELETE 的互锁证据。
+- 服务端 `TranscodeSession.stopLocked()` 的等待严格有界：context cancel 后最多等 2 秒，必要时 kill，再最多等 2 秒；DELETE 不是服务端代码层面的无限等待。
+- KSPlayer `set(url:)` 仅在主线程修改 layer URL，`prepareToPlay()` 才触发底层准备；仍需核对 URL `didSet` 与 prepare 的先后是否在连续创建 layer 时发生异步竞态。
+- 已确认 `runOnMainThread` 在主线程会同步执行，因此 `set(url:) → URL didSet → player.replace → prepareToPlay()` 的顺序确定，不是异步 URL 赋值竞态。
+- 新 layer 会重新挂载到同一 PlatformView 容器；下一步检查 Dart KSPlayer 实例能否在原生 `open` 丢失 ready 回调时重建会话并有限重试，避免 `_loadQueue` 永久悬挂。
+- `OmmKsPlayer.open()` 直接返回 Pigeon Future，没有 timeout；`KsPlayerPlaybackEngine` 复用同一个 `OmmKsPlayer`/playerId，任何缺失的原生 open reply 都会直接悬挂页面 `_loadQueue`。
+- 现有 surface 绑定在初始化时创建的 `_playerFuture` 上，若在 Dart 层改用新 playerId 重试还需同步重建 PlatformView，改动面较大；优先考虑让原生 open 契约自身有界，并保留 ready/error 事件驱动播放状态。
+- `KsPlayerPlaybackEngine.open()` 当前只更新 opening 状态后无界等待 `OmmKsPlayer.open()`；`stop()` 也无 timeout，但原生 stop 主体已确认同步且有限。
+- `PlayerSessionController.open()` 只是把请求转给当前 engine；需要继续复核外层 host 的一次性 libmpv fallback，确认原生 open 超时抛错后能否自动恢复，而不是只停在错误页。
+- `createPlayerSession()` 只在会话创建时选定 KSPlayer/libmpv，`PlayerSessionController.open()` 本身不切换内核；本轮不能假定 open timeout 会自动落到 libmpv。
+- 因此若给 KSPlayer open 加超时，至少应把无限 loading 变为明确错误；若要自动恢复，需要复核页面错误/重载监听是否有另一个内核切换入口。
+- 发现更具体的内核路由疑点：所有后端 HLS 打开都把 `_mediaInfoForDecision(decision)` 传给 KSPlayer，而该函数优先使用 `decision.videoCodec`，仅为空时才用 `decision.targetVideo`。
+- 原生 `prefersFfmpegPlayer()` 只要收到 HEVC/H.265 codec 就强制选择 `KSMEPlayer`，完全不优先识别 `.m3u8`；如果 `decision.videoCodec` 表示源编码，HEVC 原片的 HLS 转码仍会错误进入 KSPlayer 的 FFmpeg 内核，而不是 AVPlayer。
+- 后端源码已证实字段语义：`Decision.VideoCodec` 是源文件编码，`Decision.TargetVideo` 是输出编码；完整 HLS 转码明确输出 H.264 8-bit。
+- 当前移动端因此把 HEVC 原片的 HLS 转码错误标成 HEVC 传给原生 KSPlayer，导致 `.m3u8` 被强制交给 `KSMEPlayer`。这与“第一次能开、停止旧转码后第二次无法 ready”高度吻合，也解释了为何 libmpv 路径不受影响。
+- 修复方向收敛为：仅在打开后端 HLS 时优先使用 `target_video/target_audio` 描述实际流；direct/original 继续使用源 `video_codec/container`，不改变服务端协议。
+- `PlaybackMediaInfo.inferInternalPlayer()` 同样先按 video codec 判定：HEVC 会得到 `KSMEPlayer`，H.264 `.m3u8` 会得到 `AVPlayer`，可作为 Dart 回归断言。
+- 修复将只改变后端 HLS 的请求媒体信息，不全局更改 KSPlayer 原生路由；这样固定分辨率的完整转码使用 `target_video=h264`，原生/自动仍保留源 HEVC→FFmpeg 逻辑。
+- 计划把“源流/目标流媒体信息选择”下沉到已有 `engine_playback_route.dart`，由其现有路由测试直接覆盖，避免为 `PlayerPage` 私有方法建立额外注入层。
+- 首次三文件组合补丁因 `player_page.dart` 的 direct open 调用上下文与预期缩进不一致而整体未应用；未产生代码改动，改为按文件拆分小补丁。
+- 已将播放决策的媒体信息映射下沉到 `playbackMediaInfoForDecision()`：direct 默认保留源 `video_codec`，后端 HLS 显式优先 `target_video`。
+- `PlayerPage._openBackendStream()` 仅在实际 HLS 时启用目标编码；原生/自动 direct 路径保持原行为。
+- 已新增回归测试：HEVC Matroska 原片 direct 仍推断 `KSMEPlayer`，同一决策的 H.264 HLS 转码推断 `AVPlayer`。
+- Dart 格式化完成；播放器路由、统一契约、控制栏一致性和播放模型定向测试共 28 项全部通过。
+- CodeGraph 复核确认新映射只有 `PlayerPage` 播放打开路径使用，并由路由测试覆盖；未出现索引陈旧提示。
+- `flutter analyze --no-pub` 通过，`No issues found!`；`git diff --check` 通过，仅有 Windows LF/CRLF 提示。
+- 完整 `flutter test --no-pub` 通过，共 420 项全部成功。

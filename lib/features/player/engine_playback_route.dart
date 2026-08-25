@@ -38,6 +38,38 @@ bool decisionHasHlsUrl(playback_models.PlaybackDecision decision) {
   return url.contains('.m3u8') || mime.contains('mpegurl');
 }
 
+PlaybackMediaInfo? playbackMediaInfoForDecision(
+  playback_models.PlaybackDecision decision, {
+  bool preferTargetVideo = false,
+}) {
+  final container = decision.container.trim();
+  final sourceVideo = decision.videoCodec.trim();
+  final targetVideo = decision.targetVideo.trim();
+  final videoCodec = preferTargetVideo && targetVideo.isNotEmpty
+      ? targetVideo
+      : sourceVideo.isNotEmpty
+      ? sourceVideo
+      : targetVideo;
+  final audioCodec = decision.targetAudio.trim();
+  final bitrate = decision.targetBitrate > 0
+      ? decision.targetBitrate
+      : decision.bitRate > 0
+      ? decision.bitRate
+      : null;
+  if (container.isEmpty &&
+      videoCodec.isEmpty &&
+      audioCodec.isEmpty &&
+      bitrate == null) {
+    return null;
+  }
+  return PlaybackMediaInfo(
+    container: container.isEmpty ? null : container,
+    videoCodec: videoCodec.isEmpty ? null : videoCodec,
+    videoBitrate: bitrate,
+    audioCodec: audioCodec.isEmpty ? null : audioCodec,
+  );
+}
+
 @immutable
 class ServerFallbackPlan {
   const ServerFallbackPlan({

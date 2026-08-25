@@ -462,3 +462,12 @@
 - `finishPendingOpenIfReady()` 的 seek 分支没有任何兜底完成；同文件已有 `openGeneration` 和 `Task.sleep` 代次校验模式，可用一个短的 generation-aware 超时只解除 Dart open 等待，同时保留原 seek 和后续位置校验。
 - `packages/omm_ksplayer` 没有 Swift/XCTest 测试目标，Windows 也无法编译 iOS 插件；需要用 Dart 契约测试覆盖统一 stop/open 状态，并把 Swift 编译与真机复测列为平台验收。
 - 最终修复不再等待 AVPlayer 初始 seek completion 才完成 Pigeon open；非零起点同时启用既有延迟定位校验，校验重试使用 `pendingAutoplay` 保留播放意图。
+
+# KSPlayer HLS 内核误路由（2026-08-26 续查）
+
+- 上一轮解除 seek completion 等待后真机仍复现，说明卡点不是初始 seek。
+- 后端 `Decision.VideoCodec` 表示源文件编码，`Decision.TargetVideo` 表示实际输出编码；完整 HLS 转码目标是 H.264 8-bit。
+- 移动端原 `_mediaInfoForDecision()` 总是优先源 `video_codec`。HEVC 原片即使播放的是 H.264 `.m3u8`，仍把 `hevc` 传给 KSPlayer。
+- KSPlayer 原生 `prefersFfmpegPlayer()` 与 Dart 调试推断都会因 HEVC 强制选择 `KSMEPlayer`，优先级高于 `.m3u8` 容器判断；因此 HLS 被错误交给 FFmpeg 子内核。
+- KSMEPlayer 关闭通过异步 close operation 完成，连续切档会让旧 HLS 的 FFmpeg 关闭与新 HLS 的 FFmpeg 打开重叠；正确的 H.264 HLS 应交给 `KSAVPlayer`。
+- 修复仅让后端 HLS 优先使用 `target_video`；direct/original 继续使用源 `video_codec`，libmpv 路由与服务端协议不变。

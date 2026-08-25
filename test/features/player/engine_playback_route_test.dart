@@ -66,6 +66,53 @@ void main() {
     }
   });
 
+  test('后端 HLS 使用目标编码选择 KSPlayer 内部播放器', () {
+    const decision = PlaybackDecision(
+      mode: 'transcode',
+      streamUrl: 'https://example.com/stream.m3u8?quality=720p',
+      directUrl: 'https://example.com/original.mkv',
+      mimeType: 'application/vnd.apple.mpegurl',
+      container: 'matroska,webm',
+      videoCodec: 'hevc',
+      bitRate: 20 * 1000 * 1000,
+      hwAccel: 'videotoolbox',
+      targetVideo: 'h264',
+      targetAudio: 'aac',
+      targetHeight: 720,
+      targetBitrate: 4 * 1000 * 1000,
+      reasons: [],
+      audioTracks: [],
+      subtitleTracks: [],
+      startSec: 0,
+    );
+
+    final directInfo = playbackMediaInfoForDecision(decision);
+    final hlsInfo = playbackMediaInfoForDecision(
+      decision,
+      preferTargetVideo: true,
+    );
+
+    expect(directInfo?.videoCodec, 'hevc');
+    expect(hlsInfo?.videoCodec, 'h264');
+    expect(hlsInfo?.videoBitrate, 4 * 1000 * 1000);
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
+        decision.directUrl,
+        decision.container,
+        videoCodec: directInfo?.videoCodec,
+      ),
+      'KSMEPlayer',
+    );
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
+        decision.streamUrl,
+        null,
+        videoCodec: hlsInfo?.videoCodec,
+      ),
+      'AVPlayer',
+    );
+  });
+
   test('服务器回退优先复用 HLS，否则要求强制视频转码重决策', () {
     final reuse = serverFallbackPlanFor(
       quality: 'auto',

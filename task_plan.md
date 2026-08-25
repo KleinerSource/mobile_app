@@ -582,6 +582,33 @@
 - `flutter analyze --no-pub` 通过，无静态分析问题。
 - `flutter test --no-pub` 全量 419 项通过。
 
+## 当前任务：修复 KSPlayer HLS 二次切换仍无限加载（2026-08-26 续查）
+
+### 目标
+
+修正后端 HLS 的媒体信息映射，让 KSPlayer 按实际输出编码选择 AVPlayer，避免把 HEVC 原片的 H.264 转码流误交给 KSMEPlayer，并验证连续质量路由不回归。
+
+### 阶段
+
+- [x] 恢复工作区与上一轮修改状态
+- [x] 逐段排除服务端停止、SSE 取消、KSPlayer stop 和 URL prepare 竞态
+- [x] 确认源 `video_codec` 被错误用于 HLS 内核选择
+- [x] 实施最小媒体信息映射修复并补回归测试
+- [x] 运行定向测试、静态分析、全量测试与差异检查
+
+### 约束
+
+- 只修正后端 HLS 的实际输出编码提示；direct/original 继续使用源媒体信息。
+- 不修改服务端协议、KSPlayer 原生 API 或 libmpv 行为。
+- 保留现有切源清理顺序、代次检查、续播位置和播放意图。
+
+### 验证结果
+
+- 播放器路由、统一契约、控制栏一致性和播放模型定向测试 28 项通过。
+- `flutter analyze --no-pub` 通过，无静态分析问题。
+- `flutter test --no-pub` 全量 420 项通过。
+- `git diff --check` 通过；最终代码差异仅涉及媒体信息映射、两个调用点和一项路由回归测试。
+
 ## 当前任务：修复 KSPlayer 二次切换后无限加载（2026-08-26）
 
 ### 目标

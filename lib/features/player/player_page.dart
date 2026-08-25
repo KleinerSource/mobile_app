@@ -572,7 +572,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           play: shouldPlay,
           formatHint: decision.container,
           headers: directHeaders,
-          mediaInfo: _mediaInfoForDecision(decision),
+          mediaInfo: playbackMediaInfoForDecision(decision),
         );
       }
       if (!mounted || generation != _loadGeneration) {
@@ -655,7 +655,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       startAt: startAt,
       play: play,
       formatHint: isHls ? null : decision.container,
-      mediaInfo: _mediaInfoForDecision(decision),
+      mediaInfo: playbackMediaInfoForDecision(
+        decision,
+        preferTargetVideo: isHls,
+      ),
     );
     _usingHls = isHls;
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
@@ -713,33 +716,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       ),
     );
     return true;
-  }
-
-  PlaybackMediaInfo? _mediaInfoForDecision(
-    playback_models.PlaybackDecision decision,
-  ) {
-    final container = decision.container.trim();
-    final videoCodec = decision.videoCodec.trim().isNotEmpty
-        ? decision.videoCodec.trim()
-        : decision.targetVideo.trim();
-    final audioCodec = decision.targetAudio.trim();
-    final bitrate = decision.targetBitrate > 0
-        ? decision.targetBitrate
-        : decision.bitRate > 0
-        ? decision.bitRate
-        : null;
-    if (container.isEmpty &&
-        videoCodec.isEmpty &&
-        audioCodec.isEmpty &&
-        bitrate == null) {
-      return null;
-    }
-    return PlaybackMediaInfo(
-      container: container.isEmpty ? null : container,
-      videoCodec: videoCodec.isEmpty ? null : videoCodec,
-      videoBitrate: bitrate,
-      audioCodec: audioCodec.isEmpty ? null : audioCodec,
-    );
   }
 
   Future<void> _applyDefaultTracks(
