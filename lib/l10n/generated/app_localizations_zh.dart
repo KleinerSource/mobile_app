@@ -449,9 +449,6 @@ class AppL10nZh extends AppL10n {
   String get settingsLogout => '退出登录';
 
   @override
-  String get playerEngineNative => '原生';
-
-  @override
   String get playerEnginePickerTitle => '选择播放器';
 
   @override

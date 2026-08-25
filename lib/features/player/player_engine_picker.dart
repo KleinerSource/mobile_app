@@ -34,14 +34,9 @@ Future<PlaybackEngineKind?> showPlaybackEnginePicker(
                 key: ValueKey('player-engine-${engineKind.value}'),
                 leading: Icon(switch (engineKind) {
                   PlaybackEngineKind.libmpv => Icons.video_library_outlined,
-                  PlaybackEngineKind.avPlayer => Icons.phone_iphone,
                   PlaybackEngineKind.ksPlayer => Icons.movie_outlined,
                 }),
-                title: Text(
-                  engineKind == PlaybackEngineKind.avPlayer
-                      ? l.playerEngineNative
-                      : engineKind.label,
-                ),
+                title: Text(engineKind.label),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(sheetContext).pop(engineKind),
               ),

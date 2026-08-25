@@ -10,7 +10,7 @@ import 'package:md_center/features/player/player_session_controller.dart';
 import 'fake_playback_engine.dart';
 
 void main() {
-  testWidgets('libmpv 与 AVPlayer 渲染同一套控制栏和菜单', (tester) async {
+  testWidgets('libmpv 与 KSPlayer 渲染同一套控制栏和菜单', (tester) async {
     for (final kind in PlaybackEngineKind.values) {
       final engine = FakePlaybackEngine(
         kind,

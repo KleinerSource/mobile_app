@@ -33,8 +33,6 @@ dependencies:
     path: packages/media_kit_libs_android_video
   media_kit_libs_ios_video:
     path: packages/media_kit_libs_ios_video
-  md_center_avplayer:
-    path: packages/md_center_avplayer
   md_center_ksplayer:
     path: packages/md_center_ksplayer
   screen_brightness: ^2.1.11

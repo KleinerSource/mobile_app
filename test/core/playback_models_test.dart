@@ -104,21 +104,6 @@ void main() {
     expect(track.sourceLabel, '内嵌');
   });
 
-  test('AVPlayer 能力只声明系统原生容器和编解码并传递选轨字段', () {
-    final json = PlaybackClientCaps.avPlayer(
-      qualityPreset: 'original',
-      audioStreamIndex: 2,
-      subtitleTrackId: 'pgs-3',
-    ).toJson();
-
-    expect(json['containers'], ['mp4', 'mov', 'm4v']);
-    expect((json['video_codecs'] as Map).keys, isNot(contains('vp9')));
-    expect((json['video_codecs'] as Map).keys, isNot(contains('av1')));
-    expect((json['audio_codecs'] as Map).keys, isNot(contains('flac')));
-    expect(json['audio_stream_index'], 2);
-    expect(json['subtitle_track_id'], 'pgs-3');
-  });
-
   test('KSPlayer 能力声明宽格式客户端容器和编解码', () {
     final json = PlaybackClientCaps.ksPlayer(
       qualityPreset: 'original',

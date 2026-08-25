@@ -86,34 +86,6 @@ class PlaybackClientCaps {
     );
   }
 
-  factory PlaybackClientCaps.avPlayer({
-    required String qualityPreset,
-    String? userAgent,
-    int? audioStreamIndex,
-    String? subtitleTrackId,
-  }) {
-    return PlaybackClientCaps(
-      containers: const ['mp4', 'mov', 'm4v'],
-      videoCodecs: const {
-        'h264': VideoCodecCapability(maxLevel: 999, pixFormats: ['yuv420p']),
-        'avc1': VideoCodecCapability(maxLevel: 999, pixFormats: ['yuv420p']),
-        'hevc': VideoCodecCapability(maxLevel: 999, pixFormats: ['yuv420p']),
-        'h265': VideoCodecCapability(maxLevel: 999, pixFormats: ['yuv420p']),
-        'hvc1': VideoCodecCapability(maxLevel: 999, pixFormats: ['yuv420p']),
-      },
-      audioCodecs: const {
-        'aac': AudioCodecCapability(maxChannels: 8),
-        'ac3': AudioCodecCapability(maxChannels: 8),
-        'eac3': AudioCodecCapability(maxChannels: 8),
-        'mp3': AudioCodecCapability(maxChannels: 2),
-      },
-      qualityPreset: qualityPreset,
-      userAgent: userAgent,
-      audioStreamIndex: audioStreamIndex,
-      subtitleTrackId: subtitleTrackId,
-    );
-  }
-
   /// KSPlayer 同时包含 AVPlayer 和 FFmpeg 内核，使用宽格式能力声明。
   factory PlaybackClientCaps.ksPlayer({
     required String qualityPreset,

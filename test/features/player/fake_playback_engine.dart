@@ -21,7 +21,6 @@ class FakePlaybackEngine implements PlaybackEngine {
 
   @override
   PlaybackEngineCapabilities get capabilities => switch (kind) {
-    PlaybackEngineKind.avPlayer => const PlaybackEngineCapabilities.avPlayer(),
     PlaybackEngineKind.ksPlayer => const PlaybackEngineCapabilities.ksPlayer(),
     PlaybackEngineKind.libmpv => const PlaybackEngineCapabilities.libmpv(),
   };

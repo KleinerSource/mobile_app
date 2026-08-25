@@ -123,7 +123,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Map<String, String>? _pictureInPictureHeaders;
   bool _pictureInPictureActive = false;
   bool _pictureInPictureWasPlaying = false;
-  bool _pictureInPictureUsesFallbackHls = false;
   bool _clientHardwareAcceleration = true;
   int? _audioStreamIndex;
   String? _subtitleTrackId;
@@ -137,7 +136,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   StreamSubscription<Duration>? _durSub;
   StreamSubscription<bool>? _completedSub;
   StreamSubscription<String>? _errorSub;
-  StreamSubscription<PlaybackReloadRequest>? _reloadRequiredSub;
   StreamSubscription<playback_models.TranscodeStatus>? _eventsSub;
   Timer? _transcodePollTimer;
   Timer? _deviceStatsTimer;
@@ -177,12 +175,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _host = createPlayerSession(
       engineKind: widget.engineKind,
       iosEnginePreference: settings.iosEngine,
-      onFallback: (message) {
-        if (mounted && !_isLeaving) _showError(message);
-      },
-    );
-    _reloadRequiredSub = _host.reloadRequiredStream.listen(
-      _onPlaybackReloadRequired,
     );
     _subtitleAdjustments = ref.read(subtitleSettingsProvider).adjustments;
     WidgetsBinding.instance.addObserver(this);
@@ -331,7 +323,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _durSub?.cancel();
     _completedSub?.cancel();
     _errorSub?.cancel();
-    _reloadRequiredSub?.cancel();
     _eventsSub?.cancel();
     _transcodePollTimer?.cancel();
     _deviceStatsTimer?.cancel();
@@ -357,9 +348,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             .stop(widget.movieId);
         unawaited(stopFuture);
       } catch (_) {}
-    }
-    if (_pictureInPictureUsesFallbackHls) {
-      unawaited(_stopPictureInPictureFallback());
     }
     // ignore: discarded_futures
     WakelockPlus.disable();
@@ -427,7 +415,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     if (!mounted || generation != _loadGeneration) return;
     _pictureInPictureUrl = null;
     _pictureInPictureHeaders = null;
-    _pictureInPictureUsesFallbackHls = false;
     setState(() {
       _loading = true;
       _error = null;
@@ -575,17 +562,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       await _applyDefaultTracks(cfg, token, decision);
     } catch (error) {
       if (!mounted || generation != _loadGeneration) return;
-      if (await _host.fallbackToLibmpvForReload(error.toString())) {
-        if (!mounted || generation != _loadGeneration) return;
-        _decision = null;
-        final retryGeneration = ++_loadGeneration;
-        await _loadInternal(
-          generation: retryGeneration,
-          quality: quality,
-          resume: resume,
-        );
-        return;
-      }
       _playbackErrorReported = true;
       _loadGeneration++;
       setState(() {
@@ -765,21 +741,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       return;
     }
     _showPlaybackError(message);
-  }
-
-  void _onPlaybackReloadRequired(PlaybackReloadRequest request) {
-    if (!mounted || _isLeaving) return;
-    _playbackRate = request.rate;
-    unawaited(_reloadAfterEngineFallback(request));
-  }
-
-  Future<void> _reloadAfterEngineFallback(PlaybackReloadRequest request) async {
-    // 显式传入 quality，避免沿用 AVPlayer 的旧 decision；新请求必须按
-    // libmpv capabilities 重新协商 stream_url。
-    await _load(quality: _quality, resume: request.position);
-    if (!request.wasPlaying && mounted && !_isLeaving) {
-      await _host.pause();
-    }
   }
 
   /// 主媒体是否已完成装载。字幕加载窗口内收到报错时，只有主媒体已就绪
@@ -1281,7 +1242,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         if (mounted) _showError('当前播放源暂不支持画中画');
         return;
       }
-      _pictureInPictureUsesFallbackHls = source.usesFallbackHls;
       if (wasPlaying) {
         await _host.pause();
       }
@@ -1295,7 +1255,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         ),
       );
       if (!entered) {
-        await _stopPictureInPictureFallback();
         if (wasPlaying && mounted && !_isLeaving) {
           await _host.play();
         }
@@ -1305,7 +1264,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       }
       _pictureInPictureActive = true;
     } catch (_) {
-      await _stopPictureInPictureFallback();
       if (wasPlaying && mounted && !_isLeaving) {
         await _host.play();
       }
@@ -1319,42 +1277,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<_PictureInPictureSource?> _resolvePictureInPictureSource() async {
     final currentUrl = _pictureInPictureUrl;
     if (currentUrl == null || currentUrl.trim().isEmpty) return null;
-    if (!_host.capabilities.pictureInPictureRequiresNativeSource ||
-        _usingHls ||
-        _isNativePictureInPictureSource(currentUrl)) {
-      return _PictureInPictureSource(
-        url: currentUrl,
-        headers: _pictureInPictureHeaders,
-        usesFallbackHls: false,
-      );
-    }
-
-    // iOS 受限原生内核无法直接播放 media_kit 常用的 MKV 等容器。PiP 单独
-    // 使用一个短生命周期的 HLS 会话，退出时由 _stopPictureInPictureFallback
-    // 释放它，主播放器仍保持原来的 media_kit 直传链路。
-    final cfg = ref.read(serverConfigProvider);
-    if (cfg == null) return null;
-    final token = await ref.read(authSessionRepositoryProvider).accessToken();
     return _PictureInPictureSource(
-      url: _fallbackHlsUrl(cfg, token, 'original'),
-      headers: null,
-      usesFallbackHls: true,
+      url: currentUrl,
+      headers: _pictureInPictureHeaders,
     );
-  }
-
-  bool _isNativePictureInPictureSource(String url) {
-    final mimeType = (_decision?.mimeType ?? '').trim().toLowerCase();
-    if (mimeType.isNotEmpty) {
-      return mimeType.contains('mpegurl') ||
-          mimeType.contains('mp4') ||
-          mimeType.contains('quicktime') ||
-          mimeType.contains('x-m4v');
-    }
-    final path = Uri.tryParse(url)?.path.toLowerCase() ?? url.toLowerCase();
-    return path.endsWith('.m3u8') ||
-        path.endsWith('.mp4') ||
-        path.endsWith('.m4v') ||
-        path.endsWith('.mov');
   }
 
   String _pictureInPictureSourceUrl(String url) {
@@ -1368,18 +1294,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final wasPlaying = _pictureInPictureWasPlaying;
     _pictureInPictureActive = false;
     _pictureInPictureWasPlaying = false;
-    await _stopPictureInPictureFallback();
     if (!mounted || _isLeaving) return;
-
-    if (!_host.capabilities.pictureInPictureUsesSeparatePlayer) {
-      if (wasPlaying) {
-        await _host.play();
-      } else {
-        await _host.pause();
-      }
-      unawaited(_reportProgress());
-      return;
-    }
 
     var position = positionMs > 0
         ? Duration(milliseconds: positionMs)
@@ -1391,26 +1306,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     if (position > Duration.zero) {
       await _host.seek(position);
     }
-    if (wasPlaying && mounted && !_isLeaving) {
-      if (_usingHls) {
-        await _load(resume: position);
-      } else {
-        await _host.play();
-      }
-      unawaited(_reportProgress());
+    if (wasPlaying) {
+      await _host.play();
+    } else {
+      await _host.pause();
     }
+    unawaited(_reportProgress());
   }
 
   Future<void> _onPictureInPictureStoppedDuration(Duration position) {
     return _onPictureInPictureStopped(position.inMilliseconds);
-  }
-
-  Future<void> _stopPictureInPictureFallback() async {
-    if (!_pictureInPictureUsesFallbackHls) return;
-    _pictureInPictureUsesFallbackHls = false;
-    try {
-      await ref.read(requiredApiClientProvider).playback.stop(widget.movieId);
-    } catch (_) {}
   }
 
   Future<void> _switchMedia(int index) async {
@@ -1745,15 +1650,10 @@ class _LoadingView extends StatelessWidget {
 }
 
 class _PictureInPictureSource {
-  const _PictureInPictureSource({
-    required this.url,
-    required this.headers,
-    required this.usesFallbackHls,
-  });
+  const _PictureInPictureSource({required this.url, required this.headers});
 
   final String url;
   final Map<String, String>? headers;
-  final bool usesFallbackHls;
 }
 
 class _ErrorView extends StatelessWidget {

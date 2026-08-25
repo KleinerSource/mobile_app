@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 enum PlaybackEngineKind {
   libmpv('libmpv', 'libmpv'),
-  avPlayer('avplayer', 'AVPlayer'),
   ksPlayer('ksplayer', 'KSPlayer');
 
   const PlaybackEngineKind(this.value, this.label);
@@ -35,31 +34,16 @@ class PlaybackEngineCapabilities {
     required this.bitmapSubtitles,
     required this.customBuffering,
     this.playbackRate = true,
-    this.pictureInPictureRequiresNativeSource = false,
-    this.pictureInPictureUsesSeparatePlayer = false,
   });
 
-  const PlaybackEngineCapabilities.libmpv({
-    this.pictureInPictureRequiresNativeSource = false,
-    this.pictureInPictureUsesSeparatePlayer = false,
-  }) : pictureInPicture = true,
-       framePreview = true,
-       audioTracks = true,
-       textSubtitles = true,
-       bitmapSubtitles = true,
-       customBuffering = true,
-       playbackRate = true;
-
-  const PlaybackEngineCapabilities.avPlayer()
-    : pictureInPicture = true,
+  const PlaybackEngineCapabilities.libmpv()
+    : pictureInPicture = false,
       framePreview = true,
       audioTracks = true,
       textSubtitles = true,
-      bitmapSubtitles = false,
+      bitmapSubtitles = true,
       customBuffering = true,
-      playbackRate = true,
-      pictureInPictureRequiresNativeSource = false,
-      pictureInPictureUsesSeparatePlayer = false;
+      playbackRate = true;
 
   const PlaybackEngineCapabilities.ksPlayer()
     : pictureInPicture = true,
@@ -68,9 +52,7 @@ class PlaybackEngineCapabilities {
       textSubtitles = true,
       bitmapSubtitles = false,
       customBuffering = false,
-      playbackRate = true,
-      pictureInPictureRequiresNativeSource = false,
-      pictureInPictureUsesSeparatePlayer = false;
+      playbackRate = true;
 
   final bool pictureInPicture;
   final bool framePreview;
@@ -79,8 +61,6 @@ class PlaybackEngineCapabilities {
   final bool bitmapSubtitles;
   final bool customBuffering;
   final bool playbackRate;
-  final bool pictureInPictureRequiresNativeSource;
-  final bool pictureInPictureUsesSeparatePlayer;
 }
 
 @immutable

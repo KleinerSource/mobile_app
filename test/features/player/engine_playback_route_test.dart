@@ -20,20 +20,6 @@ PlaybackDecision _decision(String mode) => PlaybackDecision(
 );
 
 void main() {
-  for (final mode in ['direct_play', 'remux', 'direct_stream', 'transcode']) {
-    test('AVPlayer $mode 始终采纳后端 stream_url', () {
-      final route = playbackRouteForEngine(
-        engineKind: PlaybackEngineKind.avPlayer,
-        quality: 'original',
-        decision: _decision(mode),
-      );
-
-      expect(route.useBackendStream, isTrue);
-      expect(route.useServerRoute, mode != 'direct_play');
-      expect(route.usesManagedTranscode, mode == 'transcode');
-    });
-  }
-
   test('libmpv 保持自动画质直传、固定画质 HLS', () {
     final decision = _decision('transcode');
     final original = playbackRouteForEngine(
@@ -65,7 +51,7 @@ void main() {
     expect(route.usesManagedTranscode, isFalse);
   });
 
-  test('AVPlayer PGS 与 burn_in 字幕要求后端重决策', () {
+  test('KSPlayer PGS 与 burn_in 字幕要求后端重决策', () {
     const pgs = SubtitleTrack(
       id: 'pgs-1',
       index: 1,
@@ -89,19 +75,15 @@ void main() {
     );
 
     expect(
-      subtitleRequiresBackendDecision(PlaybackEngineKind.avPlayer, pgs),
-      isTrue,
-    );
-    expect(
-      subtitleRequiresBackendDecision(PlaybackEngineKind.avPlayer, burnIn),
-      isTrue,
-    );
-    expect(
       subtitleRequiresBackendDecision(PlaybackEngineKind.libmpv, pgs),
       isFalse,
     );
     expect(
       subtitleRequiresBackendDecision(PlaybackEngineKind.ksPlayer, pgs),
+      isTrue,
+    );
+    expect(
+      subtitleRequiresBackendDecision(PlaybackEngineKind.ksPlayer, burnIn),
       isTrue,
     );
   });

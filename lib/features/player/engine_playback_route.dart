@@ -22,13 +22,6 @@ EnginePlaybackRoute playbackRouteForEngine({
   required String quality,
   required playback_models.PlaybackDecision decision,
 }) {
-  if (engineKind == PlaybackEngineKind.avPlayer) {
-    return EnginePlaybackRoute(
-      useBackendStream: true,
-      useServerRoute: decision.mode != 'direct_play',
-      usesManagedTranscode: decision.isTranscode,
-    );
-  }
   final useServerRoute = playbackRouteForQuality(quality) == PlaybackRoute.hls;
   return EnginePlaybackRoute(
     useBackendStream: false,
@@ -41,8 +34,7 @@ bool subtitleRequiresBackendDecision(
   PlaybackEngineKind engineKind,
   playback_models.SubtitleTrack track,
 ) {
-  if (engineKind != PlaybackEngineKind.avPlayer &&
-      engineKind != PlaybackEngineKind.ksPlayer) {
+  if (engineKind != PlaybackEngineKind.ksPlayer) {
     return false;
   }
   final renderMode = track.renderMode.trim().toLowerCase();

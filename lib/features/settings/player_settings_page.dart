@@ -26,10 +26,7 @@ class PlayerSettingsPage extends ConsumerWidget {
       unawaited(ref.read(playerSettingsProvider.notifier).update(next));
     }
 
-    String engineLabel(PlaybackEngineKind engine) =>
-        engine == PlaybackEngineKind.avPlayer
-        ? l.playerEngineNative
-        : engine.label;
+    String engineLabel(PlaybackEngineKind engine) => engine.label;
 
     return Scaffold(
       backgroundColor: c.bg,

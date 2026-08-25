@@ -455,9 +455,6 @@ class AppL10nEn extends AppL10n {
   String get settingsLogout => 'Log out';
 
   @override
-  String get playerEngineNative => 'Native';
-
-  @override
   String get playerEnginePickerTitle => 'Choose player';
 
   @override

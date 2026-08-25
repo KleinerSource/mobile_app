@@ -8,7 +8,6 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'playback_engine.dart';
-import 'player_platform.dart';
 import 'player_subtitle_track_resolver.dart';
 
 /// 后向（已播放）demuxer 缓冲上限，固定值：既服务回看拖动，也把最坏
@@ -50,10 +49,7 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
 
   @override
   PlaybackEngineCapabilities get capabilities =>
-      PlaybackEngineCapabilities.libmpv(
-        pictureInPictureRequiresNativeSource: !kIsWeb && Platform.isIOS,
-        pictureInPictureUsesSeparatePlayer: !kIsWeb && Platform.isIOS,
-      );
+      const PlaybackEngineCapabilities.libmpv();
 
   @override
   ValueListenable<PlaybackViewState> get state => _state;
@@ -751,30 +747,10 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
   @override
   Future<bool> enterPictureInPicture(
     PlaybackPictureInPictureRequest request,
-  ) async {
-    PlayerPlatformCapabilities.setPictureInPictureStoppedHandler((
-      positionMs,
-    ) async {
-      _updateState((state) => state.copyWith(inPictureInPicture: false));
-      await request.onStopped?.call(Duration(milliseconds: positionMs));
-    });
-    final entered = await PlayerPlatformCapabilities.enterPictureInPicture(
-      url: request.url,
-      headers: request.headers,
-      position: request.position,
-      autoplay: request.autoplay,
-    );
-    if (entered) {
-      _updateState((state) => state.copyWith(inPictureInPicture: true));
-    } else {
-      PlayerPlatformCapabilities.clearPictureInPictureStoppedHandler();
-    }
-    return entered;
-  }
+  ) async => false;
 
   @override
-  Future<void> stopPictureInPicture() =>
-      PlayerPlatformCapabilities.stopPictureInPicture();
+  Future<void> stopPictureInPicture() async {}
 
   @override
   Widget buildSurface({BoxFit fit = BoxFit.contain}) {
@@ -791,7 +767,6 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
   @override
   Future<void> dispose() async {
     ++_openGeneration;
-    PlayerPlatformCapabilities.clearPictureInPictureStoppedHandler();
     for (final subscription in _stateSubscriptions) {
       await subscription.cancel();
     }

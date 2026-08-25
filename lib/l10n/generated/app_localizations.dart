@@ -949,12 +949,6 @@ abstract class AppL10n {
   /// **'退出登录'**
   String get settingsLogout;
 
-  /// No description provided for @playerEngineNative.
-  ///
-  /// In zh, this message translates to:
-  /// **'原生'**
-  String get playerEngineNative;
-
   /// No description provided for @playerEnginePickerTitle.
   ///
   /// In zh, this message translates to:

@@ -6,7 +6,6 @@ build/
 .pub-cache/
 .pub/
 *.g.dart
-!packages/md_center_avplayer/lib/src/av_player_api.g.dart
 !packages/md_center_ksplayer/lib/src/ks_player_api.g.dart
 *.freezed.dart
 
