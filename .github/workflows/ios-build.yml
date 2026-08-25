@@ -43,20 +43,14 @@ jobs:
           channel: stable
           cache: true
 
-      # iOS workflow 负责把一次代码 push 的版本号持久化到 master；Android
-      # workflow 使用同一策略计算本地构建版本，避免双平台同时构建时重复递增。
+      # master 与 dev 均按提交信息自动计算版本号；只有 master 持久化版本号提交。
       # 新增/删除/增强功能: 次版本号 +1 且补丁号归零；优化/修复/改进: 补丁号 +1；构建始终只增加 build。
       - name: 计算并持久化构建版本号
         timeout-minutes: 2
         run: |
           set -euo pipefail
-          if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
-            # Dev 构建只递增 build，避免开发分支消耗正式版本号。
-            version="$(dart tool/bump_app_version.dart --build-only)"
-          else
-            commit_message="$(git log -1 --format=%B "${GITHUB_SHA}")"
-            version="$(dart tool/bump_app_version.dart --auto --commit-message "${commit_message}")"
-          fi
+          commit_message="$(git log -1 --format=%B "${GITHUB_SHA}")"
+          version="$(dart tool/bump_app_version.dart --auto --commit-message "${commit_message}")"
           echo "构建版本: ${version}"
           if { [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/master" ]; } || \
              { [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && [ "${GITHUB_REF}" = "refs/heads/master" ]; }; then

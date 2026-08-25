@@ -44,13 +44,8 @@ jobs:
         run: |
           set -euo pipefail
           # 新增/删除/增强功能: 次版本号 +1 且补丁号归零；优化/修复/改进: 补丁号 +1；构建始终只增加 build。
-          if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
-            # Dev 构建只递增 build，避免开发分支消耗正式版本号。
-            version="$(dart tool/bump_app_version.dart --build-only)"
-          else
-            commit_message="$(git log -1 --format=%B "${GITHUB_SHA}")"
-            version="$(dart tool/bump_app_version.dart --auto --commit-message "${commit_message}")"
-          fi
+          commit_message="$(git log -1 --format=%B "${GITHUB_SHA}")"
+          version="$(dart tool/bump_app_version.dart --auto --commit-message "${commit_message}")"
           echo "构建版本: ${version}"
 
       - name: Flutter doctor
