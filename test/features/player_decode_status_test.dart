@@ -42,6 +42,19 @@ void main() {
     expect(statuses.single.location, PlayerDecodeLocation.server);
   });
 
+  test('服务端软解转码时只显示服务端软解', () {
+    final server = PlayerDecodeStatus.server(engine: 'software');
+    final statuses = PlayerDecodeStatus.primary(
+      usingHls: true,
+      localHardware: true,
+      serverStatus: server,
+    );
+
+    expect(statuses, hasLength(1));
+    expect(statuses.single.location, PlayerDecodeLocation.server);
+    expect(statuses.single.shortLabel, '服务端软解');
+  });
+
   test('直传时显示本地主状态', () {
     final server = PlayerDecodeStatus.server(engine: 'videotoolbox');
     final statuses = PlayerDecodeStatus.primary(

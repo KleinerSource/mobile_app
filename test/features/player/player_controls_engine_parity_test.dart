@@ -117,7 +117,7 @@ void main() {
       expect(find.byIcon(Icons.subtitles_outlined), findsOneWidget);
       expect(find.byIcon(Icons.audiotrack_outlined), findsOneWidget);
       expect(find.byIcon(Icons.picture_in_picture_alt), findsOneWidget);
-      expect(find.text('1080P（原生）'), findsOneWidget);
+      expect(find.byIcon(Icons.high_quality_outlined), findsOneWidget);
       expect(find.text('4K'), findsNothing);
       expect(
         tester.widget<Slider>(find.byType(Slider)).secondaryTrackValue,
@@ -127,8 +127,10 @@ void main() {
       await tester.tap(find.byTooltip('选择画质'));
       await tester.pumpAndSettle();
       expect(find.text('自动'), findsOneWidget);
+      expect(find.text('1080P（原生）'), findsOneWidget);
       expect(find.text('720P'), findsOneWidget);
       expect(find.text('360P'), findsOneWidget);
+      expect(find.byIcon(Icons.check), findsOneWidget);
       await tester.tap(find.text('720P'));
       await tester.pumpAndSettle();
       expect(selectedQuality, '720p');
