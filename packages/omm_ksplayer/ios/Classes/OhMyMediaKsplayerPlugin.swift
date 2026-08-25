@@ -274,6 +274,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
   private var pendingStartPositionMs: Double = 0
   private var pendingStartVerificationMs: Double = 0
   private var startVerificationGeneration = 0
+  private var openGeneration = 0
   private var pendingAutoplay = true
   private var desiredRate: Float = 1
   private var disposed = false
@@ -321,6 +322,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     )
     KSOptions.firstPlayerType = useFfmpegPlayer ? KSMEPlayer.self : KSAVPlayer.self
 
+    openGeneration += 1
     pendingOpen?(.failure(KsPlayerPluginError.cancelled))
     pendingOpen = nil
     recreateLayer()
@@ -426,6 +428,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
 
   func stop() throws {
     guard !disposed else { throw KsPlayerPluginError.disposed }
+    openGeneration += 1
     pendingOpen?(.failure(KsPlayerPluginError.cancelled))
     pendingOpen = nil
     pendingStartVerificationMs = 0
@@ -552,7 +555,8 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     layer.stop()
   }
 
-  func player(layer _: KSPlayerLayer, state: KSPlayerState) {
+  func player(layer callbackLayer: KSPlayerLayer, state: KSPlayerState) {
+    guard callbackLayer === layer else { return }
     switch state {
     case .initialized:
       send(.playing, boolValue: false)
@@ -582,13 +586,19 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     }
   }
 
-  func player(layer _: KSPlayerLayer, currentTime: TimeInterval, totalTime: TimeInterval) {
+  func player(
+    layer callbackLayer: KSPlayerLayer,
+    currentTime: TimeInterval,
+    totalTime: TimeInterval
+  ) {
+    guard callbackLayer === layer else { return }
     send(.position, numberValue: milliseconds(currentTime))
     send(.duration, numberValue: milliseconds(totalTime))
     sendVideoSizeIfNeeded()
   }
 
-  func player(layer _: KSPlayerLayer, finish error: Error?) {
+  func player(layer callbackLayer: KSPlayerLayer, finish error: Error?) {
+    guard callbackLayer === layer else { return }
     if let error {
       let message = error.localizedDescription.isEmpty ? "KSPlayer 播放失败" : error.localizedDescription
       send(.error, stringValue: message)
@@ -599,26 +609,38 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     }
   }
 
-  func player(layer _: KSPlayerLayer, bufferedCount _: Int, consumeTime _: TimeInterval) {
+  func player(
+    layer callbackLayer: KSPlayerLayer,
+    bufferedCount _: Int,
+    consumeTime _: TimeInterval
+  ) {
+    guard callbackLayer === layer else { return }
     // KSPlayer exposes buffer loading progress, not a reliable buffered-end timestamp.
     // Keep the unified timeline buffered value at zero rather than fabricating one.
   }
 
   private func finishPendingOpenIfReady() {
-    guard let completion = pendingOpen else { return }
+    let generation = openGeneration
+    let currentLayer = layer
+    guard pendingOpen != nil else { return }
     let finish: () -> Void = { [weak self] in
-      guard let self, let completion = self.pendingOpen else { return }
+      guard let self,
+            self.openGeneration == generation,
+            let completion = self.pendingOpen
+      else { return }
       self.pendingOpen = nil
       completion(.success(()))
     }
     if pendingStartPositionMs > 0 {
       let start = pendingStartPositionMs / 1000
-      layer.seek(time: start, autoPlay: pendingAutoplay) { [weak self] _ in
-        guard let self else { return }
+      currentLayer.seek(time: start, autoPlay: pendingAutoplay) { [weak self] _ in
+        guard let self,
+              self.openGeneration == generation
+        else { return }
         finish()
       }
     } else {
-      if pendingAutoplay { layer.play() }
+      if pendingAutoplay { currentLayer.play() }
       finish()
     }
   }
