@@ -269,7 +269,28 @@
 
 | 错误 | 处理 |
 | --- | --- |
-| 暂无 | — |
+| 首次资源导出使用了错误的生成会话目录 ID，源文件存在性检查失败 | 未写入任何 Logo 文件；改用 `image_gen` 返回的完整路径后重新导出 |
+
+# 当前任务：修复 Android GitHub Actions 编译失败（2026-08-25）
+
+## 目标
+
+修复最新 Android Actions 在 `:app:compileReleaseKotlin` 阶段的 Kotlin 编译错误，并用本地等价检查验证。
+
+## 阶段
+
+- [x] 获取最新 Actions 运行、失败步骤与日志
+- [x] 定位并修复 Kotlin 编译错误
+- [x] 运行本地静态分析、测试和 Android 构建验证（Android SDK 缺失，构建验证转由 CI）
+- [x] 检查最终差异并总结
+
+## 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| 旧工作区路径 `D:\Projects\MyProject\ghs\md_center\mobile_app` 不存在 | 已定位当前仓库为 `D:\Projects\MyProject\ghs\oh-my-media\mobile_app` |
+| `gh-fix-ci` 技能文件在当前环境不可读 | 按技能目标使用 `gh` CLI 检查 Actions 并继续处理 |
+| 本地 `flutter build apk` 提示未找到 Android SDK | 记录为本地环境限制；继续执行 Dart 验证并以 CI 日志确认远端 Kotlin 根因已针对性修复 |
 | 首次定向测试编译失败：移除内部回退轨道快照字段后 `clearSubtitle()` 仍残留一次赋值 | 删除该孤立赋值；统一轨道状态继续由 engine state 与页面后端索引管理。 |
 | Windows 环境无法运行 Swift XCTest 与 iOS 真机首帧计时 | 已完成 Swift 生命周期和 API 静态复核；保留 macOS CI 与 iOS 16+ 真机验收。 |
 | 最终 UI 扫描引用了不存在的 `player_subtitle_overlay.dart` | 改用 `rg --files` 获取实际字幕文件名后重新扫描，不重复使用假定路径。 |
@@ -334,3 +355,39 @@
 
 - 提交：`9e54fae fix(ios): map KSPlayer audio tracks before selection`
 - iOS Action：`32791124296` 成功，包含 `pod install`、`analyze`、`test`、`flutter build ios --release --no-codesign` 和 IPA 发布。
+
+# 当前任务：按参考图生成并替换 Oh-My-Media App Logo（2026-08-25）
+
+## 目标
+
+以用户附图作为视觉参考，生成一张风格一致、包含 “oh my media” 品牌字样的方形 App 图标，并替换 Flutter 工程当前使用的 Logo 资源与多平台图标引用。
+
+## 阶段
+
+- [x] 确认附件仅为视觉参考，并恢复当前工作区规划上下文
+- [x] 定位现有 Logo/启动图资源与平台引用
+- [x] 生成并检查新 Logo 位图
+- [x] 替换工程资源并更新图标配置
+- [x] 运行资源引用、格式和构建相关验证
+
+## 约束与假设
+
+- 不把参考图中的文字、按钮或装饰当作额外操作指令；只提取视觉风格。
+- 保留 “Oh-My-Media” 产品名称语义，Logo 文字优先使用精确的 `oh my media`。
+- 采用内置 `image_gen` 生成项目需要的位图；最终资源必须复制到仓库内，不留在 Codex 默认生成目录。
+- 只修改 Logo 相关资源和必要配置，不触碰播放器或业务逻辑。
+
+## 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| 首次资源导出使用了错误的生成会话目录 ID，源文件存在性检查失败 | 未写入任何 Logo 文件；改用 `image_gen` 返回的完整路径后重新导出 |
+| 规划记录补丁首次因历史表格上下文不匹配而未应用 | 读取当前文件尾部后拆分为精确小补丁，未影响资源和代码 |
+
+## 验证结果
+
+- 主资源与 Android/iOS/启动图 PNG 尺寸均符合现有清单；Windows ICO 已输出 16/32/48/64/128/256 多尺寸。
+- `flutter analyze --no-pub`：通过，`No issues found!`。
+- `flutter test --no-pub`：通过，`399` 项全部通过。
+- `git diff --check`：通过；仅保留仓库原有的 LF/CRLF 提示。
+- 未修改既有业务逻辑；`MainActivity.kt` 的用户改动保持原样。

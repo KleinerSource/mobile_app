@@ -169,3 +169,31 @@
 - `git diff --check`：通过。
 - 已提交 `9e54fae fix(ios): map KSPlayer audio tracks before selection` 并推送 `origin/dev`。
 - iOS GitHub Action `32791124296` 成功，耗时 9 分 50 秒；依赖安装、静态分析、测试、release iOS 编译、IPA 打包和发布均通过。
+
+## 2026-08-25 Oh-My-Media Logo 替换
+
+- 已读取 `imagegen` 技能，确定使用内置图像生成流程；未启用 CLI/API fallback。
+- 已读取 `planning-with-files` 技能并恢复历史规划；当前任务只追加记录，不覆盖既有内容。
+- 已确认附件是视觉参考，不含需要执行的文字指令。
+- 下一步：枚举 Flutter、Android、iOS、Web、桌面端 Logo 资源和引用，随后生成并替换项目资产。
+- 已完成资源枚举；确认需要同步 Android、iOS AppIcon、iOS LaunchLogo、Web、macOS 和 Windows 图标，避免不同平台继续显示旧 Logo。
+- 已使用内置 `image_gen` 生成并预览新 Logo，生成图中的 `oh / my / media` 文案准确可读，准备复制到项目并按目标尺寸生成各平台资源。
+- 已确认 Android 无额外 adaptive icon 文件，Web 与 Windows 资源尺寸已核对；准备执行一次性资源替换和多尺寸导出。
+- 首次导出安全失败于源文件路径校验，未写入资源；已记录错误并准备使用实际生成路径重试。
+- 已按实际生成路径完成主资源、Android/iOS/启动图/Web/macOS/Windows 图标导出；平台文件名与现有引用保持不变。
+- 视觉复核确认新主图中的 `oh / my / media`、播放三角、霓虹光轨和星芒清晰可见。
+- `flutter analyze --no-pub` 通过；`flutter test --no-pub` 通过，399 项全部通过；`git diff --check` 通过。
+- 本次未改动业务逻辑；保留了工作区原有的 `MainActivity.kt` 修改。
+- 最终资源完整性检查验证 44 个图像文件和全部 AppIcon/LaunchLogo manifest 引用；本任务完成。
+
+## 2026-08-25 Android Actions 编译修复
+
+- 已发现当前仓库路径从旧的 `md_center/mobile_app` 移至 `oh-my-media/mobile_app`，并恢复该仓库的历史规划记录。
+- 已通过 `gh run list` 定位最新失败运行 `32831761951`；iOS 同提交运行成功。
+- 已通过 job 状态与失败日志确认 `analyze`/`test` 通过，失败点为 `:app:compileReleaseKotlin`。
+- CodeGraph 已还原 `MainActivity.kt` 亮度 MethodChannel 的完整源码和 Dart 调用契约；根因是两处把 `MethodChannel.Result` 当函数调用。
+- 已将 `MainActivity.kt` 两处返回改为 `result.success(...)`，读取亮度显式转换为 Dart 需要的 `Double`。
+- 本地 Android APK 构建受环境阻塞：Flutter 报 `No Android SDK found`；已记录，后续以 Dart 验证和远端 CI 复跑确认。
+- `flutter analyze --no-pub`：通过，`No issues found!`。
+- `flutter test --no-pub`：通过，`399` 项全部通过。
+- `git diff --check`：通过；已确认 Logo 资源和 `assets/branding/` 是此前工作区已有改动，未触碰。

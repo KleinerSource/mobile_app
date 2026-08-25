@@ -378,3 +378,27 @@
 - `PlaybackViewState` 当前只有内核、尺寸、时间、轨道等状态，没有码率、FPS、编码/容器字段。
 - KSPlayer Pigeon 事件当前只有 ready/playing/buffering/position/duration/size/completed/error/firstFrame/PiP，需要新增受控媒体元数据事件或字段。
 - 调试信息应通过统一 `PlaybackViewState` 供 Flutter overlay 使用；关闭开关时不构建 overlay，不影响播放命令和性能。
+
+# Oh-My-Media Logo 替换（2026-08-25）
+
+- 用户附件只作为视觉参考：黑色背景、深蓝紫色圆角方形底、粉紫到蓝色霓虹渐变、中央白色圆角媒体标记、环形光轨和星芒装饰。
+- 当前工作区已存在历史规划记录；本次任务追加独立章节，保留既有业务改动。
+- `.codegraph/` 存在，已优先使用 CodeGraph 进行源码入口初查；资源文件和构建配置仍需用文件清单与文本检查确认。
+- 现有入口资源：Android 使用 `android/app/src/main/res/mipmap-*/ic_launcher.png`；iOS 使用 `ios/Runner/Assets.xcassets/AppIcon.appiconset`；iOS 启动页另有 `LaunchLogo.imageset`；Web 使用 `web/favicon.png` 与 `web/icons/*`；macOS 使用 `macos/Runner/Assets.xcassets/AppIcon.appiconset`；Windows 使用 `windows/runner/resources/app_icon.ico`。
+- 已生成新主图：`C:\Users\KleinerSource\.codex\generated_images\01a0383e-1b4a-73f3-8598-a75fd826f235\exec-85862656-e14a-41ca-8873-cd320338fa88.png`。预览检查通过：`oh`、`my`、`media` 拼写清晰，白色播放三角、粉紫蓝渐变、环形光轨与星芒均符合参考风格。
+- Android 没有 adaptive icon XML，Manifest、Android 12 splash 和 launch background 均直接引用 `@mipmap/ic_launcher`；只替换现有 `ic_launcher.png` 各密度文件即可。
+- Web 图标尺寸为 16/192/512；Windows `app_icon.ico` 当前含 256px 图像，需输出多尺寸 ICO 以保持桌面/任务栏清晰度。
+- 首次批量导出因手工记录生成会话目录 ID 时出错，在源文件存在性检查处停止，未修改任何 Logo 目标文件；后续以工具返回的完整路径为准。
+- 资源验证结果：Android 48/72/96/144/192；iOS AppIcon 全部 manifest 尺寸；iOS LaunchLogo 3 份；Web 16/192/512；macOS 16/32/64/128/256/512/1024；Windows ICO 读取正常。
+- 全量验证：`flutter analyze --no-pub` 无问题，`flutter test --no-pub` 399 项全部通过，`git diff --check` 通过。
+- 最终 manifest/文件完整性检查验证了 44 个图像文件；Android/iOS 的 tracked 资源在 Git 差异中，Web/macOS/Windows 资源因仓库规则被忽略。
+
+# Android Actions 编译失败（2026-08-25）
+
+- 最新 Android 运行：`32831761951`，提交 `f45ea8cf122c6b155da8f161d270129738b44a0a`，失败于 `build android apk`。
+- 同一提交的 iOS 运行 `32831761928` 已成功；Android 的 `build_runner`、`analyze` 和 `test` 均已通过，失败仅发生在 Kotlin 编译。
+- 失败任务：`:app:compileReleaseKotlin`。
+- 具体错误：`android/app/src/main/kotlin/com/ohmymedia/MainActivity.kt:80:36` 和 `:142:9` 的 `result(...)` 被解析为未定义引用。
+- CodeGraph 当前源码确认：`result` 是 `MethodChannel.Result` 参数，`getBrightness` 和 `setWindowBrightness` 应调用 `result.success(...)`，而不是把对象当函数调用。
+- Dart 通道契约要求 `getBrightness` 返回 `double?`，`setBrightness` 返回空结果。
+- 本地 `flutter build apk --release --target-platform android-arm64 --no-pub --dart-define=BUILD_CHANNEL=dev` 无法启动，Flutter 报 `No Android SDK found`；不是本次 Kotlin 修复引起的构建错误。

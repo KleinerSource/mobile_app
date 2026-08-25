@@ -77,7 +77,7 @@ class MainActivity : FlutterFragmentActivity() {
             BRIGHTNESS_CHANNEL,
         ).setMethodCallHandler { call, result ->
             when (call.method) {
-                "getBrightness" -> result(getCurrentBrightness())
+                "getBrightness" -> result.success(getCurrentBrightness().toDouble())
                 "setBrightness" -> setWindowBrightness(
                     (call.argument<Number>("brightness"))?.toDouble(),
                     result,
@@ -139,7 +139,7 @@ class MainActivity : FlutterFragmentActivity() {
         val lp = window.attributes
         lp.screenBrightness = value.toFloat().coerceIn(0f, 1f)
         window.attributes = lp
-        result(null)
+        result.success(null)
     }
 
     private fun getCurrentBrightness(): Float {
