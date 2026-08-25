@@ -414,19 +414,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     bool? play,
     playback_models.PlaybackDecision? decisionOverride,
   }) async {
-    if (_isLeaving || generation != _loadGeneration) return;
+    if (!mounted || _isLeaving || generation != _loadGeneration) return;
     final selectedQuality = quality ?? _quality;
     final cachedDecision =
         decisionOverride ?? (quality == null ? _decision : null);
     final shouldPlay = play ?? true;
     var fallbackResume = resume;
     _onRateBoostEnd();
-    // 切换质量会复用 KSPlayer 原生会话；先撤掉旧媒体的错误订阅，避免
-    // layer.stop() 的迟到错误把下一轮打开误判为播放失败。
-    _unbindProgress();
-    await _stopTranscodeSession();
-    await _stopPlayer();
-    if (!mounted || generation != _loadGeneration) return;
     _pictureInPictureUrl = null;
     _pictureInPictureHeaders = null;
     _usingHls = false;
@@ -438,6 +432,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _selectedSubtitle = null;
       _serverDecodeStatus = null;
     });
+    // 先撤掉旧媒体监听并停止本地消费，再等待服务端清理旧转码会话。
+    // 这样 KSPlayer 切换 HLS 时能立即释放旧源，UI 也不会被服务端清理阻塞。
+    _unbindProgress();
+    await _stopPlayer();
+    if (!mounted || generation != _loadGeneration) return;
+    await _stopTranscodeSession();
+    if (!mounted || generation != _loadGeneration) return;
 
     try {
       final trailerUrl = widget.directUrl?.trim();
@@ -907,7 +908,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<void> _onQualityChanged(String quality) async {
     if (_isDirectPlayback) return;
     final position = _host.position;
-    await _load(quality: quality, resume: position);
+    final shouldPlay = _host.playbackIntent;
+    await _load(quality: quality, resume: position, play: shouldPlay);
   }
 
   void _togglePlay() {

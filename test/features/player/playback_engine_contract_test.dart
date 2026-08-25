@@ -40,6 +40,39 @@ void main() {
     );
   });
 
+  test('所有内核停止后可按续播位置和播放意图再次打开', () async {
+    const resume = Duration(seconds: 84);
+    for (final kind in PlaybackEngineKind.values) {
+      for (final shouldPlay in [true, false]) {
+        final engine = FakePlaybackEngine(kind);
+        final session = PlayerSessionController(engine: engine);
+
+        await session.open('https://example.com/first.mp4');
+        await session.stop();
+        await session.open(
+          'https://example.com/second.m3u8',
+          startAt: resume,
+          play: shouldPlay,
+        );
+
+        expect(engine.commands, [
+          'open',
+          'stop',
+          'open',
+        ], reason: '$kind play=$shouldPlay');
+        expect(engine.openCount, 2);
+        expect(engine.lastOpenRequest?.url, 'https://example.com/second.m3u8');
+        expect(engine.lastOpenRequest?.startAt, resume);
+        expect(engine.lastOpenRequest?.play, shouldPlay);
+        expect(session.value.lifecycle, PlaybackLifecycle.ready);
+        expect(session.value.position, resume);
+        expect(session.value.playing, shouldPlay);
+
+        await session.dispose();
+      }
+    }
+  });
+
   test('容器提示随统一会话传递给 KSPlayer', () async {
     final engine = FakePlaybackEngine(PlaybackEngineKind.ksPlayer);
     final session = PlayerSessionController(engine: engine);
