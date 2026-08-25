@@ -47,6 +47,8 @@ ios/Runner/*
 !ios/Runner/Info.plist
 !ios/Runner/AppDelegate.swift
 !ios/Runner/LaunchScreen.storyboard
+!ios/Runner/Base.lproj/
+!ios/Runner/Base.lproj/LaunchScreen.storyboard
 !ios/Runner/Assets.xcassets/
 ios/Runner/Assets.xcassets/*
 !ios/Runner/Assets.xcassets/AppIcon.appiconset/

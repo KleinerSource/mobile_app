@@ -30,14 +30,46 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-  AppHaptics.configureFromPreferences(prefs);
-  runApp(
-    ProviderScope(
-      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-      child: const OmmApp(),
-    ),
-  );
+  runApp(const _AppBootstrap());
+}
+
+class _AppBootstrap extends StatefulWidget {
+  const _AppBootstrap();
+
+  @override
+  State<_AppBootstrap> createState() => _AppBootstrapState();
+}
+
+class _AppBootstrapState extends State<_AppBootstrap> {
+  late final Future<SharedPreferences> _preferencesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _preferencesFuture = SharedPreferences.getInstance();
+    _preferencesFuture.then(AppHaptics.configureFromPreferences);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<SharedPreferences>(
+      future: _preferencesFuture,
+      builder: (context, snapshot) {
+        final prefs = snapshot.data;
+        if (prefs == null) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: buildAppTheme(Brightness.dark),
+            home: const _StartupLoading(),
+          );
+        }
+        return ProviderScope(
+          overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+          child: const OmmApp(),
+        );
+      },
+    );
+  }
 }
 
 class OmmApp extends ConsumerWidget {

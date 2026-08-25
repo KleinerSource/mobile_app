@@ -83,6 +83,8 @@ jobs:
             sed -i '' "s/platform :ios, '12.0'/platform :ios, '16.0'/" ios/Podfile || true
             sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/IPHONEOS_DEPLOYMENT_TARGET = 16.0;/g" ios/Runner.xcodeproj/project.pbxproj || true
             sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/IPHONEOS_DEPLOYMENT_TARGET = 16.0;/g" ios/Runner.xcodeproj/project.pbxproj || true
+            mkdir -p ios/Runner/Base.lproj
+            cp ios/Runner/LaunchScreen.storyboard ios/Runner/Base.lproj/LaunchScreen.storyboard
           else
             echo "ios/Runner.xcodeproj exists, skipping bootstrap"
           fi

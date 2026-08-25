@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="23504" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" launchScreen="YES" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES">
+    <device id="retina6_12" orientation="portrait" appearance="dark"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="23504"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <scene sceneID="JvZ-4Y-7cD">
+            <objects>
+                <viewController id="mZ7-2g-5hQ" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="vW1-fx-2pA">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="LaunchLogo" translatesAutoresizingMaskIntoConstraints="NO" id="F6g-Qm-8rA">
+                                <rect key="frame" x="130.5" y="360.0" width="132" height="132"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="132" id="W5v-Kr-5mB"/>
+                                    <constraint firstAttribute="height" constant="132" id="kYQ-1c-hF9"/>
+                                </constraints>
+                            </imageView>
+                        </subviews>
+                        <color key="backgroundColor" red="0.06274509804" green="0.0431372549" blue="0.1411764706" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <constraint firstItem="F6g-Qm-8rA" firstAttribute="centerX" secondItem="vW1-fx-2pA" secondAttribute="centerX" id="r0h-Xq-4Vg"/>
+                            <constraint firstItem="F6g-Qm-8rA" firstAttribute="centerY" secondItem="vW1-fx-2pA" secondAttribute="centerY" id="Lkz-Nm-0sQ"/>
+                        </constraints>
+                        <viewLayoutGuide key="safeArea" id="q7C-5x-W3a"/>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="2yJ-9k-nK8" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="120" y="20"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="LaunchLogo" width="1024" height="1024"/>
+    </resources>
+</document>
