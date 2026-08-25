@@ -34,10 +34,21 @@ class PlaybackApi {
     });
   }
 
-  Future<TranscodeStatus> status(int movieId, {String quality = 'auto'}) async {
+  Future<TranscodeStatus> status(
+    int movieId, {
+    String quality = 'auto',
+    String? mode,
+    int? audioStreamIndex,
+    String? subtitleTrackId,
+  }) async {
     final response = await _dio.get<dynamic>(
       '/movies/id/$movieId/transcode-status',
-      queryParameters: {'quality': quality},
+      queryParameters: _transcodeSessionQuery(
+        quality: quality,
+        mode: mode,
+        audioStreamIndex: audioStreamIndex,
+        subtitleTrackId: subtitleTrackId,
+      ),
     );
     return unwrapStd<TranscodeStatus>(
       response.data,
@@ -56,10 +67,18 @@ class PlaybackApi {
   Stream<TranscodeStatus> events(
     int movieId, {
     String quality = 'auto',
+    String? mode,
+    int? audioStreamIndex,
+    String? subtitleTrackId,
   }) async* {
     final response = await _dio.get<ResponseBody>(
       '/movies/id/$movieId/transcode-events',
-      queryParameters: {'quality': quality},
+      queryParameters: _transcodeSessionQuery(
+        quality: quality,
+        mode: mode,
+        audioStreamIndex: audioStreamIndex,
+        subtitleTrackId: subtitleTrackId,
+      ),
       options: Options(responseType: ResponseType.stream),
     );
     final body = response.data;
@@ -88,3 +107,16 @@ class PlaybackApi {
     }
   }
 }
+
+Map<String, dynamic> _transcodeSessionQuery({
+  required String quality,
+  String? mode,
+  int? audioStreamIndex,
+  String? subtitleTrackId,
+}) => {
+  'quality': quality,
+  if (mode?.trim().isNotEmpty == true) 'mode': mode!.trim(),
+  if (audioStreamIndex != null) 'audio_stream_index': audioStreamIndex,
+  if (subtitleTrackId?.trim().isNotEmpty == true)
+    'subtitle_track_id': subtitleTrackId!.trim(),
+};

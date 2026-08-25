@@ -257,25 +257,18 @@ class _PlayerControlsState extends State<PlayerControls> {
     return Row(
       children: [
         Expanded(
-          child: Row(
-            children: [
-              if (widget.showQualityButton) _qualityButton(),
-              if (widget.decodeStatuses.isNotEmpty) ...[
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Wrap(
-                    spacing: 5,
-                    runSpacing: 3,
-                    children: [
-                      for (final status in widget.decodeStatuses)
-                        PlayerDecodeStatusBadge(status: status),
-                    ],
-                  ),
+          child: widget.decodeStatuses.isEmpty
+              ? const SizedBox.shrink()
+              : Wrap(
+                  spacing: 5,
+                  runSpacing: 3,
+                  children: [
+                    for (final status in widget.decodeStatuses)
+                      PlayerDecodeStatusBadge(status: status),
+                  ],
                 ),
-              ],
-            ],
-          ),
         ),
+        if (widget.showQualityButton) _qualityButton(),
         if (widget.subtitleTracks.isNotEmpty) _subtitleButton(),
         if (widget.audioTracks.length > 1) _audioButton(),
       ],
@@ -585,14 +578,6 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   Widget _qualityButton() {
-    final qualities = widget.qualityOptions;
-    var selectedLabel = widget.quality;
-    for (final option in qualities) {
-      if (option.id == widget.quality) {
-        selectedLabel = option.label;
-        break;
-      }
-    }
     return PopupMenuButton<String>(
       tooltip: '选择画质',
       enableFeedback: false,
@@ -604,15 +589,25 @@ class _PlayerControlsState extends State<PlayerControls> {
         widget.onInteraction();
       },
       itemBuilder: (context) => [
-        for (final option in qualities)
-          PopupMenuItem(value: option.id, child: Text(option.label)),
+        for (final option in widget.qualityOptions)
+          PopupMenuItem(
+            value: option.id,
+            child: Row(
+              children: [
+                Expanded(child: Text(option.label)),
+                const SizedBox(width: 16),
+                option.id == widget.quality
+                    ? const Icon(Icons.check, size: 18)
+                    : const SizedBox(width: 18),
+              ],
+            ),
+          ),
       ],
-      child: Text(
-        selectedLabel.toUpperCase(),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
+      child: SizedBox(
+        width: 42,
+        height: 42,
+        child: Center(
+          child: _roundIcon(Icons.high_quality_outlined, active: true),
         ),
       ),
     );

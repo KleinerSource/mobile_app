@@ -424,6 +424,9 @@ class _SubtitleNumericInputDialogState
         child: TextField(
           controller: _controller,
           autofocus: true,
+          // border 为 none 时 InputDecorator 默认顶对齐,prefixIcon 的 48px
+          // 最小高度会把输入行撑高,文字会被钉在顶部,需显式垂直居中。
+          textAlignVertical: TextAlignVertical.center,
           keyboardType: const TextInputType.numberWithOptions(
             decimal: true,
             signed: true,
@@ -472,12 +475,19 @@ class _Stepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 深色下 surfaceAlt/cardBorder 的白色透明度太低,叠在玻璃面板上轮廓
+    // 几乎不可见,需用更高的白色叠层保证胶囊和分隔线可辨识。
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        color: c.surfaceAlt.withValues(alpha: 0.7),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.12)
+            : c.surfaceAlt.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: c.cardBorder),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.18) : c.cardBorder,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -487,7 +497,11 @@ class _Stepper extends StatelessWidget {
             tooltip: '减少',
             onPressed: onDecrease,
           ),
-          Container(width: 1, height: 22, color: c.divider),
+          Container(
+            width: 1,
+            height: 22,
+            color: isDark ? Colors.white.withValues(alpha: 0.14) : c.divider,
+          ),
           _StepperButton(icon: Icons.add, tooltip: '增加', onPressed: onIncrease),
         ],
       ),
@@ -549,6 +563,7 @@ class _StepperButtonState extends State<_StepperButton> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final enabled = widget.onPressed != null;
     return Tooltip(
       message: widget.tooltip,
@@ -568,7 +583,7 @@ class _StepperButtonState extends State<_StepperButton> {
             child: Center(
               child: Icon(
                 widget.icon,
-                color: enabled ? c.text : c.muted2,
+                color: enabled ? c.text : (isDark ? c.muted : c.muted2),
                 size: 20,
               ),
             ),

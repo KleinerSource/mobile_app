@@ -291,7 +291,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (_transcodeSessionActive) {
         // ignore: discarded_futures
         _stopTranscodeSession();
-        if (mounted) setState(() => _serverDecodeStatus = null);
       }
     } else if (state == AppLifecycleState.resumed &&
         _wasPlayingBeforePause &&
@@ -587,7 +586,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _bindProgress();
       if (usesManagedTranscode) {
         _transcodeSessionActive = true;
-        _startTranscodeMonitoring(selectedQuality);
+        _startTranscodeMonitoring(selectedQuality, decision);
       }
       setState(() => _loading = false);
       _restartHideTimer();
@@ -921,7 +920,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (_transcodeSessionActive) {
         // ignore: discarded_futures
         _stopTranscodeSession();
-        if (mounted) setState(() => _serverDecodeStatus = null);
       }
       return;
     }
@@ -1243,52 +1241,108 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     } catch (_) {}
   }
 
-  void _startTranscodeMonitoring(String quality) {
+  void _startTranscodeMonitoring(
+    String quality,
+    playback_models.PlaybackDecision decision,
+  ) {
     _eventsSub?.cancel();
     _transcodePollTimer?.cancel();
     final api = ref.read(requiredApiClientProvider).playback;
+    final streamUri = Uri.tryParse(decision.streamUrl);
+    final streamQuery = streamUri?.queryParameters ?? const <String, String>{};
+    final sessionQuality = streamQuery['quality']?.trim().isNotEmpty == true
+        ? streamQuery['quality']!.trim()
+        : quality;
+    final mode = streamQuery['mode'];
+    final audioStreamIndex = int.tryParse(
+      streamQuery['audio_stream_index'] ?? '',
+    );
+    final subtitleTrackId = streamQuery['subtitle_track_id'];
     _eventsSub = api
-        .events(widget.movieId, quality: quality)
+        .events(
+          widget.movieId,
+          quality: sessionQuality,
+          mode: mode,
+          audioStreamIndex: audioStreamIndex,
+          subtitleTrackId: subtitleTrackId,
+        )
         .listen(
           _applyTranscodeStatus,
-          onError: (_) => _startTranscodePolling(quality),
-          onDone: () => _startTranscodePolling(quality),
+          onError: (_) => _startTranscodePolling(
+            sessionQuality,
+            mode: mode,
+            audioStreamIndex: audioStreamIndex,
+            subtitleTrackId: subtitleTrackId,
+          ),
+          onDone: () => _startTranscodePolling(
+            sessionQuality,
+            mode: mode,
+            audioStreamIndex: audioStreamIndex,
+            subtitleTrackId: subtitleTrackId,
+          ),
         );
     _transcodePollTimer = Timer.periodic(
       const Duration(seconds: 3),
-      (_) => _pollTranscodeStatus(quality),
+      (_) => _pollTranscodeStatus(
+        sessionQuality,
+        mode: mode,
+        audioStreamIndex: audioStreamIndex,
+        subtitleTrackId: subtitleTrackId,
+      ),
     );
   }
 
-  void _startTranscodePolling(String quality) {
+  void _startTranscodePolling(
+    String quality, {
+    String? mode,
+    int? audioStreamIndex,
+    String? subtitleTrackId,
+  }) {
     if (_transcodePollTimer != null) return;
     _transcodePollTimer = Timer.periodic(
       const Duration(seconds: 2),
-      (_) => _pollTranscodeStatus(quality),
+      (_) => _pollTranscodeStatus(
+        quality,
+        mode: mode,
+        audioStreamIndex: audioStreamIndex,
+        subtitleTrackId: subtitleTrackId,
+      ),
     );
   }
 
-  Future<void> _pollTranscodeStatus(String quality) async {
+  Future<void> _pollTranscodeStatus(
+    String quality, {
+    String? mode,
+    int? audioStreamIndex,
+    String? subtitleTrackId,
+  }) async {
     if (!mounted || _isLeaving || !_transcodeSessionActive) return;
     try {
       final status = await ref
           .read(requiredApiClientProvider)
           .playback
-          .status(widget.movieId, quality: quality);
+          .status(
+            widget.movieId,
+            quality: quality,
+            mode: mode,
+            audioStreamIndex: audioStreamIndex,
+            subtitleTrackId: subtitleTrackId,
+          );
       _applyTranscodeStatus(status);
     } catch (_) {}
   }
 
   void _applyTranscodeStatus(playback_models.TranscodeStatus status) {
     if (!mounted || _isLeaving) return;
+    // 查询不到会话时后端返回 quality 为空的 inactive 状态。此时保留播放
+    // 决策或上一帧给出的真实服务端状态，不能把 HLS 误显示成本地硬解。
+    if (!status.active && status.quality.trim().isEmpty) return;
     setState(() {
-      _serverDecodeStatus = !status.active
-          ? null
-          : PlayerDecodeStatus.server(
-              engine: status.hwAccel,
-              hardwareDecodeOk: status.hwDecodeOk,
-              isFallback: status.hasHardwareFallback,
-            );
+      _serverDecodeStatus = PlayerDecodeStatus.server(
+        engine: status.hwAccel,
+        hardwareDecodeOk: status.hwDecodeOk,
+        isFallback: status.hasHardwareFallback,
+      );
     });
   }
 

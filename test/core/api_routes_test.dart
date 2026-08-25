@@ -254,6 +254,38 @@ void main() {
     );
   });
 
+  test('转码状态接口透传完整会话参数', () async {
+    final adapter = _RouteAdapter();
+    final api = PlaybackApi(_dio(adapter));
+
+    await api.status(
+      7,
+      quality: '720p',
+      mode: 'dstream',
+      audioStreamIndex: 2,
+      subtitleTrackId: 'embedded-3',
+    );
+    await api
+        .events(
+          7,
+          quality: '720p',
+          mode: 'dstream',
+          audioStreamIndex: 2,
+          subtitleTrackId: 'embedded-3',
+        )
+        .toList();
+
+    expect(adapter.queries, hasLength(2));
+    for (final query in adapter.queries) {
+      expect(query, {
+        'quality': '720p',
+        'mode': 'dstream',
+        'audio_stream_index': '2',
+        'subtitle_track_id': 'embedded-3',
+      });
+    }
+  });
+
   test('服务器资料接口读取名称并解析头像地址', () async {
     final adapter = _RouteAdapter();
     final profile = await SystemExtendedApi(
