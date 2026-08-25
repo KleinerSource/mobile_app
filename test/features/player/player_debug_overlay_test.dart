@@ -42,6 +42,14 @@ void main() {
       ),
       'KSMEPlayer',
     );
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
+        'https://example.com/video.mp4',
+        'mp4',
+        videoCodec: 'hevc',
+      ),
+      'KSMEPlayer',
+    );
   });
 
   test('码率格式化为用户可读单位', () {

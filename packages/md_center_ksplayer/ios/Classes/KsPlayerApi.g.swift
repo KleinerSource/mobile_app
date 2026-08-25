@@ -347,7 +347,7 @@ class KsPlayerApiPigeonCodec: FlutterStandardMessageCodec, @unchecked Sendable {
 /// Generated protocol from Pigeon that represents a handler of messages from Flutter.
 protocol MdCenterKsPlayerHostApi {
   func create(playerId: Int64) throws
-  func open(playerId: Int64, url: String, startPositionMs: Double?, autoplay: Bool, headers: [String: String]?, formatHint: String?, completion: @escaping (Result<Void, Error>) -> Void)
+  func open(playerId: Int64, url: String, startPositionMs: Double?, autoplay: Bool, headers: [String: String]?, formatHint: String?, videoCodec: String?, completion: @escaping (Result<Void, Error>) -> Void)
   func play(playerId: Int64) throws
   func pause(playerId: Int64) throws
   func stop(playerId: Int64) throws
@@ -395,7 +395,8 @@ class MdCenterKsPlayerHostApiSetup {
         let autoplayArg = args[3] as! Bool
         let headersArg: [String: String]? = nilOrValue(args[4])
         let formatHintArg: String? = nilOrValue(args[5])
-        api.open(playerId: playerIdArg, url: urlArg, startPositionMs: startPositionMsArg, autoplay: autoplayArg, headers: headersArg, formatHint: formatHintArg) { result in
+        let videoCodecArg: String? = nilOrValue(args[6])
+        api.open(playerId: playerIdArg, url: urlArg, startPositionMs: startPositionMsArg, autoplay: autoplayArg, headers: headersArg, formatHint: formatHintArg, videoCodec: videoCodecArg) { result in
           switch result {
           case .success:
             reply(wrapResult(nil))

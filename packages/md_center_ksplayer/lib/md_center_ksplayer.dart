@@ -62,6 +62,7 @@ class MdCenterKsPlayer {
     bool autoplay = true,
     Map<String, String>? headers,
     String? formatHint,
+    String? videoCodec,
   }) => _api.open(
     playerId,
     url,
@@ -69,6 +70,7 @@ class MdCenterKsPlayer {
     autoplay,
     headers,
     formatHint,
+    videoCodec,
   );
 
   Future<void> play() => _api.play(playerId);

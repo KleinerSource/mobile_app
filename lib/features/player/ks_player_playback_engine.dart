@@ -179,6 +179,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
       autoplay: request.play,
       headers: request.headers,
       formatHint: request.formatHint,
+      videoCodec: request.mediaInfo?.videoCodec,
     );
   }
 
@@ -345,6 +346,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
         PlaybackMediaInfo.inferInternalPlayer(
           request.url,
           request.formatHint,
+          videoCodec: initial.videoCodec,
         ) ??
         PlaybackMediaInfo.inferInternalPlayer('', initial.container);
     return initial.copyWith(internalPlayer: inferredInternalPlayer);

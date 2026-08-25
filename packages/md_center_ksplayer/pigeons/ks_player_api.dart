@@ -66,6 +66,7 @@ abstract class MdCenterKsPlayerHostApi {
     bool autoplay,
     Map<String, String>? headers,
     String? formatHint,
+    String? videoCodec,
   );
 
   void play(int playerId);

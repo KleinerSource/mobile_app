@@ -290,6 +290,7 @@ class PlaybackDecision {
     required this.streamUrl,
     required this.mimeType,
     this.container = '',
+    this.videoCodec = '',
     this.durationSec = 0,
     this.bitRate = 0,
     required this.hwAccel,
@@ -307,6 +308,7 @@ class PlaybackDecision {
   final String streamUrl;
   final String mimeType;
   final String container;
+  final String videoCodec;
   final double durationSec;
   final int bitRate;
   final String hwAccel;
@@ -331,6 +333,7 @@ class PlaybackDecision {
       streamUrl: _asString(json['stream_url']),
       mimeType: _asString(json['mime_type']),
       container: _asString(json['container']),
+      videoCodec: _asString(json['video_codec']),
       durationSec: _asDouble(json['duration_sec']),
       bitRate: _asInt(json['bit_rate']),
       hwAccel: _asString(json['hwaccel']),

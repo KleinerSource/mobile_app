@@ -42,6 +42,7 @@ private final class KsPlayerManager: NSObject, MdCenterKsPlayerHostApi {
     autoplay: Bool,
     headers: [String: String]?,
     formatHint: String?,
+    videoCodec: String?,
     completion: @escaping (Result<Void, Error>) -> Void
   ) {
     guard let session = sessions[playerId] else {
@@ -55,6 +56,7 @@ private final class KsPlayerManager: NSObject, MdCenterKsPlayerHostApi {
         autoplay: autoplay,
         headers: headers,
         formatHint: formatHint,
+        videoCodec: videoCodec,
         completion: completion
       )
     }
@@ -301,6 +303,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     autoplay: Bool,
     headers: [String: String]?,
     formatHint: String?,
+    videoCodec: String?,
     completion: @escaping (Result<Void, Error>) -> Void
   ) {
     guard let mediaURL = URL(string: url), mediaURL.scheme != nil else {
@@ -317,7 +320,8 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     KSOptions.secondPlayerType = nil
     KSOptions.firstPlayerType = prefersFfmpegPlayer(
       url: mediaURL,
-      formatHint: formatHint
+      formatHint: formatHint,
+      videoCodec: videoCodec
     ) ? KSMEPlayer.self : KSAVPlayer.self
     lastVideoSize = .zero
     let options = KSOptions()
@@ -330,7 +334,14 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     layer.prepareToPlay()
   }
 
-  private func prefersFfmpegPlayer(url: URL, formatHint: String?) -> Bool {
+  private func prefersFfmpegPlayer(
+    url: URL,
+    formatHint: String?,
+    videoCodec: String?
+  ) -> Bool {
+    if let videoCodec, isFfmpegVideoCodec(videoCodec) {
+      return true
+    }
     let hint = [formatHint, url.pathExtension]
       .compactMap { $0?.lowercased() }
       .joined(separator: ",")
@@ -338,6 +349,19 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     return tokens.contains { token in
       token == "mkv" || token == "matroska" || token == "webm"
     }
+  }
+
+  private func isFfmpegVideoCodec(_ codec: String) -> Bool {
+    let normalized = codec
+      .lowercased()
+      .replacingOccurrences(of: ".", with: "")
+      .replacingOccurrences(of: "-", with: "")
+      .replacingOccurrences(of: "_", with: "")
+    return normalized.contains("hevc") ||
+      normalized.contains("h265") ||
+      normalized.contains("hvc1") ||
+      normalized.contains("hev1") ||
+      normalized.contains("x265")
   }
 
   func play() throws {

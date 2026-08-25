@@ -653,7 +653,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     playback_models.PlaybackDecision decision,
   ) {
     final container = decision.container.trim();
-    final videoCodec = decision.targetVideo.trim();
+    final videoCodec = decision.videoCodec.trim().isNotEmpty
+        ? decision.videoCodec.trim()
+        : decision.targetVideo.trim();
     final audioCodec = decision.targetAudio.trim();
     final bitrate = decision.targetBitrate > 0
         ? decision.targetBitrate

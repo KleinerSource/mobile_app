@@ -330,6 +330,7 @@ class MdCenterKsPlayerHostApi {
     bool autoplay,
     Map<String, String>? headers,
     String? formatHint,
+    String? videoCodec,
   ) async {
     final pigeonVar_channelName =
         'dev.flutter.pigeon.md_center_ksplayer.MdCenterKsPlayerHostApi.open$pigeonVar_messageChannelSuffix';
@@ -339,7 +340,15 @@ class MdCenterKsPlayerHostApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
-      <Object?>[playerId, url, startPositionMs, autoplay, headers, formatHint],
+      <Object?>[
+        playerId,
+        url,
+        startPositionMs,
+        autoplay,
+        headers,
+        formatHint,
+        videoCodec,
+      ],
     );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 

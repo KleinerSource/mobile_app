@@ -53,6 +53,20 @@ void main() {
     await session.dispose();
   });
 
+  test('H.265 编码信息随统一会话传递给 KSPlayer', () async {
+    final engine = FakePlaybackEngine(PlaybackEngineKind.ksPlayer);
+    final session = PlayerSessionController(engine: engine);
+
+    await session.open(
+      'https://example.com/video.mp4',
+      formatHint: 'mp4',
+      mediaInfo: const PlaybackMediaInfo(videoCodec: 'hevc'),
+    );
+
+    expect(engine.lastOpenRequest?.mediaInfo?.videoCodec, 'hevc');
+    await session.dispose();
+  });
+
   test('统一会话按语言和标题映射原生音轨', () async {
     final engine = FakePlaybackEngine(
       PlaybackEngineKind.ksPlayer,

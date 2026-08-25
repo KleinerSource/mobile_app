@@ -128,13 +128,30 @@ class PlaybackMediaInfo {
     );
   }
 
-  static String? inferInternalPlayer(String url, String? formatHint) {
+  static String? inferInternalPlayer(
+    String url,
+    String? formatHint, {
+    String? videoCodec,
+  }) {
+    if (_isFfmpegVideoCodec(videoCodec)) return 'KSMEPlayer';
     final container = inferPlaybackContainer(url, formatHint);
     if (container == null) return null;
     return switch (container) {
       'mkv' || 'matroska' || 'webm' => 'KSMEPlayer',
       _ => 'AVPlayer',
     };
+  }
+
+  static bool _isFfmpegVideoCodec(String? codec) {
+    final normalized = (codec ?? '').toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9]'),
+      '',
+    );
+    return normalized.contains('hevc') ||
+        normalized.contains('h265') ||
+        normalized.contains('hvc1') ||
+        normalized.contains('hev1') ||
+        normalized.contains('x265');
   }
 
   factory PlaybackMediaInfo.fromJson(Map<String, dynamic> json) {

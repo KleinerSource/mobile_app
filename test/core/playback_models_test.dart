@@ -8,6 +8,7 @@ void main() {
       'stream_url': '/api/movies/id/1/stream.m3u8?quality=1080p',
       'mime_type': 'application/vnd.apple.mpegurl',
       'container': 'matroska,webm',
+      'video_codec': 'hevc',
       'duration_sec': 123.5,
       'bit_rate': 4000000,
       'hwaccel': 'videotoolbox',
@@ -53,6 +54,7 @@ void main() {
     expect(decision.subtitleTracks.single.forced, isTrue);
     expect(decision.targetHeight, 1080);
     expect(decision.container, 'matroska,webm');
+    expect(decision.videoCodec, 'hevc');
     expect(decision.durationSec, 123.5);
     expect(decision.bitRate, 4000000);
   });
