@@ -36,11 +36,20 @@ class GitHubUpdateService {
     required String repositoryUrl,
     required UpdatePlatform platform,
     required AppReleaseVersion currentVersion,
+    bool includeDevelopment = false,
   }) async {
     final repository = GitHubRepository.parse(repositoryUrl);
     try {
-      final releases = await _loadReleases(repository, platform);
-      final candidate = selectLatestCandidate(releases, platform);
+      final releases = await _loadReleases(
+        repository,
+        platform,
+        includeDevelopment: includeDevelopment,
+      );
+      final candidate = selectLatestCandidate(
+        releases,
+        platform,
+        includeDevelopment: includeDevelopment,
+      );
       if (candidate == null) {
         throw UpdateException('没有找到适用于 ${platform.label} 的安装包');
       }
@@ -67,26 +76,38 @@ class GitHubUpdateService {
 
   Future<List<GitHubRelease>> _loadReleases(
     GitHubRepository repository,
-    UpdatePlatform platform,
-  ) async {
+    UpdatePlatform platform, {
+    required bool includeDevelopment,
+  }) async {
     final rollingReleases = <GitHubRelease>[];
-    try {
-      final response = await _dio.get<dynamic>(
-        repository.releaseTagApiUrl(platform),
-      );
-      final data = response.data;
-      if (data is Map) {
-        rollingReleases.add(
-          GitHubRelease.fromJson(Map<String, dynamic>.from(data)),
+    final channels = [false, if (includeDevelopment) true];
+    for (final development in channels) {
+      try {
+        final response = await _dio.get<dynamic>(
+          repository.releaseTagApiUrl(platform, development: development),
         );
+        final data = response.data;
+        if (data is Map) {
+          rollingReleases.add(
+            GitHubRelease.fromJson(Map<String, dynamic>.from(data)),
+          );
+        }
+      } on DioException catch (error) {
+        // 自建仓库可能没有使用对应滚动标签，继续检查其他渠道或回退列表。
+        if (error.response?.statusCode != 404) rethrow;
       }
-    } on DioException catch (error) {
-      // 自建仓库可能没有使用滚动标签，继续回退到 Release 列表。
-      if (error.response?.statusCode != 404) rethrow;
     }
 
-    if (selectLatestCandidate(rollingReleases, platform) != null) {
-      return rollingReleases.where((release) => !release.draft).toList();
+    final publishedRollingReleases = rollingReleases
+        .where((release) => !release.draft)
+        .toList();
+    if (selectLatestCandidate(
+          publishedRollingReleases,
+          platform,
+          includeDevelopment: includeDevelopment,
+        ) !=
+        null) {
+      return publishedRollingReleases;
     }
 
     final response = await _dio.get<dynamic>(repository.releasesApiUrl);
@@ -95,7 +116,7 @@ class GitHubUpdateService {
       throw const UpdateException('GitHub 返回的 Release 数据格式不正确');
     }
     return [
-      ...rollingReleases,
+      ...publishedRollingReleases,
       ...rawReleases
           .whereType<Map>()
           .map(
@@ -107,11 +128,16 @@ class GitHubUpdateService {
 
   static GitHubUpdateCandidate? selectLatestCandidate(
     Iterable<GitHubRelease> releases,
-    UpdatePlatform platform,
-  ) {
+    UpdatePlatform platform, {
+    bool includeDevelopment = false,
+  }) {
     final candidates = <GitHubUpdateCandidate>[];
     for (final release in releases) {
-      final asset = release.assetFor(platform);
+      if (!includeDevelopment && release.isDevelopment) continue;
+      final asset = release.assetFor(
+        platform,
+        includeDevelopment: includeDevelopment,
+      );
       if (asset == null) continue;
       final version = release.versionFor(asset);
       if (version == null) continue;
@@ -140,7 +166,7 @@ class GitHubUpdateService {
     final directory = await getTemporaryDirectory();
     final fileName = _safeFileName(asset.name);
     final file = File(
-      '${directory.path}${Platform.pathSeparator}md_center_update_$fileName',
+      '${directory.path}${Platform.pathSeparator}omm_update_$fileName',
     );
     if (await file.exists()) await file.delete();
     try {

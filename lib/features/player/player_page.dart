@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
-import 'package:screen_brightness/screen_brightness.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/api/dio_factory.dart';
@@ -15,14 +16,17 @@ import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/playback.dart' as playback_models;
 import '../../core/models/watch_record.dart';
-import '../../core/platform/app_theme.dart';
-import '../home/home_providers.dart';
+import '../../core/platform/screen_brightness_channel.dart';
 import '../movies/movies_providers.dart';
+import 'engine_playback_route.dart';
 import 'playback_engine.dart';
 import 'player_controls.dart';
 import 'player_decode_status.dart';
+import 'player_debug_overlay.dart';
 import 'player_device_stats.dart';
 import 'player_error_disposition.dart';
+import 'player_error_view.dart';
+import 'player_exit_button.dart';
 import 'player_gesture_layer.dart';
 import 'player_overlay_indicators.dart';
 import 'player_queue.dart';
@@ -39,10 +43,15 @@ import 'subtitle_settings.dart';
 const _directPlaybackDecision = playback_models.PlaybackDecision(
   mode: 'direct_play',
   streamUrl: '',
+  directUrl: '',
+  qualityOptions: <playback_models.QualityOption>[
+    playback_models.QualityOption(id: 'auto', label: '自动', kind: 'auto'),
+  ],
   mimeType: '',
   hwAccel: '',
   targetVideo: '',
   targetAudio: '',
+  targetWidth: 0,
   targetHeight: 0,
   targetBitrate: 0,
   reasons: <String>[],
@@ -112,7 +121,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   bool _loading = true;
   String? _error;
-  String _quality = 'original';
+  String _quality = 'auto';
   playback_models.PlaybackDecision? _decision;
   playback_models.SubtitleTrack? _selectedSubtitle;
   SubtitleAdjustments _subtitleAdjustments = const SubtitleAdjustments();
@@ -123,7 +132,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Map<String, String>? _pictureInPictureHeaders;
   bool _pictureInPictureActive = false;
   bool _pictureInPictureWasPlaying = false;
-  bool _pictureInPictureUsesFallbackHls = false;
   bool _clientHardwareAcceleration = true;
   int? _audioStreamIndex;
   String? _subtitleTrackId;
@@ -137,7 +145,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   StreamSubscription<Duration>? _durSub;
   StreamSubscription<bool>? _completedSub;
   StreamSubscription<String>? _errorSub;
-  StreamSubscription<PlaybackReloadRequest>? _reloadRequiredSub;
   StreamSubscription<playback_models.TranscodeStatus>? _eventsSub;
   Timer? _transcodePollTimer;
   Timer? _deviceStatsTimer;
@@ -152,11 +159,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   double _brightness = 0.5;
   double _volume = 0.5;
   Future<void> _brightnessOperations = Future<void>.value();
-  bool _brightnessScopeStarted = false;
   bool _brightnessReady = false;
   bool _wasPlayingBeforePause = false;
   Duration _backgroundPosition = Duration.zero;
   bool _playbackErrorReported = false;
+  bool _serverFallbackAttempted = false;
   String? _pendingPlaybackError;
   Timer? _rateChangeGraceTimer;
   DateTime? _subtitleLoadGuardUntil;
@@ -177,12 +184,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _host = createPlayerSession(
       engineKind: widget.engineKind,
       iosEnginePreference: settings.iosEngine,
-      onFallback: (message) {
-        if (mounted && !_isLeaving) _showError(message);
-      },
-    );
-    _reloadRequiredSub = _host.reloadRequiredStream.listen(
-      _onPlaybackReloadRequired,
     );
     _subtitleAdjustments = ref.read(subtitleSettingsProvider).adjustments;
     WidgetsBinding.instance.addObserver(this);
@@ -229,14 +230,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _initLevels() async {
-    _brightnessScopeStarted = true;
+    // 只读一次当前亮度作为手势增量基线，不保存、不恢复：
+    // 退出播放器或 app 时亮度保持最后状态，任何阶段都不回写其他值。
     await _queueBrightnessOperation(() async {
-      try {
-        final currentBrightness = await ScreenBrightness.instance.application;
-        if (!_isLeaving) {
-          _brightness = currentBrightness;
-        }
-      } catch (_) {}
+      final currentBrightness = await ScreenBrightnessChannel.read();
+      if (currentBrightness != null && !_isLeaving) {
+        _brightness = currentBrightness;
+      }
       _brightnessReady = true;
     });
     try {
@@ -252,17 +252,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     });
     _brightnessOperations = next;
     return next;
-  }
-
-  void _resetApplicationBrightness() {
-    if (!_brightnessScopeStarted) return;
-    // The plugin owns app background/foreground restoration. This reset is
-    // only for leaving the player route, including an initialization race.
-    unawaited(
-      _queueBrightnessOperation(
-        ScreenBrightness.instance.resetApplicationScreenBrightness,
-      ),
-    );
   }
 
   void _startDeviceStatsPolling() {
@@ -302,7 +291,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (_transcodeSessionActive) {
         // ignore: discarded_futures
         _stopTranscodeSession();
-        if (mounted) setState(() => _serverDecodeStatus = null);
       }
     } else if (state == AppLifecycleState.resumed &&
         _wasPlayingBeforePause &&
@@ -327,11 +315,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     if (_pictureInPictureActive || _pictureInPictureRequesting) {
       unawaited(_host.stopPictureInPicture());
     }
-    _posSub?.cancel();
-    _durSub?.cancel();
-    _completedSub?.cancel();
-    _errorSub?.cancel();
-    _reloadRequiredSub?.cancel();
+    _unbindProgress();
     _eventsSub?.cancel();
     _transcodePollTimer?.cancel();
     _deviceStatsTimer?.cancel();
@@ -346,7 +330,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       overlays: SystemUiOverlay.values,
     );
     FlutterVolumeController.updateShowSystemUI(true);
-    _resetApplicationBrightness();
     if (!wasLeaving) unawaited(_reportProgress());
     if (_transcodeSessionActive) {
       _transcodeSessionActive = false;
@@ -357,9 +340,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             .stop(widget.movieId);
         unawaited(stopFuture);
       } catch (_) {}
-    }
-    if (_pictureInPictureUsesFallbackHls) {
-      unawaited(_stopPictureInPictureFallback());
     }
     // ignore: discarded_futures
     WakelockPlus.disable();
@@ -395,11 +375,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     return next;
   }
 
-  Future<void> _load({String? quality, Duration? resume}) {
+  Future<void> _load({
+    String? quality,
+    Duration? resume,
+    bool serverFallback = false,
+    bool forceVideoTranscode = false,
+    bool? play,
+    playback_models.PlaybackDecision? decisionOverride,
+  }) {
     _rateChangeGraceTimer?.cancel();
     _rateChangeGraceTimer = null;
     _pendingPlaybackError = null;
     _playbackErrorReported = false;
+    if (!serverFallback) _serverFallbackAttempted = false;
     final generation = ++_loadGeneration;
 
     final next = _loadQueue.then<void>(
@@ -407,6 +395,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         generation: generation,
         quality: quality,
         resume: resume,
+        serverFallback: serverFallback,
+        forceVideoTranscode: forceVideoTranscode,
+        play: play,
+        decisionOverride: decisionOverride,
       ),
     );
     _loadQueue = next.catchError((_) {});
@@ -417,17 +409,27 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     required int generation,
     String? quality,
     Duration? resume,
+    required bool serverFallback,
+    required bool forceVideoTranscode,
+    bool? play,
+    playback_models.PlaybackDecision? decisionOverride,
   }) async {
     if (_isLeaving || generation != _loadGeneration) return;
     final selectedQuality = quality ?? _quality;
-    final cachedDecision = quality == null ? _decision : null;
+    final cachedDecision =
+        decisionOverride ?? (quality == null ? _decision : null);
+    final shouldPlay = play ?? true;
+    var fallbackResume = resume;
     _onRateBoostEnd();
+    // 切换质量会复用 KSPlayer 原生会话；先撤掉旧媒体的错误订阅，避免
+    // layer.stop() 的迟到错误把下一轮打开误判为播放失败。
+    _unbindProgress();
     await _stopTranscodeSession();
     await _stopPlayer();
     if (!mounted || generation != _loadGeneration) return;
     _pictureInPictureUrl = null;
     _pictureInPictureHeaders = null;
-    _pictureInPictureUsesFallbackHls = false;
+    _usingHls = false;
     setState(() {
       _loading = true;
       _error = null;
@@ -446,7 +448,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         );
         if (!mounted || generation != _loadGeneration) return;
 
-        await _openDirectWithClientFallback(trailerUrl, null);
+        await _openDirectWithClientFallback(trailerUrl, null, play: shouldPlay);
         if (!mounted || generation != _loadGeneration) {
           await _stopPlayer();
           return;
@@ -474,32 +476,45 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           cachedDecision ??
           await client.playback.decision(
             widget.movieId,
-            _clientCaps(selectedQuality),
+            _clientCaps(
+              selectedQuality,
+              forceVideoTranscode: forceVideoTranscode,
+            ),
           );
       if (!mounted || generation != _loadGeneration) return;
+      _validateDecisionForQuality(
+        decision,
+        selectedQuality,
+        requireHls: serverFallback,
+      );
       _decision = decision;
 
       final engineRoute = _host.playbackRoute(
         quality: selectedQuality,
         decision: decision,
+        forceServerRoute:
+            serverFallback ||
+            _audioStreamIndex != null ||
+            _subtitleTrackId != null,
       );
-      final useAvPlayerDecision = engineRoute.useBackendStream;
-      final useServerRoute = engineRoute.useServerRoute;
+      final useBackendStream = engineRoute.useBackendStream;
       final usesManagedTranscode = engineRoute.usesManagedTranscode;
       _transcodeSessionActive = usesManagedTranscode;
       String? directUrl;
       Map<String, String>? directHeaders;
-      if (useAvPlayerDecision) {
+      if (useBackendStream) {
         final rawDecisionUrl = decision.streamUrl.trim();
         if (rawDecisionUrl.isEmpty) {
-          throw StateError('AVPlayer 播放决策未返回 stream_url');
+          throw StateError('播放决策未返回 stream_url');
         }
-        // AVPlayer 不使用非公开 header 注入。站内地址统一转换为 token query，
+        // 受限原生内核不使用非公开 header 注入。站内地址统一转换为 token query，
         // 外部 header-only 地址由后端 remux/direct-stream/transcode 适配。
         directUrl = _protectedUrl(cfg, rawDecisionUrl, token);
-      } else if (!useServerRoute) {
-        // 直传需要先拿到 .strm 的最终远程地址（远程地址可能实际是 HLS）。
-        final rawDirectUrl = await client.playback.streamUrl(widget.movieId);
+      } else {
+        final rawDirectUrl = decision.directUrl.trim();
+        if (rawDirectUrl.isEmpty) {
+          throw StateError('服务器版本不兼容：播放决策缺少 direct_url');
+        }
         directUrl = _protectedUrl(cfg, rawDirectUrl, token);
         directHeaders = !isExternalUrl(cfg, rawDirectUrl)
             ? _authorizationHeaders(token)
@@ -513,9 +528,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       );
       if (!mounted || generation != _loadGeneration) return;
 
-      // 自动画质不采纳后端的服务端转码建议，始终把原始媒体交给
-      // media_kit/libmpv；只有用户明确选择固定画质时才使用 HLS。
-      final direct = !useServerRoute;
       _serverDecodeStatus = usesManagedTranscode
           ? PlayerDecodeStatus.server(engine: decision.hwAccel)
           : null;
@@ -544,17 +556,23 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       final startAt =
           resume ??
           (resumePositionSec > 0 ? Duration(seconds: resumePositionSec) : null);
-      if (useAvPlayerDecision) {
-        await _openAvPlayerDecision(directUrl!, startAt, decision);
-      } else if (direct) {
-        await _openDirectWithClientFallback(
-          directUrl!,
+      fallbackResume = startAt;
+      if (useBackendStream) {
+        await _openBackendStream(
+          directUrl,
           startAt,
-          headers: directHeaders,
+          decision,
+          play: shouldPlay,
         );
       } else {
-        final hlsUrl = _fallbackHlsUrl(cfg, token, selectedQuality);
-        await _openHlsWithClientFallback(hlsUrl, startAt);
+        await _openDirectWithClientFallback(
+          directUrl,
+          startAt,
+          play: shouldPlay,
+          formatHint: decision.container,
+          headers: directHeaders,
+          mediaInfo: _mediaInfoForDecision(decision),
+        );
       }
       if (!mounted || generation != _loadGeneration) {
         await _stopPlayer();
@@ -568,24 +586,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _bindProgress();
       if (usesManagedTranscode) {
         _transcodeSessionActive = true;
-        _startTranscodeMonitoring(selectedQuality);
+        _startTranscodeMonitoring(selectedQuality, decision);
       }
       setState(() => _loading = false);
       _restartHideTimer();
       await _applyDefaultTracks(cfg, token, decision);
     } catch (error) {
       if (!mounted || generation != _loadGeneration) return;
-      if (await _host.fallbackToLibmpvForReload(error.toString())) {
-        if (!mounted || generation != _loadGeneration) return;
-        _decision = null;
-        final retryGeneration = ++_loadGeneration;
-        await _loadInternal(
-          generation: retryGeneration,
-          quality: quality,
-          resume: resume,
-        );
-        return;
-      }
+      if (_tryServerFallback(resume: fallbackResume, play: shouldPlay)) return;
       _playbackErrorReported = true;
       _loadGeneration++;
       setState(() {
@@ -599,15 +607,32 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<void> _openDirectWithClientFallback(
     String url,
     Duration? startAt, {
+    bool play = true,
     Map<String, String>? headers,
+    String? formatHint,
+    PlaybackMediaInfo? mediaInfo,
   }) async {
     try {
-      await _host.open(url, startAt: startAt, headers: headers);
+      await _host.open(
+        url,
+        startAt: startAt,
+        play: play,
+        headers: headers,
+        formatHint: formatHint,
+        mediaInfo: mediaInfo,
+      );
     } catch (_) {
       if (!_clientHardwareAcceleration) rethrow;
       await _host.configure(hardwareAcceleration: false);
       _clientHardwareAcceleration = false;
-      await _host.open(url, startAt: startAt, headers: headers);
+      await _host.open(
+        url,
+        startAt: startAt,
+        play: play,
+        headers: headers,
+        formatHint: formatHint,
+        mediaInfo: mediaInfo,
+      );
     }
     _usingHls = false;
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
@@ -616,30 +641,104 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         : Map<String, String>.from(headers);
   }
 
-  Future<void> _openHlsWithClientFallback(String url, Duration? startAt) async {
-    try {
-      await _host.open(url, startAt: startAt);
-    } catch (_) {
-      if (!_clientHardwareAcceleration) rethrow;
-      await _host.configure(hardwareAcceleration: false);
-      _clientHardwareAcceleration = false;
-      await _host.open(url, startAt: startAt);
-    }
-    _usingHls = true;
+  Future<void> _openBackendStream(
+    String url,
+    Duration? startAt,
+    playback_models.PlaybackDecision decision, {
+    bool play = true,
+  }) async {
+    final lowerUrl = url.toLowerCase();
+    final isHls = decision.isTranscode || lowerUrl.contains('.m3u8');
+    await _host.open(
+      url,
+      startAt: startAt,
+      play: play,
+      formatHint: isHls ? null : decision.container,
+      mediaInfo: _mediaInfoForDecision(decision),
+    );
+    _usingHls = isHls;
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
     _pictureInPictureHeaders = null;
   }
 
-  Future<void> _openAvPlayerDecision(
-    String url,
-    Duration? startAt,
+  void _validateDecisionForQuality(
     playback_models.PlaybackDecision decision,
-  ) async {
-    await _host.open(url, startAt: startAt);
-    final lowerUrl = url.toLowerCase();
-    _usingHls = decision.isTranscode || lowerUrl.contains('.m3u8');
-    _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
-    _pictureInPictureHeaders = null;
+    String quality, {
+    required bool requireHls,
+  }) {
+    final normalized = quality.trim().toLowerCase();
+    playback_models.QualityOption? selected;
+    for (final option in decision.qualityOptions) {
+      if (option.id == normalized) {
+        selected = option;
+        break;
+      }
+    }
+    if (selected == null) {
+      throw FormatException('服务器版本不兼容：播放决策未提供清晰度 $normalized');
+    }
+    final hasHls = decisionHasHlsUrl(decision);
+    if (selected.kind == 'transcode' && !hasHls) {
+      throw const FormatException('服务器版本不兼容：转码清晰度未返回 HLS 地址');
+    }
+    if (requireHls && !hasHls) {
+      throw StateError('服务器转码回退未返回 HLS 地址');
+    }
+  }
+
+  bool _tryServerFallback({Duration? resume, bool? play}) {
+    if (!mounted || _isLeaving || _isDirectPlayback) return false;
+    final decision = _decision;
+    if (decision == null) return false;
+    final plan = serverFallbackPlanFor(
+      quality: _quality,
+      alreadyAttempted: _serverFallbackAttempted,
+      usingHls: _usingHls,
+      decision: decision,
+    );
+    if (plan == null) return false;
+
+    _serverFallbackAttempted = true;
+    final fallbackPosition = resume ?? _host.position;
+    final shouldPlay = play ?? _host.playbackIntent;
+    unawaited(
+      _load(
+        quality: _quality,
+        resume: fallbackPosition,
+        serverFallback: true,
+        forceVideoTranscode: plan.forceVideoTranscode,
+        play: shouldPlay,
+        decisionOverride: plan.reuseDecision ? decision : null,
+      ),
+    );
+    return true;
+  }
+
+  PlaybackMediaInfo? _mediaInfoForDecision(
+    playback_models.PlaybackDecision decision,
+  ) {
+    final container = decision.container.trim();
+    final videoCodec = decision.videoCodec.trim().isNotEmpty
+        ? decision.videoCodec.trim()
+        : decision.targetVideo.trim();
+    final audioCodec = decision.targetAudio.trim();
+    final bitrate = decision.targetBitrate > 0
+        ? decision.targetBitrate
+        : decision.bitRate > 0
+        ? decision.bitRate
+        : null;
+    if (container.isEmpty &&
+        videoCodec.isEmpty &&
+        audioCodec.isEmpty &&
+        bitrate == null) {
+      return null;
+    }
+    return PlaybackMediaInfo(
+      container: container.isEmpty ? null : container,
+      videoCodec: videoCodec.isEmpty ? null : videoCodec,
+      videoBitrate: bitrate,
+      audioCodec: audioCodec.isEmpty ? null : audioCodec,
+    );
   }
 
   Future<void> _applyDefaultTracks(
@@ -715,11 +814,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _bindProgress() {
-    _posSub?.cancel();
-    _durSub?.cancel();
-    _completedSub?.cancel();
-    _errorSub?.cancel();
-    _progressReportTimer?.cancel();
+    _unbindProgress();
     _lastPositionSec = _host.position.inSeconds;
     _lastDurationSec = _host.duration.inSeconds;
     _posSub = _host.positionStream.listen((position) {
@@ -744,6 +839,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     });
   }
 
+  void _unbindProgress() {
+    _posSub?.cancel();
+    _durSub?.cancel();
+    _completedSub?.cancel();
+    _errorSub?.cancel();
+    _posSub = null;
+    _durSub = null;
+    _completedSub = null;
+    _errorSub = null;
+    _progressReportTimer?.cancel();
+    _progressReportTimer = null;
+  }
+
   void _onPlayerError(String message) {
     if (!mounted || _isLeaving || _playbackErrorReported) {
       return;
@@ -764,22 +872,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _pendingPlaybackError = message;
       return;
     }
+    if (_tryServerFallback()) return;
     _showPlaybackError(message);
-  }
-
-  void _onPlaybackReloadRequired(PlaybackReloadRequest request) {
-    if (!mounted || _isLeaving) return;
-    _playbackRate = request.rate;
-    unawaited(_reloadAfterEngineFallback(request));
-  }
-
-  Future<void> _reloadAfterEngineFallback(PlaybackReloadRequest request) async {
-    // 显式传入 quality，避免沿用 AVPlayer 的旧 decision；新请求必须按
-    // libmpv capabilities 重新协商 stream_url。
-    await _load(quality: _quality, resume: request.position);
-    if (!request.wasPlaying && mounted && !_isLeaving) {
-      await _host.pause();
-    }
   }
 
   /// 主媒体是否已完成装载。字幕加载窗口内收到报错时，只有主媒体已就绪
@@ -826,7 +920,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (_transcodeSessionActive) {
         // ignore: discarded_futures
         _stopTranscodeSession();
-        if (mounted) setState(() => _serverDecodeStatus = null);
       }
       return;
     }
@@ -871,8 +964,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
               fallbackIndex: embeddedOrdinal,
               nativeRendering: track.isPgs,
             );
-          } on StateError {
-            // 直传下轨道 ID 偶发与 mpv 侧不一致时，同样回退到 URL。
+          } catch (_) {
+            // 直传下轨道 ID 偶发与原生内核侧不一致时，同样回退到 URL。
             if (track.url.trim().isEmpty) rethrow;
             await _loadSubtitleTrack(cfg, token, track);
           }
@@ -922,7 +1015,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       track,
       hasBackendSelection: _subtitleTrackId != null,
     )) {
-      await _applyAvPlayerSubtitleDecision(track);
+      await _applyBackendSubtitleDecision(track);
       return;
     }
     final cfg = ref.read(serverConfigProvider);
@@ -955,7 +1048,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     }
   }
 
-  Future<void> _applyAvPlayerSubtitleDecision(
+  Future<void> _applyBackendSubtitleDecision(
     playback_models.SubtitleTrack? track,
   ) async {
     final nextId = track == null
@@ -1079,6 +1172,53 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> _copyPlaybackError() async {
+    final message = _error;
+    if (message == null || message.isEmpty) return;
+    try {
+      await Clipboard.setData(ClipboardData(text: message));
+      if (mounted) _showError('完整播放错误已复制');
+    } catch (_) {
+      if (mounted) _showError('复制播放错误失败');
+    }
+  }
+
+  Future<void> _exportPlaybackError() async {
+    final message = _error;
+    if (message == null || message.isEmpty) return;
+    try {
+      final stamp = DateTime.now().toIso8601String().replaceAll(
+        RegExp(r'[^0-9]'),
+        '',
+      );
+      final fileName = 'oh-my-media-playback-error-$stamp.txt';
+      final renderObject = context.findRenderObject();
+      final sharePositionOrigin = renderObject is RenderBox
+          ? renderObject.localToGlobal(Offset.zero) & renderObject.size
+          : null;
+      final result = await SharePlus.instance.share(
+        ShareParams(
+          subject: 'Oh-My-Media 播放错误',
+          text: 'Oh-My-Media 播放错误日志',
+          sharePositionOrigin: sharePositionOrigin,
+          files: [
+            XFile.fromData(
+              Uint8List.fromList(utf8.encode(message)),
+              name: fileName,
+              mimeType: 'text/plain',
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (result.status == ShareResultStatus.unavailable) {
+        _showError('当前设备不支持导出，请复制完整错误');
+      }
+    } catch (_) {
+      if (mounted) _showError('导出播放错误失败，可尝试复制完整错误');
+    }
+  }
+
   Future<void> _stopTranscodeSession({bool waitForServer = true}) async {
     final shouldStopServerSession = _transcodeSessionActive;
     _transcodeSessionActive = false;
@@ -1101,52 +1241,108 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     } catch (_) {}
   }
 
-  void _startTranscodeMonitoring(String quality) {
+  void _startTranscodeMonitoring(
+    String quality,
+    playback_models.PlaybackDecision decision,
+  ) {
     _eventsSub?.cancel();
     _transcodePollTimer?.cancel();
     final api = ref.read(requiredApiClientProvider).playback;
+    final streamUri = Uri.tryParse(decision.streamUrl);
+    final streamQuery = streamUri?.queryParameters ?? const <String, String>{};
+    final sessionQuality = streamQuery['quality']?.trim().isNotEmpty == true
+        ? streamQuery['quality']!.trim()
+        : quality;
+    final mode = streamQuery['mode'];
+    final audioStreamIndex = int.tryParse(
+      streamQuery['audio_stream_index'] ?? '',
+    );
+    final subtitleTrackId = streamQuery['subtitle_track_id'];
     _eventsSub = api
-        .events(widget.movieId, quality: quality)
+        .events(
+          widget.movieId,
+          quality: sessionQuality,
+          mode: mode,
+          audioStreamIndex: audioStreamIndex,
+          subtitleTrackId: subtitleTrackId,
+        )
         .listen(
           _applyTranscodeStatus,
-          onError: (_) => _startTranscodePolling(quality),
-          onDone: () => _startTranscodePolling(quality),
+          onError: (_) => _startTranscodePolling(
+            sessionQuality,
+            mode: mode,
+            audioStreamIndex: audioStreamIndex,
+            subtitleTrackId: subtitleTrackId,
+          ),
+          onDone: () => _startTranscodePolling(
+            sessionQuality,
+            mode: mode,
+            audioStreamIndex: audioStreamIndex,
+            subtitleTrackId: subtitleTrackId,
+          ),
         );
     _transcodePollTimer = Timer.periodic(
       const Duration(seconds: 3),
-      (_) => _pollTranscodeStatus(quality),
+      (_) => _pollTranscodeStatus(
+        sessionQuality,
+        mode: mode,
+        audioStreamIndex: audioStreamIndex,
+        subtitleTrackId: subtitleTrackId,
+      ),
     );
   }
 
-  void _startTranscodePolling(String quality) {
+  void _startTranscodePolling(
+    String quality, {
+    String? mode,
+    int? audioStreamIndex,
+    String? subtitleTrackId,
+  }) {
     if (_transcodePollTimer != null) return;
     _transcodePollTimer = Timer.periodic(
       const Duration(seconds: 2),
-      (_) => _pollTranscodeStatus(quality),
+      (_) => _pollTranscodeStatus(
+        quality,
+        mode: mode,
+        audioStreamIndex: audioStreamIndex,
+        subtitleTrackId: subtitleTrackId,
+      ),
     );
   }
 
-  Future<void> _pollTranscodeStatus(String quality) async {
+  Future<void> _pollTranscodeStatus(
+    String quality, {
+    String? mode,
+    int? audioStreamIndex,
+    String? subtitleTrackId,
+  }) async {
     if (!mounted || _isLeaving || !_transcodeSessionActive) return;
     try {
       final status = await ref
           .read(requiredApiClientProvider)
           .playback
-          .status(widget.movieId, quality: quality);
+          .status(
+            widget.movieId,
+            quality: quality,
+            mode: mode,
+            audioStreamIndex: audioStreamIndex,
+            subtitleTrackId: subtitleTrackId,
+          );
       _applyTranscodeStatus(status);
     } catch (_) {}
   }
 
   void _applyTranscodeStatus(playback_models.TranscodeStatus status) {
     if (!mounted || _isLeaving) return;
+    // 查询不到会话时后端返回 quality 为空的 inactive 状态。此时保留播放
+    // 决策或上一帧给出的真实服务端状态，不能把 HLS 误显示成本地硬解。
+    if (!status.active && status.quality.trim().isEmpty) return;
     setState(() {
-      _serverDecodeStatus = !status.active
-          ? null
-          : PlayerDecodeStatus.server(
-              engine: status.hwAccel,
-              hardwareDecodeOk: status.hwDecodeOk,
-              isFallback: status.hasHardwareFallback,
-            );
+      _serverDecodeStatus = PlayerDecodeStatus.server(
+        engine: status.hwAccel,
+        hardwareDecodeOk: status.hwDecodeOk,
+        isFallback: status.hasHardwareFallback,
+      );
     });
   }
 
@@ -1163,20 +1359,17 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     return {'Authorization': 'Bearer $value'};
   }
 
-  String _fallbackHlsUrl(ServerConfig cfg, String? token, String quality) {
-    final selected = quality == 'original' ? 'auto' : quality;
-    final path =
-        '/api/movies/id/${widget.movieId}/stream.m3u8?quality=$selected';
-    return appendQueryToken(resolveServerUrl(cfg, path), token);
-  }
-
   String _protectedUrl(ServerConfig cfg, String raw, String? token) {
     return resolveProtectedUrl(cfg, raw, token);
   }
 
-  playback_models.PlaybackClientCaps _clientCaps(String quality) {
+  playback_models.PlaybackClientCaps _clientCaps(
+    String quality, {
+    bool forceVideoTranscode = false,
+  }) {
     return _host.clientCaps(
       quality: quality,
+      forceVideoTranscode: forceVideoTranscode,
       audioStreamIndex: _audioStreamIndex,
       subtitleTrackId: _subtitleTrackId,
     );
@@ -1227,7 +1420,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _rateChangeGraceTimer = null;
       final pending = _pendingPlaybackError;
       _pendingPlaybackError = null;
-      if (pending != null) _showPlaybackError(pending);
+      if (pending != null && !_tryServerFallback()) {
+        _showPlaybackError(pending);
+      }
     });
     unawaited(_setPlaybackRateInternal(rate));
   }
@@ -1281,7 +1476,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         if (mounted) _showError('当前播放源暂不支持画中画');
         return;
       }
-      _pictureInPictureUsesFallbackHls = source.usesFallbackHls;
       if (wasPlaying) {
         await _host.pause();
       }
@@ -1295,7 +1489,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         ),
       );
       if (!entered) {
-        await _stopPictureInPictureFallback();
         if (wasPlaying && mounted && !_isLeaving) {
           await _host.play();
         }
@@ -1305,7 +1498,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       }
       _pictureInPictureActive = true;
     } catch (_) {
-      await _stopPictureInPictureFallback();
       if (wasPlaying && mounted && !_isLeaving) {
         await _host.play();
       }
@@ -1319,42 +1511,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<_PictureInPictureSource?> _resolvePictureInPictureSource() async {
     final currentUrl = _pictureInPictureUrl;
     if (currentUrl == null || currentUrl.trim().isEmpty) return null;
-    if (!_host.capabilities.pictureInPictureRequiresNativeSource ||
-        _usingHls ||
-        _isNativePictureInPictureSource(currentUrl)) {
-      return _PictureInPictureSource(
-        url: currentUrl,
-        headers: _pictureInPictureHeaders,
-        usesFallbackHls: false,
-      );
-    }
-
-    // iOS AVPlayer 无法直接播放 media_kit 常用的 MKV 等容器。PiP 单独
-    // 使用一个短生命周期的 HLS 会话，退出时由 _stopPictureInPictureFallback
-    // 释放它，主播放器仍保持原来的 media_kit 直传链路。
-    final cfg = ref.read(serverConfigProvider);
-    if (cfg == null) return null;
-    final token = await ref.read(authSessionRepositoryProvider).accessToken();
     return _PictureInPictureSource(
-      url: _fallbackHlsUrl(cfg, token, 'original'),
-      headers: null,
-      usesFallbackHls: true,
+      url: currentUrl,
+      headers: _pictureInPictureHeaders,
     );
-  }
-
-  bool _isNativePictureInPictureSource(String url) {
-    final mimeType = (_decision?.mimeType ?? '').trim().toLowerCase();
-    if (mimeType.isNotEmpty) {
-      return mimeType.contains('mpegurl') ||
-          mimeType.contains('mp4') ||
-          mimeType.contains('quicktime') ||
-          mimeType.contains('x-m4v');
-    }
-    final path = Uri.tryParse(url)?.path.toLowerCase() ?? url.toLowerCase();
-    return path.endsWith('.m3u8') ||
-        path.endsWith('.mp4') ||
-        path.endsWith('.m4v') ||
-        path.endsWith('.mov');
   }
 
   String _pictureInPictureSourceUrl(String url) {
@@ -1368,18 +1528,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final wasPlaying = _pictureInPictureWasPlaying;
     _pictureInPictureActive = false;
     _pictureInPictureWasPlaying = false;
-    await _stopPictureInPictureFallback();
     if (!mounted || _isLeaving) return;
-
-    if (!_host.capabilities.pictureInPictureUsesSeparatePlayer) {
-      if (wasPlaying) {
-        await _host.play();
-      } else {
-        await _host.pause();
-      }
-      unawaited(_reportProgress());
-      return;
-    }
 
     var position = positionMs > 0
         ? Duration(milliseconds: positionMs)
@@ -1391,26 +1540,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     if (position > Duration.zero) {
       await _host.seek(position);
     }
-    if (wasPlaying && mounted && !_isLeaving) {
-      if (_usingHls) {
-        await _load(resume: position);
-      } else {
-        await _host.play();
-      }
-      unawaited(_reportProgress());
+    if (wasPlaying) {
+      await _host.play();
+    } else {
+      await _host.pause();
     }
+    unawaited(_reportProgress());
   }
 
   Future<void> _onPictureInPictureStoppedDuration(Duration position) {
     return _onPictureInPictureStopped(position.inMilliseconds);
-  }
-
-  Future<void> _stopPictureInPictureFallback() async {
-    if (!_pictureInPictureUsesFallbackHls) return;
-    _pictureInPictureUsesFallbackHls = false;
-    try {
-      await ref.read(requiredApiClientProvider).playback.stop(widget.movieId);
-    } catch (_) {}
   }
 
   Future<void> _switchMedia(int index) async {
@@ -1427,7 +1566,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       await _stopTranscodeSession();
     } finally {
       if (mounted) {
-        _invalidateHomeMovieLists();
         await Navigator.of(context).pushReplacement<void, void>(
           MaterialPageRoute(
             builder: (_) => PlayerPage(
@@ -1481,11 +1619,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _brightness = (_brightness + delta).clamp(0.0, 1.0);
     final brightness = _brightness;
     unawaited(
-      _queueBrightnessOperation(
-        () => ScreenBrightness.instance.setApplicationScreenBrightness(
-          brightness,
-        ),
-      ),
+      _queueBrightnessOperation(() => ScreenBrightnessChannel.set(brightness)),
     );
     _showIndicator(PlayerIndicator.brightness(_brightness), autoHide: false);
   }
@@ -1534,20 +1668,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _loadGeneration++;
     _hideTimer?.cancel();
     _onRateBoostEnd();
-    // 观看进度上报、本地停播和服务器会话清理都不能阻塞路由返回。
-    unawaited(_reportProgress());
+    // 先完成进度上报,让返回页面能准确判断是否需要刷新继续观看区块。
+    await _reportProgress();
     unawaited(_stopPlayer());
     unawaited(_stopTranscodeSession(waitForServer: false));
     if (mounted) {
-      _invalidateHomeMovieLists();
       Navigator.of(context).pop();
     }
-  }
-
-  void _invalidateHomeMovieLists() {
-    ref.invalidate(continueWatchingProvider);
-    ref.invalidate(recentlyAddedProvider);
-    ref.invalidate(recommendCarouselProvider);
   }
 
   @override
@@ -1569,6 +1696,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Widget _body() {
     final settings = ref.watch(playerSettingsProvider);
     final subtitleSettings = ref.watch(subtitleSettingsProvider);
+    final capabilities = _host.capabilities;
     if (_loading) {
       return Stack(
         children: [
@@ -1580,32 +1708,37 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       );
     }
     if (_error != null) {
-      return _ErrorView(
+      return PlayerErrorView(
         message: _error!,
         onRetry: _load,
+        onCopy: _copyPlaybackError,
+        onExport: _exportPlaybackError,
         onExit: () => unawaited(_exitPlayer()),
       );
     }
     final decision = _decision;
     if (decision == null) {
-      return _ErrorView(
+      return PlayerErrorView(
         message: '播放决策为空',
         onRetry: _load,
+        onCopy: _copyPlaybackError,
+        onExport: _exportPlaybackError,
         onExit: () => unawaited(_exitPlayer()),
       );
     }
     return Stack(
       children: [
         Positioned.fill(child: _host.buildSurface()),
-        Positioned.fill(
-          child: PlayerSubtitleOverlay(
-            controller: _host,
-            selectedTrack: _selectedSubtitle,
-            settings: subtitleSettings,
-            adjustments: _subtitleAdjustments,
-            onVerticalOffsetBoundsChanged: _onSubtitleOffsetBoundsChanged,
+        if (capabilities.textSubtitles)
+          Positioned.fill(
+            child: PlayerSubtitleOverlay(
+              controller: _host,
+              selectedTrack: _selectedSubtitle,
+              settings: subtitleSettings,
+              adjustments: _subtitleAdjustments,
+              onVerticalOffsetBoundsChanged: _onSubtitleOffsetBoundsChanged,
+            ),
           ),
-        ),
         Positioned.fill(
           child: PlayerGestureLayer(
             positionGetter: () => _host.position,
@@ -1618,6 +1751,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             hapticLongPress: settings.hapticLongPress,
             hapticSeek: settings.hapticSeek,
             hapticRate: settings.hapticRate,
+            rateControlEnabled: capabilities.playbackRate,
             onRateBoost: _onRateBoost,
             onRateBoostEnd: _onRateBoostEnd,
             onSeekPreview: _onSeekPreview,
@@ -1641,6 +1775,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             showBattery: settings.showBattery,
           ),
         ),
+        if (settings.debugMode)
+          Positioned(
+            top: 42,
+            left: 20,
+            right: 20,
+            child: PlayerDebugOverlay(stateListenable: _host),
+          ),
         Positioned.fill(
           child: IgnorePointer(
             ignoring: !_controlsVisible,
@@ -1652,22 +1793,29 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 previewSourceUri: _pictureInPictureUrl,
                 previewSourceHeaders: _pictureInPictureHeaders,
                 quality: _quality,
+                qualityOptions: decision.qualityOptions,
                 showQualityButton: !_isDirectPlayback,
                 onQualityChanged: _onQualityChanged,
-                subtitleTracks: decision.subtitleTracks,
+                subtitleTracks: capabilities.textSubtitles
+                    ? decision.subtitleTracks
+                    : const [],
                 selectedSubtitle: _selectedSubtitle,
                 onSubtitleChanged: (track) =>
                     unawaited(_onSubtitleChanged(track)),
                 onOpenSubtitleSettings: () =>
                     unawaited(_showSubtitleSettings()),
-                audioTracks: decision.audioTracks,
+                audioTracks: capabilities.audioTracks
+                    ? decision.audioTracks
+                    : const [],
                 onAudioChanged: (track) => unawaited(_applyAudioTrack(track)),
                 decodeStatuses: _decodeStatuses,
                 hapticProgressBar: settings.hapticProgressBar,
                 showPlayPauseButton: settings.showPlayPauseButton,
                 showSeekButtons: settings.showSeekButtons,
-                showSpeedButton: settings.showSpeedButton,
-                showPipButton: settings.showPipButton,
+                showSpeedButton:
+                    settings.showSpeedButton && capabilities.playbackRate,
+                showPipButton:
+                    settings.showPipButton && capabilities.pictureInPicture,
                 showOrientationButton: settings.showOrientationButton,
                 showMediaSwitchButton: settings.showMediaSwitchButton,
                 playbackRate: _playbackRate,
@@ -1715,91 +1863,15 @@ class _LoadingView extends StatelessWidget {
             ],
           ),
         ),
-        Positioned(
-          top: 8,
-          right: 8,
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              color: Colors.black54,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              onPressed: onExit,
-              tooltip: '退出播放',
-              icon: const Icon(Icons.close, color: Colors.white),
-            ),
-          ),
-        ),
+        PlayerExitButton(onExit: onExit),
       ],
     );
   }
 }
 
 class _PictureInPictureSource {
-  const _PictureInPictureSource({
-    required this.url,
-    required this.headers,
-    required this.usesFallbackHls,
-  });
+  const _PictureInPictureSource({required this.url, required this.headers});
 
   final String url;
   final Map<String, String>? headers;
-  final bool usesFallbackHls;
-}
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({
-    required this.message,
-    required this.onRetry,
-    required this.onExit,
-  });
-
-  final String message;
-  final VoidCallback onRetry;
-  final VoidCallback onExit;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline, color: c.danger, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('重试'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white54),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: onExit,
-                  icon: const Icon(Icons.close, size: 16),
-                  label: const Text('退出播放'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.white),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

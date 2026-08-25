@@ -100,7 +100,7 @@ abstract class AppL10n {
   /// No description provided for @appName.
   ///
   /// In zh, this message translates to:
-  /// **'MD Center'**
+  /// **'Oh-My-Media'**
   String get appName;
 
   /// No description provided for @tabHome.
@@ -948,12 +948,6 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'退出登录'**
   String get settingsLogout;
-
-  /// No description provided for @playerEngineNative.
-  ///
-  /// In zh, this message translates to:
-  /// **'原生'**
-  String get playerEngineNative;
 
   /// No description provided for @playerEnginePickerTitle.
   ///

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// md_center 设计令牌 (Brand Spec v5)
+/// omm 设计令牌 (Brand Spec v5)
 ///
 /// 双版本 · Light + Dark · 系统跟随
 /// 多彩集合派 · Inter 字体 · 紫粉 accent

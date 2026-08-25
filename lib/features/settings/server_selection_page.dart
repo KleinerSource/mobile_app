@@ -313,7 +313,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
         ),
         const SizedBox(height: 14),
         Text(
-          'MD Center',
+          'Oh-My-Media',
           style: AppText.cardTitle(
             context,
           ).copyWith(fontSize: 17, letterSpacing: 0.2),

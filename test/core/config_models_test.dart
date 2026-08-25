@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/auth/auth_session.dart';
-import 'package:md_center/core/models/avdb_config.dart';
-import 'package:md_center/core/models/dbo_config.dart';
-import 'package:md_center/core/models/ffmpeg_config.dart';
+import 'package:omm/core/auth/auth_session.dart';
+import 'package:omm/core/models/avdb_config.dart';
+import 'package:omm/core/models/dbo_config.dart';
+import 'package:omm/core/models/ffmpeg_config.dart';
 
 void main() {
   test('AVDB 数据源配置读写 enabled、URL 和 API Key', () {

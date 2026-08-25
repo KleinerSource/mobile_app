@@ -2,25 +2,25 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/services/actors_api.dart';
-import 'package:md_center/core/api/services/audio_api.dart';
-import 'package:md_center/core/api/services/configs_extended_api.dart';
-import 'package:md_center/core/api/services/genres_api.dart';
-import 'package:md_center/core/api/services/libraries_api.dart';
-import 'package:md_center/core/api/services/libraries_extended_api.dart';
-import 'package:md_center/core/api/services/mappings_api.dart';
-import 'package:md_center/core/api/services/movies_api.dart';
-import 'package:md_center/core/api/services/movies_extended_api.dart';
-import 'package:md_center/core/api/services/modal_transcription_api.dart';
-import 'package:md_center/core/api/services/playback_api.dart';
-import 'package:md_center/core/api/services/series_api.dart';
-import 'package:md_center/core/api/services/tags_api.dart';
-import 'package:md_center/core/api/services/translation_api.dart';
-import 'package:md_center/core/api/services/system_extended_api.dart';
-import 'package:md_center/core/config/server_config.dart';
-import 'package:md_center/core/models/playback.dart';
-import 'package:md_center/features/libraries/libraries_repository.dart';
-import 'package:md_center/features/translation/translation_repository.dart';
+import 'package:omm/core/api/services/actors_api.dart';
+import 'package:omm/core/api/services/audio_api.dart';
+import 'package:omm/core/api/services/configs_extended_api.dart';
+import 'package:omm/core/api/services/genres_api.dart';
+import 'package:omm/core/api/services/libraries_api.dart';
+import 'package:omm/core/api/services/libraries_extended_api.dart';
+import 'package:omm/core/api/services/mappings_api.dart';
+import 'package:omm/core/api/services/movies_api.dart';
+import 'package:omm/core/api/services/movies_extended_api.dart';
+import 'package:omm/core/api/services/modal_transcription_api.dart';
+import 'package:omm/core/api/services/playback_api.dart';
+import 'package:omm/core/api/services/series_api.dart';
+import 'package:omm/core/api/services/tags_api.dart';
+import 'package:omm/core/api/services/translation_api.dart';
+import 'package:omm/core/api/services/system_extended_api.dart';
+import 'package:omm/core/config/server_config.dart';
+import 'package:omm/core/models/playback.dart';
+import 'package:omm/features/libraries/libraries_repository.dart';
+import 'package:omm/features/translation/translation_repository.dart';
 
 void main() {
   test('映射 Retrofit 路径使用后端实际的 /mappings/type/{type}', () async {
@@ -254,6 +254,38 @@ void main() {
     );
   });
 
+  test('转码状态接口透传完整会话参数', () async {
+    final adapter = _RouteAdapter();
+    final api = PlaybackApi(_dio(adapter));
+
+    await api.status(
+      7,
+      quality: '720p',
+      mode: 'dstream',
+      audioStreamIndex: 2,
+      subtitleTrackId: 'embedded-3',
+    );
+    await api
+        .events(
+          7,
+          quality: '720p',
+          mode: 'dstream',
+          audioStreamIndex: 2,
+          subtitleTrackId: 'embedded-3',
+        )
+        .toList();
+
+    expect(adapter.queries, hasLength(2));
+    for (final query in adapter.queries) {
+      expect(query, {
+        'quality': '720p',
+        'mode': 'dstream',
+        'audio_stream_index': '2',
+        'subtitle_track_id': 'embedded-3',
+      });
+    }
+  });
+
   test('服务器资料接口读取名称并解析头像地址', () async {
     final adapter = _RouteAdapter();
     final profile = await SystemExtendedApi(
@@ -376,6 +408,11 @@ class _RouteAdapter implements HttpClientAdapter {
       '/api/movies/id/7/playback-decision' => {
         'mode': 'direct_play',
         'stream_url': '/api/movies/id/7/stream?mode=direct',
+        'direct_url': '/api/movies/id/7/stream',
+        'quality_options': [
+          {'id': 'auto', 'label': '自动', 'kind': 'auto'},
+          {'id': 'original', 'label': '1080P（原生）', 'kind': 'original'},
+        ],
         'mime_type': 'video/mp4',
         'audio_tracks': [],
         'subtitle_tracks': [],

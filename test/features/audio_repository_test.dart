@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/api_client.dart';
-import 'package:md_center/features/audio/audio_models.dart';
-import 'package:md_center/features/audio/audio_repository.dart';
+import 'package:omm/core/api/api_client.dart';
+import 'package:omm/features/audio/audio_models.dart';
+import 'package:omm/features/audio/audio_repository.dart';
 
 void main() {
   test('listAssets 解出资产列表与转译统计', () async {

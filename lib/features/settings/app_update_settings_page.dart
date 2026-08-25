@@ -13,6 +13,7 @@ import '../../core/update/update_models.dart';
 import '../../core/update/update_repository.dart';
 import '../../core/update/update_service.dart';
 import '../../shared/glow_background.dart';
+import '../player/player_settings.dart';
 import 'settings_common.dart';
 
 class AppUpdateSettingsPage extends ConsumerStatefulWidget {
@@ -63,6 +64,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final savedRepository = ref.watch(updateRepositoryUrlProvider);
+    final includeDevelopment = ref.watch(includeDevelopmentUpdatesProvider);
     final currentRepository = _repositoryController.text.trim();
     final hasSavedRepository =
         savedRepository != null && savedRepository.trim().isNotEmpty;
@@ -166,6 +168,40 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                           leadingIcon: Icons.phone_android_outlined,
                         );
                       },
+                    ),
+                    SettingsTile(
+                      title: '检测开发版',
+                      subtitle: '开启后同时检测标准版与开发版，并选择版本更高的安装包',
+                      leadingIcon: Icons.developer_mode_outlined,
+                      trailing: SettingsSwitch(
+                        value: includeDevelopment,
+                        onChanged: _checking || _downloading
+                            ? null
+                            : (value) =>
+                                  unawaited(_setIncludeDevelopment(value)),
+                      ),
+                    ),
+                  ],
+                ),
+                SettingsGroup(
+                  title: '调试',
+                  items: [
+                    SettingsTile(
+                      title: '播放器 Debug 模式',
+                      subtitle: '在播放画面显示内核、编码、码率、帧率等信息',
+                      leadingIcon: Icons.bug_report_outlined,
+                      trailing: SettingsSwitch(
+                        value: ref.watch(playerSettingsProvider).debugMode,
+                        onChanged: (value) => unawaited(
+                          ref
+                              .read(playerSettingsProvider.notifier)
+                              .update(
+                                ref
+                                    .read(playerSettingsProvider)
+                                    .copyWith(debugMode: value),
+                              ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -433,6 +469,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
             repositoryUrl: repository.canonicalUrl,
             platform: platform,
             currentVersion: currentVersion,
+            includeDevelopment: ref.read(includeDevelopmentUpdatesProvider),
           );
       if (!mounted) return;
       setState(() => _result = result);
@@ -492,6 +529,21 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
           _downloadProgress = null;
         });
       }
+    }
+  }
+
+  Future<void> _setIncludeDevelopment(bool value) async {
+    try {
+      await ref
+          .read(includeDevelopmentUpdatesProvider.notifier)
+          .setEnabled(value);
+      if (!mounted) return;
+      setState(() {
+        _result = null;
+        _error = null;
+      });
+    } catch (_) {
+      if (mounted) _showMessage('保存开发版检测设置失败，请稍后重试');
     }
   }
 

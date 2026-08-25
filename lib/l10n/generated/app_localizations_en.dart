@@ -9,7 +9,7 @@ class AppL10nEn extends AppL10n {
   AppL10nEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appName => 'MD Center';
+  String get appName => 'Oh-My-Media';
 
   @override
   String get tabHome => 'Home';
@@ -453,9 +453,6 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get settingsLogout => 'Log out';
-
-  @override
-  String get playerEngineNative => 'Native';
 
   @override
   String get playerEnginePickerTitle => 'Choose player';

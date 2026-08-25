@@ -1,4 +1,4 @@
-# md_center · 移动端设计定稿
+# omm · 移动端设计定稿
 
 > 完成日期: 2026-05-22
 > 设计方向: **多彩集合派** (Playful · Apple Music / Spotify 同气质)

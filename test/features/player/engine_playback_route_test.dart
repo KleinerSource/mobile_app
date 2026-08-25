@@ -1,13 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/core/models/playback.dart';
-import 'package:md_center/features/player/engine_playback_route.dart';
-import 'package:md_center/features/player/playback_engine.dart';
+import 'package:omm/core/models/playback.dart';
+import 'package:omm/features/player/engine_playback_route.dart';
+import 'package:omm/features/player/playback_engine.dart';
 
-PlaybackDecision _decision(String mode) => PlaybackDecision(
-  mode: mode,
-  streamUrl: 'https://example.com/$mode',
-  mimeType: mode == 'transcode' ? 'application/vnd.apple.mpegurl' : 'video/mp4',
+PlaybackDecision _decision({required bool hls}) => PlaybackDecision(
+  mode: hls ? 'transcode' : 'direct_play',
+  streamUrl: hls
+      ? 'https://example.com/stream.m3u8'
+      : 'https://example.com/video.mp4',
+  directUrl: 'https://example.com/original.mkv',
+  mimeType: hls ? 'application/vnd.apple.mpegurl' : 'video/mp4',
   hwAccel: '',
   targetVideo: '',
   targetAudio: '',
@@ -20,40 +23,101 @@ PlaybackDecision _decision(String mode) => PlaybackDecision(
 );
 
 void main() {
-  for (final mode in ['direct_play', 'remux', 'direct_stream', 'transcode']) {
-    test('AVPlayer $mode 始终采纳后端 stream_url', () {
+  test('libmpv 与 KSPlayer 的自动档都先使用 direct_url', () {
+    for (final engineKind in PlaybackEngineKind.values) {
       final route = playbackRouteForEngine(
-        engineKind: PlaybackEngineKind.avPlayer,
-        quality: 'original',
-        decision: _decision(mode),
+        engineKind: engineKind,
+        quality: 'auto',
+        decision: _decision(hls: true),
       );
 
-      expect(route.useBackendStream, isTrue);
-      expect(route.useServerRoute, mode != 'direct_play');
-      expect(route.usesManagedTranscode, mode == 'transcode');
-    });
-  }
-
-  test('libmpv 保持自动画质直传、固定画质 HLS', () {
-    final decision = _decision('transcode');
-    final original = playbackRouteForEngine(
-      engineKind: PlaybackEngineKind.libmpv,
-      quality: 'original',
-      decision: decision,
-    );
-    final fixed = playbackRouteForEngine(
-      engineKind: PlaybackEngineKind.libmpv,
-      quality: '1080p',
-      decision: decision,
-    );
-
-    expect(original.useBackendStream, isFalse);
-    expect(original.useServerRoute, isFalse);
-    expect(fixed.useBackendStream, isFalse);
-    expect(fixed.useServerRoute, isTrue);
+      expect(route.useBackendStream, isFalse);
+      expect(route.useServerRoute, isFalse);
+      expect(route.usesManagedTranscode, isFalse);
+    }
   });
 
-  test('AVPlayer PGS 与 burn_in 字幕要求后端重决策', () {
+  test('两内核的原生和固定档都采用服务端决策地址', () {
+    for (final engineKind in PlaybackEngineKind.values) {
+      final originalDirect = playbackRouteForEngine(
+        engineKind: engineKind,
+        quality: 'original',
+        decision: _decision(hls: false),
+      );
+      final originalTranscode = playbackRouteForEngine(
+        engineKind: engineKind,
+        quality: 'original',
+        decision: _decision(hls: true),
+      );
+      final fixed = playbackRouteForEngine(
+        engineKind: engineKind,
+        quality: '720p',
+        decision: _decision(hls: true),
+      );
+
+      expect(originalDirect.useBackendStream, isTrue);
+      expect(originalDirect.useServerRoute, isFalse);
+      expect(originalDirect.usesManagedTranscode, isFalse);
+      for (final route in [originalTranscode, fixed]) {
+        expect(route.useBackendStream, isTrue);
+        expect(route.useServerRoute, isTrue);
+        expect(route.usesManagedTranscode, isTrue);
+      }
+    }
+  });
+
+  test('服务器回退优先复用 HLS，否则要求强制视频转码重决策', () {
+    final reuse = serverFallbackPlanFor(
+      quality: 'auto',
+      alreadyAttempted: false,
+      usingHls: false,
+      decision: _decision(hls: true),
+    );
+    final refresh = serverFallbackPlanFor(
+      quality: 'original',
+      alreadyAttempted: false,
+      usingHls: false,
+      decision: _decision(hls: false),
+    );
+
+    expect(reuse?.reuseDecision, isTrue);
+    expect(reuse?.forceVideoTranscode, isFalse);
+    expect(refresh?.reuseDecision, isFalse);
+    expect(refresh?.forceVideoTranscode, isTrue);
+  });
+
+  test('固定档、已在 HLS 或已回退时不再自动回退', () {
+    final decision = _decision(hls: true);
+    expect(
+      serverFallbackPlanFor(
+        quality: '720p',
+        alreadyAttempted: false,
+        usingHls: false,
+        decision: decision,
+      ),
+      isNull,
+    );
+    expect(
+      serverFallbackPlanFor(
+        quality: 'auto',
+        alreadyAttempted: false,
+        usingHls: true,
+        decision: decision,
+      ),
+      isNull,
+    );
+    expect(
+      serverFallbackPlanFor(
+        quality: 'auto',
+        alreadyAttempted: true,
+        usingHls: false,
+        decision: decision,
+      ),
+      isNull,
+    );
+  });
+
+  test('KSPlayer PGS 与 burn_in 字幕要求后端重决策', () {
     const pgs = SubtitleTrack(
       id: 'pgs-1',
       index: 1,
@@ -77,16 +141,16 @@ void main() {
     );
 
     expect(
-      subtitleRequiresBackendDecision(PlaybackEngineKind.avPlayer, pgs),
-      isTrue,
-    );
-    expect(
-      subtitleRequiresBackendDecision(PlaybackEngineKind.avPlayer, burnIn),
-      isTrue,
-    );
-    expect(
       subtitleRequiresBackendDecision(PlaybackEngineKind.libmpv, pgs),
       isFalse,
+    );
+    expect(
+      subtitleRequiresBackendDecision(PlaybackEngineKind.ksPlayer, pgs),
+      isTrue,
+    );
+    expect(
+      subtitleRequiresBackendDecision(PlaybackEngineKind.ksPlayer, burnIn),
+      isTrue,
     );
   });
 }

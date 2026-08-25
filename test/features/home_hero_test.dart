@@ -2,11 +2,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/config/server_config_provider.dart';
-import 'package:md_center/core/models/movie.dart';
-import 'package:md_center/features/home/hero_backdrop.dart';
-import 'package:md_center/features/home/recommend_carousel.dart';
-import 'package:md_center/features/privacy/privacy_providers.dart';
+import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/models/movie.dart';
+import 'package:omm/features/home/hero_backdrop.dart';
+import 'package:omm/features/home/recommend_carousel.dart';
+import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 与 HomePage._HeroHeaderDelegate 相同的折叠数学
@@ -157,7 +157,7 @@ void main() {
             child: RecommendCarousel(
               items: carouselItems,
               urlBuilder: (uuid) => 'http://test/$uuid.jpg',
-              onMovieReturned: () {},
+              onMovieReturned: (_) {},
               pagePosition: position,
             ),
           ),
@@ -199,7 +199,7 @@ void main() {
               child: RecommendCarousel(
                 items: items,
                 urlBuilder: (uuid) => 'http://test/$uuid.jpg',
-                onMovieReturned: () {},
+                onMovieReturned: (_) {},
               ),
             ),
           ),

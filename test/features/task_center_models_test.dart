@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/models/modal_transcription_config.dart';
-import 'package:md_center/features/tasks/task_model.dart';
+import 'package:omm/core/models/modal_transcription_config.dart';
+import 'package:omm/features/tasks/task_model.dart';
 
 void main() {
   test('任务进度可以兼容数字和字符串，并限制展示百分比', () {

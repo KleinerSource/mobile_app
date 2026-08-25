@@ -2,18 +2,16 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:md_center/features/player/player_settings.dart';
-import 'package:md_center/features/player/playback_engine.dart';
-import 'package:md_center/l10n/generated/app_localizations.dart';
+import 'package:omm/features/player/player_settings.dart';
+import 'package:omm/features/player/playback_engine.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 void main() {
   test('播放器内核测试入口文案支持中英文', () {
     final zh = lookupAppL10n(const Locale('zh'));
     final en = lookupAppL10n(const Locale('en'));
-    expect(zh.playerEngineNative, '原生');
     expect(zh.playerEnginePickerTitle, '选择播放器');
     expect(zh.playerEnginePickerSubtitle, '仅用于本次播放，不会修改默认设置');
-    expect(en.playerEngineNative, 'Native');
     expect(en.playerEnginePickerTitle, 'Choose player');
     expect(
       en.playerEnginePickerSubtitle,
@@ -31,6 +29,7 @@ void main() {
     expect(settings.entryOrientation, PlayerEntryOrientation.forceLandscape);
     expect(settings.preloadSize, PlayerPreloadSize.mb250);
     expect(settings.iosEngine, PlaybackEngineKind.libmpv);
+    expect(settings.debugMode, isFalse);
     expect(settings.doubleTapCenter, isTrue);
     expect(settings.doubleTapEdges, isTrue);
     expect(settings.hapticLongPress, isTrue);
@@ -108,7 +107,8 @@ void main() {
       landscapeSide: PlayerLandscapeSide.cameraRight,
       entryOrientation: PlayerEntryOrientation.forcePortrait,
       preloadSize: PlayerPreloadSize.mb500,
-      iosEngine: PlaybackEngineKind.avPlayer,
+      iosEngine: PlaybackEngineKind.ksPlayer,
+      debugMode: true,
       doubleTapCenter: false,
       doubleTapEdges: true,
       hapticLongPress: false,
@@ -134,7 +134,8 @@ void main() {
     expect(actual.landscapeSide, PlayerLandscapeSide.cameraRight);
     expect(actual.entryOrientation, PlayerEntryOrientation.forcePortrait);
     expect(actual.preloadSize, PlayerPreloadSize.mb500);
-    expect(actual.iosEngine, PlaybackEngineKind.avPlayer);
+    expect(actual.iosEngine, PlaybackEngineKind.ksPlayer);
+    expect(actual.debugMode, isTrue);
     expect(actual.doubleTapCenter, isFalse);
     expect(actual.doubleTapEdges, isTrue);
     expect(actual.hapticLongPress, isFalse);
@@ -151,5 +152,17 @@ void main() {
     expect(actual.showPipButton, isFalse);
     expect(actual.showOrientationButton, isFalse);
     expect(actual.showMediaSwitchButton, isTrue);
+  });
+
+  test('历史 avplayer 设置值读取后回退到 libmpv', () async {
+    SharedPreferences.setMockInitialValues({
+      PlayerEnginePreference.storageKey: 'avplayer',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    expect(
+      PlayerSettingsRepository(prefs).load().iosEngine,
+      PlaybackEngineKind.libmpv,
+    );
   });
 }

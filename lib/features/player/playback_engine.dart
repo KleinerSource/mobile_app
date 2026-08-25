@@ -1,9 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 enum PlaybackEngineKind {
   libmpv('libmpv', 'libmpv'),
-  avPlayer('avplayer', 'AVPlayer');
+  ksPlayer('ksplayer', 'KSPlayer');
 
   const PlaybackEngineKind(this.value, this.label);
 
@@ -33,29 +35,26 @@ class PlaybackEngineCapabilities {
     required this.textSubtitles,
     required this.bitmapSubtitles,
     required this.customBuffering,
-    this.pictureInPictureRequiresNativeSource = false,
-    this.pictureInPictureUsesSeparatePlayer = false,
+    this.playbackRate = true,
   });
 
-  const PlaybackEngineCapabilities.libmpv({
-    this.pictureInPictureRequiresNativeSource = false,
-    this.pictureInPictureUsesSeparatePlayer = false,
-  }) : pictureInPicture = true,
-       framePreview = true,
-       audioTracks = true,
-       textSubtitles = true,
-       bitmapSubtitles = true,
-       customBuffering = true;
+  const PlaybackEngineCapabilities.libmpv()
+    : pictureInPicture = false,
+      framePreview = true,
+      audioTracks = true,
+      textSubtitles = true,
+      bitmapSubtitles = true,
+      customBuffering = true,
+      playbackRate = true;
 
-  const PlaybackEngineCapabilities.avPlayer()
+  const PlaybackEngineCapabilities.ksPlayer()
     : pictureInPicture = true,
       framePreview = true,
       audioTracks = true,
       textSubtitles = true,
       bitmapSubtitles = false,
       customBuffering = false,
-      pictureInPictureRequiresNativeSource = false,
-      pictureInPictureUsesSeparatePlayer = false;
+      playbackRate = true;
 
   final bool pictureInPicture;
   final bool framePreview;
@@ -63,8 +62,169 @@ class PlaybackEngineCapabilities {
   final bool textSubtitles;
   final bool bitmapSubtitles;
   final bool customBuffering;
-  final bool pictureInPictureRequiresNativeSource;
-  final bool pictureInPictureUsesSeparatePlayer;
+  final bool playbackRate;
+}
+
+/// 播放中的媒体调试信息。
+///
+/// 字段可能来自后端探测、libmpv 实际轨道或 KSPlayer 原生轨道；缺失时
+/// 保持为 null，Debug OSD 显示 `--`，不影响正常播放。
+@immutable
+class PlaybackMediaInfo {
+  const PlaybackMediaInfo({
+    this.container,
+    this.videoCodec,
+    this.videoBitrate,
+    this.videoFps,
+    this.videoDecoder,
+    this.audioCodec,
+    this.audioBitrate,
+    this.internalPlayer,
+  });
+
+  final String? container;
+  final String? videoCodec;
+  final int? videoBitrate;
+  final double? videoFps;
+  final String? videoDecoder;
+  final String? audioCodec;
+  final int? audioBitrate;
+
+  /// KSPlayer 内部实际使用的播放器，例如 `KSMEPlayer` 或 `AVPlayer`。
+  final String? internalPlayer;
+
+  PlaybackMediaInfo copyWith({
+    String? container,
+    String? videoCodec,
+    int? videoBitrate,
+    double? videoFps,
+    String? videoDecoder,
+    String? audioCodec,
+    int? audioBitrate,
+    String? internalPlayer,
+  }) {
+    return PlaybackMediaInfo(
+      container: container ?? this.container,
+      videoCodec: videoCodec ?? this.videoCodec,
+      videoBitrate: videoBitrate ?? this.videoBitrate,
+      videoFps: videoFps ?? this.videoFps,
+      videoDecoder: videoDecoder ?? this.videoDecoder,
+      audioCodec: audioCodec ?? this.audioCodec,
+      audioBitrate: audioBitrate ?? this.audioBitrate,
+      internalPlayer: internalPlayer ?? this.internalPlayer,
+    );
+  }
+
+  /// 使用播放请求中的后端提示和地址扩展名创建初始调试信息。
+  factory PlaybackMediaInfo.fromSource({
+    required String url,
+    String? formatHint,
+    String? internalPlayer,
+  }) {
+    final container = inferPlaybackContainer(url, formatHint);
+    return PlaybackMediaInfo(
+      container: container,
+      internalPlayer: internalPlayer,
+    );
+  }
+
+  static String? inferInternalPlayer(
+    String url,
+    String? formatHint, {
+    String? videoCodec,
+  }) {
+    if (_isFfmpegVideoCodec(videoCodec)) return 'KSMEPlayer';
+    final container = inferPlaybackContainer(url, formatHint);
+    if (container == null) return null;
+    return switch (container) {
+      'mkv' || 'matroska' || 'webm' => 'KSMEPlayer',
+      _ => 'AVPlayer',
+    };
+  }
+
+  static bool _isFfmpegVideoCodec(String? codec) {
+    final normalized = (codec ?? '').toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9]'),
+      '',
+    );
+    return normalized.contains('hevc') ||
+        normalized.contains('h265') ||
+        normalized.contains('hvc1') ||
+        normalized.contains('hev1') ||
+        normalized.contains('x265');
+  }
+
+  factory PlaybackMediaInfo.fromJson(Map<String, dynamic> json) {
+    String? stringValue(Object? value) {
+      final text = value?.toString().trim() ?? '';
+      return text.isEmpty ? null : text;
+    }
+
+    int? positiveInt(Object? value) {
+      final number = value is num ? value.toInt() : int.tryParse('$value');
+      return number == null || number <= 0 ? null : number;
+    }
+
+    double? positiveDouble(Object? value) {
+      final number = value is num
+          ? value.toDouble()
+          : double.tryParse('$value');
+      return number == null || !number.isFinite || number <= 0 ? null : number;
+    }
+
+    return PlaybackMediaInfo(
+      container: stringValue(json['container']),
+      videoCodec: stringValue(json['video_codec']),
+      videoBitrate: positiveInt(json['video_bitrate']),
+      videoFps: positiveDouble(json['video_fps']),
+      videoDecoder: stringValue(json['video_decoder']),
+      audioCodec: stringValue(json['audio_codec']),
+      audioBitrate: positiveInt(json['audio_bitrate']),
+      internalPlayer: stringValue(json['internal_player']),
+    );
+  }
+
+  static PlaybackMediaInfo? fromJsonString(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is! Map) return null;
+      return PlaybackMediaInfo.fromJson(Map<String, dynamic>.from(decoded));
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+String? inferPlaybackContainer(String url, String? formatHint) {
+  final hint = formatHint?.trim().toLowerCase() ?? '';
+  final hintTokens = hint.split(RegExp(r'[^a-z0-9]+'));
+  const knownContainers = {
+    'mp4',
+    'mov',
+    'm4v',
+    'mkv',
+    'matroska',
+    'webm',
+    'mpegts',
+    'ts',
+    'm3u8',
+    'hls',
+  };
+  for (final token in hintTokens) {
+    if (knownContainers.contains(token)) return token;
+  }
+  try {
+    final path = Uri.parse(url).path;
+    final fileName = path.split('/').last;
+    final dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex <= 0 || dotIndex == fileName.length - 1) return null;
+    final extension = fileName.substring(dotIndex + 1).trim().toLowerCase();
+    return extension.isEmpty ? null : extension;
+  } catch (_) {
+    return null;
+  }
 }
 
 @immutable
@@ -94,6 +254,7 @@ class PlaybackViewState {
     this.buffered = Duration.zero,
     this.rate = 1,
     this.videoSize = Size.zero,
+    this.mediaInfo,
     this.subtitleText = const <String>[],
     this.audioTracks = const <PlaybackAudioTrackState>[],
     this.selectedAudioTrackId,
@@ -112,6 +273,7 @@ class PlaybackViewState {
   final Duration buffered;
   final double rate;
   final Size videoSize;
+  final PlaybackMediaInfo? mediaInfo;
   final List<String> subtitleText;
   final List<PlaybackAudioTrackState> audioTracks;
   final String? selectedAudioTrackId;
@@ -136,6 +298,8 @@ class PlaybackViewState {
     Duration? buffered,
     double? rate,
     Size? videoSize,
+    PlaybackMediaInfo? mediaInfo,
+    bool clearMediaInfo = false,
     List<String>? subtitleText,
     List<PlaybackAudioTrackState>? audioTracks,
     String? selectedAudioTrackId,
@@ -157,6 +321,7 @@ class PlaybackViewState {
       buffered: buffered ?? this.buffered,
       rate: rate ?? this.rate,
       videoSize: videoSize ?? this.videoSize,
+      mediaInfo: clearMediaInfo ? mediaInfo : mediaInfo ?? this.mediaInfo,
       subtitleText: subtitleText ?? this.subtitleText,
       audioTracks: audioTracks ?? this.audioTracks,
       selectedAudioTrackId: clearSelectedAudioTrackId
@@ -179,12 +344,19 @@ class PlaybackOpenRequest {
     this.startAt,
     this.headers,
     this.play = true,
+    this.formatHint,
+    this.mediaInfo,
   });
 
   final String url;
   final Duration? startAt;
   final Map<String, String>? headers;
   final bool play;
+
+  /// 后端探测到的容器提示，例如 `matroska` 或 `mkv`。
+  /// 仅供需要按容器选择原生播放实现的内核使用。
+  final String? formatHint;
+  final PlaybackMediaInfo? mediaInfo;
 }
 
 @immutable

@@ -68,11 +68,11 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
   return value as! T?
 }
 
-private func doubleEqualsAvPlayerApi(_ lhs: Double, _ rhs: Double) -> Bool {
+private func doubleEqualsKsPlayerApi(_ lhs: Double, _ rhs: Double) -> Bool {
   return (lhs.isNaN && rhs.isNaN) || lhs == rhs
 }
 
-private func doubleHashAvPlayerApi(_ value: Double, _ hasher: inout Hasher) {
+private func doubleHashKsPlayerApi(_ value: Double, _ hasher: inout Hasher) {
   if value.isNaN {
     hasher.combine(0x7FF8000000000000)
   } else {
@@ -81,7 +81,7 @@ private func doubleHashAvPlayerApi(_ value: Double, _ hasher: inout Hasher) {
   }
 }
 
-func deepEqualsAvPlayerApi(_ lhs: Any?, _ rhs: Any?) -> Bool {
+func deepEqualsKsPlayerApi(_ lhs: Any?, _ rhs: Any?) -> Bool {
   let cleanLhs = nilOrValue(lhs) as Any?
   let cleanRhs = nilOrValue(rhs) as Any?
   switch (cleanLhs, cleanRhs) {
@@ -100,7 +100,7 @@ func deepEqualsAvPlayerApi(_ lhs: Any?, _ rhs: Any?) -> Bool {
   case (let lhsArray, let rhsArray) as ([Any?], [Any?]):
     guard lhsArray.count == rhsArray.count else { return false }
     for (index, element) in lhsArray.enumerated() {
-      if !deepEqualsAvPlayerApi(element, rhsArray[index]) {
+      if !deepEqualsKsPlayerApi(element, rhsArray[index]) {
         return false
       }
     }
@@ -109,7 +109,7 @@ func deepEqualsAvPlayerApi(_ lhs: Any?, _ rhs: Any?) -> Bool {
   case (let lhsArray, let rhsArray) as ([Double], [Double]):
     guard lhsArray.count == rhsArray.count else { return false }
     for (index, element) in lhsArray.enumerated() {
-      if !doubleEqualsAvPlayerApi(element, rhsArray[index]) {
+      if !doubleEqualsKsPlayerApi(element, rhsArray[index]) {
         return false
       }
     }
@@ -120,8 +120,8 @@ func deepEqualsAvPlayerApi(_ lhs: Any?, _ rhs: Any?) -> Bool {
     for (lhsKey, lhsValue) in lhsDictionary {
       var found = false
       for (rhsKey, rhsValue) in rhsDictionary {
-        if deepEqualsAvPlayerApi(lhsKey, rhsKey) {
-          if deepEqualsAvPlayerApi(lhsValue, rhsValue) {
+        if deepEqualsKsPlayerApi(lhsKey, rhsKey) {
+          if deepEqualsKsPlayerApi(lhsValue, rhsValue) {
             found = true
             break
           } else {
@@ -134,7 +134,7 @@ func deepEqualsAvPlayerApi(_ lhs: Any?, _ rhs: Any?) -> Bool {
     return true
 
   case (let lhs as Double, let rhs as Double):
-    return doubleEqualsAvPlayerApi(lhs, rhs)
+    return doubleEqualsKsPlayerApi(lhs, rhs)
 
   case (let lhsHashable, let rhsHashable) as (AnyHashable, AnyHashable):
     return lhsHashable == rhsHashable
@@ -144,26 +144,26 @@ func deepEqualsAvPlayerApi(_ lhs: Any?, _ rhs: Any?) -> Bool {
   }
 }
 
-func deepHashAvPlayerApi(value: Any?, hasher: inout Hasher) {
+func deepHashKsPlayerApi(value: Any?, hasher: inout Hasher) {
   let cleanValue = nilOrValue(value) as Any?
   if let cleanValue = cleanValue {
     if let doubleValue = cleanValue as? Double {
-      doubleHashAvPlayerApi(doubleValue, &hasher)
+      doubleHashKsPlayerApi(doubleValue, &hasher)
     } else if let valueList = cleanValue as? [Any?] {
       for item in valueList {
-        deepHashAvPlayerApi(value: item, hasher: &hasher)
+        deepHashKsPlayerApi(value: item, hasher: &hasher)
       }
     } else if let valueList = cleanValue as? [Double] {
       for item in valueList {
-        doubleHashAvPlayerApi(item, &hasher)
+        doubleHashKsPlayerApi(item, &hasher)
       }
     } else if let valueDict = cleanValue as? [AnyHashable: Any?] {
       var result = 0
       for (key, value) in valueDict {
         var entryKeyHasher = Hasher()
-        deepHashAvPlayerApi(value: key, hasher: &entryKeyHasher)
+        deepHashKsPlayerApi(value: key, hasher: &entryKeyHasher)
         var entryValueHasher = Hasher()
-        deepHashAvPlayerApi(value: value, hasher: &entryValueHasher)
+        deepHashKsPlayerApi(value: value, hasher: &entryValueHasher)
         result = result &+ ((entryKeyHasher.finalize() &* 31) ^ entryValueHasher.finalize())
       }
       hasher.combine(result)
@@ -178,24 +178,23 @@ func deepHashAvPlayerApi(value: Any?, hasher: inout Hasher) {
 }
 
 
-enum AvPlayerEventType: Int {
+enum KsPlayerEventType: Int {
   case ready = 0
   case playing = 1
   case buffering = 2
   case position = 3
   case duration = 4
-  case buffered = 5
-  case size = 6
-  case completed = 7
-  case error = 8
-  case firstFrame = 9
-  case pictureInPicture = 10
+  case size = 5
+  case completed = 6
+  case error = 7
+  case firstFrame = 8
+  case pictureInPicture = 9
 }
 
 /// Generated class from Pigeon that represents data sent in messages.
-struct AvPlayerEvent: Hashable {
+struct KsPlayerEvent: Hashable {
   var playerId: Int64
-  var type: AvPlayerEventType
+  var type: KsPlayerEventType
   var boolValue: Bool? = nil
   var numberValue: Double? = nil
   var secondaryNumberValue: Double? = nil
@@ -203,15 +202,15 @@ struct AvPlayerEvent: Hashable {
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
-  static func fromList(_ pigeonVar_list: [Any?]) -> AvPlayerEvent? {
+  static func fromList(_ pigeonVar_list: [Any?]) -> KsPlayerEvent? {
     let playerId = pigeonVar_list[0] as! Int64
-    let type = pigeonVar_list[1] as! AvPlayerEventType
+    let type = pigeonVar_list[1] as! KsPlayerEventType
     let boolValue: Bool? = nilOrValue(pigeonVar_list[2])
     let numberValue: Double? = nilOrValue(pigeonVar_list[3])
     let secondaryNumberValue: Double? = nilOrValue(pigeonVar_list[4])
     let stringValue: String? = nilOrValue(pigeonVar_list[5])
 
-    return AvPlayerEvent(
+    return KsPlayerEvent(
       playerId: playerId,
       type: type,
       boolValue: boolValue,
@@ -230,26 +229,26 @@ struct AvPlayerEvent: Hashable {
       stringValue,
     ]
   }
-  static func == (lhs: AvPlayerEvent, rhs: AvPlayerEvent) -> Bool {
+  static func == (lhs: KsPlayerEvent, rhs: KsPlayerEvent) -> Bool {
     if Swift.type(of: lhs) != Swift.type(of: rhs) {
       return false
     }
-    return deepEqualsAvPlayerApi(lhs.playerId, rhs.playerId) && deepEqualsAvPlayerApi(lhs.type, rhs.type) && deepEqualsAvPlayerApi(lhs.boolValue, rhs.boolValue) && deepEqualsAvPlayerApi(lhs.numberValue, rhs.numberValue) && deepEqualsAvPlayerApi(lhs.secondaryNumberValue, rhs.secondaryNumberValue) && deepEqualsAvPlayerApi(lhs.stringValue, rhs.stringValue)
+    return deepEqualsKsPlayerApi(lhs.playerId, rhs.playerId) && deepEqualsKsPlayerApi(lhs.type, rhs.type) && deepEqualsKsPlayerApi(lhs.boolValue, rhs.boolValue) && deepEqualsKsPlayerApi(lhs.numberValue, rhs.numberValue) && deepEqualsKsPlayerApi(lhs.secondaryNumberValue, rhs.secondaryNumberValue) && deepEqualsKsPlayerApi(lhs.stringValue, rhs.stringValue)
   }
 
   func hash(into hasher: inout Hasher) {
-    hasher.combine("AvPlayerEvent")
-    deepHashAvPlayerApi(value: playerId, hasher: &hasher)
-    deepHashAvPlayerApi(value: type, hasher: &hasher)
-    deepHashAvPlayerApi(value: boolValue, hasher: &hasher)
-    deepHashAvPlayerApi(value: numberValue, hasher: &hasher)
-    deepHashAvPlayerApi(value: secondaryNumberValue, hasher: &hasher)
-    deepHashAvPlayerApi(value: stringValue, hasher: &hasher)
+    hasher.combine("KsPlayerEvent")
+    deepHashKsPlayerApi(value: playerId, hasher: &hasher)
+    deepHashKsPlayerApi(value: type, hasher: &hasher)
+    deepHashKsPlayerApi(value: boolValue, hasher: &hasher)
+    deepHashKsPlayerApi(value: numberValue, hasher: &hasher)
+    deepHashKsPlayerApi(value: secondaryNumberValue, hasher: &hasher)
+    deepHashKsPlayerApi(value: stringValue, hasher: &hasher)
   }
 }
 
 /// Generated class from Pigeon that represents data sent in messages.
-struct AvPlayerAudioTrack: Hashable {
+struct KsPlayerAudioTrack: Hashable {
   var id: String
   var title: String
   var language: String
@@ -257,13 +256,13 @@ struct AvPlayerAudioTrack: Hashable {
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
-  static func fromList(_ pigeonVar_list: [Any?]) -> AvPlayerAudioTrack? {
+  static func fromList(_ pigeonVar_list: [Any?]) -> KsPlayerAudioTrack? {
     let id = pigeonVar_list[0] as! String
     let title = pigeonVar_list[1] as! String
     let language = pigeonVar_list[2] as! String
     let selected = pigeonVar_list[3] as! Bool
 
-    return AvPlayerAudioTrack(
+    return KsPlayerAudioTrack(
       id: id,
       title: title,
       language: language,
@@ -278,50 +277,50 @@ struct AvPlayerAudioTrack: Hashable {
       selected,
     ]
   }
-  static func == (lhs: AvPlayerAudioTrack, rhs: AvPlayerAudioTrack) -> Bool {
+  static func == (lhs: KsPlayerAudioTrack, rhs: KsPlayerAudioTrack) -> Bool {
     if Swift.type(of: lhs) != Swift.type(of: rhs) {
       return false
     }
-    return deepEqualsAvPlayerApi(lhs.id, rhs.id) && deepEqualsAvPlayerApi(lhs.title, rhs.title) && deepEqualsAvPlayerApi(lhs.language, rhs.language) && deepEqualsAvPlayerApi(lhs.selected, rhs.selected)
+    return deepEqualsKsPlayerApi(lhs.id, rhs.id) && deepEqualsKsPlayerApi(lhs.title, rhs.title) && deepEqualsKsPlayerApi(lhs.language, rhs.language) && deepEqualsKsPlayerApi(lhs.selected, rhs.selected)
   }
 
   func hash(into hasher: inout Hasher) {
-    hasher.combine("AvPlayerAudioTrack")
-    deepHashAvPlayerApi(value: id, hasher: &hasher)
-    deepHashAvPlayerApi(value: title, hasher: &hasher)
-    deepHashAvPlayerApi(value: language, hasher: &hasher)
-    deepHashAvPlayerApi(value: selected, hasher: &hasher)
+    hasher.combine("KsPlayerAudioTrack")
+    deepHashKsPlayerApi(value: id, hasher: &hasher)
+    deepHashKsPlayerApi(value: title, hasher: &hasher)
+    deepHashKsPlayerApi(value: language, hasher: &hasher)
+    deepHashKsPlayerApi(value: selected, hasher: &hasher)
   }
 }
 
-private class AvPlayerApiPigeonCodecReader: FlutterStandardReader {
+private class KsPlayerApiPigeonCodecReader: FlutterStandardReader {
   override func readValue(ofType type: UInt8) -> Any? {
     switch type {
     case 129:
       let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
       if let enumResultAsInt = enumResultAsInt {
-        return AvPlayerEventType(rawValue: enumResultAsInt)
+        return KsPlayerEventType(rawValue: enumResultAsInt)
       }
       return nil
     case 130:
-      return AvPlayerEvent.fromList(self.readValue() as! [Any?])
+      return KsPlayerEvent.fromList(self.readValue() as! [Any?])
     case 131:
-      return AvPlayerAudioTrack.fromList(self.readValue() as! [Any?])
+      return KsPlayerAudioTrack.fromList(self.readValue() as! [Any?])
     default:
       return super.readValue(ofType: type)
     }
   }
 }
 
-private class AvPlayerApiPigeonCodecWriter: FlutterStandardWriter {
+private class KsPlayerApiPigeonCodecWriter: FlutterStandardWriter {
   override func writeValue(_ value: Any) {
-    if let value = value as? AvPlayerEventType {
+    if let value = value as? KsPlayerEventType {
       super.writeByte(129)
       super.writeValue(value.rawValue)
-    } else if let value = value as? AvPlayerEvent {
+    } else if let value = value as? KsPlayerEvent {
       super.writeByte(130)
       super.writeValue(value.toList())
-    } else if let value = value as? AvPlayerAudioTrack {
+    } else if let value = value as? KsPlayerAudioTrack {
       super.writeByte(131)
       super.writeValue(value.toList())
     } else {
@@ -330,31 +329,34 @@ private class AvPlayerApiPigeonCodecWriter: FlutterStandardWriter {
   }
 }
 
-private class AvPlayerApiPigeonCodecReaderWriter: FlutterStandardReaderWriter {
+private class KsPlayerApiPigeonCodecReaderWriter: FlutterStandardReaderWriter {
   override func reader(with data: Data) -> FlutterStandardReader {
-    return AvPlayerApiPigeonCodecReader(data: data)
+    return KsPlayerApiPigeonCodecReader(data: data)
   }
 
   override func writer(with data: NSMutableData) -> FlutterStandardWriter {
-    return AvPlayerApiPigeonCodecWriter(data: data)
+    return KsPlayerApiPigeonCodecWriter(data: data)
   }
 }
 
-class AvPlayerApiPigeonCodec: FlutterStandardMessageCodec, @unchecked Sendable {
-  static let shared = AvPlayerApiPigeonCodec(readerWriter: AvPlayerApiPigeonCodecReaderWriter())
+class KsPlayerApiPigeonCodec: FlutterStandardMessageCodec, @unchecked Sendable {
+  static let shared = KsPlayerApiPigeonCodec(readerWriter: KsPlayerApiPigeonCodecReaderWriter())
 }
 
 
 /// Generated protocol from Pigeon that represents a handler of messages from Flutter.
-protocol MdCenterAvPlayerHostApi {
+protocol OmmKsPlayerHostApi {
   func create(playerId: Int64) throws
-  func open(playerId: Int64, url: String, startPositionMs: Double?, autoplay: Bool, completion: @escaping (Result<Void, Error>) -> Void)
+  func open(playerId: Int64, url: String, startPositionMs: Double?, autoplay: Bool, headers: [String: String]?, formatHint: String?, videoCodec: String?, completion: @escaping (Result<Void, Error>) -> Void)
   func play(playerId: Int64) throws
   func pause(playerId: Int64) throws
+  func stop(playerId: Int64) throws
   func seek(playerId: Int64, positionMs: Double, completion: @escaping (Result<Void, Error>) -> Void)
   func setRate(playerId: Int64, rate: Double) throws
-  func audioTracks(playerId: Int64, completion: @escaping (Result<[AvPlayerAudioTrack], Error>) -> Void)
+  func audioTracks(playerId: Int64, completion: @escaping (Result<[KsPlayerAudioTrack], Error>) -> Void)
   func selectAudioTrack(playerId: Int64, trackId: String, completion: @escaping (Result<Void, Error>) -> Void)
+  func selectSubtitleTrack(playerId: Int64, trackId: String, fallbackIndex: Int64?, completion: @escaping (Result<Void, Error>) -> Void)
+  func clearSubtitleTrack(playerId: Int64, completion: @escaping (Result<Void, Error>) -> Void)
   func captureFrame(playerId: Int64, positionMs: Double, completion: @escaping (Result<FlutterStandardTypedData?, Error>) -> Void)
   func cancelFramePreview(playerId: Int64) throws
   func startPictureInPicture(playerId: Int64, completion: @escaping (Result<Bool, Error>) -> Void)
@@ -363,12 +365,12 @@ protocol MdCenterAvPlayerHostApi {
 }
 
 /// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
-class MdCenterAvPlayerHostApiSetup {
-  static var codec: FlutterStandardMessageCodec { AvPlayerApiPigeonCodec.shared }
-  /// Sets up an instance of `MdCenterAvPlayerHostApi` to handle messages through the `binaryMessenger`.
-  static func setUp(binaryMessenger: FlutterBinaryMessenger, api: MdCenterAvPlayerHostApi?, messageChannelSuffix: String = "") {
+class OmmKsPlayerHostApiSetup {
+  static var codec: FlutterStandardMessageCodec { KsPlayerApiPigeonCodec.shared }
+  /// Sets up an instance of `OmmKsPlayerHostApi` to handle messages through the `binaryMessenger`.
+  static func setUp(binaryMessenger: FlutterBinaryMessenger, api: OmmKsPlayerHostApi?, messageChannelSuffix: String = "") {
     let channelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""
-    let createChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_avplayer.MdCenterAvPlayerHostApi.create\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let createChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.create\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       createChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -383,7 +385,7 @@ class MdCenterAvPlayerHostApiSetup {
     } else {
       createChannel.setMessageHandler(nil)
     }
-    let openChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_avplayer.MdCenterAvPlayerHostApi.open\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let openChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.open\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       openChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -391,7 +393,10 @@ class MdCenterAvPlayerHostApiSetup {
         let urlArg = args[1] as! String
         let startPositionMsArg: Double? = nilOrValue(args[2])
         let autoplayArg = args[3] as! Bool
-        api.open(playerId: playerIdArg, url: urlArg, startPositionMs: startPositionMsArg, autoplay: autoplayArg) { result in
+        let headersArg: [String: String]? = nilOrValue(args[4])
+        let formatHintArg: String? = nilOrValue(args[5])
+        let videoCodecArg: String? = nilOrValue(args[6])
+        api.open(playerId: playerIdArg, url: urlArg, startPositionMs: startPositionMsArg, autoplay: autoplayArg, headers: headersArg, formatHint: formatHintArg, videoCodec: videoCodecArg) { result in
           switch result {
           case .success:
             reply(wrapResult(nil))
@@ -403,7 +408,7 @@ class MdCenterAvPlayerHostApiSetup {
     } else {
       openChannel.setMessageHandler(nil)
     }
-    let playChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_avplayer.MdCenterAvPlayerHostApi.play\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let playChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.play\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       playChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -418,7 +423,7 @@ class MdCenterAvPlayerHostApiSetup {
     } else {
       playChannel.setMessageHandler(nil)
     }
-    let pauseChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_avplayer.MdCenterAvPlayerHostApi.pause\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let pauseChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.pause\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       pauseChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -433,7 +438,22 @@ class MdCenterAvPlayerHostApiSetup {
     } else {
       pauseChannel.setMessageHandler(nil)
     }
-    let seekChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_avplayer.MdCenterAvPlayerHostApi.seek\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let stopChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.stop\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      stopChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let playerIdArg = args[0] as! Int64
+        do {
+          try api.stop(playerId: playerIdArg)
+          reply(wrapResult(nil))
+        } catch {
+          reply(wrapError(error))
+        }
+      }
+    } else {
+      stopChannel.setMessageHandler(nil)
+    }
+    let seekChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.seek\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       seekChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -451,7 +471,7 @@ class MdCenterAvPlayerHostApiSetup {
     } else {
       seekChannel.setMessageHandler(nil)
     }
-    let setRateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_avplayer.MdCenterAvPlayerHostApi.setRate\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let setRateChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.setRate\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       setRateChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -467,7 +487,7 @@ class MdCenterAvPlayerHostApiSetup {
     } else {
       setRateChannel.setMessageHandler(nil)
     }
-    let audioTracksChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_avplayer.MdCenterAvPlayerHostApi.audioTracks\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let audioTracksChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.audioTracks\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       audioTracksChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -484,7 +504,7 @@ class MdCenterAvPlayerHostApiSetup {
     } else {
       audioTracksChannel.setMessageHandler(nil)
     }
-    let selectAudioTrackChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_avplayer.MdCenterAvPlayerHostApi.selectAudioTrack\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let selectAudioTrackChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.selectAudioTrack\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       selectAudioTrackChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -502,7 +522,43 @@ class MdCenterAvPlayerHostApiSetup {
     } else {
       selectAudioTrackChannel.setMessageHandler(nil)
     }
-    let captureFrameChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_avplayer.MdCenterAvPlayerHostApi.captureFrame\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let selectSubtitleTrackChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.selectSubtitleTrack\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      selectSubtitleTrackChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let playerIdArg = args[0] as! Int64
+        let trackIdArg = args[1] as! String
+        let fallbackIndexArg: Int64? = nilOrValue(args[2])
+        api.selectSubtitleTrack(playerId: playerIdArg, trackId: trackIdArg, fallbackIndex: fallbackIndexArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      selectSubtitleTrackChannel.setMessageHandler(nil)
+    }
+    let clearSubtitleTrackChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.clearSubtitleTrack\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      clearSubtitleTrackChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let playerIdArg = args[0] as! Int64
+        api.clearSubtitleTrack(playerId: playerIdArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      clearSubtitleTrackChannel.setMessageHandler(nil)
+    }
+    let captureFrameChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.captureFrame\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       captureFrameChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -520,7 +576,7 @@ class MdCenterAvPlayerHostApiSetup {
     } else {
       captureFrameChannel.setMessageHandler(nil)
     }
-    let cancelFramePreviewChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_avplayer.MdCenterAvPlayerHostApi.cancelFramePreview\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let cancelFramePreviewChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.cancelFramePreview\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       cancelFramePreviewChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -535,7 +591,7 @@ class MdCenterAvPlayerHostApiSetup {
     } else {
       cancelFramePreviewChannel.setMessageHandler(nil)
     }
-    let startPictureInPictureChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_avplayer.MdCenterAvPlayerHostApi.startPictureInPicture\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let startPictureInPictureChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.startPictureInPicture\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       startPictureInPictureChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -552,7 +608,7 @@ class MdCenterAvPlayerHostApiSetup {
     } else {
       startPictureInPictureChannel.setMessageHandler(nil)
     }
-    let stopPictureInPictureChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_avplayer.MdCenterAvPlayerHostApi.stopPictureInPicture\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let stopPictureInPictureChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.stopPictureInPicture\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       stopPictureInPictureChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -567,7 +623,7 @@ class MdCenterAvPlayerHostApiSetup {
     } else {
       stopPictureInPictureChannel.setMessageHandler(nil)
     }
-    let disposeChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.md_center_avplayer.MdCenterAvPlayerHostApi.dispose\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let disposeChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.dispose\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
       disposeChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
@@ -585,21 +641,21 @@ class MdCenterAvPlayerHostApiSetup {
   }
 }
 /// Generated protocol from Pigeon that represents Flutter messages that can be called from Swift.
-protocol MdCenterAvPlayerFlutterApiProtocol {
-  func onEvent(event eventArg: AvPlayerEvent, completion: @escaping (Result<Void, PigeonError>) -> Void)
+protocol OmmKsPlayerFlutterApiProtocol {
+  func onEvent(event eventArg: KsPlayerEvent, completion: @escaping (Result<Void, PigeonError>) -> Void)
 }
-class MdCenterAvPlayerFlutterApi: MdCenterAvPlayerFlutterApiProtocol {
+class OmmKsPlayerFlutterApi: OmmKsPlayerFlutterApiProtocol {
   private let binaryMessenger: FlutterBinaryMessenger
   private let messageChannelSuffix: String
   init(binaryMessenger: FlutterBinaryMessenger, messageChannelSuffix: String = "") {
     self.binaryMessenger = binaryMessenger
     self.messageChannelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""
   }
-  var codec: AvPlayerApiPigeonCodec {
-    return AvPlayerApiPigeonCodec.shared
+  var codec: KsPlayerApiPigeonCodec {
+    return KsPlayerApiPigeonCodec.shared
   }
-  func onEvent(event eventArg: AvPlayerEvent, completion: @escaping (Result<Void, PigeonError>) -> Void) {
-    let channelName: String = "dev.flutter.pigeon.md_center_avplayer.MdCenterAvPlayerFlutterApi.onEvent\(messageChannelSuffix)"
+  func onEvent(event eventArg: KsPlayerEvent, completion: @escaping (Result<Void, PigeonError>) -> Void) {
+    let channelName: String = "dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerFlutterApi.onEvent\(messageChannelSuffix)"
     let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
     channel.sendMessage([eventArg] as [Any?]) { response in
       guard let listResponse = response as? [Any?] else {

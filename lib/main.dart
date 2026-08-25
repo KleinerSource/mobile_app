@@ -30,18 +30,50 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-  AppHaptics.configureFromPreferences(prefs);
-  runApp(
-    ProviderScope(
-      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-      child: const MdCenterApp(),
-    ),
-  );
+  runApp(const _AppBootstrap());
 }
 
-class MdCenterApp extends ConsumerWidget {
-  const MdCenterApp({super.key});
+class _AppBootstrap extends StatefulWidget {
+  const _AppBootstrap();
+
+  @override
+  State<_AppBootstrap> createState() => _AppBootstrapState();
+}
+
+class _AppBootstrapState extends State<_AppBootstrap> {
+  late final Future<SharedPreferences> _preferencesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _preferencesFuture = SharedPreferences.getInstance();
+    _preferencesFuture.then(AppHaptics.configureFromPreferences);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<SharedPreferences>(
+      future: _preferencesFuture,
+      builder: (context, snapshot) {
+        final prefs = snapshot.data;
+        if (prefs == null) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: buildAppTheme(Brightness.dark),
+            home: const _StartupLoading(),
+          );
+        }
+        return ProviderScope(
+          overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+          child: const OmmApp(),
+        );
+      },
+    );
+  }
+}
+
+class OmmApp extends ConsumerWidget {
+  const OmmApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -62,7 +94,7 @@ class MdCenterApp extends ConsumerWidget {
     }
 
     return MaterialApp(
-      title: 'MD Center',
+      title: 'Oh-My-Media',
       debugShowCheckedModeBanner: false,
       navigatorKey: _rootNavigatorKey,
       theme: buildAppTheme(Brightness.light),
@@ -147,7 +179,29 @@ class _StartupLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/branding/oh_my_media_logo.png',
+              width: 144,
+              height: 144,
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.high,
+              semanticLabel: 'Oh-My-Media',
+            ),
+            const SizedBox(height: 22),
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -196,7 +250,7 @@ class _StartupError extends StatelessWidget {
                         const SizedBox(height: 10),
                         Text(
                           incompatible
-                              ? '当前 App 已更新，但连接的 MD Center 服务端版本较旧。请先更新服务端，或切换到已兼容的服务器。'
+                              ? '当前 App 已更新，但连接的 Oh-My-Media 服务端版本较旧。请先更新服务端，或切换到已兼容的服务器。'
                               : '请检查服务器地址和网络连接，然后重试。',
                           textAlign: TextAlign.center,
                           style: AppText.body(context),

@@ -177,6 +177,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.2"
+  cross_file:
+    dependency: transitive
+    description:
+      name: cross_file
+      sha256: "92c9c43c383bfa1c32079d3bc492d55d6d4318044b7b47edaff8971cbb555c51"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.5+4"
   crypto:
     dependency: "direct main"
     description:
@@ -605,13 +613,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.13.0"
-  md_center_avplayer:
-    dependency: "direct main"
-    description:
-      path: "packages/md_center_avplayer"
-      relative: true
-    source: path
-    version: "0.1.0"
   media_kit:
     dependency: "direct main"
     description:
@@ -674,6 +675,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.0"
+  omm_ksplayer:
+    dependency: "direct main"
+    description:
+      path: "packages/omm_ksplayer"
+      relative: true
+    source: path
+    version: "0.1.0"
   package_config:
     dependency: transitive
     description:
@@ -874,62 +882,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.6"
-  screen_brightness:
-    dependency: "direct main"
-    description:
-      name: screen_brightness
-      sha256: e0edf92c08889e8f493cde291e7c687db2b4a1471f2371c074070b75d7c7d79b
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.11"
-  screen_brightness_android:
-    dependency: transitive
-    description:
-      name: screen_brightness_android
-      sha256: "2008ad8e9527cc968f7a4de1ec58b476d495b3c612a149dbd6550c4f046da147"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.6"
-  screen_brightness_ios:
-    dependency: transitive
-    description:
-      name: screen_brightness_ios
-      sha256: "352d355e8523a186ba1e494b74218e5ca96e51975a0630b8ed89fbb7ff609762"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.4"
-  screen_brightness_macos:
-    dependency: transitive
-    description:
-      name: screen_brightness_macos
-      sha256: b0957237b842d846a84363b69f229b339a8f91faced55041e245b2ebff7b0142
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.4"
-  screen_brightness_ohos:
-    dependency: transitive
-    description:
-      name: screen_brightness_ohos
-      sha256: "569a2c97909a50894b81487619eb7654f5358443a5af05f840c19261f49c0940"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.4"
-  screen_brightness_platform_interface:
-    dependency: transitive
-    description:
-      name: screen_brightness_platform_interface
-      sha256: "2de60c0ba569b898950029cc1f7e9dd72bda44a22beb5054aac331cb6fce2ff2"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.2"
-  screen_brightness_windows:
-    dependency: transitive
-    description:
-      name: screen_brightness_windows
-      sha256: "368b9c822e1671de81616e48150006e39eff2a434957e47ee638b09a32b2297c"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.2"
   sensors_plus:
     dependency: "direct main"
     description:
@@ -946,6 +898,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.2"
+  share_plus:
+    dependency: "direct main"
+    description:
+      name: share_plus
+      sha256: "223873d106614442ea6f20db5a038685cc5b32a2fba81cdecaefbbae0523f7fa"
+      url: "https://pub.dev"
+    source: hosted
+    version: "12.0.2"
+  share_plus_platform_interface:
+    dependency: transitive
+    description:
+      name: share_plus_platform_interface
+      sha256: "88023e53a13429bd65d8e85e11a9b484f49d4c190abbd96c7932b74d6927cc9a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.1.0"
   shared_preferences:
     dependency: "direct main"
     description:

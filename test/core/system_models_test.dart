@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/models/system.dart';
+import 'package:omm/core/models/system.dart';
 
 void main() {
   test('服务器资料模型保留名称和头像地址', () {

@@ -26,10 +26,7 @@ class PlayerSettingsPage extends ConsumerWidget {
       unawaited(ref.read(playerSettingsProvider.notifier).update(next));
     }
 
-    String engineLabel(PlaybackEngineKind engine) =>
-        engine == PlaybackEngineKind.avPlayer
-        ? l.playerEngineNative
-        : engine.label;
+    String engineLabel(PlaybackEngineKind engine) => engine.label;
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -79,8 +76,7 @@ class PlayerSettingsPage extends ConsumerWidget {
                   items: [
                     _PlayerOptionTile<PlayerPreloadSize>(
                       title: '预载缓冲大小',
-                      subtitle:
-                          settings.iosEngine == PlaybackEngineKind.avPlayer
+                      subtitle: settings.iosEngine != PlaybackEngineKind.libmpv
                           ? '${settings.preloadSize.label} · 仅 libmpv 内核生效'
                           : null,
                       icon: Icons.memory,

@@ -5,8 +5,11 @@ enum UpdatePlatform { ios, android }
 extension UpdatePlatformX on UpdatePlatform {
   String get assetExtension => this == UpdatePlatform.ios ? '.ipa' : '.apk';
 
-  String get rollingReleaseTag =>
+  String get standardRollingReleaseTag =>
       this == UpdatePlatform.ios ? 'latest' : 'latest-android';
+
+  String get developmentRollingReleaseTag =>
+      this == UpdatePlatform.ios ? 'latest-ios-dev' : 'latest-android-dev';
 
   String get label => this == UpdatePlatform.ios ? 'iOS' : 'Android';
 }
@@ -137,9 +140,12 @@ class GitHubRepository {
   String get releasesApiUrl =>
       'https://api.github.com/repos/$owner/$name/releases?per_page=100';
 
-  String releaseTagApiUrl(UpdatePlatform platform) =>
+  String releaseTagApiUrl(
+    UpdatePlatform platform, {
+    bool development = false,
+  }) =>
       'https://api.github.com/repos/$owner/$name/releases/tags/'
-      '${platform.rollingReleaseTag}';
+      '${development ? platform.developmentRollingReleaseTag : platform.standardRollingReleaseTag}';
 
   @override
   String toString() => canonicalUrl;
@@ -169,6 +175,8 @@ class GitHubReleaseAsset {
 
   bool get isHttpsUrl =>
       Uri.tryParse(downloadUrl)?.scheme.toLowerCase() == 'https';
+
+  bool get isDevelopment => name.trim().toLowerCase().startsWith('omm_dev_');
 }
 
 @immutable
@@ -188,6 +196,8 @@ class GitHubRelease {
   final List<GitHubReleaseAsset> assets;
   final bool draft;
   final DateTime? publishedAt;
+
+  bool get isDevelopment => tagName.trim().toLowerCase().endsWith('-dev');
 
   /// 返回面向用户的更新内容，隐藏自动构建脚本添加的元数据。
   ///
@@ -246,10 +256,16 @@ class GitHubRelease {
     return asset.version ?? AppReleaseVersion.tryParse(tagName);
   }
 
-  GitHubReleaseAsset? assetFor(UpdatePlatform platform) {
+  GitHubReleaseAsset? assetFor(
+    UpdatePlatform platform, {
+    bool includeDevelopment = false,
+  }) {
     final matching = assets
         .where(
-          (asset) => asset.isHttpsUrl && _matchesPlatformAsset(asset, platform),
+          (asset) =>
+              asset.isHttpsUrl &&
+              (includeDevelopment || !asset.isDevelopment) &&
+              _matchesPlatformAsset(asset, platform),
         )
         .toList();
     if (matching.isEmpty) return null;

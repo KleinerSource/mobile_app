@@ -149,3 +149,95 @@
 - Dart 格式检查、staged/unstaged `git diff --check` 均通过；Android 与 Android libmpv 包 staged/unstaged 均为零差异。Swift 观察器创建/释放和本轮差异已完成静态复核。
 - 最终 UI 边界复核中，`player_subtitle_track_resolver.dart` 仍按设计作为 MediaKit adapter 内部解析器导入 `media_kit`；播放页、控制栏、字幕渲染 UI 和详情页需按实际 UI 文件名单独扫描。
 - 按实际 UI 文件清单复扫无具体 `media_kit`/`media_kit_video` 导入；最终 staged/unstaged 补丁检查再次通过。本任务状态更新为完成。
+
+## iOS 接入 KSPlayer 完成记录
+
+- Flutter 播放抽象、KSPlayer session、统一 UI capabilities 和一次性 libmpv fallback 已完成。
+- `flutter analyze` 通过；`flutter test` 通过，`394` 项全部通过。
+- KSPlayer Pigeon 生成文件已加入 Git 忽略例外，干净 checkout 不依赖本地生成产物。
+- Swift 静态复核已完成：KSPlayerLayer delegate、轨道选择、截图、PIP、header 和 Platform View 签名与固定 commit 对齐；dispose 的 MainActor 生命周期边界已修正。
+- 外挂字幕保留 Flutter 下载/解析/延迟调整；原生轨道失败且存在外挂地址时会统一降级到外挂字幕。
+- 已记录 Windows 无法执行 iOS 原生工具链，需在 macOS CI/真机完成最终验收。
+
+## 2026-08-25 KSPlayer 音轨切换修复
+
+- 已用 CodeGraph 和当前源码确认 `trySelectAudioTrack` 的错误分支，以及 KSPlayer 返回原生 `trackID` 的实现。
+- 已将后端 index 直传逻辑收窄为仅 `libmpv`；AVPlayer/KSPlayer 统一使用原生轨道映射，单音轨直接视为已选择。
+- 已新增 KSPlayer 语言/标题映射、ordinal 映射、单音轨跳过选择和 `libmpv` index 保持不变的 contract 测试。
+- 定向 `playback_engine_contract_test.dart`：15 项全部通过。
+- `flutter analyze --no-pub`：通过，无问题；完整 `flutter test --no-pub`：399 项全部通过。
+- `git diff --check`：通过。
+- 已提交 `9e54fae fix(ios): map KSPlayer audio tracks before selection` 并推送 `origin/dev`。
+- iOS GitHub Action `32791124296` 成功，耗时 9 分 50 秒；依赖安装、静态分析、测试、release iOS 编译、IPA 打包和发布均通过。
+
+## 2026-08-25 Oh-My-Media Logo 替换
+
+- 已读取 `imagegen` 技能，确定使用内置图像生成流程；未启用 CLI/API fallback。
+- 已读取 `planning-with-files` 技能并恢复历史规划；当前任务只追加记录，不覆盖既有内容。
+- 已确认附件是视觉参考，不含需要执行的文字指令。
+- 下一步：枚举 Flutter、Android、iOS、Web、桌面端 Logo 资源和引用，随后生成并替换项目资产。
+- 已完成资源枚举；确认需要同步 Android、iOS AppIcon、iOS LaunchLogo、Web、macOS 和 Windows 图标，避免不同平台继续显示旧 Logo。
+- 已使用内置 `image_gen` 生成并预览新 Logo，生成图中的 `oh / my / media` 文案准确可读，准备复制到项目并按目标尺寸生成各平台资源。
+- 已确认 Android 无额外 adaptive icon 文件，Web 与 Windows 资源尺寸已核对；准备执行一次性资源替换和多尺寸导出。
+- 首次导出安全失败于源文件路径校验，未写入资源；已记录错误并准备使用实际生成路径重试。
+- 已按实际生成路径完成主资源、Android/iOS/启动图/Web/macOS/Windows 图标导出；平台文件名与现有引用保持不变。
+- 视觉复核确认新主图中的 `oh / my / media`、播放三角、霓虹光轨和星芒清晰可见。
+- `flutter analyze --no-pub` 通过；`flutter test --no-pub` 通过，399 项全部通过；`git diff --check` 通过。
+- 本次未改动业务逻辑；保留了工作区原有的 `MainActivity.kt` 修改。
+- 最终资源完整性检查验证 44 个图像文件和全部 AppIcon/LaunchLogo manifest 引用；本任务完成。
+
+## 2026-08-25 Android Actions 编译修复
+
+- 已发现当前仓库路径从旧的 `md_center/mobile_app` 移至 `oh-my-media/mobile_app`，并恢复该仓库的历史规划记录。
+- 已通过 `gh run list` 定位最新失败运行 `32831761951`；iOS 同提交运行成功。
+- 已通过 job 状态与失败日志确认 `analyze`/`test` 通过，失败点为 `:app:compileReleaseKotlin`。
+- CodeGraph 已还原 `MainActivity.kt` 亮度 MethodChannel 的完整源码和 Dart 调用契约；根因是两处把 `MethodChannel.Result` 当函数调用。
+- 已将 `MainActivity.kt` 两处返回改为 `result.success(...)`，读取亮度显式转换为 Dart 需要的 `Double`。
+- 本地 Android APK 构建受环境阻塞：Flutter 报 `No Android SDK found`；已记录，后续以 Dart 验证和远端 CI 复跑确认。
+- `flutter analyze --no-pub`：通过，`No issues found!`。
+- `flutter test --no-pub`：通过，`399` 项全部通过。
+- `git diff --check`：通过；已确认 Logo 资源和 `assets/branding/` 是此前工作区已有改动，未触碰。
+
+## 2026-08-25 KSPlayer 质量切换修复
+
+- 已恢复历史规划并确认工作区已有 6 个非播放器文件修改，后续不触碰、不重置。
+- 已按项目规则先使用 CodeGraph 调查 `PlayerPage` 质量切换、`PlayerSessionController` 路由和 `KsPlayerPlaybackEngine`/Swift stop-open 生命周期。
+- 已确认普通影片质量按钮没有被 `_isDirectPlayback` 禁用；故障集中在 KSPlayer 切换 HLS 与 direct 时的旧媒体错误事件竞态。
+- 已确认下一步需先完成订阅/代次隔离修复，再补回归测试和执行验证。
+- 已完成播放器页旧进度/错误订阅隔离，以及 KSPlayer `opening/stopping` 旧错误抑制。
+- 已更新 KSPlayer 错误状态契约测试和质量路由测试，并完成格式、定向测试与分析。
+- 定向测试 16 项通过；`flutter analyze --no-pub` 通过；完整 `flutter test --no-pub` 401 项通过。
+- 格式检查和 `git diff --check` 通过；iOS 原生/真机切换仍需 macOS CI 验证。
+- 本轮未处理工作区其他并行修改，也未主动执行提交、暂存或回滚；当前工作区同时存在既有 staged/unstaged 改动。
+
+## 2026-08-25 应用更新开发版检测开关
+
+- 已读取并遵循 `planning-with-files`，会话恢复检查未发现未同步上下文。
+- 已确认工作区初始无未提交代码改动，当前 `dev` 相对 `origin/dev` 领先 2 个提交。
+- 已完成现有更新链路、Release 标签、远端 master/dev push build 和测试基线调查。
+- 已追加本任务的计划、发现和进度章节，未覆盖历史任务记录。
+- 已按仓库规则使用 CodeGraph 复核候选选择、设置持久化、协调器、启动检查和更新页面的当前源码及影响范围。
+- 已新增默认关闭的开发版检测偏好、回滚式 Notifier，并在切换时清除已忽略版本。
+- 已扩展四个滚动 Release 标签，并让候选选择在关闭时同时过滤 `*-dev` Release 与 `omm_dev_` 资产。
+- 已将 `includeDevelopment` 贯穿服务、协调器、更新页和启动检查，并在“当前版本”卡片加入禁用感知开关。
+- 已补充仓库偏好、四个标签、混合渠道候选、Release 列表回退、开发标签缺失和同版本时间排序测试。
+- 已新增服务级 Dio stub 测试，直接验证实际标签请求集合与标准版严格回退。
+- 已新增更新页 Widget 测试，验证开关所在卡片、说明文案、默认值及持久化恢复。
+- 更新相关定向测试共 20 项全部通过；CodeGraph 复核确认修改文件索引已同步，唯一待同步文件是本任务未触碰的播放器文件。
+- `flutter analyze --no-pub` 通过；完整 `flutter test --no-pub` 共 417 项全部通过。
+- 最终差异复核发现列表回退仍拼接未过滤 draft 的滚动 Release，已改为复用 `publishedRollingReleases`，避免草稿资产进入候选。
+- 已增加草稿滚动 Release 的服务回归测试；最终更新模块定向测试 21 项全部通过。
+- 最终状态再次运行 `flutter analyze --no-pub` 与完整 `flutter test --no-pub`，静态分析无问题，418 项全部通过。
+- Dart 格式检查、`git diff --check` 和改动范围复核均通过；未修改 GitHub Actions、依赖或平台安装代码。
+- 本次未提交或推送；本地 `dev` 仍包含用户原有的 2 个未推送提交，远端 push build 需在用户后续推送后验证。
+
+## 2026-08-25 dev 构建版本号持久化
+
+- 已读取并遵循 `planning-with-files`，并核对当前工作区包含上一任务的未提交更新功能改动，后续将完整保留。
+- 已确认版本持久化职责在 iOS workflow；当前仅 master 会提交，dev 只在 runner 临时文件中递增。
+- 已确定保持单写入者，仅扩展 iOS workflow 条件与动态目标分支。
+- 已扩展 iOS workflow：仅 `master/dev` 的 `push` 或 `workflow_dispatch` 持久化版本，并通过 `GITHUB_REF_NAME` 推送回触发分支。
+- 首次使用 `bash` 的验证因 Windows `PATH` 未包含 Bash 而失败；已记录并改用 Git for Windows 的显式路径继续验证。
+- 已用 `C:\Program Files\Git\bin\bash.exe` 通过 Shell 语法检查和真值表验证：`push + dev` → `dev`、`workflow_dispatch + master` → `master`，PR 与 feature 分支均跳过。
+- `.github/workflows/ios-build.yml` 已通过 UTF-8 YAML 解析；`git diff --check` 通过，仅有 LF/CRLF 转换提示。
+- 最终差异仅把 iOS workflow 的版本持久化从 master 扩展到 master/dev；Android workflow 和版本计算脚本均未修改。

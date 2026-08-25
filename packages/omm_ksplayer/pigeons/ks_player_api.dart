@@ -2,20 +2,19 @@ import 'package:pigeon/pigeon.dart';
 
 @ConfigurePigeon(
   PigeonOptions(
-    dartOut: 'lib/src/av_player_api.g.dart',
+    dartOut: 'lib/src/ks_player_api.g.dart',
     dartOptions: DartOptions(),
-    swiftOut: 'ios/Classes/AvPlayerApi.g.swift',
+    swiftOut: 'ios/Classes/KsPlayerApi.g.swift',
     swiftOptions: SwiftOptions(),
-    dartPackageName: 'md_center_avplayer',
+    dartPackageName: 'omm_ksplayer',
   ),
 )
-enum AvPlayerEventType {
+enum KsPlayerEventType {
   ready,
   playing,
   buffering,
   position,
   duration,
-  buffered,
   size,
   completed,
   error,
@@ -23,8 +22,8 @@ enum AvPlayerEventType {
   pictureInPicture,
 }
 
-class AvPlayerEvent {
-  AvPlayerEvent({
+class KsPlayerEvent {
+  KsPlayerEvent({
     required this.playerId,
     required this.type,
     this.boolValue,
@@ -34,15 +33,15 @@ class AvPlayerEvent {
   });
 
   int playerId;
-  AvPlayerEventType type;
+  KsPlayerEventType type;
   bool? boolValue;
   double? numberValue;
   double? secondaryNumberValue;
   String? stringValue;
 }
 
-class AvPlayerAudioTrack {
-  AvPlayerAudioTrack({
+class KsPlayerAudioTrack {
+  KsPlayerAudioTrack({
     required this.id,
     required this.title,
     required this.language,
@@ -56,14 +55,23 @@ class AvPlayerAudioTrack {
 }
 
 @HostApi()
-abstract class MdCenterAvPlayerHostApi {
+abstract class OmmKsPlayerHostApi {
   void create(int playerId);
 
   @async
-  void open(int playerId, String url, double? startPositionMs, bool autoplay);
+  void open(
+    int playerId,
+    String url,
+    double? startPositionMs,
+    bool autoplay,
+    Map<String, String>? headers,
+    String? formatHint,
+    String? videoCodec,
+  );
 
   void play(int playerId);
   void pause(int playerId);
+  void stop(int playerId);
 
   @async
   void seek(int playerId, double positionMs);
@@ -71,10 +79,16 @@ abstract class MdCenterAvPlayerHostApi {
   void setRate(int playerId, double rate);
 
   @async
-  List<AvPlayerAudioTrack> audioTracks(int playerId);
+  List<KsPlayerAudioTrack> audioTracks(int playerId);
 
   @async
   void selectAudioTrack(int playerId, String trackId);
+
+  @async
+  void selectSubtitleTrack(int playerId, String trackId, int? fallbackIndex);
+
+  @async
+  void clearSubtitleTrack(int playerId);
 
   @async
   Uint8List? captureFrame(int playerId, double positionMs);
@@ -89,6 +103,6 @@ abstract class MdCenterAvPlayerHostApi {
 }
 
 @FlutterApi()
-abstract class MdCenterAvPlayerFlutterApi {
-  void onEvent(AvPlayerEvent event);
+abstract class OmmKsPlayerFlutterApi {
+  void onEvent(KsPlayerEvent event);
 }

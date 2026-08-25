@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/core/models/playback.dart';
-import 'package:md_center/features/player/subtitle_rendering.dart';
-import 'package:md_center/features/player/subtitle_settings.dart';
+import 'package:omm/core/models/playback.dart';
+import 'package:omm/features/player/subtitle_rendering.dart';
+import 'package:omm/features/player/subtitle_settings.dart';
 
 void main() {
   const assTrack = SubtitleTrack(

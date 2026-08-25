@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/models/resource_scan.dart';
+import 'package:omm/core/models/resource_scan.dart';
 
 void main() {
   test('资源扫描任务解析进度和终态', () {

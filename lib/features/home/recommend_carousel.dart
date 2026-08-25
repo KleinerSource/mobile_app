@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../movie_detail/movie_detail_page.dart';
+import '../movies/movie_data_changes.dart';
 import '../privacy/privacy_mask.dart';
 
 /// 首页 hero 轮播 · 固定封面 + 信息层横向切换:
@@ -25,7 +26,7 @@ class RecommendCarousel extends StatefulWidget {
 
   final List<MovieListItem> items;
   final String Function(String uuid) urlBuilder;
-  final VoidCallback onMovieReturned;
+  final ValueChanged<MovieDataChanges> onMovieReturned;
 
   /// 连续页位 [0, items.length),拖动/翻页动画期间逐帧更新
   final ValueNotifier<double>? pagePosition;
@@ -148,12 +149,15 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
             return _HeroInfoCard(
               movie: m,
               onTap: () async {
+                final changesBeforeVisit = MovieDataChanges.snapshot(movieId: m.id);
                 await Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => MovieDetailPage(movieId: m.id),
                   ),
                 );
-                if (mounted) widget.onMovieReturned();
+                if (mounted) {
+                  widget.onMovieReturned(changesBeforeVisit);
+                }
               },
             );
           },

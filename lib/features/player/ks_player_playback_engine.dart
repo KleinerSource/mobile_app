@@ -2,37 +2,38 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:md_center_avplayer/md_center_avplayer.dart';
+import 'package:omm_ksplayer/omm_ksplayer.dart';
 
 import 'playback_engine.dart';
 
-class AvPlayerPlaybackEngine implements PlaybackEngine {
-  AvPlayerPlaybackEngine()
-    : _playerFuture = MdCenterAvPlayer.create(),
+class KsPlayerPlaybackEngine implements PlaybackEngine {
+  KsPlayerPlaybackEngine()
+    : _playerFuture = OmmKsPlayer.create(),
       _state = ValueNotifier(
-        const PlaybackViewState(engineKind: PlaybackEngineKind.avPlayer),
+        const PlaybackViewState(engineKind: PlaybackEngineKind.ksPlayer),
       );
 
-  final Future<MdCenterAvPlayer> _playerFuture;
+  final Future<OmmKsPlayer> _playerFuture;
   final ValueNotifier<PlaybackViewState> _state;
-  MdCenterAvPlayer? _player;
-  StreamSubscription<AvPlayerEvent>? _eventSubscription;
+  OmmKsPlayer? _player;
+  StreamSubscription<KsPlayerEvent>? _eventSubscription;
   PlaybackPictureInPictureRequest? _pictureInPictureRequest;
   List<_WebVttCue> _subtitleCues = const [];
   Duration _subtitleDelay = Duration.zero;
   bool _disposed = false;
+  bool _suppressErrorsUntilOpen = false;
 
   @override
-  PlaybackEngineKind get kind => PlaybackEngineKind.avPlayer;
+  PlaybackEngineKind get kind => PlaybackEngineKind.ksPlayer;
 
   @override
   PlaybackEngineCapabilities get capabilities =>
-      const PlaybackEngineCapabilities.avPlayer();
+      const PlaybackEngineCapabilities.ksPlayer();
 
   @override
   ValueListenable<PlaybackViewState> get state => _state;
 
-  Future<MdCenterAvPlayer> _ensurePlayer() async {
+  Future<OmmKsPlayer> _ensurePlayer() async {
     final existing = _player;
     if (existing != null) return existing;
     final player = await _playerFuture;
@@ -49,9 +50,9 @@ class AvPlayerPlaybackEngine implements PlaybackEngine {
     if (!_disposed) _state.value = update(_state.value);
   }
 
-  void _onEvent(AvPlayerEvent event) {
+  void _onEvent(KsPlayerEvent event) {
     switch (event.type) {
-      case AvPlayerEventType.ready:
+      case KsPlayerEventType.ready:
         _update(
           (state) => state.copyWith(
             lifecycle: PlaybackLifecycle.ready,
@@ -59,11 +60,11 @@ class AvPlayerPlaybackEngine implements PlaybackEngine {
           ),
         );
         unawaited(_refreshAudioTracks());
-      case AvPlayerEventType.playing:
+      case KsPlayerEventType.playing:
         _update((state) => state.copyWith(playing: event.boolValue ?? false));
-      case AvPlayerEventType.buffering:
+      case KsPlayerEventType.buffering:
         _update((state) => state.copyWith(buffering: event.boolValue ?? false));
-      case AvPlayerEventType.position:
+      case KsPlayerEventType.position:
         final position = Duration(
           milliseconds: (event.numberValue ?? 0).round(),
         );
@@ -73,44 +74,49 @@ class AvPlayerPlaybackEngine implements PlaybackEngine {
             subtitleText: _subtitleAt(position),
           ),
         );
-      case AvPlayerEventType.duration:
+      case KsPlayerEventType.duration:
         _update(
           (state) => state.copyWith(
             duration: Duration(milliseconds: (event.numberValue ?? 0).round()),
           ),
         );
-      case AvPlayerEventType.buffered:
-        _update(
-          (state) => state.copyWith(
-            buffered: Duration(milliseconds: (event.numberValue ?? 0).round()),
-          ),
+      case KsPlayerEventType.size:
+        final nativeMediaInfo = PlaybackMediaInfo.fromJsonString(
+          event.stringValue,
         );
-      case AvPlayerEventType.size:
         _update(
           (state) => state.copyWith(
             videoSize: Size(
               event.numberValue ?? 0,
               event.secondaryNumberValue ?? 0,
             ),
+            mediaInfo: _mergeMediaInfo(state.mediaInfo, nativeMediaInfo),
           ),
         );
-      case AvPlayerEventType.completed:
+      case KsPlayerEventType.completed:
         _update(
           (state) => state.copyWith(
             lifecycle: PlaybackLifecycle.completed,
             playing: false,
           ),
         );
-      case AvPlayerEventType.error:
+      case KsPlayerEventType.error:
+        // KSPlayer 在已出首帧并开始推进时间后，底层播放器切换时可能迟到回调
+        // 一次错误；此时画面仍在正常播放，不能把它变成统一播放失败状态。
+        // stop() 到下一次 open() 之间的旧媒体错误同样不能污染新会话。
+        if (_suppressErrorsUntilOpen ||
+            shouldIgnoreKsPlayerError(_state.value)) {
+          return;
+        }
         _update(
           (state) => state.copyWith(
             lifecycle: PlaybackLifecycle.failed,
-            error: event.stringValue ?? 'AVPlayer 播放失败',
+            error: event.stringValue ?? 'KSPlayer 播放失败',
           ),
         );
-      case AvPlayerEventType.firstFrame:
+      case KsPlayerEventType.firstFrame:
         _update((state) => state.copyWith(firstFrameRendered: true));
-      case AvPlayerEventType.pictureInPicture:
+      case KsPlayerEventType.pictureInPicture:
         final active = event.boolValue ?? false;
         _update((state) => state.copyWith(inPictureInPicture: active));
         if (!active) {
@@ -154,9 +160,7 @@ class AvPlayerPlaybackEngine implements PlaybackEngine {
 
   @override
   Future<void> open(PlaybackOpenRequest request) async {
-    if (request.headers?.isNotEmpty == true) {
-      throw UnsupportedError('AVPlayer 不接受非公开 HTTP header 注入');
-    }
+    _suppressErrorsUntilOpen = false;
     _subtitleCues = const [];
     _update(
       (state) => state.copyWith(
@@ -167,6 +171,8 @@ class AvPlayerPlaybackEngine implements PlaybackEngine {
         duration: Duration.zero,
         buffered: Duration.zero,
         videoSize: Size.zero,
+        mediaInfo: _initialMediaInfo(request),
+        clearMediaInfo: true,
         subtitleText: const [],
         firstFrameRendered: false,
         clearError: true,
@@ -177,6 +183,9 @@ class AvPlayerPlaybackEngine implements PlaybackEngine {
       request.url,
       startAt: request.startAt,
       autoplay: request.play,
+      headers: request.headers,
+      formatHint: request.formatHint,
+      videoCodec: request.mediaInfo?.videoCodec,
     );
   }
 
@@ -216,8 +225,9 @@ class AvPlayerPlaybackEngine implements PlaybackEngine {
     String id, {
     int? fallbackIndex,
     bool nativeRendering = false,
-  }) {
-    throw UnsupportedError('AVPlayer 内嵌字幕由后端 WebVTT 或烧录 HLS 提供');
+  }) async {
+    await (await _ensurePlayer()).selectSubtitleTrack(id, fallbackIndex);
+    _update((state) => state.copyWith(selectedSubtitleTrackId: id));
   }
 
   @override
@@ -235,6 +245,8 @@ class AvPlayerPlaybackEngine implements PlaybackEngine {
   @override
   Future<void> clearSubtitle() async {
     _subtitleCues = const [];
+    final player = _player;
+    if (player != null) await player.clearSubtitleTrack();
     _update(
       (state) => state.copyWith(
         subtitleText: const [],
@@ -296,7 +308,8 @@ class AvPlayerPlaybackEngine implements PlaybackEngine {
 
   @override
   Future<void> stop() async {
-    await pause();
+    _suppressErrorsUntilOpen = true;
+    await (await _ensurePlayer()).stop();
     _update(
       (state) => state.copyWith(
         lifecycle: PlaybackLifecycle.stopped,
@@ -308,7 +321,7 @@ class AvPlayerPlaybackEngine implements PlaybackEngine {
 
   @override
   Widget buildSurface({BoxFit fit = BoxFit.contain}) {
-    return FutureBuilder<MdCenterAvPlayer>(
+    return FutureBuilder<OmmKsPlayer>(
       future: _playerFuture,
       builder: (_, snapshot) {
         final player = snapshot.data;
@@ -328,7 +341,51 @@ class AvPlayerPlaybackEngine implements PlaybackEngine {
     await player.dispose();
     _state.dispose();
   }
+
+  PlaybackMediaInfo _initialMediaInfo(PlaybackOpenRequest request) {
+    final initial =
+        request.mediaInfo ??
+        PlaybackMediaInfo.fromSource(
+          url: request.url,
+          formatHint: request.formatHint,
+        );
+    final inferredInternalPlayer =
+        PlaybackMediaInfo.inferInternalPlayer(
+          request.url,
+          request.formatHint,
+          videoCodec: initial.videoCodec,
+        ) ??
+        PlaybackMediaInfo.inferInternalPlayer('', initial.container);
+    return initial.copyWith(internalPlayer: inferredInternalPlayer);
+  }
+
+  PlaybackMediaInfo? _mergeMediaInfo(
+    PlaybackMediaInfo? current,
+    PlaybackMediaInfo? incoming,
+  ) {
+    if (incoming == null) return current;
+    final info = current ?? const PlaybackMediaInfo();
+    return info.copyWith(
+      container: incoming.container,
+      videoCodec: incoming.videoCodec,
+      videoBitrate: incoming.videoBitrate,
+      videoFps: incoming.videoFps,
+      videoDecoder: incoming.videoDecoder,
+      audioCodec: incoming.audioCodec,
+      audioBitrate: incoming.audioBitrate,
+      internalPlayer: incoming.internalPlayer,
+    );
+  }
 }
+
+/// 判断 KSPlayer 的错误回调是否属于已成功开始播放后的迟到错误。
+///
+/// 打开期间的错误由 [PlaybackEngine.open] 的 Future 返回；播放期间已出首帧
+/// 的迟到错误则不能把仍在工作的会话标记为失败。
+bool shouldIgnoreKsPlayerError(PlaybackViewState state) =>
+    state.lifecycle == PlaybackLifecycle.opening ||
+    (state.firstFrameRendered &&
+        (state.playing || state.position > Duration.zero));
 
 @immutable
 class _WebVttCue {

@@ -16,6 +16,14 @@ concurrency:
 env:
   CI: "true"
   COCOAPODS_DISABLE_STATS: "true"
+  KSPLAYER_REPOSITORY: "https://github.com/KleinerSource/KSPlayer.git"
+  KSPLAYER_COMMIT: "0b70643ba10a7a840cf3436b97be233ff52da474"
+  FFMPEGKIT_REPOSITORY: "https://github.com/kingslay/FFmpegKit.git"
+  FFMPEGKIT_VERSION: "6.1.4"
+  DISPLAYCRITERIA_REPOSITORY: "https://github.com/KleinerSource/KSPlayer.git"
+  DISPLAYCRITERIA_COMMIT: "0b70643ba10a7a840cf3436b97be233ff52da474"
+  LIBASS_REPOSITORY: "https://github.com/kingslay/FFmpegKit.git"
+  LIBASS_VERSION: "6.1.4"
 
 jobs:
   build:
@@ -35,8 +43,8 @@ jobs:
           channel: stable
           cache: true
 
-      # iOS workflow 负责把一次代码 push 的版本号持久化到 master；Android
-      # workflow 使用同一策略计算本地构建版本，避免双平台同时构建时重复递增。
+      # master 与 dev 均按提交信息自动计算版本号，并由 iOS workflow
+      # 持久化到当前分支，避免双平台同时写回产生竞争。
       # 新增/删除/增强功能: 次版本号 +1 且补丁号归零；优化/修复/改进: 补丁号 +1；构建始终只增加 build。
       - name: 计算并持久化构建版本号
         timeout-minutes: 2
@@ -45,13 +53,13 @@ jobs:
           commit_message="$(git log -1 --format=%B "${GITHUB_SHA}")"
           version="$(dart tool/bump_app_version.dart --auto --commit-message "${commit_message}")"
           echo "构建版本: ${version}"
-          if { [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/master" ]; } || \
-             { [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && [ "${GITHUB_REF}" = "refs/heads/master" ]; }; then
+          if { [ "${GITHUB_EVENT_NAME}" = "push" ] || [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; } && \
+             { [ "${GITHUB_REF}" = "refs/heads/master" ] || [ "${GITHUB_REF}" = "refs/heads/dev" ]; }; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add pubspec.yaml
             git commit -m "chore: bump build metadata to ${version} [skip ci]"
-            git push origin HEAD:master
+            git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
       - name: Flutter doctor
@@ -68,9 +76,9 @@ jobs:
             flutter create . \
               --no-pub \
               --platforms=ios \
-              --org com.mdcenter \
-              --project-name md_center \
-              --description "md_center 移动端"
+              --org com.ohmymedia \
+              --project-name omm \
+              --description "omm 移动端"
             # iOS deployment target 16.0
             sed -i '' "s/# platform :ios, '12.0'/platform :ios, '16.0'/" ios/Podfile || true
             sed -i '' "s/platform :ios, '12.0'/platform :ios, '16.0'/" ios/Podfile || true
@@ -79,6 +87,10 @@ jobs:
           else
             echo "ios/Runner.xcodeproj exists, skipping bootstrap"
           fi
+          # 无论工程是新生成还是已有，都确保 target 实际引用的本地化启动屏
+          # 使用仓库中的深色品牌版本，而不是 Flutter 默认白色模板。
+          mkdir -p ios/Runner/Base.lproj
+          cp ios/Runner/LaunchScreen.storyboard ios/Runner/Base.lproj/LaunchScreen.storyboard
           test -f ios/Runner.xcodeproj/project.pbxproj
           # 删除 flutter create 生成的 counter 模板测试，避免 analyze 失败
           rm -f test/widget_test.dart
@@ -105,6 +117,38 @@ jobs:
             echo "---- ios/Podfile ----"; cat ios/Podfile
           else
             echo "No Podfile (all-SPM); skip"
+          fi
+
+      - name: 注入固定 KSPlayer CocoaPods 依赖
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          if [ -f ios/Podfile ]; then
+            ruby -e '
+              path = "ios/Podfile"
+              text = File.read(path)
+              text = text.gsub(
+                /^[ \t]*use_frameworks!\s*$/,
+                "  use_frameworks! :linkage => :static"
+              )
+              marker = "target '\''Runner'\'' do"
+              abort "Runner target not found in ios/Podfile" unless text.include?(marker)
+              insertion = <<~PODS
+                #{marker}
+                  pod "KSPlayer", :git => ENV.fetch("KSPLAYER_REPOSITORY"), :commit => ENV.fetch("KSPLAYER_COMMIT")
+                  pod "DisplayCriteria", :git => ENV.fetch("DISPLAYCRITERIA_REPOSITORY"), :commit => ENV.fetch("DISPLAYCRITERIA_COMMIT")
+                  pod "FFmpegKit", :git => ENV.fetch("FFMPEGKIT_REPOSITORY"), :tag => ENV.fetch("FFMPEGKIT_VERSION")
+                  pod "Libass", :git => ENV.fetch("LIBASS_REPOSITORY"), :tag => ENV.fetch("LIBASS_VERSION")
+              PODS
+              text = text.sub(marker, insertion) unless text.include?("pod \"KSPlayer\"")
+              abort "use_frameworks! must use static linkage for KSPlayer" unless text.include?("use_frameworks! :linkage => :static")
+              File.write(path, text)
+            '
+            echo "---- ios/Podfile with pinned KSPlayer ----"
+            cat ios/Podfile
+          else
+            echo "No Podfile (all-SPM); KSPlayer requires the CocoaPods fallback"
+            exit 1
           fi
 
       - name: pod install (CocoaPods fallback for media_kit)
@@ -141,7 +185,13 @@ jobs:
 
       - name: build ios (no codesign)
         timeout-minutes: 25
-        run: flutter build ios --release --no-codesign --no-pub
+        run: |
+          set -euo pipefail
+          build_args=(flutter build ios --release --no-codesign --no-pub)
+          if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
+            build_args+=(--dart-define=BUILD_CHANNEL=dev)
+          fi
+          "${build_args[@]}"
 
       - name: 打包带版本号的 unsigned .ipa
         id: ios_artifact
@@ -149,10 +199,14 @@ jobs:
         run: |
           set -euo pipefail
           version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
+          artifact_prefix="omm"
+          if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
+            artifact_prefix="omm_dev"
+          fi
           cd build/ios/iphoneos
           mkdir Payload
           cp -r Runner.app Payload/
-          artifact_name="md_center_${version}.ipa"
+          artifact_name="${artifact_prefix}_${version}.ipa"
           zip -qr "${artifact_name}" Payload
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "path=build/ios/iphoneos/${artifact_name}" >> "${GITHUB_OUTPUT}"
@@ -160,27 +214,38 @@ jobs:
       - name: 上传 iOS Actions 产物
         uses: actions/upload-artifact@v6
         with:
-          name: md_center_${{ steps.ios_artifact.outputs.version }}.ipa
+          name: ${{ startsWith(github.ref, 'refs/heads/dev') && 'omm_dev_' || 'omm_' }}${{ steps.ios_artifact.outputs.version }}.ipa
           path: ${{ steps.ios_artifact.outputs.path }}
           if-no-files-found: error
           retention-days: 14
 
-      # 仅 master 分支 push 时滚动发布 latest 预发布
-      - name: 发布到 GitHub Release (latest)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      # master 与 dev 使用独立的滚动 Release，避免开发包覆盖正式 latest。
+      - name: 发布到 GitHub Release (latest / latest-ios-dev)
+        if: >-
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
         timeout-minutes: 5
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
+          if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
+            release_tag="latest-ios-dev"
+            release_title="Latest unsigned iOS dev build"
+            notes_title="未签名 iOS Dev 构建产物（自动滚动更新）"
+          else
+            release_tag="latest"
+            release_title="Latest unsigned iOS build"
+            notes_title="未签名 iOS 构建产物（自动滚动更新）"
+          fi
           notes_file="$(mktemp)"
           trap 'rm -f "${notes_file}"' EXIT
           bash tool/generate_release_notes.sh \
-            latest "${version}" "${notes_file}"
-          gh release delete latest --yes --cleanup-tag || true
-          gh release create latest "${{ steps.ios_artifact.outputs.path }}" \
+            "${release_tag}" "${version}" "${notes_file}" "${notes_title}"
+          gh release delete "${release_tag}" --yes --cleanup-tag || true
+          gh release create "${release_tag}" "${{ steps.ios_artifact.outputs.path }}" \
             --prerelease \
             --target "$GITHUB_SHA" \
-            --title "Latest unsigned iOS build" \
+            --title "${release_title}" \
             --notes-file "${notes_file}"

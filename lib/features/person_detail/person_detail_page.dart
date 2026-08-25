@@ -26,6 +26,7 @@ import '../../shared/status_bar_scroll_to_top.dart';
 import '../actor_associations/widgets/actor_association_sync_sheet.dart';
 import '../home/hero_backdrop.dart';
 import '../movie_detail/movie_detail_page.dart';
+import '../movies/movie_data_changes.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
 
@@ -208,10 +209,18 @@ class _PersonDetailPageState extends ConsumerState<PersonDetailPage> {
   }
 
   Future<void> _openMovie(int movieId) async {
+    final changesBeforeVisit = MovieDataChanges.snapshot(movieId: movieId);
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movieId)),
     );
-    if (mounted) await _refreshAfterMovie();
+    if (!mounted) return;
+    // 详情页内没有任何真实变更时沿用缓存,不刷新。
+    final now = changesBeforeVisit.latest;
+    if (now.imagesChangedSince(changesBeforeVisit)) refreshImageCache(ref);
+    if (now.metadata != changesBeforeVisit.metadata ||
+        now.progress != changesBeforeVisit.progress) {
+      await _refreshAfterMovie();
+    }
   }
 
   Future<void> _refreshAfterMovie() async {

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'package:md_center/features/player/playback_engine.dart';
+import 'package:omm/features/player/playback_engine.dart';
 
 class FakePlaybackEngine implements PlaybackEngine {
   FakePlaybackEngine(
@@ -18,12 +18,13 @@ class FakePlaybackEngine implements PlaybackEngine {
   final ValueNotifier<PlaybackViewState> notifier;
   final List<String> commands = [];
   int openCount = 0;
+  PlaybackOpenRequest? lastOpenRequest;
 
   @override
-  PlaybackEngineCapabilities get capabilities =>
-      kind == PlaybackEngineKind.avPlayer
-      ? const PlaybackEngineCapabilities.avPlayer()
-      : const PlaybackEngineCapabilities.libmpv();
+  PlaybackEngineCapabilities get capabilities => switch (kind) {
+    PlaybackEngineKind.ksPlayer => const PlaybackEngineCapabilities.ksPlayer(),
+    PlaybackEngineKind.libmpv => const PlaybackEngineCapabilities.libmpv(),
+  };
 
   @override
   ValueListenable<PlaybackViewState> get state => notifier;
@@ -36,6 +37,7 @@ class FakePlaybackEngine implements PlaybackEngine {
   Future<void> open(PlaybackOpenRequest request) async {
     commands.add('open');
     openCount++;
+    lastOpenRequest = request;
     if (failOnOpen) throw StateError('open failed');
     _update(
       (state) => state.copyWith(

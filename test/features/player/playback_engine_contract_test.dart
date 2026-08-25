@@ -1,15 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/core/models/playback.dart' as playback_models;
-import 'package:md_center/features/player/playback_engine.dart';
-import 'package:md_center/features/player/player_session_controller.dart';
-import 'package:md_center/features/player/player_session_factory.dart';
+import 'package:omm/core/models/playback.dart' as playback_models;
+import 'package:omm/features/player/playback_engine.dart';
+import 'package:omm/features/player/ks_player_playback_engine.dart';
+import 'package:omm/features/player/player_session_controller.dart';
+import 'package:omm/features/player/player_session_factory.dart';
 
 import 'fake_playback_engine.dart';
 
 void main() {
-  test('两个内核执行相同命令序列产生一致统一状态', () async {
+  test('所有内核执行相同命令序列产生一致统一状态', () async {
     final states = <PlaybackViewState>[];
     for (final kind in PlaybackEngineKind.values) {
       final engine = FakePlaybackEngine(kind);
@@ -39,124 +40,38 @@ void main() {
     );
   });
 
-  test('AVPlayer 打开失败先切换内核，再由页面用新决策恢复状态', () async {
-    final av = FakePlaybackEngine(
-      PlaybackEngineKind.avPlayer,
-      failOnOpen: true,
-      initialState: const PlaybackViewState(
-        engineKind: PlaybackEngineKind.avPlayer,
-        position: Duration(seconds: 31),
-        rate: 1.75,
-        playing: false,
-      ),
-    );
-    final fallback = FakePlaybackEngine(PlaybackEngineKind.libmpv);
-    var fallbackCount = 0;
-    final session = PlayerSessionController(
-      engine: av,
-      libmpvFallbackFactory: () {
-        fallbackCount++;
-        return fallback;
-      },
-    );
-
-    await expectLater(
-      session.open('https://example.com/avplayer.mp4'),
-      throwsStateError,
-    );
-
-    expect(fallbackCount, 0);
-    expect(
-      await session.fallbackToLibmpvForReload('AVPlayer open failed'),
-      isTrue,
-    );
-    expect(session.kind, PlaybackEngineKind.libmpv);
-    expect(fallback.openCount, 0);
+  test('容器提示随统一会话传递给 KSPlayer', () async {
+    final engine = FakePlaybackEngine(PlaybackEngineKind.ksPlayer);
+    final session = PlayerSessionController(engine: engine);
 
     await session.open(
-      'https://example.com/libmpv.mkv',
-      startAt: const Duration(seconds: 31),
-      play: false,
+      'https://example.com/stream',
+      formatHint: 'matroska,webm',
     );
-    await session.setRate(1.75);
-    expect(
-      (session.position - const Duration(seconds: 31)).abs(),
-      lessThanOrEqualTo(const Duration(seconds: 1)),
-    );
-    expect(session.playing, isFalse);
-    expect(session.value.rate, 1.75);
-    expect(fallback.openCount, 1);
-    expect(fallbackCount, 1);
+
+    expect(engine.lastOpenRequest?.formatHint, 'matroska,webm');
     await session.dispose();
   });
 
-  test('AVPlayer 运行时失败通知页面重新决策且不复用旧 URL', () async {
-    final av = FakePlaybackEngine(PlaybackEngineKind.avPlayer);
-    final fallback = FakePlaybackEngine(PlaybackEngineKind.libmpv);
-    final session = PlayerSessionController(
-      engine: av,
-      libmpvFallbackFactory: () => fallback,
-    );
-    await session.open(
-      'https://example.com/avplayer-stream.m3u8',
-      startAt: const Duration(seconds: 31),
-    );
-    await session.setRate(1.5);
-    final reloadFuture = session.reloadRequiredStream.first;
-
-    av.notifier.value = av.notifier.value.copyWith(
-      lifecycle: PlaybackLifecycle.failed,
-      playing: false,
-      buffering: false,
-      error: 'runtime failed',
-    );
-    final request = await reloadFuture.timeout(const Duration(seconds: 1));
-
-    expect(session.kind, PlaybackEngineKind.libmpv);
-    expect(fallback.openCount, 0);
-    expect(request.position, const Duration(seconds: 31));
-    expect(request.wasPlaying, isTrue);
-    expect(request.rate, 1.5);
+  test('H.265 编码信息随统一会话传递给 KSPlayer', () async {
+    final engine = FakePlaybackEngine(PlaybackEngineKind.ksPlayer);
+    final session = PlayerSessionController(engine: engine);
 
     await session.open(
-      'https://example.com/libmpv-source.mkv',
-      startAt: request.position,
-      play: request.wasPlaying,
+      'https://example.com/video.mp4',
+      formatHint: 'mp4',
+      mediaInfo: const PlaybackMediaInfo(videoCodec: 'hevc'),
     );
-    await session.setRate(request.rate);
-    expect(fallback.openCount, 1);
-    expect(session.position, request.position);
-    expect(session.playing, isTrue);
-    expect(session.value.rate, 1.5);
+
+    expect(engine.lastOpenRequest?.mediaInfo?.videoCodec, 'hevc');
     await session.dispose();
   });
 
-  test('AVPlayer 播放决策失败时切换内核供重新决策且只允许一次', () async {
-    final av = FakePlaybackEngine(PlaybackEngineKind.avPlayer);
-    final fallback = FakePlaybackEngine(PlaybackEngineKind.libmpv);
-    var fallbackCount = 0;
-    final session = PlayerSessionController(
-      engine: av,
-      libmpvFallbackFactory: () {
-        fallbackCount++;
-        return fallback;
-      },
-    );
-
-    expect(await session.fallbackToLibmpvForReload('decision failed'), isTrue);
-    expect(session.kind, PlaybackEngineKind.libmpv);
-    expect(fallback.openCount, 0);
-    expect(av.commands, contains('dispose'));
-    expect(await session.fallbackToLibmpvForReload('second failure'), isFalse);
-    expect(fallbackCount, 1);
-    await session.dispose();
-  });
-
-  test('统一会话按语言和标题映射 AVPlayer 原生音轨', () async {
+  test('统一会话按语言和标题映射原生音轨', () async {
     final engine = FakePlaybackEngine(
-      PlaybackEngineKind.avPlayer,
+      PlaybackEngineKind.ksPlayer,
       initialState: const PlaybackViewState(
-        engineKind: PlaybackEngineKind.avPlayer,
+        engineKind: PlaybackEngineKind.ksPlayer,
         audioTracks: [
           PlaybackAudioTrackState(
             id: 'native-en',
@@ -182,14 +97,104 @@ void main() {
     await session.dispose();
   });
 
-  test('AVPlayer 单音轨不等待原生音轨枚举即可起播', () async {
-    final engine = FakePlaybackEngine(PlaybackEngineKind.avPlayer);
+  test('KSPlayer 不直接使用后端音轨 index，而是映射原生音轨 ID', () async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.ksPlayer,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.ksPlayer,
+        audioTracks: [
+          PlaybackAudioTrackState(
+            id: 'native-en',
+            title: 'Commentary',
+            language: 'en',
+            isSelected: false,
+          ),
+        ],
+      ),
+    );
     final session = PlayerSessionController(engine: engine);
     const backendTrack = playback_models.AudioTrack(
-      index: 0,
+      index: 4,
       codec: 'aac',
-      language: 'zh',
-      title: '默认',
+      language: 'en',
+      title: 'Commentary',
+      channels: 2,
+      isDefault: false,
+    );
+
+    expect(await session.trySelectAudioTrack(backendTrack, null), isTrue);
+    expect(engine.commands, contains('audio:native-en'));
+    expect(engine.commands, isNot(contains('audio:4')));
+    await session.dispose();
+  });
+
+  test('KSPlayer 在语言和标题不匹配时按音轨 ordinal 映射', () async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.ksPlayer,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.ksPlayer,
+        audioTracks: [
+          PlaybackAudioTrackState(
+            id: 'native-1',
+            title: 'Track 1',
+            language: 'und',
+            isSelected: false,
+          ),
+          PlaybackAudioTrackState(
+            id: 'native-2',
+            title: 'Track 2',
+            language: 'und',
+            isSelected: false,
+          ),
+        ],
+      ),
+    );
+    final session = PlayerSessionController(engine: engine);
+    const first = playback_models.AudioTrack(
+      index: 2,
+      codec: 'aac',
+      language: 'de',
+      title: 'German',
+      channels: 2,
+      isDefault: false,
+    );
+    const second = playback_models.AudioTrack(
+      index: 7,
+      codec: 'aac',
+      language: 'fr',
+      title: 'French',
+      channels: 2,
+      isDefault: false,
+    );
+    const decision = playback_models.PlaybackDecision(
+      mode: 'direct_play',
+      streamUrl: 'https://example.com/video.mkv',
+      mimeType: 'video/x-matroska',
+      hwAccel: '',
+      targetVideo: '',
+      targetAudio: '',
+      targetHeight: 0,
+      targetBitrate: 0,
+      reasons: [],
+      audioTracks: [first, second],
+      subtitleTracks: [],
+      startSec: 0,
+    );
+
+    expect(await session.trySelectAudioTrack(second, decision), isTrue);
+    expect(engine.commands, contains('audio:native-2'));
+    expect(engine.commands, isNot(contains('audio:7')));
+    await session.dispose();
+  });
+
+  test('KSPlayer 单音轨不调用原生切换命令', () async {
+    final engine = FakePlaybackEngine(PlaybackEngineKind.ksPlayer);
+    final session = PlayerSessionController(engine: engine);
+    const backendTrack = playback_models.AudioTrack(
+      index: 4,
+      codec: 'aac',
+      language: 'en',
+      title: 'English',
       channels: 2,
       isDefault: true,
     );
@@ -208,15 +213,33 @@ void main() {
       startSec: 0,
     );
 
-    final selected = await session
-        .trySelectAudioTrack(backendTrack, decision)
-        .timeout(const Duration(milliseconds: 100));
-
-    expect(selected, isTrue);
+    expect(
+      await session
+          .trySelectAudioTrack(backendTrack, decision)
+          .timeout(const Duration(milliseconds: 100)),
+      isTrue,
+    );
     expect(
       engine.commands.where((command) => command.startsWith('audio:')),
       isEmpty,
     );
+    await session.dispose();
+  });
+
+  test('libmpv 仍按后端音轨 index 选择', () async {
+    final engine = FakePlaybackEngine(PlaybackEngineKind.libmpv);
+    final session = PlayerSessionController(engine: engine);
+    const backendTrack = playback_models.AudioTrack(
+      index: 4,
+      codec: 'aac',
+      language: 'en',
+      title: 'English',
+      channels: 2,
+      isDefault: false,
+    );
+
+    expect(await session.trySelectAudioTrack(backendTrack, null), isTrue);
+    expect(engine.commands, contains('audio:4'));
     await session.dispose();
   });
 
@@ -228,22 +251,26 @@ void main() {
     );
     expect(
       PlayerEnginePreference.fromValue('avplayer'),
-      PlaybackEngineKind.avPlayer,
+      PlaybackEngineKind.libmpv,
+    );
+    expect(
+      PlayerEnginePreference.fromValue('ksplayer'),
+      PlaybackEngineKind.ksPlayer,
     );
   });
 
   test('仅 iOS 采纳内核偏好和会话覆盖，其他平台固定 libmpv', () {
     expect(
       resolvePlaybackEngineKind(
-        iosEnginePreference: PlaybackEngineKind.avPlayer,
+        iosEnginePreference: PlaybackEngineKind.ksPlayer,
         targetPlatform: TargetPlatform.iOS,
         isWeb: false,
       ),
-      PlaybackEngineKind.avPlayer,
+      PlaybackEngineKind.ksPlayer,
     );
     expect(
       resolvePlaybackEngineKind(
-        engineKind: PlaybackEngineKind.avPlayer,
+        engineKind: PlaybackEngineKind.ksPlayer,
         targetPlatform: TargetPlatform.android,
         isWeb: false,
       ),
@@ -251,7 +278,7 @@ void main() {
     );
     expect(
       resolvePlaybackEngineKind(
-        engineKind: PlaybackEngineKind.avPlayer,
+        engineKind: PlaybackEngineKind.ksPlayer,
         targetPlatform: TargetPlatform.iOS,
         isWeb: true,
       ),
@@ -262,7 +289,7 @@ void main() {
         targetPlatform: TargetPlatform.iOS,
         isWeb: false,
       ),
-      [PlaybackEngineKind.libmpv, PlaybackEngineKind.avPlayer],
+      [PlaybackEngineKind.libmpv, PlaybackEngineKind.ksPlayer],
     );
     expect(
       availablePlaybackEngineKinds(
@@ -271,5 +298,39 @@ void main() {
       ),
       [PlaybackEngineKind.libmpv],
     );
+  });
+
+  test('KSPlayer 失败不会自动切换内核', () async {
+    final ks = FakePlaybackEngine(PlaybackEngineKind.ksPlayer);
+    final session = PlayerSessionController(engine: ks);
+    ks.notifier.value = ks.notifier.value.copyWith(
+      lifecycle: PlaybackLifecycle.failed,
+      error: 'KSPlayer failed',
+    );
+    expect(session.kind, PlaybackEngineKind.ksPlayer);
+    await session.dispose();
+  });
+
+  test('KSPlayer 打开期间和播放后的迟到错误被忽略', () {
+    const opening = PlaybackViewState(
+      engineKind: PlaybackEngineKind.ksPlayer,
+      lifecycle: PlaybackLifecycle.opening,
+    );
+    const playing = PlaybackViewState(
+      engineKind: PlaybackEngineKind.ksPlayer,
+      lifecycle: PlaybackLifecycle.ready,
+      playing: true,
+      firstFrameRendered: true,
+      position: Duration(seconds: 1),
+    );
+    const pausedAtFirstFrame = PlaybackViewState(
+      engineKind: PlaybackEngineKind.ksPlayer,
+      lifecycle: PlaybackLifecycle.ready,
+      firstFrameRendered: true,
+    );
+
+    expect(shouldIgnoreKsPlayerError(opening), isTrue);
+    expect(shouldIgnoreKsPlayerError(playing), isTrue);
+    expect(shouldIgnoreKsPlayerError(pausedAtFirstFrame), isFalse);
   });
 }

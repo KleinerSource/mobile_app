@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'api_exception.dart';
 
-const requiredServerProjectName = 'md_center';
+const requiredServerProjectName = 'omm';
 const minimumSupportedServerVersion = '1.7.0';
 
 String get serverCompatibilityRequirementMessage =>

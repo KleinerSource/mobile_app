@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../core/platform/app_theme.dart';
 
-/// md_center 海报组件 · 真图优先, 失败回退到极简占位符 (深色块 + 图标 + 番号/标题)。
+/// omm 海报组件 · 真图优先, 失败回退到极简占位符 (深色块 + 图标 + 番号/标题)。
 class Poster extends StatelessWidget {
   const Poster({
     super.key,

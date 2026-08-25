@@ -2,17 +2,17 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/api_client.dart';
-import 'package:md_center/core/api/providers.dart';
-import 'package:md_center/core/config/server_config_provider.dart';
-import 'package:md_center/core/models/actor.dart';
-import 'package:md_center/core/models/avdb_config.dart';
-import 'package:md_center/core/models/dbo_config.dart';
-import 'package:md_center/features/configs/configs_providers.dart';
-import 'package:md_center/features/movies/movies_providers.dart';
-import 'package:md_center/features/person_detail/person_detail_page.dart';
-import 'package:md_center/l10n/generated/app_localizations.dart';
-import 'package:md_center/shared/actor_detail_header.dart';
+import 'package:omm/core/api/api_client.dart';
+import 'package:omm/core/api/providers.dart';
+import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/models/actor.dart';
+import 'package:omm/core/models/avdb_config.dart';
+import 'package:omm/core/models/dbo_config.dart';
+import 'package:omm/features/configs/configs_providers.dart';
+import 'package:omm/features/movies/movies_providers.dart';
+import 'package:omm/features/person_detail/person_detail_page.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/actor_detail_header.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

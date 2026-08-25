@@ -27,7 +27,7 @@
 
 ## 当前任务：GitHub Actions 编译失败
 
-- 工作区：`D:\Projects\MyProject\ghs\md_center\mobile_app`。
+- 工作区：`D:\Projects\MyProject\ghs\omm\mobile_app`。
 - 当前分支：`master`，相对 `origin/master` 落后 1 个提交；工作区初始无未提交代码改动。
 - 仓库未包含 `.codegraph/`，本任务不使用 CodeGraph。
 - 项目是 Flutter/Dart 工程，存在 `pubspec.yaml`、`android/build.gradle.kts`、`android/app/build.gradle.kts`。
@@ -153,10 +153,10 @@
 
 ## 项目原生桥接与辅助模块
 
-- Dart 侧 `PlayerPlatformCapabilities` 通过 `md_center/player_capabilities` MethodChannel 请求进入/停止 PiP，并在 `pictureInPictureStopped` 回调中接收 AVPlayer 的最终进度。
+- Dart 侧 `PlayerPlatformCapabilities` 通过 `omm/player_capabilities` MethodChannel 请求进入/停止 PiP，并在 `pictureInPictureStopped` 回调中接收 AVPlayer 的最终进度。
 - iOS `AppDelegate.swift` 创建临时 `AVPlayerItem`、`AVPlayer`、`AVPlayerLayer` 与 `AVPictureInPictureController`；等待 item ready 和 PiP possible 后按主播放器位置 seek，再启动 PiP。PiP 停止后把当前位置毫秒值回传 Dart，并完整释放 AVPlayer 相关对象。
 - 这是一种“双内核接力”：全屏/内嵌主播放是 libmpv，系统 PiP 阶段是 AVPlayer。其边界是 PiP URL 必须为 AVPlayer 能识别的资源；项目代码因此对常见 MKV 直传源改用 HLS 作为 PiP 源。
-- `PlayerDeviceStatsReader` 通过 `md_center/player_stats` 读取 iOS/Android 的 CPU、电量、上下行速率与网络类型，为播放器状态面板提供信息，不参与解码。
+- `PlayerDeviceStatsReader` 通过 `omm/player_stats` 读取 iOS/Android 的 CPU、电量、上下行速率与网络类型，为播放器状态面板提供信息，不参与解码。
 
 ## Apple 与 IJK 状态补充
 
@@ -295,7 +295,7 @@
 
 - 详情页嵌入式 `_TrailerViewer` 已固定 `MediaKitPlaybackEngine`，但 `_playTrailer()` 打开的完整 `PlayerPage` 未传递内核约束，会错误读取 iOS 默认 AVPlayer 设置。
 - 最小修复是在 `PlayerPage` 增加只读的可选会话级 `engineKind` 覆盖；仅预告片完整播放入口传 `libmpv`，普通影片仍在新会话初始化时读取设置。
-- Pigeon 26.3.4 生成的 Swift `MdCenterAvPlayerHostApi` 方法签名与 `AvPlayerManager` 实现逐项一致，包括同步 `throws` 方法和异步 `Result<..., Error>` completion 方法。
+- Pigeon 26.3.4 生成的 Swift `OmmAvPlayerHostApi` 方法签名与 `AvPlayerManager` 实现逐项一致，包括同步 `throws` 方法和异步 `Result<..., Error>` completion 方法。
 - CodeGraph 能定位 `AvPlayerSession` 的预览帧与 PiP 方法，但响应未展开这些方法体；后续只对该未覆盖区间做精确文件读取，不重复检索已返回源码。
 - Swift 静态复核发现 `AvPlayerViewFactory.manager` 为非可选属性却使用 `manager?.attach(...)`，会导致 iOS 编译错误；应改为直接调用 `manager.attach(...)`。
 - AVPlayer 预览帧复用当前 `AVPlayerItem.asset`，新请求先取消旧 `AVAssetImageGenerator`；PiP 由当前同一个 `AVPlayerLayer` 构造，结束后清理 delegate/controller，`dispose()` 可重复调用。
@@ -306,7 +306,7 @@
 - 现有 `FakePlaybackEngine` 已能验证“不打开旧 URL、只更换内核”的决策阶段回退；新增测试应确认第二次请求不会再次创建 libmpv，确保与 open/运行时回退共用一次性门闩。
 - 最终 UI 扫描确认 `PlayerPage`、`PlayerControls`、字幕层和详情页均不再引用 `media_kit` package、`Player`、`VideoController` 或具体 engine adapter；具体内核创建只存在于统一会话工厂。
 - iOS libmpv 元数据最终一致：wrapper/pubspec/podspec 均为 `1.1.5`，Makefile 固定 `v0.7.2`、`video-full` 下载名和指定 SHA-256。
-- Pigeon 生成的 Dart 文件被根 `.gitignore` 的 `*.g.dart` 规则排除；必须仅对 `packages/md_center_avplayer/lib/src/av_player_api.g.dart` 增加例外，才能满足生成 Dart/Swift 一并提交。
+- Pigeon 生成的 Dart 文件被根 `.gitignore` 的 `*.g.dart` 规则排除；必须仅对 `packages/omm_avplayer/lib/src/av_player_api.g.dart` 增加例外，才能满足生成 Dart/Swift 一并提交。
 - 更严格按“UI 不写平台或内核判断”复核后，`PlayerPage` 仍有 iOS 默认选择和 AVPlayer 路由/音轨/字幕分支；应继续把默认内核解析、client caps、路由和轨道策略收进会话层，只让页面读取 capabilities/统一决策结果。
 - 策略下沉完成后，四个 UI/页面文件对 `_host.kind`、`PlaybackEngineKind.avPlayer`、平台判断和具体 adapter 的联合扫描无命中；Android 显式 AVPlayer 覆盖也由会话工厂强制回落 libmpv。
 
@@ -349,3 +349,90 @@
 - 新发现：AVPlayer 的 `reportPlaybackFailure` 会先将 `wantsToPlay=false` 并上报 `playing=false`，之后才上报 error；运行时回退若从失败后的 `PlaybackViewState.playing` 推断恢复意图，会错误得到暂停状态。这会让重新打开成功的 libmpv 随即被页面暂停，必须由 `PlayerSessionController` 独立保存用户播放意图。
 - 统一进度条把 `PlaybackViewState.buffered` 当作媒体时间轴上的绝对结束位置传给 `Slider.secondaryTrackValue`；AVPlayer 的连续缓存计算单位与此一致。当前 UI 只把 buffered 限制在 `[0, duration]`，如果 seek 后暂时没有覆盖当前位置的 loaded range，原生会上报 0，次进度可能落到主进度后方；显示层应至少钳制到当前 position。
 - 起播路径虽调用 `playImmediately(atRate:)`，但 `AVPlayerItem` 在首帧前已设置 `preferredForwardBufferDuration=60`；该值不是硬性起播门槛，但会参与 AVPlayer 的缓冲策略。为从实现上隔离起播与预取，首帧前应保持 0，`AVPlayerLayer.isReadyForDisplay` 后立即切换为 60 秒持续前向预取。
+
+## 本次实施：iOS 接入 KSPlayer
+
+- KSPlayer 仓库已有改动已提交并推送：`9a80ee3`、`2fdbf66`；工作区应保持 clean。
+- `mobile_app` 只应引用固定远程 KSPlayer commit，不引用相邻本地目录。
+- Flutter 统一播放抽象已增加 `PlaybackEngineKind.ksPlayer`、KSPlayer capabilities 和泛化 fallback；Android/Web 仍强制 `libmpv`。
+- KSPlayer 插件位于 `packages/omm_ksplayer`，使用 Pigeon、Swift Platform View 和 KSPlayerLayer，不启用原生控制栏/手势。
+- KSPlayer 的 PGS/burn-in 字幕走能力声明并触发后端重决策；外挂文本字幕仍由 Flutter 统一处理，原生轨道失败且存在外挂地址时会降级到外挂字幕。
+- KSPlayer 无可靠 `loadedTimeRanges` 结束点时不伪造缓冲百分比。
+- Windows 环境无法编译 Swift、执行 CocoaPods 或 `flutter build ios`；必须记录为 macOS CI/真机验收项。
+- KSPlayer 的 CocoaPods README 与 Podspec 还依赖 `DisplayCriteria`、`Libass`；CI 已补充固定来源注入，许可证声明覆盖这两个相关 Pod。
+- `KsPlayerManager.dispose` 已通过 `MainActor.assumeIsolated` 调用 `KsPlayerSession.dispose`，避免跨 actor 直接访问。
+- KSPlayer 生成的 `lib/src/ks_player_api.g.dart` 已加入 `.gitignore` 例外；`git diff --check` 通过。
+- Dart 最终验证：`flutter analyze` 无问题，`flutter test` 共 `394` 项全部通过。
+
+## KSPlayer 音轨切换故障（2026-08-25）
+
+- `PlayerSessionController.trySelectAudioTrack` 原先将所有非 AVPlayer 内核直接传入 `track.index.toString()`；这会把 KSPlayer 当作 `libmpv`。
+- `OmmKsplayerPlugin.audioTracks()` 返回 `String(track.trackID)`，其值是 AVFoundation 原生 `trackID`，不保证等于后端音轨 index。
+- KSPlayer 的 `selectAudioTrack` 以原生 `trackID` 查找轨道；找不到时返回 `KsPlayerPluginError.missingTrack`，Pigeon 最终表现为截图中的 `PlatformException`。
+- 修复方向是仅 `libmpv` 继续直传 index，AVPlayer/KSPlayer 共用现有语言、标题、ordinal 原生轨道映射；单音轨不发起不必要的原生选择。
+
+# 播放器调试模式（2026-08-25）
+
+- 应用更新入口为 `AppUpdateSettingsPage`；设置主页版本卡片五击后进入该页面。
+- `PlayerSettings` 已集中持久化播放器显示偏好，但当前没有 debug 模式字段。
+- `PlaybackViewState` 当前只有内核、尺寸、时间、轨道等状态，没有码率、FPS、编码/容器字段。
+- KSPlayer Pigeon 事件当前只有 ready/playing/buffering/position/duration/size/completed/error/firstFrame/PiP，需要新增受控媒体元数据事件或字段。
+- 调试信息应通过统一 `PlaybackViewState` 供 Flutter overlay 使用；关闭开关时不构建 overlay，不影响播放命令和性能。
+
+# Oh-My-Media Logo 替换（2026-08-25）
+
+- 用户附件只作为视觉参考：黑色背景、深蓝紫色圆角方形底、粉紫到蓝色霓虹渐变、中央白色圆角媒体标记、环形光轨和星芒装饰。
+- 当前工作区已存在历史规划记录；本次任务追加独立章节，保留既有业务改动。
+- `.codegraph/` 存在，已优先使用 CodeGraph 进行源码入口初查；资源文件和构建配置仍需用文件清单与文本检查确认。
+- 现有入口资源：Android 使用 `android/app/src/main/res/mipmap-*/ic_launcher.png`；iOS 使用 `ios/Runner/Assets.xcassets/AppIcon.appiconset`；iOS 启动页另有 `LaunchLogo.imageset`；Web 使用 `web/favicon.png` 与 `web/icons/*`；macOS 使用 `macos/Runner/Assets.xcassets/AppIcon.appiconset`；Windows 使用 `windows/runner/resources/app_icon.ico`。
+- 已生成新主图：`C:\Users\KleinerSource\.codex\generated_images\01a0383e-1b4a-73f3-8598-a75fd826f235\exec-85862656-e14a-41ca-8873-cd320338fa88.png`。预览检查通过：`oh`、`my`、`media` 拼写清晰，白色播放三角、粉紫蓝渐变、环形光轨与星芒均符合参考风格。
+- Android 没有 adaptive icon XML，Manifest、Android 12 splash 和 launch background 均直接引用 `@mipmap/ic_launcher`；只替换现有 `ic_launcher.png` 各密度文件即可。
+- Web 图标尺寸为 16/192/512；Windows `app_icon.ico` 当前含 256px 图像，需输出多尺寸 ICO 以保持桌面/任务栏清晰度。
+- 首次批量导出因手工记录生成会话目录 ID 时出错，在源文件存在性检查处停止，未修改任何 Logo 目标文件；后续以工具返回的完整路径为准。
+- 资源验证结果：Android 48/72/96/144/192；iOS AppIcon 全部 manifest 尺寸；iOS LaunchLogo 3 份；Web 16/192/512；macOS 16/32/64/128/256/512/1024；Windows ICO 读取正常。
+- 全量验证：`flutter analyze --no-pub` 无问题，`flutter test --no-pub` 399 项全部通过，`git diff --check` 通过。
+- 最终 manifest/文件完整性检查验证了 44 个图像文件；Android/iOS 的 tracked 资源在 Git 差异中，Web/macOS/Windows 资源因仓库规则被忽略。
+
+# Android Actions 编译失败（2026-08-25）
+
+- 最新 Android 运行：`32831761951`，提交 `f45ea8cf122c6b155da8f161d270129738b44a0a`，失败于 `build android apk`。
+- 同一提交的 iOS 运行 `32831761928` 已成功；Android 的 `build_runner`、`analyze` 和 `test` 均已通过，失败仅发生在 Kotlin 编译。
+- 失败任务：`:app:compileReleaseKotlin`。
+- 具体错误：`android/app/src/main/kotlin/com/ohmymedia/MainActivity.kt:80:36` 和 `:142:9` 的 `result(...)` 被解析为未定义引用。
+- CodeGraph 当前源码确认：`result` 是 `MethodChannel.Result` 参数，`getBrightness` 和 `setWindowBrightness` 应调用 `result.success(...)`，而不是把对象当函数调用。
+- Dart 通道契约要求 `getBrightness` 返回 `double?`，`setBrightness` 返回空结果。
+- 本地 `flutter build apk --release --target-platform android-arm64 --no-pub --dart-define=BUILD_CHANNEL=dev` 无法启动，Flutter 报 `No Android SDK found`；不是本次 Kotlin 修复引起的构建错误。
+
+# KSPlayer 服务器解码切回设备解码故障（2026-08-25）
+
+- 普通影片入口由 `home_page.dart` 或 `movie_detail_page.dart` 调用 `PlayerPage.open`，不传 `directUrl`；`directUrl` 仅用于预告片，因此 `_onQualityChanged` 的早退不是普通影片质量切换根因。
+- 质量切换流程是：`PlayerControls._qualityButton` → `PlayerPage._onQualityChanged` → `_load` → `_loadInternal`；`original` 由 `playbackRouteForQuality` 解析为 direct，固定质量解析为 HLS。
+- `_loadInternal` 在新加载开始时先 `_stopTranscodeSession()`、`_stopPlayer()`，但旧 `_bindProgress` 的 `_errorSub` 在 `_bindProgress()` 重新执行前仍监听同一个 `PlayerSessionController.errorStream`。
+- KSPlayer 原生 `stop()` 调用 `layer.stop()`，KSPlayer 可能在切源时迟到发送 `.error`/finish error；这条旧媒体错误会进入 `_showPlaybackError`，而 `_load` 已重置 `_playbackErrorReported`，导致当前质量切换加载被判定为失败。
+- `KsPlayerPlaybackEngine` 目前将所有错误直接更新为 `PlaybackLifecycle.failed`，没有区分 stop/open 代次；`PlayerPage` 也没有在切源阶段屏蔽旧错误订阅。
+- 低风险修复方向：在播放器页切换质量/媒体时先取消当前进度与错误订阅，完成新媒体打开并绑定新订阅；同时在 KSPlayer Dart engine/native bridge 对 stop 产生的迟到错误做代次隔离，避免旧错误污染下一次 open。
+- 已实施：`PlayerPage._loadInternal` 在停止旧媒体前调用 `_unbindProgress()`；KSPlayer engine 在 `stop()` 到下一次 `open()` 前抑制错误，并在 `opening` 状态忽略由 `open()` Future 负责返回的打开错误。
+- 已补充质量路由回归断言：KSPlayer 的 `original` 为设备直传，固定档位为服务端 HLS/托管转码；`libmpv` 路径未改动。
+- 定向播放器测试 16 项、完整 Flutter 测试 401 项和静态分析均通过；未修改 KSPlayer Swift 依赖或 Android 播放路径。
+
+# 应用更新开发版检测开关（2026-08-25）
+
+- 当前更新链路为设置页/启动门控 → `AppUpdateCoordinator` → `GitHubUpdateService` → GitHub Release → 下载/安装。
+- 标准滚动标签是 iOS `latest`、Android `latest-android`；当前客户端不会查询开发标签。
+- `dev` push 已生成 `latest-ios-dev` / `latest-android-dev`，资产名为 `omm_dev_<version>.ipa/.apk`。
+- 当前回退 Release 列表没有渠道过滤；标准标签缺失时可能误选开发资产，必须在候选层严格过滤。
+- 用户确认开启后同时考虑标准版和开发版并取最高版本，且开关同时影响手动与启动检查。
+- 开关位置确认为应用更新页“当前版本”卡片，默认关闭。
+- 现有更新相关 11 个测试在修改前全部通过。
+- `selectLatestCandidate` 当前仅按平台扩展名筛选，适合作为统一渠道过滤入口；这样滚动标签和列表回退可共享相同规则。
+- `AppUpdateCoordinator.check` 是服务调用的唯一中间层；设置页和启动检查各只有一个检查调用点，布尔参数可最小范围贯穿。
+- 应用更新页已有 `SettingsSwitch` 组件依赖，可直接在“当前版本”分组增加第二个 `SettingsTile`，无需引入新组件或本地化重构。
+- 最终实现关闭时同时排除 `*-dev` Release 与 `omm_dev_` 资产；开启时查询标准/开发滚动标签并按版本、发布时间选择候选。
+- 滚动标签无候选时仍保留 Release 列表回退，但 draft、开发渠道和平台扩展名过滤均在最终候选前生效。
+- 最终验证为静态分析通过、418 项完整测试通过、格式和空白检查通过。
+
+# dev 构建版本号持久化（2026-08-25）
+
+- Android/iOS workflow 都会调用 `bump_app_version.dart` 修改当前 checkout 的 `pubspec.yaml`，但只有 iOS workflow 负责提交持久化。
+- iOS 当前写回条件只允许 `refs/heads/master`，并固定执行 `git push origin HEAD:master`，因此 dev 每次 push 都从分支中未更新的版本重新计算。
+- 最小修复是把允许分支扩展为 master/dev，并使用 `GITHUB_REF_NAME` 将版本提交推回触发构建的当前分支；Android workflow 无需修改。

@@ -80,9 +80,9 @@ jobs:
             flutter create . \
               --no-pub \
               --platforms=android \
-              --org com.mdcenter \
-              --project-name md_center \
-              --description "md_center 移动端"
+              --org com.ohmymedia \
+              --project-name omm \
+              --description "omm 移动端"
           else
             echo "Android Gradle project exists, skipping bootstrap"
           fi
@@ -164,7 +164,13 @@ jobs:
 
       - name: build android apk
         timeout-minutes: 25
-        run: flutter build apk --release --target-platform android-arm64 --no-pub
+        run: |
+          set -euo pipefail
+          build_args=(flutter build apk --release --target-platform android-arm64 --no-pub)
+          if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
+            build_args+=(--dart-define=BUILD_CHANNEL=dev)
+          fi
+          "${build_args[@]}"
 
       - name: 验证 Android APK 仅包含 arm64
         timeout-minutes: 2
@@ -183,7 +189,11 @@ jobs:
         run: |
           set -euo pipefail
           version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
-          artifact_path="build/app/outputs/flutter-apk/md_center_${version}.apk"
+          artifact_prefix="omm"
+          if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
+            artifact_prefix="omm_dev"
+          fi
+          artifact_path="build/app/outputs/flutter-apk/${artifact_prefix}_${version}.apk"
           cp build/app/outputs/flutter-apk/app-release.apk "${artifact_path}"
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
           echo "path=${artifact_path}" >> "${GITHUB_OUTPUT}"
@@ -191,27 +201,38 @@ jobs:
       - name: 上传 Android Actions 产物
         uses: actions/upload-artifact@v6
         with:
-          name: md_center_${{ steps.android_artifact.outputs.version }}.apk
+          name: ${{ startsWith(github.ref, 'refs/heads/dev') && 'omm_dev_' || 'omm_' }}${{ steps.android_artifact.outputs.version }}.apk
           path: ${{ steps.android_artifact.outputs.path }}
           if-no-files-found: error
           retention-days: 14
 
-      # master push 单独发布 Android 最新预发布，不与 iOS latest Release 互相覆盖。
-      - name: 发布到 GitHub Release (latest-android)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      # master 与 dev 使用独立的滚动 Release，避免开发包覆盖正式 latest-android。
+      - name: 发布到 GitHub Release (latest-android / latest-android-dev)
+        if: >-
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
         timeout-minutes: 5
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           version="$(sed -n 's/^version: //p' pubspec.yaml | tr -d '\r')"
+          if [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
+            release_tag="latest-android-dev"
+            release_title="Latest unsigned Android dev build"
+            notes_title="未签名 Android Dev 构建产物（自动滚动更新）"
+          else
+            release_tag="latest-android"
+            release_title="Latest unsigned Android build"
+            notes_title="未签名 Android 构建产物（自动滚动更新）"
+          fi
           notes_file="$(mktemp)"
           trap 'rm -f "${notes_file}"' EXIT
           bash tool/generate_release_notes.sh \
-            latest-android "${version}" "${notes_file}"
-          gh release delete latest-android --yes --cleanup-tag || true
-          gh release create latest-android "${{ steps.android_artifact.outputs.path }}" \
+            "${release_tag}" "${version}" "${notes_file}" "${notes_title}"
+          gh release delete "${release_tag}" --yes --cleanup-tag || true
+          gh release create "${release_tag}" "${{ steps.android_artifact.outputs.path }}" \
             --prerelease \
             --target "$GITHUB_SHA" \
-            --title "Latest unsigned Android build" \
+            --title "${release_title}" \
             --notes-file "${notes_file}"

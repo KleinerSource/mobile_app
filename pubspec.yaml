@@ -1,7 +1,7 @@
-name: md_center
-description: md_center 移动端 (iOS + Android)
+name: omm
+description: omm 移动端 (iOS + Android)
 publish_to: 'none'
-version: 0.38.22+409
+version: 0.39.0+409
 environment:
   sdk: '>=3.8.0 <4.0.0'
 
@@ -27,15 +27,15 @@ dependencies:
   sensors_plus: ^7.1.0
   package_info_plus: ^9.0.1
   url_launcher: ^6.3.2
+  share_plus: ^12.0.2
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
   media_kit_libs_android_video:
     path: packages/media_kit_libs_android_video
   media_kit_libs_ios_video:
     path: packages/media_kit_libs_ios_video
-  md_center_avplayer:
-    path: packages/md_center_avplayer
-  screen_brightness: ^2.1.11
+  omm_ksplayer:
+    path: packages/omm_ksplayer
   flutter_volume_controller: ^2.0.1
   wakelock_plus: ^1.4.0
   infinite_scroll_pagination: ^4.1.0
@@ -56,3 +56,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
+  assets:
+    - assets/legal/THIRD_PARTY_NOTICES.md
+    - assets/branding/oh_my_media_logo.png

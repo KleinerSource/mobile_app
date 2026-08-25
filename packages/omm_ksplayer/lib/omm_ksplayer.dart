@@ -1,39 +1,38 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'src/av_player_api.g.dart';
+import 'src/ks_player_api.g.dart';
 
-export 'src/av_player_api.g.dart'
-    show AvPlayerAudioTrack, AvPlayerEvent, AvPlayerEventType;
+export 'src/ks_player_api.g.dart'
+    show KsPlayerAudioTrack, KsPlayerEvent, KsPlayerEventType;
 
-class MdCenterAvPlayer {
-  MdCenterAvPlayer._(this.playerId, this._events);
+class OmmKsPlayer {
+  OmmKsPlayer._(this.playerId, this._events);
 
-  static const viewType = 'md_center_avplayer/view';
-  static final MdCenterAvPlayerHostApi _api = MdCenterAvPlayerHostApi();
-  static final Map<int, StreamController<AvPlayerEvent>> _controllers = {};
+  static const viewType = 'omm_ksplayer/view';
+  static final OmmKsPlayerHostApi _api = OmmKsPlayerHostApi();
+  static final Map<int, StreamController<KsPlayerEvent>> _controllers = {};
   static int _nextPlayerId = 1;
   static bool _callbacksRegistered = false;
 
   final int playerId;
-  final StreamController<AvPlayerEvent> _events;
+  final StreamController<KsPlayerEvent> _events;
   bool _disposed = false;
 
-  Stream<AvPlayerEvent> get events => _events.stream;
+  Stream<KsPlayerEvent> get events => _events.stream;
 
-  static Future<MdCenterAvPlayer> create() async {
+  static Future<OmmKsPlayer> create() async {
     if (!_callbacksRegistered) {
-      MdCenterAvPlayerFlutterApi.setUp(_AvPlayerCallbacks());
+      OmmKsPlayerFlutterApi.setUp(_KsPlayerCallbacks());
       _callbacksRegistered = true;
     }
     final id = _nextPlayerId++;
-    final controller = StreamController<AvPlayerEvent>.broadcast();
+    final controller = StreamController<KsPlayerEvent>.broadcast();
     _controllers[id] = controller;
     try {
       await _api.create(id);
-      return MdCenterAvPlayer._(id, controller);
+      return OmmKsPlayer._(id, controller);
     } catch (_) {
       _controllers.remove(id);
       await controller.close();
@@ -57,17 +56,35 @@ class MdCenterAvPlayer {
     );
   }
 
-  Future<void> open(String url, {Duration? startAt, bool autoplay = true}) =>
-      _api.open(playerId, url, startAt?.inMilliseconds.toDouble(), autoplay);
+  Future<void> open(
+    String url, {
+    Duration? startAt,
+    bool autoplay = true,
+    Map<String, String>? headers,
+    String? formatHint,
+    String? videoCodec,
+  }) => _api.open(
+    playerId,
+    url,
+    startAt?.inMilliseconds.toDouble(),
+    autoplay,
+    headers,
+    formatHint,
+    videoCodec,
+  );
 
   Future<void> play() => _api.play(playerId);
   Future<void> pause() => _api.pause(playerId);
+  Future<void> stop() => _api.stop(playerId);
   Future<void> seek(Duration position) =>
       _api.seek(playerId, position.inMilliseconds.toDouble());
   Future<void> setRate(double rate) => _api.setRate(playerId, rate);
-  Future<List<AvPlayerAudioTrack>> audioTracks() => _api.audioTracks(playerId);
+  Future<List<KsPlayerAudioTrack>> audioTracks() => _api.audioTracks(playerId);
   Future<void> selectAudioTrack(String id) =>
       _api.selectAudioTrack(playerId, id);
+  Future<void> selectSubtitleTrack(String id, int? fallbackIndex) =>
+      _api.selectSubtitleTrack(playerId, id, fallbackIndex);
+  Future<void> clearSubtitleTrack() => _api.clearSubtitleTrack(playerId);
   Future<Uint8List?> captureFrame(Duration position) =>
       _api.captureFrame(playerId, position.inMilliseconds.toDouble());
   Future<void> cancelFramePreview() => _api.cancelFramePreview(playerId);
@@ -86,9 +103,9 @@ class MdCenterAvPlayer {
   }
 }
 
-class _AvPlayerCallbacks implements MdCenterAvPlayerFlutterApi {
+class _KsPlayerCallbacks implements OmmKsPlayerFlutterApi {
   @override
-  void onEvent(AvPlayerEvent event) {
-    MdCenterAvPlayer._controllers[event.playerId]?.add(event);
+  void onEvent(KsPlayerEvent event) {
+    OmmKsPlayer._controllers[event.playerId]?.add(event);
   }
 }

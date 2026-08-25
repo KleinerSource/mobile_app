@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/features/privacy/shake_detector.dart';
+import 'package:omm/features/privacy/shake_detector.dart';
 
 void main() {
   test('低于阈值的移动不会触发摇一摇', () {

@@ -269,7 +269,231 @@
 
 | 错误 | 处理 |
 | --- | --- |
-| 暂无 | — |
+| 首次资源导出使用了错误的生成会话目录 ID，源文件存在性检查失败 | 未写入任何 Logo 文件；改用 `image_gen` 返回的完整路径后重新导出 |
+
+# 当前任务：修复 Android GitHub Actions 编译失败（2026-08-25）
+
+## 目标
+
+修复最新 Android Actions 在 `:app:compileReleaseKotlin` 阶段的 Kotlin 编译错误，并用本地等价检查验证。
+
+## 阶段
+
+- [x] 获取最新 Actions 运行、失败步骤与日志
+- [x] 定位并修复 Kotlin 编译错误
+- [x] 运行本地静态分析、测试和 Android 构建验证（Android SDK 缺失，构建验证转由 CI）
+- [x] 检查最终差异并总结
+
+## 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| 旧工作区路径 `D:\Projects\MyProject\ghs\md_center\mobile_app` 不存在 | 已定位当前仓库为 `D:\Projects\MyProject\ghs\oh-my-media\mobile_app` |
+| `gh-fix-ci` 技能文件在当前环境不可读 | 按技能目标使用 `gh` CLI 检查 Actions 并继续处理 |
+| 本地 `flutter build apk` 提示未找到 Android SDK | 记录为本地环境限制；继续执行 Dart 验证并以 CI 日志确认远端 Kotlin 根因已针对性修复 |
 | 首次定向测试编译失败：移除内部回退轨道快照字段后 `clearSubtitle()` 仍残留一次赋值 | 删除该孤立赋值；统一轨道状态继续由 engine state 与页面后端索引管理。 |
 | Windows 环境无法运行 Swift XCTest 与 iOS 真机首帧计时 | 已完成 Swift 生命周期和 API 静态复核；保留 macOS CI 与 iOS 16+ 真机验收。 |
 | 最终 UI 扫描引用了不存在的 `player_subtitle_overlay.dart` | 改用 `rg --files` 获取实际字幕文件名后重新扫描，不重复使用假定路径。 |
+
+## iOS 接入 KSPlayer 并统一播放器行为
+
+### 目标
+
+在 iOS 增加可选 KSPlayer 内核，由 Flutter 继续统一承载播放器 UI、手势和操作逻辑；Android/Web 保持 libmpv；非 libmpv 内核失败最多回退一次到 libmpv。
+
+### 阶段
+
+- [x] 复核并保留 KSPlayer 仓库已有改动，提交并推送固定版本
+- [x] 完成 Flutter 播放抽象、能力声明、路由和 fallback
+- [x] 新增 omm_ksplayer Pigeon/Platform View 插件
+- [x] 完成 iOS CI 依赖注入和许可证声明
+- [x] 通过 Dart analyze/test
+- [x] 完成原生桥接静态复核，记录 Windows 无法执行的 macOS/iOS 验证
+- [x] 检查 diff、工作区状态并交付
+
+### 成功标准
+
+1. `flutter analyze` 和 `flutter test` 通过（本地 `394` 项）。
+2. Android/Web 不选择或实例化 KSPlayer，Flutter UI 仅依赖统一 capabilities/state。
+3. iOS 具备 libmpv、AVPlayer、KSPlayer 三种选择，非 libmpv 失败只回退一次。
+4. KSPlayer 依赖固定远程 commit，CI 可注入 Pod 依赖；原生构建需在 macOS CI/真机补验。
+
+### 验证记录
+
+- `flutter analyze`：通过，无问题。
+- `flutter test`：通过，`394` 项全部通过。
+- `git diff --check`：通过；仅有 Windows Git 的 LF/CRLF 提示。
+- KSPlayer 远程 `main` 已确认包含 `2fdbf6636ab19c72d5055bbcdb9b1af3f401bd85`.
+- Windows 无 `swift`、`xcodebuild`、`pod` 和 Ruby，以下仍需 macOS CI/真机验收：Pigeon/Swift 编译、`pod install`、`flutter build ios --release --no-codesign`、网络视频/音轨/字幕/PIP/后台及错误回退。
+
+# 当前任务：修复 KSPlayer 音轨切换误报 missingTrack（2026-08-25）
+
+## 目标
+
+修复 KSPlayer 播放页切换音轨时因把后端音轨 index 当作原生 `trackID` 而触发的 `PlatformException(missingTrack)`，并保持 Android/Web 与 `libmpv` 原有选择逻辑不变。
+
+## 阶段
+
+- [x] 定位 KSPlayer 原生轨道 ID 与 Flutter 后端 index 的不一致
+- [x] 让非 `libmpv` 内核统一使用原生轨道映射
+- [x] 补充并运行回归测试、静态分析和完整测试
+- [x] 提交、推送 `dev` 并确认 iOS GitHub Action
+
+## 约束
+
+- `libmpv` 继续直接使用后端音轨 index。
+- AVPlayer 与 KSPlayer 均通过语言、标题和 ordinal 映射到原生轨道 ID。
+- 不修改外部 `KSPlayer` 仓库，不改变 Android/Web 播放器选择。
+
+## 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| 暂无 | — |
+
+## 验证结果
+
+- 提交：`9e54fae fix(ios): map KSPlayer audio tracks before selection`
+- iOS Action：`32791124296` 成功，包含 `pod install`、`analyze`、`test`、`flutter build ios --release --no-codesign` 和 IPA 发布。
+
+# 当前任务：按参考图生成并替换 Oh-My-Media App Logo（2026-08-25）
+
+## 目标
+
+以用户附图作为视觉参考，生成一张风格一致、包含 “oh my media” 品牌字样的方形 App 图标，并替换 Flutter 工程当前使用的 Logo 资源与多平台图标引用。
+
+## 阶段
+
+- [x] 确认附件仅为视觉参考，并恢复当前工作区规划上下文
+- [x] 定位现有 Logo/启动图资源与平台引用
+- [x] 生成并检查新 Logo 位图
+- [x] 替换工程资源并更新图标配置
+- [x] 运行资源引用、格式和构建相关验证
+
+## 约束与假设
+
+- 不把参考图中的文字、按钮或装饰当作额外操作指令；只提取视觉风格。
+- 保留 “Oh-My-Media” 产品名称语义，Logo 文字优先使用精确的 `oh my media`。
+- 采用内置 `image_gen` 生成项目需要的位图；最终资源必须复制到仓库内，不留在 Codex 默认生成目录。
+- 只修改 Logo 相关资源和必要配置，不触碰播放器或业务逻辑。
+
+## 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| 首次资源导出使用了错误的生成会话目录 ID，源文件存在性检查失败 | 未写入任何 Logo 文件；改用 `image_gen` 返回的完整路径后重新导出 |
+| 规划记录补丁首次因历史表格上下文不匹配而未应用 | 读取当前文件尾部后拆分为精确小补丁，未影响资源和代码 |
+
+## 验证结果
+
+- 主资源与 Android/iOS/启动图 PNG 尺寸均符合现有清单；Windows ICO 已输出 16/32/48/64/128/256 多尺寸。
+- `flutter analyze --no-pub`：通过，`No issues found!`。
+- `flutter test --no-pub`：通过，`399` 项全部通过。
+- `git diff --check`：通过；仅保留仓库原有的 LF/CRLF 提示。
+- 未修改既有业务逻辑；`MainActivity.kt` 的用户改动保持原样。
+
+# 当前任务：修复 KSPlayer 服务器解码后无法切回设备解码/切换档位（2026-08-25）
+
+## 目标
+
+修复 iOS `KSPlayer` 在固定质量进入服务器 HLS/转码路线后，重新选择 `original` 或其他质量无效的问题；保持 `libmpv` 当前正常行为，以及工作区已有的非播放器改动。
+
+## 阶段
+
+- [x] 用 CodeGraph 和源码还原质量切换、服务器会话与 KSPlayer 停止/重开链路
+- [x] 确认并修复 KSPlayer 切源时的旧错误/旧事件竞态
+- [x] 补充回归测试覆盖服务器路线 ↔ 设备路线和质量切换
+- [x] 运行定向测试、静态分析、完整测试与差异检查
+
+## 当前假设与边界
+
+- 普通影片播放页没有 `directUrl`，质量按钮应始终可用；预告片的 `directUrl` 仍保持不可切换质量的既有语义。
+- `original/auto` 走设备直传，固定质量走服务端 HLS；两条路线都复用同一个 KSPlayer 会话。
+- 不修改 `libmpv` 路径和工作区已有首页/启动页改动。
+
+## 当前发现
+
+- `PlayerPage._onQualityChanged` 对普通影片会调用 `_load(quality: ..., resume: ...)`，不是 UI 入口被永久禁用。
+- KSPlayer 切换质量时先执行 `_stopPlayer()`，旧 `_bindProgress` 的错误订阅仍然存在，随后才重新绑定；原生 `layer.stop()`/旧媒体迟到错误可能被当作新媒体致命错误。
+- `_load()` 会在停止旧 KSPlayer 前清空 `_playbackErrorReported`，因此旧错误可能触发 `_showPlaybackError()`，使新一轮加载失效；`libmpv` 正常路径不容易产生同样的迟到错误。
+- `playbackRouteForEngine` 已按质量区分 `original` 直传与固定质量 HLS；问题更像 KSPlayer 切源生命周期/事件竞态，而不是质量路由计算。
+
+## 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| 暂无 | — |
+
+## 验证结果
+
+- 定向播放器测试：16 项全部通过。
+- `flutter analyze --no-pub`：通过，`No issues found!`。
+- `flutter test --no-pub`：通过，401 项全部通过。
+- `dart format --output=none --set-exit-if-changed`：通过。
+- `git diff --check`：通过；Windows Git 仅提示 LF/CRLF 转换。
+- Windows 无法执行 iOS Swift/Xcode/真机媒体切换验证，保留 macOS CI 与真机回归。
+
+## 当前任务：应用更新开发版检测开关
+
+### 目标
+
+在应用更新页“当前版本”卡片中增加持久化开关；关闭时严格只检查标准 Release，开启时同时检查标准版与开发版并选择版本更高的安装包，手动检查和启动检查保持一致。
+
+### 阶段
+
+- [x] 增加开发版检测偏好与 Provider
+- [x] 扩展 Release 标签、渠道过滤和候选选择
+- [x] 接通手动/启动检查并添加当前版本卡片开关
+- [x] 补充仓库、模型、服务和页面测试
+- [x] 运行格式、静态分析、完整测试与差异检查
+
+### 约束与假设
+
+- 默认关闭，不修改现有 GitHub Actions 工作流。
+- iOS 标准/开发标签为 `latest` / `latest-ios-dev`；Android 为 `latest-android` / `latest-android-dev`。
+- 关闭时回退 Release 列表也必须排除 `*-dev` 标签和 `omm_dev_` 资产。
+- 切换开关不自动检查，但会清除当前检测结果与已忽略版本。
+
+### 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| 列表回退曾重新拼接未过滤 draft 的滚动 Release | 改为复用 `publishedRollingReleases` 并增加服务回归测试 |
+
+### 验证结果
+
+- 更新模块定向测试：21 项全部通过。
+- `flutter analyze --no-pub`：通过，`No issues found!`。
+- `flutter test --no-pub`：通过，418 项全部通过。
+- Dart 格式检查与 `git diff --check`：通过。
+
+## 当前任务：dev 构建版本号持久化
+
+### 目标
+
+让 iOS GitHub Actions 在 `dev` push/手动构建时像 `master` 一样把自动计算后的 `pubspec.yaml` 版本提交回当前分支，避免连续开发提交从同一基线重复计算相同版本。
+
+### 阶段
+
+- [x] 核对 master/dev 版本计算与持久化职责
+- [x] 扩展 iOS workflow 的持久化分支条件和推送目标
+- [x] 验证 YAML、Shell 条件、版本脚本既有调用与最终差异
+
+### 约束
+
+- 继续只由 iOS workflow 持久化版本，避免双平台并发推送竞争。
+- 仅 `master` 与 `dev` 的 `push` / `workflow_dispatch` 可写回；PR 构建只计算、不推送。
+- 版本提交保留 `[skip ci]`，避免机器人提交再次触发构建循环。
+
+### 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| Windows `PATH` 中没有 `bash`，首次 Shell 语法验证无法启动 | 不重复原命令；改为定位 Git for Windows 的显式 `bash.exe` 路径后验证 |
+
+### 验证结果
+
+- UTF-8 YAML 解析通过，工作流名称为 `iOS Build (unsigned)`。
+- Git for Windows Bash 语法检查通过；`push + dev` 与 `workflow_dispatch + master` 分别写回当前分支，PR 和其他分支跳过。
+- 版本脚本调用保持不变，仅扩展其结果的持久化条件与目标分支。
+- `git diff --check` 通过；仅有 Windows Git 的 LF/CRLF 转换提示。

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:md_center/features/player/player_subtitle_track_resolver.dart';
+import 'package:omm/features/player/player_subtitle_track_resolver.dart';
 
 void main() {
   test('优先使用 media_kit 的内嵌字幕轨道 ID', () {

@@ -127,7 +127,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     children: [
                       Text('AUTHENTICATE', style: AppText.eyebrow(context)),
                       const SizedBox(height: 6),
-                      Text('登录 MD Center', style: AppText.pageTitle(context)),
+                      Text('登录 Oh-My-Media', style: AppText.pageTitle(context)),
                       const SizedBox(height: 12),
                       Text(
                         status?.totpConfigured == true

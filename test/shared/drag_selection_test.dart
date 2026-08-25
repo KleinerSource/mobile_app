@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/shared/drag_selection.dart';
+import 'package:omm/shared/drag_selection.dart';
 
 void main() {
   testWidgets('长按未选条目后滑动会连续添加且不会漏选', (tester) async {

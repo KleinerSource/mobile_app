@@ -4,8 +4,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/core/api/api_exception.dart';
-import 'package:md_center/features/player/subtitle_content_fetcher.dart';
+import 'package:omm/core/api/api_exception.dart';
+import 'package:omm/features/player/subtitle_content_fetcher.dart';
 
 class _FakeAdapter implements HttpClientAdapter {
   _FakeAdapter(this.responder);

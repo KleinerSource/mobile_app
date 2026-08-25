@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/services/auth_api.dart';
+import 'package:omm/core/api/services/auth_api.dart';
 
 void main() {
   test('鉴权 API 正确解包 Response.data 并覆盖完整会话路径', () async {

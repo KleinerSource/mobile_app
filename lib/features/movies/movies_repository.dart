@@ -11,6 +11,7 @@ import '../../core/models/paged_result.dart';
 import '../../core/models/resource_scan.dart';
 import '../../core/models/subtitle_search.dart';
 import '../../core/models/watch_record.dart';
+import 'movie_data_changes.dart';
 import 'movie_filter.dart';
 
 class MoviesRepository {
@@ -81,17 +82,20 @@ class MoviesRepository {
 
   Future<bool> toggleFavorite(int id) async {
     final raw = await _favorites.toggle(id);
-    return unwrapStd<bool>(raw, (d) {
+    final value = unwrapStd<bool>(raw, (d) {
       if (d is Map) {
         final v = d['is_favorited'];
         return v == true;
       }
       return false;
     });
+    MovieDataChanges.bumpMetadata(movieId: id);
+    return value;
   }
 
   Future<void> markWatched(int id, bool completed) async {
     await _api.upsertWatchRecord(id, {'ended': completed});
+    MovieDataChanges.bumpProgress(movieId: id);
   }
 
   Future<WatchRecord?> watchRecord(int id) async {
@@ -110,6 +114,8 @@ class MoviesRepository {
   Future<void> acknowledgeResources(int id) async {
     final raw = await _api.acknowledgeResources(id);
     unwrapStd<void>(raw, (_) {});
+    // 注意:这里不做变更计数。详情页的"进入即确认"安全网几乎每次都会调用,
+    // 若计数会导致纯浏览也触发刷新;由确知存在新资源标记的调用方自行计数。
   }
 
   Future<ResourceScanStartResult> startResourceScan({
@@ -161,6 +167,8 @@ class MoviesRepository {
     };
     if (completed != null) body['ended'] = completed;
     await _api.upsertWatchRecord(id, body);
+    // 播放器实际上报过进度,返回列表/首页时才需要刷新进度展示。
+    MovieDataChanges.bumpProgress(movieId: id);
   }
 
   // ===== 详情页操作 =====
@@ -168,10 +176,12 @@ class MoviesRepository {
   /// 编辑影片字段 · 字段可包含 title/plot/year/rating/num/...
   Future<MovieDetail> updateMovie(int id, Map<String, dynamic> body) async {
     final raw = await _api.updateMovie(id, body);
-    return unwrapStd<MovieDetail>(
+    final detail = unwrapStd<MovieDetail>(
       raw,
       (d) => MovieDetail.fromJson(Map<String, dynamic>.from(d as Map)),
     );
+    MovieDataChanges.bumpMetadata(movieId: id);
+    return detail;
   }
 
   /// 删除影片 (含磁盘文件)
@@ -181,6 +191,7 @@ class MoviesRepository {
       'force': force,
     });
     unwrapStd<void>(raw, (_) {});
+    MovieDataChanges.bumpMetadata(movieId: id);
   }
 
   /// NFO 同步 (元数据 → nfo 文件)
@@ -193,6 +204,9 @@ class MoviesRepository {
   Future<void> refreshFromNfo(int id) async {
     final raw = await _api.refreshFromNfo(id);
     unwrapStd<void>(raw, (_) {});
+    // NFO 重载可能同时改写元数据与封面图片。
+    MovieDataChanges.bumpMetadata(movieId: id);
+    MovieDataChanges.bumpImages(movieId: id);
   }
 
   // ===== 字幕搜索 =====
@@ -546,6 +560,8 @@ class MoviesRepository {
     if (raw is Map && raw['success'] == false) {
       throw ApiException((raw['message'] as String?) ?? '裁剪失败');
     }
+    // 裁剪/水印在原 UUID 上替换了封面内容,需要刷新图片缓存。
+    MovieDataChanges.bumpImages(movieId: id);
   }
 
   /// 预览裁剪 · 返回 JPEG bytes

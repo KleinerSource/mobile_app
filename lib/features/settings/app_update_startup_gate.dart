@@ -23,6 +23,7 @@ Future<bool> checkConfiguredAppUpdate({
   bool showLatestMessage = false,
 }) async {
   final repositoryUrl = ref.read(updateRepositoryUrlProvider);
+  final includeDevelopment = ref.read(includeDevelopmentUpdatesProvider);
   final platform = _currentUpdatePlatform;
   if (repositoryUrl == null || platform == null) return false;
 
@@ -38,6 +39,7 @@ Future<bool> checkConfiguredAppUpdate({
           repositoryUrl: repositoryUrl,
           platform: platform,
           currentVersion: currentVersion,
+          includeDevelopment: includeDevelopment,
         );
     if (!context.mounted) return true;
 

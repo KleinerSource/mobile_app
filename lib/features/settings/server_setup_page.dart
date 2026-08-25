@@ -99,7 +99,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: '服务器',
-              title: editing ? '更换服务器' : '连接到 MD Center',
+              title: editing ? '更换服务器' : '连接到 Oh-My-Media',
               subtitle: editing
                   ? '修改服务器地址后重新测试连接。'
                   : '输入服务器地址，包含协议和端口。\n例：http://192.168.1.10:8001',

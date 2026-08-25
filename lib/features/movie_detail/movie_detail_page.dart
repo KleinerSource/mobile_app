@@ -21,6 +21,7 @@ import '../../shared/actor_avatar.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../favorites/favorites_providers.dart';
 import '../lists/add_to_list_sheet.dart';
+import '../movies/movie_data_changes.dart';
 import '../movies/movies_providers.dart';
 import '../player/player_page.dart';
 import '../player/playback_engine.dart';
@@ -749,6 +750,7 @@ class _ActionRow extends ConsumerWidget {
     final engineKinds = availablePlaybackEngineKinds();
 
     Future<void> openPlayer(PlaybackEngineKind? engineKind) async {
+      final changesBeforePlayback = MovieDataChanges.snapshot(movieId: movie.id);
       await PlayerPage.open(
         context,
         movieId: movie.id,
@@ -758,7 +760,11 @@ class _ActionRow extends ConsumerWidget {
         queue: playerQueue,
         queueIndex: playerQueueIndex < 0 ? 0 : playerQueueIndex,
       );
-      if (context.mounted) {
+      // 播放器确实上报过进度时才重新拉取观看记录,没看就退出则沿用缓存。
+      if (context.mounted &&
+          changesBeforePlayback.latest.progressChangedSince(
+            changesBeforePlayback,
+          )) {
         ref.invalidate(movieWatchRecordProvider(movie.id));
       }
     }
@@ -1920,13 +1926,22 @@ class _ActorRelatedMoviesSection extends StatelessWidget {
                         movie: _toMovieListItem(related),
                         posterUrlBuilder: urlBuilder,
                         onTap: () async {
+                          final changesBeforeVisit =
+                              MovieDataChanges.snapshot(movieId: related.id);
                           await Navigator.of(ctx).push(
                             MaterialPageRoute(
                               builder: (_) =>
                                   MovieDetailPage(movieId: related.id),
                             ),
                           );
-                          if (ctx.mounted) onMovieReturned();
+                          // 关联影片的元数据/封面变更会影响本区块展示;
+                          // 仅浏览未编辑时沿用缓存,不重新拉取详情。
+                          if (ctx.mounted &&
+                              changesBeforeVisit.latest.displayChangedSince(
+                                changesBeforeVisit,
+                              )) {
+                            onMovieReturned();
+                          }
                         },
                       ),
                     );

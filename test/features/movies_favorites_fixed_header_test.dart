@@ -2,12 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:md_center/core/api/api_client.dart';
-import 'package:md_center/core/api/providers.dart';
-import 'package:md_center/core/config/server_config_provider.dart';
-import 'package:md_center/features/favorites/favorites_page.dart';
-import 'package:md_center/features/movies/movies_page.dart';
-import 'package:md_center/l10n/generated/app_localizations.dart';
+import 'package:omm/core/api/api_client.dart';
+import 'package:omm/core/api/providers.dart';
+import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/features/favorites/favorites_page.dart';
+import 'package:omm/features/movies/movies_page.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 影片库筛选按钮行与收藏夹 header 固定在顶部,不随内容滚动。

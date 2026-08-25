@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/shared/swipe_actions.dart';
+import 'package:omm/shared/swipe_actions.dart';
 
 Widget _wrap(Widget child) => MaterialApp(
   home: Scaffold(body: ListView(children: [child])),

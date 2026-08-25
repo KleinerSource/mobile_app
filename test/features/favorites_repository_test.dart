@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/services/favorites_api.dart';
-import 'package:md_center/features/favorites/favorites_repository.dart';
-import 'package:md_center/features/movies/movie_filter.dart';
+import 'package:omm/core/api/services/favorites_api.dart';
+import 'package:omm/features/favorites/favorites_repository.dart';
+import 'package:omm/features/movies/movie_filter.dart';
 
 void main() {
   test('解析收藏影片的观看记录和跨分页统计', () async {

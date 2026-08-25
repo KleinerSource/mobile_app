@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/features/player/player_decode_status.dart';
+import 'package:omm/features/player/player_decode_status.dart';
 
 void main() {
   test('本地和服务端状态使用不同标签、图标和颜色', () {
@@ -40,6 +40,19 @@ void main() {
     expect(statuses, hasLength(1));
     expect(statuses.single, same(server));
     expect(statuses.single.location, PlayerDecodeLocation.server);
+  });
+
+  test('服务端软解转码时只显示服务端软解', () {
+    final server = PlayerDecodeStatus.server(engine: 'software');
+    final statuses = PlayerDecodeStatus.primary(
+      usingHls: true,
+      localHardware: true,
+      serverStatus: server,
+    );
+
+    expect(statuses, hasLength(1));
+    expect(statuses.single.location, PlayerDecodeLocation.server);
+    expect(statuses.single.shortLabel, '服务端软解');
   });
 
   test('直传时显示本地主状态', () {

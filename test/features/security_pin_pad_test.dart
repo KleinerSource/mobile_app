@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/features/security/security_pin_pad.dart';
+import 'package:omm/features/security/security_pin_pad.dart';
 
 void main() {
   testWidgets('解锁模式填满六位自动提交并清空输入', (tester) async {

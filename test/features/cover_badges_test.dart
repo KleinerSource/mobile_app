@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/features/i18n/poster_badge_visibility_provider.dart';
-import 'package:md_center/features/movie_detail/cover_badges.dart';
+import 'package:omm/features/i18n/poster_badge_visibility_provider.dart';
+import 'package:omm/features/movie_detail/cover_badges.dart';
 
 void main() {
   test('外挂字幕生成字幕 badge', () {

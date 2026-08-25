@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/models/library.dart';
-import 'package:md_center/features/libraries/libraries_providers.dart';
+import 'package:omm/core/models/library.dart';
+import 'package:omm/features/libraries/libraries_providers.dart';
 
 void main() {
   group('decodeCoverImageBase64', () {

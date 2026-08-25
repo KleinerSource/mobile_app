@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/platform/app_haptics.dart';
+import 'package:omm/core/platform/app_haptics.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

@@ -14,6 +14,7 @@ import '../../shared/collection_card_layout.dart';
 import '../libraries/libraries_providers.dart';
 import '../libraries/library_movies_page.dart';
 import '../movie_detail/movie_detail_page.dart';
+import '../movies/movie_data_changes.dart';
 import '../movies/movies_page.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
@@ -28,7 +29,7 @@ import 'server_switcher.dart';
 const _homeSectionGap = 24.0;
 const _homeSectionTitleGap = 14.0;
 
-/// md_center 首页 · 现代化半屏 hero 设计:
+/// omm 首页 · 现代化半屏 hero 设计:
 /// - 背景为当前轮播封面的大模糊毛玻璃氛围层
 /// - hero 轮播满铺占半屏,上滑先收窄再推出,显出下方卡片
 /// - 模块顺序 (对齐 frontend_new Dashboard.vue):
@@ -80,15 +81,23 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  void _refreshMovieSections() {
+  void _refreshMovieSections(MovieDataChanges before) {
     if (!mounted) return;
-    refreshImageCache(ref);
-    ref.invalidate(recentlyAddedProvider);
-    ref.invalidate(continueWatchingProvider);
-    ref.invalidate(recommendCarouselProvider);
+    final now = before.latest;
+    // 仅在影片数据真实变更(编辑元数据/替换封面/上报播放进度等)时刷新对应区块;
+    // 封面缓存只在图片内容被替换时才重新拉取。
+    if (now.metadata != before.metadata || now.images != before.images) {
+      if (now.images != before.images) refreshImageCache(ref);
+      ref.invalidate(recentlyAddedProvider);
+      ref.invalidate(recommendCarouselProvider);
+    }
+    if (now.progress != before.progress || now.metadata != before.metadata) {
+      ref.invalidate(continueWatchingProvider);
+    }
   }
 
   Future<void> _openRecentMovies() async {
+    final changesBeforeVisit = MovieDataChanges.snapshot();
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => const MoviesPage(
@@ -97,7 +106,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
       ),
     );
-    if (mounted) _refreshMovieSections();
+    if (mounted) _refreshMovieSections(changesBeforeVisit);
   }
 
   /// 轮播数据变化时同步封面艺术列表(与页位一一对应,含无封面占位)
@@ -406,7 +415,7 @@ class _ContinueWatchingSection extends StatelessWidget {
   });
   final List<MovieListItem> items;
   final String Function(String) urlBuilder;
-  final VoidCallback onMovieReturned;
+  final ValueChanged<MovieDataChanges> onMovieReturned;
 
   @override
   Widget build(BuildContext context) {
@@ -442,6 +451,7 @@ class _ContinueWatchingSection extends StatelessWidget {
               itemBuilder: (_, index) => SizedBox(
                 width: cardWidth,
                 child: _ContinueWatchingCard(
+                  key: ValueKey(items[index].id),
                   movie: items[index],
                   urlBuilder: urlBuilder,
                   onMovieReturned: onMovieReturned,
@@ -457,6 +467,7 @@ class _ContinueWatchingSection extends StatelessWidget {
 
 class _ContinueWatchingCard extends StatelessWidget {
   const _ContinueWatchingCard({
+    super.key,
     required this.movie,
     required this.urlBuilder,
     required this.onMovieReturned,
@@ -464,7 +475,7 @@ class _ContinueWatchingCard extends StatelessWidget {
 
   final MovieListItem movie;
   final String Function(String) urlBuilder;
-  final VoidCallback onMovieReturned;
+  final ValueChanged<MovieDataChanges> onMovieReturned;
 
   @override
   Widget build(BuildContext context) {
@@ -478,10 +489,11 @@ class _ContinueWatchingCard extends StatelessWidget {
       movieId: movie.id,
       borderRadius: 22,
       onTap: () async {
+        final changesBeforeVisit = MovieDataChanges.snapshot(movieId: movie.id);
         await Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
         );
-        if (context.mounted) onMovieReturned();
+        if (context.mounted) onMovieReturned(changesBeforeVisit);
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -540,11 +552,17 @@ class _ContinueWatchingCard extends StatelessWidget {
                                 label: AppL10n.of(context).homeResume,
                                 child: GestureDetector(
                                   behavior: HitTestBehavior.opaque,
-                                  onTap: () => PlayerPage.open(
-                                    context,
-                                    movieId: movie.id,
-                                    title: movie.title,
-                                  ),
+                                  onTap: () async {
+                                    final changesBeforeVisit =
+                                        MovieDataChanges.snapshot(movieId: movie.id);
+                                    await PlayerPage.open(
+                                      context,
+                                      movieId: movie.id,
+                                      title: movie.title,
+                                    );
+                                    // 播放器确实上报过进度时刷新继续观看区块。
+                                    onMovieReturned(changesBeforeVisit);
+                                  },
                                   child: const Padding(
                                     padding: EdgeInsets.all(2),
                                     child: Icon(
@@ -640,7 +658,7 @@ class _RecentRow extends ConsumerStatefulWidget {
   });
   final List<MovieListItem> items;
   final String Function(String) urlBuilder;
-  final VoidCallback onMovieReturned;
+  final ValueChanged<MovieDataChanges> onMovieReturned;
 
   @override
   ConsumerState<_RecentRow> createState() => _RecentRowState();
@@ -648,11 +666,12 @@ class _RecentRow extends ConsumerStatefulWidget {
 
 class _RecentRowState extends ConsumerState<_RecentRow> {
   Future<void> _openMovie(MovieListItem movie) async {
+    final changesBeforeVisit = MovieDataChanges.snapshot(movieId: movie.id);
     unawaited(ref.read(homeMovieViewStateProvider).markMovieViewed(movie.id));
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
     );
-    if (mounted) widget.onMovieReturned();
+    if (mounted) widget.onMovieReturned(changesBeforeVisit);
   }
 
   @override
@@ -671,6 +690,7 @@ class _RecentRowState extends ConsumerState<_RecentRow> {
           final it = widget.items[i];
           final isNew = isUnreadRecentlyAddedMovie(it, viewedMovieIds);
           return SizedBox(
+            key: ValueKey(it.id),
             width: 132,
             child: Stack(
               children: [
@@ -720,7 +740,7 @@ class _CollectionsSection extends ConsumerWidget {
     required this.onMovieReturned,
   });
   final List<LibraryItem> libraries;
-  final VoidCallback onMovieReturned;
+  final ValueChanged<MovieDataChanges> onMovieReturned;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -753,6 +773,7 @@ class _CollectionsSection extends ConsumerWidget {
                   itemCount: libraries.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 10),
                   itemBuilder: (_, i) => SizedBox(
+                    key: ValueKey(libraries[i].id),
                     width: cardWidth,
                     child: _LibraryCard(
                       library: libraries[i],
@@ -780,7 +801,7 @@ class _LibraryCard extends StatelessWidget {
   });
   final LibraryItem library;
   final int hue;
-  final VoidCallback onMovieReturned;
+  final ValueChanged<MovieDataChanges> onMovieReturned;
 
   /// 后端内联返回的封面图字节 · 为空时回退品牌渐变
   final Uint8List? cover;
@@ -789,12 +810,13 @@ class _LibraryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () async {
+        final changesBeforeVisit = MovieDataChanges.snapshot();
         await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => LibraryMoviesPage(library: library),
           ),
         );
-        if (context.mounted) onMovieReturned();
+        if (context.mounted) onMovieReturned(changesBeforeVisit);
       },
       borderRadius: BorderRadius.circular(16),
       child: ClipRRect(

@@ -15,6 +15,7 @@ import '../../shared/movie_card.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/pagination_footer.dart';
 import '../movie_detail/movie_detail_page.dart';
+import '../movies/movie_data_changes.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
 
@@ -97,10 +98,18 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
   }
 
   Future<void> _openMovie(MovieListItem movie) async {
+    final changesBeforeVisit = MovieDataChanges.snapshot(movieId: movie.id);
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
     );
-    if (mounted) await _refreshAfterMovie();
+    if (!mounted) return;
+    // 详情页内没有任何真实变更时沿用缓存,不刷新。
+    final now = changesBeforeVisit.latest;
+    if (now.imagesChangedSince(changesBeforeVisit)) refreshImageCache(ref);
+    if (now.metadata != changesBeforeVisit.metadata ||
+        now.progress != changesBeforeVisit.progress) {
+      await _refreshAfterMovie();
+    }
   }
 
   Future<void> _refreshAfterMovie() async {
@@ -165,6 +174,7 @@ class _LibraryMoviesPageState extends ConsumerState<LibraryMoviesPage> {
                   ),
                   builderDelegate: PagedChildBuilderDelegate<MovieListItem>(
                     itemBuilder: (ctx, m, idx) => MovieCard(
+                      key: ValueKey(m.id),
                       movie: m,
                       posterUrlBuilder: urlBuilder,
                       onTap: () => unawaited(_openMovie(m)),

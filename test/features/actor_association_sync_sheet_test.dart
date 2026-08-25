@@ -4,16 +4,16 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/api/services/mappings_api.dart';
-import 'package:md_center/core/config/server_config_provider.dart';
-import 'package:md_center/core/models/avdb_config.dart';
-import 'package:md_center/core/models/dbo_config.dart';
-import 'package:md_center/core/models/mapping_rule.dart';
-import 'package:md_center/core/platform/app_theme.dart';
-import 'package:md_center/features/actor_associations/actor_associations_providers.dart';
-import 'package:md_center/features/actor_associations/actor_associations_repository.dart';
-import 'package:md_center/features/actor_associations/widgets/actor_association_sync_sheet.dart';
-import 'package:md_center/features/configs/configs_providers.dart';
+import 'package:omm/core/api/services/mappings_api.dart';
+import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/models/avdb_config.dart';
+import 'package:omm/core/models/dbo_config.dart';
+import 'package:omm/core/models/mapping_rule.dart';
+import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/features/actor_associations/actor_associations_providers.dart';
+import 'package:omm/features/actor_associations/actor_associations_repository.dart';
+import 'package:omm/features/actor_associations/widgets/actor_association_sync_sheet.dart';
+import 'package:omm/features/configs/configs_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

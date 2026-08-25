@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:md_center/features/player/player_device_stats.dart';
-import 'package:md_center/features/player/player_status_overlay.dart';
+import 'package:omm/features/player/player_device_stats.dart';
+import 'package:omm/features/player/player_status_overlay.dart';
 
 void main() {
   test('设备状态可以从原生通道数据解析', () {

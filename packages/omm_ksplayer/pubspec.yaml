@@ -1,5 +1,5 @@
-name: md_center_avplayer
-description: iOS AVPlayer engine for md_center.
+name: omm_ksplayer
+description: KSPlayer engine bridge for omm on iOS.
 publish_to: none
 version: 0.1.0
 
@@ -22,4 +22,4 @@ flutter:
   plugin:
     platforms:
       ios:
-        pluginClass: MdCenterAvplayerPlugin
+        pluginClass: OmmKsplayerPlugin

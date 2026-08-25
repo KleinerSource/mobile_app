@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/models/modal_transcription_config.dart';
+import 'package:omm/core/models/modal_transcription_config.dart';
 
 void main() {
   test('解析多令牌响应：脱敏凭据不进入草稿，策略与并发字段带回退', () {

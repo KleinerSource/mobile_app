@@ -7,42 +7,18 @@ import '../../core/models/playback.dart' as playback_models;
 import 'engine_playback_route.dart';
 import 'playback_engine.dart';
 
-typedef PlaybackEngineFactory = PlaybackEngine Function();
-
-@immutable
-class PlaybackReloadRequest {
-  const PlaybackReloadRequest({
-    required this.position,
-    required this.wasPlaying,
-    required this.rate,
-    required this.reason,
-  });
-
-  final Duration position;
-  final bool wasPlaying;
-  final double rate;
-  final String reason;
-}
-
 /// 播放页面与具体内核之间唯一的会话边界。
 ///
-/// 页面只读取统一状态并发送统一命令；内核失败切换、状态恢复、旧事件隔离
-/// 都在此处完成。
+/// 页面只读取统一状态并发送统一命令，具体内核的状态事件都在此处归一化。
 class PlayerSessionController implements ValueListenable<PlaybackViewState> {
-  PlayerSessionController({
-    required PlaybackEngine engine,
-    PlaybackEngineFactory? libmpvFallbackFactory,
-    this.onFallback,
-  }) : _engine = engine,
-       _libmpvFallbackFactory = libmpvFallbackFactory,
-       _state = ValueNotifier(engine.state.value) {
+  PlayerSessionController({required PlaybackEngine engine})
+    : _engine = engine,
+      _state = ValueNotifier(engine.state.value) {
     _playbackIntent = engine.state.value.playing;
     _bindEngine();
   }
 
-  PlaybackEngine _engine;
-  final PlaybackEngineFactory? _libmpvFallbackFactory;
-  final ValueChanged<String>? onFallback;
+  final PlaybackEngine _engine;
   final ValueNotifier<PlaybackViewState> _state;
   final ValueNotifier<int> _surfaceRevision = ValueNotifier(0);
   final StreamController<Duration> _positionController =
@@ -53,14 +29,6 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
       StreamController<bool>.broadcast();
   final StreamController<String> _errorController =
       StreamController<String>.broadcast();
-  final StreamController<PlaybackReloadRequest> _reloadRequiredController =
-      StreamController<PlaybackReloadRequest>.broadcast();
-
-  PlaybackOpenRequest? _lastOpenRequest;
-  int _generation = 0;
-  bool _fallbackAttempted = false;
-  bool _fallbackInProgress = false;
-  int? _openingGeneration;
   bool _playbackIntent = false;
   bool _disposed = false;
 
@@ -78,56 +46,64 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   Duration get position => value.position;
   Duration get duration => value.duration;
   bool get playing => value.playing;
+  bool get playbackIntent => _playbackIntent;
   bool get mainMediaLoaded => value.mainMediaLoaded;
   bool get usesBackendSubtitleSelection =>
-      _engine.kind == PlaybackEngineKind.avPlayer;
+      _engine.kind == PlaybackEngineKind.ksPlayer;
 
   Stream<Duration> get positionStream => _positionController.stream;
   Stream<Duration> get durationStream => _durationController.stream;
   Stream<bool> get completedStream => _completedController.stream;
   Stream<String> get errorStream => _errorController.stream;
-  Stream<PlaybackReloadRequest> get reloadRequiredStream =>
-      _reloadRequiredController.stream;
-
   EnginePlaybackRoute playbackRoute({
     required String quality,
     required playback_models.PlaybackDecision decision,
+    bool forceServerRoute = false,
   }) {
     return playbackRouteForEngine(
       engineKind: _engine.kind,
       quality: quality,
       decision: decision,
+      forceServerRoute: forceServerRoute,
     );
   }
 
   playback_models.PlaybackClientCaps clientCaps({
     required String quality,
+    bool forceVideoTranscode = false,
     int? audioStreamIndex,
     String? subtitleTrackId,
   }) {
     final os = kIsWeb
         ? 'flutter-web'
         : defaultTargetPlatform.name.toLowerCase();
-    return _engine.kind == PlaybackEngineKind.avPlayer
-        ? playback_models.PlaybackClientCaps.avPlayer(
-            qualityPreset: quality,
-            userAgent: 'md_center/$os',
-            audioStreamIndex: audioStreamIndex,
-            subtitleTrackId: subtitleTrackId,
-          )
-        : playback_models.PlaybackClientCaps.mediaKit(
-            qualityPreset: quality,
-            userAgent: 'md_center/$os',
-            audioStreamIndex: audioStreamIndex,
-            subtitleTrackId: subtitleTrackId,
-          );
+    switch (_engine.kind) {
+      case PlaybackEngineKind.ksPlayer:
+        return playback_models.PlaybackClientCaps.ksPlayer(
+          qualityPreset: quality,
+          forceVideoTranscode: forceVideoTranscode,
+          userAgent: 'omm/$os',
+          audioStreamIndex: audioStreamIndex,
+          subtitleTrackId: subtitleTrackId,
+        );
+      case PlaybackEngineKind.libmpv:
+        return playback_models.PlaybackClientCaps.mediaKit(
+          qualityPreset: quality,
+          forceVideoTranscode: forceVideoTranscode,
+          userAgent: 'omm/$os',
+          audioStreamIndex: audioStreamIndex,
+          subtitleTrackId: subtitleTrackId,
+        );
+    }
   }
 
   bool shouldReloadForSubtitle(
     playback_models.SubtitleTrack? track, {
     required bool hasBackendSelection,
   }) {
-    if (_engine.kind != PlaybackEngineKind.avPlayer) return false;
+    if (_engine.kind != PlaybackEngineKind.ksPlayer) {
+      return false;
+    }
     return track == null
         ? hasBackendSelection
         : subtitleRequiresBackendDecision(_engine.kind, track);
@@ -137,13 +113,13 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     playback_models.AudioTrack track,
     playback_models.PlaybackDecision? decision,
   ) async {
-    if (_engine.kind != PlaybackEngineKind.avPlayer) {
+    if (_engine.kind == PlaybackEngineKind.libmpv) {
       await setAudioTrackById(track.index.toString());
       return true;
     }
     if (decision != null && decision.audioTracks.length <= 1) {
-      // 单音轨没有可切换目标，AVPlayer 已自动选中该轨；不要为了等待
-      // 不存在的 AVMediaSelectionGroup 阻塞起播最多 2 秒。
+      // 单音轨没有可切换目标，原生播放器已自动选中该轨；不要为了等待
+      // 不存在的原生音轨选择组阻塞起播。
       return true;
     }
 
@@ -209,27 +185,17 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     }
     final error = next.error;
     if (error != null && error.isNotEmpty && error != previous.error) {
-      if (_canFallback && _openingGeneration == null) {
-        unawaited(_switchToLibmpvAndRequestReload(error));
-      } else if (_openingGeneration == null) {
-        _errorController.add(error);
-      }
+      _errorController.add(error);
     }
   }
-
-  bool get _fallbackAvailable =>
-      !_fallbackAttempted &&
-      !_fallbackInProgress &&
-      _engine.kind == PlaybackEngineKind.avPlayer &&
-      _libmpvFallbackFactory != null;
-
-  bool get _canFallback => _fallbackAvailable && _lastOpenRequest != null;
 
   Future<void> open(
     String url, {
     Duration? startAt,
     Map<String, String>? headers,
     bool play = true,
+    String? formatHint,
+    PlaybackMediaInfo? mediaInfo,
   }) async {
     _playbackIntent = play;
     final request = PlaybackOpenRequest(
@@ -237,64 +203,10 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
       startAt: startAt,
       headers: headers,
       play: play,
+      formatHint: formatHint,
+      mediaInfo: mediaInfo,
     );
-    _lastOpenRequest = request;
-    final generation = ++_generation;
-    _openingGeneration = generation;
-    try {
-      await _engine.open(request);
-    } finally {
-      if (_openingGeneration == generation) _openingGeneration = null;
-    }
-  }
-
-  Future<void> _switchToLibmpvAndRequestReload(String reason) async {
-    final snapshot = _engine.state.value;
-    final request = _lastOpenRequest;
-    final position = snapshot.position > Duration.zero
-        ? snapshot.position
-        : request?.startAt ?? Duration.zero;
-    final switched = await fallbackToLibmpvForReload(reason);
-    if (!switched || _disposed) return;
-    _reloadRequiredController.add(
-      PlaybackReloadRequest(
-        position: position,
-        wasPlaying: _playbackIntent,
-        rate: snapshot.rate,
-        reason: reason,
-      ),
-    );
-  }
-
-  /// AVPlayer 播放决策在首次 [open] 前失败时，切换到 libmpv 供调用方
-  /// 使用 libmpv capabilities 重新请求播放决策。
-  Future<bool> fallbackToLibmpvForReload(String reason) async {
-    if (!_fallbackAvailable) return false;
-
-    _fallbackAttempted = true;
-    _fallbackInProgress = true;
-    ++_generation;
-    final oldEngine = _engine;
-    try {
-      final fallback = _libmpvFallbackFactory!();
-      _unbindEngine();
-      _engine = fallback;
-      _lastOpenRequest = null;
-      _bindEngine();
-      _surfaceRevision.value++;
-      try {
-        await oldEngine.dispose();
-      } catch (_) {}
-      onFallback?.call('AVPlayer 播放失败，已切换至 libmpv');
-      return true;
-    } catch (error) {
-      _errorController.add(
-        error.toString().isEmpty ? reason : error.toString(),
-      );
-      return false;
-    } finally {
-      _fallbackInProgress = false;
-    }
+    await _engine.open(request);
   }
 
   Future<void> configure({
@@ -373,7 +285,6 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   Future<void> stopPictureInPicture() => _engine.stopPictureInPicture();
 
   Future<void> stop() async {
-    ++_generation;
     _playbackIntent = false;
     await _engine.stop();
   }
@@ -388,14 +299,12 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
-    ++_generation;
     _unbindEngine();
     await _engine.dispose();
     await _positionController.close();
     await _durationController.close();
     await _completedController.close();
     await _errorController.close();
-    await _reloadRequiredController.close();
     _surfaceRevision.dispose();
     _state.dispose();
   }

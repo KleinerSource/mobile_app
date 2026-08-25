@@ -8,7 +8,6 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'playback_engine.dart';
-import 'player_platform.dart';
 import 'player_subtitle_track_resolver.dart';
 
 /// 后向（已播放）demuxer 缓冲上限，固定值：既服务回看拖动，也把最坏
@@ -50,10 +49,7 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
 
   @override
   PlaybackEngineCapabilities get capabilities =>
-      PlaybackEngineCapabilities.libmpv(
-        pictureInPictureRequiresNativeSource: !kIsWeb && Platform.isIOS,
-        pictureInPictureUsesSeparatePlayer: !kIsWeb && Platform.isIOS,
-      );
+      const PlaybackEngineCapabilities.libmpv();
 
   @override
   ValueListenable<PlaybackViewState> get state => _state;
@@ -79,6 +75,65 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
   void _updateState(PlaybackViewState Function(PlaybackViewState) update) {
     _state.value = update(_state.value);
   }
+
+  VideoTrack? _findSelectedVideoTrack(
+    List<VideoTrack> tracks,
+    String selectedId,
+  ) {
+    if (tracks.isEmpty) return null;
+    for (final track in tracks) {
+      if (track.id == selectedId && track.id != 'auto' && track.id != 'no') {
+        return track;
+      }
+    }
+    for (final track in tracks) {
+      if (track.id != 'auto' && track.id != 'no') return track;
+    }
+    return null;
+  }
+
+  AudioTrack? _findSelectedAudioTrack(
+    List<AudioTrack> tracks,
+    String selectedId,
+  ) {
+    if (tracks.isEmpty) return null;
+    for (final track in tracks) {
+      if (track.id == selectedId && track.id != 'auto' && track.id != 'no') {
+        return track;
+      }
+    }
+    for (final track in tracks) {
+      if (track.id != 'auto' && track.id != 'no') return track;
+    }
+    return null;
+  }
+
+  PlaybackMediaInfo? _mergeMediaInfo(
+    PlaybackMediaInfo? current, {
+    VideoTrack? videoTrack,
+    AudioTrack? audioTrack,
+  }) {
+    if (videoTrack == null && audioTrack == null) return current;
+    final info = current ?? const PlaybackMediaInfo();
+    return info.copyWith(
+      videoCodec: _nonEmpty(videoTrack?.codec),
+      videoBitrate: _positiveInt(videoTrack?.bitrate),
+      videoFps: _positiveDouble(videoTrack?.fps),
+      videoDecoder: _nonEmpty(videoTrack?.decoder),
+      audioCodec: _nonEmpty(audioTrack?.codec),
+      audioBitrate: _positiveInt(audioTrack?.bitrate),
+    );
+  }
+
+  String? _nonEmpty(String? value) {
+    final normalized = value?.trim() ?? '';
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  int? _positiveInt(int? value) => value == null || value <= 0 ? null : value;
+
+  double? _positiveDouble(double? value) =>
+      value == null || !value.isFinite || value <= 0 ? null : value;
 
   void _bindState() {
     for (final subscription in _stateSubscriptions) {
@@ -125,6 +180,12 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
       ),
       player.stream.tracks.listen((tracks) {
         final selectedId = player.state.track.audio.id;
+        final selectedVideoId = player.state.track.video.id;
+        final videoTrack = _findSelectedVideoTrack(
+          tracks.video,
+          selectedVideoId,
+        );
+        final audioTrack = _findSelectedAudioTrack(tracks.audio, selectedId);
         _updateState(
           (state) => state.copyWith(
             audioTracks: [
@@ -137,6 +198,11 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
                 ),
             ],
             selectedAudioTrackId: selectedId,
+            mediaInfo: _mergeMediaInfo(
+              state.mediaInfo,
+              videoTrack: videoTrack,
+              audioTrack: audioTrack,
+            ),
           ),
         );
       }),
@@ -169,6 +235,13 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
         buffering: true,
         position: request.startAt ?? Duration.zero,
         firstFrameRendered: false,
+        mediaInfo:
+            request.mediaInfo ??
+            PlaybackMediaInfo.fromSource(
+              url: request.url,
+              formatHint: request.formatHint,
+            ),
+        clearMediaInfo: true,
         clearError: true,
       ),
     );
@@ -751,30 +824,10 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
   @override
   Future<bool> enterPictureInPicture(
     PlaybackPictureInPictureRequest request,
-  ) async {
-    PlayerPlatformCapabilities.setPictureInPictureStoppedHandler((
-      positionMs,
-    ) async {
-      _updateState((state) => state.copyWith(inPictureInPicture: false));
-      await request.onStopped?.call(Duration(milliseconds: positionMs));
-    });
-    final entered = await PlayerPlatformCapabilities.enterPictureInPicture(
-      url: request.url,
-      headers: request.headers,
-      position: request.position,
-      autoplay: request.autoplay,
-    );
-    if (entered) {
-      _updateState((state) => state.copyWith(inPictureInPicture: true));
-    } else {
-      PlayerPlatformCapabilities.clearPictureInPictureStoppedHandler();
-    }
-    return entered;
-  }
+  ) async => false;
 
   @override
-  Future<void> stopPictureInPicture() =>
-      PlayerPlatformCapabilities.stopPictureInPicture();
+  Future<void> stopPictureInPicture() async {}
 
   @override
   Widget buildSurface({BoxFit fit = BoxFit.contain}) {
@@ -791,7 +844,6 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
   @override
   Future<void> dispose() async {
     ++_openGeneration;
-    PlayerPlatformCapabilities.clearPictureInPictureStoppedHandler();
     for (final subscription in _stateSubscriptions) {
       await subscription.cancel();
     }

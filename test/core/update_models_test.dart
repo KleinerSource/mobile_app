@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/update/update_installer.dart';
-import 'package:md_center/core/update/update_models.dart';
-import 'package:md_center/core/update/update_service.dart';
+import 'package:omm/core/update/update_installer.dart';
+import 'package:omm/core/update/update_models.dart';
+import 'package:omm/core/update/update_service.dart';
 
 void main() {
   test('版本号支持语义版本和 build 号比较', () {
     final current = AppReleaseVersion.parse('0.1.60+67');
-    final nextPatch = AppReleaseVersion.parse('md_center_0.1.61+68.apk');
+    final nextPatch = AppReleaseVersion.parse('omm_0.1.61+68.apk');
     final nextBuild = AppReleaseVersion.parse('v0.1.60+68');
 
     expect(current.display, '0.1.60+67');
@@ -37,6 +37,14 @@ void main() {
       'https://api.github.com/repos/KleinerSource/mobile_app/releases/tags/latest-android',
     );
     expect(
+      repository.releaseTagApiUrl(UpdatePlatform.ios, development: true),
+      'https://api.github.com/repos/KleinerSource/mobile_app/releases/tags/latest-ios-dev',
+    );
+    expect(
+      repository.releaseTagApiUrl(UpdatePlatform.android, development: true),
+      'https://api.github.com/repos/KleinerSource/mobile_app/releases/tags/latest-android-dev',
+    );
+    expect(
       () => GitHubRepository.parse('https://example.com/owner/repo'),
       throwsFormatException,
     );
@@ -45,7 +53,7 @@ void main() {
   test('iOS 安装器 URI 会正确编码 GitHub IPA 下载地址', () {
     const downloadUrl =
         'https://github.com/KleinerSource/mobile_app/releases/download/'
-        'latest/md_center_0.1.64+71.ipa';
+        'latest/omm_0.1.64+71.ipa';
 
     final installerUrl = IosUpdateInstaller.installUri(downloadUrl);
 
@@ -62,7 +70,7 @@ void main() {
         'published_at': '2026-08-10T05:20:00Z',
         'assets': [
           {
-            'name': 'md_center_0.1.60+67.ipa',
+            'name': 'omm_0.1.60+67.ipa',
             'browser_download_url': 'https://github.com/o/r/releases/ipa',
             'size': 100,
           },
@@ -74,7 +82,7 @@ void main() {
         'published_at': '2026-08-10T05:21:00Z',
         'assets': [
           {
-            'name': 'md_center_0.1.60+67.apk',
+            'name': 'omm_0.1.60+67.apk',
             'browser_download_url': 'https://github.com/o/r/releases/apk',
             'size': 200,
           },
@@ -86,7 +94,7 @@ void main() {
         'published_at': '2026-08-09T05:21:00Z',
         'assets': [
           {
-            'name': 'md_center_0.1.59+66.apk',
+            'name': 'omm_0.1.59+66.apk',
             'browser_download_url': 'https://github.com/o/r/releases/old',
             'size': 180,
           },
@@ -107,8 +115,8 @@ void main() {
       ios?.version,
       const AppReleaseVersion(major: 0, minor: 1, patch: 60, build: 67),
     );
-    expect(ios?.asset.name, 'md_center_0.1.60+67.ipa');
-    expect(android?.asset.name, 'md_center_0.1.60+67.apk');
+    expect(ios?.asset.name, 'omm_0.1.60+67.ipa');
+    expect(android?.asset.name, 'omm_0.1.60+67.apk');
   });
 
   test('滚动 Release 标签中的 IPA 资产可识别', () {
@@ -117,9 +125,9 @@ void main() {
       'name': 'Latest unsigned iOS build',
       'assets': [
         {
-          'name': 'md_center_0.1.73+80.ipa',
+          'name': 'omm_0.1.73+80.ipa',
           'browser_download_url':
-              'https://github.com/o/r/releases/download/latest/md_center_0.1.73%2B80.ipa',
+              'https://github.com/o/r/releases/download/latest/omm_0.1.73%2B80.ipa',
           'size': 100,
         },
       ],
@@ -129,11 +137,121 @@ void main() {
       release,
     ], UpdatePlatform.ios);
 
-    expect(candidate?.asset.name, 'md_center_0.1.73+80.ipa');
+    expect(candidate?.asset.name, 'omm_0.1.73+80.ipa');
     expect(
       candidate?.version,
       const AppReleaseVersion(major: 0, minor: 1, patch: 73, build: 80),
     );
+  });
+
+  test('关闭开发版检测时忽略更高版本的开发 Release 和开发资产', () {
+    final releases = [
+      GitHubRelease.fromJson(const {
+        'tag_name': 'latest-android',
+        'published_at': '2026-08-24T15:12:58Z',
+        'assets': [
+          {
+            'name': 'md_center_0.38.22+409.apk',
+            'browser_download_url': 'https://github.com/o/r/releases/standard',
+          },
+        ],
+      }),
+      GitHubRelease.fromJson(const {
+        'tag_name': 'latest-android-dev',
+        'published_at': '2026-08-25T14:23:28Z',
+        'assets': [
+          {
+            'name': 'omm_dev_0.39.0+409.apk',
+            'browser_download_url': 'https://github.com/o/r/releases/dev',
+          },
+        ],
+      }),
+      GitHubRelease.fromJson(const {
+        'tag_name': 'v0.40.0+410',
+        'published_at': '2026-08-25T15:00:00Z',
+        'assets': [
+          {
+            'name': 'omm_dev_0.40.0+410.apk',
+            'browser_download_url': 'https://github.com/o/r/releases/dev-list',
+          },
+        ],
+      }),
+    ];
+
+    final candidate = GitHubUpdateService.selectLatestCandidate(
+      releases,
+      UpdatePlatform.android,
+    );
+
+    expect(candidate?.asset.name, 'md_center_0.38.22+409.apk');
+  });
+
+  test('开启开发版检测时从两个渠道选择最高版本', () {
+    final releases = [
+      GitHubRelease.fromJson(const {
+        'tag_name': 'latest',
+        'assets': [
+          {
+            'name': 'omm_0.38.22+409.ipa',
+            'browser_download_url': 'https://github.com/o/r/releases/standard',
+          },
+        ],
+      }),
+      GitHubRelease.fromJson(const {
+        'tag_name': 'latest-ios-dev',
+        'assets': [
+          {
+            'name': 'omm_dev_0.39.0+409.ipa',
+            'browser_download_url': 'https://github.com/o/r/releases/dev',
+          },
+        ],
+      }),
+    ];
+
+    final candidate = GitHubUpdateService.selectLatestCandidate(
+      releases,
+      UpdatePlatform.ios,
+      includeDevelopment: true,
+    );
+
+    expect(candidate?.asset.name, 'omm_dev_0.39.0+409.ipa');
+  });
+
+  test('开发版缺失时仍选择标准版，相同版本按发布时间选择', () {
+    final standardOnly = GitHubRelease.fromJson(const {
+      'tag_name': 'latest',
+      'published_at': '2026-08-24T15:00:00Z',
+      'assets': [
+        {
+          'name': 'omm_0.39.0+409.ipa',
+          'browser_download_url': 'https://github.com/o/r/releases/standard',
+        },
+      ],
+    });
+    final newerStandard = GitHubRelease.fromJson(const {
+      'tag_name': 'v0.39.0+409',
+      'published_at': '2026-08-25T15:00:00Z',
+      'assets': [
+        {
+          'name': 'omm_0.39.0+409.ipa',
+          'browser_download_url': 'https://github.com/o/r/releases/newer',
+        },
+      ],
+    });
+
+    final fallback = GitHubUpdateService.selectLatestCandidate(
+      [standardOnly],
+      UpdatePlatform.ios,
+      includeDevelopment: true,
+    );
+    final tied = GitHubUpdateService.selectLatestCandidate(
+      [standardOnly, newerStandard],
+      UpdatePlatform.ios,
+      includeDevelopment: true,
+    );
+
+    expect(fallback?.asset.name, 'omm_0.39.0+409.ipa');
+    expect(tied?.asset.downloadUrl, endsWith('/newer'));
   });
 
   test('更新说明会移除滚动构建元数据并保留实际内容', () {

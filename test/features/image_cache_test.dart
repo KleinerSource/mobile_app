@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/features/movies/movies_providers.dart';
+import 'package:omm/features/movies/movies_providers.dart';
 
 void main() {
   test('封面缓存版本为零时保留原始地址', () {

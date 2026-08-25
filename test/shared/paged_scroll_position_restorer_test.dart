@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
-import 'package:md_center/core/models/paged_result.dart';
-import 'package:md_center/shared/paged_scroll_position_restorer.dart';
+import 'package:omm/core/models/paged_result.dart';
+import 'package:omm/shared/paged_scroll_position_restorer.dart';
 
 void main() {
   testWidgets('分页刷新恢复原滚动位置', (tester) async {

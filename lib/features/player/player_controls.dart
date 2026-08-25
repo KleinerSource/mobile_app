@@ -23,6 +23,7 @@ class PlayerControls extends StatefulWidget {
     this.previewSourceUri,
     this.previewSourceHeaders,
     required this.quality,
+    required this.qualityOptions,
     this.showQualityButton = true,
     required this.onQualityChanged,
     required this.subtitleTracks,
@@ -58,6 +59,7 @@ class PlayerControls extends StatefulWidget {
   final String? previewSourceUri;
   final Map<String, String>? previewSourceHeaders;
   final String quality;
+  final List<playback_models.QualityOption> qualityOptions;
   final bool showQualityButton;
   final ValueChanged<String> onQualityChanged;
   final List<playback_models.SubtitleTrack> subtitleTracks;
@@ -255,25 +257,18 @@ class _PlayerControlsState extends State<PlayerControls> {
     return Row(
       children: [
         Expanded(
-          child: Row(
-            children: [
-              if (widget.showQualityButton) _qualityButton(),
-              if (widget.decodeStatuses.isNotEmpty) ...[
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Wrap(
-                    spacing: 5,
-                    runSpacing: 3,
-                    children: [
-                      for (final status in widget.decodeStatuses)
-                        PlayerDecodeStatusBadge(status: status),
-                    ],
-                  ),
+          child: widget.decodeStatuses.isEmpty
+              ? const SizedBox.shrink()
+              : Wrap(
+                  spacing: 5,
+                  runSpacing: 3,
+                  children: [
+                    for (final status in widget.decodeStatuses)
+                      PlayerDecodeStatusBadge(status: status),
+                  ],
                 ),
-              ],
-            ],
-          ),
         ),
+        if (widget.showQualityButton) _qualityButton(),
         if (widget.subtitleTracks.isNotEmpty) _subtitleButton(),
         if (widget.audioTracks.length > 1) _audioButton(),
       ],
@@ -440,6 +435,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     return ValueListenableBuilder<PlaybackViewState>(
       valueListenable: widget.controller,
       builder: (context, state, _) {
+        final capabilities = widget.controller.capabilities;
         final dur = state.duration.inMilliseconds;
         final pos = state.position.inMilliseconds;
         final buffer = state.buffered.inMilliseconds;
@@ -447,7 +443,9 @@ class _PlayerControlsState extends State<PlayerControls> {
         final live = pos.clamp(0, max.toInt()).toDouble();
         final buffered = buffer.toDouble().clamp(live, max).toDouble();
         final value = _dragValue ?? live;
-        final previewPosition = _framePreviewController.position;
+        final previewPosition = capabilities.framePreview
+            ? _framePreviewController.position
+            : null;
         return LayoutBuilder(
           builder: (context, constraints) {
             final fraction = max > 0 ? (value / max).clamp(0.0, 1.0) : 0.0;
@@ -480,11 +478,16 @@ class _PlayerControlsState extends State<PlayerControls> {
                     min: 0,
                     max: max,
                     value: value.clamp(0, max),
-                    secondaryTrackValue: buffered,
+                    secondaryTrackValue: capabilities.customBuffering
+                        ? buffered
+                        : null,
                     semanticFormatterCallback: (sliderValue) {
                       final current = Duration(
                         milliseconds: sliderValue.round(),
                       );
+                      if (!capabilities.customBuffering) {
+                        return '当前播放 ${formatDuration(current)}';
+                      }
                       final cached = Duration(milliseconds: buffered.round());
                       return '当前播放 ${formatDuration(current)}，'
                           '已缓冲 ${formatDuration(cached)}';
@@ -494,7 +497,8 @@ class _PlayerControlsState extends State<PlayerControls> {
                     onChangeEnd: dur <= 0 ? null : (v) => _endSliderDrag(v),
                   ),
                 ),
-                if (_sliderDragging &&
+                if (capabilities.framePreview &&
+                    _sliderDragging &&
                     previewPosition != null &&
                     _framePreviewController.frame != null)
                   Positioned(
@@ -524,7 +528,9 @@ class _PlayerControlsState extends State<PlayerControls> {
     setState(() {
       _dragValue = value;
     });
-    _framePreviewController.request(position);
+    if (widget.controller.capabilities.framePreview) {
+      _framePreviewController.request(position);
+    }
     widget.onInteraction();
   }
 
@@ -538,7 +544,9 @@ class _PlayerControlsState extends State<PlayerControls> {
     setState(() {
       _dragValue = value;
     });
-    _framePreviewController.request(position);
+    if (widget.controller.capabilities.framePreview) {
+      _framePreviewController.request(position);
+    }
     widget.onInteraction();
   }
 
@@ -570,14 +578,6 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   Widget _qualityButton() {
-    const qualities = <String, String>{
-      'original': '自动',
-      '2160p': '2160p',
-      '1080p': '1080p',
-      '720p': '720p',
-      '480p': '480p',
-      '360p': '360p',
-    };
     return PopupMenuButton<String>(
       tooltip: '选择画质',
       enableFeedback: false,
@@ -589,15 +589,25 @@ class _PlayerControlsState extends State<PlayerControls> {
         widget.onInteraction();
       },
       itemBuilder: (context) => [
-        for (final entry in qualities.entries)
-          PopupMenuItem(value: entry.key, child: Text(entry.value)),
+        for (final option in widget.qualityOptions)
+          PopupMenuItem(
+            value: option.id,
+            child: Row(
+              children: [
+                Expanded(child: Text(option.label)),
+                const SizedBox(width: 16),
+                option.id == widget.quality
+                    ? const Icon(Icons.check, size: 18)
+                    : const SizedBox(width: 18),
+              ],
+            ),
+          ),
       ],
-      child: Text(
-        (qualities[widget.quality] ?? widget.quality).toUpperCase(),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
+      child: SizedBox(
+        width: 42,
+        height: 42,
+        child: Center(
+          child: _roundIcon(Icons.high_quality_outlined, active: true),
         ),
       ),
     );

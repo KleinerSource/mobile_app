@@ -69,7 +69,7 @@ class PlayerDeviceStats {
 }
 
 class PlayerDeviceStatsReader {
-  static const _channel = MethodChannel('md_center/player_stats');
+  static const _channel = MethodChannel('omm/player_stats');
 
   Future<PlayerDeviceStats> read() async {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {

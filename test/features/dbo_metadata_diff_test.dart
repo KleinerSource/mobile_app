@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:md_center/core/models/actor.dart';
-import 'package:md_center/core/models/movie.dart';
-import 'package:md_center/core/models/resource.dart';
-import 'package:md_center/features/movie_detail/dbo_metadata_diff.dart';
+import 'package:omm/core/models/actor.dart';
+import 'package:omm/core/models/movie.dart';
+import 'package:omm/core/models/resource.dart';
+import 'package:omm/features/movie_detail/dbo_metadata_diff.dart';
 
 void main() {
   test('解析 DBO 影片信息字段并生成差异', () {

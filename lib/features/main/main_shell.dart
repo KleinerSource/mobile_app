@@ -19,7 +19,7 @@ import '../resources/resources_repository.dart';
 import '../search/search_page.dart';
 import '../tasks/task_center_page.dart';
 
-/// md_center 主框架 · 设计稿 4 Tab 悬浮胶囊
+/// omm 主框架 · 设计稿 4 Tab 悬浮胶囊
 ///
 /// Home / Library / Search / You
 class MainShell extends StatefulWidget {
