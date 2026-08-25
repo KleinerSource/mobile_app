@@ -316,7 +316,7 @@
 - [x] 定位 KSPlayer 原生轨道 ID 与 Flutter 后端 index 的不一致
 - [x] 让非 `libmpv` 内核统一使用原生轨道映射
 - [x] 补充并运行回归测试、静态分析和完整测试
-- [ ] 提交、推送 `dev` 并确认 iOS GitHub Action
+- [x] 提交、推送 `dev` 并确认 iOS GitHub Action
 
 ## 约束
 
@@ -329,3 +329,8 @@
 | 错误 | 处理 |
 | --- | --- |
 | 暂无 | — |
+
+## 验证结果
+
+- 提交：`9e54fae fix(ios): map KSPlayer audio tracks before selection`
+- iOS Action：`32791124296` 成功，包含 `pod install`、`analyze`、`test`、`flutter build ios --release --no-codesign` 和 IPA 发布。

@@ -166,4 +166,6 @@
 - 已新增 KSPlayer 语言/标题映射、ordinal 映射、单音轨跳过选择和 `libmpv` index 保持不变的 contract 测试。
 - 定向 `playback_engine_contract_test.dart`：15 项全部通过。
 - `flutter analyze --no-pub`：通过，无问题；完整 `flutter test --no-pub`：399 项全部通过。
-- `git diff --check`：通过，准备提交并推送 `dev`。
+- `git diff --check`：通过。
+- 已提交 `9e54fae fix(ios): map KSPlayer audio tracks before selection` 并推送 `origin/dev`。
+- iOS GitHub Action `32791124296` 成功，耗时 9 分 50 秒；依赖安装、静态分析、测试、release iOS 编译、IPA 打包和发布均通过。
