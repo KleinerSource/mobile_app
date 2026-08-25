@@ -83,11 +83,13 @@ jobs:
             sed -i '' "s/platform :ios, '12.0'/platform :ios, '16.0'/" ios/Podfile || true
             sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 12.0;/IPHONEOS_DEPLOYMENT_TARGET = 16.0;/g" ios/Runner.xcodeproj/project.pbxproj || true
             sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/IPHONEOS_DEPLOYMENT_TARGET = 16.0;/g" ios/Runner.xcodeproj/project.pbxproj || true
-            mkdir -p ios/Runner/Base.lproj
-            cp ios/Runner/LaunchScreen.storyboard ios/Runner/Base.lproj/LaunchScreen.storyboard
           else
             echo "ios/Runner.xcodeproj exists, skipping bootstrap"
           fi
+          # 无论工程是新生成还是已有，都确保 target 实际引用的本地化启动屏
+          # 使用仓库中的深色品牌版本，而不是 Flutter 默认白色模板。
+          mkdir -p ios/Runner/Base.lproj
+          cp ios/Runner/LaunchScreen.storyboard ios/Runner/Base.lproj/LaunchScreen.storyboard
           test -f ios/Runner.xcodeproj/project.pbxproj
           # 删除 flutter create 生成的 counter 模板测试，避免 analyze 失败
           rm -f test/widget_test.dart
