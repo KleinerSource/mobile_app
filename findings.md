@@ -414,3 +414,25 @@
 - 已实施：`PlayerPage._loadInternal` 在停止旧媒体前调用 `_unbindProgress()`；KSPlayer engine 在 `stop()` 到下一次 `open()` 前抑制错误，并在 `opening` 状态忽略由 `open()` Future 负责返回的打开错误。
 - 已补充质量路由回归断言：KSPlayer 的 `original` 为设备直传，固定档位为服务端 HLS/托管转码；`libmpv` 路径未改动。
 - 定向播放器测试 16 项、完整 Flutter 测试 401 项和静态分析均通过；未修改 KSPlayer Swift 依赖或 Android 播放路径。
+
+# 应用更新开发版检测开关（2026-08-25）
+
+- 当前更新链路为设置页/启动门控 → `AppUpdateCoordinator` → `GitHubUpdateService` → GitHub Release → 下载/安装。
+- 标准滚动标签是 iOS `latest`、Android `latest-android`；当前客户端不会查询开发标签。
+- `dev` push 已生成 `latest-ios-dev` / `latest-android-dev`，资产名为 `omm_dev_<version>.ipa/.apk`。
+- 当前回退 Release 列表没有渠道过滤；标准标签缺失时可能误选开发资产，必须在候选层严格过滤。
+- 用户确认开启后同时考虑标准版和开发版并取最高版本，且开关同时影响手动与启动检查。
+- 开关位置确认为应用更新页“当前版本”卡片，默认关闭。
+- 现有更新相关 11 个测试在修改前全部通过。
+- `selectLatestCandidate` 当前仅按平台扩展名筛选，适合作为统一渠道过滤入口；这样滚动标签和列表回退可共享相同规则。
+- `AppUpdateCoordinator.check` 是服务调用的唯一中间层；设置页和启动检查各只有一个检查调用点，布尔参数可最小范围贯穿。
+- 应用更新页已有 `SettingsSwitch` 组件依赖，可直接在“当前版本”分组增加第二个 `SettingsTile`，无需引入新组件或本地化重构。
+- 最终实现关闭时同时排除 `*-dev` Release 与 `omm_dev_` 资产；开启时查询标准/开发滚动标签并按版本、发布时间选择候选。
+- 滚动标签无候选时仍保留 Release 列表回退，但 draft、开发渠道和平台扩展名过滤均在最终候选前生效。
+- 最终验证为静态分析通过、418 项完整测试通过、格式和空白检查通过。
+
+# dev 构建版本号持久化（2026-08-25）
+
+- Android/iOS workflow 都会调用 `bump_app_version.dart` 修改当前 checkout 的 `pubspec.yaml`，但只有 iOS workflow 负责提交持久化。
+- iOS 当前写回条件只允许 `refs/heads/master`，并固定执行 `git push origin HEAD:master`，因此 dev 每次 push 都从分支中未更新的版本重新计算。
+- 最小修复是把允许分支扩展为 master/dev，并使用 `GITHUB_REF_NAME` 将版本提交推回触发构建的当前分支；Android workflow 无需修改。

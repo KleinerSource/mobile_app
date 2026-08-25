@@ -209,3 +209,35 @@
 - 定向测试 16 项通过；`flutter analyze --no-pub` 通过；完整 `flutter test --no-pub` 401 项通过。
 - 格式检查和 `git diff --check` 通过；iOS 原生/真机切换仍需 macOS CI 验证。
 - 本轮未处理工作区其他并行修改，也未主动执行提交、暂存或回滚；当前工作区同时存在既有 staged/unstaged 改动。
+
+## 2026-08-25 应用更新开发版检测开关
+
+- 已读取并遵循 `planning-with-files`，会话恢复检查未发现未同步上下文。
+- 已确认工作区初始无未提交代码改动，当前 `dev` 相对 `origin/dev` 领先 2 个提交。
+- 已完成现有更新链路、Release 标签、远端 master/dev push build 和测试基线调查。
+- 已追加本任务的计划、发现和进度章节，未覆盖历史任务记录。
+- 已按仓库规则使用 CodeGraph 复核候选选择、设置持久化、协调器、启动检查和更新页面的当前源码及影响范围。
+- 已新增默认关闭的开发版检测偏好、回滚式 Notifier，并在切换时清除已忽略版本。
+- 已扩展四个滚动 Release 标签，并让候选选择在关闭时同时过滤 `*-dev` Release 与 `omm_dev_` 资产。
+- 已将 `includeDevelopment` 贯穿服务、协调器、更新页和启动检查，并在“当前版本”卡片加入禁用感知开关。
+- 已补充仓库偏好、四个标签、混合渠道候选、Release 列表回退、开发标签缺失和同版本时间排序测试。
+- 已新增服务级 Dio stub 测试，直接验证实际标签请求集合与标准版严格回退。
+- 已新增更新页 Widget 测试，验证开关所在卡片、说明文案、默认值及持久化恢复。
+- 更新相关定向测试共 20 项全部通过；CodeGraph 复核确认修改文件索引已同步，唯一待同步文件是本任务未触碰的播放器文件。
+- `flutter analyze --no-pub` 通过；完整 `flutter test --no-pub` 共 417 项全部通过。
+- 最终差异复核发现列表回退仍拼接未过滤 draft 的滚动 Release，已改为复用 `publishedRollingReleases`，避免草稿资产进入候选。
+- 已增加草稿滚动 Release 的服务回归测试；最终更新模块定向测试 21 项全部通过。
+- 最终状态再次运行 `flutter analyze --no-pub` 与完整 `flutter test --no-pub`，静态分析无问题，418 项全部通过。
+- Dart 格式检查、`git diff --check` 和改动范围复核均通过；未修改 GitHub Actions、依赖或平台安装代码。
+- 本次未提交或推送；本地 `dev` 仍包含用户原有的 2 个未推送提交，远端 push build 需在用户后续推送后验证。
+
+## 2026-08-25 dev 构建版本号持久化
+
+- 已读取并遵循 `planning-with-files`，并核对当前工作区包含上一任务的未提交更新功能改动，后续将完整保留。
+- 已确认版本持久化职责在 iOS workflow；当前仅 master 会提交，dev 只在 runner 临时文件中递增。
+- 已确定保持单写入者，仅扩展 iOS workflow 条件与动态目标分支。
+- 已扩展 iOS workflow：仅 `master/dev` 的 `push` 或 `workflow_dispatch` 持久化版本，并通过 `GITHUB_REF_NAME` 推送回触发分支。
+- 首次使用 `bash` 的验证因 Windows `PATH` 未包含 Bash 而失败；已记录并改用 Git for Windows 的显式路径继续验证。
+- 已用 `C:\Program Files\Git\bin\bash.exe` 通过 Shell 语法检查和真值表验证：`push + dev` → `dev`、`workflow_dispatch + master` → `master`，PR 与 feature 分支均跳过。
+- `.github/workflows/ios-build.yml` 已通过 UTF-8 YAML 解析；`git diff --check` 通过，仅有 LF/CRLF 转换提示。
+- 最终差异仅把 iOS workflow 的版本持久化从 master 扩展到 master/dev；Android workflow 和版本计算脚本均未修改。

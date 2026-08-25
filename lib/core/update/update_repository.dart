@@ -10,6 +10,7 @@ class UpdateSettingsRepository {
 
   static const githubRepositoryKey = 'app.update.github_repository';
   static const ignoredUpdateKey = 'app.update.ignored_update';
+  static const includeDevelopmentKey = 'app.update.include_development';
 
   final SharedPreferences _prefs;
 
@@ -28,6 +29,15 @@ class UpdateSettingsRepository {
       await _prefs.setString(githubRepositoryKey, normalized);
       if (previous != normalized) await _prefs.remove(ignoredUpdateKey);
     }
+  }
+
+  bool loadIncludeDevelopment() =>
+      _prefs.getBool(includeDevelopmentKey) ?? false;
+
+  Future<void> saveIncludeDevelopment(bool value) async {
+    if (loadIncludeDevelopment() == value) return;
+    await _prefs.setBool(includeDevelopmentKey, value);
+    await _prefs.remove(ignoredUpdateKey);
   }
 
   bool isUpdateIgnored({
@@ -79,6 +89,32 @@ class UpdateRepositoryNotifier extends Notifier<String?> {
 final updateRepositoryUrlProvider =
     NotifierProvider<UpdateRepositoryNotifier, String?>(
       UpdateRepositoryNotifier.new,
+    );
+
+class IncludeDevelopmentUpdatesNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    return ref.watch(updateSettingsRepositoryProvider).loadIncludeDevelopment();
+  }
+
+  Future<void> setEnabled(bool value) async {
+    if (value == state) return;
+    final previous = state;
+    state = value;
+    try {
+      await ref
+          .read(updateSettingsRepositoryProvider)
+          .saveIncludeDevelopment(value);
+    } catch (_) {
+      state = previous;
+      rethrow;
+    }
+  }
+}
+
+final includeDevelopmentUpdatesProvider =
+    NotifierProvider<IncludeDevelopmentUpdatesNotifier, bool>(
+      IncludeDevelopmentUpdatesNotifier.new,
     );
 
 final gitHubUpdateServiceProvider = Provider<GitHubUpdateService>(

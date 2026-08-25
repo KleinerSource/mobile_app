@@ -432,3 +432,68 @@
 - `dart format --output=none --set-exit-if-changed`：通过。
 - `git diff --check`：通过；Windows Git 仅提示 LF/CRLF 转换。
 - Windows 无法执行 iOS Swift/Xcode/真机媒体切换验证，保留 macOS CI 与真机回归。
+
+## 当前任务：应用更新开发版检测开关
+
+### 目标
+
+在应用更新页“当前版本”卡片中增加持久化开关；关闭时严格只检查标准 Release，开启时同时检查标准版与开发版并选择版本更高的安装包，手动检查和启动检查保持一致。
+
+### 阶段
+
+- [x] 增加开发版检测偏好与 Provider
+- [x] 扩展 Release 标签、渠道过滤和候选选择
+- [x] 接通手动/启动检查并添加当前版本卡片开关
+- [x] 补充仓库、模型、服务和页面测试
+- [x] 运行格式、静态分析、完整测试与差异检查
+
+### 约束与假设
+
+- 默认关闭，不修改现有 GitHub Actions 工作流。
+- iOS 标准/开发标签为 `latest` / `latest-ios-dev`；Android 为 `latest-android` / `latest-android-dev`。
+- 关闭时回退 Release 列表也必须排除 `*-dev` 标签和 `omm_dev_` 资产。
+- 切换开关不自动检查，但会清除当前检测结果与已忽略版本。
+
+### 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| 列表回退曾重新拼接未过滤 draft 的滚动 Release | 改为复用 `publishedRollingReleases` 并增加服务回归测试 |
+
+### 验证结果
+
+- 更新模块定向测试：21 项全部通过。
+- `flutter analyze --no-pub`：通过，`No issues found!`。
+- `flutter test --no-pub`：通过，418 项全部通过。
+- Dart 格式检查与 `git diff --check`：通过。
+
+## 当前任务：dev 构建版本号持久化
+
+### 目标
+
+让 iOS GitHub Actions 在 `dev` push/手动构建时像 `master` 一样把自动计算后的 `pubspec.yaml` 版本提交回当前分支，避免连续开发提交从同一基线重复计算相同版本。
+
+### 阶段
+
+- [x] 核对 master/dev 版本计算与持久化职责
+- [x] 扩展 iOS workflow 的持久化分支条件和推送目标
+- [x] 验证 YAML、Shell 条件、版本脚本既有调用与最终差异
+
+### 约束
+
+- 继续只由 iOS workflow 持久化版本，避免双平台并发推送竞争。
+- 仅 `master` 与 `dev` 的 `push` / `workflow_dispatch` 可写回；PR 构建只计算、不推送。
+- 版本提交保留 `[skip ci]`，避免机器人提交再次触发构建循环。
+
+### 错误记录
+
+| 错误 | 处理 |
+| --- | --- |
+| Windows `PATH` 中没有 `bash`，首次 Shell 语法验证无法启动 | 不重复原命令；改为定位 Git for Windows 的显式 `bash.exe` 路径后验证 |
+
+### 验证结果
+
+- UTF-8 YAML 解析通过，工作流名称为 `iOS Build (unsigned)`。
+- Git for Windows Bash 语法检查通过；`push + dev` 与 `workflow_dispatch + master` 分别写回当前分支，PR 和其他分支跳过。
+- 版本脚本调用保持不变，仅扩展其结果的持久化条件与目标分支。
+- `git diff --check` 通过；仅有 Windows Git 的 LF/CRLF 转换提示。

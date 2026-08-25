@@ -64,6 +64,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final savedRepository = ref.watch(updateRepositoryUrlProvider);
+    final includeDevelopment = ref.watch(includeDevelopmentUpdatesProvider);
     final currentRepository = _repositoryController.text.trim();
     final hasSavedRepository =
         savedRepository != null && savedRepository.trim().isNotEmpty;
@@ -167,6 +168,18 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                           leadingIcon: Icons.phone_android_outlined,
                         );
                       },
+                    ),
+                    SettingsTile(
+                      title: '检测开发版',
+                      subtitle: '开启后同时检测标准版与开发版，并选择版本更高的安装包',
+                      leadingIcon: Icons.developer_mode_outlined,
+                      trailing: SettingsSwitch(
+                        value: includeDevelopment,
+                        onChanged: _checking || _downloading
+                            ? null
+                            : (value) =>
+                                  unawaited(_setIncludeDevelopment(value)),
+                      ),
                     ),
                   ],
                 ),
@@ -456,6 +469,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
             repositoryUrl: repository.canonicalUrl,
             platform: platform,
             currentVersion: currentVersion,
+            includeDevelopment: ref.read(includeDevelopmentUpdatesProvider),
           );
       if (!mounted) return;
       setState(() => _result = result);
@@ -515,6 +529,21 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
           _downloadProgress = null;
         });
       }
+    }
+  }
+
+  Future<void> _setIncludeDevelopment(bool value) async {
+    try {
+      await ref
+          .read(includeDevelopmentUpdatesProvider.notifier)
+          .setEnabled(value);
+      if (!mounted) return;
+      setState(() {
+        _result = null;
+        _error = null;
+      });
+    } catch (_) {
+      if (mounted) _showMessage('保存开发版检测设置失败，请稍后重试');
     }
   }
 

@@ -43,7 +43,8 @@ jobs:
           channel: stable
           cache: true
 
-      # master 与 dev 均按提交信息自动计算版本号；只有 master 持久化版本号提交。
+      # master 与 dev 均按提交信息自动计算版本号，并由 iOS workflow
+      # 持久化到当前分支，避免双平台同时写回产生竞争。
       # 新增/删除/增强功能: 次版本号 +1 且补丁号归零；优化/修复/改进: 补丁号 +1；构建始终只增加 build。
       - name: 计算并持久化构建版本号
         timeout-minutes: 2
@@ -52,13 +53,13 @@ jobs:
           commit_message="$(git log -1 --format=%B "${GITHUB_SHA}")"
           version="$(dart tool/bump_app_version.dart --auto --commit-message "${commit_message}")"
           echo "构建版本: ${version}"
-          if { [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/master" ]; } || \
-             { [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && [ "${GITHUB_REF}" = "refs/heads/master" ]; }; then
+          if { [ "${GITHUB_EVENT_NAME}" = "push" ] || [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; } && \
+             { [ "${GITHUB_REF}" = "refs/heads/master" ] || [ "${GITHUB_REF}" = "refs/heads/dev" ]; }; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add pubspec.yaml
             git commit -m "chore: bump build metadata to ${version} [skip ci]"
-            git push origin HEAD:master
+            git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
       - name: Flutter doctor

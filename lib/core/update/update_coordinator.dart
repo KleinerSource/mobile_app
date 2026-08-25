@@ -19,11 +19,13 @@ class AppUpdateCoordinator {
     required String repositoryUrl,
     required UpdatePlatform platform,
     required AppReleaseVersion currentVersion,
+    bool includeDevelopment = false,
   }) {
     return _service.check(
       repositoryUrl: repositoryUrl,
       platform: platform,
       currentVersion: currentVersion,
+      includeDevelopment: includeDevelopment,
     );
   }
 
