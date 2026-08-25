@@ -40,15 +40,23 @@ void main() {
   });
 
   test('KSPlayer 使用宽格式客户端路线', () {
-    final route = playbackRouteForEngine(
+    final original = playbackRouteForEngine(
       engineKind: PlaybackEngineKind.ksPlayer,
       quality: 'original',
       decision: _decision('transcode'),
     );
+    final fixed = playbackRouteForEngine(
+      engineKind: PlaybackEngineKind.ksPlayer,
+      quality: '1080p',
+      decision: _decision('transcode'),
+    );
 
-    expect(route.useBackendStream, isFalse);
-    expect(route.useServerRoute, isFalse);
-    expect(route.usesManagedTranscode, isFalse);
+    expect(original.useBackendStream, isFalse);
+    expect(original.useServerRoute, isFalse);
+    expect(original.usesManagedTranscode, isFalse);
+    expect(fixed.useBackendStream, isFalse);
+    expect(fixed.useServerRoute, isTrue);
+    expect(fixed.usesManagedTranscode, isTrue);
   });
 
   test('KSPlayer PGS 与 burn_in 字幕要求后端重决策', () {

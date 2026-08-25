@@ -17,7 +17,6 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/models/playback.dart' as playback_models;
 import '../../core/models/watch_record.dart';
 import '../../core/platform/screen_brightness_channel.dart';
-import '../home/home_providers.dart';
 import '../movies/movies_providers.dart';
 import 'playback_engine.dart';
 import 'player_controls.dart';
@@ -310,10 +309,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     if (_pictureInPictureActive || _pictureInPictureRequesting) {
       unawaited(_host.stopPictureInPicture());
     }
-    _posSub?.cancel();
-    _durSub?.cancel();
-    _completedSub?.cancel();
-    _errorSub?.cancel();
+    _unbindProgress();
     _eventsSub?.cancel();
     _transcodePollTimer?.cancel();
     _deviceStatsTimer?.cancel();
@@ -400,6 +396,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final selectedQuality = quality ?? _quality;
     final cachedDecision = quality == null ? _decision : null;
     _onRateBoostEnd();
+    // 切换质量会复用 KSPlayer 原生会话；先撤掉旧媒体的错误订阅，避免
+    // layer.stop() 的迟到错误把下一轮打开误判为播放失败。
+    _unbindProgress();
     await _stopTranscodeSession();
     await _stopPlayer();
     if (!mounted || generation != _loadGeneration) return;
@@ -738,11 +737,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _bindProgress() {
-    _posSub?.cancel();
-    _durSub?.cancel();
-    _completedSub?.cancel();
-    _errorSub?.cancel();
-    _progressReportTimer?.cancel();
+    _unbindProgress();
     _lastPositionSec = _host.position.inSeconds;
     _lastDurationSec = _host.duration.inSeconds;
     _posSub = _host.positionStream.listen((position) {
@@ -765,6 +760,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _progressReportTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (!_isLeaving) unawaited(_reportProgress());
     });
+  }
+
+  void _unbindProgress() {
+    _posSub?.cancel();
+    _durSub?.cancel();
+    _completedSub?.cancel();
+    _errorSub?.cancel();
+    _posSub = null;
+    _durSub = null;
+    _completedSub = null;
+    _errorSub = null;
+    _progressReportTimer?.cancel();
+    _progressReportTimer = null;
   }
 
   void _onPlayerError(String message) {
@@ -1426,7 +1434,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       await _stopTranscodeSession();
     } finally {
       if (mounted) {
-        _invalidateHomeMovieLists();
         await Navigator.of(context).pushReplacement<void, void>(
           MaterialPageRoute(
             builder: (_) => PlayerPage(
@@ -1480,9 +1487,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _brightness = (_brightness + delta).clamp(0.0, 1.0);
     final brightness = _brightness;
     unawaited(
-      _queueBrightnessOperation(
-        () => ScreenBrightnessChannel.set(brightness),
-      ),
+      _queueBrightnessOperation(() => ScreenBrightnessChannel.set(brightness)),
     );
     _showIndicator(PlayerIndicator.brightness(_brightness), autoHide: false);
   }
@@ -1531,20 +1536,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _loadGeneration++;
     _hideTimer?.cancel();
     _onRateBoostEnd();
-    // 观看进度上报、本地停播和服务器会话清理都不能阻塞路由返回。
-    unawaited(_reportProgress());
+    // 先完成进度上报,让返回页面能准确判断是否需要刷新继续观看区块。
+    await _reportProgress();
     unawaited(_stopPlayer());
     unawaited(_stopTranscodeSession(waitForServer: false));
     if (mounted) {
-      _invalidateHomeMovieLists();
       Navigator.of(context).pop();
     }
-  }
-
-  void _invalidateHomeMovieLists() {
-    ref.invalidate(continueWatchingProvider);
-    ref.invalidate(recentlyAddedProvider);
-    ref.invalidate(recommendCarouselProvider);
   }
 
   @override

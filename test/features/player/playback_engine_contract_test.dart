@@ -311,7 +311,7 @@ void main() {
     await session.dispose();
   });
 
-  test('KSPlayer 首帧前错误仍然保留，播放后的迟到错误被忽略', () {
+  test('KSPlayer 打开期间和播放后的迟到错误被忽略', () {
     const opening = PlaybackViewState(
       engineKind: PlaybackEngineKind.ksPlayer,
       lifecycle: PlaybackLifecycle.opening,
@@ -329,7 +329,7 @@ void main() {
       firstFrameRendered: true,
     );
 
-    expect(shouldIgnoreKsPlayerError(opening), isFalse);
+    expect(shouldIgnoreKsPlayerError(opening), isTrue);
     expect(shouldIgnoreKsPlayerError(playing), isTrue);
     expect(shouldIgnoreKsPlayerError(pausedAtFirstFrame), isFalse);
   });

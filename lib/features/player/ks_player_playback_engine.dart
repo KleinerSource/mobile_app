@@ -21,6 +21,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   List<_WebVttCue> _subtitleCues = const [];
   Duration _subtitleDelay = Duration.zero;
   bool _disposed = false;
+  bool _suppressErrorsUntilOpen = false;
 
   @override
   PlaybackEngineKind get kind => PlaybackEngineKind.ksPlayer;
@@ -102,7 +103,11 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
       case KsPlayerEventType.error:
         // KSPlayer 在已出首帧并开始推进时间后，底层播放器切换时可能迟到回调
         // 一次错误；此时画面仍在正常播放，不能把它变成统一播放失败状态。
-        if (shouldIgnoreKsPlayerError(_state.value)) return;
+        // stop() 到下一次 open() 之间的旧媒体错误同样不能污染新会话。
+        if (_suppressErrorsUntilOpen ||
+            shouldIgnoreKsPlayerError(_state.value)) {
+          return;
+        }
         _update(
           (state) => state.copyWith(
             lifecycle: PlaybackLifecycle.failed,
@@ -155,6 +160,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
 
   @override
   Future<void> open(PlaybackOpenRequest request) async {
+    _suppressErrorsUntilOpen = false;
     _subtitleCues = const [];
     _update(
       (state) => state.copyWith(
@@ -302,6 +308,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
 
   @override
   Future<void> stop() async {
+    _suppressErrorsUntilOpen = true;
     await (await _ensurePlayer()).stop();
     _update(
       (state) => state.copyWith(
@@ -373,11 +380,12 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
 
 /// 判断 KSPlayer 的错误回调是否属于已成功开始播放后的迟到错误。
 ///
-/// 首帧之前的错误仍然必须交给统一错误处理；只有已经显示画面且有播放进度
-/// 或仍处于播放状态时才忽略，避免把真实的打开失败吞掉。
+/// 打开期间的错误由 [PlaybackEngine.open] 的 Future 返回；播放期间已出首帧
+/// 的迟到错误则不能把仍在工作的会话标记为失败。
 bool shouldIgnoreKsPlayerError(PlaybackViewState state) =>
-    state.firstFrameRendered &&
-    (state.playing || state.position > Duration.zero);
+    state.lifecycle == PlaybackLifecycle.opening ||
+    (state.firstFrameRendered &&
+        (state.playing || state.position > Duration.zero));
 
 @immutable
 class _WebVttCue {
