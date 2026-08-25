@@ -266,7 +266,9 @@ private final class KsPlayerContainerView: UIView {
 private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
   private let playerId: Int64
   private let flutterApi: OmmKsPlayerFlutterApiProtocol
-  private let layer: KSPlayerLayer
+  private var layer: KSPlayerLayer
+  private weak var attachedView: KsPlayerContainerView?
+  private var attachedGravity = "contain"
   private var pipCancellable: AnyCancellable?
   private var pendingOpen: ((Result<Void, Error>) -> Void)?
   private var pendingStartPositionMs: Double = 0
@@ -287,14 +289,12 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       options: options
     )
     super.init()
-    layer.delegate = self
-    layer.player.contentMode = .scaleAspectFit
-    pipCancellable = layer.$isPipActive.sink { [weak self] active in
-      self?.send(.pictureInPicture, boolValue: active)
-    }
+    installLayerCallbacks()
   }
 
   func attach(to view: KsPlayerContainerView, gravity: String) {
+    attachedView = view
+    attachedGravity = gravity
     guard let playerView = layer.player.view else { return }
     view.attach(playerView, gravity: gravity)
   }
@@ -312,17 +312,6 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       completion(.failure(KsPlayerPluginError.invalidUrl))
       return
     }
-    pendingOpen?(.failure(KsPlayerPluginError.cancelled))
-    pendingOpen = completion
-    pendingAutoplay = autoplay
-    let startSeconds = max(0, startPositionMs ?? 0) / 1000
-    startVerificationGeneration += 1
-
-    // 上一轮播放可能把 isAutoPlay 置真，url didSet 会据此抢先 prepareToPlay，
-    // 与下方显式调用叠加成双重探测（open 线程串行跑两遍）；先归一化成 false，
-    // 由这里统一驱动起播。
-    layer.pause()
-    layer.stop()
     // Flutter 统一处理播放失败，不允许 KSPlayer 在内部再切换到第二套内核。
     KSOptions.secondPlayerType = nil
     let useFfmpegPlayer = prefersFfmpegPlayer(
@@ -331,6 +320,15 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       videoCodec: videoCodec
     )
     KSOptions.firstPlayerType = useFfmpegPlayer ? KSMEPlayer.self : KSAVPlayer.self
+
+    pendingOpen?(.failure(KsPlayerPluginError.cancelled))
+    pendingOpen = nil
+    recreateLayer()
+    pendingOpen = completion
+    pendingAutoplay = autoplay
+    let startSeconds = max(0, startPositionMs ?? 0) / 1000
+    startVerificationGeneration += 1
+
     lastVideoSize = .zero
     let options = KSOptions()
     options.startPlayRate = desiredRate
@@ -354,6 +352,36 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     }
     layer.set(url: mediaURL, options: options)
     layer.prepareToPlay()
+  }
+
+  private func installLayerCallbacks() {
+    layer.delegate = self
+    layer.player.contentMode = .scaleAspectFit
+    pipCancellable = layer.$isPipActive.sink { [weak self] active in
+      self?.send(.pictureInPicture, boolValue: active)
+    }
+  }
+
+  /// KSPlayerLayer.stop() 会异步结束当前底层播放器。切换 HLS/直传或切换
+  /// AVPlayer/KSMEPlayer 时复用同一 layer，旧 finish/error 回调可能落到新
+  /// open 的 pendingOpen 上；用新 layer 隔离旧播放器的 delegate 生命周期。
+  private func recreateLayer() {
+    let oldLayer = layer
+    pipCancellable = nil
+    oldLayer.isPipActive = false
+    oldLayer.delegate = nil
+    oldLayer.stop()
+
+    let options = KSOptions()
+    layer = KSPlayerLayer(
+      url: URL(string: "about:blank")!,
+      isAutoPlay: false,
+      options: options
+    )
+    installLayerCallbacks()
+    if let attachedView {
+      attach(to: attachedView, gravity: attachedGravity)
+    }
   }
 
   private func prefersFfmpegPlayer(
@@ -398,6 +426,8 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
 
   func stop() throws {
     guard !disposed else { throw KsPlayerPluginError.disposed }
+    pendingOpen?(.failure(KsPlayerPluginError.cancelled))
+    pendingOpen = nil
     pendingStartVerificationMs = 0
     startVerificationGeneration += 1
     layer.stop()

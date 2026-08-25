@@ -531,7 +531,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           mediaInfo: _mediaInfoForDecision(decision),
         );
       } else {
-        final hlsUrl = _fallbackHlsUrl(cfg, token, selectedQuality);
+        final hlsUrl = useBackendStream
+            ? directUrl!
+            : _fallbackHlsUrl(cfg, token, selectedQuality);
         await _openHlsWithClientFallback(
           hlsUrl,
           startAt,

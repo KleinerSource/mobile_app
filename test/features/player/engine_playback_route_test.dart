@@ -54,9 +54,21 @@ void main() {
     expect(original.useBackendStream, isFalse);
     expect(original.useServerRoute, isFalse);
     expect(original.usesManagedTranscode, isFalse);
-    expect(fixed.useBackendStream, isFalse);
+    expect(fixed.useBackendStream, isTrue);
     expect(fixed.useServerRoute, isTrue);
     expect(fixed.usesManagedTranscode, isTrue);
+  });
+
+  test('固定档位在决策未进入 HLS 时仍保留强制 HLS 兜底', () {
+    final route = playbackRouteForEngine(
+      engineKind: PlaybackEngineKind.ksPlayer,
+      quality: '1080p',
+      decision: _decision('direct_play'),
+    );
+
+    expect(route.useBackendStream, isFalse);
+    expect(route.useServerRoute, isTrue);
+    expect(route.usesManagedTranscode, isTrue);
   });
 
   test('KSPlayer PGS 与 burn_in 字幕要求后端重决策', () {

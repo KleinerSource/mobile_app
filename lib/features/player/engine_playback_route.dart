@@ -24,10 +24,22 @@ EnginePlaybackRoute playbackRouteForEngine({
 }) {
   final useServerRoute = playbackRouteForQuality(quality) == PlaybackRoute.hls;
   return EnginePlaybackRoute(
-    useBackendStream: false,
+    // 服务端决策地址可能包含 direct-stream 模式、音轨或字幕参数。
+    // 只有它确实是 HLS 时才使用；低于源分辨率的固定档位仍用兜底 HLS
+    // 强制执行用户选择的质量上限。
+    useBackendStream:
+        engineKind == PlaybackEngineKind.ksPlayer &&
+        useServerRoute &&
+        _decisionHasHlsUrl(decision),
     useServerRoute: useServerRoute,
     usesManagedTranscode: useServerRoute,
   );
+}
+
+bool _decisionHasHlsUrl(playback_models.PlaybackDecision decision) {
+  final url = decision.streamUrl.trim().toLowerCase();
+  final mime = decision.mimeType.trim().toLowerCase();
+  return url.contains('.m3u8') || mime.contains('mpegurl');
 }
 
 bool subtitleRequiresBackendDecision(
