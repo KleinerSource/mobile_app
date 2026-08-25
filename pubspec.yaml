@@ -58,3 +58,4 @@ flutter:
   generate: true
   assets:
     - assets/legal/THIRD_PARTY_NOTICES.md
+    - assets/branding/oh_my_media_logo.png
