@@ -23,7 +23,6 @@ import java.io.File
 class MainActivity : FlutterFragmentActivity() {
     companion object {
         private const val STATS_CHANNEL = "md_center/player_stats"
-        private const val CAPABILITIES_CHANNEL = "md_center/player_capabilities"
         private const val UPDATE_CHANNEL = "md_center/app_update"
         private const val DEVICE_LOCK_CHANNEL = "md_center/device_lock"
         // Android SDK 未在所有版本暴露 NETWORK_TYPE_LTE_CA，但其标准值为 19。
