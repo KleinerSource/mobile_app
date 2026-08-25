@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
-import 'package:screen_brightness/screen_brightness.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -17,6 +16,7 @@ import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/playback.dart' as playback_models;
 import '../../core/models/watch_record.dart';
+import '../../core/platform/screen_brightness_channel.dart';
 import '../home/home_providers.dart';
 import '../movies/movies_providers.dart';
 import 'playback_engine.dart';
@@ -154,7 +154,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   double _brightness = 0.5;
   double _volume = 0.5;
   Future<void> _brightnessOperations = Future<void>.value();
-  bool _brightnessScopeStarted = false;
   bool _brightnessReady = false;
   bool _wasPlayingBeforePause = false;
   Duration _backgroundPosition = Duration.zero;
@@ -225,14 +224,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _initLevels() async {
-    _brightnessScopeStarted = true;
+    // 只读一次当前亮度作为手势增量基线，不保存、不恢复：
+    // 退出播放器或 app 时亮度保持最后状态，任何阶段都不回写其他值。
     await _queueBrightnessOperation(() async {
-      try {
-        final currentBrightness = await ScreenBrightness.instance.application;
-        if (!_isLeaving) {
-          _brightness = currentBrightness;
-        }
-      } catch (_) {}
+      final currentBrightness = await ScreenBrightnessChannel.read();
+      if (currentBrightness != null && !_isLeaving) {
+        _brightness = currentBrightness;
+      }
       _brightnessReady = true;
     });
     try {
@@ -248,17 +246,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     });
     _brightnessOperations = next;
     return next;
-  }
-
-  void _resetApplicationBrightness() {
-    if (!_brightnessScopeStarted) return;
-    // The plugin owns app background/foreground restoration. This reset is
-    // only for leaving the player route, including an initialization race.
-    unawaited(
-      _queueBrightnessOperation(
-        ScreenBrightness.instance.resetApplicationScreenBrightness,
-      ),
-    );
   }
 
   void _startDeviceStatsPolling() {
@@ -341,7 +328,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       overlays: SystemUiOverlay.values,
     );
     FlutterVolumeController.updateShowSystemUI(true);
-    _resetApplicationBrightness();
     if (!wasLeaving) unawaited(_reportProgress());
     if (_transcodeSessionActive) {
       _transcodeSessionActive = false;
@@ -1495,9 +1481,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final brightness = _brightness;
     unawaited(
       _queueBrightnessOperation(
-        () => ScreenBrightness.instance.setApplicationScreenBrightness(
-          brightness,
-        ),
+        () => ScreenBrightnessChannel.set(brightness),
       ),
     );
     _showIndicator(PlayerIndicator.brightness(_brightness), autoHide: false);

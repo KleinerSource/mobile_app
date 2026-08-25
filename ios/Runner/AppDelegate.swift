@@ -39,6 +39,41 @@ import UIKit
       binaryMessenger: registrar.messenger()
     )
     deviceLockChannel.setStreamHandler(DeviceLockStreamHandler())
+
+    // 亮度直通通道：只做即时读写，不缓存、不监听生命周期、不恢复。
+    // 手势写入 UIScreen.brightness 即系统亮度，退出播放器/退出 app 均保持。
+    let brightnessChannel = FlutterMethodChannel(
+      name: "omm/screen_brightness",
+      binaryMessenger: registrar.messenger()
+    )
+    brightnessChannel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "getBrightness":
+        result(Double(Self.currentScreen().brightness))
+      case "setBrightness":
+        guard let arguments = call.arguments as? [String: Any],
+              let brightness = arguments["brightness"] as? NSNumber else {
+          result(FlutterError(code: "-2", message: "Unexpected brightness argument", details: nil))
+          return
+        }
+        Self.currentScreen().brightness = CGFloat(brightness.doubleValue)
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  private static func currentScreen() -> UIScreen {
+    for scene in UIApplication.shared.connectedScenes {
+      if let windowScene = scene as? UIWindowScene, scene.activationState == .foregroundActive {
+        return windowScene.screen
+      }
+    }
+    if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+      return windowScene.screen
+    }
+    return UIScreen.main
   }
 }
 

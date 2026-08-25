@@ -14,6 +14,7 @@ import '../../shared/collection_card_layout.dart';
 import '../libraries/libraries_providers.dart';
 import '../libraries/library_movies_page.dart';
 import '../movie_detail/movie_detail_page.dart';
+import '../movies/movie_data_changes.dart';
 import '../movies/movies_page.dart';
 import '../movies/movie_filter.dart';
 import '../movies/movies_providers.dart';
@@ -50,6 +51,10 @@ class _HomePageState extends ConsumerState<HomePage> {
   /// 轮播连续页位 · 由 RecommendCarousel 驱动
   final _heroPagePosition = ValueNotifier(0.0);
 
+  /// 上次刷新各影片区块时已消费的变更快照。
+  /// 从详情页等入口返回后对比,没有真实变更就不刷新,避免封面被重复请求。
+  MovieDataChanges _seenMovieChanges = MovieDataChanges.snapshot();
+
   @override
   void dispose() {
     _heroArts.dispose();
@@ -68,6 +73,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Future<void> _refreshHome() async {
     refreshImageCache(ref);
+    _seenMovieChanges = MovieDataChanges.snapshot();
     await refreshHomeProviders(
       refreshRecentlyAdded: () => ref.refresh(recentlyAddedProvider.future),
       refreshContinueWatching: () =>
@@ -82,10 +88,20 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   void _refreshMovieSections() {
     if (!mounted) return;
-    refreshImageCache(ref);
-    ref.invalidate(recentlyAddedProvider);
-    ref.invalidate(continueWatchingProvider);
-    ref.invalidate(recommendCarouselProvider);
+    final now = MovieDataChanges.snapshot();
+    // 仅在影片数据真实变更(编辑元数据/替换封面/上报播放进度等)时刷新对应区块;
+    // 封面缓存只在图片内容被替换时才重新拉取。
+    if (now.metadata != _seenMovieChanges.metadata ||
+        now.images != _seenMovieChanges.images) {
+      if (now.images != _seenMovieChanges.images) refreshImageCache(ref);
+      ref.invalidate(recentlyAddedProvider);
+      ref.invalidate(recommendCarouselProvider);
+    }
+    if (now.progress != _seenMovieChanges.progress ||
+        now.metadata != _seenMovieChanges.metadata) {
+      ref.invalidate(continueWatchingProvider);
+    }
+    _seenMovieChanges = now;
   }
 
   Future<void> _openRecentMovies() async {
@@ -540,11 +556,15 @@ class _ContinueWatchingCard extends StatelessWidget {
                                 label: AppL10n.of(context).homeResume,
                                 child: GestureDetector(
                                   behavior: HitTestBehavior.opaque,
-                                  onTap: () => PlayerPage.open(
-                                    context,
-                                    movieId: movie.id,
-                                    title: movie.title,
-                                  ),
+                                  onTap: () async {
+                                    await PlayerPage.open(
+                                      context,
+                                      movieId: movie.id,
+                                      title: movie.title,
+                                    );
+                                    // 播放器确实上报过进度时刷新继续观看区块。
+                                    onMovieReturned();
+                                  },
                                   child: const Padding(
                                     padding: EdgeInsets.all(2),
                                     child: Icon(

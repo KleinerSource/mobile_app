@@ -8,9 +8,12 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Build
+import android.os.PowerManager
 import android.os.SystemClock
 import android.net.TrafficStats
+import android.provider.Settings
 import android.telephony.TelephonyManager
+import android.view.WindowManager
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -23,6 +26,7 @@ class MainActivity : FlutterFragmentActivity() {
         private const val STATS_CHANNEL = "omm/player_stats"
         private const val UPDATE_CHANNEL = "omm/app_update"
         private const val DEVICE_LOCK_CHANNEL = "omm/device_lock"
+        private const val BRIGHTNESS_CHANNEL = "omm/screen_brightness"
         // Android SDK 未在所有版本暴露 NETWORK_TYPE_LTE_CA，但其标准值为 19。
         private const val NETWORK_TYPE_LTE_CA = 19
     }
@@ -62,6 +66,22 @@ class MainActivity : FlutterFragmentActivity() {
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "installApk" -> installApk(call.argument<String>("path"), result)
+                else -> result.notImplemented()
+            }
+        }
+
+        // 亮度直通通道：只做即时读写，不缓存、不监听生命周期、不恢复。
+        // 写入窗口级 screenBrightness 覆盖值，不触碰系统设置（无需权限）。
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            BRIGHTNESS_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getBrightness" -> result(getCurrentBrightness())
+                "setBrightness" -> setWindowBrightness(
+                    (call.argument<Number>("brightness"))?.toDouble(),
+                    result,
+                )
                 else -> result.notImplemented()
             }
         }
@@ -109,6 +129,43 @@ class MainActivity : FlutterFragmentActivity() {
         if (!deviceLockReceiverRegistered) return
         unregisterReceiver(deviceLockReceiver)
         deviceLockReceiverRegistered = false
+    }
+
+    private fun setWindowBrightness(value: Double?, result: MethodChannel.Result) {
+        if (value == null) {
+            result.error("-2", "Unexpected brightness argument", null)
+            return
+        }
+        val lp = window.attributes
+        lp.screenBrightness = value.toFloat().coerceIn(0f, 1f)
+        window.attributes = lp
+        result(null)
+    }
+
+    private fun getCurrentBrightness(): Float {
+        // 窗口覆盖值优先；无覆盖（BRIGHTNESS_OVERRIDE_NONE = -1）时按系统设置换算。
+        val override = window.attributes.screenBrightness
+        if (override >= 0f) return override.coerceIn(0f, 1f)
+        return try {
+            val raw = Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+            (raw / getMaximumBrightness()).coerceIn(0f, 1f)
+        } catch (_: Settings.SettingNotFoundException) {
+            0.5f
+        }
+    }
+
+    private fun getMaximumBrightness(): Float {
+        // 各 ROM 的最大值不一定是 255（如 MIUI），与 screen_brightness 插件
+        // 相同的反射读取 PowerManager.BRIGHTNESS_ON，失败回退 255。
+        return try {
+            val powerManager = getSystemService(PowerManager::class.java) ?: return 255f
+            val field = powerManager.javaClass.declaredFields
+                .firstOrNull { it.name == "BRIGHTNESS_ON" }
+            field?.isAccessible = true
+            (field?.get(powerManager) as? Int)?.toFloat() ?: 255f
+        } catch (_: Exception) {
+            255f
+        }
     }
 
     private fun installApk(path: String?, result: MethodChannel.Result) {
