@@ -26,6 +26,7 @@ void main() {
       );
       final session = PlayerSessionController(engine: engine);
       double? selectedRate;
+      String? selectedQuality;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -36,7 +37,17 @@ void main() {
                 controller: session,
                 previewSourceUri: 'https://example.com/video.mp4',
                 quality: 'original',
-                onQualityChanged: (_) {},
+                qualityOptions: const [
+                  QualityOption(id: 'auto', label: '自动', kind: 'auto'),
+                  QualityOption(
+                    id: 'original',
+                    label: '1080P（原生）',
+                    kind: 'original',
+                  ),
+                  QualityOption(id: '720p', label: '720P', kind: 'transcode'),
+                  QualityOption(id: '360p', label: '360P', kind: 'transcode'),
+                ],
+                onQualityChanged: (quality) => selectedQuality = quality,
                 subtitleTracks: const [
                   SubtitleTrack(
                     id: 'subtitle-1',
@@ -106,10 +117,21 @@ void main() {
       expect(find.byIcon(Icons.subtitles_outlined), findsOneWidget);
       expect(find.byIcon(Icons.audiotrack_outlined), findsOneWidget);
       expect(find.byIcon(Icons.picture_in_picture_alt), findsOneWidget);
+      expect(find.text('1080P（原生）'), findsOneWidget);
+      expect(find.text('4K'), findsNothing);
       expect(
         tester.widget<Slider>(find.byType(Slider)).secondaryTrackValue,
         kind == PlaybackEngineKind.ksPlayer ? null : 50000,
       );
+
+      await tester.tap(find.byTooltip('选择画质'));
+      await tester.pumpAndSettle();
+      expect(find.text('自动'), findsOneWidget);
+      expect(find.text('720P'), findsOneWidget);
+      expect(find.text('360P'), findsOneWidget);
+      await tester.tap(find.text('720P'));
+      await tester.pumpAndSettle();
+      expect(selectedQuality, '720p');
 
       engine.notifier.value = engine.notifier.value.copyWith(
         buffered: const Duration(seconds: 10),

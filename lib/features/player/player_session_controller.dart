@@ -46,6 +46,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   Duration get position => value.position;
   Duration get duration => value.duration;
   bool get playing => value.playing;
+  bool get playbackIntent => _playbackIntent;
   bool get mainMediaLoaded => value.mainMediaLoaded;
   bool get usesBackendSubtitleSelection =>
       _engine.kind == PlaybackEngineKind.ksPlayer;
@@ -57,16 +58,19 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   EnginePlaybackRoute playbackRoute({
     required String quality,
     required playback_models.PlaybackDecision decision,
+    bool forceServerRoute = false,
   }) {
     return playbackRouteForEngine(
       engineKind: _engine.kind,
       quality: quality,
       decision: decision,
+      forceServerRoute: forceServerRoute,
     );
   }
 
   playback_models.PlaybackClientCaps clientCaps({
     required String quality,
+    bool forceVideoTranscode = false,
     int? audioStreamIndex,
     String? subtitleTrackId,
   }) {
@@ -77,6 +81,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
       case PlaybackEngineKind.ksPlayer:
         return playback_models.PlaybackClientCaps.ksPlayer(
           qualityPreset: quality,
+          forceVideoTranscode: forceVideoTranscode,
           userAgent: 'omm/$os',
           audioStreamIndex: audioStreamIndex,
           subtitleTrackId: subtitleTrackId,
@@ -84,6 +89,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
       case PlaybackEngineKind.libmpv:
         return playback_models.PlaybackClientCaps.mediaKit(
           qualityPreset: quality,
+          forceVideoTranscode: forceVideoTranscode,
           userAgent: 'omm/$os',
           audioStreamIndex: audioStreamIndex,
           subtitleTrackId: subtitleTrackId,

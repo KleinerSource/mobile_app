@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/models/playback.dart' as playback_models;
-import 'playback_decision.dart';
 import 'playback_engine.dart';
 
 @immutable
@@ -21,25 +20,52 @@ EnginePlaybackRoute playbackRouteForEngine({
   required PlaybackEngineKind engineKind,
   required String quality,
   required playback_models.PlaybackDecision decision,
+  bool forceServerRoute = false,
 }) {
-  final useServerRoute = playbackRouteForQuality(quality) == PlaybackRoute.hls;
+  final normalized = quality.trim().toLowerCase();
+  final useDecisionStream = forceServerRoute || normalized != 'auto';
+  final useServerRoute = useDecisionStream && decisionHasHlsUrl(decision);
   return EnginePlaybackRoute(
-    // 服务端决策地址可能包含 direct-stream 模式、音轨或字幕参数。
-    // 只有它确实是 HLS 时才使用；低于源分辨率的固定档位仍用兜底 HLS
-    // 强制执行用户选择的质量上限。
-    useBackendStream:
-        engineKind == PlaybackEngineKind.ksPlayer &&
-        useServerRoute &&
-        _decisionHasHlsUrl(decision),
+    useBackendStream: useDecisionStream,
     useServerRoute: useServerRoute,
     usesManagedTranscode: useServerRoute,
   );
 }
 
-bool _decisionHasHlsUrl(playback_models.PlaybackDecision decision) {
+bool decisionHasHlsUrl(playback_models.PlaybackDecision decision) {
   final url = decision.streamUrl.trim().toLowerCase();
   final mime = decision.mimeType.trim().toLowerCase();
   return url.contains('.m3u8') || mime.contains('mpegurl');
+}
+
+@immutable
+class ServerFallbackPlan {
+  const ServerFallbackPlan({
+    required this.reuseDecision,
+    required this.forceVideoTranscode,
+  });
+
+  final bool reuseDecision;
+  final bool forceVideoTranscode;
+}
+
+ServerFallbackPlan? serverFallbackPlanFor({
+  required String quality,
+  required bool alreadyAttempted,
+  required bool usingHls,
+  required playback_models.PlaybackDecision decision,
+}) {
+  final normalized = quality.trim().toLowerCase();
+  if (alreadyAttempted ||
+      usingHls ||
+      (normalized != 'auto' && normalized != 'original')) {
+    return null;
+  }
+  final reuseDecision = decisionHasHlsUrl(decision);
+  return ServerFallbackPlan(
+    reuseDecision: reuseDecision,
+    forceVideoTranscode: !reuseDecision,
+  );
 }
 
 bool subtitleRequiresBackendDecision(

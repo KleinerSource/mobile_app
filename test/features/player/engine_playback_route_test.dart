@@ -4,10 +4,13 @@ import 'package:omm/core/models/playback.dart';
 import 'package:omm/features/player/engine_playback_route.dart';
 import 'package:omm/features/player/playback_engine.dart';
 
-PlaybackDecision _decision(String mode) => PlaybackDecision(
-  mode: mode,
-  streamUrl: 'https://example.com/$mode',
-  mimeType: mode == 'transcode' ? 'application/vnd.apple.mpegurl' : 'video/mp4',
+PlaybackDecision _decision({required bool hls}) => PlaybackDecision(
+  mode: hls ? 'transcode' : 'direct_play',
+  streamUrl: hls
+      ? 'https://example.com/stream.m3u8'
+      : 'https://example.com/video.mp4',
+  directUrl: 'https://example.com/original.mkv',
+  mimeType: hls ? 'application/vnd.apple.mpegurl' : 'video/mp4',
   hwAccel: '',
   targetVideo: '',
   targetAudio: '',
@@ -20,55 +23,98 @@ PlaybackDecision _decision(String mode) => PlaybackDecision(
 );
 
 void main() {
-  test('libmpv 保持自动画质直传、固定画质 HLS', () {
-    final decision = _decision('transcode');
-    final original = playbackRouteForEngine(
-      engineKind: PlaybackEngineKind.libmpv,
-      quality: 'original',
-      decision: decision,
-    );
-    final fixed = playbackRouteForEngine(
-      engineKind: PlaybackEngineKind.libmpv,
-      quality: '1080p',
-      decision: decision,
-    );
+  test('libmpv 与 KSPlayer 的自动档都先使用 direct_url', () {
+    for (final engineKind in PlaybackEngineKind.values) {
+      final route = playbackRouteForEngine(
+        engineKind: engineKind,
+        quality: 'auto',
+        decision: _decision(hls: true),
+      );
 
-    expect(original.useBackendStream, isFalse);
-    expect(original.useServerRoute, isFalse);
-    expect(fixed.useBackendStream, isFalse);
-    expect(fixed.useServerRoute, isTrue);
+      expect(route.useBackendStream, isFalse);
+      expect(route.useServerRoute, isFalse);
+      expect(route.usesManagedTranscode, isFalse);
+    }
   });
 
-  test('KSPlayer 使用宽格式客户端路线', () {
-    final original = playbackRouteForEngine(
-      engineKind: PlaybackEngineKind.ksPlayer,
-      quality: 'original',
-      decision: _decision('transcode'),
-    );
-    final fixed = playbackRouteForEngine(
-      engineKind: PlaybackEngineKind.ksPlayer,
-      quality: '1080p',
-      decision: _decision('transcode'),
-    );
+  test('两内核的原生和固定档都采用服务端决策地址', () {
+    for (final engineKind in PlaybackEngineKind.values) {
+      final originalDirect = playbackRouteForEngine(
+        engineKind: engineKind,
+        quality: 'original',
+        decision: _decision(hls: false),
+      );
+      final originalTranscode = playbackRouteForEngine(
+        engineKind: engineKind,
+        quality: 'original',
+        decision: _decision(hls: true),
+      );
+      final fixed = playbackRouteForEngine(
+        engineKind: engineKind,
+        quality: '720p',
+        decision: _decision(hls: true),
+      );
 
-    expect(original.useBackendStream, isFalse);
-    expect(original.useServerRoute, isFalse);
-    expect(original.usesManagedTranscode, isFalse);
-    expect(fixed.useBackendStream, isTrue);
-    expect(fixed.useServerRoute, isTrue);
-    expect(fixed.usesManagedTranscode, isTrue);
+      expect(originalDirect.useBackendStream, isTrue);
+      expect(originalDirect.useServerRoute, isFalse);
+      expect(originalDirect.usesManagedTranscode, isFalse);
+      for (final route in [originalTranscode, fixed]) {
+        expect(route.useBackendStream, isTrue);
+        expect(route.useServerRoute, isTrue);
+        expect(route.usesManagedTranscode, isTrue);
+      }
+    }
   });
 
-  test('固定档位在决策未进入 HLS 时仍保留强制 HLS 兜底', () {
-    final route = playbackRouteForEngine(
-      engineKind: PlaybackEngineKind.ksPlayer,
-      quality: '1080p',
-      decision: _decision('direct_play'),
+  test('服务器回退优先复用 HLS，否则要求强制视频转码重决策', () {
+    final reuse = serverFallbackPlanFor(
+      quality: 'auto',
+      alreadyAttempted: false,
+      usingHls: false,
+      decision: _decision(hls: true),
+    );
+    final refresh = serverFallbackPlanFor(
+      quality: 'original',
+      alreadyAttempted: false,
+      usingHls: false,
+      decision: _decision(hls: false),
     );
 
-    expect(route.useBackendStream, isFalse);
-    expect(route.useServerRoute, isTrue);
-    expect(route.usesManagedTranscode, isTrue);
+    expect(reuse?.reuseDecision, isTrue);
+    expect(reuse?.forceVideoTranscode, isFalse);
+    expect(refresh?.reuseDecision, isFalse);
+    expect(refresh?.forceVideoTranscode, isTrue);
+  });
+
+  test('固定档、已在 HLS 或已回退时不再自动回退', () {
+    final decision = _decision(hls: true);
+    expect(
+      serverFallbackPlanFor(
+        quality: '720p',
+        alreadyAttempted: false,
+        usingHls: false,
+        decision: decision,
+      ),
+      isNull,
+    );
+    expect(
+      serverFallbackPlanFor(
+        quality: 'auto',
+        alreadyAttempted: false,
+        usingHls: true,
+        decision: decision,
+      ),
+      isNull,
+    );
+    expect(
+      serverFallbackPlanFor(
+        quality: 'auto',
+        alreadyAttempted: true,
+        usingHls: false,
+        decision: decision,
+      ),
+      isNull,
+    );
   });
 
   test('KSPlayer PGS 与 burn_in 字幕要求后端重决策', () {

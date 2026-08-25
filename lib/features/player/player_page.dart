@@ -18,6 +18,7 @@ import '../../core/models/playback.dart' as playback_models;
 import '../../core/models/watch_record.dart';
 import '../../core/platform/screen_brightness_channel.dart';
 import '../movies/movies_providers.dart';
+import 'engine_playback_route.dart';
 import 'playback_engine.dart';
 import 'player_controls.dart';
 import 'player_decode_status.dart';
@@ -42,10 +43,15 @@ import 'subtitle_settings.dart';
 const _directPlaybackDecision = playback_models.PlaybackDecision(
   mode: 'direct_play',
   streamUrl: '',
+  directUrl: '',
+  qualityOptions: <playback_models.QualityOption>[
+    playback_models.QualityOption(id: 'auto', label: '自动', kind: 'auto'),
+  ],
   mimeType: '',
   hwAccel: '',
   targetVideo: '',
   targetAudio: '',
+  targetWidth: 0,
   targetHeight: 0,
   targetBitrate: 0,
   reasons: <String>[],
@@ -115,7 +121,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   bool _loading = true;
   String? _error;
-  String _quality = 'original';
+  String _quality = 'auto';
   playback_models.PlaybackDecision? _decision;
   playback_models.SubtitleTrack? _selectedSubtitle;
   SubtitleAdjustments _subtitleAdjustments = const SubtitleAdjustments();
@@ -157,6 +163,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _wasPlayingBeforePause = false;
   Duration _backgroundPosition = Duration.zero;
   bool _playbackErrorReported = false;
+  bool _serverFallbackAttempted = false;
   String? _pendingPlaybackError;
   Timer? _rateChangeGraceTimer;
   DateTime? _subtitleLoadGuardUntil;
@@ -369,11 +376,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     return next;
   }
 
-  Future<void> _load({String? quality, Duration? resume}) {
+  Future<void> _load({
+    String? quality,
+    Duration? resume,
+    bool serverFallback = false,
+    bool forceVideoTranscode = false,
+    bool? play,
+    playback_models.PlaybackDecision? decisionOverride,
+  }) {
     _rateChangeGraceTimer?.cancel();
     _rateChangeGraceTimer = null;
     _pendingPlaybackError = null;
     _playbackErrorReported = false;
+    if (!serverFallback) _serverFallbackAttempted = false;
     final generation = ++_loadGeneration;
 
     final next = _loadQueue.then<void>(
@@ -381,6 +396,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         generation: generation,
         quality: quality,
         resume: resume,
+        serverFallback: serverFallback,
+        forceVideoTranscode: forceVideoTranscode,
+        play: play,
+        decisionOverride: decisionOverride,
       ),
     );
     _loadQueue = next.catchError((_) {});
@@ -391,10 +410,17 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     required int generation,
     String? quality,
     Duration? resume,
+    required bool serverFallback,
+    required bool forceVideoTranscode,
+    bool? play,
+    playback_models.PlaybackDecision? decisionOverride,
   }) async {
     if (_isLeaving || generation != _loadGeneration) return;
     final selectedQuality = quality ?? _quality;
-    final cachedDecision = quality == null ? _decision : null;
+    final cachedDecision =
+        decisionOverride ?? (quality == null ? _decision : null);
+    final shouldPlay = play ?? true;
+    var fallbackResume = resume;
     _onRateBoostEnd();
     // 切换质量会复用 KSPlayer 原生会话；先撤掉旧媒体的错误订阅，避免
     // layer.stop() 的迟到错误把下一轮打开误判为播放失败。
@@ -404,6 +430,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     if (!mounted || generation != _loadGeneration) return;
     _pictureInPictureUrl = null;
     _pictureInPictureHeaders = null;
+    _usingHls = false;
     setState(() {
       _loading = true;
       _error = null;
@@ -422,7 +449,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         );
         if (!mounted || generation != _loadGeneration) return;
 
-        await _openDirectWithClientFallback(trailerUrl, null);
+        await _openDirectWithClientFallback(trailerUrl, null, play: shouldPlay);
         if (!mounted || generation != _loadGeneration) {
           await _stopPlayer();
           return;
@@ -450,17 +477,28 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           cachedDecision ??
           await client.playback.decision(
             widget.movieId,
-            _clientCaps(selectedQuality),
+            _clientCaps(
+              selectedQuality,
+              forceVideoTranscode: forceVideoTranscode,
+            ),
           );
       if (!mounted || generation != _loadGeneration) return;
+      _validateDecisionForQuality(
+        decision,
+        selectedQuality,
+        requireHls: serverFallback,
+      );
       _decision = decision;
 
       final engineRoute = _host.playbackRoute(
         quality: selectedQuality,
         decision: decision,
+        forceServerRoute:
+            serverFallback ||
+            _audioStreamIndex != null ||
+            _subtitleTrackId != null,
       );
       final useBackendStream = engineRoute.useBackendStream;
-      final useServerRoute = engineRoute.useServerRoute;
       final usesManagedTranscode = engineRoute.usesManagedTranscode;
       _transcodeSessionActive = usesManagedTranscode;
       String? directUrl;
@@ -473,9 +511,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         // 受限原生内核不使用非公开 header 注入。站内地址统一转换为 token query，
         // 外部 header-only 地址由后端 remux/direct-stream/transcode 适配。
         directUrl = _protectedUrl(cfg, rawDecisionUrl, token);
-      } else if (!useServerRoute) {
-        // 直传需要先拿到 .strm 的最终远程地址（远程地址可能实际是 HLS）。
-        final rawDirectUrl = await client.playback.streamUrl(widget.movieId);
+      } else {
+        final rawDirectUrl = decision.directUrl.trim();
+        if (rawDirectUrl.isEmpty) {
+          throw StateError('服务器版本不兼容：播放决策缺少 direct_url');
+        }
         directUrl = _protectedUrl(cfg, rawDirectUrl, token);
         directHeaders = !isExternalUrl(cfg, rawDirectUrl)
             ? _authorizationHeaders(token)
@@ -489,9 +529,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       );
       if (!mounted || generation != _loadGeneration) return;
 
-      // 自动画质不采纳后端的服务端转码建议，始终把原始媒体交给
-      // media_kit/libmpv；只有用户明确选择固定画质时才使用 HLS。
-      final direct = !useServerRoute;
       _serverDecodeStatus = usesManagedTranscode
           ? PlayerDecodeStatus.server(engine: decision.hwAccel)
           : null;
@@ -520,23 +557,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       final startAt =
           resume ??
           (resumePositionSec > 0 ? Duration(seconds: resumePositionSec) : null);
+      fallbackResume = startAt;
       if (useBackendStream) {
-        await _openBackendStream(directUrl!, startAt, decision);
-      } else if (direct) {
-        await _openDirectWithClientFallback(
-          directUrl!,
+        await _openBackendStream(
+          directUrl,
           startAt,
-          formatHint: decision.container,
-          headers: directHeaders,
-          mediaInfo: _mediaInfoForDecision(decision),
+          decision,
+          play: shouldPlay,
         );
       } else {
-        final hlsUrl = useBackendStream
-            ? directUrl!
-            : _fallbackHlsUrl(cfg, token, selectedQuality);
-        await _openHlsWithClientFallback(
-          hlsUrl,
+        await _openDirectWithClientFallback(
+          directUrl,
           startAt,
+          play: shouldPlay,
+          formatHint: decision.container,
+          headers: directHeaders,
           mediaInfo: _mediaInfoForDecision(decision),
         );
       }
@@ -559,6 +594,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       await _applyDefaultTracks(cfg, token, decision);
     } catch (error) {
       if (!mounted || generation != _loadGeneration) return;
+      if (_tryServerFallback(resume: fallbackResume, play: shouldPlay)) return;
       _playbackErrorReported = true;
       _loadGeneration++;
       setState(() {
@@ -572,6 +608,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<void> _openDirectWithClientFallback(
     String url,
     Duration? startAt, {
+    bool play = true,
     Map<String, String>? headers,
     String? formatHint,
     PlaybackMediaInfo? mediaInfo,
@@ -580,6 +617,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       await _host.open(
         url,
         startAt: startAt,
+        play: play,
         headers: headers,
         formatHint: formatHint,
         mediaInfo: mediaInfo,
@@ -591,6 +629,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       await _host.open(
         url,
         startAt: startAt,
+        play: play,
         headers: headers,
         formatHint: formatHint,
         mediaInfo: mediaInfo,
@@ -603,40 +642,77 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         : Map<String, String>.from(headers);
   }
 
-  Future<void> _openHlsWithClientFallback(
-    String url,
-    Duration? startAt, {
-    PlaybackMediaInfo? mediaInfo,
-  }) async {
-    try {
-      await _host.open(url, startAt: startAt, mediaInfo: mediaInfo);
-    } catch (_) {
-      if (!_clientHardwareAcceleration) rethrow;
-      await _host.configure(hardwareAcceleration: false);
-      _clientHardwareAcceleration = false;
-      await _host.open(url, startAt: startAt, mediaInfo: mediaInfo);
-    }
-    _usingHls = true;
-    _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
-    _pictureInPictureHeaders = null;
-  }
-
   Future<void> _openBackendStream(
     String url,
     Duration? startAt,
-    playback_models.PlaybackDecision decision,
-  ) async {
+    playback_models.PlaybackDecision decision, {
+    bool play = true,
+  }) async {
     final lowerUrl = url.toLowerCase();
     final isHls = decision.isTranscode || lowerUrl.contains('.m3u8');
     await _host.open(
       url,
       startAt: startAt,
+      play: play,
       formatHint: isHls ? null : decision.container,
       mediaInfo: _mediaInfoForDecision(decision),
     );
     _usingHls = isHls;
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
     _pictureInPictureHeaders = null;
+  }
+
+  void _validateDecisionForQuality(
+    playback_models.PlaybackDecision decision,
+    String quality, {
+    required bool requireHls,
+  }) {
+    final normalized = quality.trim().toLowerCase();
+    playback_models.QualityOption? selected;
+    for (final option in decision.qualityOptions) {
+      if (option.id == normalized) {
+        selected = option;
+        break;
+      }
+    }
+    if (selected == null) {
+      throw FormatException('服务器版本不兼容：播放决策未提供清晰度 $normalized');
+    }
+    final hasHls = decisionHasHlsUrl(decision);
+    if (selected.kind == 'transcode' && !hasHls) {
+      throw const FormatException('服务器版本不兼容：转码清晰度未返回 HLS 地址');
+    }
+    if (requireHls && !hasHls) {
+      throw StateError('服务器转码回退未返回 HLS 地址');
+    }
+  }
+
+  bool _tryServerFallback({Duration? resume, bool? play}) {
+    if (!mounted || _isLeaving || _isDirectPlayback) return false;
+    final decision = _decision;
+    if (decision == null) return false;
+    final plan = serverFallbackPlanFor(
+      quality: _quality,
+      alreadyAttempted: _serverFallbackAttempted,
+      usingHls: _usingHls,
+      decision: decision,
+    );
+    if (plan == null) return false;
+
+    _serverFallbackAttempted = true;
+    final fallbackPosition = resume ?? _host.position;
+    final shouldPlay = play ?? _host.playbackIntent;
+    unawaited(
+      _load(
+        quality: _quality,
+        resume: fallbackPosition,
+        serverFallback: true,
+        forceVideoTranscode: plan.forceVideoTranscode,
+        play: shouldPlay,
+        decisionOverride: plan.reuseDecision ? decision : null,
+      ),
+    );
+    return true;
   }
 
   PlaybackMediaInfo? _mediaInfoForDecision(
@@ -797,6 +873,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _pendingPlaybackError = message;
       return;
     }
+    if (_tryServerFallback()) return;
     _showPlaybackError(message);
   }
 
@@ -1228,20 +1305,17 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     return {'Authorization': 'Bearer $value'};
   }
 
-  String _fallbackHlsUrl(ServerConfig cfg, String? token, String quality) {
-    final selected = quality == 'original' ? 'auto' : quality;
-    final path =
-        '/api/movies/id/${widget.movieId}/stream.m3u8?quality=$selected';
-    return appendQueryToken(resolveServerUrl(cfg, path), token);
-  }
-
   String _protectedUrl(ServerConfig cfg, String raw, String? token) {
     return resolveProtectedUrl(cfg, raw, token);
   }
 
-  playback_models.PlaybackClientCaps _clientCaps(String quality) {
+  playback_models.PlaybackClientCaps _clientCaps(
+    String quality, {
+    bool forceVideoTranscode = false,
+  }) {
     return _host.clientCaps(
       quality: quality,
+      forceVideoTranscode: forceVideoTranscode,
       audioStreamIndex: _audioStreamIndex,
       subtitleTrackId: _subtitleTrackId,
     );
@@ -1292,7 +1366,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _rateChangeGraceTimer = null;
       final pending = _pendingPlaybackError;
       _pendingPlaybackError = null;
-      if (pending != null) _showPlaybackError(pending);
+      if (pending != null && !_tryServerFallback()) {
+        _showPlaybackError(pending);
+      }
     });
     unawaited(_setPlaybackRateInternal(rate));
   }
@@ -1663,6 +1739,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 previewSourceUri: _pictureInPictureUrl,
                 previewSourceHeaders: _pictureInPictureHeaders,
                 quality: _quality,
+                qualityOptions: decision.qualityOptions,
                 showQualityButton: !_isDirectPlayback,
                 onQualityChanged: _onQualityChanged,
                 subtitleTracks: capabilities.textSubtitles

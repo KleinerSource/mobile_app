@@ -23,6 +23,7 @@ class PlayerControls extends StatefulWidget {
     this.previewSourceUri,
     this.previewSourceHeaders,
     required this.quality,
+    required this.qualityOptions,
     this.showQualityButton = true,
     required this.onQualityChanged,
     required this.subtitleTracks,
@@ -58,6 +59,7 @@ class PlayerControls extends StatefulWidget {
   final String? previewSourceUri;
   final Map<String, String>? previewSourceHeaders;
   final String quality;
+  final List<playback_models.QualityOption> qualityOptions;
   final bool showQualityButton;
   final ValueChanged<String> onQualityChanged;
   final List<playback_models.SubtitleTrack> subtitleTracks;
@@ -583,14 +585,14 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   Widget _qualityButton() {
-    const qualities = <String, String>{
-      'original': '自动',
-      '2160p': '2160p',
-      '1080p': '1080p',
-      '720p': '720p',
-      '480p': '480p',
-      '360p': '360p',
-    };
+    final qualities = widget.qualityOptions;
+    var selectedLabel = widget.quality;
+    for (final option in qualities) {
+      if (option.id == widget.quality) {
+        selectedLabel = option.label;
+        break;
+      }
+    }
     return PopupMenuButton<String>(
       tooltip: '选择画质',
       enableFeedback: false,
@@ -602,11 +604,11 @@ class _PlayerControlsState extends State<PlayerControls> {
         widget.onInteraction();
       },
       itemBuilder: (context) => [
-        for (final entry in qualities.entries)
-          PopupMenuItem(value: entry.key, child: Text(entry.value)),
+        for (final option in qualities)
+          PopupMenuItem(value: option.id, child: Text(option.label)),
       ],
       child: Text(
-        (qualities[widget.quality] ?? widget.quality).toUpperCase(),
+        selectedLabel.toUpperCase(),
         style: const TextStyle(
           color: Colors.white,
           fontSize: 13,

@@ -376,6 +376,11 @@ class _RouteAdapter implements HttpClientAdapter {
       '/api/movies/id/7/playback-decision' => {
         'mode': 'direct_play',
         'stream_url': '/api/movies/id/7/stream?mode=direct',
+        'direct_url': '/api/movies/id/7/stream',
+        'quality_options': [
+          {'id': 'auto', 'label': '自动', 'kind': 'auto'},
+          {'id': 'original', 'label': '1080P（原生）', 'kind': 'original'},
+        ],
         'mime_type': 'video/mp4',
         'audio_tracks': [],
         'subtitle_tracks': [],

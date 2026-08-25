@@ -40,7 +40,8 @@ class PlaybackClientCaps {
     required this.audioCodecs,
     this.maxBitrate = 0,
     this.maxHeight = 0,
-    this.qualityPreset = 'original',
+    this.qualityPreset = 'auto',
+    this.forceVideoTranscode = false,
     this.userAgent,
     this.audioStreamIndex,
     this.subtitleTrackId,
@@ -52,6 +53,7 @@ class PlaybackClientCaps {
   final int maxBitrate;
   final int maxHeight;
   final String qualityPreset;
+  final bool forceVideoTranscode;
   final String? userAgent;
   final int? audioStreamIndex;
   final String? subtitleTrackId;
@@ -66,6 +68,7 @@ class PlaybackClientCaps {
     String? userAgent,
     int? audioStreamIndex,
     String? subtitleTrackId,
+    bool forceVideoTranscode = false,
   }) {
     return PlaybackClientCaps(
       containers: const [
@@ -80,6 +83,7 @@ class PlaybackClientCaps {
       videoCodecs: _mobileVideoCodecs,
       audioCodecs: _mobileAudioCodecs,
       qualityPreset: qualityPreset,
+      forceVideoTranscode: forceVideoTranscode,
       userAgent: userAgent,
       audioStreamIndex: audioStreamIndex,
       subtitleTrackId: subtitleTrackId,
@@ -92,6 +96,7 @@ class PlaybackClientCaps {
     String? userAgent,
     int? audioStreamIndex,
     String? subtitleTrackId,
+    bool forceVideoTranscode = false,
   }) {
     return PlaybackClientCaps(
       containers: const [
@@ -106,6 +111,7 @@ class PlaybackClientCaps {
       videoCodecs: _mobileVideoCodecs,
       audioCodecs: _mobileAudioCodecs,
       qualityPreset: qualityPreset,
+      forceVideoTranscode: forceVideoTranscode,
       userAgent: userAgent,
       audioStreamIndex: audioStreamIndex,
       subtitleTrackId: subtitleTrackId,
@@ -115,9 +121,11 @@ class PlaybackClientCaps {
   factory PlaybackClientCaps.mobile({
     required String qualityPreset,
     String? userAgent,
+    bool forceVideoTranscode = false,
   }) => PlaybackClientCaps.mediaKit(
     qualityPreset: qualityPreset,
     userAgent: userAgent,
+    forceVideoTranscode: forceVideoTranscode,
   );
 
   static const _mobilePixelFormats = <String>[
@@ -168,11 +176,31 @@ class PlaybackClientCaps {
     'max_bitrate': maxBitrate,
     'max_height': maxHeight,
     'quality_preset': qualityPreset,
+    if (forceVideoTranscode) 'force_video_transcode': true,
     if (userAgent != null && userAgent!.isNotEmpty) 'ua': userAgent,
     if (audioStreamIndex != null) 'audio_stream_index': audioStreamIndex,
     if (subtitleTrackId != null && subtitleTrackId!.isNotEmpty)
       'subtitle_track_id': subtitleTrackId,
   };
+}
+
+@immutable
+class QualityOption {
+  const QualityOption({
+    required this.id,
+    required this.label,
+    required this.kind,
+  });
+
+  final String id;
+  final String label;
+  final String kind;
+
+  factory QualityOption.fromJson(Map<String, dynamic> json) => QualityOption(
+    id: _asString(json['id']).trim(),
+    label: _asString(json['label']).trim(),
+    kind: _asString(json['kind']).trim(),
+  );
 }
 
 @immutable
@@ -288,6 +316,8 @@ class PlaybackDecision {
   const PlaybackDecision({
     required this.mode,
     required this.streamUrl,
+    this.directUrl = '',
+    this.qualityOptions = const [],
     required this.mimeType,
     this.container = '',
     this.videoCodec = '',
@@ -296,6 +326,7 @@ class PlaybackDecision {
     required this.hwAccel,
     required this.targetVideo,
     required this.targetAudio,
+    this.targetWidth = 0,
     required this.targetHeight,
     required this.targetBitrate,
     required this.reasons,
@@ -306,6 +337,8 @@ class PlaybackDecision {
 
   final String mode;
   final String streamUrl;
+  final String directUrl;
+  final List<QualityOption> qualityOptions;
   final String mimeType;
   final String container;
   final String videoCodec;
@@ -314,6 +347,7 @@ class PlaybackDecision {
   final String hwAccel;
   final String targetVideo;
   final String targetAudio;
+  final int targetWidth;
   final int targetHeight;
   final int targetBitrate;
   final List<String> reasons;
@@ -328,9 +362,16 @@ class PlaybackDecision {
   factory PlaybackDecision.fromJson(Map<String, dynamic> json) {
     final audio = json['audio_tracks'];
     final subtitles = json['subtitle_tracks'];
+    final directUrl = _asString(json['direct_url']).trim();
+    if (directUrl.isEmpty) {
+      throw const FormatException('服务器版本不兼容：播放决策缺少 direct_url');
+    }
+    final qualityOptions = _parseQualityOptions(json['quality_options']);
     return PlaybackDecision(
       mode: _asString(json['mode']),
       streamUrl: _asString(json['stream_url']),
+      directUrl: directUrl,
+      qualityOptions: qualityOptions,
       mimeType: _asString(json['mime_type']),
       container: _asString(json['container']),
       videoCodec: _asString(json['video_codec']),
@@ -339,6 +380,7 @@ class PlaybackDecision {
       hwAccel: _asString(json['hwaccel']),
       targetVideo: _asString(json['target_video']),
       targetAudio: _asString(json['target_audio']),
+      targetWidth: _asInt(json['target_width']),
       targetHeight: _asInt(json['target_height']),
       targetBitrate: _asInt(json['target_bitrate']),
       reasons: _asStringList(json['reasons']),
@@ -396,3 +438,29 @@ List<String> _asStringList(Object? value) =>
 List<Map<String, dynamic>> _asMapList(Object? value) => value is List
     ? value.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
     : const [];
+
+List<QualityOption> _parseQualityOptions(Object? value) {
+  if (value is! List || value.isEmpty) {
+    throw const FormatException('服务器版本不兼容：播放决策缺少有效的 quality_options');
+  }
+  const kinds = {'auto', 'original', 'transcode'};
+  final result = <QualityOption>[];
+  final ids = <String>{};
+  for (final raw in value) {
+    if (raw is! Map) {
+      throw const FormatException('服务器版本不兼容：quality_options 格式错误');
+    }
+    final option = QualityOption.fromJson(Map<String, dynamic>.from(raw));
+    if (option.id.isEmpty ||
+        option.label.isEmpty ||
+        !kinds.contains(option.kind) ||
+        !ids.add(option.id)) {
+      throw const FormatException('服务器版本不兼容：quality_options 格式错误');
+    }
+    result.add(option);
+  }
+  if (result.first.id != 'auto' || result.first.kind != 'auto') {
+    throw const FormatException('服务器版本不兼容：quality_options 缺少自动档');
+  }
+  return List.unmodifiable(result);
+}
