@@ -932,7 +932,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   Future<void> _selectServer(ServerProfile server) async {
     if (_selectingId != null || _loginBusy || _transitionLocked) return;
     AppHaptics.medium();
-    final sourceRect = _rectFor(_pickerAvatarKeys[server.id]);
+    final sourceRect = _pickerRectFor(_pickerAvatarKeys[server.id]);
     setState(() {
       _selectedServerId = server.id;
       _selectingId = server.id;
@@ -993,7 +993,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       if (!mounted) return;
       if (!_transitionLocked) {
         final sourceRect = _rectFor(_detailAvatarKey);
-        final targetRect = _rectFor(_pickerAvatarKeys[server.id]);
+        final targetRect = _pickerRectFor(_pickerAvatarKeys[server.id]);
         final (nameFrom, nameTo) = _nameFlightRects(server);
         setState(() {
           _transitionLocked = true;
@@ -1106,7 +1106,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     if (server == null) return;
     AppHaptics.selection();
     final sourceRect = _rectFor(_detailAvatarKey);
-    final targetRect = _rectFor(_pickerAvatarKeys[server.id]);
+    final targetRect = _pickerRectFor(_pickerAvatarKeys[server.id]);
     final (nameFrom, nameTo) = _nameFlightRects(server);
     setState(() {
       _transitionLocked = true;
@@ -1185,10 +1185,34 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     return origin & box.size;
   }
 
+  /// 选择场景内元素的测量：把视觉矩形换算回未缩放布局坐标。
+  ///
+  /// 正向飞行时选择场景缩放为 1，测量即布局位置；返回时场景停留在
+  /// 退后缩放（0.94）状态，测得的是视觉位置，而反向动画中场景会渐进
+  /// 恢复到 1.0——不换算的话飞行落点与卡片重现位置相差约 6%，落位
+  /// 瞬间出现可见跳变（卡顿）。缩放轴心即飞行起点中心，按当前进度
+  /// 反解即可还原布局矩形。详情场景不在缩放包装内，仍用 [_rectFor]。
+  Rect? _pickerRectFor(GlobalKey? key) {
+    final visual = _rectFor(key);
+    if (visual == null) return null;
+    final progress = _transitionController.value;
+    if (progress <= 0) return visual;
+    final t = (progress / 0.55).clamp(0.0, 1.0);
+    final scale = 1 - 0.06 * Curves.easeInCubic.transform(t);
+    if (scale <= 0 || scale >= 1) return visual;
+    final pivot = _transitionPivot;
+    if (pivot == null) return visual;
+    Offset restore(Offset p) => pivot + (p - pivot) / scale;
+    return Rect.fromPoints(
+      restore(visual.topLeft),
+      restore(visual.bottomRight),
+    );
+  }
+
   /// 名字飞行矩形：起点为卡片名，终点为详情名；缺起点时以详情名位置、
   /// 头像宽度合成，缺终点时以起点位置合成，保证任一侧缺失也能飞行。
   (Rect?, Rect?) _nameFlightRects(ServerProfile server) {
-    final pickerName = _rectFor(_pickerNameKeys[server.id]);
+    final pickerName = _pickerRectFor(_pickerNameKeys[server.id]);
     final detailName = _rectFor(_detailNameKey);
     if (pickerName != null && detailName != null) {
       return (pickerName, detailName);
