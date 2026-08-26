@@ -378,6 +378,9 @@ class _SecurityUnlockView extends StatefulWidget {
 
 enum _UnlockMethod { pin, gesture }
 
+/// 错误提示占位高度，保证文字出现/消失时键盘不上下跳动。
+const _errorSlotHeight = 22.0;
+
 class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
   late _UnlockMethod _method;
   late bool _showFallback;
@@ -492,6 +495,18 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                               },
                       ),
                     const SizedBox(height: 20),
+                    // 固定高度占位：错误文字出现/消失时键盘位置保持不动。
+                    SizedBox(
+                      height: _errorSlotHeight,
+                      child: widget.error != null
+                          ? ShakeErrorText(
+                              widget.error!,
+                              textAlign: TextAlign.center,
+                              replayToken: widget.errorToken,
+                            )
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
                     if (_showFallback &&
                         _method == _UnlockMethod.pin &&
                         widget.settings.hasPin)
@@ -511,14 +526,6 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                         onCompleted: (pattern) =>
                             unawaited(widget.onGesture(pattern)),
                       ),
-                    if (widget.error != null) ...[
-                      const SizedBox(height: 16),
-                      ShakeErrorText(
-                        widget.error!,
-                        textAlign: TextAlign.center,
-                        replayToken: widget.errorToken,
-                      ),
-                    ],
                   ],
                 ),
               ),

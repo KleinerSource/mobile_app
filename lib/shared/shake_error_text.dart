@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../core/platform/app_theme.dart';
 
+/// 错误抖动的统一时长，文字提示与密码键盘共用。
+const shakeErrorDuration = Duration(milliseconds: 500);
+
 /// 红色错误提示文字，出现或内容变化时左右抖动以吸引注意。
 /// 传入 [replayToken]（例如失败计数）可在连续相同错误时重复触发抖动。
 class ShakeErrorText extends StatefulWidget {
@@ -31,7 +34,7 @@ class _ShakeErrorTextState extends State<ShakeErrorText>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: shakeErrorDuration,
     );
     if (widget.text.isNotEmpty) _controller.forward();
   }

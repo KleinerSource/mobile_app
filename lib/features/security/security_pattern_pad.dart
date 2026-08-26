@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/shake_error_text.dart' show shakeErrorDuration;
 
 /// 3×3 本地手势密码输入控件。
 class SecurityPatternPad extends StatefulWidget {
@@ -43,7 +44,7 @@ class _SecurityPatternPadState extends State<SecurityPatternPad>
     super.initState();
     _shakeController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 1),
+      duration: shakeErrorDuration,
     );
     if (widget.showError) _shakeController.forward();
   }

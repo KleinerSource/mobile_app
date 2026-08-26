@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/shake_error_text.dart' show shakeErrorDuration;
 import 'security_policy.dart';
 
 /// 应用内 6 位数字密码宫格键盘，不唤起系统输入法，输满后自动提交。
@@ -34,7 +35,7 @@ class _SecurityPinPadState extends State<SecurityPinPad>
     super.initState();
     _shakeController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 1),
+      duration: shakeErrorDuration,
     );
     if (widget.showError) _shakeController.forward();
   }
