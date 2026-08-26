@@ -64,6 +64,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   late final AnimationController _transitionController;
   late final Animation<double> _pickerOpacity;
   late final Animation<double> _detailOpacity;
+  // 详情表单分级入场：输入框 → 登录按钮 → 返回按钮依次自下滑入。
+  late final AnimationController _formEntry;
   final _sceneKey = GlobalKey();
   final _detailAvatarKey = GlobalKey();
   final _detailNameKey = GlobalKey();
@@ -97,6 +99,10 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       begin: const Offset(0, 0.1),
       end: Offset.zero,
     ).animate(_brandEntry);
+    _formEntry = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 480),
+    );
     _transitionController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 520),
@@ -130,6 +136,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     _entryController.dispose();
     _brandController.dispose();
     _transitionController.dispose();
+    _formEntry.dispose();
     super.dispose();
   }
 
@@ -302,31 +309,33 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     );
   }
 
-  /// 服务器名称跟随头像一起飞行：位置在卡片名与详情名之间插值，
-  /// 字号与字距同步缩放，两端与场景内名字样式完全一致，落位无缝交接。
+  /// 服务器名称跟随头像一起飞行：中心点在卡片名与详情名之间插值，
+  /// 字号与字距同步缩放；无宽度约束不裁剪，两端与场景内名字样式一致，
+  /// 落位后（过渡解锁）才与场景内名字交接，全程互斥不重影。
   Widget _buildSharedName(AppColors colors, double progress) {
     final from = _transitionNameFromRect!;
     final to = _transitionNameToRect ?? from;
-    final left = ui.lerpDouble(from.left, to.left, progress)!;
-    final top = ui.lerpDouble(from.top, to.top, progress)!;
-    final width = ui.lerpDouble(from.width, to.width, progress)!;
-    final height = ui.lerpDouble(from.height, to.height, progress)!;
+    final cx = ui.lerpDouble(from.center.dx, to.center.dx, progress)!;
+    final cy = ui.lerpDouble(from.center.dy, to.center.dy, progress)!;
     final style = AppText.cardTitle(context).copyWith(
       fontWeight: FontWeight.w800,
       fontSize: ui.lerpDouble(15, 25, progress),
       letterSpacing: ui.lerpDouble(-0.14, -0.84, progress),
     );
     return Positioned(
-      left: left,
-      top: top,
-      width: width,
-      height: height,
+      left: cx,
+      top: cy,
+      width: 0,
+      height: 0,
       child: IgnorePointer(
-        child: Center(
+        child: OverflowBox(
+          maxWidth: double.infinity,
+          maxHeight: double.infinity,
+          alignment: Alignment.center,
           child: Text(
             _transitionDisplayName ?? _transitionServer!.name,
             maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            softWrap: false,
             style: style,
           ),
         ),
@@ -375,23 +384,34 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     AppColors colors,
     ServerProfile selected,
   ) {
+    // 头像+名字固定在场景纵向中心（Stack 绝对定位），表单挂在下方；
+    // 表单出现、切换或报错都不会改变头像落点。
+    const headerHeight = 176.0;
+    const avatarCenterOffset = 68.0;
     return SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 48, 24, 48),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: Column(
-              children: [
-                const SizedBox(height: 122),
-                const SizedBox(height: 40),
-                _needsLogin == true
-                    ? _buildInlineLogin(context, colors, selected)
-                    : _buildPendingServer(context, colors, selected),
-              ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final height = constraints.maxHeight;
+          final headerTop = math.max(24.0, height / 2 - avatarCenterOffset);
+          final stackHeight = math.max(
+            height,
+            headerTop + headerHeight + 344,
+          );
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: SizedBox(
+              height: stackHeight,
+              child: _needsLogin == true
+                  ? _buildInlineLogin(context, colors, selected, headerTop)
+                  : _buildPendingServer(
+                      context,
+                      colors,
+                      selected,
+                      headerTop,
+                    ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -569,10 +589,10 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     BuildContext context,
     AppColors colors,
     ServerProfile server,
+    double headerTop,
   ) {
     final authValue = ref.watch(authControllerProvider);
     final auth = authValue.valueOrNull;
-    final status = auth?.status;
     final requiresTotp = _totpRequired || auth?.phase == AuthPhase.totpRequired;
     final error = _error?.trim();
     final authError = auth?.message?.trim();
@@ -595,86 +615,108 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
         final selecting =
             _selectingId != null ||
             (_needsLogin != true && authValue.isLoading);
-        final body = ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
-          child: Column(
+        // 头像+名字绝对定位在 headerTop（场景纵向中心），表单固定挂在
+        // 下方；表单出现、切换或报错都不会改变头像落点。
+        final headerHeight = 176.0;
+        final body = SizedBox.expand(
+          child: Stack(
             children: [
-              Opacity(
-                opacity: _transitionLocked ? 0 : 1,
-                child: ServerAvatar(
-                  key: _detailAvatarKey,
-                  displayName: displayName,
-                  avatarUrl: avatarUrl,
-                  size: 136,
-                  busy: selecting || _loginBusy,
-                  colors: colors,
-                ),
-              ),
-              const SizedBox(height: 20),
-              // 名字飞行期间由飞行层展示名字，落位后本场景名字淡入。
-              AnimatedBuilder(
-                animation: _transitionController,
-                builder: (context, child) {
-                  final flying = _transitionLocked;
-                  final reveal = flying
-                      ? Curves.easeOutCubic
-                            .transform(
-                              ((_transitionController.value - 0.85) / 0.15)
-                                  .clamp(0.0, 1.0),
-                            )
-                      : 1.0;
-                  return Opacity(opacity: reveal, child: child);
-                },
-                child: Text(
-                  key: _detailNameKey,
-                  displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.pageTitle(context).copyWith(fontSize: 25),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                requiresTotp
-                    ? '输入动态验证码完成登录。'
-                    : status?.totpConfigured == true
-                    ? '密码验证通过后可能需要动态验证码。'
-                    : '请输入此服务器的密码继续。',
-                textAlign: TextAlign.center,
-                style: AppText.body(
-                  context,
-                ).copyWith(color: colors.muted, fontSize: 15),
-              ),
-              const SizedBox(height: 24),
-              AnimatedBuilder(
-                animation: _transitionController,
-                builder: (context, child) {
-                  // 表单在过渡后段自下浮入，与名字落位形成级联节奏。
-                  final t = ((_transitionController.value - 0.45) / 0.55)
-                      .clamp(0.0, 1.0);
-                  final eased = Curves.easeOutCubic.transform(t);
-                  return Opacity(
-                    opacity: eased,
-                    child: Transform.translate(
-                      offset: Offset(0, 18 * (1 - eased)),
-                      child: child,
-                    ),
-                  );
-                },
-                child: requiresTotp
-                    ? _buildTotpForm(context, colors, selecting, visibleError)
-                    : _buildPasswordForm(
-                        context,
-                        colors,
-                        selecting,
-                        visibleError,
+              Positioned(
+                left: 0,
+                right: 0,
+                top: headerTop,
+                height: headerHeight,
+                child: Column(
+                  children: [
+                    Opacity(
+                      opacity: _transitionLocked ? 0 : 1,
+                      child: ServerAvatar(
+                        key: _detailAvatarKey,
+                        displayName: displayName,
+                        avatarUrl: avatarUrl,
+                        size: 136,
+                        busy: selecting || _loginBusy,
+                        colors: colors,
                       ),
+                    ),
+                    const SizedBox(height: 20),
+                    // 名字飞行期间完全由飞行层展示，落位后本场景名字淡入，
+                    // 两层互斥，不会出现双文字或省略号闪烁。
+                    AnimatedBuilder(
+                      animation: _transitionController,
+                      builder: (context, child) {
+                        final reveal = _transitionLocked
+                            ? Curves.easeOutCubic.transform(
+                                ((_transitionController.value - 0.9) / 0.1)
+                                    .clamp(0.0, 1.0),
+                              )
+                            : 1.0;
+                        return Opacity(opacity: reveal, child: child);
+                      },
+                      child: Text(
+                        key: _detailNameKey,
+                        displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.pageTitle(
+                          context,
+                        ).copyWith(fontSize: 25),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: headerTop + headerHeight + 16,
+                child: AnimatedBuilder(
+                  animation: _transitionController,
+                  builder: (context, child) {
+                    // 表单在过渡后段自下浮入，与名字落位形成级联节奏。
+                    final t = ((_transitionController.value - 0.45) / 0.55)
+                        .clamp(0.0, 1.0);
+                    final eased = Curves.easeOutCubic.transform(t);
+                    return Opacity(
+                      opacity: eased,
+                      child: Transform.translate(
+                        offset: Offset(0, 18 * (1 - eased)),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: requiresTotp
+                      ? _buildTotpForm(context, colors, selecting, visibleError)
+                      : _buildPasswordForm(
+                          context,
+                          colors,
+                          selecting,
+                          visibleError,
+                        ),
+                ),
               ),
             ],
           ),
         );
         return body;
       },
+    );
+  }
+
+  /// 详情表单分级入场包装：输入框 → 按钮 → 返回按钮依次自下滑入。
+  Widget _formStagger(int index, Widget child) {
+    // 每级延迟 90ms，滑入 24px。
+    final start = Interval(0.18 * index, 1, curve: Curves.easeOutCubic);
+    return AnimatedBuilder(
+      animation: _formEntry,
+      builder: (context, child) {
+        final t = start.transform(_formEntry.value);
+        return Opacity(
+          opacity: t,
+          child: Transform.translate(offset: Offset(0, 24 * (1 - t)), child: child),
+        );
+      },
+      child: child,
     );
   }
 
@@ -685,16 +727,33 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     bool selecting,
     String? visibleError,
   ) {
+    final auth = ref.watch(authControllerProvider).valueOrNull;
+    final totpConfigured = auth?.status?.totpConfigured == true;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _loginField(
-          context,
-          controller: _passwordController,
-          label: '密码',
-          obscureText: true,
-          icon: Icons.key_outlined,
-          enabled: !selecting && !_loginBusy,
-          onSubmitted: (_) => _login(),
+        _formStagger(
+          0,
+          Text(
+            totpConfigured ? '密码验证通过后可能需要动态验证码。' : '请输入此服务器的密码继续。',
+            textAlign: TextAlign.center,
+            style: AppText.body(
+              context,
+            ).copyWith(color: colors.muted, fontSize: 15),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _formStagger(
+          1,
+          _loginField(
+            context,
+            controller: _passwordController,
+            label: '密码',
+            obscureText: true,
+            icon: Icons.key_outlined,
+            enabled: !selecting && !_loginBusy,
+            onSubmitted: (_) => _login(),
+          ),
         ),
         if (visibleError != null) ...[
           const SizedBox(height: 12),
@@ -704,25 +763,33 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
           ),
         ],
         const SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: selecting || _loginBusy ? null : _login,
-            icon: _loginBusy || selecting
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.login_rounded),
-            label: Text(selecting ? '连接中...' : '登录'),
+        _formStagger(
+          2,
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: selecting || _loginBusy ? null : _login,
+              icon: _loginBusy || selecting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.login_rounded),
+              label: Text(selecting ? '连接中...' : '登录'),
+            ),
           ),
         ),
         const SizedBox(height: 8),
-        TextButton.icon(
-          onPressed: selecting || _loginBusy ? null : _showServerList,
-          icon: const Icon(Icons.arrow_back_rounded, size: 18),
-          label: const Text('选择其他服务器'),
+        _formStagger(
+          3,
+          Center(
+            child: TextButton.icon(
+              onPressed: selecting || _loginBusy ? null : _showServerList,
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
+              label: const Text('选择其他服务器'),
+            ),
+          ),
         ),
       ],
     );
@@ -736,12 +803,27 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     String? visibleError,
   ) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TotpInputField(
-          controller: _totpController,
-          enabled: !selecting && !_loginBusy,
-          autofocus: true,
-          onCompleted: (_) => _submitTotp(),
+        _formStagger(
+          0,
+          Text(
+            '输入动态验证码完成登录。',
+            textAlign: TextAlign.center,
+            style: AppText.body(
+              context,
+            ).copyWith(color: colors.muted, fontSize: 15),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _formStagger(
+          1,
+          TotpInputField(
+            controller: _totpController,
+            enabled: !selecting && !_loginBusy,
+            autofocus: true,
+            onCompleted: (_) => _submitTotp(),
+          ),
         ),
         if (visibleError != null) ...[
           const SizedBox(height: 12),
@@ -751,33 +833,42 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
           ),
         ],
         const SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: selecting || _loginBusy ? null : _submitTotp,
-            icon: _loginBusy || selecting
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.verified_user_outlined),
-            label: Text(selecting ? '连接中...' : '验证并登录'),
+        _formStagger(
+          2,
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: selecting || _loginBusy ? null : _submitTotp,
+              icon: _loginBusy || selecting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.verified_user_outlined),
+              label: Text(selecting ? '连接中...' : '验证并登录'),
+            ),
           ),
         ),
         const SizedBox(height: 8),
-        TextButton.icon(
-          onPressed: selecting || _loginBusy
-              ? null
-              : () {
-                  setState(() {
-                    _totpRequired = false;
-                    _error = null;
-                    _totpController.clear();
-                  });
-                },
-          icon: const Icon(Icons.arrow_back_rounded, size: 18),
-          label: const Text('返回输入密码'),
+        _formStagger(
+          3,
+          Center(
+            child: TextButton.icon(
+              onPressed: selecting || _loginBusy
+                  ? null
+                  : () {
+                      setState(() {
+                        _totpRequired = false;
+                        _error = null;
+                        _totpController.clear();
+                      });
+                      _formEntry.forward(from: 0);
+                    },
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
+              label: const Text('返回输入密码'),
+            ),
+          ),
         ),
       ],
     );
@@ -787,46 +878,84 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     BuildContext context,
     AppColors colors,
     ServerProfile server,
+    double headerTop,
   ) {
     final displayName = _displayNameFor(server);
     final avatarUrl = _avatarUrlFor(server);
-    return ConstrainedBox(
-      key: ValueKey('server-pending-${server.id}'),
-      constraints: const BoxConstraints(maxWidth: 360),
-      child: Column(
+    const headerHeight = 176.0;
+    return SizedBox.expand(
+      child: Stack(
         children: [
-          Opacity(
-            opacity: _transitionLocked ? 0 : 1,
-            child: ServerAvatar(
-              key: _detailAvatarKey,
-              displayName: displayName,
-              avatarUrl: avatarUrl,
-              size: 128,
-              busy: false,
-              colors: colors,
+          Positioned(
+            left: 0,
+            right: 0,
+            top: headerTop,
+            height: headerHeight,
+            child: Column(
+              children: [
+                Opacity(
+                  opacity: _transitionLocked ? 0 : 1,
+                  child: ServerAvatar(
+                    key: _detailAvatarKey,
+                    displayName: displayName,
+                    avatarUrl: avatarUrl,
+                    size: 136,
+                    busy: false,
+                    colors: colors,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                AnimatedBuilder(
+                  animation: _transitionController,
+                  builder: (context, child) {
+                    final flying = _transitionLocked;
+                    final reveal = flying
+                        ? Curves.easeOutCubic.transform(
+                            ((_transitionController.value - 0.9) / 0.1).clamp(
+                              0.0,
+                              1.0,
+                            ),
+                          )
+                        : 1.0;
+                    return Opacity(opacity: reveal, child: child);
+                  },
+                  child: Text(
+                    key: _detailNameKey,
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.pageTitle(context).copyWith(fontSize: 25),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 18),
-          AnimatedBuilder(
-            animation: _transitionController,
-            builder: (context, child) {
-              final flying = _transitionLocked;
-              final reveal = flying
-                  ? Curves.easeOutCubic.transform(
-                      ((_transitionController.value - 0.85) / 0.15).clamp(
-                        0.0,
-                        1.0,
-                      ),
-                    )
-                  : 1.0;
-              return Opacity(opacity: reveal, child: child);
-            },
-            child: Text(
-              key: _detailNameKey,
-              displayName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppText.pageTitle(context).copyWith(fontSize: 25),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: headerTop + headerHeight + 16,
+            child: AnimatedBuilder(
+              animation: _transitionController,
+              builder: (context, child) {
+                // 鉴权检查中的提示与表单同样在后段浮入。
+                final t = ((_transitionController.value - 0.45) / 0.55).clamp(
+                  0.0,
+                  1.0,
+                );
+                final eased = Curves.easeOutCubic.transform(t);
+                return Opacity(
+                  opacity: eased,
+                  child: Transform.translate(
+                    offset: Offset(0, 18 * (1 - eased)),
+                    child: child,
+                  ),
+                );
+              },
+              child: Text(
+                '正在检查服务器鉴权状态…',
+                textAlign: TextAlign.center,
+                style: AppText.body(context).copyWith(color: colors.muted),
+              ),
             ),
           ),
         ],
@@ -945,7 +1074,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
         AppHaptics.medium();
         return;
       }
-      setState(() => _error = '请输入 TOTP 验证码');
+      setState(() => _totpRequired = true);
+      _formEntry.forward(from: 0);
     } catch (error) {
       if (!mounted) return;
       final exception = toApiException(error);
@@ -1071,6 +1201,12 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       _transitionNameFromRect = null;
       _transitionNameToRect = null;
     });
+    if (forward) {
+      // 过渡完成后表单分级滑入（输入框 → 按钮 → 返回按钮）。
+      _formEntry.forward(from: 0);
+    } else {
+      _formEntry.value = 0;
+    }
   }
 
   Rect? _rectFor(GlobalKey? key) {

@@ -12,6 +12,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/server_avatar.dart';
+import '../../shared/totp_input_field.dart';
 import '../libraries/libraries_providers.dart';
 import 'home_providers.dart';
 
@@ -458,7 +459,6 @@ class _ServerSwitchTransitionOverlayState
     bool requiresTotp,
     String? message,
   ) {
-    final auth = ref.watch(authControllerProvider).valueOrNull;
     final profile = _cachedProfileFor(server);
     final name = profile?.name.trim().isNotEmpty == true
         ? profile!.name.trim()
@@ -474,6 +474,7 @@ class _ServerSwitchTransitionOverlayState
           displayName: name,
           avatarUrl: avatar,
           size: 112,
+          busy: _loginBusy,
           colors: colors,
         ),
         const SizedBox(height: 18),
@@ -486,40 +487,29 @@ class _ServerSwitchTransitionOverlayState
         ),
         const SizedBox(height: 8),
         Text(
-          auth?.status?.totpConfigured == true
-              ? '请输入此服务器的密码和 TOTP 验证码。'
-              : '请输入此服务器的密码继续。',
+          requiresTotp ? '输入动态验证码完成切换。' : '请输入此服务器的密码继续。',
           textAlign: TextAlign.center,
           style: AppText.body(context).copyWith(color: colors.muted),
         ),
         const SizedBox(height: 22),
-        _input(
-          context,
-          controller: _passwordController,
-          label: '密码',
-          obscureText: true,
-          icon: Icons.key_outlined,
-          enabled: !_loginBusy,
-          onSubmitted: (_) => _submitLogin(requiresTotp),
-        ),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          child: requiresTotp
-              ? Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: _input(
-                    context,
-                    controller: _totpController,
-                    label: 'TOTP 验证码',
-                    keyboardType: TextInputType.number,
-                    icon: Icons.timer_outlined,
-                    enabled: !_loginBusy,
-                    onSubmitted: (_) => _submitLogin(true),
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
+        if (requiresTotp) ...[
+          TotpInputField(
+            controller: _totpController,
+            enabled: !_loginBusy,
+            autofocus: true,
+            onCompleted: (_) => _submitTotp(),
+          ),
+        ] else ...[
+          _input(
+            context,
+            controller: _passwordController,
+            label: '密码',
+            obscureText: true,
+            icon: Icons.key_outlined,
+            enabled: !_loginBusy,
+            onSubmitted: (_) => _submitLogin(),
+          ),
+        ],
         if (error != null && error.isNotEmpty) ...[
           const SizedBox(height: 12),
           Align(
@@ -534,15 +524,29 @@ class _ServerSwitchTransitionOverlayState
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed: _loginBusy ? null : () => _submitLogin(requiresTotp),
+            onPressed: _loginBusy
+                ? null
+                : requiresTotp
+                ? _submitTotp
+                : _submitLogin,
             icon: _loginBusy
                 ? const SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.login_rounded),
-            label: Text(_loginBusy ? '验证中…' : '登录并切换'),
+                : Icon(
+                    requiresTotp
+                        ? Icons.verified_user_outlined
+                        : Icons.login_rounded,
+                  ),
+            label: Text(
+              _loginBusy
+                  ? '验证中…'
+                  : requiresTotp
+                  ? '验证并切换'
+                  : '登录并切换',
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -610,14 +614,10 @@ class _ServerSwitchTransitionOverlayState
     );
   }
 
-  Future<void> _submitLogin(bool requiresTotp) async {
+  Future<void> _submitLogin() async {
     final password = _passwordController.text;
     if (password.trim().isEmpty) {
       setState(() => _localError = '请输入密码');
-      return;
-    }
-    if (requiresTotp && _totpController.text.trim().isEmpty) {
-      setState(() => _localError = '请输入 TOTP 验证码');
       return;
     }
     setState(() {
@@ -627,12 +627,34 @@ class _ServerSwitchTransitionOverlayState
     try {
       await ref
           .read(serverSwitchTransitionProvider.notifier)
-          .login(
-            password: password,
-            totpCode: requiresTotp ? _totpController.text.trim() : null,
-          );
+          .login(password: password);
     } finally {
       if (mounted) setState(() => _loginBusy = false);
+    }
+  }
+
+  /// 密码验证通过后提交 TOTP 验证码。
+  Future<void> _submitTotp() async {
+    final totpCode = _totpController.text.trim();
+    if (totpCode.length < totpCodeLength) {
+      setState(() => _localError = '请输入 $totpCodeLength 位 TOTP 验证码');
+      return;
+    }
+    setState(() {
+      _loginBusy = true;
+      _localError = null;
+    });
+    try {
+      await ref
+          .read(serverSwitchTransitionProvider.notifier)
+          .login(password: _passwordController.text, totpCode: totpCode);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loginBusy = false;
+          _totpController.clear();
+        });
+      }
     }
   }
 

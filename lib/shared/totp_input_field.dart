@@ -55,6 +55,7 @@ class _TotpInputFieldState extends State<TotpInputField> {
   }
 
   void _handleChanged() {
+    if (!mounted) return;
     // 只保留数字，超长截断（粘贴完整验证码时常见）。
     final digits = widget.controller.text.replaceAll(RegExp(r'\D'), '');
     final value = digits.length > totpCodeLength
@@ -67,6 +68,9 @@ class _TotpInputFieldState extends State<TotpInputField> {
       );
       return;
     }
+    // 分格展示依赖 build 时读取控制器文本，控制器变化后必须重建，
+    // 否则键盘输入的数字不显示、高亮格也不移动。
+    setState(() {});
     widget.onChanged?.call(value);
     if (value.length == totpCodeLength) {
       AppHaptics.medium();
@@ -92,6 +96,7 @@ class _TotpInputFieldState extends State<TotpInputField> {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final value = widget.controller.text;
+    final activeIndex = value.length.clamp(0, totpCodeLength - 1);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -110,8 +115,7 @@ class _TotpInputFieldState extends State<TotpInputField> {
                 Expanded(
                   child: _TotpDigitBox(
                     character: index < value.length ? value[index] : null,
-                    active: widget.enabled &&
-                        index == value.length.clamp(0, totpCodeLength - 1),
+                    active: widget.enabled && index == activeIndex,
                     colors: colors,
                   ),
                 ),
