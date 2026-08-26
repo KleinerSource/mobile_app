@@ -423,17 +423,20 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
 
   func play() throws {
     guard !disposed else { throw KsPlayerPluginError.disposed }
+    pendingAutoplay = true
     layer.play()
     layerIsStopped = false
   }
 
   func pause() throws {
     guard !disposed else { throw KsPlayerPluginError.disposed }
+    pendingAutoplay = false
     layer.pause()
   }
 
   func stop() throws {
     guard !disposed else { throw KsPlayerPluginError.disposed }
+    pendingAutoplay = false
     openGeneration += 1
     pendingOpen?(.failure(KsPlayerPluginError.cancelled))
     pendingOpen = nil
@@ -650,9 +653,20 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       currentLayer.seek(time: start, autoPlay: pendingAutoplay) { _ in }
       finish()
     } else {
-      if pendingAutoplay { currentLayer.play() }
+      if pendingAutoplay { playCurrentLayer(currentLayer) }
       finish()
     }
+  }
+
+  private func playCurrentLayer(_ currentLayer: KSPlayerLayer) {
+    guard pendingAutoplay else { return }
+    // KSMEPlayer 可能已经把 playbackState 置为 .playing，但音频引擎和
+    // MetalPlayView 仍处于暂停状态；直接再次 play() 不会触发状态监听。
+    // 模拟一次无感的 pause → play，强制重新打开底层音视频时钟。
+    if currentLayer.player is KSMEPlayer {
+      currentLayer.pause()
+    }
+    currentLayer.play()
   }
 
   /// 初始定位的兜底校验：FFmpeg startPlayTime 或 AVPlayer ready 后的 seek
