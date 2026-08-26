@@ -390,6 +390,7 @@ class _PinSetupDialogState extends State<_PinSetupDialog> {
             const SizedBox(height: 12),
             SecurityPinPad(
               key: ValueKey(_firstPin == null ? 'first' : 'confirm'),
+              showError: _error != null,
               onCompleted: _handlePin,
             ),
           ],
