@@ -51,6 +51,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   String? _transitionAvatarUrl;
   Rect? _transitionFromRect;
   Rect? _transitionToRect;
+  Rect? _transitionNameFromRect;
+  Rect? _transitionNameToRect;
 
   late final AnimationController _entryController;
   late final Animation<double> _entryOpacity;
@@ -63,7 +65,9 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   late final Animation<double> _detailOpacity;
   final _sceneKey = GlobalKey();
   final _detailAvatarKey = GlobalKey();
+  final _detailNameKey = GlobalKey();
   final _pickerAvatarKeys = <String, GlobalKey>{};
+  final _pickerNameKeys = <String, GlobalKey>{};
 
   @override
   void initState() {
@@ -183,8 +187,11 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                   ),
                 if (_transitionFromRect != null &&
                     _transitionToRect != null &&
-                    _transitionServer != null)
+                    _transitionServer != null) ...[
                   _buildSharedAvatar(colors, progress),
+                  if (_transitionNameFromRect != null)
+                    _buildSharedName(colors, progress),
+                ],
               ],
             );
           },
@@ -196,13 +203,31 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                 child: AnimatedBuilder(
                   animation: _transitionController,
                   builder: (context, child) {
-                    // 过渡前半段列表轻微缩小退后，与头像飞行形成纵深层次。
+                    // 过渡前半段列表轻微缩小退后，轴心取起飞头像中心，
+                    // 保证飞行起点在过渡全程保持原位（返回不抖动）。
                     final t = (_transitionController.value / 0.55).clamp(
                       0.0,
                       1.0,
                     );
                     final scale = 1 - 0.06 * Curves.easeInCubic.transform(t);
-                    return Transform.scale(scale: scale, child: child);
+                    final pivot = _transitionPivot;
+                    final sceneBox =
+                        _sceneKey.currentContext?.findRenderObject()
+                            as RenderBox?;
+                    if (pivot == null ||
+                        sceneBox == null ||
+                        !sceneBox.hasSize) {
+                      return Transform.scale(scale: scale, child: child);
+                    }
+                    final origin = pivot - Offset(
+                      sceneBox.size.width / 2,
+                      sceneBox.size.height / 2,
+                    );
+                    return Transform.scale(
+                      scale: scale,
+                      origin: origin,
+                      child: child,
+                    );
                   },
                   child: FadeTransition(
                     opacity: _pickerOpacity,
@@ -235,6 +260,14 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     );
   }
 
+  /// 列表缩放退后的轴心取起飞头像中心：飞行起点在过渡全程保持原位，
+  /// 返回时头像先落位、场景再恢复，不会出现卡片回位后的横向抖动。
+  Offset? get _transitionPivot {
+    final from = _transitionFromRect;
+    if (from == null) return null;
+    return Offset(from.center.dx, from.center.dy);
+  }
+
   Widget _buildSharedAvatar(AppColors colors, double progress) {
     final from = _transitionFromRect!;
     final to = _transitionToRect!;
@@ -262,6 +295,38 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                 colors: colors,
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 服务器名称跟随头像一起飞行：位置在卡片名与详情名之间插值，
+  /// 字号与字距同步缩放，两端与场景内名字样式完全一致，落位无缝交接。
+  Widget _buildSharedName(AppColors colors, double progress) {
+    final from = _transitionNameFromRect!;
+    final to = _transitionNameToRect ?? from;
+    final left = ui.lerpDouble(from.left, to.left, progress)!;
+    final top = ui.lerpDouble(from.top, to.top, progress)!;
+    final width = ui.lerpDouble(from.width, to.width, progress)!;
+    final height = ui.lerpDouble(from.height, to.height, progress)!;
+    final style = AppText.cardTitle(context).copyWith(
+      fontWeight: FontWeight.w800,
+      fontSize: ui.lerpDouble(15, 25, progress),
+      letterSpacing: ui.lerpDouble(-0.14, -0.84, progress),
+    );
+    return Positioned(
+      left: left,
+      top: top,
+      width: width,
+      height: height,
+      child: IgnorePointer(
+        child: Center(
+          child: Text(
+            _transitionDisplayName ?? _transitionServer!.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
           ),
         ),
       ),
@@ -472,12 +537,19 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                           servers[index].id,
                           () => GlobalKey(),
                         ),
+                        nameKey: _pickerNameKeys.putIfAbsent(
+                          servers[index].id,
+                          () => GlobalKey(),
+                        ),
                         server: servers[index],
                         profileFuture: _profileFor(servers[index]),
                         cachedProfile: _cachedProfileFor(servers[index]),
                         busy: _selectingId == servers[index].id,
                         hideAvatar:
                             _transitionLocked &&
+                            _transitionServer?.id == servers[index].id,
+                        hideName:
+                            _transitionNameFromRect != null &&
                             _transitionServer?.id == servers[index].id,
                         onTap: () => _selectServer(servers[index]),
                       ),
@@ -538,11 +610,27 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                 ),
               ),
               const SizedBox(height: 20),
-              Text(
-                displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppText.pageTitle(context).copyWith(fontSize: 25),
+              // 名字飞行期间由飞行层展示名字，落位后本场景名字淡入。
+              AnimatedBuilder(
+                animation: _transitionController,
+                builder: (context, child) {
+                  final flying = _transitionLocked;
+                  final reveal = flying
+                      ? Curves.easeOutCubic
+                            .transform(
+                              ((_transitionController.value - 0.85) / 0.15)
+                                  .clamp(0.0, 1.0),
+                            )
+                      : 1.0;
+                  return Opacity(opacity: reveal, child: child);
+                },
+                child: Text(
+                  key: _detailNameKey,
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.pageTitle(context).copyWith(fontSize: 25),
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -555,60 +643,80 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                 ).copyWith(color: colors.muted, fontSize: 15),
               ),
               const SizedBox(height: 24),
-              _loginField(
-                context,
-                controller: _passwordController,
-                label: '密码',
-                obscureText: true,
-                icon: Icons.key_outlined,
-                enabled: !selecting && !_loginBusy,
-                onSubmitted: (_) => _login(),
-              ),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 260),
-                curve: Curves.easeOutCubic,
-                child: requiresTotp
-                    ? Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: _loginField(
-                          context,
-                          controller: _totpController,
-                          label: 'TOTP 验证码',
-                          keyboardType: TextInputType.number,
-                          icon: Icons.timer_outlined,
-                          enabled: !selecting && !_loginBusy,
-                          onSubmitted: (_) => _login(),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-              if (visibleError != null) ...[
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: ShakeErrorText(visibleError),
+              AnimatedBuilder(
+                animation: _transitionController,
+                builder: (context, child) {
+                  // 表单在过渡后段自下浮入，与名字落位形成级联节奏。
+                  final t = ((_transitionController.value - 0.45) / 0.55)
+                      .clamp(0.0, 1.0);
+                  final eased = Curves.easeOutCubic.transform(t);
+                  return Opacity(
+                    opacity: eased,
+                    child: Transform.translate(
+                      offset: Offset(0, 18 * (1 - eased)),
+                      child: child,
+                    ),
+                  );
+                },
+                child: Column(
+                  children: [
+                    _loginField(
+                      context,
+                      controller: _passwordController,
+                      label: '密码',
+                      obscureText: true,
+                      icon: Icons.key_outlined,
+                      enabled: !selecting && !_loginBusy,
+                      onSubmitted: (_) => _login(),
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                      child: requiresTotp
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: _loginField(
+                                context,
+                                controller: _totpController,
+                                label: 'TOTP 验证码',
+                                keyboardType: TextInputType.number,
+                                icon: Icons.timer_outlined,
+                                enabled: !selecting && !_loginBusy,
+                                onSubmitted: (_) => _login(),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    if (visibleError != null) ...[
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: ShakeErrorText(visibleError),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: selecting || _loginBusy ? null : _login,
+                        icon: _loginBusy || selecting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.login_rounded),
+                        label: Text(selecting ? '连接中...' : '登录'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: selecting || _loginBusy ? null : _showServerList,
+                      icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                      label: const Text('选择其他服务器'),
+                    ),
+                  ],
                 ),
-              ],
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: selecting || _loginBusy ? null : _login,
-                  icon: _loginBusy || selecting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.login_rounded),
-                  label: Text(selecting ? '连接中...' : '登录'),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextButton.icon(
-                onPressed: selecting || _loginBusy ? null : _showServerList,
-                icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                label: const Text('选择其他服务器'),
               ),
             ],
           ),
@@ -642,11 +750,27 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             ),
           ),
           const SizedBox(height: 18),
-          Text(
-            displayName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppText.pageTitle(context).copyWith(fontSize: 25),
+          AnimatedBuilder(
+            animation: _transitionController,
+            builder: (context, child) {
+              final flying = _transitionLocked;
+              final reveal = flying
+                  ? Curves.easeOutCubic.transform(
+                      ((_transitionController.value - 0.85) / 0.15).clamp(
+                        0.0,
+                        1.0,
+                      ),
+                    )
+                  : 1.0;
+              return Opacity(opacity: reveal, child: child);
+            },
+            child: Text(
+              key: _detailNameKey,
+              displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.pageTitle(context).copyWith(fontSize: 25),
+            ),
           ),
         ],
       ),
@@ -676,9 +800,12 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
     final targetRect = _rectFor(_detailAvatarKey);
+    final (nameFrom, nameTo) = _nameFlightRects(server);
     setState(() {
       _transitionFromRect = sourceRect ?? targetRect;
       _transitionToRect = targetRect ?? sourceRect;
+      _transitionNameFromRect = nameFrom;
+      _transitionNameToRect = nameTo;
     });
     final selectFuture = ref
         .read(serverConfigProvider.notifier)
@@ -715,6 +842,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       if (!_transitionLocked) {
         final sourceRect = _rectFor(_detailAvatarKey);
         final targetRect = _rectFor(_pickerAvatarKeys[server.id]);
+        final (nameFrom, nameTo) = _nameFlightRects(server);
         setState(() {
           _transitionLocked = true;
           _transitionServer = server;
@@ -722,6 +850,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
           _transitionAvatarUrl = _avatarUrlFor(server);
           _transitionFromRect = targetRect ?? sourceRect;
           _transitionToRect = sourceRect ?? targetRect;
+          _transitionNameFromRect = nameFrom;
+          _transitionNameToRect = nameTo;
         });
       }
       await _animateTransition(forward: false);
@@ -796,6 +926,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     AppHaptics.selection();
     final sourceRect = _rectFor(_detailAvatarKey);
     final targetRect = _rectFor(_pickerAvatarKeys[server.id]);
+    final (nameFrom, nameTo) = _nameFlightRects(server);
     setState(() {
       _transitionLocked = true;
       _transitionServer = server;
@@ -803,6 +934,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       _transitionAvatarUrl = _avatarUrlFor(server);
       _transitionFromRect = targetRect ?? sourceRect;
       _transitionToRect = sourceRect ?? targetRect;
+      _transitionNameFromRect = nameFrom;
+      _transitionNameToRect = nameTo;
       _authCheckPending = false;
     });
     await _animateTransition(forward: false);
@@ -850,6 +983,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       _transitionAvatarUrl = null;
       _transitionFromRect = null;
       _transitionToRect = null;
+      _transitionNameFromRect = null;
+      _transitionNameToRect = null;
     });
   }
 
@@ -861,6 +996,41 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     }
     final origin = box.localToGlobal(Offset.zero, ancestor: scene);
     return origin & box.size;
+  }
+
+  /// 名字飞行矩形：起点为卡片名，终点为详情名；缺起点时以详情名位置、
+  /// 头像宽度合成，缺终点时以起点位置合成，保证任一侧缺失也能飞行。
+  (Rect?, Rect?) _nameFlightRects(ServerProfile server) {
+    final pickerName = _rectFor(_pickerNameKeys[server.id]);
+    final detailName = _rectFor(_detailNameKey);
+    if (pickerName != null && detailName != null) {
+      return (pickerName, detailName);
+    }
+    if (detailName != null) {
+      final avatarFrom = _transitionFromRect;
+      final width = avatarFrom?.width ?? detailName.width;
+      return (
+        Rect.fromCenter(
+          center: detailName.center,
+          width: width,
+          height: detailName.height,
+        ),
+        detailName,
+      );
+    }
+    if (pickerName != null) {
+      final avatarTo = _transitionToRect;
+      final width = avatarTo?.width ?? pickerName.width;
+      return (
+        pickerName,
+        Rect.fromCenter(
+          center: pickerName.center,
+          width: width,
+          height: pickerName.height,
+        ),
+      );
+    }
+    return (null, null);
   }
 
   Future<ServerProfileData?> _profileFor(ServerProfile server) {
@@ -951,20 +1121,24 @@ class _ServerAvatarCard extends StatelessWidget {
   const _ServerAvatarCard({
     super.key,
     required this.avatarKey,
+    required this.nameKey,
     required this.server,
     required this.profileFuture,
     required this.cachedProfile,
     required this.busy,
     required this.hideAvatar,
+    required this.hideName,
     required this.onTap,
   });
 
   final GlobalKey avatarKey;
+  final GlobalKey nameKey;
   final ServerProfile server;
   final Future<ServerProfileData?> profileFuture;
   final ServerProfileData? cachedProfile;
   final bool busy;
   final bool hideAvatar;
+  final bool hideName;
   final VoidCallback onTap;
 
   @override
@@ -1008,14 +1182,19 @@ class _ServerAvatarCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Text(
-                      displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: AppText.cardTitle(
-                        context,
-                      ).copyWith(fontSize: 15),
+                    // 名字飞行期间隐藏卡片名，避免与飞行层重影；保留占位。
+                    Opacity(
+                      opacity: hideName ? 0 : 1,
+                      child: Text(
+                        key: nameKey,
+                        displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: AppText.cardTitle(
+                          context,
+                        ).copyWith(fontSize: 15),
+                      ),
                     ),
                   ],
                 ),
