@@ -156,6 +156,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _controlsVisible = true;
   Timer? _hideTimer;
   PlayerIndicator? _indicator;
+  StreamSubscription<double>? _volumeChangedSub;
   Timer? _indicatorTimer;
   double _brightness = 0.5;
   double _volume = 0.5;
@@ -190,7 +191,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     WidgetsBinding.instance.addObserver(this);
     unawaited(_applyEntryOrientation(ref.read(playerSettingsProvider)));
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    // 播放器内隐藏系统音量条 (手势调节走自绘指示器)，物理按键改动的音量
+    // 通过监听系统广播在播放器内显示同样的音量条。
     FlutterVolumeController.updateShowSystemUI(false);
+    _volumeChangedSub = FlutterVolumeController.addListener(
+      _onSystemVolumeChanged,
+      emitOnStart: false,
+    );
     // ignore: discarded_futures
     WakelockPlus.enable();
     unawaited(_initLevels());
@@ -330,6 +337,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       overlays: SystemUiOverlay.values,
     );
     FlutterVolumeController.updateShowSystemUI(true);
+    _volumeChangedSub?.cancel();
+    _volumeChangedSub = null;
     if (!wasLeaving) unawaited(_reportProgress());
     if (_transcodeSessionActive) {
       _transcodeSessionActive = false;
@@ -1648,6 +1657,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     // ignore: discarded_futures
     FlutterVolumeController.setVolume(_volume);
     _showIndicator(PlayerIndicator.volume(_volume), autoHide: false);
+  }
+
+  /// 物理音量键等系统侧改动 · 同步基线并在播放器内显示音量条。
+  void _onSystemVolumeChanged(double volume) {
+    if (_isLeaving) return;
+    // 手势路径已经自绘指示器，这里只兜底物理按键触发的变化。
+    if (_indicator?.kind == PlayerIndicatorKind.volume) {
+      _volume = volume;
+      return;
+    }
+    _volume = volume;
+    _showIndicator(PlayerIndicator.volume(volume), autoHide: false);
+    _hideIndicator();
   }
 
   void _showIndicator(PlayerIndicator indicator, {bool autoHide = true}) {

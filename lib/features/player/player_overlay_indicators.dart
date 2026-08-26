@@ -11,7 +11,8 @@ String formatDuration(Duration d) {
   return neg ? '-$base' : base;
 }
 
-enum _Kind { brightness, volume, speed, seek }
+/// 指示器类别 · 供外部判断当前显示的是哪种调节提示
+enum PlayerIndicatorKind { brightness, volume, speed, seek }
 
 /// 中央指示器状态 · 四态互斥, 同一时刻只显示一种
 @immutable
@@ -27,15 +28,15 @@ class PlayerIndicator {
 
   /// 亮度 · [value] 0~1
   factory PlayerIndicator.brightness(double value) =>
-      PlayerIndicator._(_Kind.brightness, value: value);
+      PlayerIndicator._(PlayerIndicatorKind.brightness, value: value);
 
   /// 音量 · [value] 0~1
   factory PlayerIndicator.volume(double value) =>
-      PlayerIndicator._(_Kind.volume, value: value);
+      PlayerIndicator._(PlayerIndicatorKind.volume, value: value);
 
   /// 长按倍速 · [rate] 当前速率
   factory PlayerIndicator.speed(double rate) =>
-      PlayerIndicator._(_Kind.speed, rate: rate);
+      PlayerIndicator._(PlayerIndicatorKind.speed, rate: rate);
 
   /// 水平拖动 seek 预览
   factory PlayerIndicator.seek({
@@ -43,26 +44,30 @@ class PlayerIndicator {
     required Duration total,
     required int deltaMs,
   }) => PlayerIndicator._(
-    _Kind.seek,
+    PlayerIndicatorKind.seek,
     seekTarget: target,
     seekTotal: total,
     seekDeltaMs: deltaMs,
   );
 
-  final _Kind _kind;
+  final PlayerIndicatorKind _kind;
   final double value;
   final double rate;
   final Duration seekTarget;
   final Duration seekTotal;
   final int seekDeltaMs;
 
-  bool get isSpeed => _kind == _Kind.speed;
+  PlayerIndicatorKind get kind => _kind;
+
+  /// 固定在画面上部显示的指示器 (倍速提示 / seek 预览)，其余保持居中。
+  bool get showAtTop =>
+      _kind == PlayerIndicatorKind.speed || _kind == PlayerIndicatorKind.seek;
 }
 
 /// 播放器指示器层 · 纯展示, 不拦手势。
 ///
-/// 倍速提示固定在画面上部，避免长按加速时遮挡影片中央内容；其他
-/// 调节提示仍保持在中央，便于用户快速确认当前值。
+/// 倍速提示与拖动 seek 预览固定在画面上部，避免遮挡影片中央内容；
+/// 其他调节提示仍保持在中央，便于用户快速确认当前值。
 class PlayerOverlayIndicators extends StatelessWidget {
   const PlayerOverlayIndicators({super.key, this.indicator});
 
@@ -75,7 +80,7 @@ class PlayerOverlayIndicators extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (ind?.isSpeed == true)
+          if (ind?.showAtTop == true)
             Positioned(
               top: 56,
               left: 16,
@@ -106,19 +111,19 @@ class PlayerOverlayIndicators extends StatelessWidget {
 
   Widget _card(BuildContext context, PlayerIndicator ind) {
     switch (ind._kind) {
-      case _Kind.brightness:
+      case PlayerIndicatorKind.brightness:
         return _BarCard(icon: Icons.brightness_6, value: ind.value);
-      case _Kind.volume:
+      case PlayerIndicatorKind.volume:
         return _BarCard(
           icon: ind.value <= 0 ? Icons.volume_off : Icons.volume_up,
           value: ind.value,
         );
-      case _Kind.speed:
+      case PlayerIndicatorKind.speed:
         return _PillCard(
           icon: Icons.fast_forward,
           label: '${ind.rate.toStringAsFixed(1)}x 倍速播放中',
         );
-      case _Kind.seek:
+      case PlayerIndicatorKind.seek:
         final total = ind.seekTotal;
         final deltaSec = (ind.seekDeltaMs / 1000).round();
         final sign = deltaSec >= 0 ? '+' : '';
