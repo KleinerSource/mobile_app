@@ -336,9 +336,9 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     let options = KSOptions()
     options.startPlayRate = desiredRate
     options.isSeekedAutoPlay = autoplay
-    // KSPlayer 内核自带的秒开门控：首批解码帧就绪即起播，
-    // 不必先攒满 preferredForwardBufferDuration（默认 3 秒）的前向缓冲。
-    options.isSecondOpen = true
+    // AVPlayer/HLS 使用 KSPlayer 的秒开门控；KSMEPlayer 直流容器（尤其 MKV）
+    // 需要先完成默认前向缓冲，否则可能只渲染首帧而没有启动音视频时钟。
+    options.isSecondOpen = !useFfmpegPlayer
     if let headers, !headers.isEmpty {
       options.appendHeader(headers)
     }
