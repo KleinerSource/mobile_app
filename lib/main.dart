@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/api/server_compatibility.dart';
 import 'core/auth/auth_provider.dart';
 import 'core/auth/auth_session.dart';
+import 'core/config/server_config.dart';
 import 'core/config/server_config_provider.dart';
 import 'core/platform/app_haptics.dart';
 import 'core/platform/app_theme.dart';
@@ -113,42 +114,85 @@ class OmmApp extends ConsumerWidget {
         onReady: () {
           ref.read(securityGateReadyProvider.notifier).state = true;
         },
-        child: cfg == null
-            ? const ServerSetupPage()
-            : serverSwitch.isActive
-            ? const _AuthenticatedHomeWithServerSwitch()
-            : auth.when(
-                // reload（如选择服务器保存配置）期间保持上一状态渲染，
-                // 避免登录/选择页被启动加载页替换导致表单状态丢失。
-                skipLoadingOnReload: true,
-                loading: () => cfg.hasMultipleServers && serverSelectionReady
-                    ? const ServerSelectionPage()
-                    : const _StartupLoading(),
-                error: (error, _) => _StartupError(
-                  message: error.toString(),
-                  serverUrl: cfg.baseUrl,
-                  incompatible: error is ServerCompatibilityException,
-                  onRetry: () => ref.invalidate(authControllerProvider),
-                  onChangeServer: changeServer,
-                ),
-                data: (state) => switch (state.phase) {
-                  AuthPhase.needsLogin ||
-                  AuthPhase.totpRequired ||
-                  AuthPhase.serverSelection => const ServerSelectionPage(),
-                  AuthPhase.incompatible ||
-                  AuthPhase.unavailable => _StartupError(
-                    message: state.message ?? '服务器不可用',
-                    serverUrl: cfg.baseUrl,
-                    incompatible: state.phase == AuthPhase.incompatible,
-                    onRetry: () => ref.invalidate(authControllerProvider),
-                    onChangeServer: changeServer,
+        // 鉴权阶段切换（选择页 → 首页 / 错误页）用统一的淡入浮出过渡，
+        // 避免登录成功瞬间整页硬切。
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 320),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.02),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          ),
+          child: KeyedSubtree(
+            key: ValueKey(_rootStageKey(cfg, serverSwitch, auth)),
+            child: cfg == null
+                ? const ServerSetupPage()
+                : serverSwitch.isActive
+                ? const _AuthenticatedHomeWithServerSwitch()
+                : auth.when(
+                    // reload（如选择服务器保存配置）期间保持上一状态渲染，
+                    // 避免登录/选择页被启动加载页替换导致表单状态丢失。
+                    skipLoadingOnReload: true,
+                    loading: () =>
+                        cfg.hasMultipleServers && serverSelectionReady
+                        ? const ServerSelectionPage()
+                        : const _StartupLoading(),
+                    error: (error, _) => _StartupError(
+                      message: error.toString(),
+                      serverUrl: cfg.baseUrl,
+                      incompatible: error is ServerCompatibilityException,
+                      onRetry: () => ref.invalidate(authControllerProvider),
+                      onChangeServer: changeServer,
+                    ),
+                    data: (state) => switch (state.phase) {
+                      AuthPhase.needsLogin ||
+                      AuthPhase.totpRequired ||
+                      AuthPhase.serverSelection => const ServerSelectionPage(),
+                      AuthPhase.incompatible ||
+                      AuthPhase.unavailable => _StartupError(
+                        message: state.message ?? '服务器不可用',
+                        serverUrl: cfg.baseUrl,
+                        incompatible: state.phase == AuthPhase.incompatible,
+                        onRetry: () => ref.invalidate(authControllerProvider),
+                        onChangeServer: changeServer,
+                      ),
+                      _ => const _AuthenticatedHome(),
+                    },
                   ),
-                  _ => const _AuthenticatedHome(),
-                },
-              ),
+          ),
+        ),
       ),
     );
   }
+}
+
+/// 根路由当前阶段的稳定键：阶段变化时触发 AnimatedSwitcher 过渡，
+/// 阶段内的重建（如登录中状态翻转）保持同一键，不触发换页动画。
+String _rootStageKey(
+  ServerConfig? cfg,
+  ServerSwitchState serverSwitch,
+  AsyncValue<AuthState> auth,
+) {
+  if (cfg == null) return 'setup';
+  if (serverSwitch.isActive) return 'server-switch';
+  final state = auth.valueOrNull;
+  if (auth.isLoading && state == null) return 'loading';
+  if (auth.hasError) return 'error';
+  return switch (state?.phase) {
+    AuthPhase.needsLogin ||
+    AuthPhase.totpRequired ||
+    AuthPhase.serverSelection => 'login',
+    AuthPhase.incompatible ||
+    AuthPhase.unavailable => 'unavailable',
+    _ => 'home',
+  };
 }
 
 class _AuthenticatedHomeWithServerSwitch extends StatelessWidget {

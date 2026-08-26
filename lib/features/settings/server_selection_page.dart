@@ -16,6 +16,7 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/server_avatar.dart';
+import '../../shared/shake_error_text.dart';
 
 /// 多服务器启动选择页。
 ///
@@ -54,6 +55,9 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   late final AnimationController _entryController;
   late final Animation<double> _entryOpacity;
   late final Animation<Offset> _entrySlide;
+  late final AnimationController _brandController;
+  late final Animation<double> _brandEntry;
+  late final Animation<Offset> _brandEntrySlide;
   late final AnimationController _transitionController;
   late final Animation<double> _pickerOpacity;
   late final Animation<double> _detailOpacity;
@@ -76,6 +80,18 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       begin: const Offset(0, 0.08),
       end: Offset.zero,
     ).animate(_entryOpacity);
+    _brandController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 520),
+    );
+    _brandEntry = CurvedAnimation(
+      parent: _brandController,
+      curve: Curves.easeOutCubic,
+    );
+    _brandEntrySlide = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(_brandEntry);
     _transitionController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 520),
@@ -93,7 +109,12 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       ),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _entryController.forward();
+      if (!mounted) return;
+      _brandController.forward();
+      // 品牌区先落位，标题与头像卡片随后浮现，形成分级入场节奏。
+      Future<void>.delayed(const Duration(milliseconds: 90), () {
+        if (mounted) _entryController.forward();
+      });
     });
   }
 
@@ -102,6 +123,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     _passwordController.dispose();
     _totpController.dispose();
     _entryController.dispose();
+    _brandController.dispose();
     _transitionController.dispose();
     super.dispose();
   }
@@ -171,18 +193,38 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             children: [
               IgnorePointer(
                 ignoring: selected != null || _transitionLocked,
-                child: FadeTransition(
-                  opacity: _pickerOpacity,
-                  child: _buildPickerScene(context, colors, servers),
+                child: AnimatedBuilder(
+                  animation: _transitionController,
+                  builder: (context, child) {
+                    // 过渡前半段列表轻微缩小退后，与头像飞行形成纵深层次。
+                    final t = (_transitionController.value / 0.55).clamp(
+                      0.0,
+                      1.0,
+                    );
+                    final scale = 1 - 0.06 * Curves.easeInCubic.transform(t);
+                    return Transform.scale(scale: scale, child: child);
+                  },
+                  child: FadeTransition(
+                    opacity: _pickerOpacity,
+                    child: _buildPickerScene(context, colors, servers),
+                  ),
                 ),
               ),
               if (selected != null)
                 Positioned.fill(
                   child: IgnorePointer(
                     ignoring: _transitionLocked,
-                    child: FadeTransition(
-                      opacity: _detailOpacity,
-                      child: _buildDetailScene(context, colors, selected),
+                    child: AnimatedBuilder(
+                      animation: _transitionController,
+                      builder: (context, child) => Transform.translate(
+                        // 详情场景跟随淡入自下浮入，与头像落点衔接。
+                        offset: Offset(0, 26 * (1 - _detailOpacity.value)),
+                        child: child,
+                      ),
+                      child: FadeTransition(
+                        opacity: _detailOpacity,
+                        child: _buildDetailScene(context, colors, selected),
+                      ),
                     ),
                   ),
                 ),
@@ -235,19 +277,25 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     return SafeArea(
       child: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(top: 42, bottom: 42),
+          padding: const EdgeInsets.only(top: 48, bottom: 48),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SizedBox(
-                height: 108,
+                height: 122,
                 child: Align(
                   alignment: Alignment.topCenter,
-                  child: _buildBrand(context, colors),
+                  child: FadeTransition(
+                    opacity: _brandEntry,
+                    child: SlideTransition(
+                      position: _brandEntrySlide,
+                      child: _buildBrand(context, colors),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 44),
+              const SizedBox(height: 40),
               _buildPicker(context, colors, servers),
             ],
           ),
@@ -264,13 +312,13 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     return SafeArea(
       child: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 42, 24, 42),
+          padding: const EdgeInsets.fromLTRB(24, 48, 24, 48),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 680),
             child: Column(
               children: [
-                const SizedBox(height: 108),
-                const SizedBox(height: 44),
+                const SizedBox(height: 122),
+                const SizedBox(height: 40),
                 _needsLogin == true
                     ? _buildInlineLogin(context, colors, selected)
                     : _buildPendingServer(context, colors, selected),
@@ -294,29 +342,38 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   Widget _buildBrand(BuildContext context, AppColors colors) {
     return Column(
       children: [
+        // 品牌 logo 为无透明通道的位图，用圆角裁剪遮罩呈现应用图标质感。
         Container(
-          width: 58,
-          height: 58,
-          alignment: Alignment.center,
+          width: 64,
+          height: 64,
           decoration: BoxDecoration(
-            color: colors.text,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: colors.text.withValues(alpha: 0.16),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
+                color: colors.text.withValues(alpha: 0.18),
+                blurRadius: 28,
+                offset: const Offset(0, 12),
               ),
             ],
           ),
-          child: Icon(Icons.movie_filter_outlined, color: colors.bg, size: 30),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Image.asset(
+              'assets/branding/oh_my_media_logo.png',
+              width: 64,
+              height: 64,
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.high,
+              semanticLabel: 'Oh-My-Media',
+            ),
+          ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         Text(
           'Oh-My-Media',
           style: AppText.cardTitle(
             context,
-          ).copyWith(fontSize: 17, letterSpacing: 0.2),
+          ).copyWith(fontSize: 18, letterSpacing: 0.3),
         ),
       ],
     );
@@ -339,22 +396,24 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
               children: [
                 Text(
                   single ? '连接服务器' : '选择服务器',
-                  style: AppText.pageTitle(context).copyWith(fontSize: 28),
+                  style: AppText.pageTitle(context).copyWith(fontSize: 30),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(
-                  single ? '输入密码连接到此服务器' : '选择要连接的服务器',
+                  single ? '点击头像，输入密码连接' : '选择要连接的服务器',
                   textAlign: TextAlign.center,
-                  style: AppText.body(context).copyWith(color: colors.muted),
+                  style: AppText.body(
+                    context,
+                  ).copyWith(color: colors.muted, fontSize: 15),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 36),
               ],
             ),
           ),
         ),
         _buildServerStrip(colors, servers),
         if (single) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           FadeTransition(
             opacity: _entryOpacity,
             child: Center(
@@ -363,9 +422,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                     ref.read(serverConfigProvider.notifier).beginEdit(),
                 icon: const Icon(Icons.edit_outlined, size: 16),
                 label: const Text('编辑服务器地址'),
-                style: TextButton.styleFrom(
-                  foregroundColor: colors.muted,
-                ),
+                style: TextButton.styleFrom(foregroundColor: colors.muted),
               ),
             ),
           ),
@@ -385,8 +442,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        const itemWidth = 132.0;
-        const gap = 20.0;
+        const itemWidth = 140.0;
+        const gap = 22.0;
         const restingInset = 24.0;
         final gaps = servers.length > 1 ? servers.length - 1 : 0;
         final contentWidth = servers.length * itemWidth + gaps * gap;
@@ -465,7 +522,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
         final selecting =
             _selectingId != null ||
             (_needsLogin != true && authValue.isLoading);
-        return ConstrainedBox(
+        final body = ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 360),
           child: Column(
             children: [
@@ -475,17 +532,17 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                   key: _detailAvatarKey,
                   displayName: displayName,
                   avatarUrl: avatarUrl,
-                  size: 128,
+                  size: 136,
                   busy: selecting || _loginBusy,
                   colors: colors,
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
               Text(
                 displayName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppText.pageTitle(context).copyWith(fontSize: 24),
+                style: AppText.pageTitle(context).copyWith(fontSize: 25),
               ),
               const SizedBox(height: 8),
               Text(
@@ -493,9 +550,11 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                     ? '请输入密码和 TOTP 验证码继续。'
                     : '请输入此服务器的密码继续。',
                 textAlign: TextAlign.center,
-                style: AppText.body(context).copyWith(color: colors.muted),
+                style: AppText.body(
+                  context,
+                ).copyWith(color: colors.muted, fontSize: 15),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 24),
               _loginField(
                 context,
                 controller: _passwordController,
@@ -527,10 +586,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                 const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                    visibleError,
-                    style: TextStyle(color: colors.danger, fontSize: 13),
-                  ),
+                  child: ShakeErrorText(visibleError),
                 ),
               ],
               const SizedBox(height: 20),
@@ -557,6 +613,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             ],
           ),
         );
+        return body;
       },
     );
   }
@@ -589,7 +646,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             displayName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppText.pageTitle(context).copyWith(fontSize: 24),
+            style: AppText.pageTitle(context).copyWith(fontSize: 25),
           ),
         ],
       ),
@@ -703,12 +760,15 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             password: password,
             totpCode: _totpRequired ? _totpController.text : null,
           );
-      if (mounted && !authenticated) {
-        setState(() {
-          _totpRequired = true;
-          _error = '请输入 TOTP 验证码';
-        });
+      if (!mounted) return;
+      if (authenticated) {
+        AppHaptics.medium();
+        return;
       }
+      setState(() {
+        _totpRequired = true;
+        _error = '请输入 TOTP 验证码';
+      });
     } catch (error) {
       if (!mounted) return;
       final exception = toApiException(error);
@@ -721,6 +781,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
           _error = message.isEmpty ? '登录失败，请检查密码或服务器连接' : message;
         });
       }
+      AppHaptics.light();
     } finally {
       if (mounted) setState(() => _loginBusy = false);
     }
@@ -941,7 +1002,7 @@ class _ServerAvatarCard extends StatelessWidget {
                         key: avatarKey,
                         displayName: displayName,
                         avatarUrl: avatarUrl,
-                        size: 104,
+                        size: 116,
                         busy: busy,
                         colors: colors,
                       ),
@@ -952,7 +1013,9 @@ class _ServerAvatarCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      style: AppText.cardTitle(context),
+                      style: AppText.cardTitle(
+                        context,
+                      ).copyWith(fontSize: 15),
                     ),
                   ],
                 ),
