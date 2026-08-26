@@ -248,17 +248,11 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                 Positioned.fill(
                   child: IgnorePointer(
                     ignoring: _transitionLocked,
-                    child: AnimatedBuilder(
-                      animation: _transitionController,
-                      builder: (context, child) => Transform.translate(
-                        // 详情场景跟随淡入自下浮入，与头像落点衔接。
-                        offset: Offset(0, 26 * (1 - _detailOpacity.value)),
-                        child: child,
-                      ),
-                      child: FadeTransition(
-                        opacity: _detailOpacity,
-                        child: _buildDetailScene(context, colors, selected),
-                      ),
+                    // 只做淡入：场景内元素位置必须与共享元素飞行落点的
+                    // 测量一致，任何场景级位移都会让头像/名字落位后二次移动。
+                    child: FadeTransition(
+                      opacity: _detailOpacity,
+                      child: _buildDetailScene(context, colors, selected),
                     ),
                   ),
                 ),
@@ -387,7 +381,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   ) {
     // 头像+名字固定在场景纵向中心（Stack 绝对定位），表单挂在下方；
     // 表单出现、切换或报错都不会改变头像落点。
-    const headerHeight = 176.0;
+    const headerHeight = 208.0;
     const avatarCenterOffset = 68.0;
     return SafeArea(
       child: LayoutBuilder(
@@ -621,7 +615,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             (_needsLogin != true && authValue.isLoading);
         // 头像+名字绝对定位在 headerTop（场景纵向中心），表单固定挂在
         // 下方；表单出现、切换或报错都不会改变头像落点。
-        final headerHeight = 176.0;
+        final headerHeight = 208.0;
         final body = SizedBox.expand(
           child: Stack(
             children: [
@@ -674,30 +668,16 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                 left: 0,
                 right: 0,
                 top: headerTop + headerHeight + 16,
-                child: AnimatedBuilder(
-                  animation: _transitionController,
-                  builder: (context, child) {
-                    // 表单在过渡后段自下浮入，与名字落位形成级联节奏。
-                    final t = ((_transitionController.value - 0.45) / 0.55)
-                        .clamp(0.0, 1.0);
-                    final eased = Curves.easeOutCubic.transform(t);
-                    return Opacity(
-                      opacity: eased,
-                      child: Transform.translate(
-                        offset: Offset(0, 18 * (1 - eased)),
-                        child: child,
+                // 表单入场完全由 _formEntry 分级滑入驱动（过渡结束后播放），
+                // 不再叠加场景级淡入，避免"出现→闪没→再滑入"的卡顿感。
+                child: requiresTotp
+                    ? _buildTotpForm(context, colors, selecting, visibleError)
+                    : _buildPasswordForm(
+                        context,
+                        colors,
+                        selecting,
+                        visibleError,
                       ),
-                    );
-                  },
-                  child: requiresTotp
-                      ? _buildTotpForm(context, colors, selecting, visibleError)
-                      : _buildPasswordForm(
-                          context,
-                          colors,
-                          selecting,
-                          visibleError,
-                        ),
-                ),
               ),
             ],
           ),
@@ -886,7 +866,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   ) {
     final displayName = _displayNameFor(server);
     final avatarUrl = _avatarUrlFor(server);
-    const headerHeight = 176.0;
+    const headerHeight = 208.0;
     return SizedBox.expand(
       child: Stack(
         children: [
@@ -938,28 +918,10 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             left: 0,
             right: 0,
             top: headerTop + headerHeight + 16,
-            child: AnimatedBuilder(
-              animation: _transitionController,
-              builder: (context, child) {
-                // 鉴权检查中的提示与表单同样在后段浮入。
-                final t = ((_transitionController.value - 0.45) / 0.55).clamp(
-                  0.0,
-                  1.0,
-                );
-                final eased = Curves.easeOutCubic.transform(t);
-                return Opacity(
-                  opacity: eased,
-                  child: Transform.translate(
-                    offset: Offset(0, 18 * (1 - eased)),
-                    child: child,
-                  ),
-                );
-              },
-              child: Text(
-                '正在检查服务器鉴权状态…',
-                textAlign: TextAlign.center,
-                style: AppText.body(context).copyWith(color: colors.muted),
-              ),
+            child: Text(
+              '正在检查服务器鉴权状态…',
+              textAlign: TextAlign.center,
+              style: AppText.body(context).copyWith(color: colors.muted),
             ),
           ),
         ],
