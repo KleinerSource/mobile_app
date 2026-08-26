@@ -46,13 +46,22 @@ const _kEd2kSupportedDownloaders = {
 
 const _kResourceSources = ['detail', 'custom', 'nyaa'];
 
+bool supportsEd2kDownloader(String name, bool? ed2kEnabled) {
+  if (ed2kEnabled != null) return ed2kEnabled;
+
+  final normalized = name.trim().toLowerCase();
+  return _kEd2kSupportedDownloaders.contains(normalized) ||
+      normalized.startsWith('openlist:');
+}
+
 class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
   bool _loadingResources = true;
   String? _error;
   List<Map<String, dynamic>> _magnets = const [];
   List<Map<String, dynamic>> _ed2ks = const [];
   List<String> _warnings = const [];
-  List<({String name, String displayName})> _downloaders = const [];
+  List<({String name, String displayName, bool? ed2kEnabled})> _downloaders =
+      const [];
   Map<String, String> _downloadedMagnets = const {};
   Map<String, String> _downloadedEd2ks = const {};
   _ResTab _tab = _ResTab.magnet;
@@ -65,9 +74,14 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
   int get _movieId => widget.movie.id;
   String get _movieTitle => widget.movie.title;
 
-  List<({String name, String displayName})> get _ed2kDownloaders => _downloaders
-      .where((d) => _kEd2kSupportedDownloaders.contains(d.name))
-      .toList();
+  List<({String name, String displayName, bool? ed2kEnabled})>
+  get _ed2kDownloaders => _downloaders.where(_supportsEd2k).toList();
+
+  bool _supportsEd2k(
+    ({String name, String displayName, bool? ed2kEnabled}) downloader,
+  ) {
+    return supportsEd2kDownloader(downloader.name, downloader.ed2kEnabled);
+  }
 
   @override
   void initState() {
@@ -183,7 +197,8 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
   List<Map<String, dynamic>> get _activeList =>
       _tab == _ResTab.magnet ? _magnets : _ed2ks;
 
-  List<({String name, String displayName})> get _activeDownloaders =>
+  List<({String name, String displayName, bool? ed2kEnabled})>
+  get _activeDownloaders =>
       _tab == _ResTab.magnet ? _downloaders : _ed2kDownloaders;
 
   String? _getDownloadedAt(Map<String, dynamic> item) {

@@ -31,6 +31,40 @@ void main() {
     expect(api.lastQuery!['sort_by'], 'created_at');
   });
 
+  test('getDownloaders 保留显示名和 ED2K 能力字段', () async {
+    final system = _StubSystemApi(
+      downloadersResponse: {
+        'success': true,
+        'message': 'ok',
+        'data': {
+          'downloaders': [
+            {
+              'name': ' openlist:家庭盘 ',
+              'display_name': '家庭盘',
+              'ed2k_enabled': true,
+            },
+            {'name': 'custom', 'displayName': '自定义', 'ed2kEnabled': false},
+            {'name': 'qbittorrent'},
+          ],
+        },
+      },
+    );
+    final repo = MoviesRepository(
+      _StubMoviesApi({}),
+      _StubFavoritesApi(),
+      system,
+    );
+
+    final downloaders = await repo.getDownloaders();
+
+    expect(downloaders, hasLength(3));
+    expect(downloaders[0].name, 'openlist:家庭盘');
+    expect(downloaders[0].displayName, '家庭盘');
+    expect(downloaders[0].ed2kEnabled, isTrue);
+    expect(downloaders[1].ed2kEnabled, isFalse);
+    expect(downloaders[2].ed2kEnabled, isNull);
+  });
+
   test('compact list 请求携带紧凑响应参数', () async {
     final api = _StubMoviesApi({
       'success': true,
@@ -376,6 +410,10 @@ class _StubMoviesApi implements MoviesApi {
 }
 
 class _StubSystemApi implements SystemApi {
+  _StubSystemApi({this.downloadersResponse});
+
+  final dynamic downloadersResponse;
+
   @override
   Future<dynamic> health() async => {
     'success': true,
@@ -398,11 +436,13 @@ class _StubSystemApi implements SystemApi {
   };
 
   @override
-  Future<dynamic> getDownloaders() async => {
-    'success': true,
-    'message': 'ok',
-    'data': {'downloaders': []},
-  };
+  Future<dynamic> getDownloaders() async =>
+      downloadersResponse ??
+      {
+        'success': true,
+        'message': 'ok',
+        'data': {'downloaders': []},
+      };
 
   @override
   Future<dynamic> pushDownload(Map<String, dynamic> body) async => {

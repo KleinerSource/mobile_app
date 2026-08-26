@@ -344,10 +344,13 @@ class MoviesRepository {
 
   // ===== 下载器 / 推送下载 / 下载历史 =====
 
-  /// 已配置的下载器列表 · 仅返回 (name, displayName)
-  Future<List<({String name, String displayName})>> getDownloaders() async {
+  /// 已配置的下载器列表 · 保留名称、显示名和协议能力。
+  Future<List<({String name, String displayName, bool? ed2kEnabled})>>
+  getDownloaders() async {
     final raw = await _system.getDownloaders();
-    return unwrapStd<List<({String name, String displayName})>>(raw, (d) {
+    return unwrapStd<
+      List<({String name, String displayName, bool? ed2kEnabled})>
+    >(raw, (d) {
       List items = const [];
       if (d is Map && d['downloaders'] is List) {
         items = d['downloaders'] as List;
@@ -358,10 +361,16 @@ class MoviesRepository {
           .whereType<Map>()
           .map((e) {
             final m = Map<String, dynamic>.from(e);
-            final name = (m['name'] ?? '').toString();
+            final name = (m['name'] ?? '').toString().trim();
             final display = (m['display_name'] ?? m['displayName'] ?? name)
-                .toString();
-            return (name: name, displayName: display);
+                .toString()
+                .trim();
+            final ed2kEnabled = m['ed2k_enabled'] is bool
+                ? m['ed2k_enabled'] as bool
+                : m['ed2kEnabled'] is bool
+                ? m['ed2kEnabled'] as bool
+                : null;
+            return (name: name, displayName: display, ed2kEnabled: ed2kEnabled);
           })
           .where((e) => e.name.isNotEmpty)
           .toList();
