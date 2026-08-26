@@ -8,18 +8,43 @@ import '../../core/models/playback.dart' as playback_models;
 import 'player_session_controller.dart';
 import 'subtitle_settings.dart';
 
+/// 偏移为 0 时字幕底边与视频画面底部之间保留的间距（逻辑像素）。
+const subtitleBottomPadding = 24.0;
+
+/// 计算 BoxFit.contain 下视频画面在视口中的内容矩形。
+///
+/// 视频尺寸未知时退化为整个视口，行为与旧的屏幕底部锚定一致。
+Rect containedVideoRect({required Size viewport, required Size video}) {
+  if (viewport.isEmpty) return Rect.zero;
+  if (video.isEmpty || video.width <= 0 || video.height <= 0) {
+    return Offset.zero & viewport;
+  }
+  final scale = math.min(
+    viewport.width / video.width,
+    viewport.height / video.height,
+  );
+  return Alignment.center.inscribe(video * scale, Offset.zero & viewport);
+}
+
 SubtitleVerticalOffsetBounds subtitleVerticalOffsetBoundsFor({
-  required double viewportHeight,
+  required Size viewport,
+  required Rect contentRect,
   required double subtitleHeight,
   required double viewportScale,
-  double bottomPadding = 24,
+  double bottomPadding = subtitleBottomPadding,
 }) {
   final scale = viewportScale > 0 ? viewportScale : 1.0;
-  final minPixels = -bottomPadding;
-  final maxPixels = math.max(
-    minPixels,
-    viewportHeight - subtitleHeight - bottomPadding,
-  );
+  final contentBottom = math.min(contentRect.bottom, viewport.height);
+  final contentTop = math.max(contentRect.top, 0.0);
+  // 偏移以画面底边为基准：正数上移进画面，负数下沉进下方黑边。
+  final anchor = contentBottom - bottomPadding;
+  // 字幕高度是按缩放后字体测量的，先归一到与画面矩形一致的坐标系。
+  final normalizedSubtitleHeight = subtitleHeight / scale;
+  // 正向最多把字幕顶边抬到画面顶部；负向以字幕底边不出视口为限。
+  var maxPixels =
+      contentBottom - contentTop - bottomPadding - normalizedSubtitleHeight;
+  final minPixels = anchor - viewport.height;
+  if (maxPixels < minPixels) maxPixels = minPixels;
   return SubtitleVerticalOffsetBounds(
     min: minPixels / scale,
     max: maxPixels / scale,
@@ -141,11 +166,13 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
   List<String> _rawSubtitle = const [];
   List<String> _displayedSubtitle = const [];
   SubtitleVerticalOffsetBounds? _lastReportedOffsetBounds;
+  Size _videoSize = Size.zero;
 
   @override
   void initState() {
     super.initState();
     _rawSubtitle = widget.controller.value.subtitleText;
+    _videoSize = widget.controller.value.videoSize;
     _subscribe();
     _syncNativeSubtitleDelay();
     _scheduleDisplay();
@@ -158,6 +185,7 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
       _cancelSubscription();
       _cancelDelayTimers();
       _rawSubtitle = widget.controller.value.subtitleText;
+      _videoSize = widget.controller.value.videoSize;
       _displayedSubtitle = const [];
       _subscribe();
       _syncNativeSubtitleDelay();
@@ -180,9 +208,17 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
   }
 
   void _onPlaybackStateChanged() {
-    final value = widget.controller.value.subtitleText;
-    if (listEquals(value, _rawSubtitle)) return;
-    _rawSubtitle = List<String>.from(value);
+    final value = widget.controller.value;
+    final videoSize = value.videoSize;
+    final sizeChanged = videoSize != _videoSize;
+    if (sizeChanged) _videoSize = videoSize;
+    final subtitle = value.subtitleText;
+    if (listEquals(subtitle, _rawSubtitle)) {
+      // 视频尺寸变化会改变画面矩形，即使字幕未变也要重算边界与位置。
+      if (sizeChanged) setState(() {});
+      return;
+    }
+    _rawSubtitle = List<String>.from(subtitle);
     _scheduleDisplay(_rawSubtitle);
   }
 
@@ -262,7 +298,11 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
       child: ClipRect(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final area = constraints.maxWidth * constraints.maxHeight;
+            final viewport = Size(
+              constraints.maxWidth,
+              constraints.maxHeight,
+            );
+            final area = viewport.width * viewport.height;
             const referenceArea = 1920 * 1080;
             final viewportScale = math.sqrt(
               (area / referenceArea).clamp(0.12, 1.0).toDouble(),
@@ -278,24 +318,38 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
               textAlign: TextAlign.center,
               textDirection: TextDirection.ltr,
             )..layout(maxWidth: math.max(1.0, constraints.maxWidth - 32));
+            final contentRect = containedVideoRect(
+              viewport: viewport,
+              video: _videoSize,
+            );
             final bounds = subtitleVerticalOffsetBoundsFor(
-              viewportHeight: constraints.maxHeight,
+              viewport: viewport,
+              contentRect: contentRect,
               subtitleHeight: textPainter.height,
               viewportScale: viewportScale,
             );
             _reportOffsetBounds(bounds);
             final verticalOffset =
                 bounds.clamp(widget.adjustments.verticalOffset) * viewportScale;
-            return Align(
-              alignment: Alignment.bottomCenter,
-              child: Transform.translate(
-                offset: Offset(0, -verticalOffset),
-                child: Opacity(
-                  opacity: widget.adjustments.opacity
-                      .clamp(subtitleOpacityMin, subtitleOpacityMax)
-                      .toDouble(),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            // 字幕锚定视频画面底边而非屏幕底边，横竖屏切换时
+            // 相同偏移值始终相对画面定位。
+            final anchorBottom =
+                math.min(contentRect.bottom, viewport.height) -
+                subtitleBottomPadding;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  // 正偏移向上抬升，等价于增大距视口底部的距离。
+                  bottom:
+                      math.max(0.0, viewport.height - anchorBottom) +
+                      verticalOffset,
+                  child: Opacity(
+                    opacity: widget.adjustments.opacity
+                        .clamp(subtitleOpacityMin, subtitleOpacityMax)
+                        .toDouble(),
                     child: Text(
                       text,
                       textAlign: TextAlign.center,
@@ -303,7 +357,7 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
                     ),
                   ),
                 ),
-              ),
+              ],
             );
           },
         ),

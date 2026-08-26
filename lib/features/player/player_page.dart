@@ -1095,46 +1095,26 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   void _updateSubtitleAdjustments(SubtitleAdjustments next) {
     if (!mounted || _isLeaving) return;
-    final bounded = _subtitleOffsetBounds.clampAdjustments(next);
-    setState(() => _subtitleAdjustments = bounded);
+    setState(() => _subtitleAdjustments = next);
     unawaited(
       ref
           .read(subtitleSettingsProvider.notifier)
-          .updateAdjustments(bounded)
+          .updateAdjustments(next)
           .catchError((_) {}),
     );
   }
 
+  // 边界随视口/画面几何实时变化（如横竖屏切换），只记录用于渲染和
+  // 调节面板展示；不据此改写用户设定的偏移值，避免不同方向互相覆盖。
   void _onSubtitleOffsetBoundsChanged(SubtitleVerticalOffsetBounds bounds) {
     if (!mounted || _isLeaving) return;
-    final bounded = bounds.clampAdjustments(_subtitleAdjustments);
-    final boundsChanged = _subtitleOffsetBounds != bounds;
-    final valueChanged =
-        bounded.verticalOffset != _subtitleAdjustments.verticalOffset;
-    if (!boundsChanged && !valueChanged) return;
-    setState(() {
-      _subtitleOffsetBounds = bounds;
-      if (valueChanged) _subtitleAdjustments = bounded;
-    });
-    if (valueChanged) {
-      unawaited(
-        ref
-            .read(subtitleSettingsProvider.notifier)
-            .updateAdjustments(bounded)
-            .catchError((_) {}),
-      );
-    }
+    if (_subtitleOffsetBounds == bounds) return;
+    setState(() => _subtitleOffsetBounds = bounds);
   }
 
   Future<void> _showSubtitleSettings() async {
     if (!mounted || _isLeaving) return;
     final wasPlaying = _host.playing;
-    final initial = _subtitleOffsetBounds.clampAdjustments(
-      _subtitleAdjustments,
-    );
-    if (initial.verticalOffset != _subtitleAdjustments.verticalOffset) {
-      _updateSubtitleAdjustments(initial);
-    }
     try {
       if (wasPlaying) {
         await _host.pause();
@@ -1142,7 +1122,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (!mounted || _isLeaving) return;
       await showSubtitleAdjustmentDialog(
         context: context,
-        initial: initial,
+        initial: _subtitleAdjustments,
         onChanged: _updateSubtitleAdjustments,
         verticalOffsetBounds: _subtitleOffsetBounds,
       );

@@ -93,6 +93,45 @@ void main() {
     expect(subtitleSelectionKey(track), isNot(contains('secret-a')));
     expect(subtitleSelectionKey(track), isNot(contains('/api/subtitles')));
   });
+
+  test('旧版屏幕锚定偏移在首次加载时迁移归零', () async {
+    SharedPreferences.setMockInitialValues({
+      'subtitle.adjustment_vertical_offset': 500.0,
+      'subtitle.adjustment_delay_ms': 300,
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    final actual = SubtitleSettingsRepository(prefs).load();
+
+    // 垂直偏移语义从屏幕底部变为画面底部，无法换算，归零重新校准。
+    expect(actual.adjustments.verticalOffset, 0);
+    // 其他调节项不受迁移影响。
+    expect(actual.adjustments.delayMs, 300);
+    // 迁移幂等：再次加载不会重复处理。
+    await prefs.setDouble('subtitle.adjustment_vertical_offset', 120);
+    final again = SubtitleSettingsRepository(prefs).load();
+    expect(again.adjustments.verticalOffset, 120);
+  });
+
+  test('新版画面锚定偏移保存后加载保持不变', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final repository = SubtitleSettingsRepository(prefs);
+
+    const adjustments = SubtitleAdjustments(
+      delayMs: 100,
+      verticalOffset: 480,
+      sizeScale: 1.2,
+      opacity: 0.8,
+    );
+    await repository.saveAdjustments(adjustments);
+
+    final actual = SubtitleSettingsRepository(prefs).load();
+    expect(actual.adjustments.verticalOffset, 480);
+    expect(actual.adjustments.delayMs, 100);
+    expect(actual.adjustments.sizeScale, 1.2);
+    expect(actual.adjustments.opacity, 0.8);
+  });
 }
 
 extension on SubtitleTrack {

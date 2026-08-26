@@ -217,10 +217,14 @@ class SubtitleSettingsRepository {
   static const _sizeScaleKey = 'subtitle.adjustment_size_scale';
   static const _opacityKey = 'subtitle.adjustment_opacity';
   static const _rememberedSubtitleKey = 'subtitle.remembered_selection';
+  // v2: 垂直偏移从"距屏幕底部"改为"距视频画面底部"。两种语义无法换算
+  // （旧值依赖当时的视口几何），迁移时归零，只执行一次。
+  static const _offsetSchemaKey = 'subtitle.adjustment_offset_schema';
 
   final SharedPreferences _prefs;
 
   SubtitleSettings load() {
+    _migrateVerticalOffsetToContentAnchor();
     return SubtitleSettings(
       rememberSelectedSubtitle: _prefs.getBool(_rememberKey) ?? true,
       ignoreAssStyle: _prefs.getBool(_ignoreAssKey) ?? false,
@@ -284,6 +288,8 @@ class SubtitleSettingsRepository {
 
   List<Future<bool>> _adjustmentEntries(SubtitleAdjustments adjustments) {
     final value = adjustments.normalized();
+    // 写入即视为新语义数据，打上 schema 标记，之后 load 不再迁移。
+    _prefs.setInt(_offsetSchemaKey, 2);
     return [
       _prefs.setInt(_delayMsKey, value.delayMs),
       _prefs.setDouble(_verticalOffsetKey, value.verticalOffset),
@@ -295,6 +301,18 @@ class SubtitleSettingsRepository {
   Color _readColor(String key, Color fallback) {
     final value = _prefs.getInt(key);
     return value == null ? fallback : Color(value);
+  }
+
+  /// 旧版偏移以屏幕底部为锚点，新版以视频画面底部为锚点。
+  /// 首次加载时把旧值归零并写入 schema 标记，之后不再干预。
+  /// set 系列会同步更新内存缓存，因此迁移后本次读取即为新值；
+  /// 落盘失败时下次启动重试，结果幂等。
+  void _migrateVerticalOffsetToContentAnchor() {
+    if (_prefs.getInt(_offsetSchemaKey) == 2) return;
+    if (_prefs.getDouble(_verticalOffsetKey) != null) {
+      _prefs.setDouble(_verticalOffsetKey, 0);
+    }
+    _prefs.setInt(_offsetSchemaKey, 2);
   }
 }
 
