@@ -17,6 +17,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/server_avatar.dart';
 import '../../shared/shake_error_text.dart';
+import '../../shared/totp_input_field.dart';
 
 /// 多服务器启动选择页。
 ///
@@ -634,8 +635,10 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
               ),
               const SizedBox(height: 8),
               Text(
-                status?.totpConfigured == true
-                    ? '请输入密码和 TOTP 验证码继续。'
+                requiresTotp
+                    ? '输入动态验证码完成登录。'
+                    : status?.totpConfigured == true
+                    ? '密码验证通过后可能需要动态验证码。'
                     : '请输入此服务器的密码继续。',
                 textAlign: TextAlign.center,
                 style: AppText.body(
@@ -658,71 +661,125 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                     ),
                   );
                 },
-                child: Column(
-                  children: [
-                    _loginField(
-                      context,
-                      controller: _passwordController,
-                      label: '密码',
-                      obscureText: true,
-                      icon: Icons.key_outlined,
-                      enabled: !selecting && !_loginBusy,
-                      onSubmitted: (_) => _login(),
-                    ),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutCubic,
-                      child: requiresTotp
-                          ? Padding(
-                              padding: const EdgeInsets.only(top: 12),
-                              child: _loginField(
-                                context,
-                                controller: _totpController,
-                                label: 'TOTP 验证码',
-                                keyboardType: TextInputType.number,
-                                icon: Icons.timer_outlined,
-                                enabled: !selecting && !_loginBusy,
-                                onSubmitted: (_) => _login(),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    if (visibleError != null) ...[
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: ShakeErrorText(visibleError),
+                child: requiresTotp
+                    ? _buildTotpForm(context, colors, selecting, visibleError)
+                    : _buildPasswordForm(
+                        context,
+                        colors,
+                        selecting,
+                        visibleError,
                       ),
-                    ],
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: selecting || _loginBusy ? null : _login,
-                        icon: _loginBusy || selecting
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.login_rounded),
-                        label: Text(selecting ? '连接中...' : '登录'),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: selecting || _loginBusy ? null : _showServerList,
-                      icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                      label: const Text('选择其他服务器'),
-                    ),
-                  ],
-                ),
               ),
             ],
           ),
         );
         return body;
       },
+    );
+  }
+
+  /// 密码表单：验证通过且服务器开启 TOTP 时切换到验证码界面。
+  Widget _buildPasswordForm(
+    BuildContext context,
+    AppColors colors,
+    bool selecting,
+    String? visibleError,
+  ) {
+    return Column(
+      children: [
+        _loginField(
+          context,
+          controller: _passwordController,
+          label: '密码',
+          obscureText: true,
+          icon: Icons.key_outlined,
+          enabled: !selecting && !_loginBusy,
+          onSubmitted: (_) => _login(),
+        ),
+        if (visibleError != null) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ShakeErrorText(visibleError),
+          ),
+        ],
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: selecting || _loginBusy ? null : _login,
+            icon: _loginBusy || selecting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.login_rounded),
+            label: Text(selecting ? '连接中...' : '登录'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: selecting || _loginBusy ? null : _showServerList,
+          icon: const Icon(Icons.arrow_back_rounded, size: 18),
+          label: const Text('选择其他服务器'),
+        ),
+      ],
+    );
+  }
+
+  /// TOTP 界面：不再显示密码框，验证码输满自动提交。
+  Widget _buildTotpForm(
+    BuildContext context,
+    AppColors colors,
+    bool selecting,
+    String? visibleError,
+  ) {
+    return Column(
+      children: [
+        TotpInputField(
+          controller: _totpController,
+          enabled: !selecting && !_loginBusy,
+          autofocus: true,
+          onCompleted: (_) => _submitTotp(),
+        ),
+        if (visibleError != null) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ShakeErrorText(visibleError),
+          ),
+        ],
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: selecting || _loginBusy ? null : _submitTotp,
+            icon: _loginBusy || selecting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.verified_user_outlined),
+            label: Text(selecting ? '连接中...' : '验证并登录'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: selecting || _loginBusy
+              ? null
+              : () {
+                  setState(() {
+                    _totpRequired = false;
+                    _error = null;
+                    _totpController.clear();
+                  });
+                },
+          icon: const Icon(Icons.arrow_back_rounded, size: 18),
+          label: const Text('返回输入密码'),
+        ),
+      ],
     );
   }
 
@@ -875,10 +932,6 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
       setState(() => _error = '请输入密码');
       return;
     }
-    if (_totpRequired && _totpController.text.trim().isEmpty) {
-      setState(() => _error = '请输入 TOTP 验证码');
-      return;
-    }
     setState(() {
       _loginBusy = true;
       _error = null;
@@ -886,19 +939,13 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     try {
       final authenticated = await ref
           .read(authControllerProvider.notifier)
-          .login(
-            password: password,
-            totpCode: _totpRequired ? _totpController.text : null,
-          );
+          .login(password: password);
       if (!mounted) return;
       if (authenticated) {
         AppHaptics.medium();
         return;
       }
-      setState(() {
-        _totpRequired = true;
-        _error = '请输入 TOTP 验证码';
-      });
+      setState(() => _error = '请输入 TOTP 验证码');
     } catch (error) {
       if (!mounted) return;
       final exception = toApiException(error);
@@ -911,6 +958,44 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
           _error = message.isEmpty ? '登录失败，请检查密码或服务器连接' : message;
         });
       }
+      AppHaptics.light();
+    } finally {
+      if (mounted) setState(() => _loginBusy = false);
+    }
+  }
+
+  /// 密码验证通过后提交 TOTP 验证码。
+  Future<void> _submitTotp() async {
+    final totpCode = _totpController.text.trim();
+    if (totpCode.length < totpCodeLength) {
+      setState(() => _error = '请输入 $totpCodeLength 位 TOTP 验证码');
+      return;
+    }
+    setState(() {
+      _loginBusy = true;
+      _error = null;
+    });
+    try {
+      final authenticated = await ref
+          .read(authControllerProvider.notifier)
+          .login(password: _passwordController.text, totpCode: totpCode);
+      if (!mounted) return;
+      if (authenticated) {
+        AppHaptics.medium();
+        return;
+      }
+      setState(() {
+        _totpController.clear();
+        _error = '验证码不正确，请重试';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      final exception = toApiException(error);
+      final message = exception.message.trim();
+      setState(() {
+        _totpController.clear();
+        _error = message.isEmpty ? '验证失败，请重试' : message;
+      });
       AppHaptics.light();
     } finally {
       if (mounted) setState(() => _loginBusy = false);
