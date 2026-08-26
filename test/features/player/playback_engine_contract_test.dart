@@ -73,6 +73,43 @@ void main() {
     }
   });
 
+  test('所有内核连续两次切源后仍可第三次打开', () async {
+    const positions = [
+      Duration(seconds: 12),
+      Duration(seconds: 48),
+      Duration(seconds: 84),
+    ];
+    for (final kind in PlaybackEngineKind.values) {
+      final engine = FakePlaybackEngine(kind);
+      final session = PlayerSessionController(engine: engine);
+
+      for (var index = 0; index < positions.length; index++) {
+        if (index > 0) await session.stop();
+        await session.open(
+          'https://example.com/quality-$index.m3u8',
+          startAt: positions[index],
+          play: index.isEven,
+        );
+      }
+
+      expect(engine.commands, [
+        'open',
+        'stop',
+        'open',
+        'stop',
+        'open',
+      ], reason: '$kind');
+      expect(engine.openCount, 3);
+      expect(engine.lastOpenRequest?.startAt, positions.last);
+      expect(engine.lastOpenRequest?.play, isTrue);
+      expect(session.value.lifecycle, PlaybackLifecycle.ready);
+      expect(session.value.position, positions.last);
+      expect(session.value.playing, isTrue);
+
+      await session.dispose();
+    }
+  });
+
   test('容器提示随统一会话传递给 KSPlayer', () async {
     final engine = FakePlaybackEngine(PlaybackEngineKind.ksPlayer);
     final session = PlayerSessionController(engine: engine);

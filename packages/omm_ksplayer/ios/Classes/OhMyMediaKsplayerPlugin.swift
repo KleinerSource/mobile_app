@@ -278,6 +278,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
   private var pendingAutoplay = true
   private var desiredRate: Float = 1
   private var disposed = false
+  private var layerIsStopped = true
   private var lastVideoSize = CGSize.zero
 
   init(playerId: Int64, flutterApi: OmmKsPlayerFlutterApiProtocol) {
@@ -354,6 +355,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     }
     layer.set(url: mediaURL, options: options)
     layer.prepareToPlay()
+    layerIsStopped = false
   }
 
   private func installLayerCallbacks() {
@@ -364,15 +366,17 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     }
   }
 
-  /// KSPlayerLayer.stop() 会异步结束当前底层播放器。切换 HLS/直传或切换
-  /// AVPlayer/KSMEPlayer 时复用同一 layer，旧 finish/error 回调可能落到新
-  /// open 的 pendingOpen 上；用新 layer 隔离旧播放器的 delegate 生命周期。
+  /// 页面切换前会先通过 HostApi stop 当前 layer。KSPlayerLayer.stop() 没有
+  /// 幂等保护，重复调用会再次执行底层 player.shutdown()；重建时只清理尚未
+  /// 停止的旧 layer，避免“页面 stop → open recreateLayer stop”的双重关闭。
   private func recreateLayer() {
     let oldLayer = layer
     pipCancellable = nil
     oldLayer.isPipActive = false
     oldLayer.delegate = nil
-    oldLayer.stop()
+    if !layerIsStopped {
+      oldLayer.stop()
+    }
 
     let options = KSOptions()
     layer = KSPlayerLayer(
@@ -380,6 +384,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       isAutoPlay: false,
       options: options
     )
+    layerIsStopped = true
     installLayerCallbacks()
     if let attachedView {
       attach(to: attachedView, gravity: attachedGravity)
@@ -419,6 +424,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
   func play() throws {
     guard !disposed else { throw KsPlayerPluginError.disposed }
     layer.play()
+    layerIsStopped = false
   }
 
   func pause() throws {
@@ -433,7 +439,10 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     pendingOpen = nil
     pendingStartVerificationMs = 0
     startVerificationGeneration += 1
-    layer.stop()
+    if !layerIsStopped {
+      layer.stop()
+      layerIsStopped = true
+    }
   }
 
   func seek(
@@ -552,7 +561,10 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     layer.isPipActive = false
     layer.delegate = nil
     pipCancellable = nil
-    layer.stop()
+    if !layerIsStopped {
+      layer.stop()
+      layerIsStopped = true
+    }
   }
 
   func player(layer callbackLayer: KSPlayerLayer, state: KSPlayerState) {

@@ -471,3 +471,19 @@
 - KSPlayer 原生 `prefersFfmpegPlayer()` 与 Dart 调试推断都会因 HEVC 强制选择 `KSMEPlayer`，优先级高于 `.m3u8` 容器判断；因此 HLS 被错误交给 FFmpeg 子内核。
 - KSMEPlayer 关闭通过异步 close operation 完成，连续切档会让旧 HLS 的 FFmpeg 关闭与新 HLS 的 FFmpeg 打开重叠；正确的 H.264 HLS 应交给 `KSAVPlayer`。
 - 修复仅让后端 HLS 优先使用 `target_video`；direct/original 继续使用源 `video_codec`，libmpv 路由与服务端协议不变。
+
+# KSPlayer 任意第二次切源必卡（2026-08-26 再续查）
+
+- 用户提供更强复现证据：初始自动播放正常；第一次切到任意目标（自动/原生/固定转码）均能加载并播放；第二次切到任意目标都会进入 loading 后永久不退出。
+- 该规律与目标清晰度、direct/HLS 路由和源/目标编码无关，上一轮 `target_video` 修复未解决故障，故“单一内核误路由是根因”的结论被真机证据否定。
+- 页面 `_loadInternal()` 只会在 `_host.open()` 返回后关闭 loading；KSPlayer 的 `OmmKsPlayer.open()` 直接无界等待原生 Pigeon `open` 回复。
+- 原生 Pigeon `open` 只有收到当前 `KSPlayerLayer` 的 `.readyToPlay` 后才完成；旧 layer 通过 delegate 身份隔离，但第二次新 layer 若不再产生 ready/error，Dart 队列会永久悬挂。
+- 下一步重点核对原生重复 `recreateLayer()`、PlatformView 重新挂载及 `pendingOpen/openGeneration` 状态，而不是继续修改媒体编码路由。
+
+# 共享对话中的 KSPlayer 切换模式（2026-08-26）
+
+- 用户提供的共享对话给出了 KSPlayer GPL 版的官方切换路径：`change(definitionIndex:)` 记录当前位置后调用同一 `VideoPlayerView` 的 `super.set(url:options:)`，由 layer 内部完成一次换源、重新准备和续播。
+- 该模式不会在业务层先调用 `stop()`，再在 `set(url:)` 内部再次停止同一播放器；切换本质是一次内部 stop + replace + prepare。
+- 当前插件为满足页面“先停本地消费”的编排，在 Dart 侧先调用 HostApi `stop`，随后原生 `open()` 的 `recreateLayer()` 又对旧 `KSPlayerLayer` 调用 `stop()`。因此每次切换都存在重复停止；第二次切换恰好是旧 layer 已经经历过一次完整 stop 后再次走该路径。
+- KSPlayer 依赖副本确认 `KSPlayerLayer.stop()` 无幂等保护，直接调用 `player.shutdown()`；`KSAVPlayer.shutdown()` 会取消 asset loading、解绑 resource loader 并清空 current item，`KSMEPlayer.shutdown()` 会重置 `playerItem`。插件应避免对已停止 layer 再次调用 `stop()`。
+- 本轮先采用最小修复：在 `KsPlayerSession` 维护 layer 停止状态；显式 `stop()` 后 `open()` 的 `recreateLayer()` 跳过重复 stop，首次 open/未显式停止的 layer 仍正常清理。后续若真机仍有问题，再将后端动态 URL 切换下沉为同一 layer 的 `set` 专用命令。

@@ -339,3 +339,16 @@
 - CodeGraph 复核确认新映射只有 `PlayerPage` 播放打开路径使用，并由路由测试覆盖；未出现索引陈旧提示。
 - `flutter analyze --no-pub` 通过，`No issues found!`；`git diff --check` 通过，仅有 Windows LF/CRLF 提示。
 - 完整 `flutter test --no-pub` 通过，共 420 项全部成功。
+
+## 2026-08-26 KSPlayer 任意第二次切源必卡（再续查）
+
+- 已读取并继续使用 `planning-with-files`，会话恢复确认当前工作区干净且 `master` 与 `origin/master` 一致。
+- 已将用户新的稳定复现矩阵作为最高优先级证据，撤销“目标编码误路由即可解决”的根因判断。
+- CodeGraph 已复核页面加载链和 KSPlayer Dart/Swift open 契约：第二次切源仍存在对原生 ready 驱动 Pigeon 回复的无界等待。
+- 当前进入原生重复会话状态与 PlatformView 生命周期核查阶段，尚未实施新代码修改。
+
+## 2026-08-26 共享对话 KSPlayer 切换模式核对
+
+- 已按用户提供的共享对话核对 KSPlayer 官方 GPL 切换实现：同一 layer `set(url:)`，内部只做一次 stop/replace/prepare。
+- 已从本地固定 KSPlayer 源码副本确认 `KSPlayerLayer.stop()` 无幂等保护，因此当前“页面 stop + open recreateLayer stop”是确定的重复停止路径。
+- 下一步实施 `KsPlayerSession` 的 layer stopped 状态保护，并补连续 `open → stop → open → stop → open` 的契约回归；尚未修改业务代码。
