@@ -99,8 +99,7 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
   }
 
   void _changeDelay(int delta) {
-    final next = (_adjustments.delayMs + delta).clamp(-5000, 5000).toInt();
-    _update(_adjustments.copyWith(delayMs: next));
+    _update(_adjustments.copyWith(delayMs: _adjustments.delayMs + delta));
   }
 
   void _changeVertical(double delta) {
@@ -111,12 +110,22 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
   }
 
   void _changeSize(double delta) {
-    final next = _stepDouble(_adjustments.sizeScale, delta, min: 0.5, max: 2.0);
+    final next = _stepDouble(
+      _adjustments.sizeScale,
+      delta,
+      min: subtitleSizeScaleMin,
+      max: subtitleSizeScaleMax,
+    );
     _update(_adjustments.copyWith(sizeScale: next));
   }
 
   void _changeOpacity(double delta) {
-    final next = _stepDouble(_adjustments.opacity, delta, min: 0.1, max: 1.0);
+    final next = _stepDouble(
+      _adjustments.opacity,
+      delta,
+      min: subtitleOpacityMin,
+      max: subtitleOpacityMax,
+    );
     _update(_adjustments.copyWith(opacity: next));
   }
 
@@ -125,11 +134,11 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
       title: '延迟偏移',
       initialValue: (_adjustments.delayMs / 1000).toStringAsFixed(1),
       unit: '秒',
-      min: -5,
-      max: 5,
     );
     if (!mounted || value == null) return;
-    _update(_adjustments.copyWith(delayMs: (value * 1000).round()));
+    // 无上下限，但需饱和到 int 表示范围，避免极端输入溢出。
+    final ms = (value * 1000).clamp(-9.0e18, 9.0e18);
+    _update(_adjustments.copyWith(delayMs: ms.round()));
   }
 
   Future<void> _editVerticalOffset() async {
@@ -149,8 +158,8 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
       title: '大小缩放',
       initialValue: (_adjustments.sizeScale * 100).round().toString(),
       unit: '%',
-      min: 50,
-      max: 200,
+      min: subtitleSizeScaleMin * 100,
+      max: subtitleSizeScaleMax * 100,
     );
     if (!mounted || value == null) return;
     _update(_adjustments.copyWith(sizeScale: value / 100));
@@ -161,8 +170,8 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
       title: '不透明度',
       initialValue: (_adjustments.opacity * 100).round().toString(),
       unit: '%',
-      min: 10,
-      max: 100,
+      min: subtitleOpacityMin * 100,
+      max: subtitleOpacityMax * 100,
     );
     if (!mounted || value == null) return;
     _update(_adjustments.copyWith(opacity: value / 100));
@@ -172,8 +181,8 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
     required String title,
     required String initialValue,
     required String unit,
-    required double min,
-    required double max,
+    double? min,
+    double? max,
   }) {
     return showDialog<double>(
       context: context,
@@ -248,12 +257,8 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
               title: '延迟偏移',
               value: '${(_adjustments.delayMs / 1000).toStringAsFixed(1)} s',
               onValueTap: _editDelay,
-              onDecrease: _adjustments.delayMs <= -5000
-                  ? null
-                  : () => _changeDelay(-100),
-              onIncrease: _adjustments.delayMs >= 5000
-                  ? null
-                  : () => _changeDelay(100),
+              onDecrease: () => _changeDelay(-100),
+              onIncrease: () => _changeDelay(100),
             ),
             _AdjustmentRow(
               title: '垂直偏移',
@@ -272,10 +277,10 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
               title: '大小缩放',
               value: '${(_adjustments.sizeScale * 100).round()}%',
               onValueTap: _editSize,
-              onDecrease: _adjustments.sizeScale <= 0.5
+              onDecrease: _adjustments.sizeScale <= subtitleSizeScaleMin
                   ? null
                   : () => _changeSize(-0.05),
-              onIncrease: _adjustments.sizeScale >= 2.0
+              onIncrease: _adjustments.sizeScale >= subtitleSizeScaleMax
                   ? null
                   : () => _changeSize(0.05),
             ),
@@ -283,10 +288,10 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
               title: '不透明度',
               value: '${(_adjustments.opacity * 100).round()}%',
               onValueTap: _editOpacity,
-              onDecrease: _adjustments.opacity <= 0.1
+              onDecrease: _adjustments.opacity <= subtitleOpacityMin
                   ? null
                   : () => _changeOpacity(-0.05),
-              onIncrease: _adjustments.opacity >= 1.0
+              onIncrease: _adjustments.opacity >= subtitleOpacityMax
                   ? null
                   : () => _changeOpacity(0.05),
             ),
@@ -368,15 +373,15 @@ class _SubtitleNumericInputDialog extends StatefulWidget {
     required this.title,
     required this.initialValue,
     required this.unit,
-    required this.min,
-    required this.max,
+    this.min,
+    this.max,
   });
 
   final String title;
   final String initialValue;
   final String unit;
-  final double min;
-  final double max;
+  final double? min;
+  final double? max;
 
   @override
   State<_SubtitleNumericInputDialog> createState() =>
@@ -400,7 +405,17 @@ class _SubtitleNumericInputDialogState
       setState(() => _errorText = '请输入有效数字');
       return;
     }
-    Navigator.of(context).pop(value.clamp(widget.min, widget.max).toDouble());
+    final min = widget.min;
+    final max = widget.max;
+    if (min != null && value < min) {
+      setState(() => _errorText = '不能低于 ${_formatNumber(min)}');
+      return;
+    }
+    if (max != null && value > max) {
+      setState(() => _errorText = '不能高于 ${_formatNumber(max)}');
+      return;
+    }
+    Navigator.of(context).pop(value);
   }
 
   @override
@@ -434,8 +449,7 @@ class _SubtitleNumericInputDialogState
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _submit(),
           decoration: InputDecoration(
-            hintText:
-                '${_formatNumber(widget.min)} ~ ${_formatNumber(widget.max)}',
+            helperText: '范围：${_rangeHint(widget.min, widget.max)}',
             prefixIcon: const Icon(Icons.tune),
             suffixText: widget.unit,
             errorText: _errorText,
@@ -459,6 +473,13 @@ class _SubtitleNumericInputDialogState
       ],
     );
   }
+}
+
+String _rangeHint(double? min, double? max) {
+  if (min == null && max == null) return '无限制';
+  if (min == null) return '~ ${_formatNumber(max!)}';
+  if (max == null) return '${_formatNumber(min)} ~ 无限制';
+  return '${_formatNumber(min)} ~ ${_formatNumber(max)}';
 }
 
 String _formatNumber(double value) {
@@ -525,9 +546,15 @@ class _StepperButton extends StatefulWidget {
 }
 
 class _StepperButtonState extends State<_StepperButton> {
+  // 基础连发节奏；按住 3 秒后提速一倍，5 秒后再提一倍，
+  // 让长按可以更快到达目标值。按住时长用已排定的连发间隔累加
+  // 度量，避免依赖真实时钟。
   static const _repeatInterval = Duration(milliseconds: 120);
+  static const _speedUp1After = Duration(seconds: 3);
+  static const _speedUp2After = Duration(seconds: 5);
 
   Timer? _repeatTimer;
+  Duration _heldFor = Duration.zero;
 
   void _invoke() {
     final action = widget.onPressed;
@@ -536,22 +563,37 @@ class _StepperButtonState extends State<_StepperButton> {
     action();
   }
 
-  void _startRepeating(LongPressStartDetails _) {
-    if (widget.onPressed == null) return;
-    _invoke();
+  void _scheduleNextTick() {
     _repeatTimer?.cancel();
-    _repeatTimer = Timer.periodic(_repeatInterval, (_) {
+    final interval = _currentInterval(_heldFor);
+    _heldFor += interval;
+    _repeatTimer = Timer(interval, () {
       if (!mounted || widget.onPressed == null) {
         _stopRepeating();
         return;
       }
       _invoke();
+      _scheduleNextTick();
     });
+  }
+
+  static Duration _currentInterval(Duration heldFor) {
+    if (heldFor >= _speedUp2After) return _repeatInterval ~/ 3;
+    if (heldFor >= _speedUp1After) return _repeatInterval ~/ 2;
+    return _repeatInterval;
+  }
+
+  void _startRepeating(LongPressStartDetails _) {
+    if (widget.onPressed == null) return;
+    _invoke();
+    _heldFor = Duration.zero;
+    _scheduleNextTick();
   }
 
   void _stopRepeating() {
     _repeatTimer?.cancel();
     _repeatTimer = null;
+    _heldFor = Duration.zero;
   }
 
   @override

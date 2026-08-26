@@ -455,6 +455,9 @@ class AppL10nZh extends AppL10n {
   String get playerEnginePickerSubtitle => '仅用于本次播放，不会修改默认设置';
 
   @override
+  String get playerEnginePickerDefaultBadge => '默认';
+
+  @override
   String get languageSystem => '跟随系统';
 
   @override

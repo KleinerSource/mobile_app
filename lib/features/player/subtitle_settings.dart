@@ -14,6 +14,12 @@ const subtitleDisabledSelectionKey = '__subtitle_disabled__';
 const subtitleVerticalOffsetMin = -1000.0;
 const subtitleVerticalOffsetMax = 2000.0;
 
+// 字幕调节项阈值。延迟偏移刻意不设上下限，允许任意整毫秒值。
+const subtitleSizeScaleMin = 0.5;
+const subtitleSizeScaleMax = 4.0;
+const subtitleOpacityMin = 0.1;
+const subtitleOpacityMax = 1.0;
+
 double clampSubtitleVerticalOffset(
   double value, {
   double min = subtitleVerticalOffsetMin,
@@ -168,10 +174,12 @@ class SubtitleAdjustments {
 
   SubtitleAdjustments normalized() {
     return SubtitleAdjustments(
-      delayMs: delayMs.clamp(-5000, 5000).toInt(),
+      delayMs: delayMs,
       verticalOffset: verticalOffset.isFinite ? verticalOffset : 0,
-      sizeScale: sizeScale.clamp(0.5, 2.0).toDouble(),
-      opacity: opacity.clamp(0.1, 1.0).toDouble(),
+      sizeScale: sizeScale
+          .clamp(subtitleSizeScaleMin, subtitleSizeScaleMax)
+          .toDouble(),
+      opacity: opacity.clamp(subtitleOpacityMin, subtitleOpacityMax).toDouble(),
     );
   }
 }

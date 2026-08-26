@@ -162,6 +162,7 @@
 
   "playerEnginePickerTitle": "选择播放器",
   "playerEnginePickerSubtitle": "仅用于本次播放，不会修改默认设置",
+  "playerEnginePickerDefaultBadge": "默认",
 
   "languageSystem": "跟随系统",
   "languageZh": "简体中文",

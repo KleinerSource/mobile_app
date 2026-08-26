@@ -29,6 +29,7 @@ import '../player/player_engine_picker.dart';
 import '../player/player_queue.dart';
 import '../player/player_session_controller.dart';
 import '../player/player_session_factory.dart';
+import '../player/player_settings.dart';
 import '../resources/resource_movies_page.dart';
 import '../person_detail/person_detail_page.dart';
 import 'dbo_diff_sheet.dart';
@@ -801,9 +802,13 @@ class _ActionRow extends ConsumerWidget {
                     onLongPress: engineKinds.length < 2
                         ? null
                         : () async {
+                            final defaultEngine = ref
+                                .read(playerSettingsProvider)
+                                .iosEngine;
                             final engineKind = await showPlaybackEnginePicker(
                               context,
                               engineKinds: engineKinds,
+                              defaultEngineKind: defaultEngine,
                             );
                             if (engineKind != null && context.mounted) {
                               await openPlayer(engineKind);

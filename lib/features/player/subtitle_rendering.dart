@@ -65,7 +65,10 @@ TextStyle subtitleTextStyle(
         settings.fontFamily == 'System' || settings.fontFamily.trim().isEmpty
         ? null
         : settings.fontFamily,
-    fontSize: baseFontSize * adjustments.sizeScale.clamp(0.5, 2.0).toDouble(),
+    fontSize: baseFontSize * adjustments.sizeScale.clamp(
+      subtitleSizeScaleMin,
+      subtitleSizeScaleMax,
+    ).toDouble(),
     fontWeight: settings.bold ? FontWeight.w700 : FontWeight.normal,
     fontStyle: settings.italic ? FontStyle.italic : FontStyle.normal,
     color: settings.fontColor,
@@ -289,7 +292,7 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
                 offset: Offset(0, -verticalOffset),
                 child: Opacity(
                   opacity: widget.adjustments.opacity
-                      .clamp(0.1, 1.0)
+                      .clamp(subtitleOpacityMin, subtitleOpacityMax)
                       .toDouble(),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),

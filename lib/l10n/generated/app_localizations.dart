@@ -961,6 +961,12 @@ abstract class AppL10n {
   /// **'仅用于本次播放，不会修改默认设置'**
   String get playerEnginePickerSubtitle;
 
+  /// No description provided for @playerEnginePickerDefaultBadge.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认'**
+  String get playerEnginePickerDefaultBadge;
+
   /// No description provided for @languageSystem.
   ///
   /// In zh, this message translates to:

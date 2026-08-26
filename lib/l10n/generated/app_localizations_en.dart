@@ -462,6 +462,9 @@ class AppL10nEn extends AppL10n {
       'Applies to this playback only and does not change your default';
 
   @override
+  String get playerEnginePickerDefaultBadge => 'Default';
+
+  @override
   String get languageSystem => 'System default';
 
   @override
