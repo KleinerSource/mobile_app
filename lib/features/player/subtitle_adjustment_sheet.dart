@@ -429,40 +429,55 @@ class _SubtitleNumericInputDialogState
     final c = appColors(context);
     return AlertDialog(
       title: Text(widget.title),
-      content: Container(
-        decoration: BoxDecoration(
-          color: c.surfaceAlt.withValues(alpha: 0.65),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: c.cardBorder),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: TextField(
-          controller: _controller,
-          autofocus: true,
-          // border 为 none 时 InputDecorator 默认顶对齐,prefixIcon 的 48px
-          // 最小高度会把输入行撑高,文字会被钉在顶部,需显式垂直居中。
-          textAlignVertical: TextAlignVertical.center,
-          keyboardType: const TextInputType.numberWithOptions(
-            decimal: true,
-            signed: true,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: c.surfaceAlt.withValues(alpha: 0.65),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: c.cardBorder),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: TextField(
+              controller: _controller,
+              autofocus: true,
+              // border 为 none 时 InputDecorator 默认顶对齐,prefixIcon 的 48px
+              // 最小高度会把输入行撑高,文字会被钉在顶部,需显式垂直居中。
+              textAlignVertical: TextAlignVertical.center,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+                signed: true,
+              ),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.tune),
+                suffixText: widget.unit,
+                errorText: _errorText,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+              ),
+            ),
           ),
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _submit(),
-          decoration: InputDecoration(
-            helperText: '范围：${_rangeHint(widget.min, widget.max)}',
-            prefixIcon: const Icon(Icons.tune),
-            suffixText: widget.unit,
-            errorText: _errorText,
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(vertical: 10),
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            disabledBorder: InputBorder.none,
-            errorBorder: InputBorder.none,
-            focusedErrorBorder: InputBorder.none,
+          const SizedBox(height: 8),
+          Text(
+            '范围：${_rangeHint(widget.min, widget.max)}',
+            style: TextStyle(
+              color: c.muted,
+              fontFamily: 'Inter',
+              fontSize: 12,
+              decoration: TextDecoration.none,
+            ),
           ),
-        ),
+        ],
       ),
       actions: [
         TextButton(
