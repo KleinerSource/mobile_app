@@ -12,6 +12,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/server_avatar.dart';
+import '../../shared/shake_error_text.dart';
 import '../../shared/totp_input_field.dart';
 import '../libraries/libraries_providers.dart';
 import 'home_providers.dart';
@@ -432,7 +433,7 @@ class _ServerSwitchTransitionOverlayState
         ServerAvatar(
           displayName: name,
           avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
-          size: 96,
+          size: 112,
           busy: true,
           colors: colors,
         ),
@@ -440,13 +441,17 @@ class _ServerSwitchTransitionOverlayState
         Text(
           '连接 $name',
           textAlign: TextAlign.center,
-          style: AppText.pageTitle(context).copyWith(fontSize: 24),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppText.pageTitle(context).copyWith(fontSize: 25),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 16),
         Text(
           '正在检查服务器鉴权状态…',
           textAlign: TextAlign.center,
-          style: AppText.body(context).copyWith(color: colors.muted),
+          style: AppText.body(
+            context,
+          ).copyWith(color: colors.muted, fontSize: 15),
         ),
       ],
     );
@@ -467,31 +472,35 @@ class _ServerSwitchTransitionOverlayState
     final error =
         (_localError?.trim().isNotEmpty == true ? _localError : message)
             ?.trim();
+    // 布局与服务器选择页的详情场景保持一致：头像 136、名字 25 号、
+    // 副标题/表单间距同节奏，登录动画结束后的最终位置与选择页统一。
     return Column(
       key: const ValueKey('server-switch-login'),
       children: [
         ServerAvatar(
           displayName: name,
           avatarUrl: avatar,
-          size: 112,
+          size: 136,
           busy: _loginBusy,
           colors: colors,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         Text(
           name,
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AppText.pageTitle(context).copyWith(fontSize: 24),
+          style: AppText.pageTitle(context).copyWith(fontSize: 25),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         Text(
           requiresTotp ? '输入动态验证码完成切换。' : '请输入此服务器的密码继续。',
           textAlign: TextAlign.center,
-          style: AppText.body(context).copyWith(color: colors.muted),
+          style: AppText.body(
+            context,
+          ).copyWith(color: colors.muted, fontSize: 15),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 24),
         if (requiresTotp) ...[
           TotpInputField(
             controller: _totpController,
@@ -514,10 +523,7 @@ class _ServerSwitchTransitionOverlayState
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerLeft,
-            child: Text(
-              error,
-              style: TextStyle(color: colors.danger, fontSize: 13),
-            ),
+            child: ShakeErrorText(error),
           ),
         ],
         const SizedBox(height: 20),
