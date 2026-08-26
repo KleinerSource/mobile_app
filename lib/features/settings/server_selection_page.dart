@@ -593,7 +593,10 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   ) {
     final authValue = ref.watch(authControllerProvider);
     final auth = authValue.valueOrNull;
-    final requiresTotp = _totpRequired || auth?.phase == AuthPhase.totpRequired;
+    // 验证码界面完全由本地状态驱动：服务端返回 totp_required 时置位，
+    // 「返回输入密码」时复位。provider 的 totpRequired 阶段在密码验证
+    // 失败后会一直保持，不能作为界面切换依据，否则无法返回密码表单。
+    final requiresTotp = _totpRequired;
     final error = _error?.trim();
     final authError = auth?.message?.trim();
     final visibleError = error?.isNotEmpty == true

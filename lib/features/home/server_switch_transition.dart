@@ -307,6 +307,7 @@ class _ServerSwitchTransitionOverlayState
   final _passwordController = TextEditingController();
   final _totpController = TextEditingController();
   bool _loginBusy = false;
+  bool _totpRequired = false;
   String? _localError;
 
   @override
@@ -335,11 +336,10 @@ class _ServerSwitchTransitionOverlayState
       );
     }
 
-    final auth = ref.watch(authControllerProvider);
-    final authState = auth.valueOrNull;
-    final requiresTotp =
-        authState?.phase == AuthPhase.totpRequired ||
-        authState?.status?.totpConfigured == true;
+    // 验证码界面由本地状态驱动：服务端返回 totp_required 时置位，「返回
+    // 输入密码」时复位；provider 的 totpRequired 阶段会一直保持，不能
+    // 作为切换依据。服务器开启 TOTP 但尚未验证密码时仍先显示密码表单。
+    final requiresTotp = _totpRequired;
     final content = switch (transition.phase) {
       ServerSwitchPhase.checking => _buildChecking(context, colors, target),
       ServerSwitchPhase.needsLogin => _buildLogin(
@@ -551,9 +551,16 @@ class _ServerSwitchTransitionOverlayState
         ),
         const SizedBox(height: 8),
         TextButton.icon(
-          onPressed: _loginBusy ? null : _cancel,
-          icon: const Icon(Icons.close_rounded, size: 18),
-          label: const Text('取消切换'),
+          onPressed: _loginBusy
+              ? null
+              : requiresTotp
+              ? _backToPassword
+              : _cancel,
+          icon: Icon(
+            requiresTotp ? Icons.arrow_back_rounded : Icons.close_rounded,
+            size: 18,
+          ),
+          label: Text(requiresTotp ? '返回输入密码' : '取消切换'),
         ),
       ],
     );
@@ -628,6 +635,12 @@ class _ServerSwitchTransitionOverlayState
       await ref
           .read(serverSwitchTransitionProvider.notifier)
           .login(password: password);
+      if (!mounted) return;
+      // 密码正确但服务器要求 TOTP：切换到验证码界面。
+      final phase = ref.read(authControllerProvider).valueOrNull?.phase;
+      if (phase == AuthPhase.totpRequired) {
+        setState(() => _totpRequired = true);
+      }
     } finally {
       if (mounted) setState(() => _loginBusy = false);
     }
@@ -658,14 +671,31 @@ class _ServerSwitchTransitionOverlayState
     }
   }
 
+  /// 返回密码表单，复位本地验证码状态。
+  void _backToPassword() {
+    setState(() {
+      _totpRequired = false;
+      _localError = null;
+      _totpController.clear();
+    });
+  }
+
   Future<void> _retry() async {
-    setState(() => _localError = null);
+    setState(() {
+      _localError = null;
+      _totpRequired = false;
+      _totpController.clear();
+    });
     await ref.read(serverSwitchTransitionProvider.notifier).retry();
   }
 
   Future<void> _cancel() async {
     if (_loginBusy) return;
-    setState(() => _localError = null);
+    setState(() {
+      _localError = null;
+      _totpRequired = false;
+      _totpController.clear();
+    });
     await ref.read(serverSwitchTransitionProvider.notifier).cancel();
   }
 
