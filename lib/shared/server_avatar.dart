@@ -15,7 +15,8 @@ String serverInitials(String value) {
 /// 服务器头像: 渐变圆底 + 远程头像(首字母兜底) + 白色描边。
 ///
 /// 小尺寸(菜单行 ≤40)用细描边与大号首字母;大尺寸(>60)自动加投影、
-/// 更粗的描边并缩小首字母占比。[busy] 时轻微缩放并叠加半透明加载遮罩,
+/// 更粗的描边并缩小首字母占比。[busy] 时轻微缩放;大尺寸把白色进度环
+/// 描在边框上(头像保持清晰),小尺寸叠加半透明遮罩加中心加载指示,
 /// 用于切换/登录进行中的服务器选择页。
 class ServerAvatar extends StatelessWidget {
   const ServerAvatar({
@@ -99,7 +100,7 @@ class ServerAvatar extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             face,
-            if (busy)
+            if (busy && !isHeroSize)
               Padding(
                 padding: EdgeInsets.all(borderWidth),
                 child: ClipOval(
@@ -127,6 +128,16 @@ class ServerAvatar extends StatelessWidget {
                 ),
               ),
             ),
+            if (busy && isHeroSize)
+              // 大尺寸时进度环叠在白色边框上，头像保持清晰不变暗。
+              SizedBox(
+                width: size,
+                height: size,
+                child: CircularProgressIndicator(
+                  strokeWidth: borderWidth,
+                  color: colors.accent,
+                ),
+              ),
           ],
         ),
       ),

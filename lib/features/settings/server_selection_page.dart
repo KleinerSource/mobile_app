@@ -327,6 +327,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     AppColors colors,
     List<ServerProfile> servers,
   ) {
+    final single = servers.length == 1;
     return Column(
       key: const ValueKey('server-picker'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -337,12 +338,12 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             child: Column(
               children: [
                 Text(
-                  '选择服务器',
+                  single ? '连接服务器' : '选择服务器',
                   style: AppText.pageTitle(context).copyWith(fontSize: 28),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '选择要连接的服务器',
+                  single ? '输入密码连接到此服务器' : '选择要连接的服务器',
                   textAlign: TextAlign.center,
                   style: AppText.body(context).copyWith(color: colors.muted),
                 ),
@@ -352,6 +353,23 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
           ),
         ),
         _buildServerStrip(colors, servers),
+        if (single) ...[
+          const SizedBox(height: 16),
+          FadeTransition(
+            opacity: _entryOpacity,
+            child: Center(
+              child: TextButton.icon(
+                onPressed: () =>
+                    ref.read(serverConfigProvider.notifier).beginEdit(),
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('编辑服务器地址'),
+                style: TextButton.styleFrom(
+                  foregroundColor: colors.muted,
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

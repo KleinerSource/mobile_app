@@ -19,10 +19,10 @@ import 'features/security/security_providers.dart';
 import 'features/settings/app_update_startup_gate.dart';
 import 'features/settings/server_setup_page.dart';
 import 'features/settings/server_selection_page.dart';
-import 'features/settings/login_page.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'shared/glass.dart';
 import 'shared/glow_background.dart';
+import 'shared/server_avatar.dart';
 import 'shared/top_snack_bar.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -60,7 +60,7 @@ class _AppBootstrapState extends State<_AppBootstrap> {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: buildAppTheme(Brightness.dark),
-            home: const _StartupLoading(),
+            home: const _BootSplash(),
           );
         }
         return ProviderScope(
@@ -118,6 +118,9 @@ class OmmApp extends ConsumerWidget {
             : serverSwitch.isActive
             ? const _AuthenticatedHomeWithServerSwitch()
             : auth.when(
+                // reload（如选择服务器保存配置）期间保持上一状态渲染，
+                // 避免登录/选择页被启动加载页替换导致表单状态丢失。
+                skipLoadingOnReload: true,
                 loading: () => cfg.hasMultipleServers && serverSelectionReady
                     ? const ServerSelectionPage()
                     : const _StartupLoading(),
@@ -129,10 +132,8 @@ class OmmApp extends ConsumerWidget {
                   onChangeServer: changeServer,
                 ),
                 data: (state) => switch (state.phase) {
-                  AuthPhase.needsLogin || AuthPhase.totpRequired =>
-                    cfg.hasMultipleServers && serverSelectionReady
-                        ? const ServerSelectionPage()
-                        : const LoginPage(),
+                  AuthPhase.needsLogin ||
+                  AuthPhase.totpRequired ||
                   AuthPhase.serverSelection => const ServerSelectionPage(),
                   AuthPhase.incompatible ||
                   AuthPhase.unavailable => _StartupError(
@@ -174,31 +175,68 @@ class _AuthenticatedHome extends ConsumerWidget {
   }
 }
 
-class _StartupLoading extends StatelessWidget {
-  const _StartupLoading();
+/// SharedPreferences 就绪前的冷启动闪屏，无法读取服务器配置，仅显示背景与
+/// 轻量加载指示。
+class _BootSplash extends StatelessWidget {
+  const _BootSplash();
 
   @override
   Widget build(BuildContext context) {
+    final c = appColors(context);
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              'assets/branding/oh_my_media_logo.png',
-              width: 144,
-              height: 144,
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.high,
-              semanticLabel: 'Oh-My-Media',
-            ),
-            const SizedBox(height: 22),
-            const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
-            ),
-          ],
+      backgroundColor: c.bg,
+      body: const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
+      ),
+    );
+  }
+}
+
+/// 启动加载页：展示当前服务器头像并以边框进度环作为加载指示。
+class _StartupLoading extends ConsumerWidget {
+  const _StartupLoading();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = appColors(context);
+    final server = ref.watch(serverConfigProvider)?.activeServer;
+    final profile = server == null
+        ? null
+        : ref.watch(serverProfileCacheRepoProvider).load(server.id);
+    final displayName = profile?.name.trim().isNotEmpty == true
+        ? profile!.name.trim()
+        : (server?.name ?? '');
+    final avatarUrl = profile?.avatarUrl ?? server?.avatarUrl;
+
+    return Scaffold(
+      backgroundColor: c.bg,
+      body: GlowBackground(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ServerAvatar(
+                displayName: displayName.isEmpty ? 'S' : displayName,
+                avatarUrl: avatarUrl,
+                size: 112,
+                busy: true,
+                colors: c,
+              ),
+              if (displayName.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                Text(
+                  displayName,
+                  style: AppText.body(
+                    context,
+                  ).copyWith(color: c.muted),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

@@ -163,7 +163,8 @@ class AuthController extends AsyncNotifier<AuthState> {
       return result;
     }
 
-    state = const AsyncLoading();
+    // 检查期间保留既有状态，不置为裸 AsyncLoading：根路由的 loading 分支
+    // 会替换整个登录选择页，导致内联登录表单丢失。调用方各自展示 busy。
     final client = ApiClient.fromConfig(
       config,
       sessionRepository: ref.read(authSessionRepositoryProvider),
@@ -177,7 +178,8 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<bool> login({required String password, String? totpCode}) async {
     final client = ref.read(requiredApiClientProvider);
     final current = state.valueOrNull;
-    state = const AsyncLoading();
+    // 登录请求期间保留 needsLogin 状态（页面有自己的 busy 指示），避免根
+    // 路由进入 loading 分支重建登录页。
     try {
       final session = await client.auth.login(
         password: password,

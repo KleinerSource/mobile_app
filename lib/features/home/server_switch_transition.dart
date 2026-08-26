@@ -340,12 +340,7 @@ class _ServerSwitchTransitionOverlayState
         authState?.phase == AuthPhase.totpRequired ||
         authState?.status?.totpConfigured == true;
     final content = switch (transition.phase) {
-      ServerSwitchPhase.checking => _TransitionContent(
-        icon: Icons.sync_rounded,
-        title: '连接 ${target.name}',
-        message: '正在检查服务器鉴权状态…',
-        busy: true,
-      ),
+      ServerSwitchPhase.checking => _buildChecking(context, colors, target),
       ServerSwitchPhase.needsLogin => _buildLogin(
         context,
         colors,
@@ -417,6 +412,42 @@ class _ServerSwitchTransitionOverlayState
           ],
         ),
       ),
+    );
+  }
+
+  /// checking 阶段：目标服务器头像加边框进度环，与选择页的加载语义一致。
+  Widget _buildChecking(
+    BuildContext context,
+    AppColors colors,
+    ServerProfile server,
+  ) {
+    final profile = _cachedProfileFor(server);
+    final name = profile?.name.trim().isNotEmpty == true
+        ? profile!.name.trim()
+        : server.name;
+    return Column(
+      key: const ValueKey('server-switch-checking'),
+      children: [
+        ServerAvatar(
+          displayName: name,
+          avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
+          size: 96,
+          busy: true,
+          colors: colors,
+        ),
+        const SizedBox(height: 20),
+        Text(
+          '连接 $name',
+          textAlign: TextAlign.center,
+          style: AppText.pageTitle(context).copyWith(fontSize: 24),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          '正在检查服务器鉴权状态…',
+          textAlign: TextAlign.center,
+          style: AppText.body(context).copyWith(color: colors.muted),
+        ),
+      ],
     );
   }
 
@@ -664,13 +695,11 @@ class _TransitionContent extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.message,
-    this.busy = false,
   });
 
   final IconData icon;
   final String title;
   final String message;
-  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -678,7 +707,7 @@ class _TransitionContent extends StatelessWidget {
     return Column(
       key: ValueKey(title),
       children: [
-        _TransitionIcon(icon: icon, colors: colors, busy: busy),
+        _TransitionIcon(icon: icon, colors: colors),
         const SizedBox(height: 20),
         Text(
           title,
@@ -697,15 +726,10 @@ class _TransitionContent extends StatelessWidget {
 }
 
 class _TransitionIcon extends StatelessWidget {
-  const _TransitionIcon({
-    required this.icon,
-    required this.colors,
-    required this.busy,
-  });
+  const _TransitionIcon({required this.icon, required this.colors});
 
   final IconData icon;
   final AppColors colors;
-  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -728,15 +752,6 @@ class _TransitionIcon extends StatelessWidget {
           alignment: Alignment.center,
           children: [
             Icon(icon, color: colors.bg, size: 36),
-            if (busy)
-              const SizedBox(
-                width: 96,
-                height: 96,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              ),
           ],
         ),
       ),
