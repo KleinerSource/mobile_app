@@ -23,10 +23,8 @@ PlaybackDecision _decision({required bool hls}) => PlaybackDecision(
 );
 
 void main() {
-  test('libmpv 与 KSPlayer 的自动档都先使用 direct_url', () {
-    for (final engineKind in PlaybackEngineKind.values) {
-      final route = playbackRouteForEngine(
-        engineKind: engineKind,
+  test('自动档先使用 direct_url(与引擎无关)', () {
+      final route = playbackRouteForQuality(
         quality: 'auto',
         decision: _decision(hls: true),
       );
@@ -34,23 +32,18 @@ void main() {
       expect(route.useBackendStream, isFalse);
       expect(route.useServerRoute, isFalse);
       expect(route.usesManagedTranscode, isFalse);
-    }
   });
 
-  test('两内核的原生和固定档都采用服务端决策地址', () {
-    for (final engineKind in PlaybackEngineKind.values) {
-      final originalDirect = playbackRouteForEngine(
-        engineKind: engineKind,
+  test('原生和固定档采用服务端决策地址(与引擎无关)', () {
+      final originalDirect = playbackRouteForQuality(
         quality: 'original',
         decision: _decision(hls: false),
       );
-      final originalTranscode = playbackRouteForEngine(
-        engineKind: engineKind,
+      final originalTranscode = playbackRouteForQuality(
         quality: 'original',
         decision: _decision(hls: true),
       );
-      final fixed = playbackRouteForEngine(
-        engineKind: engineKind,
+      final fixed = playbackRouteForQuality(
         quality: '720p',
         decision: _decision(hls: true),
       );
@@ -63,7 +56,6 @@ void main() {
         expect(route.useServerRoute, isTrue);
         expect(route.usesManagedTranscode, isTrue);
       }
-    }
   });
 
   test('后端 HLS 使用目标编码选择 KSPlayer 内部播放器', () {

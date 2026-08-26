@@ -11,6 +11,7 @@ import '../../core/models/resource.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/pinyin_search.dart';
 import '../../shared/pagination_footer.dart';
+import '../../shared/debouncer.dart';
 import '../../shared/taxonomy_search_policy.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
@@ -116,7 +117,7 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
 
 class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
   final _searchCtrl = TextEditingController();
-  Timer? _debounce;
+  final _debounce = Debouncer();
   String? _search;
   late final Set<int> _selected = widget.initialSelectedIds.toSet();
   final Map<int, String> _selectedNames = {};
@@ -131,14 +132,13 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    _debounce.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
 
   void _onSearchChanged(String v) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 250), () {
+    _debounce.run(() {
       if (mounted) {
         setState(() => _search = v.trim().isEmpty ? null : v.trim());
       }

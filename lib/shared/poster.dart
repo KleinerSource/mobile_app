@@ -10,7 +10,6 @@ class Poster extends StatelessWidget {
     this.url,
     required this.title,
     this.year,
-    this.hue,
     this.aspectRatio = 2 / 3,
     this.radius = 10,
     this.restricted = false,
@@ -20,9 +19,6 @@ class Poster extends StatelessWidget {
   final String? url;
   final String title;
   final int? year;
-
-  /// 兼容旧调用 · 不再用于占位符配色
-  final int? hue;
   final double aspectRatio;
   final double radius;
   final bool restricted;

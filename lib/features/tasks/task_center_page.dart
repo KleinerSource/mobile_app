@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/status_pill.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../settings/settings_common.dart';
 import 'task_center_provider.dart';
@@ -211,7 +212,7 @@ class _TaskCenterPageState extends ConsumerState<TaskCenterPage> {
                                 ),
                               ),
                             ),
-                            _StatusPill(status: task.status),
+                            StatusPill(status: task.status),
                             if (canOpenDetail) ...[
                               const SizedBox(width: 6),
                               Icon(
@@ -628,44 +629,6 @@ Color _taskColor(TaskItem task) {
   if (task.name == '音频提取') return AppHues.top(AppHues.lavender);
   if (task.name == 'NFO 同步') return AppHues.top(AppHues.solar);
   return AppHues.top(AppHues.mint);
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.status});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    final (label, color) = switch (status) {
-      'idle' => ('准备中', colors.muted),
-      'pending' || 'queued' => ('排队中', colors.warning),
-      'running' => ('进行中', colors.accent),
-      'paused' => ('已暂停', colors.warning),
-      'completed' => ('已完成', AppHues.top(AppHues.mint)),
-      'skipped' => ('已跳过', colors.muted),
-      'cancelled' || 'canceled' => ('已取消', colors.muted),
-      'failed' || 'error' => ('失败', colors.danger),
-      _ => (status.isEmpty ? '未知' : status, colors.muted),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(100),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontFamily: 'Inter',
-          fontSize: 10.5,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
 }
 
 class _SummaryValue extends StatelessWidget {

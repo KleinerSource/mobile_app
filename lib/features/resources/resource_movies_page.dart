@@ -85,13 +85,14 @@ class _ResourceMoviesPageState extends ConsumerState<ResourceMoviesPage> {
       final repo = ref.read(moviesRepositoryProvider);
       final page = await repo.list(_filter, limit: _pageSize, offset: offset);
       if (mounted) setState(() => _totalCount = page.totalCount);
-      final nextOffset = offset + page.items.length;
-      if (nextOffset >= page.totalCount || page.items.isEmpty) {
-        _controller.appendLastPage(page.items);
-      } else {
-        _controller.appendPage(page.items, nextOffset);
-      }
-      _scrollRestorer.restoreAfterPage(_scrollController);
+      applyPagedListPage(
+        controller: _controller,
+        offset: offset,
+        items: page.items,
+        totalCount: page.totalCount,
+        restorer: _scrollRestorer,
+        scrollController: _scrollController,
+      );
     } catch (e) {
       _controller.error = toApiException(e).message;
     }

@@ -15,13 +15,16 @@ import 'task_model.dart';
 ///
 /// 后端 `/ws/scheduler/status` 会在连接建立时推送当前活跃任务，之后继续
 /// 推送实时进度。任务中心保留本次会话中收到的终态记录，方便用户查看结果。
-class TaskCenterNotifier extends StateNotifier<List<TaskItem>> {
-  TaskCenterNotifier(this._ref) : super(const []) {
+class TaskCenterNotifier extends Notifier<List<TaskItem>> {
+  @override
+  List<TaskItem> build() {
+    // 服务器切换时重建连接，避免任务状态串到旧线路。
+    ref.watch(serverConfigProvider);
+    ref.onDispose(_disposeResources);
     _connectWs();
     unawaited(refresh());
+    return const [];
   }
-
-  final Ref _ref;
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
   Timer? _reconnectTimer;
@@ -59,7 +62,7 @@ class TaskCenterNotifier extends StateNotifier<List<TaskItem>> {
 
   Future<void> refresh() async {
     try {
-      final raw = await _ref
+      final raw = await ref
           .read(requiredApiClientProvider)
           .audio
           .listTranscriptions(limit: 100, offset: 0);
@@ -84,11 +87,11 @@ class TaskCenterNotifier extends StateNotifier<List<TaskItem>> {
   Future<void> cancel(TaskItem task) async {
     if (!task.canCancel) return;
     final raw = task.name == '字幕转译'
-        ? await _ref
+        ? await ref
               .read(requiredApiClientProvider)
               .audio
               .cancelSubtitleTranscription(task.id)
-        : await _ref
+        : await ref
               .read(requiredApiClientProvider)
               .audio
               .cancelAudioExtraction(task.id);
@@ -105,7 +108,7 @@ class TaskCenterNotifier extends StateNotifier<List<TaskItem>> {
 
   Future<void> retry(TaskItem task) async {
     if (!task.canRetry) return;
-    final raw = await _ref
+    final raw = await ref
         .read(requiredApiClientProvider)
         .audio
         .retrySubtitleTranscription(task.id);
@@ -148,12 +151,12 @@ class TaskCenterNotifier extends StateNotifier<List<TaskItem>> {
 
   Future<void> _connectWsAsync() async {
     if (_disposed) return;
-    final cfg = _ref.read(serverConfigProvider);
+    final cfg = ref.read(serverConfigProvider);
     if (cfg == null || cfg.baseUrl.trim().isEmpty) {
       _scheduleReconnect();
       return;
     }
-    final token = await _ref.read(authSessionRepositoryProvider).accessToken();
+    final token = await ref.read(authSessionRepositoryProvider).accessToken();
     if (_disposed) return;
     final resolved = resolveServerUrl(cfg, '/ws/scheduler/status');
     final uri = Uri.parse(
@@ -273,8 +276,7 @@ class TaskCenterNotifier extends StateNotifier<List<TaskItem>> {
     });
   }
 
-  @override
-  void dispose() {
+  void _disposeResources() {
     _disposed = true;
     _reconnectTimer?.cancel();
     _pingTimer?.cancel();
@@ -282,7 +284,6 @@ class TaskCenterNotifier extends StateNotifier<List<TaskItem>> {
     try {
       _channel?.sink.close();
     } catch (_) {}
-    super.dispose();
   }
 }
 
@@ -298,8 +299,6 @@ void _ensureSuccess(Object? raw, String fallback) {
 }
 
 final taskCenterProvider =
-    StateNotifierProvider<TaskCenterNotifier, List<TaskItem>>((ref) {
-      // 服务器切换时重建连接，避免任务状态串到旧线路。
-      ref.watch(serverConfigProvider);
-      return TaskCenterNotifier(ref);
-    });
+    NotifierProvider<TaskCenterNotifier, List<TaskItem>>(
+      TaskCenterNotifier.new,
+    );

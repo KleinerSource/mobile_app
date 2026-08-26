@@ -35,17 +35,19 @@ class TrackedScan {
 ///
 /// 任务中心负责唯一的 WebSocket 连接，避免打开任务页和媒体库页时重复
 /// 建立连接；这里仍保留原有的本地注册和 active fallback 行为。
-class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
-  ScanTasksNotifier(this._ref) : super(const []) {
-    final subscription = _ref.listen<List<TaskItem>>(
+class ScanTasksNotifier extends Notifier<List<TrackedScan>> {
+  bool _disposed = false;
+
+  @override
+  List<TrackedScan> build() {
+    ref.onDispose(() => _disposed = true);
+    ref.listen<List<TaskItem>>(
       taskCenterProvider,
       (_, next) => _syncFromTaskCenter(next),
       fireImmediately: true,
     );
-    _ref.onDispose(subscription.close);
+    return const [];
   }
-
-  final Ref _ref;
 
   void register({
     required int libraryId,
@@ -65,7 +67,7 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
         task: task,
       ),
     ];
-    _ref
+    ref
         .read(taskCenterProvider.notifier)
         .registerScan(
           libraryId: libraryId,
@@ -73,7 +75,7 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
           taskId: taskId,
           task: task,
         );
-    _syncFromTaskCenter(_ref.read(taskCenterProvider));
+    _syncFromTaskCenter(ref.read(taskCenterProvider));
     if (task == null) _refreshOnceFallback(libraryId, libraryName);
   }
 
@@ -83,12 +85,12 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
 
   Future<void> _refreshOnceFallback(int libraryId, String libraryName) async {
     try {
-      final active = await _ref
+      final active = await ref
           .read(librariesRepositoryProvider)
           .activeScans(libraryId);
-      if (active.isEmpty || !mounted) return;
+      if (active.isEmpty || _disposed) return;
       final task = active.first;
-      _ref
+      ref
           .read(taskCenterProvider.notifier)
           .registerScan(
             libraryId: libraryId,
@@ -96,12 +98,12 @@ class ScanTasksNotifier extends StateNotifier<List<TrackedScan>> {
             taskId: task.taskId,
             task: task,
           );
-      _syncFromTaskCenter(_ref.read(taskCenterProvider));
+      _syncFromTaskCenter(ref.read(taskCenterProvider));
     } catch (_) {}
   }
 
   void _syncFromTaskCenter(List<TaskItem> tasks) {
-    if (!mounted || state.isEmpty) return;
+    if (_disposed || state.isEmpty) return;
     final next = <TrackedScan>[];
     for (final tracked in state) {
       TaskItem? task;
@@ -150,6 +152,6 @@ ScanTask _toScanTask(TaskItem task, int libraryId) {
 }
 
 final scanTasksProvider =
-    StateNotifierProvider<ScanTasksNotifier, List<TrackedScan>>(
-      (ref) => ScanTasksNotifier(ref),
+    NotifierProvider<ScanTasksNotifier, List<TrackedScan>>(
+      ScanTasksNotifier.new,
     );

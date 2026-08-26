@@ -60,8 +60,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     required playback_models.PlaybackDecision decision,
     bool forceServerRoute = false,
   }) {
-    return playbackRouteForEngine(
-      engineKind: _engine.kind,
+    return playbackRouteForQuality(
       quality: quality,
       decision: decision,
       forceServerRoute: forceServerRoute,

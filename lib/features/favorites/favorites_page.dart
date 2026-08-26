@@ -136,13 +136,14 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       );
       final page = result.page;
       _totalCount = page.totalCount;
-      final nextOffset = offset + page.items.length;
-      if (nextOffset >= page.totalCount || page.items.isEmpty) {
-        _controller.appendLastPage(page.items);
-      } else {
-        _controller.appendPage(page.items, nextOffset);
-      }
-      _scrollRestorer.restoreAfterPage(_scrollController);
+      applyPagedListPage(
+        controller: _controller,
+        offset: offset,
+        items: page.items,
+        totalCount: page.totalCount,
+        restorer: _scrollRestorer,
+        scrollController: _scrollController,
+      );
       if (mounted) setState(() {});
     } catch (e) {
       _controller.error = toApiException(e).message;

@@ -14,6 +14,8 @@ import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/pagination_footer.dart';
+import '../../shared/status_pill.dart';
+import '../../shared/debouncer.dart';
 import '../../shared/swipe_actions.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../settings/settings_common.dart';
@@ -48,7 +50,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     _controller,
   );
 
-  Timer? _debounce;
+  final _debounce = Debouncer();
   Timer? _taskReloadDebounce;
   String? _search;
   String _lastTaskSignature = '';
@@ -78,7 +80,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     _scrollController.removeListener(_closeSwipeOnScroll);
     _openSwipe.dispose();
     _taskReloadDebounce?.cancel();
-    _debounce?.cancel();
+    _debounce.cancel();
     _controller.dispose();
     _scrollController.dispose();
     _searchController.dispose();
@@ -104,16 +106,16 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
       setState(() {
         _totalCount = page.total;
       });
-      final nextOffset = offset + page.items.length;
-      if (nextOffset >= page.total || page.items.isEmpty) {
-        // 末页标记：连排列表只有最后一行需要底部圆角。
-        setState(() => _lastPageComplete = true);
-        _controller.appendLastPage(page.items);
-      } else {
-        if (_lastPageComplete) setState(() => _lastPageComplete = false);
-        _controller.appendPage(page.items, nextOffset);
-      }
-      _scrollRestorer.restoreAfterPage(_scrollController);
+      // 末页标记：连排列表只有最后一行需要底部圆角。
+      final hasMore = applyPagedListPage(
+        controller: _controller,
+        offset: offset,
+        items: page.items,
+        totalCount: page.total,
+        restorer: _scrollRestorer,
+        scrollController: _scrollController,
+      );
+      setState(() => _lastPageComplete = !hasMore);
       _pruneSelection(page.items);
       _completeRefresh();
     } catch (error) {
@@ -220,8 +222,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   }
 
   void _onSearchChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 320), () {
+    _debounce.run(() {
       if (!mounted) return;
       setState(() => _search = value.trim().isEmpty ? null : value.trim());
       _exitSelection();
@@ -230,7 +231,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   }
 
   void _clearSearch() {
-    _debounce?.cancel();
+    _debounce.cancel();
     _searchController.clear();
     if (_search == null) return;
     setState(() => _search = null);
@@ -1236,9 +1237,10 @@ class _AssetCard extends StatelessWidget {
         Expanded(child: _buildTitle(c)),
         if (!selecting) ...[
           const SizedBox(width: 8),
-          _StatusPill(
+          StatusPill(
             label: status.label,
             color: status.color,
+            showDot: true,
             pulsing: status.pulsing,
           ),
         ],
@@ -1464,93 +1466,6 @@ class _StatusInfo {
   final String label;
   final Color color;
   final bool pulsing;
-}
-
-// ============ 状态胶囊 ============
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({
-    required this.label,
-    required this.color,
-    this.pulsing = false,
-  });
-
-  final String label;
-  final Color color;
-  final bool pulsing;
-
-  @override
-  Widget build(BuildContext context) {
-    final dot = Container(
-      width: 6,
-      height: 6,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-    );
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(100),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (pulsing) _PulsingDot(color: color, size: 6) else dot,
-          const SizedBox(width: 5),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: color,
-              fontFamily: 'Inter',
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 提取/转译进行中的呼吸圆点。
-class _PulsingDot extends StatefulWidget {
-  const _PulsingDot({required this.color, this.size = 9});
-
-  final Color color;
-  final double size;
-
-  @override
-  State<_PulsingDot> createState() => _PulsingDotState();
-}
-
-class _PulsingDotState extends State<_PulsingDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween<double>(
-        begin: 0.45,
-        end: 1,
-      ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
-      child: Container(
-        width: widget.size,
-        height: widget.size,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: widget.color),
-      ),
-    );
-  }
 }
 
 // ============ 空态 ============

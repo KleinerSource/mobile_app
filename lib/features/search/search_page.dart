@@ -13,6 +13,7 @@ import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
+import '../../shared/debouncer.dart';
 import '../../shared/pagination_footer.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../movies/movie_data_changes.dart';
@@ -28,20 +29,19 @@ class SearchPage extends ConsumerStatefulWidget {
 
 class _SearchPageState extends ConsumerState<SearchPage> {
   final _controller = TextEditingController();
-  Timer? _debounce;
+  final _debounce = Debouncer();
   String _query = '';
   MovieSearchType _searchType = MovieSearchType.title;
 
   @override
   void dispose() {
     _controller.dispose();
-    _debounce?.cancel();
+    _debounce.cancel();
     super.dispose();
   }
 
   void _onChanged(String v) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 320), () {
+    _debounce.run(() {
       if (mounted) setState(() => _query = v.trim());
     });
   }
@@ -122,7 +122,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       IconButton(
                         icon: Icon(Icons.close, size: 16, color: c.muted),
                         onPressed: () {
-                          _debounce?.cancel();
+                          _debounce.cancel();
                           _controller.clear();
                           setState(() => _query = '');
                         },
@@ -531,13 +531,14 @@ class _SearchResultsState extends ConsumerState<_SearchResults> {
           );
       if (!mounted) return;
 
-      final nextOffset = offset + page.items.length;
-      if (nextOffset >= page.totalCount || page.items.isEmpty) {
-        _controller.appendLastPage(page.items);
-      } else {
-        _controller.appendPage(page.items, nextOffset);
-      }
-      _scrollRestorer.restoreAfterPage(_scrollController);
+      applyPagedListPage(
+        controller: _controller,
+        offset: offset,
+        items: page.items,
+        totalCount: page.totalCount,
+        restorer: _scrollRestorer,
+        scrollController: _scrollController,
+      );
     } catch (error) {
       if (!mounted) return;
       _controller.error = toApiException(error).message;

@@ -16,8 +16,7 @@ class EnginePlaybackRoute {
   final bool usesManagedTranscode;
 }
 
-EnginePlaybackRoute playbackRouteForEngine({
-  required PlaybackEngineKind engineKind,
+EnginePlaybackRoute playbackRouteForQuality({
   required String quality,
   required playback_models.PlaybackDecision decision,
   bool forceServerRoute = false,

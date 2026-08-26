@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/models/library.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/status_pill.dart';
 import 'libraries_providers.dart';
 
 /// 扫描进度 sheet · 启动扫描后弹出,轮询任务进度,可暂停/恢复/取消
@@ -162,7 +163,7 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
                     ],
                   ),
                 ),
-                _StatusPill(status: t?.status ?? 'pending'),
+                StatusPill(status: t?.status ?? 'pending'),
               ],
             ),
             const SizedBox(height: 22),
@@ -477,41 +478,5 @@ class _StatDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     return Container(width: 1, height: 22, color: c.divider);
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.status});
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    final (text, color) = switch (status) {
-      'queued' => ('排队中', c.warning),
-      'running' => ('扫描中', c.accent),
-      'paused' => ('已暂停', c.warning),
-      'completed' => ('已完成', AppHues.top(AppHues.mint)),
-      'failed' => ('失败', c.danger),
-      'error' => ('失败', c.danger),
-      'cancelled' => ('已取消', c.muted),
-      _ => ('准备中', c.muted),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(100),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
-        ),
-      ),
-    );
   }
 }

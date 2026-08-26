@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform/app_theme.dart';
+import '../../shared/debouncer.dart';
 import '../movies/movies_providers.dart';
 
 /// 封面裁剪控制器 · 对齐 frontend_new PosterCropController.vue
@@ -51,7 +52,7 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
 
   Uint8List? _previewBytes;
   bool _previewLoading = false;
-  Timer? _debounce;
+  final _debounce = Debouncer();
 
   // fanart 真实纵横比 (w/h) · 异步加载后填充
   double? _fanartAspect;
@@ -113,14 +114,13 @@ class _PosterCropControllerState extends ConsumerState<PosterCropController> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    _debounce.cancel();
     _imgStream?.removeListener(_imgListener);
     super.dispose();
   }
 
   void _scheduleFetch() {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 320), _fetchPreview);
+    _debounce.run(_fetchPreview);
   }
 
   Future<void> _fetchPreview() async {

@@ -133,13 +133,14 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
       _totalCount = maxItems == null
           ? page.totalCount
           : page.totalCount.clamp(0, maxItems).toInt();
-      final nextOffset = offset + items.length;
-      if (nextOffset >= _totalCount || items.isEmpty) {
-        _controller.appendLastPage(items);
-      } else {
-        _controller.appendPage(items, nextOffset);
-      }
-      _scrollRestorer.restoreAfterPage(_scrollController);
+      applyPagedListPage(
+        controller: _controller,
+        offset: offset,
+        items: items,
+        totalCount: _totalCount,
+        restorer: _scrollRestorer,
+        scrollController: _scrollController,
+      );
       if (offset == 0) _completeRefresh();
       if (mounted) setState(() {});
     } catch (e) {

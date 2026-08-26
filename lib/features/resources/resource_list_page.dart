@@ -15,6 +15,7 @@ import '../../shared/filter_chip.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
+import '../../shared/debouncer.dart';
 import '../../shared/swipe_actions.dart';
 import '../settings/settings_common.dart';
 import '../translation/translation_providers.dart';
@@ -62,7 +63,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   late final _scrollRestorer = PagedScrollPositionRestorer<ResourceItem>(
     _controller,
   );
-  Timer? _debounce;
+  final _debounce = Debouncer();
   String? _search;
   String _sortBy = 'name';
   String _sortOrder = 'asc';
@@ -92,7 +93,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     _completeRefresh();
     _scrollController.removeListener(_closeSwipeOnScroll);
     _openSwipe.dispose();
-    _debounce?.cancel();
+    _debounce.cancel();
     _controller.dispose();
     _scrollController.dispose();
     _searchController.dispose();
@@ -105,8 +106,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   }
 
   void _onSearchChanged(String v) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 320), () {
+    _debounce.run(() {
       if (mounted) {
         setState(() => _search = v.trim().isEmpty ? null : v.trim());
         _reload();
@@ -115,7 +115,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   }
 
   void _clearSearch() {
-    _debounce?.cancel();
+    _debounce.cancel();
     _searchController.clear();
     if (_search == null) return;
     setState(() => _search = null);
@@ -150,16 +150,16 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       if (!mounted || requestSerial != _requestSerial) return;
 
       setState(() => _totalCount = page.totalCount);
-      final nextOffset = offset + page.items.length;
-      if (nextOffset >= page.totalCount || page.items.isEmpty) {
-        // 末页标记：连排列表只有最后一行需要底部圆角。
-        setState(() => _lastPageComplete = true);
-        _controller.appendLastPage(page.items);
-      } else {
-        if (_lastPageComplete) setState(() => _lastPageComplete = false);
-        _controller.appendPage(page.items, nextOffset);
-      }
-      _scrollRestorer.restoreAfterPage(_scrollController);
+      // 末页标记：连排列表只有最后一行需要底部圆角。
+      final hasMore = applyPagedListPage(
+        controller: _controller,
+        offset: offset,
+        items: page.items,
+        totalCount: page.totalCount,
+        restorer: _scrollRestorer,
+        scrollController: _scrollController,
+      );
+      setState(() => _lastPageComplete = !hasMore);
       _completeRefresh();
     } catch (error) {
       if (!mounted || requestSerial != _requestSerial) return;

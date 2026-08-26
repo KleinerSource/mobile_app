@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,6 +11,7 @@ import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/server_avatar.dart';
 import '../libraries/libraries_providers.dart';
 import 'home_providers.dart';
 
@@ -439,7 +439,7 @@ class _ServerSwitchTransitionOverlayState
     return Column(
       key: const ValueKey('server-switch-login'),
       children: [
-        _TransitionAvatar(
+        ServerAvatar(
           displayName: name,
           avatarUrl: avatar,
           size: 112,
@@ -537,7 +537,7 @@ class _ServerSwitchTransitionOverlayState
     return Column(
       key: const ValueKey('server-switch-error'),
       children: [
-        _TransitionAvatar(
+        ServerAvatar(
           displayName: name,
           avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
           size: 96,
@@ -742,88 +742,4 @@ class _TransitionIcon extends StatelessWidget {
       ),
     );
   }
-}
-
-class _TransitionAvatar extends StatelessWidget {
-  const _TransitionAvatar({
-    required this.displayName,
-    required this.avatarUrl,
-    required this.size,
-    required this.colors,
-  });
-
-  final String displayName;
-  final String? avatarUrl;
-  final double size;
-  final AppColors colors;
-
-  @override
-  Widget build(BuildContext context) {
-    final borderWidth = size >= 104 ? 5.0 : 4.0;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fallback = Center(
-      child: Text(
-        _initials(displayName),
-        style: TextStyle(
-          color: isDark ? Colors.white : colors.surface,
-          fontSize: size * 0.3,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  colors.accent.withValues(alpha: 0.95),
-                  colors.accent.withValues(alpha: 0.52),
-                ],
-              ),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(borderWidth),
-              child: ClipOval(
-                child: avatarUrl == null || avatarUrl!.isEmpty
-                    ? fallback
-                    : CachedNetworkImage(
-                        imageUrl: avatarUrl!,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => fallback,
-                        errorWidget: (_, __, ___) => fallback,
-                      ),
-              ),
-            ),
-          ),
-          IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.96),
-                  width: borderWidth,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-String _initials(String value) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) return 'S';
-  final runes = trimmed.runes.toList();
-  if (runes.length == 1) return String.fromCharCode(runes.first);
-  return String.fromCharCodes(runes.take(2));
 }

@@ -13,10 +13,10 @@ int actorHueFromName(String name) {
   return (name.codeUnits.fold(0, (a, b) => a + b) * 31) % 360;
 }
 
-/// 演员详情统一折叠头 · 折叠数学与首页/影片详情的 hero delegate 相同:
-/// 展开高度 [maxHeight](整屏),上滑先收窄到 [minHeight](62%) 再整体推出屏外。
-class ActorHeroDelegate extends SliverPersistentHeaderDelegate {
-  ActorHeroDelegate({
+/// 半屏/整屏 hero 折叠头(通用) · 首页轮播、影片详情、演员详情共用:
+/// 展开高度 [maxHeight],上滑先收窄到 [minHeight] 再整体推出屏外。
+class CollapsibleHeroDelegate extends SliverPersistentHeaderDelegate {
+  CollapsibleHeroDelegate({
     required this.minHeight,
     required this.maxHeight,
     required this.child,
@@ -43,11 +43,15 @@ class ActorHeroDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(ActorHeroDelegate oldDelegate) =>
+  bool shouldRebuild(CollapsibleHeroDelegate oldDelegate) =>
       minHeight != oldDelegate.minHeight ||
       maxHeight != oldDelegate.maxHeight ||
       child != oldDelegate.child;
 }
+
+/// 演员详情折叠头 · [CollapsibleHeroDelegate] 的类型别名用法,
+/// 保持调用方 (person_detail_page) 语义清晰。
+typedef ActorHeroDelegate = CollapsibleHeroDelegate;
 
 /// 演员详情统一头图 · 封面显示在版面上部(约 42% 屏高):
 /// - 头像照片 cover 满铺头图,顶部对齐;多张时自动淡入淡出轮播

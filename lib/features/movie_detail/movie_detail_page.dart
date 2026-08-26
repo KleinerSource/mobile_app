@@ -15,6 +15,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/glass.dart';
 import '../../shared/glass_menu.dart';
+import '../../shared/actor_detail_header.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/poster.dart';
 import '../../shared/actor_avatar.dart';
@@ -203,7 +204,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
             // -------- 顶部封面 (上滑先收窄再推出 · 同首页 hero 轮播) --------
             SliverPersistentHeader(
               pinned: false,
-              delegate: _HeroHeaderDelegate(
+              delegate: CollapsibleHeroDelegate(
                 minHeight: heroMinHeight,
                 maxHeight: heroMaxHeight,
                 child: KeyedSubtree(
@@ -351,43 +352,6 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
         ),
       ],
     );
-  }
-}
-
-/// 顶部封面折叠头 · 与首页轮播 hero (home_page._HeroHeaderDelegate) 相同的收窄逻辑:
-/// 展开高度 [maxHeight],上滑先收窄到 [minHeight] 再整体推出屏外。
-class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
-  _HeroHeaderDelegate({
-    required this.minHeight,
-    required this.maxHeight,
-    required this.child,
-  });
-
-  final double minHeight;
-  final double maxHeight;
-  final Widget child;
-
-  @override
-  double get minExtent => minHeight;
-
-  @override
-  double get maxExtent => maxHeight;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    final height = (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
-    return SizedBox(height: height, child: child);
-  }
-
-  @override
-  bool shouldRebuild(_HeroHeaderDelegate oldDelegate) {
-    return minHeight != oldDelegate.minHeight ||
-        maxHeight != oldDelegate.maxHeight ||
-        child != oldDelegate.child;
   }
 }
 

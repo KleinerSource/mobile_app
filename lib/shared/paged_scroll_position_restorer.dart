@@ -46,6 +46,31 @@ class PagedScrollPositionRestorer<T> {
   }
 }
 
+/// 将一页分页数据落地到 [controller] 并触发滚动位置恢复。
+///
+/// 各列表页共同的收尾逻辑: 还有后续数据时 `appendPage`,
+/// 否则(含空页) `appendLastPage`。返回是否有后续页,
+/// 供 `_lastPageComplete` 这类"末页样式"标记使用。
+bool applyPagedListPage<T>({
+  required PagingController<int, T> controller,
+  required int offset,
+  required List<T> items,
+  required int totalCount,
+  PagedScrollPositionRestorer<T>? restorer,
+  ScrollController? scrollController,
+}) {
+  final hasMore = items.isNotEmpty && offset + items.length < totalCount;
+  if (hasMore) {
+    controller.appendPage(items, offset + items.length);
+  } else {
+    controller.appendLastPage(items);
+  }
+  if (restorer != null && scrollController != null) {
+    restorer.restoreAfterPage(scrollController);
+  }
+  return hasMore;
+}
+
 typedef PagedListPageLoader<T> = Future<PagedResult<T>> Function(int limit);
 
 /// 在保留当前列表的前提下，后台刷新已加载的数据。

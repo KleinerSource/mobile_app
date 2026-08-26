@@ -8,6 +8,7 @@ import '../../core/models/library.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../shared/actor_detail_header.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/poster.dart';
 import '../../shared/collection_card_layout.dart';
@@ -226,7 +227,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         const SliverToBoxAdapter(child: SizedBox.shrink()),
                     data: (items) => SliverPersistentHeader(
                       pinned: false,
-                      delegate: _HeroHeaderDelegate(
+                      delegate: CollapsibleHeroDelegate(
                         minHeight: heroMinHeight,
                         maxHeight: heroMaxHeight,
                         child: Stack(
@@ -366,43 +367,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
       ],
     );
-  }
-}
-
-/// 半屏 hero 折叠头:
-/// 展开高度 [maxHeight] (约半屏),上滑先收窄到 [minHeight] 再整体推出屏外。
-class _HeroHeaderDelegate extends SliverPersistentHeaderDelegate {
-  _HeroHeaderDelegate({
-    required this.minHeight,
-    required this.maxHeight,
-    required this.child,
-  });
-
-  final double minHeight;
-  final double maxHeight;
-  final Widget child;
-
-  @override
-  double get minExtent => minHeight;
-
-  @override
-  double get maxExtent => maxHeight;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    final height = (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
-    return SizedBox(height: height, child: child);
-  }
-
-  @override
-  bool shouldRebuild(_HeroHeaderDelegate oldDelegate) {
-    return minHeight != oldDelegate.minHeight ||
-        maxHeight != oldDelegate.maxHeight ||
-        child != oldDelegate.child;
   }
 }
 

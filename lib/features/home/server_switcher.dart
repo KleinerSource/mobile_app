@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +9,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass_menu.dart';
+import '../../shared/server_avatar.dart';
 import 'server_switch_transition.dart';
 
 /// 首页右上角的服务器切换入口，只显示服务器头像，不暴露线路地址。
@@ -121,7 +121,7 @@ class _HomeServerSwitcherMenuState
             scale: transition.isActive ? 0.94 : 1,
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
-            child: _ServerAvatar(
+            child: ServerAvatar(
               displayName: displayName,
               avatarUrl: avatarUrl,
               size: 36,
@@ -178,7 +178,7 @@ class _ServerMenuRow extends StatelessWidget {
         final avatarUrl = profile?.avatarUrl ?? server.avatarUrl;
         return GlassMenuRow(
           label: displayName,
-          leading: _ServerAvatar(
+          leading: ServerAvatar(
             displayName: displayName,
             avatarUrl: avatarUrl,
             size: 34,
@@ -199,90 +199,4 @@ class _ServerMenuRow extends StatelessWidget {
       },
     );
   }
-}
-
-class _ServerAvatar extends StatelessWidget {
-  const _ServerAvatar({
-    required this.displayName,
-    required this.avatarUrl,
-    required this.size,
-    required this.colors,
-  });
-
-  final String displayName;
-  final String? avatarUrl;
-  final double size;
-  final AppColors colors;
-
-  @override
-  Widget build(BuildContext context) {
-    final borderWidth = size >= 36 ? 2.2 : 2.0;
-    final fallbackForeground = Theme.of(context).brightness == Brightness.dark
-        ? Colors.white
-        : colors.surface;
-    final fallback = Center(
-      child: Text(
-        _initials(displayName),
-        style: TextStyle(
-          color: fallbackForeground,
-          fontSize: size * 0.38,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  colors.accent.withValues(alpha: 0.95),
-                  colors.accent.withValues(alpha: 0.52),
-                ],
-              ),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(borderWidth),
-              child: ClipOval(
-                child: avatarUrl == null || avatarUrl!.isEmpty
-                    ? fallback
-                    : CachedNetworkImage(
-                        imageUrl: avatarUrl!,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => fallback,
-                        errorWidget: (_, __, ___) => fallback,
-                      ),
-              ),
-            ),
-          ),
-          IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.94),
-                  width: borderWidth,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-String _initials(String value) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) return 'S';
-  final runes = trimmed.runes.toList();
-  if (runes.length == 1) return String.fromCharCode(runes.first);
-  return String.fromCharCodes(runes.take(2));
 }

@@ -13,6 +13,7 @@ import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
+import '../../shared/debouncer.dart';
 import '../../shared/swipe_actions.dart';
 import '../privacy/privacy_mask.dart';
 import '../settings/settings_common.dart';
@@ -37,7 +38,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
   );
   final _searchCtl = TextEditingController();
   String _search = '';
-  Timer? _searchDebounce;
+  final _searchDebounce = Debouncer();
   bool _lastPageComplete = false;
 
   /// 当前左滑展开的行（规则 id），同一时刻只展开一个。
@@ -57,7 +58,7 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
     _controller.dispose();
     _scrollController.dispose();
     _searchCtl.dispose();
-    _searchDebounce?.cancel();
+    _searchDebounce.cancel();
     super.dispose();
   }
 
@@ -74,18 +75,16 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
         offset: offset,
         search: _search,
       );
-      final nextOffset = offset + r.items.length;
-      if (nextOffset >= r.totalCount || r.items.isEmpty) {
-        // 末页标记：连排列表只有最后一行需要底部圆角。
-        if (mounted) setState(() => _lastPageComplete = true);
-        _controller.appendLastPage(r.items);
-      } else {
-        if (_lastPageComplete && mounted) {
-          setState(() => _lastPageComplete = false);
-        }
-        _controller.appendPage(r.items, nextOffset);
-      }
-      _scrollRestorer.restoreAfterPage(_scrollController);
+      // 末页标记：连排列表只有最后一行需要底部圆角。
+      final hasMore = applyPagedListPage(
+        controller: _controller,
+        offset: offset,
+        items: r.items,
+        totalCount: r.totalCount,
+        restorer: _scrollRestorer,
+        scrollController: _scrollController,
+      );
+      if (mounted) setState(() => _lastPageComplete = !hasMore);
     } catch (e) {
       _controller.error = toApiException(e).message;
     }
@@ -97,8 +96,8 @@ class _ActorAssociationsPageState extends ConsumerState<ActorAssociationsPage> {
   }
 
   void _onSearchChanged(String v) {
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+    _searchDebounce.cancel();
+    _searchDebounce.run(() {
       final s = v.trim();
       if (s == _search) return;
       _search = s;

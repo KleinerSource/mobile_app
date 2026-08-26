@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
+import '../../core/util/map_with_concurrency.dart';
 import '../../core/platform/app_theme.dart';
 import 'movies_providers.dart';
 
@@ -41,8 +42,10 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
   Future<void> _load() async {
     final repo = ref.read(moviesRepositoryProvider);
     try {
-      final results = await Future.wait(
-        widget.movieIds.map((id) => repo.detail(id)),
+      // 有界并发拉取详情,避免选中大量条目时瞬间打满服务端。
+      final results = await mapWithConcurrency(
+        widget.movieIds,
+        (id) => repo.detail(id),
       );
       if (!mounted) return;
       setState(() {

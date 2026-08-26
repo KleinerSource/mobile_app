@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_haptics.dart';
+import '../../core/util/map_with_concurrency.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/debouncer.dart';
 import '../../shared/pagination_footer.dart';
 import '../movie_detail/entity_picker_sheet.dart';
 import '../resources/resources_providers.dart';
@@ -59,8 +61,10 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
   Future<void> _loadCommonAssociations() async {
     try {
       final repo = ref.read(moviesRepositoryProvider);
-      final details = await Future.wait(
-        widget.movieIds.map((id) => repo.detail(id)),
+      // 有界并发拉取详情,避免选中大量条目时瞬间打满服务端。
+      final details = await mapWithConcurrency(
+        widget.movieIds,
+        (id) => repo.detail(id),
       );
       if (!mounted) return;
 
@@ -641,7 +645,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
     var nextOffset = items.length;
     var searching = false;
     String? searchError;
-    Timer? debounce;
+    final debounce = Debouncer();
     var requestSerial = 0;
     var active = true;
 
@@ -726,8 +730,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
                     child: TextField(
                       onChanged: (v) {
                         q = v.trim();
-                        debounce?.cancel();
-                        debounce = Timer(const Duration(milliseconds: 250), () {
+                        debounce.run(() {
                           searchSeries(q, setS);
                         });
                         setS(() {});
@@ -846,7 +849,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
       },
     );
     active = false;
-    debounce?.cancel();
+    debounce.cancel();
     if (picked != null) {
       if (!picked.clear && picked.id != null) {
         ResourceItem? selectedItem;

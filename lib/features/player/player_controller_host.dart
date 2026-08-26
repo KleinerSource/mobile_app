@@ -275,7 +275,7 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
         try {
           await targetPlayer.stop();
         } catch (error) {
-          debugPrint('[PlayerControllerHost] 关闭旧媒体失败，继续应用缓冲配置: $error');
+          _playerHostLog('关闭旧媒体失败，继续应用缓冲配置: $error');
         }
         // 网络 demuxer 缓冲是播放器必需能力。预载在播放和暂停期间都会
         // 后台填充；时间窗先放宽到兜底值，实际深度由字节档位约束。
@@ -416,17 +416,23 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
       final actual = '${await (platform as dynamic).getProperty(property)}'
           .trim();
       if (_nativePropertyMatches(property, requested, actual)) return;
-      debugPrint(
-        '[PlayerControllerHost] open 后重新应用 mpv 属性: '
+      _playerHostLog(
+        'open 后重新应用 mpv 属性: '
         '$property requested=$requested actual=$actual',
       );
       await _setNativeProperty(platform, property, requested);
     } catch (error) {
-      debugPrint('[PlayerControllerHost] 校验 mpv 属性失败: $property, $error');
+      _playerHostLog('校验 mpv 属性失败: $property, $error');
     }
   }
 
-  Future<void> _logNativeCacheState(Player targetPlayer, String phase) async {
+  void _playerHostLog(String message) {
+  if (!kReleaseMode) debugPrint('[PlayerControllerHost] $message');
+}
+
+Future<void> _logNativeCacheState(Player targetPlayer, String phase) async {
+    // 缓冲属性轮询 + 日志仅用于排障,release 下跳过避免无谓的 getProperty 往返。
+    if (kReleaseMode) return;
     final platform = targetPlayer.platform;
     if (platform is! NativePlayer) return;
     final native = platform as dynamic;
@@ -441,8 +447,8 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
       ]) {
         values[property] = '${await native.getProperty(property)}'.trim();
       }
-      debugPrint(
-        '[PlayerControllerHost] mpv 缓冲状态 phase=$phase '
+      _playerHostLog(
+        'mpv 缓冲状态 phase=$phase '
         'cache-secs=${values['cache-secs']} '
         'demuxer-max-bytes=${values['demuxer-max-bytes']} '
         'demuxer-max-back-bytes=${values['demuxer-max-back-bytes']} '
@@ -450,7 +456,7 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
         'cache-buffering-state=${values['cache-buffering-state']}',
       );
     } catch (error) {
-      debugPrint('[PlayerControllerHost] 读取 mpv 缓冲状态失败: $error');
+      _playerHostLog('读取 mpv 缓冲状态失败: $error');
     }
   }
 
@@ -486,8 +492,8 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
     try {
       actual = '${await native.getProperty(property)}'.trim();
     } catch (_) {}
-    debugPrint(
-      '[PlayerControllerHost] mpv 属性未生效: '
+    _playerHostLog(
+      'mpv 属性未生效: '
       '$property requested=$value actual=$actual '
       'command=$commandError fallback=$fallbackError',
     );

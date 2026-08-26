@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +15,7 @@ import '../../core/models/system.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/server_avatar.dart';
 
 /// 多服务器启动选择页。
 ///
@@ -212,7 +212,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             scale: scale,
             alignment: Alignment.topLeft,
             child: RepaintBoundary(
-              child: _ServerAvatar(
+              child: ServerAvatar(
                 displayName: _transitionDisplayName ?? _transitionServer!.name,
                 avatarUrl: _transitionAvatarUrl,
                 size: from.width,
@@ -453,7 +453,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             children: [
               Opacity(
                 opacity: _transitionLocked ? 0 : 1,
-                child: _ServerAvatar(
+                child: ServerAvatar(
                   key: _detailAvatarKey,
                   displayName: displayName,
                   avatarUrl: avatarUrl,
@@ -557,7 +557,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
         children: [
           Opacity(
             opacity: _transitionLocked ? 0 : 1,
-            child: _ServerAvatar(
+            child: ServerAvatar(
               key: _detailAvatarKey,
               displayName: displayName,
               avatarUrl: avatarUrl,
@@ -919,7 +919,7 @@ class _ServerAvatarCard extends StatelessWidget {
                   children: [
                     Opacity(
                       opacity: hideAvatar ? 0 : 1,
-                      child: _ServerAvatar(
+                      child: ServerAvatar(
                         key: avatarKey,
                         displayName: displayName,
                         avatarUrl: avatarUrl,
@@ -945,124 +945,4 @@ class _ServerAvatarCard extends StatelessWidget {
       },
     );
   }
-}
-
-class _ServerAvatar extends StatelessWidget {
-  const _ServerAvatar({
-    super.key,
-    required this.displayName,
-    required this.avatarUrl,
-    required this.size,
-    required this.busy,
-    required this.colors,
-  });
-
-  final String displayName;
-  final String? avatarUrl;
-  final double size;
-  final bool busy;
-  final AppColors colors;
-
-  @override
-  Widget build(BuildContext context) {
-    final fallbackForeground = Theme.of(context).brightness == Brightness.dark
-        ? Colors.white
-        : colors.surface;
-    final fallback = Center(
-      child: Text(
-        _initials(displayName),
-        style: TextStyle(
-          color: fallbackForeground,
-          fontSize: size * 0.30,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-    final sizeProgress = ((size - 104) / 24).clamp(0.0, 1.0).toDouble();
-    final borderWidth = 4 + sizeProgress;
-    final shadowBlur = 20 + (6 * sizeProgress);
-    return AnimatedScale(
-      scale: busy ? 0.94 : 1,
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    colors.accent.withValues(alpha: 0.95),
-                    colors.accent.withValues(alpha: 0.52),
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: colors.accent.withValues(alpha: 0.2),
-                    blurRadius: shadowBlur,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(borderWidth),
-                child: ClipOval(
-                  child: avatarUrl == null || avatarUrl!.isEmpty
-                      ? fallback
-                      : CachedNetworkImage(
-                          imageUrl: avatarUrl!,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => fallback,
-                          errorWidget: (_, __, ___) => fallback,
-                        ),
-                ),
-              ),
-            ),
-            if (busy)
-              Padding(
-                padding: EdgeInsets.all(borderWidth),
-                child: ClipOval(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.28),
-                    ),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: colors.surface,
-                        strokeWidth: 2.5 + (0.3 * sizeProgress),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.94),
-                    width: borderWidth,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-String _initials(String value) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) return 'S';
-  final runes = trimmed.runes.toList();
-  if (runes.length == 1) return String.fromCharCode(runes.first);
-  return String.fromCharCodes(runes.take(2));
 }

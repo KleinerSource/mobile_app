@@ -20,6 +20,7 @@ import '../../shared/error_view.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
+import '../../shared/debouncer.dart';
 import '../../shared/swipe_actions.dart';
 import '../actor_associations/actor_associations_providers.dart';
 import '../actor_associations/actor_associations_repository.dart';
@@ -46,7 +47,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   late final _scrollRestorer = PagedScrollPositionRestorer<ActorRow>(
     _controller,
   );
-  Timer? _searchDebounce;
+  final _searchDebounce = Debouncer();
   String? _search;
   String _sortBy = 'movie_count';
   String _sortOrder = 'desc';
@@ -75,7 +76,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     _completeRefresh();
     _scrollController.removeListener(_closeSwipeOnScroll);
     _openSwipe.dispose();
-    _searchDebounce?.cancel();
+    _searchDebounce.cancel();
     _controller.dispose();
     _scrollController.dispose();
     _searchController.dispose();
@@ -109,16 +110,16 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         _totalCount = page.totalCount;
         _hasLoaded = true;
       });
-      final nextOffset = offset + page.items.length;
-      if (nextOffset >= page.totalCount || page.items.isEmpty) {
-        // 末页标记：连排列表只有最后一行需要底部圆角。
-        setState(() => _lastPageComplete = true);
-        _controller.appendLastPage(rows);
-      } else {
-        if (_lastPageComplete) setState(() => _lastPageComplete = false);
-        _controller.appendPage(rows, nextOffset);
-      }
-      _scrollRestorer.restoreAfterPage(_scrollController);
+      // 末页标记：连排列表只有最后一行需要底部圆角。
+      final hasMore = applyPagedListPage(
+        controller: _controller,
+        offset: offset,
+        items: rows,
+        totalCount: page.totalCount,
+        restorer: _scrollRestorer,
+        scrollController: _scrollController,
+      );
+      setState(() => _lastPageComplete = !hasMore);
       _completeRefresh();
     } catch (error) {
       if (!mounted || requestSerial != _requestSerial) return;
@@ -156,8 +157,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   }
 
   void _onSearchChanged(String value) {
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 320), () {
+    _searchDebounce.cancel();
+    _searchDebounce.run(() {
       if (!mounted) return;
       setState(() {
         _search = value.trim().isEmpty ? null : value.trim();
