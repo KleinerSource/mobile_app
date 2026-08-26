@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -1078,7 +1079,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
         return;
       }
       setState(() => _totpRequired = true);
-      _formEntry.forward(from: 0);
+      unawaited(_formEntry.forward(from: 0));
     } catch (error) {
       if (!mounted) return;
       final exception = toApiException(error);
@@ -1206,7 +1207,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     });
     if (forward) {
       // 过渡完成后表单分级滑入（输入框 → 按钮 → 返回按钮）。
-      _formEntry.forward(from: 0);
+      unawaited(_formEntry.forward(from: 0));
     } else {
       _formEntry.value = 0;
     }
