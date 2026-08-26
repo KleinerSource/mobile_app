@@ -11,7 +11,6 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: SecurityPinPad(
-            autoSubmit: true,
             onCompleted: (pin) async {
               submitted.add(pin);
             },

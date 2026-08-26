@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/platform/app_haptics.dart';
@@ -11,6 +13,8 @@ class SecurityPatternPad extends StatefulWidget {
     this.onPointAdded,
     this.enabled = true,
     this.size = 260,
+    this.showError = false,
+    this.replayToken,
   });
 
   final ValueChanged<List<int>> onCompleted;
@@ -18,31 +22,73 @@ class SecurityPatternPad extends StatefulWidget {
   final bool enabled;
   final double size;
 
+  /// 为 true 时左右抖动提示校验失败；配合 [replayToken] 可连续重复触发。
+  final bool showError;
+
+  /// 每次失败时递增（或换成新对象）即可重复播放抖动。
+  final Object? replayToken;
+
   @override
   State<SecurityPatternPad> createState() => _SecurityPatternPadState();
 }
 
-class _SecurityPatternPadState extends State<SecurityPatternPad> {
+class _SecurityPatternPadState extends State<SecurityPatternPad>
+    with SingleTickerProviderStateMixin {
   final List<int> _selected = <int>[];
   Offset? _pointer;
+  late final AnimationController _shakeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+    if (widget.showError) _shakeController.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant SecurityPatternPad oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final replayed = !oldWidget.showError && widget.showError ||
+        widget.replayToken != oldWidget.replayToken;
+    if (widget.showError && replayed) {
+      _shakeController.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _shakeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: widget.size,
-      height: widget.size,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanStart: widget.enabled ? _start : null,
-        onPanUpdate: widget.enabled ? _update : null,
-        onPanEnd: widget.enabled ? (_) => _finish() : null,
-        child: CustomPaint(
-          painter: _PatternPainter(
-            selected: _selected,
-            pointer: _pointer,
-            color: appColors(context).accent,
-            mutedColor: appColors(context).muted2,
-            borderColor: appColors(context).cardBorder,
+    return AnimatedBuilder(
+      animation: _shakeController,
+      builder: (context, child) {
+        final progress = _shakeController.value;
+        final offset = math.sin(progress * math.pi * 12) * (1 - progress) * 10;
+        return Transform.translate(offset: Offset(offset, 0), child: child);
+      },
+      child: SizedBox(
+        width: widget.size,
+        height: widget.size,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanStart: widget.enabled ? _start : null,
+          onPanUpdate: widget.enabled ? _update : null,
+          onPanEnd: widget.enabled ? (_) => _finish() : null,
+          child: CustomPaint(
+            painter: _PatternPainter(
+              selected: _selected,
+              pointer: _pointer,
+              color: appColors(context).accent,
+              mutedColor: appColors(context).muted2,
+              borderColor: appColors(context).cardBorder,
+            ),
           ),
         ),
       ),

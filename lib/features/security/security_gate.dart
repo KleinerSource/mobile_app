@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/shake_error_text.dart';
 import 'device_lock_monitor.dart';
 import 'security_pattern_pad.dart';
 import 'security_pin_pad.dart';
@@ -40,6 +41,8 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
   StreamSubscription<String>? _deviceLockSubscription;
   bool _ignoreBackgroundUntilResume = false;
   String? _error;
+  int _errorToken = 0;
+  Timer? _errorTimer;
 
   @override
   void initState() {
@@ -56,6 +59,7 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
     _backgroundLockTimer?.cancel();
     _authenticationGraceTimer?.cancel();
     _readyTimer?.cancel();
+    _errorTimer?.cancel();
     _deviceLockSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -195,6 +199,7 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
               settings: settings,
               busy: _busy,
               error: _error,
+              errorToken: _errorToken,
               onBiometric: _authenticateBiometric,
               onPin: _verifyPin,
               onGesture: _verifyGesture,
@@ -291,8 +296,21 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
     });
   }
 
+  /// 错误提示短暂展示后自动消失，避免常驻遮挡。
+  void _showTransientError(String message) {
+    _errorTimer?.cancel();
+    setState(() {
+      _errorToken++;
+      _error = message;
+    });
+    _errorTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _error = null);
+    });
+  }
+
   Future<void> _verifyPin(String pin) async {
     if (_busy || !mounted) return;
+    _errorTimer?.cancel();
     setState(() {
       _busy = true;
       _error = null;
@@ -302,19 +320,18 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
     if (success) {
       ref.read(securityBiometricCoordinatorProvider).markSessionAuthenticated();
     }
-    setState(() {
-      _busy = false;
-      if (success) {
-        _locked = false;
-      } else {
-        _error = '数字密码不正确';
-      }
-    });
-    if (success) AppHaptics.medium();
+    setState(() => _busy = false);
+    if (success) {
+      _locked = false;
+      AppHaptics.medium();
+    } else {
+      _showTransientError('数字密码不正确');
+    }
   }
 
   Future<void> _verifyGesture(List<int> pattern) async {
     if (_busy || !mounted) return;
+    _errorTimer?.cancel();
     setState(() {
       _busy = true;
       _error = null;
@@ -326,15 +343,13 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
     if (success) {
       ref.read(securityBiometricCoordinatorProvider).markSessionAuthenticated();
     }
-    setState(() {
-      _busy = false;
-      if (success) {
-        _locked = false;
-      } else {
-        _error = '手势密码不正确';
-      }
-    });
-    if (success) AppHaptics.medium();
+    setState(() => _busy = false);
+    if (success) {
+      _locked = false;
+      AppHaptics.medium();
+    } else {
+      _showTransientError('手势密码不正确');
+    }
   }
 }
 
@@ -343,6 +358,7 @@ class _SecurityUnlockView extends StatefulWidget {
     required this.settings,
     required this.busy,
     required this.error,
+    required this.errorToken,
     required this.onBiometric,
     required this.onPin,
     required this.onGesture,
@@ -351,6 +367,7 @@ class _SecurityUnlockView extends StatefulWidget {
   final SecuritySettings settings;
   final bool busy;
   final String? error;
+  final int errorToken;
   final Future<void> Function() onBiometric;
   final Future<void> Function(String pin) onPin;
   final Future<void> Function(List<int> pattern) onGesture;
@@ -480,7 +497,6 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                         widget.settings.hasPin)
                       SecurityPinPad(
                         busy: widget.busy,
-                        autoSubmit: true,
                         showError: widget.error != null,
                         onCompleted: widget.onPin,
                       ),
@@ -490,15 +506,17 @@ class _SecurityUnlockViewState extends State<_SecurityUnlockView> {
                       SecurityPatternPad(
                         size: 260,
                         enabled: !widget.busy,
+                        showError: widget.error != null,
+                        replayToken: widget.errorToken,
                         onCompleted: (pattern) =>
                             unawaited(widget.onGesture(pattern)),
                       ),
                     if (widget.error != null) ...[
                       const SizedBox(height: 16),
-                      Text(
+                      ShakeErrorText(
                         widget.error!,
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: colors.danger),
+                        replayToken: widget.errorToken,
                       ),
                     ],
                   ],

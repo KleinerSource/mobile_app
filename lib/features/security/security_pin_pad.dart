@@ -7,21 +7,17 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import 'security_policy.dart';
 
-/// 应用内 6 位数字密码宫格键盘，不唤起系统输入法。
+/// 应用内 6 位数字密码宫格键盘，不唤起系统输入法，输满后自动提交。
 class SecurityPinPad extends StatefulWidget {
   const SecurityPinPad({
     super.key,
     required this.onCompleted,
     this.busy = false,
-    this.submitLabel = '确认',
-    this.autoSubmit = false,
     this.showError = false,
   });
 
   final Future<void> Function(String) onCompleted;
   final bool busy;
-  final String submitLabel;
-  final bool autoSubmit;
   final bool showError;
 
   @override
@@ -70,9 +66,7 @@ class _SecurityPinPadState extends State<SecurityPinPad>
         mainAxisSize: MainAxisSize.min,
         children: [
           _PinDots(value: _value),
-          const SizedBox(height: 8),
-          Text('请输入 6 位数字', style: AppText.meta(context)),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           for (final row in _pinRows)
             Row(
               children: [for (final digit in row) _digitButton(context, digit)],
@@ -83,9 +77,9 @@ class _SecurityPinPadState extends State<SecurityPinPad>
                 width: 72,
                 height: 54,
                 child: IconButton(
-                  onPressed: widget.busy || _value.isEmpty ? null : _delete,
-                  tooltip: '删除',
-                  icon: const Icon(Icons.backspace_outlined),
+                  onPressed: widget.busy || _value.isEmpty ? null : _clear,
+                  tooltip: '清空',
+                  icon: const Icon(Icons.clear),
                 ),
               ),
               _digitButton(context, '0'),
@@ -93,26 +87,13 @@ class _SecurityPinPadState extends State<SecurityPinPad>
                 width: 72,
                 height: 54,
                 child: IconButton(
-                  onPressed: widget.busy || _value.isEmpty ? null : _clear,
-                  tooltip: '清空',
-                  icon: const Icon(Icons.clear),
+                  onPressed: widget.busy || _value.isEmpty ? null : _delete,
+                  tooltip: '删除',
+                  icon: const Icon(Icons.backspace_outlined),
                 ),
               ),
             ],
           ),
-          if (!widget.autoSubmit) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: widget.busy || !isValidSecurityPin(_value)
-                    ? null
-                    : () => unawaited(_submit(_value)),
-                icon: const Icon(Icons.lock_open_outlined),
-                label: Text(widget.busy ? '验证中...' : widget.submitLabel),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -138,7 +119,7 @@ class _SecurityPinPadState extends State<SecurityPinPad>
     AppHaptics.selection();
     final nextValue = '$_value$digit';
     setState(() => _value = nextValue);
-    if (widget.autoSubmit && nextValue.length == securityPinMaxLength) {
+    if (nextValue.length == securityPinMaxLength) {
       unawaited(_submit(nextValue));
     }
   }

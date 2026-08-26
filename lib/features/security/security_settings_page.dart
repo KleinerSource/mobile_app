@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/shake_error_text.dart';
 import '../settings/settings_common.dart';
 import 'security_pattern_pad.dart';
 import 'security_pin_pad.dart';
@@ -350,7 +351,29 @@ class _PinSetupDialog extends StatefulWidget {
 
 class _PinSetupDialogState extends State<_PinSetupDialog> {
   String? _firstPin;
-  String _message = '请输入 6 位数字';
+  String? _error;
+  int _errorToken = 0;
+  Timer? _errorTimer;
+  String get _message =>
+      _error ??
+      (_firstPin == null ? '请输入 6 位数字' : '请再次输入相同的 6 位密码');
+
+  @override
+  void dispose() {
+    _errorTimer?.cancel();
+    super.dispose();
+  }
+
+  void _showTransientError(String message) {
+    _errorTimer?.cancel();
+    setState(() {
+      _errorToken++;
+      _error = message;
+    });
+    _errorTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _error = null);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -360,11 +383,13 @@ class _PinSetupDialogState extends State<_PinSetupDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_message, style: AppText.meta(context)),
+            if (_error != null)
+              ShakeErrorText(_message, replayToken: _errorToken)
+            else
+              Text(_message, style: AppText.meta(context)),
             const SizedBox(height: 12),
             SecurityPinPad(
               key: ValueKey(_firstPin == null ? 'first' : 'confirm'),
-              submitLabel: _firstPin == null ? '下一步' : '保存',
               onCompleted: _handlePin,
             ),
           ],
@@ -384,15 +409,14 @@ class _PinSetupDialogState extends State<_PinSetupDialog> {
     if (first == null) {
       setState(() {
         _firstPin = pin;
-        _message = '请再次输入相同的 6 位密码';
+        _error = null;
       });
       return;
     }
     if (first != pin) {
-      setState(() {
-        _firstPin = null;
-        _message = '两次输入的密码不一致，请重新设置';
-      });
+      AppHaptics.error();
+      setState(() => _firstPin = null);
+      _showTransientError('两次输入的密码不一致，请重新设置');
       return;
     }
     AppHaptics.medium();
@@ -409,7 +433,29 @@ class _PatternSetupDialog extends StatefulWidget {
 
 class _PatternSetupDialogState extends State<_PatternSetupDialog> {
   List<int>? _firstPattern;
-  String _message = '连接至少 4 个节点';
+  String? _error;
+  int _errorToken = 0;
+  Timer? _errorTimer;
+  String get _message =>
+      _error ??
+      (_firstPattern == null ? '连接至少 4 个节点' : '请再次绘制相同手势以确认');
+
+  @override
+  void dispose() {
+    _errorTimer?.cancel();
+    super.dispose();
+  }
+
+  void _showTransientError(String message) {
+    _errorTimer?.cancel();
+    setState(() {
+      _errorToken++;
+      _error = message;
+    });
+    _errorTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _error = null);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -418,9 +464,17 @@ class _PatternSetupDialogState extends State<_PatternSetupDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(_message, style: AppText.meta(context)),
+          if (_error != null)
+            ShakeErrorText(_message, replayToken: _errorToken)
+          else
+            Text(_message, style: AppText.meta(context)),
           const SizedBox(height: 12),
-          SecurityPatternPad(size: 240, onCompleted: _handlePattern),
+          SecurityPatternPad(
+            size: 240,
+            showError: _error != null,
+            replayToken: _errorToken,
+            onCompleted: _handlePattern,
+          ),
         ],
       ),
       actions: [
@@ -434,14 +488,15 @@ class _PatternSetupDialogState extends State<_PatternSetupDialog> {
 
   void _handlePattern(List<int> pattern) {
     if (!isValidSecurityPattern(pattern)) {
-      setState(() => _message = '手势至少需要连接 4 个不同节点');
+      AppHaptics.error();
+      _showTransientError('手势至少需要连接 4 个不同节点');
       return;
     }
     final first = _firstPattern;
     if (first == null) {
       setState(() {
         _firstPattern = pattern;
-        _message = '请再次绘制相同手势以确认';
+        _error = null;
       });
       return;
     }
@@ -450,10 +505,9 @@ class _PatternSetupDialogState extends State<_PatternSetupDialog> {
       Navigator.pop(context, pattern);
       return;
     }
-    setState(() {
-      _firstPattern = null;
-      _message = '两次手势不一致，请重新绘制';
-    });
+    AppHaptics.error();
+    setState(() => _firstPattern = null);
+    _showTransientError('两次手势不一致，请重新绘制');
   }
 }
 

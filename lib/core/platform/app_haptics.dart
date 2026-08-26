@@ -64,6 +64,15 @@ abstract final class AppHaptics {
     _send(_mediumEffect());
   }
 
+  /// 输入校验失败等错误场景的重震动反馈，不受强度设置降级。
+  static void error() {
+    if (_intensity == HapticIntensity.off) return;
+    _send(switch (_intensity) {
+      HapticIntensity.low => HapticFeedback.mediumImpact(),
+      _ => HapticFeedback.heavyImpact(),
+    });
+  }
+
   /// 为开关统一添加反馈，禁用状态保持原来的 null 回调语义。
   static ValueChanged<bool>? wrapToggle(ValueChanged<bool>? onChanged) {
     if (onChanged == null) return null;
