@@ -343,12 +343,10 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       options.appendHeader(headers)
     }
     if useFfmpegPlayer, startSeconds > 0 {
-      // FFmpeg 内核在读线程首次读包前直接定位到续播点，省掉 readyToPlay 后
-      // 再 seek 的第二轮探测与缓冲。个别容器缺少 start_time 时定位会失准，
-      // 起播后由 verifyStartPositionLater() 校验兜底。
-      options.startPlayTime = startSeconds
-      pendingStartPositionMs = 0
-      pendingStartVerificationMs = startSeconds >= 2.5 ? startSeconds * 1000 : 0
+      // KSMEPlayer 的 startPlayTime 快路径会在首帧显示后留下停住的音视频时钟；
+      // 恢复早期已验证的 ready 后 seek 路径，由 KSPlayerLayer 统一启动播放。
+      pendingStartPositionMs = startSeconds * 1000
+      pendingStartVerificationMs = 0
     } else {
       pendingStartPositionMs = startSeconds * 1000
       pendingStartVerificationMs = startSeconds >= 2.5 ? startSeconds * 1000 : 0
@@ -423,20 +421,17 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
 
   func play() throws {
     guard !disposed else { throw KsPlayerPluginError.disposed }
-    pendingAutoplay = true
     layer.play()
     layerIsStopped = false
   }
 
   func pause() throws {
     guard !disposed else { throw KsPlayerPluginError.disposed }
-    pendingAutoplay = false
     layer.pause()
   }
 
   func stop() throws {
     guard !disposed else { throw KsPlayerPluginError.disposed }
-    pendingAutoplay = false
     openGeneration += 1
     pendingOpen?(.failure(KsPlayerPluginError.cancelled))
     pendingOpen = nil
@@ -653,24 +648,13 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       currentLayer.seek(time: start, autoPlay: pendingAutoplay) { _ in }
       finish()
     } else {
-      if pendingAutoplay { playCurrentLayer(currentLayer) }
+      if pendingAutoplay { currentLayer.play() }
       finish()
     }
   }
 
-  private func playCurrentLayer(_ currentLayer: KSPlayerLayer) {
-    guard pendingAutoplay else { return }
-    // KSMEPlayer 可能已经把 playbackState 置为 .playing，但音频引擎和
-    // MetalPlayView 仍处于暂停状态；直接再次 play() 不会触发状态监听。
-    // 模拟一次无感的 pause → play，强制重新打开底层音视频时钟。
-    if currentLayer.player is KSMEPlayer {
-      currentLayer.pause()
-    }
-    currentLayer.play()
-  }
-
-  /// 初始定位的兜底校验：FFmpeg startPlayTime 或 AVPlayer ready 后的 seek
-  /// 都可能落在 0 附近；就绪片刻后比对实际播放位置，失准则再 seek 补救。
+  /// AVPlayer ready 后的初始 seek 可能落在 0 附近；就绪片刻后比对实际
+  /// 播放位置，失准则再 seek 补救。KSMEPlayer 走 ready 后 seek，不使用此快路。
   /// 只能从 .readyToPlay 调度——那之前读线程可能尚未定位，位置恒为 0 会误判。
   private func verifyStartPositionLater() {
     let targetMs = pendingStartVerificationMs
