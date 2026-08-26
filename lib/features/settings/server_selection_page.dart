@@ -303,10 +303,14 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
     AppColors colors,
     ServerProfile selected,
   ) {
-    // 头像+名字固定在场景纵向中心（Stack 绝对定位），表单挂在下方；
+    // 头像+名字固定在场景纵向偏上位置（Stack 绝对定位），表单挂在下方；
     // 表单出现、切换或报错都不会改变头像落点。
-    const headerHeight = 208.0;
-    const avatarCenterOffset = 68.0;
+    //
+    // 纵向位置与首页服务器切换浮层的登录界面（内容整块垂直居中的布局）
+    // 对齐：浮层头像中心 ≈ 高度中点上方 136px，此处用相同的居中公式
+    // 反推 headerTop（136 头像 + 20 间距 + 名字行 ≈ 182 的内容高度）。
+    const headerHeight = 182.0;
+    const avatarCenterOffset = 204.0;
     return SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -532,7 +536,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             (_needsLogin != true && authValue.isLoading);
         // 头像+名字绝对定位在 headerTop（场景纵向中心），表单固定挂在
         // 下方；表单出现、切换或报错都不会改变头像落点。
-        final headerHeight = 208.0;
+        final headerHeight = 182.0;
         final body = SizedBox.expand(
           child: Stack(
             children: [
@@ -628,7 +632,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             ).copyWith(color: colors.muted, fontSize: 15),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         _formStagger(
           1,
           _loginField(
@@ -701,7 +705,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
             ).copyWith(color: colors.muted, fontSize: 15),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         _formStagger(
           1,
           TotpInputField(
@@ -768,7 +772,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
   ) {
     final displayName = _displayNameFor(server);
     final avatarUrl = _avatarUrlFor(server);
-    const headerHeight = 208.0;
+    const headerHeight = 182.0;
     return SizedBox.expand(
       child: Stack(
         children: [
