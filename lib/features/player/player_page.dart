@@ -136,6 +136,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   int? _audioStreamIndex;
   String? _subtitleTrackId;
   bool _transcodeSessionActive = false;
+  int _transcodeMonitoringGeneration = 0;
   PlayerDecodeStatus? _serverDecodeStatus;
   int _loadGeneration = 0;
 
@@ -316,8 +317,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       unawaited(_host.stopPictureInPicture());
     }
     _unbindProgress();
-    _eventsSub?.cancel();
-    _transcodePollTimer?.cancel();
+    _cancelTranscodeMonitoring();
     _deviceStatsTimer?.cancel();
     _progressReportTimer?.cancel();
     _hideTimer?.cancel();
@@ -1200,13 +1200,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<void> _stopTranscodeSession({bool waitForServer = true}) async {
     final shouldStopServerSession = _transcodeSessionActive;
     _transcodeSessionActive = false;
+    // SSE 是长连接，cancel() 的 Future 可能要等到底层 HTTP stream 完整收尾。
+    // 先让旧回调失效并异步取消，不能让它阻塞后续的清晰度切换队列。
+    _cancelTranscodeMonitoring();
     final stopFuture = shouldStopServerSession
         ? ref.read(requiredApiClientProvider).playback.stop(widget.movieId)
         : null;
-    await _eventsSub?.cancel();
-    _eventsSub = null;
-    _transcodePollTimer?.cancel();
-    _transcodePollTimer = null;
     if (!shouldStopServerSession) return;
     if (stopFuture == null) return;
     if (!waitForServer) {
@@ -1215,16 +1214,30 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       return;
     }
     try {
-      await stopFuture;
+      // 后端 StopByMovie 会等待 FFmpeg 退出，但网络异常不能把 _loadQueue
+      // 永久锁住。正常会话在此窗口内都会完成；超时后继续打开新源。
+      await stopFuture.timeout(const Duration(seconds: 8));
     } catch (_) {}
+  }
+
+  void _cancelTranscodeMonitoring() {
+    _transcodeMonitoringGeneration++;
+    final eventsSub = _eventsSub;
+    _eventsSub = null;
+    _transcodePollTimer?.cancel();
+    _transcodePollTimer = null;
+    if (eventsSub != null) {
+      unawaited(eventsSub.cancel().catchError((_) {}));
+    }
   }
 
   void _startTranscodeMonitoring(
     String quality,
     playback_models.PlaybackDecision decision,
   ) {
-    _eventsSub?.cancel();
+    _cancelTranscodeMonitoring();
     _transcodePollTimer?.cancel();
+    final monitoringGeneration = _transcodeMonitoringGeneration;
     final api = ref.read(requiredApiClientProvider).playback;
     final streamUri = Uri.tryParse(decision.streamUrl);
     final streamQuery = streamUri?.queryParameters ?? const <String, String>{};
@@ -1245,24 +1258,39 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           subtitleTrackId: subtitleTrackId,
         )
         .listen(
-          _applyTranscodeStatus,
-          onError: (_) => _startTranscodePolling(
-            sessionQuality,
-            mode: mode,
-            audioStreamIndex: audioStreamIndex,
-            subtitleTrackId: subtitleTrackId,
-          ),
-          onDone: () => _startTranscodePolling(
-            sessionQuality,
-            mode: mode,
-            audioStreamIndex: audioStreamIndex,
-            subtitleTrackId: subtitleTrackId,
-          ),
+          (status) {
+            if (_isCurrentTranscodeMonitoring(monitoringGeneration)) {
+              _applyTranscodeStatus(status);
+            }
+          },
+          onError: (_) {
+            if (_isCurrentTranscodeMonitoring(monitoringGeneration)) {
+              _startTranscodePolling(
+                sessionQuality,
+                monitoringGeneration: monitoringGeneration,
+                mode: mode,
+                audioStreamIndex: audioStreamIndex,
+                subtitleTrackId: subtitleTrackId,
+              );
+            }
+          },
+          onDone: () {
+            if (_isCurrentTranscodeMonitoring(monitoringGeneration)) {
+              _startTranscodePolling(
+                sessionQuality,
+                monitoringGeneration: monitoringGeneration,
+                mode: mode,
+                audioStreamIndex: audioStreamIndex,
+                subtitleTrackId: subtitleTrackId,
+              );
+            }
+          },
         );
     _transcodePollTimer = Timer.periodic(
       const Duration(seconds: 3),
       (_) => _pollTranscodeStatus(
         sessionQuality,
+        monitoringGeneration: monitoringGeneration,
         mode: mode,
         audioStreamIndex: audioStreamIndex,
         subtitleTrackId: subtitleTrackId,
@@ -1272,15 +1300,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   void _startTranscodePolling(
     String quality, {
+    required int monitoringGeneration,
     String? mode,
     int? audioStreamIndex,
     String? subtitleTrackId,
   }) {
+    if (!_isCurrentTranscodeMonitoring(monitoringGeneration)) return;
     if (_transcodePollTimer != null) return;
     _transcodePollTimer = Timer.periodic(
       const Duration(seconds: 2),
       (_) => _pollTranscodeStatus(
         quality,
+        monitoringGeneration: monitoringGeneration,
         mode: mode,
         audioStreamIndex: audioStreamIndex,
         subtitleTrackId: subtitleTrackId,
@@ -1290,11 +1321,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   Future<void> _pollTranscodeStatus(
     String quality, {
+    required int monitoringGeneration,
     String? mode,
     int? audioStreamIndex,
     String? subtitleTrackId,
   }) async {
-    if (!mounted || _isLeaving || !_transcodeSessionActive) return;
+    if (!_isCurrentTranscodeMonitoring(monitoringGeneration) ||
+        !_transcodeSessionActive) {
+      return;
+    }
     try {
       final status = await ref
           .read(requiredApiClientProvider)
@@ -1306,8 +1341,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             audioStreamIndex: audioStreamIndex,
             subtitleTrackId: subtitleTrackId,
           );
-      _applyTranscodeStatus(status);
+      if (_isCurrentTranscodeMonitoring(monitoringGeneration)) {
+        _applyTranscodeStatus(status);
+      }
     } catch (_) {}
+  }
+
+  bool _isCurrentTranscodeMonitoring(int generation) {
+    return mounted && !_isLeaving && generation == _transcodeMonitoringGeneration;
   }
 
   void _applyTranscodeStatus(playback_models.TranscodeStatus status) {
