@@ -131,7 +131,7 @@ class _DbOnlineLatestMoviesPageState
             header: SettingsSubPageHeader(
               eyebrow: 'dbonline',
               title: title,
-              subtitle: '下拉刷新，滚动到底部自动加载更多。',
+              subtitle: '滚动到底部自动加载更多。',
             ),
             body: RefreshIndicator(
               onRefresh: _refresh,
