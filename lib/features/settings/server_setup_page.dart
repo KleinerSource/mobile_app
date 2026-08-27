@@ -12,7 +12,10 @@ import '../../shared/glow_background.dart';
 import 'settings_common.dart';
 
 class ServerSetupPage extends ConsumerStatefulWidget {
-  const ServerSetupPage({super.key});
+  const ServerSetupPage({super.key, this.editing = false, this.serverId});
+
+  final bool editing;
+  final String? serverId;
 
   @override
   ConsumerState<ServerSetupPage> createState() => _ServerSetupPageState();
@@ -21,6 +24,7 @@ class ServerSetupPage extends ConsumerStatefulWidget {
 class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   final _controller = TextEditingController();
   ServerConfig? _savedConfig;
+  String? _editingServerId;
   ServerProject? _project;
   bool _busy = false;
   String? _error;
@@ -28,13 +32,30 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   @override
   void initState() {
     super.initState();
-    _savedConfig =
-        ref.read(serverConfigProvider) ??
-        ref.read(serverConfigRepoProvider).load();
-    if (_savedConfig != null) {
-      _controller.text = _savedConfig!.baseUrl;
-      _project = _savedConfig!.activeServer?.project;
+    if (widget.editing || widget.serverId != null) {
+      _savedConfig =
+          ref.read(serverConfigProvider) ??
+          ref.read(serverConfigRepoProvider).load();
+      if (_savedConfig != null) {
+        final requestedId = widget.serverId ?? _savedConfig!.activeServerId;
+        ServerProfile? server;
+        for (final item in _savedConfig!.servers) {
+          if (item.id == requestedId) {
+            server = item;
+            break;
+          }
+        }
+        server ??= _savedConfig!.activeServer;
+        if (server != null) {
+          _editingServerId = server.id;
+          _controller.text =
+              server.activeLine?.baseUrl ?? _savedConfig!.baseUrl;
+          _project = server.project;
+        }
+      }
     }
+    if (_controller.text.isEmpty) _controller.text = 'http://';
+    _project ??= ServerProject.ohMyMedia;
   }
 
   @override
@@ -66,16 +87,26 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     });
     try {
       final existing =
-          _savedConfig ??
           ref.read(serverConfigProvider) ??
           ref.read(serverConfigRepoProvider).load();
-      final sameServer = existing?.baseUrl == normalized;
+      ServerProfile? editingServer;
+      if (_editingServerId != null && existing != null) {
+        for (final server in existing.servers) {
+          if (server.id == _editingServerId) {
+            editingServer = server;
+            break;
+          }
+        }
+      }
+      final sameServer =
+          editingServer != null &&
+          editingServer.activeLine?.baseUrl == normalized;
       final line = ServerLine(
-        id: sameServer && existing!.lines.isNotEmpty
-            ? existing.lines
+        id: sameServer
+            ? editingServer.lines
                   .firstWhere(
                     (item) => item.baseUrl == normalized,
-                    orElse: () => existing.lines.first,
+                    orElse: () => editingServer!.lines.first,
                   )
                   .id
             : 'main-${DateTime.now().microsecondsSinceEpoch}',
@@ -91,20 +122,36 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         );
       }
       final versionInfo = probe.versionInfo!;
-      final ServerConfig config;
-      if (sameServer && existing!.activeServer != null) {
-        final activeId = existing.activeServer!.id;
+      final ServerConfig? config;
+      final ServerProfile? newServer;
+      if (editingServer != null && existing != null) {
+        newServer = null;
+        final updatedServer = editingServer.copyWith(
+          lines: sameServer ? editingServer.lines : [line],
+          activeLineId: sameServer ? editingServer.activeLineId : line.id,
+          projectName: project.projectName,
+          serverVersion: versionInfo.version,
+        );
         final servers = existing.servers
             .map(
-              (server) => server.id == activeId
-                  ? server.copyWith(
-                      projectName: project.projectName,
-                      serverVersion: versionInfo.version,
-                    )
-                  : server,
+              (server) =>
+                  server.id == editingServer!.id ? updatedServer : server,
             )
             .toList();
-        config = existing.copyWith(servers: servers);
+        ServerProfile? activeServer;
+        for (final server in servers) {
+          if (server.id == existing.activeServerId) {
+            activeServer = server;
+            break;
+          }
+        }
+        activeServer ??= servers.first;
+        config = existing.copyWith(
+          baseUrl: activeServer.activeLine?.baseUrl ?? existing.baseUrl,
+          lines: activeServer.lines,
+          servers: servers,
+          activeServerId: activeServer.id,
+        );
       } else {
         final server = ServerProfile(
           id: 'server-${DateTime.now().microsecondsSinceEpoch}',
@@ -114,14 +161,16 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
           projectName: project.projectName,
           serverVersion: versionInfo.version,
         );
-        config = ServerConfig(
-          baseUrl: normalized,
-          lines: [line],
-          servers: [server],
-          activeServerId: server.id,
-        );
+        newServer = server;
+        config = null;
       }
-      await ref.read(serverConfigProvider.notifier).save(config);
+      if (newServer != null) {
+        // 追加服务器时在保存时读取最新配置，避免后台鉴权探测使用旧快照
+        // 覆盖用户刚刚添加的其它服务器。
+        await ref.read(serverConfigProvider.notifier).saveServer(newServer);
+      } else {
+        await ref.read(serverConfigProvider.notifier).save(config!);
+      }
       _savedConfig = ref.read(serverConfigProvider);
       AppHaptics.medium();
       if (mounted) await Navigator.of(context).maybePop();
@@ -136,7 +185,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final editing = _savedConfig != null;
+    final editing = _editingServerId != null;
     return Scaffold(
       backgroundColor: c.bg,
       body: GlowBackground(
@@ -309,21 +358,33 @@ class _ProjectSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final project in ServerProject.values)
-          ChoiceChip(
-            label: Text(_projectLabel(project)),
-            selected: value == project,
-            onSelected: enabled
-                ? (selected) {
-                    if (selected) onChanged(project);
+    return InputDecorator(
+      decoration: settingsInputDecoration(
+        context,
+        prefixIcon: const Icon(Icons.dns_outlined),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<ServerProject>(
+          value: value,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded),
+          items: [
+            for (final project in ServerProject.values)
+              DropdownMenuItem(
+                value: project,
+                child: Text(_projectLabel(project)),
+              ),
+          ],
+          onChanged: enabled
+              ? (project) {
+                  if (project != null && project != value) {
+                    AppHaptics.selection();
+                    onChanged(project);
                   }
-                : null,
-          ),
-      ],
+                }
+              : null,
+        ),
+      ),
     );
   }
 }

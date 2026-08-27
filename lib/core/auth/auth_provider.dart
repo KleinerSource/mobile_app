@@ -71,7 +71,17 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
 
     if (selectedConfig != config) {
-      await ref.read(serverConfigProvider.notifier).save(selectedConfig);
+      // 线路探测是异步的，期间用户可能已经在初始化页新增服务器。
+      // 这里只回写当前服务器的线路结果，不能用探测开始时的旧完整配置
+      // 覆盖后来追加的服务器。
+      final selectedServer = selectedConfig.activeServer;
+      final latestConfig = ref.read(serverConfigProvider);
+      if (selectedServer != null &&
+          latestConfig?.activeServer == config.activeServer) {
+        await ref
+            .read(serverConfigProvider.notifier)
+            .saveServer(selectedServer);
+      }
     }
     final client = ApiClient.fromConfig(
       selectedConfig,

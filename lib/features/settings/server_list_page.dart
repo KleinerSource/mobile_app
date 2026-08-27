@@ -367,9 +367,9 @@ class _ServerEditorDialogState extends State<_ServerEditorDialog> {
     super.initState();
     _name = TextEditingController(text: widget.existing?.name ?? '');
     _baseUrl = TextEditingController(
-      text: widget.existing?.activeLine?.baseUrl ?? '',
+      text: widget.existing?.activeLine?.baseUrl ?? 'http://',
     );
-    _project = widget.existing?.project;
+    _project = widget.existing?.project ?? ServerProject.ohMyMedia;
   }
 
   @override
@@ -419,6 +419,31 @@ class _ServerEditorDialogState extends State<_ServerEditorDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            DropdownButtonFormField<ServerProject>(
+              initialValue: _project,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: '服务器类型',
+                prefixIcon: Icon(Icons.dns_outlined),
+              ),
+              items: [
+                for (final project in ServerProject.values)
+                  DropdownMenuItem<ServerProject>(
+                    value: project,
+                    child: Text(_projectLabel(project)),
+                  ),
+              ],
+              onChanged: widget.existing == null
+                  ? (project) {
+                      if (project != null && project != _project) {
+                        AppHaptics.selection();
+                        setState(() => _project = project);
+                      }
+                    }
+                  : null,
+              validator: (value) => value == null ? '请选择服务器类型' : null,
+            ),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _name,
               decoration: const InputDecoration(
@@ -427,34 +452,6 @@ class _ServerEditorDialogState extends State<_ServerEditorDialog> {
               ),
               validator: (value) =>
                   value?.trim().isEmpty == true ? '请输入服务器名称' : null,
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '服务器类型',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final project in ServerProject.values)
-                    ChoiceChip(
-                      label: Text(_projectLabel(project)),
-                      selected: _project == project,
-                      onSelected: widget.existing == null
-                          ? (selected) {
-                              if (selected) setState(() => _project = project);
-                            }
-                          : null,
-                    ),
-                ],
-              ),
             ),
             const SizedBox(height: 12),
             if (widget.existing == null)

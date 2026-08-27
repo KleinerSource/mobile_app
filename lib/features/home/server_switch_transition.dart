@@ -28,6 +28,7 @@ class ServerSwitchState {
     this.targetServerId,
     this.previousServerId,
     this.message,
+    this.returnToSelectionOnCancel = false,
   });
 
   const ServerSwitchState.idle() : this._(phase: ServerSwitchPhase.idle);
@@ -35,38 +36,45 @@ class ServerSwitchState {
   const ServerSwitchState.checking({
     required String targetServerId,
     String? previousServerId,
+    bool returnToSelectionOnCancel = false,
   }) : this._(
          phase: ServerSwitchPhase.checking,
          targetServerId: targetServerId,
          previousServerId: previousServerId,
+         returnToSelectionOnCancel: returnToSelectionOnCancel,
        );
 
   const ServerSwitchState.needsLogin({
     required String targetServerId,
     String? previousServerId,
     String? message,
+    bool returnToSelectionOnCancel = false,
   }) : this._(
          phase: ServerSwitchPhase.needsLogin,
          targetServerId: targetServerId,
          previousServerId: previousServerId,
          message: message,
+         returnToSelectionOnCancel: returnToSelectionOnCancel,
        );
 
   const ServerSwitchState.error({
     required String targetServerId,
     String? previousServerId,
     required String message,
+    bool returnToSelectionOnCancel = false,
   }) : this._(
          phase: ServerSwitchPhase.error,
          targetServerId: targetServerId,
          previousServerId: previousServerId,
          message: message,
+         returnToSelectionOnCancel: returnToSelectionOnCancel,
        );
 
   final ServerSwitchPhase phase;
   final String? targetServerId;
   final String? previousServerId;
   final String? message;
+  final bool returnToSelectionOnCancel;
 
   bool get isActive => phase != ServerSwitchPhase.idle;
 }
@@ -90,10 +98,12 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     if (!current.isActive || targetServerId == null) return;
 
     final previousServerId = current.previousServerId;
+    final returnToSelectionOnCancel = current.returnToSelectionOnCancel;
     final operation = ++_operation;
     state = ServerSwitchState.needsLogin(
       targetServerId: targetServerId,
       previousServerId: previousServerId,
+      returnToSelectionOnCancel: returnToSelectionOnCancel,
     );
     try {
       final authenticated = await ref
@@ -109,6 +119,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         targetServerId: targetServerId,
         previousServerId: previousServerId,
         message: auth?.message,
+        returnToSelectionOnCancel: returnToSelectionOnCancel,
       );
     } catch (error) {
       if (!_isCurrent(operation)) return;
@@ -117,6 +128,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         targetServerId: targetServerId,
         previousServerId: previousServerId,
         message: exception.message,
+        returnToSelectionOnCancel: returnToSelectionOnCancel,
       );
     }
   }
@@ -125,11 +137,13 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     final current = state;
     final targetServerId = current.targetServerId;
     final previousServerId = current.previousServerId;
+    final returnToSelectionOnCancel = current.returnToSelectionOnCancel;
     if (!current.isActive || targetServerId == null) return;
     await switchTo(
       targetServerId,
       allowActiveTarget: true,
       previousServerIdOverride: previousServerId,
+      returnToSelectionOnCancel: returnToSelectionOnCancel,
     );
   }
 
@@ -137,7 +151,19 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     final current = state;
     final previousServerId = current.previousServerId;
     if (!current.isActive) return;
-    final operation = ++_operation;
+    if (current.returnToSelectionOnCancel) {
+      // 初始化选择器中的返回只取消本次目标服务器登录，不再尝试恢复
+      // 上一台服务器。上一台服务器可能从未登录过，恢复它会把用户带回
+      // 另一个登录错误页。
+      ++_operation;
+      ref.read(serverConfigProvider.notifier).showServerSelection();
+      state = const ServerSwitchState.idle();
+      return;
+    }
+
+    // 登录后的首页切换仍恢复原服务器，避免取消切换后丢失当前工作区。
+    ++_operation;
+    final operation = _operation;
     if (previousServerId == null) {
       state = const ServerSwitchState.idle();
       return;
@@ -177,6 +203,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     AuthState auth, {
     required String targetServerId,
     required String? previousServerId,
+    required bool returnToSelectionOnCancel,
     required int operation,
   }) {
     switch (auth.phase) {
@@ -188,6 +215,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
           targetServerId: targetServerId,
           previousServerId: previousServerId,
           message: auth.message,
+          returnToSelectionOnCancel: returnToSelectionOnCancel,
         );
         break;
       case AuthPhase.incompatible:
@@ -198,6 +226,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
           message: auth.message?.trim().isNotEmpty == true
               ? auth.message!
               : '服务器连接失败，请重试或返回当前服务器',
+          returnToSelectionOnCancel: returnToSelectionOnCancel,
         );
         break;
       case AuthPhase.serverSelection:
@@ -206,6 +235,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
           targetServerId: targetServerId,
           previousServerId: previousServerId,
           message: '目标服务器配置无效，请重试或返回当前服务器',
+          returnToSelectionOnCancel: returnToSelectionOnCancel,
         );
         break;
     }
@@ -247,6 +277,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     String serverId, {
     bool allowActiveTarget = false,
     String? previousServerIdOverride,
+    bool returnToSelectionOnCancel = false,
   }) async {
     final current = ref.read(serverConfigProvider);
     if (current == null) return;
@@ -260,6 +291,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     state = ServerSwitchState.checking(
       targetServerId: serverId,
       previousServerId: previousServerId,
+      returnToSelectionOnCancel: returnToSelectionOnCancel,
     );
     try {
       if (current.activeServerId != serverId || allowActiveTarget) {
@@ -272,6 +304,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         auth,
         targetServerId: serverId,
         previousServerId: previousServerId,
+        returnToSelectionOnCancel: returnToSelectionOnCancel,
         operation: operation,
       );
     } catch (error) {
@@ -283,6 +316,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         message: exception.message.trim().isEmpty
             ? '服务器连接失败，请重试或返回当前服务器'
             : exception.message,
+        returnToSelectionOnCancel: returnToSelectionOnCancel,
       );
     }
   }
@@ -376,7 +410,13 @@ class _ServerSwitchTransitionOverlayState
       ServerSwitchPhase.idle => const SizedBox.shrink(),
     };
 
-    return _buildMaterial(context, content);
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(_cancel());
+      },
+      child: _buildMaterial(context, content),
+    );
   }
 
   Widget _buildMaterial(BuildContext context, Widget content) {

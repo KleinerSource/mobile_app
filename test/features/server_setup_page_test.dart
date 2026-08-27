@@ -22,6 +22,7 @@ void main() {
       ),
     );
 
+    await tester.enterText(find.byType(TextField), '');
     await tester.tap(find.text('测试并保存'));
     await tester.pump();
     expect(find.text('请输入服务器地址'), findsOneWidget);
@@ -44,7 +45,7 @@ void main() {
     expect(find.text('地址必须以 http:// 或 https:// 开头'), findsOneWidget);
   });
 
-  testWidgets('未选择服务器类型时无法保存', (tester) async {
+  testWidgets('创建服务器默认选择 Oh-My-Media', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
 
@@ -55,10 +56,11 @@ void main() {
       ),
     );
 
-    await tester.enterText(find.byType(TextField), 'http://127.0.0.1:8001');
-    await tester.tap(find.text('测试并保存'));
-    await tester.pump();
-    expect(find.text('请选择服务器类型'), findsOneWidget);
+    expect(find.text('Oh-My-Media'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      'http://',
+    );
   });
 
   testWidgets('服务器类型与探测结果不匹配时拒绝保存且不改类型', (tester) async {
@@ -87,7 +89,10 @@ void main() {
     );
 
     await tester.enterText(find.byType(TextField), 'http://127.0.0.1:8001');
+    await tester.tap(find.byType(DropdownButton<ServerProject>));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('DB Online'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('测试并保存'));
     await tester.pump();
 
@@ -119,7 +124,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: ServerSetupPage()),
+        child: const MaterialApp(home: ServerSetupPage(editing: true)),
       ),
     );
 
@@ -150,11 +155,19 @@ void main() {
     await tester.tap(find.text('添加'));
     await tester.pumpAndSettle();
     expect(find.text('添加服务器'), findsOneWidget);
+    expect(find.byType(DropdownButton<ServerProject>), findsOneWidget);
+    expect(find.text('Oh-My-Media'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextFormField>(find.byType(TextFormField).at(1))
+          .controller
+          ?.text,
+      'http://',
+    );
 
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), '测试服务器');
     await tester.enterText(fields.at(1), 'http://127.0.0.1:1');
-    await tester.tap(find.text('Oh-My-Media'));
     await tester.tap(find.text('保存'));
     await tester.pump();
     await tester.pump();

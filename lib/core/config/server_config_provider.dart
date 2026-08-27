@@ -31,12 +31,18 @@ final serverLineProbeCoordinatorProvider = Provider<ServerLineProbeCoordinator>(
 final serverSelectionReadyProvider = StateProvider<bool>((ref) => false);
 
 class ServerConfigNotifier extends Notifier<ServerConfig?> {
+  Future<void> _configWriteQueue = Future<void>.value();
+
   @override
   ServerConfig? build() {
     return ref.watch(serverConfigRepoProvider).load();
   }
 
-  Future<void> save(ServerConfig cfg) async {
+  Future<void> save(ServerConfig cfg) {
+    return _enqueueConfigWrite(() => _saveNow(cfg));
+  }
+
+  Future<void> _saveNow(ServerConfig cfg) async {
     final baseUrl = ServerConfig.normalize(cfg.baseUrl);
     ServerProfile? selectedServer;
     for (final server in cfg.servers) {
@@ -144,10 +150,19 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     ref.read(serverSelectionReadyProvider.notifier).state = true;
   }
 
-  Future<void> saveServer(ServerProfile server, {bool select = false}) async {
+  Future<void> saveServer(ServerProfile server, {bool select = false}) {
+    return _enqueueConfigWrite(
+      () => _saveServerNow(server, select: select),
+    );
+  }
+
+  Future<void> _saveServerNow(
+    ServerProfile server, {
+    required bool select,
+  }) async {
     final current = state ?? ref.read(serverConfigRepoProvider).load();
     if (current == null) {
-      await save(
+      await _saveNow(
         ServerConfig(
           baseUrl: server.activeLine?.baseUrl ?? server.lines.first.baseUrl,
           lines: server.lines,
@@ -194,14 +209,12 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
       servers: servers,
       activeServerId: activeServer.id,
     );
-    final repository = ref.read(serverConfigRepoProvider);
-    await repository.save(next);
+    await _saveNow(next);
     if (previousBaseUrl != null &&
         updatedServerBaseUrl != null &&
         previousBaseUrl != updatedServerBaseUrl) {
       await ref.read(serverProfileCacheRepoProvider).remove(server.id);
     }
-    state = repository.load();
     if (select) {
       ref.read(serverSelectionReadyProvider.notifier).state = true;
     }
@@ -247,6 +260,14 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
   void beginEdit() {
     ref.read(serverSelectionReadyProvider.notifier).state = false;
     state = null;
+  }
+
+  Future<void> _enqueueConfigWrite(
+    Future<void> Function() operation,
+  ) {
+    final result = _configWriteQueue.then((_) => operation());
+    _configWriteQueue = result.then<void>((_) {}, onError: (_, __) {});
+    return result;
   }
 }
 
