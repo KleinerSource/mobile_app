@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/server_compatibility.dart';
@@ -121,5 +123,43 @@ void main() {
 
     expect(selection.selected?.versionInfo?.project, ServerProject.ohMyMedia);
     expect(selection.selected?.versionInfo?.version, '2.1.0');
+  });
+
+  test('DBO 线路探测会校验健康状态', () async {
+    final requests = <String>[];
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) {
+      requests.add(request.uri.path);
+      request.response.headers.contentType = ContentType.json;
+      if (request.uri.path == '/api/version') {
+        request.response.write(
+          jsonEncode({
+            'success': true,
+            'data': {'project_name': 'db_online', 'version': '1.13.0'},
+          }),
+        );
+      } else if (request.uri.path == '/api/health') {
+        request.response.write(jsonEncode({'status': 'healthy'}));
+      } else {
+        request.response.statusCode = HttpStatus.notFound;
+      }
+      request.response.close();
+    });
+
+    try {
+      final result = await probeServerLine(
+        ServerLine(
+          id: 'db-online',
+          name: 'DBO',
+          baseUrl: 'http://127.0.0.1:${server.port}',
+        ),
+      );
+
+      expect(result.success, isTrue);
+      expect(result.versionInfo?.project, ServerProject.dbOnline);
+      expect(requests, ['/api/version', '/api/health']);
+    } finally {
+      await server.close(force: true);
+    }
   });
 }

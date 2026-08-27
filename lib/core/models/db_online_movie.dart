@@ -56,6 +56,27 @@ class DbOnlineMovie {
   }
 }
 
+/// dbonline `/latest` 的分页结果。
+///
+/// 旧版服务只返回当前页的 `movies` 和页内 `total`，新版服务可能额外
+/// 返回 `has_more`；调用方统一通过 [hasMore] 决定是否请求下一页。
+@immutable
+class DbOnlineMoviePage {
+  const DbOnlineMoviePage({
+    required this.movies,
+    required this.page,
+    required this.limit,
+    this.total,
+    required this.hasMore,
+  });
+
+  final List<DbOnlineMovie> movies;
+  final int page;
+  final int limit;
+  final int? total;
+  final bool hasMore;
+}
+
 /// dbonline 影片详情中的实体（导演、片商、演员、分类等）。
 @immutable
 class DbOnlinePerson {

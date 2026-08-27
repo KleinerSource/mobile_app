@@ -3,13 +3,12 @@ import 'package:flutter/material.dart';
 import '../../core/api/url_resolver.dart';
 import '../../core/config/server_config.dart';
 import '../../core/models/db_online_movie.dart';
-import '../../core/platform/app_theme.dart';
-import '../../shared/poster.dart';
+import '../../shared/movie_card.dart';
 
-/// dbonline 影片卡片。
+/// dbonline 字段适配器。
 ///
-/// 海报、标题字号、间距和角标均复用 OMM 的 [Poster] 与共享视觉规范，
-/// 只保留 dbonline 自身的字符串番号和在线播放状态字段。
+/// 卡片本身由共享 [CatalogMovieCard] 渲染，这里只负责解析 dbonline 的
+/// 字符串番号、图片地址和元数据，避免再维护一套独立 UI。
 class DbOnlineMovieCard extends StatelessWidget {
   const DbOnlineMovieCard({
     super.key,
@@ -30,80 +29,15 @@ class DbOnlineMovieCard extends StatelessWidget {
     final imageUrl = imageValue == null || config == null
         ? null
         : resolveServerUrl(config!, imageValue);
-    final colors = appColors(context);
-    return SizedBox(
+    return CatalogMovieCard(
+      title: movie.title.isEmpty ? movie.number : movie.title,
+      code: movie.number,
+      imageUrl: imageUrl,
+      meta: _metaText(movie),
       width: width,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                children: [
-                  Poster(
-                    url: imageUrl,
-                    title: movie.title.isEmpty ? movie.number : movie.title,
-                    radius: 10,
-                  ),
-                  if (movie.canPlay)
-                    const Positioned(
-                      top: 6,
-                      right: 6,
-                      child: OnlinePlayBadge(),
-                    ),
-                  if (movie.score != null && movie.score! > 0)
-                    Positioned(
-                      right: 6,
-                      bottom: 6,
-                      child: RatingBadge(rating: movie.score!),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                movie.number.isEmpty ? '未命名番号' : movie.number,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: colors.accent,
-                  fontFamily: 'Inter',
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                movie.title.isEmpty ? '未命名影片' : movie.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: colors.text,
-                  fontFamily: 'Inter',
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                _metaText(movie),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: colors.muted,
-                  fontFamily: 'Inter',
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      rating: movie.score,
+      canPlay: movie.canPlay,
+      onTap: onTap,
     );
   }
 }
@@ -115,7 +49,6 @@ String _metaText(DbOnlineMovie movie) {
   final duration = _durationMinutes(movie.duration);
   if (duration != null && duration > 0) parts.add('${duration}m');
   if (movie.library != null) parts.add(movie.library!);
-  if (movie.magnetsCount > 0) parts.add('${movie.magnetsCount} 磁链');
   if (movie.hasCnsub) parts.add('中字');
   return parts.isEmpty ? '暂无信息' : parts.join(' · ');
 }

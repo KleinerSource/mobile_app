@@ -9,19 +9,13 @@ import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/db_online_movie.dart';
 import '../../core/platform/app_theme.dart';
-import '../../l10n/generated/app_localizations.dart';
-import '../../shared/actor_detail_header.dart';
 import '../home/hero_backdrop.dart';
+import '../home/home_movie_section.dart';
 import '../home/recommend_carousel.dart';
-import '../home/server_switcher.dart';
 import 'db_online_home_providers.dart';
 import 'db_online_movie_card.dart';
-import 'db_online_movie_detail_page.dart';
-
-export 'db_online_movie_card.dart';
-
-const _dbOnlineSectionGap = 24.0;
-const _dbOnlineSectionTitleGap = 14.0;
+import 'db_online_latest_movies_page.dart';
+import 'db_online_movie_navigation.dart';
 
 /// dbonline 首页复用 OMM 首页的氛围背景、半屏折叠 hero、轮播和顶部服务器切换器。
 /// 仅替换数据提供者和详情跳转，避免维护另一套首页布局。
@@ -41,15 +35,6 @@ class _DbOnlineHomePageState extends ConsumerState<DbOnlineHomePage> {
     _heroArts.dispose();
     _heroPagePosition.dispose();
     super.dispose();
-  }
-
-  String _greeting(AppL10n l) {
-    final hour = DateTime.now().hour;
-    if (hour < 5) return l.greetingNight;
-    if (hour < 12) return l.greetingMorning;
-    if (hour < 18) return l.greetingAfternoon;
-    if (hour < 22) return l.greetingEvening;
-    return l.greetingNight;
   }
 
   Future<void> _refreshHome() async {
@@ -92,51 +77,10 @@ class _DbOnlineHomePageState extends ConsumerState<DbOnlineHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = appColors(context);
-    final l = AppL10n.of(context);
     final config = ref.watch(serverConfigProvider);
     final recommend = ref.watch(dbOnlineRecommendProvider);
     final updated = ref.watch(dbOnlineLatestUpdatedProvider);
     final released = ref.watch(dbOnlineLatestReleasedProvider);
-
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final heroMaxHeight = screenHeight * 0.5;
-    final heroMinHeight = heroMaxHeight * 0.62;
-    final topInset = MediaQuery.paddingOf(context).top;
-
-    Widget greetingRow({required bool onHero}) => Padding(
-      padding: EdgeInsets.fromLTRB(22, 12 + topInset, 22, 0),
-      child: Row(
-        children: [
-          Expanded(
-            child: onHero
-                ? IgnorePointer(
-                    child: Text(
-                      _greeting(l),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                        letterSpacing: 0.24,
-                      ),
-                    ),
-                  )
-                : Text(
-                    _greeting(l),
-                    style: TextStyle(
-                      color: colors.muted,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                      letterSpacing: 0.24,
-                    ),
-                  ),
-          ),
-          const HomeServerSwitcher(),
-        ],
-      ),
-    );
 
     final heroReady = recommend.when(
       loading: () => false,
@@ -155,94 +99,133 @@ class _DbOnlineHomePageState extends ConsumerState<DbOnlineHomePage> {
       }
     });
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        HeroBackdrop(arts: _heroArts, position: _heroPagePosition),
-        SafeArea(
-          top: false,
-          bottom: false,
-          child: RefreshIndicator(
-            onRefresh: _refreshHome,
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                if (heroReady)
-                  recommend.when(
-                    loading: () =>
-                        const SliverToBoxAdapter(child: SizedBox.shrink()),
-                    error: (_, __) =>
-                        const SliverToBoxAdapter(child: SizedBox.shrink()),
-                    data: (items) => SliverPersistentHeader(
-                      pinned: false,
-                      delegate: CollapsibleHeroDelegate(
-                        minHeight: heroMinHeight,
-                        maxHeight: heroMaxHeight,
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: RecommendCarousel.dbOnline(
-                                items: items,
-                                imageUrlBuilder: (movie) => _dbOnlineImageUrl(
-                                  movie,
-                                  config,
-                                  horizontal: true,
-                                ),
-                                pagePosition: _heroPagePosition,
-                                onMovieTap: _openDbOnlineMovie,
-                              ),
-                            ),
-                            Positioned(
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              child: greetingRow(onHero: true),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  SliverToBoxAdapter(
-                    child: Column(
-                      children: [
-                        greetingRow(onHero: false),
-                        _DbOnlineRecommendFallback(
-                          value: recommend,
-                          height: heroMaxHeight,
-                          onRetry: () =>
-                              ref.invalidate(dbOnlineRecommendProvider),
-                        ),
-                      ],
-                    ),
-                  ),
-                SliverToBoxAdapter(
-                  child: _DbOnlineSection(
-                    title: '最近更新',
-                    value: updated,
-                    config: config,
-                    onRetry: () =>
-                        ref.invalidate(dbOnlineLatestUpdatedProvider),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: _DbOnlineSection(
-                    title: '最新上架',
-                    value: released,
-                    config: config,
-                    onRetry: () =>
-                        ref.invalidate(dbOnlineLatestReleasedProvider),
-                  ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 120)),
-              ],
+    final heroMaxHeight = MediaQuery.sizeOf(context).height * 0.5;
+    return HomePageScaffold(
+      heroArts: _heroArts,
+      heroPosition: _heroPagePosition,
+      heroReady: heroReady,
+      hero: recommend.when(
+        loading: () => const SizedBox.shrink(),
+        error: (_, __) => const SizedBox.shrink(),
+        data: (items) => Stack(
+          children: [
+            Positioned.fill(
+              child: RecommendCarousel.dbOnline(
+                items: items,
+                imageUrlBuilder: (movie) =>
+                    _dbOnlineImageUrl(movie, config, horizontal: true),
+                pagePosition: _heroPagePosition,
+                onMovieTap: openDbOnlineMovie,
+              ),
+            ),
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: HomeGreetingRow(onHero: true),
+            ),
+          ],
+        ),
+      ),
+      heroFallback: Column(
+        children: [
+          const HomeGreetingRow(onHero: false),
+          _DbOnlineRecommendFallback(
+            value: recommend,
+            height: heroMaxHeight,
+            onRetry: () => ref.invalidate(dbOnlineRecommendProvider),
+          ),
+        ],
+      ),
+      onRefresh: _refreshHome,
+      slivers: [
+        SliverToBoxAdapter(
+          child: HomeMovieSection<List<DbOnlineMovie>, DbOnlineMovie>(
+            title: '最近更新',
+            value: updated,
+            itemsOf: (items) => items,
+            onRetry: () => ref.invalidate(dbOnlineLatestUpdatedProvider),
+            trailing: _SeeAllButton(
+              onPressed: () => unawaited(
+                _openDbOnlineLatestMovies(context, sortBy: 'update'),
+              ),
+            ),
+            itemKeyBuilder: (movie) =>
+                movie.id.isEmpty ? movie.number : movie.id,
+            itemBuilder: (context, movie) => DbOnlineMovieCard(
+              movie: movie,
+              config: config,
+              width: 132,
+              onTap: () => openDbOnlineMovieUnawaited(context, movie),
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: HomeMovieSection<List<DbOnlineMovie>, DbOnlineMovie>(
+            title: '最新上架',
+            value: released,
+            itemsOf: (items) => items,
+            onRetry: () => ref.invalidate(dbOnlineLatestReleasedProvider),
+            trailing: _SeeAllButton(
+              onPressed: () => unawaited(
+                _openDbOnlineLatestMovies(context, sortBy: 'release'),
+              ),
+            ),
+            itemKeyBuilder: (movie) =>
+                movie.id.isEmpty ? movie.number : movie.id,
+            itemBuilder: (context, movie) => DbOnlineMovieCard(
+              movie: movie,
+              config: config,
+              width: 132,
+              onTap: () => openDbOnlineMovieUnawaited(context, movie),
             ),
           ),
         ),
       ],
+      heroMaxHeight: heroMaxHeight,
     );
   }
+}
+
+class _SeeAllButton extends StatelessWidget {
+  const _SeeAllButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return TextButton.icon(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: colors.accent,
+        padding: EdgeInsets.zero,
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+      ),
+      icon: const Icon(Icons.arrow_forward_ios_rounded, size: 13),
+      label: const Text(
+        '查看全部',
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _openDbOnlineLatestMovies(
+  BuildContext context, {
+  required String sortBy,
+}) async {
+  await Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      builder: (_) => DbOnlineLatestMoviesPage(sortBy: sortBy),
+    ),
+  );
 }
 
 class _DbOnlineRecommendFallback extends StatelessWidget {
@@ -287,121 +270,6 @@ class _DbOnlineRecommendFallback extends StatelessWidget {
                 child: Text('暂无数据', style: TextStyle(color: colors.muted)),
               )
             : const SizedBox.shrink(),
-      ),
-    );
-  }
-}
-
-Future<void> _openDbOnlineMovie(
-  BuildContext context,
-  DbOnlineMovie movie,
-) async {
-  final code = movie.number.trim();
-  final videoId = movie.id.trim();
-  if (code.isEmpty && videoId.isEmpty) return;
-  await Navigator.of(context).push<void>(
-    MaterialPageRoute<void>(
-      builder: (_) => code.isNotEmpty
-          ? DbOnlineMovieDetailPage(code: code)
-          : DbOnlineMovieDetailPage.byVideoId(videoId: videoId),
-    ),
-  );
-}
-
-class _DbOnlineSection extends StatelessWidget {
-  const _DbOnlineSection({
-    required this.title,
-    required this.value,
-    required this.config,
-    required this.onRetry,
-  });
-
-  final String title;
-  final AsyncValue<List<DbOnlineMovie>> value;
-  final ServerConfig? config;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: _dbOnlineSectionGap),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: Text(title, style: AppText.sectionTitle(context)),
-          ),
-          const SizedBox(height: _dbOnlineSectionTitleGap),
-          value.when(
-            loading: () => const SizedBox(
-              height: 220,
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (error, _) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 18,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.surface.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: colors.divider),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        toApiException(error).message,
-                        style: TextStyle(color: colors.muted),
-                      ),
-                    ),
-                    TextButton(onPressed: onRetry, child: const Text('重试')),
-                  ],
-                ),
-              ),
-            ),
-            data: (items) => items.isEmpty
-                ? SizedBox(
-                    height: 100,
-                    child: Center(
-                      child: Text(
-                        '暂无数据',
-                        style: TextStyle(color: colors.muted),
-                      ),
-                    ),
-                  )
-                : SizedBox(
-                    height: 268,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 22),
-                      itemCount: items.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (_, index) {
-                        final movie = items[index];
-                        return SizedBox(
-                          key: ValueKey(
-                            movie.id.isEmpty ? movie.number : movie.id,
-                          ),
-                          width: 132,
-                          child: DbOnlineMovieCard(
-                            movie: movie,
-                            config: config,
-                            width: 132,
-                            onTap: () =>
-                                unawaited(_openDbOnlineMovie(context, movie)),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-          ),
-        ],
       ),
     );
   }

@@ -136,6 +136,12 @@ class OmmApp extends ConsumerWidget {
                 ? const ServerSetupPage()
                 : serverSwitch.isActive
                 ? const _AuthenticatedHomeWithServerSwitch()
+                // 首次保存服务器配置会让 auth provider 从“未配置”状态
+                // 重新启动。此时不能因 skipLoadingOnReload 继续渲染首页，
+                // 否则 DBO 会在登录完成前发起受保护请求并得到 401。
+                : auth.isLoading &&
+                      auth.valueOrNull?.phase == AuthPhase.unconfigured
+                ? const _StartupLoading()
                 : auth.when(
                     // reload（如选择服务器保存配置）期间保持上一状态渲染，
                     // 避免登录/选择页被启动加载页替换导致表单状态丢失。
@@ -183,14 +189,16 @@ String _rootStageKey(
   if (cfg == null) return 'setup';
   if (serverSwitch.isActive) return 'server-switch';
   final state = auth.valueOrNull;
-  if (auth.isLoading && state == null) return 'loading';
+  if (auth.isLoading &&
+      (state == null || state.phase == AuthPhase.unconfigured)) {
+    return 'loading';
+  }
   if (auth.hasError) return 'error';
   return switch (state?.phase) {
     AuthPhase.needsLogin ||
     AuthPhase.totpRequired ||
     AuthPhase.serverSelection => 'login',
-    AuthPhase.incompatible ||
-    AuthPhase.unavailable => 'unavailable',
+    AuthPhase.incompatible || AuthPhase.unavailable => 'unavailable',
     _ => 'home',
   };
 }
@@ -200,9 +208,14 @@ class _AuthenticatedHomeWithServerSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Stack(
+    // 切换期间不能挂载 MainShell：目标服务器尚未完成鉴权时，DBO 首页
+    // 会立即请求 recommend/latest 等受保护接口并产生 401。
+    return Stack(
       fit: StackFit.expand,
-      children: [_AuthenticatedHome(), ServerSwitchTransitionOverlay()],
+      children: [
+        ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
+        const ServerSwitchTransitionOverlay(),
+      ],
     );
   }
 }
@@ -269,14 +282,13 @@ class _StartupLoading extends ConsumerWidget {
                 size: 112,
                 busy: true,
                 colors: c,
+                project: server?.project,
               ),
               if (displayName.isNotEmpty) ...[
                 const SizedBox(height: 18),
                 Text(
                   displayName,
-                  style: AppText.body(
-                    context,
-                  ).copyWith(color: c.muted),
+                  style: AppText.body(context).copyWith(color: c.muted),
                 ),
               ],
             ],

@@ -316,6 +316,22 @@ class AppText {
     fontSize: 12,
   );
 
+  /// 影片卡片专用标题/元数据字号，OMM 与其他数据源卡片共用。
+  static TextStyle movieCardTitle(BuildContext c) => TextStyle(
+    color: appColors(c).text,
+    fontFamily: 'Inter',
+    fontSize: 12.5,
+    fontWeight: FontWeight.w700,
+    height: 1.2,
+  );
+
+  static TextStyle movieCardMeta(BuildContext c) => TextStyle(
+    color: appColors(c).muted,
+    fontFamily: 'Inter',
+    fontSize: 10.5,
+    fontWeight: FontWeight.w600,
+  );
+
   static TextStyle eyebrow(BuildContext c, {Color? color}) => TextStyle(
     color: color ?? appColors(c).muted,
     fontFamily: 'Inter',

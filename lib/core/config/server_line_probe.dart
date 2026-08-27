@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
+import '../api/api_exception.dart';
 import '../api/dio_factory.dart';
 import '../api/server_compatibility.dart';
 import 'server_config.dart';
@@ -232,6 +233,19 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
       ),
     );
     final versionInfo = requireCompatibleServerVersion(response.data);
+    if (versionInfo.project == ServerProject.dbOnline) {
+      final healthResponse = await dio.get<dynamic>(
+        '/health',
+        options: Options(
+          extra: const {
+            'skipAuth': true,
+            'skipRefresh': true,
+            'skipRetry': true,
+          },
+        ),
+      );
+      _requireHealthyServer(healthResponse.data);
+    }
     stopwatch.stop();
     return ServerLineProbeResult.success(
       line,
@@ -249,5 +263,26 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
           exception.status == 401 ||
           exception.status == 404,
     );
+  }
+}
+
+void _requireHealthyServer(Object? raw) {
+  if (raw is! Map) {
+    throw ApiException('服务器健康检查响应格式异常');
+  }
+  final envelope = Map<String, dynamic>.from(raw);
+  if (envelope['success'] == false) {
+    throw ApiException(
+      envelope['message']?.toString() ??
+          envelope['error']?.toString() ??
+          '服务器健康检查未通过',
+    );
+  }
+
+  final payload = envelope['data'] is Map
+      ? Map<String, dynamic>.from(envelope['data'] as Map)
+      : envelope;
+  if (payload['status']?.toString().trim().toLowerCase() != 'healthy') {
+    throw ApiException('服务器健康检查未通过');
   }
 }

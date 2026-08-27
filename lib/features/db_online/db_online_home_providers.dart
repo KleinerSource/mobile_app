@@ -24,6 +24,45 @@ final dbOnlineLatestReleasedProvider =
           .latest(sortBy: 'release');
     });
 
+/// 全部列表页按排序方式读取单页数据；页面本身负责在滚动到底部时请求下一页。
+final dbOnlineLatestPageProvider = FutureProvider.autoDispose
+    .family<DbOnlineMoviePage, DbOnlineLatestPageRequest>((ref, request) {
+      return ref
+          .watch(requiredApiClientProvider)
+          .dbOnline
+          .latestPage(
+            page: request.page,
+            limit: request.limit,
+            sortBy: request.sortBy,
+            sort: request.sort,
+          );
+    });
+
+class DbOnlineLatestPageRequest {
+  const DbOnlineLatestPageRequest({
+    required this.page,
+    required this.limit,
+    required this.sortBy,
+    this.sort,
+  });
+
+  final int page;
+  final int limit;
+  final String sortBy;
+  final String? sort;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DbOnlineLatestPageRequest &&
+      other.page == page &&
+      other.limit == limit &&
+      other.sortBy == sortBy &&
+      other.sort == sort;
+
+  @override
+  int get hashCode => Object.hash(page, limit, sortBy, sort);
+}
+
 final dbOnlineMovieDetailProvider = FutureProvider.autoDispose
     .family<DbOnlineMovieDetail, String>((ref, code) {
       return ref

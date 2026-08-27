@@ -16,7 +16,6 @@ import '../../shared/filter_chip.dart';
 import '../../shared/glass.dart';
 import '../../shared/glass_menu.dart';
 import '../../shared/movie_card.dart';
-import '../../shared/poster.dart';
 import '../../shared/actor_avatar.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../favorites/favorites_providers.dart';
@@ -342,7 +341,6 @@ class _HeroHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = appColors(context);
     // fanart fallback poster fallback thumb
     final heroUuid = movie.fanartUuid?.isNotEmpty == true
         ? movie.fanartUuid
@@ -379,56 +377,18 @@ class _HeroHeader extends ConsumerWidget {
           movie.hasInternalSubtitle ||
           mediaInfo?.streams.subtitleStreams.isNotEmpty == true,
     ).where((badge) => badgeVisibility.isEnabled(badge.kind)).toList();
+    final imageUrl = heroUuid == null ? null : urlBuilder(heroUuid);
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // ---------- 横版主图 (满铺 cover · 底部渐隐) ----------
-        // 封面不渐变到纯色底,而是整体向下淡出为透明,
-        // 与页面底层同图的模糊氛围背景无缝衔接,避免出现分割线
-        ShaderMask(
-          blendMode: BlendMode.dstIn,
-          shaderCallback: (bounds) => const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.white, Colors.white, Colors.transparent],
-            stops: [0.0, 0.45, 1.0],
-          ).createShader(bounds),
-          child: heroUuid != null
-              ? Poster(
-                  url: urlBuilder(heroUuid),
-                  title: movie.title,
-                  year: movie.year,
-                  aspectRatio: 16 / 9,
-                  radius: 0,
-                  imageAlignment: const Alignment(0, -0.6),
-                )
-              : ColoredBox(color: c.surfaceAlt),
-        ),
-        // ---------- 顶部小渐变让悬浮按钮/状态栏文字可读 ----------
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.35),
-                Colors.transparent,
-              ],
-              stops: const [0.0, 0.35],
-            ),
-          ),
-        ),
-        // ---------- 底部技术徽章 ----------
-        if (badges.isNotEmpty)
-          Align(
-            alignment: Alignment.bottomLeft,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: CoverBadgeRow(badges: badges),
-            ),
-          ),
-      ],
+    return MovieDetailHero(
+      imageUrl: imageUrl,
+      title: movie.title,
+      year: movie.year,
+      bottomOverlay: badges.isEmpty ? null : CoverBadgeRow(badges: badges),
+      onTap: imageUrl == null
+          ? null
+          : () {
+              showMovieImageLightbox(context, urls: [imageUrl]);
+            },
     );
   }
 }
@@ -439,84 +399,12 @@ class _TitleBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = appColors(context);
-    const baseStyle = TextStyle(
-      fontFamily: 'Inter',
-      fontWeight: FontWeight.w600,
-      fontSize: 11.5,
-      letterSpacing: 1.4,
-    );
-    final dot = TextSpan(
-      text: '  ·  ',
-      style: baseStyle.copyWith(color: c.muted),
-    );
-    final spans = <InlineSpan>[];
-    void add(InlineSpan s) {
-      if (spans.isNotEmpty) spans.add(dot);
-      spans.add(s);
-    }
-
-    if (movie.year != null) {
-      add(
-        TextSpan(
-          text: '${movie.year}',
-          style: baseStyle.copyWith(color: c.muted),
-        ),
-      );
-    }
-    if (movie.runtime != null && movie.runtime! > 0) {
-      add(
-        TextSpan(
-          text: '${movie.runtime} MIN',
-          style: baseStyle.copyWith(color: c.accent),
-        ),
-      );
-    }
-    // 国家不在标题元信息中展示,由"详细信息"表的产地行统一显示
-    if (movie.rating != null && movie.rating! > 0) {
-      add(
-        TextSpan(
-          text: '★ ${movie.rating!.toStringAsFixed(1)}',
-          style: baseStyle.copyWith(color: c.warning),
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          movie.title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: c.text,
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w800,
-            fontSize: 28,
-            letterSpacing: -0.84,
-            height: 1.1,
-          ),
-        ),
-        if (movie.originalTitle != null &&
-            movie.originalTitle != movie.title) ...[
-          const SizedBox(height: 4),
-          Text(
-            movie.originalTitle!,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: c.muted,
-              fontStyle: FontStyle.italic,
-              fontSize: 13,
-            ),
-          ),
-        ],
-        const SizedBox(height: 12),
-        if (spans.isNotEmpty)
-          RichText(
-            textAlign: TextAlign.center,
-            text: TextSpan(children: spans),
-          ),
-      ],
+    return MovieDetailTitle(
+      title: movie.title,
+      originalTitle: movie.originalTitle,
+      year: movie.year,
+      runtime: movie.runtime,
+      rating: movie.rating,
     );
   }
 }
@@ -1177,6 +1065,33 @@ Widget _trailerPlaceholder(BuildContext context) {
         end: Alignment.bottomRight,
         colors: [c.surfaceAlt, c.surface],
       ),
+    ),
+  );
+}
+
+/// 对外复用 OMM 详情页已有的图片灯箱实现，其他数据源不再重复维护一套。
+Future<void> showMovieImageLightbox(
+  BuildContext context, {
+  required List<String> urls,
+  int initialIndex = 0,
+}) {
+  final validUrls = urls
+      .map((url) => url.trim())
+      .where((url) => url.isNotEmpty)
+      .toList(growable: false);
+  if (validUrls.isEmpty) return Future<void>.value();
+  final safeIndex = initialIndex.clamp(0, validUrls.length - 1).toInt();
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: '关闭预览图',
+    barrierColor: Colors.transparent,
+    pageBuilder: (_, __, ___) => _ExtraFanartViewer(
+      urls: validUrls,
+      trailerUrl: null,
+      posterUrl: null,
+      initialIndex: safeIndex,
+      onPageChanged: (_) {},
     ),
   );
 }

@@ -82,6 +82,23 @@ void main() {
     expect(store.values.keys, everyElement(startsWith('omm.auth.server.')));
   });
 
+  test('DBO 服务器不会迁移旧版全局会话', () async {
+    final store = _MemoryTokenStore();
+    final repository = AuthSessionRepository(store: store);
+    await repository.save(
+      const AuthSession(
+        accessToken: 'legacy-access',
+        refreshToken: 'legacy-refresh',
+        expiresIn: 3600,
+      ),
+    );
+
+    repository.setActiveServerId('dbo-server', allowLegacyMigration: false);
+
+    expect(await repository.current(), isNull);
+    expect(store.values['omm.auth.access_token'], 'legacy-access');
+  });
+
   test('固定作用域客户端不会因主仓库切换服务器而串用会话', () async {
     final store = _MemoryTokenStore();
     final repository = AuthSessionRepository(store: store);

@@ -4,6 +4,7 @@ import '../auth/auth_session_repository.dart';
 import '../config/server_config.dart';
 import 'dio_factory.dart';
 import 'services/auth_api.dart';
+import 'server_compatibility.dart';
 import 'services/actors_api.dart';
 import 'services/audio_api.dart';
 import 'services/configs_api.dart';
@@ -56,9 +57,15 @@ class ApiClient {
     AuthSessionRepository? sessionRepository,
     void Function()? onSessionExpired,
   }) {
-    sessionRepository?.setActiveServerId(config.activeServerId);
+    final allowLegacyMigration =
+        config.activeServer?.project != ServerProject.dbOnline;
+    sessionRepository?.setActiveServerId(
+      config.activeServerId,
+      allowLegacyMigration: allowLegacyMigration,
+    );
     final scopedSessionRepository = sessionRepository?.forServer(
       config.activeServerId,
+      allowLegacyMigration: allowLegacyMigration,
     );
     return ApiClient(
       buildDio(

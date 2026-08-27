@@ -308,8 +308,8 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   }
 }
 
-/// 首页服务器切换的全屏材质层。底层主界面保持不变，目标服务器的探测和登录
-/// 都在此层完成，因此不会短暂渲染服务器选择页。
+/// 首页服务器切换的全屏材质层。切换期间根路由只挂载静态背景和此层，目标服务器
+/// 的探测和登录都在此层完成，因此不会在鉴权完成前构建首页请求。
 class ServerSwitchTransitionOverlay extends ConsumerStatefulWidget {
   const ServerSwitchTransitionOverlay({super.key});
 
@@ -451,6 +451,7 @@ class _ServerSwitchTransitionOverlayState
           size: 112,
           busy: true,
           colors: colors,
+          project: server.project,
         ),
         const SizedBox(height: 20),
         Text(
@@ -498,6 +499,7 @@ class _ServerSwitchTransitionOverlayState
           size: 136,
           busy: _loginBusy,
           colors: colors,
+          project: server.project,
         ),
         const SizedBox(height: 20),
         Text(
@@ -602,6 +604,7 @@ class _ServerSwitchTransitionOverlayState
           avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
           size: 96,
           colors: colors,
+          project: server.project,
         ),
         const SizedBox(height: 18),
         Text(

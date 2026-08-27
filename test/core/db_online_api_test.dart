@@ -14,6 +14,7 @@ void main() {
     final recommend = await api.recommend();
     final updated = await api.latest(sortBy: 'update');
     final released = await api.latest(sortBy: 'release');
+    final page = await api.latestPage(page: 2, limit: 24, sort: 'release');
     final detail = await api.detail('ABC-001');
     final detailByVideoId = await api.detailByVideoId('vid-1');
     final episodes = await api.onlinePlayEpisodes(
@@ -27,6 +28,8 @@ void main() {
     expect(recommend.single.canPlay, isTrue);
     expect(updated, isNotEmpty);
     expect(released, isNotEmpty);
+    expect(page.movies, isNotEmpty);
+    expect(page.hasMore, isTrue);
     expect(detail.code, 'ABC-001');
     expect(detailByVideoId.code, 'ABC-001');
     expect(detail.canPlay, isTrue);
@@ -36,12 +39,28 @@ void main() {
     expect(episodes.episodes.single.url, contains('playlist.m3u8'));
     expect(adapter.requests, <String>[
       '/api/recommend?page=1&limit=9',
-      '/api/latest?page=1&limit=9&type=all&sort_by=update&filter_by=magnets',
-      '/api/latest?page=1&limit=9&type=all&sort_by=release&filter_by=magnets',
+      '/api/latest?page=1&limit=9&type=all&sort=update&sort_by=update&filter_by=magnets',
+      '/api/latest?page=1&limit=9&type=all&sort=release&sort_by=release&filter_by=magnets',
+      '/api/latest?page=2&limit=24&type=all&sort=release&sort_by=release&filter_by=magnets',
       '/api/video/ABC-001?refresh=true',
       '/api/video/id/vid-1?refresh=true',
       '/api/video/ABC-001/online-play/episodes?source_id=2&video_id=vid-1',
     ]);
+  });
+
+  test('latestPage 优先使用 has_more，并在旧响应中按页大小推断', () async {
+    final adapter = _DbOnlinePageAdapter();
+    final api = DbOnlineApi(
+      Dio(BaseOptions(baseUrl: 'http://test/api'))..httpClientAdapter = adapter,
+    );
+
+    final first = await api.latestPage(page: 1, limit: 2, sort: 'update');
+    final last = await api.latestPage(page: 2, limit: 2, sort: 'update');
+
+    expect(first.movies, hasLength(2));
+    expect(first.hasMore, isTrue);
+    expect(last.movies, hasLength(1));
+    expect(last.hasMore, isFalse);
   });
 }
 
@@ -126,6 +145,7 @@ class _DbOnlineAdapter implements HttpClientAdapter {
     return {
       'success': true,
       'data': {
+        if (path.contains('/latest')) 'has_more': true,
         'movies': [
           {
             'id': 'movie-1',
@@ -142,5 +162,37 @@ class _DbOnlineAdapter implements HttpClientAdapter {
         ],
       },
     };
+  }
+}
+
+class _DbOnlinePageAdapter implements HttpClientAdapter {
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final page = int.tryParse(options.queryParameters['page'].toString()) ?? 1;
+    final movies = [
+      for (var i = 0; i < (page == 1 ? 2 : 1); i++)
+        {
+          'id': 'movie-$page-$i',
+          'number': 'ABC-$page$i',
+          'title': '影片$page-$i',
+        },
+    ];
+    return ResponseBody.fromString(
+      jsonEncode({
+        'success': true,
+        'data': {'movies': movies},
+      }),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
   }
 }

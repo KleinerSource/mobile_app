@@ -9,11 +9,36 @@ import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/models/resource.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/movie_detail/movie_detail_page.dart';
+import 'package:omm/features/movie_detail/movie_detail_scaffold.dart';
 import 'package:omm/features/movies/movies_providers.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  testWidgets('有封面时显示统一灯箱入口并响应点击', (tester) async {
+    var tapped = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(brightness: Brightness.dark),
+        home: Scaffold(
+          body: SizedBox(
+            height: 320,
+            child: MovieDetailHero(
+              title: '示例影片',
+              imageUrl: 'https://example.test/cover.jpg',
+              onTap: () => tapped = true,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byTooltip('查看封面大图'), findsOneWidget);
+    await tester.tap(find.byTooltip('查看封面大图'));
+    expect(tapped, isTrue);
+  });
+
   testWidgets('详情顶部封面上滑先收窄再整体推出,状态栏穿透且悬浮返回可用', (tester) async {
     tester.view.physicalSize = const Size(600, 500);
     tester.view.devicePixelRatio = 1.0;

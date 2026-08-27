@@ -40,9 +40,11 @@ class AuthSessionRepository {
     required AuthTokenStore store,
     required _AuthSessionState state,
     required String? serverId,
+    required bool allowLegacyMigration,
   }) : _store = store,
        _state = state,
-       _activeServerId = serverId;
+       _activeServerId = serverId,
+       _allowLegacyMigration = allowLegacyMigration;
 
   static const _accessKey = 'omm.auth.access_token';
   static const _refreshKey = 'omm.auth.refresh_token';
@@ -51,15 +53,17 @@ class AuthSessionRepository {
   final AuthTokenStore _store;
   final _AuthSessionState _state;
   String? _activeServerId;
+  bool _allowLegacyMigration = true;
   int _scopeGeneration = 0;
 
   /// 切换当前服务器后，后续会话读写都只作用于该服务器。
   ///
   /// 服务器 ID 来自本地配置，不是用户输入的密码或令牌；这里仅对它做
   /// 可逆编码，避免把任意字符直接拼接到安全存储键中。
-  void setActiveServerId(String? serverId) {
+  void setActiveServerId(String? serverId, {bool allowLegacyMigration = true}) {
     final normalized = serverId?.trim();
     final next = normalized == null || normalized.isEmpty ? null : normalized;
+    _allowLegacyMigration = allowLegacyMigration;
     if (next == _activeServerId) return;
     _activeServerId = next;
     _scopeGeneration++;
@@ -69,11 +73,15 @@ class AuthSessionRepository {
 
   /// 为网络客户端创建固定服务器作用域，避免旧客户端在切换服务器后
   /// 误读到新服务器的会话。
-  AuthSessionRepository forServer(String? serverId) {
+  AuthSessionRepository forServer(
+    String? serverId, {
+    bool allowLegacyMigration = true,
+  }) {
     return AuthSessionRepository._scoped(
       store: _store,
       state: _state,
       serverId: serverId,
+      allowLegacyMigration: allowLegacyMigration,
     );
   }
 
@@ -86,7 +94,7 @@ class AuthSessionRepository {
 
     // 兼容升级前只有一组全局 token 的版本。迁移成功后删除旧键，避免
     // 旧会话被错误地复用到其他服务器。
-    if (session == null && serverId != null) {
+    if (session == null && serverId != null && _allowLegacyMigration) {
       if (_scopeGeneration != generation) return load();
       session = await _readSession(
         accessKey: _accessKey,

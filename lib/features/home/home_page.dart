@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/library.dart';
 import '../../core/models/movie.dart';
+import '../../core/models/paged_result.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
-import '../../shared/actor_detail_header.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/poster.dart';
 import '../../shared/collection_card_layout.dart';
@@ -22,10 +22,10 @@ import '../movies/movies_providers.dart';
 import '../player/player_page.dart';
 import '../privacy/privacy_mask.dart';
 import 'hero_backdrop.dart';
+import 'home_movie_section.dart';
 import 'home_providers.dart';
 import 'home_movie_view_state.dart';
 import 'recommend_carousel.dart';
-import 'server_switcher.dart';
 
 const _homeSectionGap = 24.0;
 const _homeSectionTitleGap = 14.0;
@@ -57,15 +57,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     _heroArts.dispose();
     _heroPagePosition.dispose();
     super.dispose();
-  }
-
-  String _greeting(AppL10n l) {
-    final h = DateTime.now().hour;
-    if (h < 5) return l.greetingNight;
-    if (h < 12) return l.greetingMorning;
-    if (h < 18) return l.greetingAfternoon;
-    if (h < 22) return l.greetingEvening;
-    return l.greetingNight;
   }
 
   Future<void> _refreshHome() async {
@@ -110,6 +101,15 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (mounted) _refreshMovieSections(changesBeforeVisit);
   }
 
+  Future<void> _openRecentMovie(MovieListItem movie) async {
+    final changesBeforeVisit = MovieDataChanges.snapshot(movieId: movie.id);
+    unawaited(ref.read(homeMovieViewStateProvider).markMovieViewed(movie.id));
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
+    );
+    if (mounted) _refreshMovieSections(changesBeforeVisit);
+  }
+
   /// 轮播数据变化时同步封面艺术列表(与页位一一对应,含无封面占位)
   void _syncHeroArts(List<MovieListItem> items) {
     final urlBuilder = ref.read(imageUrlBuilderProvider);
@@ -142,48 +142,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     final carousel = ref.watch(recommendCarouselProvider);
     final libraries = ref.watch(librariesProvider);
     final urlBuilder = ref.watch(imageUrlBuilderProvider);
-
-    final screenH = MediaQuery.sizeOf(context).height;
-    final heroMaxHeight = screenH * 0.5;
-    final heroMinHeight = heroMaxHeight * 0.62;
-
-    // 问候行 · 有 hero 时叠加在 hero 顶部,否则作为普通行;
-    // 叠加态文本忽略命中,避免挡住下方 PageView 的滑动;
-    // 顶部无 SafeArea,自行让出状态栏高度
-    final topInset = MediaQuery.paddingOf(context).top;
-    Widget greetingRow({required bool onHero}) => Padding(
-      padding: EdgeInsets.fromLTRB(22, 12 + topInset, 22, 0),
-      child: Row(
-        children: [
-          Expanded(
-            child: onHero
-                ? IgnorePointer(
-                    child: Text(
-                      _greeting(l),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                        letterSpacing: 0.24,
-                      ),
-                    ),
-                  )
-                : Text(
-                    _greeting(l),
-                    style: TextStyle(
-                      color: c.muted,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                      letterSpacing: 0.24,
-                    ),
-                  ),
-          ),
-          const HomeServerSwitcher(),
-        ],
-      ),
-    );
+    final viewedMovieIds = ref
+        .watch(homeMovieViewStateProvider)
+        .viewedMovieIds();
 
     // hero 数据就绪且非空才渲染半屏折叠头
     final heroReady = carousel.when(
@@ -203,169 +164,139 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // -------- 氛围背景: 当前 hero 封面 + 毛玻璃 --------
-        HeroBackdrop(arts: _heroArts, position: _heroPagePosition),
-        // -------- 滚动内容 --------
-        // 顶部不设 SafeArea,hero 轮播延伸至状态栏下方
-        SafeArea(
-          top: false,
-          bottom: false,
-          child: RefreshIndicator(
-            onRefresh: _refreshHome,
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                // -------- 1. 半屏 hero 轮播 (上滑收窄再推出) --------
-                if (heroReady)
-                  carousel.when(
-                    loading: () =>
-                        const SliverToBoxAdapter(child: SizedBox.shrink()),
-                    error: (_, __) =>
-                        const SliverToBoxAdapter(child: SizedBox.shrink()),
-                    data: (items) => SliverPersistentHeader(
-                      pinned: false,
-                      delegate: CollapsibleHeroDelegate(
-                        minHeight: heroMinHeight,
-                        maxHeight: heroMaxHeight,
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: RecommendCarousel(
-                                items: items,
-                                urlBuilder: urlBuilder,
-                                pagePosition: _heroPagePosition,
-                                onMovieReturned: _refreshMovieSections,
-                              ),
-                            ),
-                            Positioned(
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              child: greetingRow(onHero: true),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: greetingRow(onHero: false),
-                    ),
-                  ),
-
-                // -------- 2. Continue Watching --------
-                continueW.when(
-                  loading: () =>
-                      const SliverToBoxAdapter(child: SizedBox.shrink()),
-                  error: (_, __) =>
-                      const SliverToBoxAdapter(child: SizedBox.shrink()),
-                  data: (items) {
-                    if (items.isEmpty) {
-                      return const SliverToBoxAdapter(child: SizedBox.shrink());
-                    }
-                    return SliverToBoxAdapter(
-                      child: _ContinueWatchingSection(
-                        items: items,
-                        urlBuilder: urlBuilder,
-                        onMovieReturned: _refreshMovieSections,
-                      ),
-                    );
-                  },
-                ),
-
-                // -------- 3. Recently Added --------
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(
-                    22,
-                    _homeSectionGap,
-                    22,
-                    _homeSectionTitleGap,
-                  ),
-                  sliver: SliverToBoxAdapter(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            l.homeFreshTitle,
-                            style: AppText.sectionTitle(context),
-                          ),
-                        ),
-                        TextButton.icon(
-                          onPressed: () => unawaited(_openRecentMovies()),
-                          style: TextButton.styleFrom(
-                            foregroundColor: c.accent,
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          icon: const Icon(
-                            Icons.arrow_forward_ios_rounded,
-                            size: 13,
-                          ),
-                          label: Text(
-                            l.homeSeeAll,
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                recent.when(
-                  loading: () => const SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 220,
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                  ),
-                  error: (e, _) => SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 22),
-                      child: Text('加载失败: $e', style: AppText.body(context)),
-                    ),
-                  ),
-                  data: (paged) => SliverToBoxAdapter(
-                    child: _RecentRow(
-                      items: paged.items,
-                      urlBuilder: urlBuilder,
-                      onMovieReturned: _refreshMovieSections,
-                    ),
-                  ),
-                ),
-
-                // -------- 4. Your libraries (最底部) --------
-                SliverToBoxAdapter(
-                  child: libraries.when(
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
-                    data: (libs) {
-                      if (libs.isEmpty) return const SizedBox.shrink();
-                      return _CollectionsSection(
-                        libraries: libs,
-                        onMovieReturned: _refreshMovieSections,
-                      );
-                    },
-                  ),
-                ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 120)),
-              ],
+    return HomePageScaffold(
+      heroArts: _heroArts,
+      heroPosition: _heroPagePosition,
+      heroReady: heroReady,
+      hero: carousel.when(
+        loading: () => const SizedBox.shrink(),
+        error: (_, __) => const SizedBox.shrink(),
+        data: (items) => Stack(
+          children: [
+            Positioned.fill(
+              child: RecommendCarousel(
+                items: items,
+                urlBuilder: urlBuilder,
+                pagePosition: _heroPagePosition,
+                onMovieReturned: _refreshMovieSections,
+              ),
             ),
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: HomeGreetingRow(onHero: true),
+            ),
+          ],
+        ),
+      ),
+      heroFallback: const Padding(
+        padding: EdgeInsets.only(bottom: 16),
+        child: HomeGreetingRow(onHero: false),
+      ),
+      onRefresh: _refreshHome,
+      slivers: [
+        // -------- 2. Continue Watching --------
+        continueW.when(
+          loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          data: (items) {
+            if (items.isEmpty) {
+              return const SliverToBoxAdapter(child: SizedBox.shrink());
+            }
+            return SliverToBoxAdapter(
+              child: _ContinueWatchingSection(
+                items: items,
+                urlBuilder: urlBuilder,
+                onMovieReturned: _refreshMovieSections,
+              ),
+            );
+          },
+        ),
+
+        // -------- 3. Recently Added --------
+        SliverToBoxAdapter(
+          child: HomeMovieSection<PagedResult<MovieListItem>, MovieListItem>(
+            title: l.homeFreshTitle,
+            value: recent,
+            itemsOf: (paged) => paged.items,
+            onRetry: () => ref.invalidate(recentlyAddedProvider),
+            itemKeyBuilder: (movie) => movie.id,
+            trailing: TextButton.icon(
+              onPressed: () => unawaited(_openRecentMovies()),
+              style: TextButton.styleFrom(
+                foregroundColor: c.accent,
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
+              icon: const Icon(Icons.arrow_forward_ios_rounded, size: 13),
+              label: Text(
+                l.homeSeeAll,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            itemBuilder: (context, movie) {
+              final isNew = isUnreadRecentlyAddedMovie(movie, viewedMovieIds);
+              return Stack(
+                children: [
+                  MovieCard(
+                    movie: movie,
+                    posterUrlBuilder: urlBuilder,
+                    onTap: () => _openRecentMovie(movie),
+                  ),
+                  if (isNew)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: const Text(
+                          'NEW',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w800,
+                            fontSize: 9,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+
+        // -------- 4. Your libraries (最底部) --------
+        SliverToBoxAdapter(
+          child: libraries.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (libs) {
+              if (libs.isEmpty) return const SizedBox.shrink();
+              return _CollectionsSection(
+                libraries: libs,
+                onMovieReturned: _refreshMovieSections,
+              );
+            },
           ),
         ),
       ],
+      heroMaxHeight: MediaQuery.sizeOf(context).height * 0.5,
     );
   }
 }
@@ -518,7 +449,9 @@ class _ContinueWatchingCard extends StatelessWidget {
                                   behavior: HitTestBehavior.opaque,
                                   onTap: () async {
                                     final changesBeforeVisit =
-                                        MovieDataChanges.snapshot(movieId: movie.id);
+                                        MovieDataChanges.snapshot(
+                                          movieId: movie.id,
+                                        );
                                     await PlayerPage.open(
                                       context,
                                       movieId: movie.id,
@@ -608,90 +541,6 @@ class _ContinueWatchingCard extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-// ============ Recently Added (横向卡片) ============
-class _RecentRow extends ConsumerStatefulWidget {
-  const _RecentRow({
-    required this.items,
-    required this.urlBuilder,
-    required this.onMovieReturned,
-  });
-  final List<MovieListItem> items;
-  final String Function(String) urlBuilder;
-  final ValueChanged<MovieDataChanges> onMovieReturned;
-
-  @override
-  ConsumerState<_RecentRow> createState() => _RecentRowState();
-}
-
-class _RecentRowState extends ConsumerState<_RecentRow> {
-  Future<void> _openMovie(MovieListItem movie) async {
-    final changesBeforeVisit = MovieDataChanges.snapshot(movieId: movie.id);
-    unawaited(ref.read(homeMovieViewStateProvider).markMovieViewed(movie.id));
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => MovieDetailPage(movieId: movie.id)),
-    );
-    if (mounted) widget.onMovieReturned(changesBeforeVisit);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final viewedMovieIds = ref
-        .watch(homeMovieViewStateProvider)
-        .viewedMovieIds();
-    return SizedBox(
-      height: 268,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 22),
-        itemCount: widget.items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (_, i) {
-          final it = widget.items[i];
-          final isNew = isUnreadRecentlyAddedMovie(it, viewedMovieIds);
-          return SizedBox(
-            key: ValueKey(it.id),
-            width: 132,
-            child: Stack(
-              children: [
-                MovieCard(
-                  movie: it,
-                  posterUrlBuilder: widget.urlBuilder,
-                  onTap: () => _openMovie(it),
-                ),
-                if (isNew)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: const Text(
-                        'NEW',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w800,
-                          fontSize: 9,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
       ),
     );
   }

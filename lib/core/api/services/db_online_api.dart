@@ -15,13 +15,34 @@ class DbOnlineApi {
   Future<List<DbOnlineMovie>> latest({
     int page = 1,
     int limit = 9,
-    required String sortBy,
+    String? sortBy,
+    String? sort,
+  }) async {
+    return (await latestPage(
+      page: page,
+      limit: limit,
+      sortBy: sortBy,
+      sort: sort,
+    )).movies;
+  }
+
+  /// 获取 dbonline 最新影片的一页。
+  ///
+  /// `sort` 是移动端新约定；`sort_by` 保留给当前 dbonline 后端，两个
+  /// 参数同时发送可兼容已经发布的服务端和使用新参数名的服务端。
+  Future<DbOnlineMoviePage> latestPage({
+    int page = 1,
+    int limit = 9,
+    String? sortBy,
+    String? sort,
   }) {
-    return _movies('/latest', {
+    final sortValue = (sort ?? sortBy ?? 'update').trim();
+    return _moviesPage('/latest', {
       'page': page,
       'limit': limit,
       'type': 'all',
-      'sort_by': sortBy,
+      'sort': sortValue,
+      'sort_by': sortValue,
       'filter_by': 'magnets',
     });
   }
@@ -105,17 +126,54 @@ class DbOnlineApi {
     String path,
     Map<String, dynamic> query,
   ) async {
+    return (await _moviesPage(path, query)).movies;
+  }
+
+  Future<DbOnlineMoviePage> _moviesPage(
+    String path,
+    Map<String, dynamic> query,
+  ) async {
     final response = await _dio.get<dynamic>(path, queryParameters: query);
-    return unwrapStd<List<DbOnlineMovie>>(response.data, (data) {
-      if (data is! Map) return const <DbOnlineMovie>[];
+    return unwrapStd<DbOnlineMoviePage>(response.data, (data) {
+      if (data is! Map) {
+        return DbOnlineMoviePage(
+          movies: const <DbOnlineMovie>[],
+          page: _intValue(query['page']) ?? 1,
+          limit: _intValue(query['limit']) ?? 0,
+          hasMore: false,
+        );
+      }
       final movies = data['movies'];
-      if (movies is! List) return const <DbOnlineMovie>[];
-      return movies
-          .whereType<Map>()
-          .map(
-            (item) => DbOnlineMovie.fromJson(Map<String, dynamic>.from(item)),
-          )
-          .toList(growable: false);
+      final items = movies is List
+          ? movies
+                .whereType<Map>()
+                .map(
+                  (item) =>
+                      DbOnlineMovie.fromJson(Map<String, dynamic>.from(item)),
+                )
+                .toList(growable: false)
+          : const <DbOnlineMovie>[];
+      final page = _intValue(query['page']) ?? 1;
+      final limit = _intValue(query['limit']) ?? items.length;
+      final total = _intValue(data['total']);
+      final explicitHasMore = data['has_more'];
+      final hasMore = explicitHasMore is bool
+          ? explicitHasMore
+          : total != null && total > page * limit
+          ? true
+          : items.length >= limit && limit > 0;
+      return DbOnlineMoviePage(
+        movies: items,
+        page: page,
+        limit: limit,
+        total: total,
+        hasMore: hasMore,
+      );
     });
   }
+}
+
+int? _intValue(Object? value) {
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString().trim() ?? '');
 }

@@ -130,6 +130,7 @@ class _HomeServerSwitcherMenuState
               avatarUrl: avatarUrl,
               size: 36,
               colors: colors,
+              project: widget.activeServer.project,
             ),
           ),
         );
@@ -187,6 +188,7 @@ class _ServerMenuRow extends StatelessWidget {
             avatarUrl: avatarUrl,
             size: 34,
             colors: colors,
+            project: server.project,
           ),
           selected: selected,
           onTap: busy || active ? null : onTap,

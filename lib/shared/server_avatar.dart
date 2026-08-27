@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../core/api/server_compatibility.dart';
 import '../core/platform/app_theme.dart';
 
 /// 服务器名首字母(最多 2 个 rune),无名字时退化为 'S'。
@@ -26,6 +27,7 @@ class ServerAvatar extends StatelessWidget {
     required this.size,
     required this.colors,
     this.busy = false,
+    this.project,
   });
 
   final String displayName;
@@ -33,6 +35,7 @@ class ServerAvatar extends StatelessWidget {
   final double size;
   final AppColors colors;
   final bool busy;
+  final ServerProject? project;
 
   @override
   Widget build(BuildContext context) {
@@ -128,6 +131,12 @@ class ServerAvatar extends StatelessWidget {
                 ),
               ),
             ),
+            if (project != null)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: _ServerProjectBadge(project: project!, size: size),
+              ),
             if (busy && isHeroSize)
               // 大尺寸时进度环叠在白色边框上，头像保持清晰不变暗。
               SizedBox(
@@ -139,6 +148,61 @@ class ServerAvatar extends StatelessWidget {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ServerProjectBadge extends StatelessWidget {
+  const _ServerProjectBadge({required this.project, required this.size});
+
+  final ServerProject project;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color, name) = switch (project) {
+      ServerProject.ohMyMedia => (
+        'OMM',
+        const Color(0xFF7C4DFF),
+        'Oh-My-Media',
+      ),
+      ServerProject.dbOnline => ('DBO', const Color(0xFF0E7490), 'dbonline'),
+    };
+    final height = (size * 0.34).clamp(11.0, 16.0).toDouble();
+
+    return Tooltip(
+      message: name,
+      child: Container(
+        height: height,
+        padding: EdgeInsets.symmetric(horizontal: size > 60 ? 5 : 3),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(height / 2),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.9),
+            width: size > 60 ? 1.5 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.24),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: height * 0.58,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.25,
+              height: 1,
+            ),
+          ),
         ),
       ),
     );

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/models/db_online_movie.dart';
-import 'package:omm/features/db_online/db_online_home_page.dart';
+import 'package:omm/features/db_online/db_online_movie_card.dart';
 
 void main() {
   const config = ServerConfig(baseUrl: 'http://example.test');

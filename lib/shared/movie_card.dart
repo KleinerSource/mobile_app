@@ -238,27 +238,15 @@ class MovieCard extends ConsumerWidget {
             text: restricted ? 'Restricted' : movie.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
+            style: AppText.movieCardTitle(context).copyWith(
               color: restricted ? c.muted : c.text,
-              fontFamily: 'Inter',
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
               fontStyle: restricted ? FontStyle.italic : FontStyle.normal,
-              height: 1.2,
             ),
           ),
           if (!restricted && (movie.year != null || movie.runtime != null))
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                _meta(movie),
-                style: TextStyle(
-                  color: c.muted,
-                  fontFamily: 'Inter',
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              child: Text(_meta(movie), style: AppText.movieCardMeta(context)),
             ),
         ],
       ),
@@ -270,6 +258,97 @@ class MovieCard extends ConsumerWidget {
     if (m.year != null) parts.add('${m.year}');
     if (m.runtime != null && m.runtime! > 0) parts.add('${m.runtime}m');
     return parts.join(' · ');
+  }
+}
+
+/// 外部数据源影片卡片的共享渲染层。
+///
+/// dbonline 等数据源的影片标识不一定是 OMM 的整数 ID，因此不强行转换为
+/// [MovieListItem]。数据源只负责把字段整理成这里需要的展示值，海报、字号、
+/// 角标和点击反馈仍由共享组件统一维护。
+class CatalogMovieCard extends StatelessWidget {
+  const CatalogMovieCard({
+    super.key,
+    required this.title,
+    required this.code,
+    required this.imageUrl,
+    required this.meta,
+    this.width = 112,
+    this.rating,
+    this.canPlay = false,
+    this.onTap,
+  });
+
+  final String title;
+  final String code;
+  final String? imageUrl;
+  final String meta;
+  final double width;
+  final double? rating;
+  final bool canPlay;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final displayTitle = title.trim().isEmpty ? '未命名影片' : title.trim();
+    final displayCode = code.trim().isEmpty ? '未命名番号' : code.trim();
+    return SizedBox(
+      width: width,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                children: [
+                  Poster(url: imageUrl, title: displayTitle, radius: 10),
+                  if (canPlay)
+                    const Positioned(
+                      top: 6,
+                      right: 6,
+                      child: OnlinePlayBadge(),
+                    ),
+                  if (rating != null && rating! > 0)
+                    Positioned(
+                      right: 6,
+                      bottom: 6,
+                      child: RatingBadge(rating: rating!),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                displayCode,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.movieCardMeta(
+                  context,
+                ).copyWith(color: colors.accent, fontSize: 11.5),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                displayTitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.movieCardTitle(context),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                meta.trim().isEmpty ? '暂无信息' : meta,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.movieCardMeta(context),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -65,7 +65,7 @@ void main() {
     expect(config?.baseUrl, 'http://home.example');
     expect(config?.lines, hasLength(2));
     expect(config?.lines[0].baseUrl, 'http://home.example');
-    expect(config?.lines[1].baseUrl, 'https://remote.example/api');
+    expect(config?.lines[1].baseUrl, 'https://remote.example');
     expect(config?.lines[1].enabled, isFalse);
     expect(config?.lines[1].latencyMs, 42);
     expect(config?.lines[1].lastTestedAt, testedAt);
@@ -161,5 +161,17 @@ void main() {
   test('normalize 去除末尾斜杠', () {
     expect(ServerConfig.normalize('http://x:8001/'), 'http://x:8001');
     expect(ServerConfig.normalize(' http://x:8001 '), 'http://x:8001');
+  });
+
+  test('normalize 去除用户输入的 API 路径', () {
+    expect(ServerConfig.normalize('http://x:8001/api'), 'http://x:8001');
+    expect(
+      ServerConfig.normalize('https://x.example/API/'),
+      'https://x.example',
+    );
+    expect(
+      ServerConfig.normalize('https://x.example/media/api'),
+      'https://x.example/media',
+    );
   });
 }
