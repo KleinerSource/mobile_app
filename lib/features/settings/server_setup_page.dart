@@ -5,7 +5,6 @@ import '../../core/api/dio_factory.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
-import '../../core/config/server_line_probe.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
@@ -22,6 +21,7 @@ class ServerSetupPage extends ConsumerStatefulWidget {
 class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   final _controller = TextEditingController();
   ServerConfig? _savedConfig;
+  ServerProject? _project;
   bool _busy = false;
   String? _error;
 
@@ -31,7 +31,10 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     _savedConfig =
         ref.read(serverConfigProvider) ??
         ref.read(serverConfigRepoProvider).load();
-    if (_savedConfig != null) _controller.text = _savedConfig!.baseUrl;
+    if (_savedConfig != null) {
+      _controller.text = _savedConfig!.baseUrl;
+      _project = _savedConfig!.activeServer?.project;
+    }
   }
 
   @override
@@ -52,6 +55,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       setState(() => _error = '地址必须以 http:// 或 https:// 开头');
       return;
     }
+    final project = _project;
+    if (project == null) {
+      setState(() => _error = '请选择服务器类型');
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -62,7 +70,6 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
           ref.read(serverConfigProvider) ??
           ref.read(serverConfigRepoProvider).load();
       final sameServer = existing?.baseUrl == normalized;
-      final existingProject = existing?.activeServer?.projectName;
       final line = ServerLine(
         id: sameServer && existing!.lines.isNotEmpty
             ? existing.lines
@@ -75,20 +82,15 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         name: '主线路',
         baseUrl: normalized,
       );
-      final probe = await probeServerLine(line);
+      final probe = await ref
+          .read(serverLineProbeCoordinatorProvider)
+          .probe(line, expectedProjectName: project.projectName);
       if (!probe.success || probe.versionInfo == null) {
         throw ServerCompatibilityException(
           probe.message.isEmpty ? '服务器版本检测失败' : probe.message,
         );
       }
       final versionInfo = probe.versionInfo!;
-      if (sameServer &&
-          existingProject != null &&
-          existingProject.isNotEmpty &&
-          existingProject.toLowerCase() !=
-              versionInfo.projectName.toLowerCase()) {
-        throw StateError('检测到不同项目，请新建独立服务器配置');
-      }
       final ServerConfig config;
       if (sameServer && existing!.activeServer != null) {
         final activeId = existing.activeServer!.id;
@@ -96,7 +98,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
             .map(
               (server) => server.id == activeId
                   ? server.copyWith(
-                      projectName: versionInfo.projectName,
+                      projectName: project.projectName,
                       serverVersion: versionInfo.version,
                     )
                   : server,
@@ -106,10 +108,10 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       } else {
         final server = ServerProfile(
           id: 'server-${DateTime.now().microsecondsSinceEpoch}',
-          name: versionInfo.project?.displayName ?? '主服务器',
+          name: project.displayName,
           lines: [line],
           activeLineId: line.id,
-          projectName: versionInfo.projectName,
+          projectName: project.projectName,
           serverVersion: versionInfo.version,
         );
         config = ServerConfig(
@@ -159,6 +161,15 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Text('服务器类型', style: AppText.cardTitle(context)),
+                        const SizedBox(height: 10),
+                        _ProjectSelector(
+                          value: _project,
+                          enabled: !_busy && !editing,
+                          onChanged: (value) =>
+                              setState(() => _project = value),
+                        ),
+                        const SizedBox(height: 18),
                         Row(
                           children: [
                             Container(
@@ -283,4 +294,43 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       ),
     );
   }
+}
+
+class _ProjectSelector extends StatelessWidget {
+  const _ProjectSelector({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final ServerProject? value;
+  final bool enabled;
+  final ValueChanged<ServerProject> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final project in ServerProject.values)
+          ChoiceChip(
+            label: Text(_projectLabel(project)),
+            selected: value == project,
+            onSelected: enabled
+                ? (selected) {
+                    if (selected) onChanged(project);
+                  }
+                : null,
+          ),
+      ],
+    );
+  }
+}
+
+String _projectLabel(ServerProject project) {
+  return switch (project) {
+    ServerProject.ohMyMedia => 'Oh-My-Media',
+    ServerProject.dbOnline => 'DB Online',
+  };
 }

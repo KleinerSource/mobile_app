@@ -7,7 +7,11 @@ import 'package:omm/features/db_online/db_online_movie_card.dart';
 void main() {
   const config = ServerConfig(baseUrl: 'http://example.test');
 
-  Future<void> pumpCard(WidgetTester tester, {required bool canPlay}) async {
+  Future<void> pumpCard(
+    WidgetTester tester, {
+    required bool canPlay,
+    VoidCallback? onTap,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -19,6 +23,7 @@ void main() {
               canPlay: canPlay,
             ),
             config: config,
+            onTap: onTap,
           ),
         ),
       ),
@@ -58,5 +63,21 @@ void main() {
     );
     await tester.tap(find.byType(DbOnlineMovieCard));
     expect(tapped, isTrue);
+  });
+
+  testWidgets('dbonline 卡片长按不启用 InkWell 按压反馈', (tester) async {
+    await pumpCard(tester, canPlay: false, onTap: () {});
+
+    final inkWell = tester.widget<InkWell>(find.byType(InkWell));
+    expect(inkWell.onTap, isNull);
+    expect(
+      find.descendant(
+        of: find.byType(DbOnlineMovieCard),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is GestureDetector && widget.onTap != null,
+        ),
+      ),
+      findsOneWidget,
+    );
   });
 }

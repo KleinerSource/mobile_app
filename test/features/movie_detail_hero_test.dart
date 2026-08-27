@@ -15,8 +15,7 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('有封面时显示统一灯箱入口并响应点击', (tester) async {
-    var tapped = false;
+  testWidgets('有封面时不显示封面放大入口', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(brightness: Brightness.dark),
@@ -26,7 +25,6 @@ void main() {
             child: MovieDetailHero(
               title: '示例影片',
               imageUrl: 'https://example.test/cover.jpg',
-              onTap: () => tapped = true,
             ),
           ),
         ),
@@ -34,9 +32,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byTooltip('查看封面大图'), findsOneWidget);
-    await tester.tap(find.byTooltip('查看封面大图'));
-    expect(tapped, isTrue);
+    expect(find.byTooltip('查看封面大图'), findsNothing);
   });
 
   testWidgets('详情顶部封面上滑先收窄再整体推出,状态栏穿透且悬浮返回可用', (tester) async {

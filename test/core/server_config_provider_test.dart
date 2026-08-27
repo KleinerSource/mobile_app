@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_line_probe.dart';
@@ -8,7 +11,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   test('进入服务器编辑不会删除已保存配置', () async {
     SharedPreferences.setMockInitialValues({
-      'server.base_url': 'https://saved.example:8001',
+      'server.servers': jsonEncode([
+        {
+          'id': 'saved',
+          'name': '已保存服务器',
+          'lines': [
+            {
+              'id': 'saved-line',
+              'name': '主线路',
+              'base_url': 'https://saved.example:8001',
+            },
+          ],
+          'active_line_id': 'saved-line',
+          'project_name': 'oh-my-media',
+        },
+      ]),
+      'server.active_server_id': 'saved',
     });
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(
@@ -45,7 +63,14 @@ void main() {
               if (line.id == 'remote-lan') {
                 return ServerLineProbeResult.failure(line, '局域网线路不可达');
               }
-              return ServerLineProbeResult.success(line, 18);
+              return ServerLineProbeResult.success(
+                line,
+                18,
+                versionInfo: const ServerVersionInfo(
+                  projectName: 'db_online',
+                  version: '1.13.0',
+                ),
+              );
             },
           ),
         ),
@@ -71,12 +96,14 @@ void main() {
     const home = ServerProfile(
       id: 'home',
       name: '家庭服务器',
+      projectName: 'oh-my-media',
       lines: [homeLine],
       activeLineId: 'home-line',
     );
     const remote = ServerProfile(
       id: 'remote',
       name: '远程服务器',
+      projectName: 'db_online',
       lines: [remoteLan, remoteWan],
       activeLineId: 'remote-lan',
     );
@@ -125,6 +152,7 @@ void main() {
     const home = ServerProfile(
       id: 'home',
       name: '当前服务器',
+      projectName: 'oh-my-media',
       lines: [
         ServerLine(
           id: 'home-line',
@@ -137,6 +165,7 @@ void main() {
     const remote = ServerProfile(
       id: 'remote',
       name: '目标服务器',
+      projectName: 'db_online',
       lines: [
         ServerLine(
           id: 'remote-lan',
@@ -191,7 +220,14 @@ void main() {
           ServerLineProbeCoordinator(
             probe: (line) async {
               probes.add(line.id);
-              return ServerLineProbeResult.success(line, 24);
+              return ServerLineProbeResult.success(
+                line,
+                24,
+                versionInfo: const ServerVersionInfo(
+                  projectName: 'db_online',
+                  version: '1.13.0',
+                ),
+              );
             },
           ),
         ),
@@ -202,6 +238,7 @@ void main() {
     const home = ServerProfile(
       id: 'home',
       name: '当前服务器',
+      projectName: 'oh-my-media',
       lines: [
         ServerLine(
           id: 'home-line',
@@ -214,6 +251,7 @@ void main() {
     const remote = ServerProfile(
       id: 'remote',
       name: '目标服务器',
+      projectName: 'db_online',
       lines: [
         ServerLine(
           id: 'remote-disabled',
@@ -252,6 +290,58 @@ void main() {
     expect(probes, ['remote-wan']);
     expect(config.baseUrl, 'https://remote.example');
     expect(config.activeServer?.activeLine?.id, 'remote-wan');
+  });
+
+  test('线路探测返回的项目类型不会覆盖已保存类型', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverLineProbeCoordinatorProvider.overrideWithValue(
+          ServerLineProbeCoordinator(
+            probe: (line) async => ServerLineProbeResult.success(
+              line,
+              18,
+              versionInfo: const ServerVersionInfo(
+                projectName: 'OH-MY-MEDIA',
+                version: '2.1.0',
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const line = ServerLine(
+      id: 'line',
+      name: '主线路',
+      baseUrl: 'https://media.example',
+    );
+    const server = ServerProfile(
+      id: 'server',
+      name: '媒体服务器',
+      lines: [line],
+      activeLineId: 'line',
+      projectName: 'oh-my-media',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          const ServerConfig(
+            baseUrl: 'https://media.example',
+            lines: [line],
+            servers: [server],
+            activeServerId: 'server',
+          ),
+        );
+
+    await container.read(serverConfigProvider.notifier).selectServer(server.id);
+
+    final saved = container.read(serverConfigProvider)!.activeServer!;
+    expect(saved.projectName, 'oh-my-media');
+    expect(saved.serverVersion, '2.1.0');
   });
 
   test('同一服务器禁止保存不同项目的线路元数据', () async {

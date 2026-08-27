@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_repository.dart';
@@ -17,22 +19,66 @@ void main() {
   test('save / load 往返', () async {
     final prefs = await SharedPreferences.getInstance();
     final repo = ServerConfigRepository(prefs);
-    await repo.save(const ServerConfig(baseUrl: 'http://192.168.1.10:8001'));
+    const line = ServerLine(
+      id: 'main',
+      name: '主线路',
+      baseUrl: 'http://192.168.1.10:8001',
+    );
+    await repo.save(
+      const ServerConfig(
+        baseUrl: 'http://192.168.1.10:8001',
+        lines: [line],
+        servers: [
+          ServerProfile(
+            id: 'server',
+            name: '主服务器',
+            lines: [line],
+            activeLineId: 'main',
+            projectName: 'oh-my-media',
+          ),
+        ],
+        activeServerId: 'server',
+      ),
+    );
     expect(repo.load()?.baseUrl, 'http://192.168.1.10:8001');
     expect(repo.load()?.lines, hasLength(1));
     expect(repo.load()?.lines.single.name, '主线路');
   });
 
-  test('旧版单线路配置会迁移为线路列表', () async {
+  test('没有服务器类型的旧版配置会被清理', () async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('server.base_url', 'http://legacy.example/');
     final repo = ServerConfigRepository(prefs);
 
-    final config = repo.load();
+    expect(repo.load(), isNull);
+    await Future<void>.delayed(Duration.zero);
 
-    expect(config?.baseUrl, 'http://legacy.example');
-    expect(config?.lines, hasLength(1));
-    expect(config?.lines.single.id, 'legacy');
+    expect(prefs.getString('server.base_url'), isNull);
+    expect(prefs.getString('server.lines'), isNull);
+    expect(prefs.getString('server.servers'), isNull);
+  });
+
+  test('服务器列表中的未知类型会被清理', () async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'server.servers',
+      jsonEncode([
+        {
+          'id': 'legacy',
+          'name': '旧服务器',
+          'lines': [
+            {'id': 'line', 'name': '主线路', 'base_url': 'https://legacy'},
+          ],
+          'active_line_id': 'line',
+          'project_name': 'unknown-project',
+        },
+      ]),
+    );
+    final repo = ServerConfigRepository(prefs);
+
+    expect(repo.load(), isNull);
+    await Future<void>.delayed(Duration.zero);
+    expect(prefs.getString('server.servers'), isNull);
   });
 
   test('多线路配置会保存并恢复测试信息', () async {
@@ -57,6 +103,30 @@ void main() {
             lastTestedAt: testedAt,
           ),
         ],
+        servers: [
+          ServerProfile(
+            id: 'home',
+            name: '家庭服务器',
+            lines: [
+              const ServerLine(
+                id: 'home',
+                name: '家庭网络',
+                baseUrl: 'http://home.example/',
+              ),
+              ServerLine(
+                id: 'remote',
+                name: '公网线路',
+                baseUrl: 'https://remote.example/api/',
+                enabled: false,
+                latencyMs: 42,
+                lastTestedAt: testedAt,
+              ),
+            ],
+            activeLineId: 'home',
+            projectName: 'oh-my-media',
+          ),
+        ],
+        activeServerId: 'home',
       ),
     );
 
@@ -77,6 +147,7 @@ void main() {
     const home = ServerProfile(
       id: 'home',
       name: '家庭服务器',
+      projectName: 'oh-my-media',
       avatarUrl: 'https://media.example/avatar.png',
       lines: [
         ServerLine(
@@ -139,6 +210,7 @@ void main() {
     const server = ServerProfile(
       id: 'server',
       name: '服务器',
+      projectName: 'oh-my-media',
       avatarUrl: 'https://media.example/avatar.png',
       lines: [
         ServerLine(id: 'line', name: '主线路', baseUrl: 'https://media.example'),

@@ -29,15 +29,21 @@ class DbOnlineMovieCard extends StatelessWidget {
     final imageUrl = imageValue == null || config == null
         ? null
         : resolveServerUrl(config!, imageValue);
-    return CatalogMovieCard(
-      title: movie.title.isEmpty ? movie.number : movie.title,
-      code: movie.number,
-      imageUrl: imageUrl,
-      meta: _metaText(movie),
-      width: width,
-      rating: movie.score,
-      canPlay: movie.canPlay,
+    // dbonline 没有 OMM 影片库的多选链路，因此卡片长按不应出现按压反馈。
+    // 保留共享卡片的展示层，把点击交给外层 GestureDetector，避免
+    // CatalogMovieCard 内部 InkWell 在长按时产生额外的 Material 特效。
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
+      child: CatalogMovieCard(
+        title: movie.title.isEmpty ? movie.number : movie.title,
+        code: movie.number,
+        imageUrl: imageUrl,
+        meta: _metaText(movie),
+        width: width,
+        rating: movie.score,
+        canPlay: movie.canPlay,
+      ),
     );
   }
 }

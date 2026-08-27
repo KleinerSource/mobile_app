@@ -641,7 +641,6 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
           server.copyWith(
             lines: lines,
             activeLineId: selectedLine.id,
-            projectName: versionInfo?.projectName ?? server.projectName,
             serverVersion: versionInfo?.version ?? server.serverVersion,
           ),
           select: config?.activeServerId == server.id,

@@ -49,7 +49,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
       cfg.lines.isNotEmpty ? cfg.lines : selectedServer?.lines ?? const [],
       baseUrl,
     );
-    var servers = cfg.servers
+    final servers = cfg.servers
         .map(
           (server) => server.copyWith(lines: _normalizeLines(server.lines, '')),
         )
@@ -57,13 +57,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
         .toList();
 
     if (servers.isEmpty) {
-      final server = ServerProfile(
-        id: cfg.activeServerId ?? 'server-${baseUrl.hashCode}',
-        name: '主服务器',
-        lines: currentLines,
-        activeLineId: _lineForUrl(currentLines, baseUrl).id,
-      );
-      servers = [server];
+      throw StateError('服务器配置缺少明确的服务器类型');
     }
 
     final activeServerId =
@@ -143,7 +137,6 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
       server.copyWith(
         lines: testedLines,
         activeLineId: selected.line.id,
-        projectName: selected.versionInfo?.projectName ?? server.projectName,
         serverVersion: selected.versionInfo?.version ?? server.serverVersion,
       ),
       select: true,

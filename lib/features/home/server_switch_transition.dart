@@ -253,14 +253,16 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     if (current.activeServerId == serverId && !allowActiveTarget) return;
     if (state.isActive && !allowActiveTarget) return;
 
-    final previousServerId = previousServerIdOverride ?? current.activeServerId;
+    final previousServerId =
+        previousServerIdOverride ??
+        (current.activeServerId == serverId ? null : current.activeServerId);
     final operation = ++_operation;
     state = ServerSwitchState.checking(
       targetServerId: serverId,
       previousServerId: previousServerId,
     );
     try {
-      if (current.activeServerId != serverId) {
+      if (current.activeServerId != serverId || allowActiveTarget) {
         await ref.read(serverConfigProvider.notifier).selectServer(serverId);
       }
       if (!_isCurrent(operation)) return;
@@ -308,7 +310,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   }
 }
 
-/// 首页服务器切换的全屏材质层。切换期间根路由只挂载静态背景和此层，目标服务器
+/// 服务器切换的全屏材质层。切换期间根路由只挂载静态背景和此层，目标服务器
 /// 的探测和登录都在此层完成，因此不会在鉴权完成前构建首页请求。
 class ServerSwitchTransitionOverlay extends ConsumerStatefulWidget {
   const ServerSwitchTransitionOverlay({super.key});

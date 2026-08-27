@@ -36,9 +36,9 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
 
     // 用户刚刚明确选择服务器时，当前线路已经是用户选择的目标，不再重复
-    // 探测所有线路；这样切换服务器后可以立即检查鉴权状态。
+    // 探测所有线路；这样初始化和首页切换都可以立即检查鉴权状态。
     var selectedConfig = config;
-    if (!(config.hasMultipleServers && serverSelectionReady)) {
+    if (!serverSelectionReady) {
       final candidates = config.lines.where((line) => line.enabled).toList();
       final current = candidates.firstWhere(
         (line) => line.baseUrl == config.baseUrl,
@@ -313,9 +313,6 @@ class AuthController extends AsyncNotifier<AuthState> {
                     ? server.copyWith(
                         lines: lines,
                         activeLineId: selected.line.id,
-                        projectName:
-                            selected.versionInfo?.projectName ??
-                            server.projectName,
                         serverVersion:
                             selected.versionInfo?.version ??
                             server.serverVersion,

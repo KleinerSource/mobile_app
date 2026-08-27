@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,10 +16,14 @@ class ServerConfigRepository {
   final SharedPreferences _prefs;
 
   ServerConfig? load() {
+    final rawServers = _prefs.getString(_kServers);
     final storedServers = _loadServers();
-    if (storedServers.isNotEmpty) {
+    if (rawServers?.isNotEmpty == true) {
       final servers = _normalizeServers(storedServers);
-      if (servers.isEmpty) return null;
+      if (servers.isEmpty) {
+        unawaited(clear());
+        return null;
+      }
       final requestedId = _prefs.getString(_kActiveServerId);
       final activeServer = servers.firstWhere(
         (server) => server.id == requestedId,
@@ -26,61 +31,30 @@ class ServerConfigRepository {
       );
       final activeLine = activeServer.activeLine;
       if (activeLine == null) return null;
-      return ServerConfig(
+      final config = ServerConfig(
         baseUrl: activeLine.baseUrl,
         lines: activeServer.lines,
         servers: servers,
         activeServerId: activeServer.id,
       );
+      if (servers.length != storedServers.length ||
+          !_sameServerList(servers, storedServers) ||
+          activeServer.id != requestedId) {
+        unawaited(save(config));
+      }
+      return config;
     }
 
-    final baseUrl = ServerConfig.normalize(_prefs.getString(_kBaseUrl) ?? '');
-    final lines = _loadLines();
-    if (baseUrl.isEmpty && lines.isEmpty) return null;
-
-    final migratedLines = _normalizeLines(lines, baseUrl);
-    if (migratedLines.isEmpty) return null;
-    final activeUrl = baseUrl.isNotEmpty
-        ? baseUrl
-        : migratedLines
-              .firstWhere(
-                (line) => line.enabled,
-                orElse: () => migratedLines.first,
-              )
-              .baseUrl;
-    final activeLine = migratedLines.firstWhere(
-      (line) => line.baseUrl == activeUrl,
-      orElse: () => migratedLines.first,
-    );
-    final server = ServerProfile(
-      id: 'legacy-server',
-      name: '主服务器',
-      lines: migratedLines,
-      activeLineId: activeLine.id,
-    );
-    return ServerConfig(
-      baseUrl: activeLine.baseUrl,
-      lines: migratedLines,
-      servers: [server],
-      activeServerId: server.id,
-    );
+    // 旧版本只有地址/线路，没有用户明确选择的项目类型；不再把它们
+    // 静默迁移成无类型服务器，避免后续走错鉴权路径。
+    if (_prefs.containsKey(_kBaseUrl) || _prefs.containsKey(_kLines)) {
+      unawaited(clear());
+    }
+    return null;
   }
 
   Future<void> save(ServerConfig config) async {
-    final sourceServers = config.servers.isEmpty
-        ? [
-            ServerProfile(
-              id: config.activeServerId ?? 'legacy-server',
-              name: '主服务器',
-              lines: _normalizeLines(config.lines, config.baseUrl),
-              activeLineId: _lineForUrl(
-                _normalizeLines(config.lines, config.baseUrl),
-                config.baseUrl,
-              ).id,
-            ),
-          ]
-        : config.servers;
-    final servers = _normalizeServers(sourceServers);
+    final servers = _normalizeServers(config.servers);
     if (servers.isEmpty) {
       throw StateError('至少需要配置一条服务器线路');
     }
@@ -130,22 +104,6 @@ class ServerConfigRepository {
     }
   }
 
-  List<ServerLine> _loadLines() {
-    final raw = _prefs.getString(_kLines);
-    if (raw == null || raw.isEmpty) return const [];
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return const [];
-      return decoded
-          .whereType<Map>()
-          .map((item) => ServerLine.fromJson(Map<String, dynamic>.from(item)))
-          .where((line) => line.baseUrl.isNotEmpty)
-          .toList();
-    } catch (_) {
-      return const [];
-    }
-  }
-
   List<ServerLine> _normalizeLines(List<ServerLine> input, String activeUrl) {
     final seenUrls = <String>{};
     final lines = <ServerLine>[];
@@ -173,6 +131,8 @@ class ServerConfigRepository {
     final seenIds = <String>{};
     final servers = <ServerProfile>[];
     for (final server in input) {
+      final project = server.project;
+      if (project == null) continue;
       final lines = _normalizeLines(server.lines, '');
       if (lines.isEmpty) continue;
       var id = server.id.trim();
@@ -193,7 +153,7 @@ class ServerConfigRepository {
               ? '服务器 ${servers.length + 1}'
               : server.name.trim(),
           avatarUrl: server.avatarUrl,
-          projectName: server.projectName,
+          projectName: project.projectName,
           serverVersion: server.serverVersion,
           lines: lines,
           activeLineId: activeLineId,
@@ -203,13 +163,11 @@ class ServerConfigRepository {
     return servers;
   }
 
-  ServerLine _lineForUrl(List<ServerLine> lines, String baseUrl) {
-    if (lines.isEmpty) throw StateError('至少需要配置一条服务器线路');
-    final normalized = ServerConfig.normalize(baseUrl);
-    return lines.firstWhere(
-      (line) => line.baseUrl == normalized,
-      orElse: () =>
-          lines.firstWhere((line) => line.enabled, orElse: () => lines.first),
-    );
+  bool _sameServerList(List<ServerProfile> first, List<ServerProfile> second) {
+    if (first.length != second.length) return false;
+    for (var i = 0; i < first.length; i++) {
+      if (first[i] != second[i]) return false;
+    }
+    return true;
   }
 }

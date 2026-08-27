@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'core/api/server_compatibility.dart';
 import 'core/auth/auth_provider.dart';
 import 'core/auth/auth_session.dart';
 import 'core/config/server_config.dart';
@@ -18,12 +17,8 @@ import 'features/privacy/privacy_shield.dart';
 import 'features/security/security_gate.dart';
 import 'features/security/security_providers.dart';
 import 'features/settings/app_update_startup_gate.dart';
-import 'features/settings/server_setup_page.dart';
 import 'features/settings/server_selection_page.dart';
 import 'l10n/generated/app_localizations.dart';
-import 'shared/glass.dart';
-import 'shared/glow_background.dart';
-import 'shared/server_avatar.dart';
 import 'shared/top_snack_bar.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -81,18 +76,8 @@ class OmmApp extends ConsumerWidget {
     final cfg = ref.watch(serverConfigProvider);
     final auth = ref.watch(authControllerProvider);
     final serverSwitch = ref.watch(serverSwitchTransitionProvider);
-    final serverSelectionReady = ref.watch(serverSelectionReadyProvider);
     final appLocale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
-
-    Future<void> changeServer() {
-      if (cfg?.hasMultipleServers == true) {
-        ref.read(serverConfigProvider.notifier).showServerSelection();
-      } else {
-        ref.read(serverConfigProvider.notifier).beginEdit();
-      }
-      return Future<void>.value();
-    }
 
     return MaterialApp(
       title: 'Oh-My-Media',
@@ -114,7 +99,7 @@ class OmmApp extends ConsumerWidget {
         onReady: () {
           ref.read(securityGateReadyProvider.notifier).state = true;
         },
-        // 鉴权阶段切换（选择页 → 首页 / 错误页）用统一的淡入浮出过渡，
+        // 鉴权阶段切换（选择页 → 首页）用统一的淡入浮出过渡，
         // 避免登录成功瞬间整页硬切。
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 320),
@@ -132,43 +117,21 @@ class OmmApp extends ConsumerWidget {
           ),
           child: KeyedSubtree(
             key: ValueKey(_rootStageKey(cfg, serverSwitch, auth)),
-            child: cfg == null
-                ? const ServerSetupPage()
-                : serverSwitch.isActive
+            child: serverSwitch.isActive
                 ? const _AuthenticatedHomeWithServerSwitch()
-                // 首次保存服务器配置会让 auth provider 从“未配置”状态
-                // 重新启动。此时不能因 skipLoadingOnReload 继续渲染首页，
-                // 否则 DBO 会在登录完成前发起受保护请求并得到 401。
-                : auth.isLoading &&
-                      auth.valueOrNull?.phase == AuthPhase.unconfigured
-                ? const _StartupLoading()
+                : cfg == null
+                ? const ServerSelectionPage()
                 : auth.when(
-                    // reload（如选择服务器保存配置）期间保持上一状态渲染，
-                    // 避免登录/选择页被启动加载页替换导致表单状态丢失。
                     skipLoadingOnReload: true,
-                    loading: () =>
-                        cfg.hasMultipleServers && serverSelectionReady
-                        ? const ServerSelectionPage()
-                        : const _StartupLoading(),
-                    error: (error, _) => _StartupError(
-                      message: error.toString(),
-                      serverUrl: cfg.baseUrl,
-                      incompatible: error is ServerCompatibilityException,
-                      onRetry: () => ref.invalidate(authControllerProvider),
-                      onChangeServer: changeServer,
-                    ),
+                    loading: () => const ServerSelectionPage(),
+                    error: (_, __) => const ServerSelectionPage(),
                     data: (state) => switch (state.phase) {
                       AuthPhase.needsLogin ||
                       AuthPhase.totpRequired ||
-                      AuthPhase.serverSelection => const ServerSelectionPage(),
+                      AuthPhase.serverSelection ||
+                      AuthPhase.unconfigured => const ServerSelectionPage(),
                       AuthPhase.incompatible ||
-                      AuthPhase.unavailable => _StartupError(
-                        message: state.message ?? '服务器不可用',
-                        serverUrl: cfg.baseUrl,
-                        incompatible: state.phase == AuthPhase.incompatible,
-                        onRetry: () => ref.invalidate(authControllerProvider),
-                        onChangeServer: changeServer,
-                      ),
+                      AuthPhase.unavailable => const ServerSelectionPage(),
                       _ => const _AuthenticatedHome(),
                     },
                   ),
@@ -186,19 +149,16 @@ String _rootStageKey(
   ServerSwitchState serverSwitch,
   AsyncValue<AuthState> auth,
 ) {
-  if (cfg == null) return 'setup';
+  if (cfg == null) return 'selector';
   if (serverSwitch.isActive) return 'server-switch';
   final state = auth.valueOrNull;
-  if (auth.isLoading &&
-      (state == null || state.phase == AuthPhase.unconfigured)) {
-    return 'loading';
-  }
-  if (auth.hasError) return 'error';
+  if (auth.hasError) return 'selector';
   return switch (state?.phase) {
     AuthPhase.needsLogin ||
     AuthPhase.totpRequired ||
-    AuthPhase.serverSelection => 'login',
-    AuthPhase.incompatible || AuthPhase.unavailable => 'unavailable',
+    AuthPhase.serverSelection ||
+    AuthPhase.unconfigured => 'selector',
+    AuthPhase.incompatible || AuthPhase.unavailable => 'selector',
     _ => 'home',
   };
 }
@@ -247,192 +207,6 @@ class _BootSplash extends StatelessWidget {
           width: 24,
           height: 24,
           child: CircularProgressIndicator(strokeWidth: 2.5),
-        ),
-      ),
-    );
-  }
-}
-
-/// 启动加载页：展示当前服务器头像并以边框进度环作为加载指示。
-class _StartupLoading extends ConsumerWidget {
-  const _StartupLoading();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = appColors(context);
-    final server = ref.watch(serverConfigProvider)?.activeServer;
-    final profile = server == null
-        ? null
-        : ref.watch(serverProfileCacheRepoProvider).load(server.id);
-    final displayName = profile?.name.trim().isNotEmpty == true
-        ? profile!.name.trim()
-        : (server?.name ?? '');
-    final avatarUrl = profile?.avatarUrl ?? server?.avatarUrl;
-
-    return Scaffold(
-      backgroundColor: c.bg,
-      body: GlowBackground(
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ServerAvatar(
-                displayName: displayName.isEmpty ? 'S' : displayName,
-                avatarUrl: avatarUrl,
-                size: 112,
-                busy: true,
-                colors: c,
-                project: server?.project,
-              ),
-              if (displayName.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                Text(
-                  displayName,
-                  style: AppText.body(context).copyWith(color: c.muted),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StartupError extends StatelessWidget {
-  const _StartupError({
-    required this.message,
-    required this.serverUrl,
-    required this.incompatible,
-    required this.onRetry,
-    required this.onChangeServer,
-  });
-
-  final String message;
-  final String? serverUrl;
-  final bool incompatible;
-  final VoidCallback onRetry;
-  final Future<void> Function() onChangeServer;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Scaffold(
-      backgroundColor: c.bg,
-      body: GlowBackground(
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: GlassPanel(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 22),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildIcon(c),
-                        const SizedBox(height: 18),
-                        Text(
-                          incompatible ? '服务器需要更新' : '暂时无法连接服务器',
-                          textAlign: TextAlign.center,
-                          style: AppText.pageTitle(
-                            context,
-                          ).copyWith(fontSize: 25),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          incompatible
-                              ? '当前 App 已更新，但连接的 Oh-My-Media 服务端版本较旧。请先更新服务端，或切换到已兼容的服务器。'
-                              : '请检查服务器地址和网络连接，然后重试。',
-                          textAlign: TextAlign.center,
-                          style: AppText.body(context),
-                        ),
-                        const SizedBox(height: 22),
-                        _buildDetails(context, c),
-                        const SizedBox(height: 22),
-                        FilledButton.icon(
-                          onPressed: onRetry,
-                          icon: const Icon(Icons.refresh),
-                          label: Text(incompatible ? '重新检查服务器' : '重试'),
-                        ),
-                        const SizedBox(height: 10),
-                        OutlinedButton.icon(
-                          onPressed: () => onChangeServer(),
-                          icon: const Icon(Icons.dns_outlined),
-                          label: const Text('更换服务器'),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildIcon(AppColors c) {
-    final color = incompatible ? c.warning : c.danger;
-    return Center(
-      child: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.14),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          incompatible
-              ? Icons.system_update_alt_outlined
-              : Icons.cloud_off_outlined,
-          color: color,
-          size: 30,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetails(BuildContext context, AppColors c) {
-    final compatibilityMessage = message.trim().isNotEmpty
-        ? message.trim()
-        : serverCompatibilityRequirementMessage;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: c.surfaceAlt,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: c.cardBorder),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (serverUrl?.isNotEmpty == true) ...[
-              Text('当前服务器', style: AppText.meta(context)),
-              const SizedBox(height: 4),
-              Text(
-                serverUrl!,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AppText.mono(context, size: 12, color: c.text),
-              ),
-              if (incompatible) const SizedBox(height: 12),
-            ],
-            if (incompatible) ...[
-              Text('兼容性要求', style: AppText.meta(context)),
-              const SizedBox(height: 4),
-              Text(
-                compatibilityMessage,
-                style: AppText.body(context).copyWith(color: c.warning),
-              ),
-            ] else
-              Text(message, style: AppText.body(context)),
-          ],
         ),
       ),
     );

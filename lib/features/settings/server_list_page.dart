@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/config/server_line_probe.dart';
@@ -156,6 +157,8 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
     ServerProfile? existing,
     _ServerDraft draft,
   ) async {
+    final project = draft.project;
+    if (project == null) return '请选择服务器类型';
     final line =
         existing?.activeLine ??
         ServerLine(
@@ -167,9 +170,9 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
     if (existing == null) {
       probe = await ref
           .read(serverLineProbeCoordinatorProvider)
-          .probe(line);
-      if (!probe.success) {
-        return '连接失败：${probe.message}';
+          .probe(line, expectedProjectName: project.projectName);
+      if (!probe.success || probe.versionInfo == null) {
+        return '连接失败：${probe.message.isEmpty ? '服务器版本检测失败' : probe.message}';
       }
     }
     final server = ServerProfile(
@@ -178,7 +181,7 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
       lines: existing?.lines ?? [line],
       activeLineId: existing?.activeLineId ?? line.id,
       avatarUrl: existing?.avatarUrl,
-      projectName: existing?.projectName ?? probe?.versionInfo?.projectName,
+      projectName: existing?.projectName ?? project.projectName,
       serverVersion: existing?.serverVersion ?? probe?.versionInfo?.version,
     );
     try {
@@ -330,10 +333,15 @@ class _ActiveChip extends StatelessWidget {
 }
 
 class _ServerDraft {
-  const _ServerDraft({required this.name, required this.baseUrl});
+  const _ServerDraft({
+    required this.name,
+    required this.baseUrl,
+    required this.project,
+  });
 
   final String name;
   final String baseUrl;
+  final ServerProject? project;
 }
 
 class _ServerEditorDialog extends StatefulWidget {
@@ -349,6 +357,7 @@ class _ServerEditorDialog extends StatefulWidget {
 class _ServerEditorDialogState extends State<_ServerEditorDialog> {
   late final TextEditingController _name;
   late final TextEditingController _baseUrl;
+  ServerProject? _project;
   final _formKey = GlobalKey<FormState>();
   bool _saving = false;
   String? _error;
@@ -360,6 +369,7 @@ class _ServerEditorDialogState extends State<_ServerEditorDialog> {
     _baseUrl = TextEditingController(
       text: widget.existing?.activeLine?.baseUrl ?? '',
     );
+    _project = widget.existing?.project;
   }
 
   @override
@@ -374,6 +384,7 @@ class _ServerEditorDialogState extends State<_ServerEditorDialog> {
     final draft = _ServerDraft(
       name: _name.text.trim(),
       baseUrl: ServerConfig.normalize(_baseUrl.text),
+      project: _project,
     );
     setState(() {
       _saving = true;
@@ -416,6 +427,34 @@ class _ServerEditorDialogState extends State<_ServerEditorDialog> {
               ),
               validator: (value) =>
                   value?.trim().isEmpty == true ? '请输入服务器名称' : null,
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '服务器类型',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final project in ServerProject.values)
+                    ChoiceChip(
+                      label: Text(_projectLabel(project)),
+                      selected: _project == project,
+                      onSelected: widget.existing == null
+                          ? (selected) {
+                              if (selected) setState(() => _project = project);
+                            }
+                          : null,
+                    ),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             if (widget.existing == null)
@@ -472,4 +511,11 @@ class _ServerEditorDialogState extends State<_ServerEditorDialog> {
       ],
     );
   }
+}
+
+String _projectLabel(ServerProject project) {
+  return switch (project) {
+    ServerProject.ohMyMedia => 'Oh-My-Media',
+    ServerProject.dbOnline => 'DB Online',
+  };
 }
