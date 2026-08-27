@@ -415,6 +415,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                                 Expanded(
                                   child: TextField(
                                     controller: _searchController,
+                                    textAlignVertical: TextAlignVertical.center,
                                     onChanged: _onSearchChanged,
                                     decoration: const InputDecoration(
                                       hintText: '搜索演员名称',
@@ -646,6 +647,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                 TextField(
                   controller: nameController,
                   autofocus: !isEdit,
+                  textAlignVertical: TextAlignVertical.center,
                   decoration: settingsInputDecoration(
                     sheetContext,
                     labelText: '演员名称',

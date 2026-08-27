@@ -249,6 +249,7 @@ class _Field extends StatelessWidget {
         const SizedBox(height: 4),
         TextField(
           controller: controller,
+          textAlignVertical: TextAlignVertical.center,
           decoration: sheetInputDecoration(
             context,
             hintText: hint,
@@ -282,6 +283,7 @@ class _NumField extends StatelessWidget {
           controller: controller,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          textAlignVertical: TextAlignVertical.center,
           decoration: sheetInputDecoration(
             context,
             hintText: hint,

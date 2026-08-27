@@ -1024,6 +1024,7 @@ class _SearchField extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
+              textAlignVertical: TextAlignVertical.center,
               onChanged: onChanged,
               decoration: InputDecoration(
                 hintText: '搜索影片或音频文件...',

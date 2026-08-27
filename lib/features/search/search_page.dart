@@ -103,6 +103,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       child: TextField(
                         controller: _controller,
                         autofocus: true,
+                        textAlignVertical: TextAlignVertical.center,
                         decoration: InputDecoration(
                           hintText: _searchType.placeholder(
                             AppL10n.of(context),

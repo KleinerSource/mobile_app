@@ -384,6 +384,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                                     Expanded(
                                       child: TextField(
                                         controller: _searchController,
+                                        textAlignVertical: TextAlignVertical.center,
                                         onChanged: _onSearchChanged,
                                         decoration: InputDecoration(
                                           hintText: widget.kind.searchHint,
@@ -719,6 +720,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                   TextField(
                     controller: nameCtrl,
                     autofocus: !isEdit,
+                    textAlignVertical: TextAlignVertical.center,
                     onChanged: (_) {
                       final changed = nameChanged(nameCtrl.text);
                       setSheetState(() {

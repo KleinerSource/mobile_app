@@ -112,6 +112,7 @@ class _VideoExtensionsPageState extends ConsumerState<VideoExtensionsPage> {
                 child: TextField(
                   controller: _input,
                   textInputAction: TextInputAction.done,
+                  textAlignVertical: TextAlignVertical.center,
                   onSubmitted: (_) => _add(extensions),
                   decoration: settingsInputDecoration(
                     context,

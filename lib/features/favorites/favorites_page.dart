@@ -1397,6 +1397,7 @@ class _NewListCard extends ConsumerWidget {
                 TextField(
                   controller: controller,
                   autofocus: true,
+                  textAlignVertical: TextAlignVertical.center,
                   decoration: const InputDecoration(
                     hintText: '集合名称',
                     prefixIcon: Icon(Icons.label_outline),

@@ -185,6 +185,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
                       ),
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
+                    textAlignVertical: TextAlignVertical.center,
                     decoration: const InputDecoration(
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(vertical: 12),
@@ -278,6 +279,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
               controller: _minResourceMonth,
               keyboardType: TextInputType.datetime,
               autocorrect: false,
+              textAlignVertical: TextAlignVertical.center,
               onChanged: (value) {
                 if (value.trim().isNotEmpty && _maxAge != 0) {
                   setState(() => _maxAge = 0);
@@ -334,6 +336,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
       decoration: settingsCardDecoration(context),
       child: TextField(
         controller: controller,
+        textAlignVertical: TextAlignVertical.center,
         decoration: settingsInputDecoration(
           context,
           hintText: hint,
@@ -359,6 +362,7 @@ class _DboSettingsPageState extends ConsumerState<DboSettingsPage> {
             child: TextField(
               controller: _apiKey,
               obscureText: !_showKey,
+              textAlignVertical: TextAlignVertical.center,
               decoration: settingsInputDecoration(
                 context,
                 hintText: _hasKey ? '输入新的 API Key' : '请输入',

@@ -186,6 +186,7 @@ class _ActorAssociationEditorSheetState
               controller: _mapped,
               enabled: _isCreate,
               autofocus: _isCreate,
+              textAlignVertical: TextAlignVertical.center,
               decoration: sheetInputDecoration(
                 context,
                 hintText: '例: 加勒比海岛',

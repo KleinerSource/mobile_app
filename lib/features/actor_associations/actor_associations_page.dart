@@ -305,6 +305,7 @@ class _SearchBar extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
+              textAlignVertical: TextAlignVertical.center,
               decoration: InputDecoration(
                 hintText: '搜索标准名 / 别名',
                 hintStyle: TextStyle(

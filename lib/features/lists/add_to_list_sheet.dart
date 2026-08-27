@@ -225,6 +225,7 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
                 TextField(
                   controller: controller,
                   autofocus: true,
+                  textAlignVertical: TextAlignVertical.center,
                   decoration: sheetInputDecoration(
                     ctx,
                     hintText: '集合名称',

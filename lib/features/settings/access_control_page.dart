@@ -267,6 +267,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                   autofocus: true,
                   keyboardType: TextInputType.number,
                   maxLength: 8,
+                  textAlignVertical: TextAlignVertical.center,
                   decoration: const InputDecoration(
                     labelText: '验证码',
                     hintText: '输入验证器中的验证码',
@@ -533,6 +534,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
         controller: _passwordController,
         obscureText: !_showPassword,
         autocorrect: false,
+        textAlignVertical: TextAlignVertical.center,
         decoration: settingsInputDecoration(
           context,
           borderless: true,
@@ -584,6 +586,7 @@ class _AccessControlPageState extends ConsumerState<AccessControlPage> {
                 child: TextField(
                   controller: controller,
                   keyboardType: TextInputType.number,
+                  textAlignVertical: TextAlignVertical.center,
                   decoration: settingsInputDecoration(
                     context,
                     prefixIcon: icon == null ? null : Icon(icon),

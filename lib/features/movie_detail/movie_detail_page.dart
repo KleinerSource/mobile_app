@@ -551,11 +551,9 @@ class _ActionRow extends ConsumerWidget {
                             }
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: c.accent.withValues(alpha: 0.88),
+                      backgroundColor: Colors.transparent,
                       foregroundColor: c.bg,
-                      elevation: 3,
-                      shadowColor: c.accent.withValues(alpha: 0.32),
-                      overlayColor: c.bg.withValues(alpha: 0.12),
+                      shadowColor: Colors.transparent,
                       surfaceTintColor: Colors.transparent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),

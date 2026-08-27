@@ -204,6 +204,7 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
   Widget _pathField(TextEditingController controller, String hint) {
     return TextField(
       controller: controller,
+      textAlignVertical: TextAlignVertical.center,
       decoration: settingsInputDecoration(
         context,
         hintText: hint,

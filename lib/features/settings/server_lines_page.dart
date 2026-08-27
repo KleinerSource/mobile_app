@@ -702,6 +702,7 @@ class _ServerLineEditorDialogState extends State<_ServerLineEditorDialog> {
           children: [
             TextFormField(
               controller: _name,
+              textAlignVertical: TextAlignVertical.center,
               decoration: const InputDecoration(
                 labelText: '线路名称',
                 hintText: '例如：家庭网络',
@@ -714,6 +715,7 @@ class _ServerLineEditorDialogState extends State<_ServerLineEditorDialog> {
               controller: _baseUrl,
               keyboardType: TextInputType.url,
               autocorrect: false,
+              textAlignVertical: TextAlignVertical.center,
               decoration: const InputDecoration(
                 labelText: '服务器地址',
                 hintText: 'http://192.168.1.10:8001',

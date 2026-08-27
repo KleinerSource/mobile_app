@@ -144,6 +144,7 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                         controller: _controller,
                         autofocus: true,
                         textInputAction: TextInputAction.search,
+                        textAlignVertical: TextAlignVertical.center,
                         decoration: InputDecoration(
                           hintText: _searchType.placeholder(l),
                           hintStyle: TextStyle(

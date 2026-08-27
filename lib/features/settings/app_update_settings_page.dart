@@ -99,6 +99,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                               enableSuggestions: false,
                               readOnly: repositoryLocked,
                               textInputAction: TextInputAction.done,
+                              textAlignVertical: TextAlignVertical.center,
                               decoration: settingsInputDecoration(
                                 context,
                                 labelText: 'GitHub 仓库地址',

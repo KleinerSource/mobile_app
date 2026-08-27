@@ -454,6 +454,9 @@ class _TranslationSettingsPageState
       child: TextField(
         controller: controller,
         maxLines: maxLines,
+        textAlignVertical: maxLines == 1
+            ? TextAlignVertical.center
+            : null,
         decoration: InputDecoration(
           hintText: hint,
           prefixIcon: icon == null ? null : Icon(icon),
@@ -487,6 +490,7 @@ class _TranslationSettingsPageState
             child: TextField(
               controller: _apiKey,
               obscureText: !_showKey,
+              textAlignVertical: TextAlignVertical.center,
               decoration: InputDecoration(
                 hintText: _hasSavedKey ? '输入新的 API Key' : 'sk-...',
                 prefixIcon: const Icon(Icons.key_outlined),

@@ -207,6 +207,7 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
             child: TextField(
               controller: _searchCtrl,
+              textAlignVertical: TextAlignVertical.center,
               onChanged: _onSearchChanged,
               decoration: sheetInputDecoration(
                 context,

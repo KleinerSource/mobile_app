@@ -130,6 +130,7 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
           TextField(
             controller: _apiKey,
             obscureText: !_showKey,
+            textAlignVertical: TextAlignVertical.center,
             decoration: settingsInputDecoration(
               context,
               hintText: '留空保留当前密钥',
@@ -161,6 +162,7 @@ class _AvdbSettingsPageState extends ConsumerState<AvdbSettingsPage> {
     return TextField(
       controller: controller,
       keyboardType: TextInputType.url,
+      textAlignVertical: TextAlignVertical.center,
       decoration: settingsInputDecoration(
         context,
         hintText: hint,

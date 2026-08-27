@@ -263,6 +263,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                             controller: _controller,
                             keyboardType: TextInputType.url,
                             autocorrect: false,
+                            textAlignVertical: TextAlignVertical.center,
                             style: TextStyle(
                               color: c.text,
                               fontFamily: 'monospace',

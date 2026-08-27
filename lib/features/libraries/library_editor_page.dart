@@ -216,6 +216,7 @@ class _LibraryEditorPageState extends ConsumerState<LibraryEditorPage> {
                   ),
                   child: TextField(
                     controller: _nameController,
+                    textAlignVertical: TextAlignVertical.center,
                     decoration: const InputDecoration(
                       hintText: '例: 我的电影',
                       prefixIcon: Icon(Icons.drive_file_rename_outline),
@@ -418,6 +419,7 @@ class _DirEditor extends StatelessWidget {
               Expanded(
                 child: TextField(
                   controller: row.controller,
+                  textAlignVertical: TextAlignVertical.center,
                   onChanged: (_) => onChanged(),
                   decoration: const InputDecoration(
                     hintText: '/path/to/media',

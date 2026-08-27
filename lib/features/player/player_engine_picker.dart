@@ -36,17 +36,50 @@ Future<PlaybackEngineKind?> showPlaybackEnginePicker(
             ),
             const SizedBox(height: 12),
             for (final engineKind in orderedKinds)
-              ListTile(
-                key: ValueKey('player-engine-${engineKind.value}'),
-                leading: Icon(switch (engineKind) {
-                  PlaybackEngineKind.libmpv => Icons.video_library_outlined,
-                  PlaybackEngineKind.ksPlayer => Icons.movie_outlined,
-                }),
-                title: Text(engineKind.label),
-                trailing: engineKind == defaultEngineKind
-                    ? _DefaultBadge(label: l.playerEnginePickerDefaultBadge)
-                    : null,
-                onTap: () => Navigator.of(dialogContext).pop(engineKind),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
+                  color: engineKind == defaultEngineKind
+                      ? c.accent.withValues(alpha: 0.14)
+                      : c.surfaceAlt,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: BorderSide(
+                      color: engineKind == defaultEngineKind
+                          ? c.accent.withValues(alpha: 0.45)
+                          : c.cardBorder,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: ListTile(
+                    key: ValueKey('player-engine-${engineKind.value}'),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 2,
+                    ),
+                    leading: Icon(
+                      switch (engineKind) {
+                        PlaybackEngineKind.libmpv =>
+                          Icons.video_library_outlined,
+                        PlaybackEngineKind.ksPlayer => Icons.movie_outlined,
+                      },
+                      color: engineKind == defaultEngineKind
+                          ? c.accent
+                          : c.text2,
+                    ),
+                    title: Text(
+                      engineKind.label,
+                      style: TextStyle(
+                        color: c.text,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    trailing: engineKind == defaultEngineKind
+                        ? _DefaultBadge(label: l.playerEnginePickerDefaultBadge)
+                        : null,
+                    onTap: () => Navigator.of(dialogContext).pop(engineKind),
+                  ),
+                ),
               ),
           ],
         ),

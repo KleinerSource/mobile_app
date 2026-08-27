@@ -446,6 +446,7 @@ class _ServerEditorDialogState extends State<_ServerEditorDialog> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _name,
+              textAlignVertical: TextAlignVertical.center,
               decoration: const InputDecoration(
                 labelText: '服务器名称',
                 prefixIcon: Icon(Icons.drive_file_rename_outline),
@@ -459,6 +460,7 @@ class _ServerEditorDialogState extends State<_ServerEditorDialog> {
                 controller: _baseUrl,
                 keyboardType: TextInputType.url,
                 autocorrect: false,
+                textAlignVertical: TextAlignVertical.center,
                 decoration: const InputDecoration(
                   labelText: '初始线路地址',
                   hintText: 'http://192.168.1.10:8001',

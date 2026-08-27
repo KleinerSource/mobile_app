@@ -777,6 +777,7 @@ class _ServerSwitchTransitionOverlayState
       controller: controller,
       enabled: enabled,
       obscureText: obscureText,
+      textAlignVertical: TextAlignVertical.center,
       keyboardType: keyboardType,
       onSubmitted: onSubmitted,
       decoration: InputDecoration(

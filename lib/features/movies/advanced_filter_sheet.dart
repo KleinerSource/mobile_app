@@ -498,6 +498,7 @@ class _NumberField extends StatelessWidget {
       controller: controller,
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      textAlignVertical: TextAlignVertical.center,
       onChanged: onChanged,
       decoration: sheetInputDecoration(
         context,

@@ -629,6 +629,7 @@ class _ModalTranscriptionSettingsPageState
               obscureText: !visible,
               autocorrect: false,
               enableSuggestions: false,
+              textAlignVertical: TextAlignVertical.center,
               decoration: InputDecoration(
                 hintText: hint,
                 prefixIcon: const Icon(Icons.key_outlined),
@@ -781,6 +782,7 @@ class _TokenEditorSheetState extends State<_TokenEditorSheet> {
             TextField(
               controller: _name,
               maxLength: 32,
+              textAlignVertical: TextAlignVertical.center,
               decoration: settingsInputDecoration(
                 context,
                 labelText: '备注（可选）',
@@ -852,6 +854,7 @@ class _TokenEditorSheetState extends State<_TokenEditorSheet> {
       obscureText: !visible,
       autocorrect: false,
       enableSuggestions: false,
+      textAlignVertical: TextAlignVertical.center,
       decoration: settingsInputDecoration(
         context,
         labelText: label,

@@ -331,6 +331,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                                 Expanded(
                                   child: TextField(
                                     controller: _searchCtrl,
+                                    textAlignVertical: TextAlignVertical.center,
                                     onChanged: _onSearch,
                                     decoration: InputDecoration(
                                       hintText: '搜索原始值或映射值',
@@ -559,6 +560,9 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                         minLines: 1,
                         maxLines: rule == null ? 5 : 1,
                         autofocus: rule == null,
+                        textAlignVertical: rule == null
+                            ? null
+                            : TextAlignVertical.center,
                         decoration: sheetInputDecoration(
                           sctx,
                           hintText: rule == null ? '原始值1\n原始值2' : '原始值',
@@ -618,6 +622,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                         const SizedBox(height: 6),
                         TextField(
                           controller: mappedCtrl,
+                          textAlignVertical: TextAlignVertical.center,
                           decoration: sheetInputDecoration(
                             sctx,
                             hintText: '目标值',

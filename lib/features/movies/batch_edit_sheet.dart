@@ -707,6 +707,7 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
                     child: TextField(
+                      textAlignVertical: TextAlignVertical.center,
                       onChanged: (v) {
                         q = v.trim();
                         debounce.run(() {

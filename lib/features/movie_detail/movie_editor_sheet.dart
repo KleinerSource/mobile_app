@@ -801,6 +801,9 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     return TextField(
       controller: controller,
       maxLines: maxLines,
+      textAlignVertical: maxLines == 1
+          ? TextAlignVertical.center
+          : null,
       keyboardType: numeric
           ? const TextInputType.numberWithOptions(decimal: true)
           : null,
