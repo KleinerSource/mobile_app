@@ -384,11 +384,6 @@ class _HeroHeader extends ConsumerWidget {
       title: movie.title,
       year: movie.year,
       bottomOverlay: badges.isEmpty ? null : CoverBadgeRow(badges: badges),
-      onTap: imageUrl == null
-          ? null
-          : () {
-              showMovieImageLightbox(context, urls: [imageUrl]);
-            },
     );
   }
 }

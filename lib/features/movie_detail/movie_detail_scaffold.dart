@@ -129,7 +129,6 @@ class MovieDetailHero extends StatelessWidget {
     this.year,
     this.imageAlignment = const Alignment(0, -0.6),
     this.bottomOverlay,
-    this.onTap,
   });
 
   final String title;
@@ -137,7 +136,6 @@ class MovieDetailHero extends StatelessWidget {
   final int? year;
   final Alignment imageAlignment;
   final Widget? bottomOverlay;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -186,35 +184,8 @@ class MovieDetailHero extends StatelessWidget {
               child: bottomOverlay,
             ),
           ),
-        if (onTap != null)
-          Positioned(
-            top: 12,
-            right: 16,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.48),
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                tooltip: '查看封面大图',
-                onPressed: onTap,
-                icon: const Icon(
-                  Icons.open_in_full_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-            ),
-          ),
       ],
     );
-    if (onTap != null) {
-      child = GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: child,
-      );
-    }
     return child;
   }
 }

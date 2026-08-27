@@ -170,11 +170,6 @@ class _DbOnlineDetailBodyState extends State<_DbOnlineDetailBody> {
         title: movie.title,
         year: _yearFromDate(movie.date),
         bottomOverlay: movie.canPlay ? const OnlinePlayBadge() : null,
-        onTap: imageUrl == null
-            ? null
-            : () {
-                showMovieImageLightbox(context, urls: [imageUrl]);
-              },
       ),
       slivers: [
         SliverToBoxAdapter(
