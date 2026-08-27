@@ -7,6 +7,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../shared/filter_chip.dart';
 import '../movies/movies_providers.dart';
 import '../resources/resources_providers.dart';
@@ -25,11 +26,9 @@ class MovieEditorSheet extends ConsumerStatefulWidget {
   final MovieDetail movie;
 
   static Future<bool?> show(BuildContext context, MovieDetail movie) {
-    return showModalBottomSheet<bool>(
+    return showGlassSheet<bool>(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) => MovieEditorSheet(movie: movie),
     );
   }

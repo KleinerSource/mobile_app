@@ -5,6 +5,7 @@ import '../../../core/api/dio_factory.dart';
 import '../../../core/models/mapping_rule.dart';
 import '../../../core/platform/app_haptics.dart';
 import '../../../core/platform/app_theme.dart';
+import '../../../shared/glass.dart';
 import '../actor_associations_providers.dart';
 import '../actor_associations_repository.dart';
 
@@ -31,11 +32,9 @@ class ActorAssociationEditorSheet extends ConsumerStatefulWidget {
     required ActorAssocEditMode mode,
     MappingRule? existing,
   }) {
-    return showModalBottomSheet<bool>(
+    return showGlassSheet<bool>(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) =>
           ActorAssociationEditorSheet(mode: mode, existing: existing),
     );

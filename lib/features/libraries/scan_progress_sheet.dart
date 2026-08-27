@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/models/library.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../shared/status_pill.dart';
 import 'libraries_providers.dart';
 
@@ -28,13 +29,11 @@ class ScanProgressSheet extends ConsumerStatefulWidget {
     required String libraryName,
     required String taskId,
   }) {
-    return showModalBottomSheet(
+    return showGlassSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: appColors(context).bg,
       isDismissible: true,
       enableDrag: true,
-      showDragHandle: true,
       builder: (_) => ScanProgressSheet(
         libraryId: libraryId,
         libraryName: libraryName,

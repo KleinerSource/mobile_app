@@ -9,6 +9,7 @@ import '../../../core/models/avdb_config.dart';
 import '../../../core/models/dbo_config.dart';
 import '../../../core/models/mapping_rule.dart';
 import '../../../core/platform/app_theme.dart';
+import '../../../shared/glass.dart';
 import '../../configs/configs_providers.dart';
 import '../actor_associations_providers.dart';
 import '../actor_associations_repository.dart';
@@ -34,11 +35,9 @@ class ActorAssociationSyncSheet extends ConsumerStatefulWidget {
     ValueChanged<String>? onBiographyApplied,
     VoidCallback? onAvatarApplied,
   }) {
-    return showModalBottomSheet<bool>(
+    return showGlassSheet<bool>(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) => ActorAssociationSyncSheet(
         actor: actor,
         currentBiography: currentBiography,
@@ -406,11 +405,9 @@ class _ActorAssociationSyncSheetState
     final choices = _avatarChoicesFor(preview);
     if (choices.length <= 1) return;
 
-    final result = await showModalBottomSheet<Set<int>>(
+    final result = await showGlassSheet<Set<int>>(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) => _AvatarChoicePicker(
         mappedValue: preview.mappedValue,
         choices: choices,

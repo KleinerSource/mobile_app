@@ -5,6 +5,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import 'resources_providers.dart';
 import 'resources_repository.dart';
 
@@ -20,11 +21,9 @@ class EntityMergeSheet extends ConsumerStatefulWidget {
     ResourceKind kind,
     List<ResourceItem> items,
   ) {
-    return showModalBottomSheet<bool>(
+    return showGlassSheet<bool>(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) => EntityMergeSheet(kind: kind, items: items),
     );
   }

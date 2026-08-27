@@ -5,6 +5,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/translation_config.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../settings/settings_common.dart';
 import 'translation_providers.dart';
@@ -106,10 +107,8 @@ class _TranslationSettingsPageState
         messenger.showSnackBar(const SnackBar(content: Text('未拿到任何模型')));
         return;
       }
-      final picked = await showModalBottomSheet<String>(
+      final picked = await showGlassSheet<String>(
         context: context,
-        backgroundColor: appColors(context).bg,
-        showDragHandle: true,
         builder: (ctx) {
           final c = appColors(ctx);
           return SafeArea(

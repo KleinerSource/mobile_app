@@ -8,6 +8,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../shared/drag_selection.dart';
 import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/error_view.dart';
@@ -611,10 +612,8 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     required String confirmLabel,
   }) {
     var overwrite = false;
-    return showModalBottomSheet<bool>(
+    return showGlassSheet<bool>(
       context: context,
-      backgroundColor: appColors(context).bg,
-      showDragHandle: true,
       builder: (sheetContext) {
         final c = appColors(sheetContext);
         return StatefulBuilder(

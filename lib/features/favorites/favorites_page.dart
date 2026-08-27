@@ -10,6 +10,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/drag_selection.dart';
 import '../../shared/error_view.dart';
@@ -417,10 +418,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   }
 
   Future<void> _showSortSheet() async {
-    final picked = await showModalBottomSheet<FavoritesSort>(
+    final picked = await showGlassSheet<FavoritesSort>(
       context: context,
-      backgroundColor: appColors(context).bg,
-      showDragHandle: true,
       builder: (ctx) {
         final c = appColors(ctx);
         return SafeArea(

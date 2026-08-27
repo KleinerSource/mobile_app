@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/models/subtitle_search.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../movies/movies_providers.dart';
 
 /// 迅雷字幕搜索 / 预览 / 下载 sheet
@@ -25,11 +26,9 @@ class ThunderSubtitleSheet extends ConsumerStatefulWidget {
 
   static Future<void> show(BuildContext context, int movieId) {
     final hostMessenger = ScaffoldMessenger.maybeOf(context);
-    return showModalBottomSheet<void>(
+    return showGlassSheet<void>(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) =>
           ThunderSubtitleSheet(movieId: movieId, hostMessenger: hostMessenger),
     );

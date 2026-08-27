@@ -8,6 +8,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/db_online_movie.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/status_bar_scroll_to_top.dart';
@@ -144,10 +145,8 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
 
   Future<void> _openCategoryMenu(BuildContext context) async {
     final colors = appColors(context);
-    await showModalBottomSheet<void>(
+    await showGlassSheet<void>(
       context: context,
-      backgroundColor: colors.bg,
-      showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         top: false,
         child: SingleChildScrollView(
@@ -195,10 +194,8 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
 
   Future<void> _openSortMenu(BuildContext context) async {
     final colors = appColors(context);
-    await showModalBottomSheet<void>(
+    await showGlassSheet<void>(
       context: context,
-      backgroundColor: colors.bg,
-      showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         top: false,
         child: SingleChildScrollView(

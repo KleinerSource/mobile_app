@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/poster.dart';
 import '../movie_detail/movie_detail_page.dart';
@@ -112,10 +113,8 @@ class ListDetailPage extends ConsumerWidget {
     FavoriteList list,
   ) async {
     final c = appColors(context);
-    await showModalBottomSheet<void>(
+    await showGlassSheet<void>(
       context: context,
-      backgroundColor: c.bg,
-      showDragHandle: true,
       builder: (ctx) {
         return SafeArea(
           child: Column(

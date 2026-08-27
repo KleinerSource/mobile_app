@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/shake_error_text.dart';
 import '../settings/settings_common.dart';
@@ -104,9 +105,8 @@ class _SecuritySettingsContent extends ConsumerWidget {
       await _configurePin(context, ref);
       return;
     }
-    final action = await showModalBottomSheet<_CredentialAction>(
+    final action = await showGlassSheet<_CredentialAction>(
       context: context,
-      showDragHandle: true,
       builder: (context) => const _CredentialActionSheet(
         title: '进入密码',
         icon: Icons.password_outlined,
@@ -153,9 +153,8 @@ class _SecuritySettingsContent extends ConsumerWidget {
       await _configureGesture(context, ref);
       return;
     }
-    final action = await showModalBottomSheet<_CredentialAction>(
+    final action = await showGlassSheet<_CredentialAction>(
       context: context,
-      showDragHandle: true,
       builder: (context) => const _CredentialActionSheet(
         title: '手势密码',
         icon: Icons.gesture_rounded,
@@ -355,8 +354,7 @@ class _PinSetupDialogState extends State<_PinSetupDialog> {
   int _errorToken = 0;
   Timer? _errorTimer;
   String get _message =>
-      _error ??
-      (_firstPin == null ? '请输入 6 位数字' : '请再次输入相同的 6 位密码');
+      _error ?? (_firstPin == null ? '请输入 6 位数字' : '请再次输入相同的 6 位密码');
 
   @override
   void dispose() {
@@ -438,8 +436,7 @@ class _PatternSetupDialogState extends State<_PatternSetupDialog> {
   int _errorToken = 0;
   Timer? _errorTimer;
   String get _message =>
-      _error ??
-      (_firstPattern == null ? '连接至少 4 个节点' : '请再次绘制相同手势以确认');
+      _error ?? (_firstPattern == null ? '连接至少 4 个节点' : '请再次绘制相同手势以确认');
 
   @override
   void dispose() {

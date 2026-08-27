@@ -27,10 +27,10 @@ class GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = appColors(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // 底色: 完全不透明保底 (解决 scaffold 透明导致的穿透问题)
-    final solidBg =
-        tint ?? (isDark ? const Color(0xFF1B1A24) : const Color(0xFFFAFAFA));
+    // 统一使用半透明 surface，让背景经过模糊后仍保留层次。
+    final solidBg = tint ?? c.sheetBackground;
     // 玻璃高光: 左上更亮的细微渐变叠在底色上 (模拟玻璃表面反光)
     final highlight = isDark
         ? const LinearGradient(
@@ -43,9 +43,7 @@ class GlassPanel extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: [Color(0x66FFFFFF), Color(0x00FFFFFF)],
           );
-    final borderColor = isDark
-        ? const Color(0x33FFFFFF)
-        : const Color(0x1F000000);
+    final borderColor = c.sheetBorder;
 
     return ClipRRect(
       borderRadius: borderRadius,
@@ -63,7 +61,7 @@ class GlassPanel extends StatelessWidget {
               gradient: highlight,
               borderRadius: borderRadius,
             ),
-            child: child,
+            child: Material(type: MaterialType.transparency, child: child),
           ),
         ),
       ),
@@ -84,7 +82,7 @@ Future<T?> showGlassDialog<T>({
     context: context,
     barrierDismissible: barrierDismissible,
     barrierLabel: '',
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: appColors(context).sheetBarrier,
     transitionDuration: const Duration(milliseconds: 200),
     pageBuilder: (ctx, anim1, anim2) {
       final c = appColors(ctx);
@@ -153,43 +151,60 @@ Future<T?> showGlassDialog<T>({
   );
 }
 
-/// 显示毛玻璃 BottomSheet
-/// builder 返回的 child 会被包进 GlassPanel + SafeArea
+/// 显示统一的毛玻璃 BottomSheet。
+///
+/// 所有业务 sheet 都应通过这里进入，统一处理材质、圆角、遮罩、SafeArea
+/// 和拖拽把手；业务 builder 只负责内容和高度。
 Future<T?> showGlassSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   bool isScrollControlled = true,
-  bool showDragHandle = true,
+  bool isDismissible = true,
+  bool enableDrag = true,
+  bool useSafeArea = true,
 }) {
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: isScrollControlled,
+    isDismissible: isDismissible,
+    enableDrag: enableDrag,
+    useSafeArea: false,
     backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: appColors(context).sheetBarrier,
     elevation: 0,
     builder: (ctx) {
-      final c = appColors(ctx);
+      final sheet = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const GlassSheetHandle(),
+          Flexible(child: builder(ctx)),
+        ],
+      );
       return GlassPanel(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (showDragHandle)
-              Padding(
-                padding: const EdgeInsets.only(top: 10, bottom: 4),
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: c.muted2.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                ),
-              ),
-            Flexible(child: builder(ctx)),
-          ],
-        ),
+        child: useSafeArea
+            ? SafeArea(top: true, bottom: true, child: sheet)
+            : sheet,
       );
     },
   );
+}
+
+/// 统一的 BottomSheet 拖拽把手，避免各业务面板自行定义尺寸和颜色。
+class GlassSheetHandle extends StatelessWidget {
+  const GlassSheetHandle({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 4),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: appColors(context).sheetHandle,
+          borderRadius: BorderRadius.circular(100),
+        ),
+        child: const SizedBox(width: 36, height: 4),
+      ),
+    );
+  }
 }

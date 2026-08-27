@@ -8,6 +8,7 @@ import '../../core/models/resource.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/util/map_with_concurrency.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../shared/debouncer.dart';
 import '../../shared/pagination_footer.dart';
 import '../movie_detail/entity_picker_sheet.dart';
@@ -21,11 +22,9 @@ class BatchEditSheet extends ConsumerStatefulWidget {
   final List<int> movieIds;
 
   static Future<bool?> show(BuildContext context, List<int> ids) {
-    return showModalBottomSheet<bool>(
+    return showGlassSheet<bool>(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) => BatchEditSheet(movieIds: ids),
     );
   }
@@ -709,11 +708,9 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
       }
     }
 
-    final picked = await showModalBottomSheet<({int? id, bool clear})>(
+    final picked = await showGlassSheet<({int? id, bool clear})>(
       context: context,
-      backgroundColor: c.bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setS) {

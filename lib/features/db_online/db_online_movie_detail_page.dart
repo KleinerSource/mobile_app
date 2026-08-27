@@ -8,6 +8,7 @@ import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/db_online_movie.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/poster.dart';
 import '../home/hero_backdrop.dart';
@@ -545,11 +546,10 @@ Future<void> _openDbOnlinePlayback(
   }
   if (!context.mounted) return;
 
-  await showModalBottomSheet<void>(
+  await showGlassSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    showDragHandle: true,
     builder: (_) => _DbOnlinePlaybackSheet(
       code: resolvedMovie.code,
       videoId: resolvedMovie.videoId,
@@ -635,22 +635,13 @@ class _DbOnlinePlaybackSheet extends ConsumerStatefulWidget {
 
 class _DbOnlinePlaybackSheetState
     extends ConsumerState<_DbOnlinePlaybackSheet> {
-  final _sheetController = DraggableScrollableController();
-
   late DbOnlinePlaySource _source;
-  int? _lastEpisodeCount;
 
   @override
   void initState() {
     super.initState();
     final validSources = widget.sources.where((item) => item.id > 0).toList();
     _source = validSources.first;
-  }
-
-  @override
-  void dispose() {
-    _sheetController.dispose();
-    super.dispose();
   }
 
   void _refreshEpisodes() {
@@ -662,25 +653,6 @@ class _DbOnlinePlaybackSheetState
     ref.invalidate(dbOnlinePlayEpisodesProvider(request));
   }
 
-  void _syncSheetSize(int episodeCount) {
-    if (_lastEpisodeCount == episodeCount) return;
-    _lastEpisodeCount = episodeCount;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_sheetController.isAttached) return;
-      final screenHeight = MediaQuery.sizeOf(context).height;
-      final estimatedHeight = 190 + episodeCount * 82;
-      final targetSize = (estimatedHeight / screenHeight)
-          .clamp(0.28, 0.9)
-          .toDouble();
-      if ((_sheetController.size - targetSize).abs() < 0.01) return;
-      _sheetController.animateTo(
-        targetSize,
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-      );
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final request = DbOnlinePlayRequest(
@@ -690,106 +662,95 @@ class _DbOnlinePlaybackSheetState
     );
     final validSources = widget.sources.where((item) => item.id > 0).toList();
     final value = ref.watch(dbOnlinePlayEpisodesProvider(request));
-    return DraggableScrollableSheet(
-      controller: _sheetController,
-      expand: false,
-      initialChildSize: 0.28,
-      minChildSize: 0.28,
-      maxChildSize: 0.9,
-      builder: (context, scrollController) {
-        return Material(
-          color: appColors(context).bg,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 12, 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text('在线播放', style: AppText.sectionTitle(context)),
-                    ),
-                    IconButton(
-                      tooltip: '刷新剧集',
-                      icon: const Icon(Icons.refresh_rounded),
-                      onPressed: _refreshEpisodes,
-                    ),
-                  ],
+    final mediaQuery = MediaQuery.of(context);
+    final availableHeight =
+        mediaQuery.size.height - mediaQuery.viewPadding.bottom;
+    final maxContentHeight = availableHeight * 0.78;
+
+    return Material(
+      color: Colors.transparent,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 12, 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text('在线播放', style: AppText.sectionTitle(context)),
                 ),
-              ),
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text('播放源', style: AppText.meta(context)),
-                    ),
-                    SizedBox(
-                      height: 42,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: validSources.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (_, index) {
-                          final source = validSources[index];
-                          return ChoiceChip(
-                            label: Text(_playSourceLabel(source)),
-                            selected: source.id == _source.id,
-                            onSelected: (_) {
-                              if (source.id != _source.id) {
-                                setState(() => _source = source);
-                              }
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    value.when(
-                      loading: () => const SizedBox(
-                        height: 160,
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-                      error: (error, _) => SizedBox(
-                        height: 180,
-                        child: _ErrorBody(
-                          message: toApiException(error).message,
-                          onRetry: _refreshEpisodes,
-                        ),
-                      ),
-                      data: (episodes) {
-                        _syncSheetSize(episodes.episodes.length);
-                        return episodes.episodes.isEmpty
-                            ? const SizedBox(
-                                height: 120,
-                                child: Center(child: Text('暂无可播放剧集')),
-                              )
-                            : Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '剧集',
-                                    style: AppText.sectionTitle(context),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  for (final episode in episodes.episodes)
-                                    _EpisodeTile(
-                                      code: widget.code,
-                                      episode: episode,
-                                    ),
-                                ],
-                              );
-                      },
-                    ),
-                  ],
+                IconButton(
+                  tooltip: '刷新剧集',
+                  icon: const Icon(Icons.refresh_rounded),
+                  onPressed: _refreshEpisodes,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        );
-      },
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxContentHeight),
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text('播放源', style: AppText.meta(context)),
+                ),
+                SizedBox(
+                  height: 42,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: validSources.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (_, index) {
+                      final source = validSources[index];
+                      return ChoiceChip(
+                        label: Text(_playSourceLabel(source)),
+                        selected: source.id == _source.id,
+                        onSelected: (_) {
+                          if (source.id != _source.id) {
+                            setState(() => _source = source);
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                value.when(
+                  loading: () => const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 56),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (error, _) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: _ErrorBody(
+                      message: toApiException(error).message,
+                      onRetry: _refreshEpisodes,
+                    ),
+                  ),
+                  data: (episodes) => episodes.episodes.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 48),
+                          child: Center(child: Text('暂无可播放剧集')),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('剧集', style: AppText.sectionTitle(context)),
+                            const SizedBox(height: 10),
+                            for (final episode in episodes.episodes)
+                              _EpisodeTile(code: widget.code, episode: episode),
+                          ],
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

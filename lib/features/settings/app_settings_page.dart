@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../i18n/locale_providers.dart';
@@ -201,9 +202,8 @@ class _LanguageTile extends ConsumerWidget {
   ) async {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final picked = await showModalBottomSheet<AppLocale>(
+    final picked = await showGlassSheet<AppLocale>(
       context: context,
-      showDragHandle: true,
       builder: (ctx) {
         return SafeArea(
           child: Column(
@@ -287,9 +287,8 @@ class _ThemeTile extends ConsumerWidget {
   ) async {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final picked = await showModalBottomSheet<AppThemeMode>(
+    final picked = await showGlassSheet<AppThemeMode>(
       context: context,
-      showDragHandle: true,
       builder: (ctx) {
         return SafeArea(
           child: Column(

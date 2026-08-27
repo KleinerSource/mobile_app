@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import 'lists_providers.dart';
 
 /// 弹出底部 sheet 让用户把 movieId 加入/移出 多个 list
@@ -21,11 +22,9 @@ class AddToListSheet extends ConsumerStatefulWidget {
     required int movieId,
     required String movieTitle,
   }) {
-    return showModalBottomSheet(
+    return showGlassSheet(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) => AddToListSheet(movieId: movieId, movieTitle: movieTitle),
     );
   }

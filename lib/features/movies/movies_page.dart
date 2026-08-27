@@ -10,6 +10,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/models/movie.dart';
 import '../../core/models/paged_result.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/entity_batch_toolbar.dart';
@@ -927,10 +928,8 @@ class _SortButton extends StatelessWidget {
 
   Future<void> _openMenu(BuildContext context) async {
     final c = appColors(context);
-    await showModalBottomSheet<void>(
+    await showGlassSheet<void>(
       context: context,
-      backgroundColor: c.bg,
-      showDragHandle: true,
       builder: (ctx) => SafeArea(
         top: false,
         child: Column(
@@ -1050,10 +1049,8 @@ class _UpdatedDropdownChip extends StatelessWidget {
 
   Future<void> _openMenu(BuildContext context) async {
     final c = appColors(context);
-    await showModalBottomSheet<void>(
+    await showGlassSheet<void>(
       context: context,
-      backgroundColor: c.bg,
-      showDragHandle: true,
       builder: (ctx) => SafeArea(
         top: false,
         child: Column(

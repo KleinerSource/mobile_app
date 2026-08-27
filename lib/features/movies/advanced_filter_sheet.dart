@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/resource.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../movie_detail/entity_picker_sheet.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
@@ -18,11 +19,9 @@ class AdvancedFilterSheet extends ConsumerStatefulWidget {
     BuildContext context, {
     required MovieFilter initial,
   }) {
-    return showModalBottomSheet<MovieFilter>(
+    return showGlassSheet<MovieFilter>(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) => AdvancedFilterSheet(initial: initial),
     );
   }

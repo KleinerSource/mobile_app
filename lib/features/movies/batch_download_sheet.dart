@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import 'movies_providers.dart';
 
 const _kDownloadPrefsKey = 'batchDownloadParams';
@@ -18,11 +19,9 @@ class BatchDownloadSheet extends ConsumerStatefulWidget {
   final List<int> movieIds;
 
   static Future<bool?> show(BuildContext context, List<int> ids) {
-    return showModalBottomSheet<bool>(
+    return showGlassSheet<bool>(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) => BatchDownloadSheet(movieIds: ids),
     );
   }

@@ -8,6 +8,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../shared/drag_selection.dart';
 import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/error_view.dart';
@@ -520,11 +521,9 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
 
     final c = appColors(context);
     final result =
-        await showModalBottomSheet<({List<String> originals, String? mapped})>(
+        await showGlassSheet<({List<String> originals, String? mapped})>(
           context: context,
-          backgroundColor: c.bg,
           isScrollControlled: true,
-          showDragHandle: true,
           builder: (ctx) {
             return StatefulBuilder(
               builder: (sctx, setSt) {

@@ -8,6 +8,7 @@ import '../../core/api/providers.dart';
 import '../../core/models/movie.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
 import '../movies/movies_providers.dart';
@@ -24,11 +25,9 @@ class DboDiffSheet extends ConsumerStatefulWidget {
   final MovieDetail movie;
 
   static Future<void> show(BuildContext context, MovieDetail movie) {
-    return showModalBottomSheet<void>(
+    return showGlassSheet<void>(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) => DboDiffSheet(movie: movie),
     );
   }

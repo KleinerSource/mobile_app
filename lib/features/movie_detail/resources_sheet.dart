@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../movies/movies_repository.dart';
 import '../movies/movies_providers.dart';
 
@@ -21,11 +22,9 @@ class ResourcesSheet extends ConsumerStatefulWidget {
   final MovieDetail movie;
 
   static Future<void> show(BuildContext context, {required MovieDetail movie}) {
-    return showModalBottomSheet<void>(
+    return showGlassSheet<void>(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) => ResourcesSheet(movie: movie),
     );
   }
@@ -224,9 +223,8 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
     if (downloaders.length == 1) {
       selected = downloaders.first.name;
     } else {
-      selected = await showModalBottomSheet<String>(
+      selected = await showGlassSheet<String>(
         context: context,
-        backgroundColor: appColors(context).bg,
         builder: (ctx) => SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,

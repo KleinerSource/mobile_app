@@ -11,6 +11,7 @@ import '../../core/models/actor.dart';
 import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/drag_selection.dart';
 import '../../shared/entity_batch_toolbar.dart';
@@ -618,11 +619,9 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     );
     final isEdit = actor != null;
 
-    final draft = await showModalBottomSheet<_ActorDraft>(
+    final draft = await showGlassSheet<_ActorDraft>(
       context: context,
-      backgroundColor: c.bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (sheetContext) {
         return Padding(
           padding: EdgeInsets.fromLTRB(

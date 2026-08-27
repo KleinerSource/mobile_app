@@ -1,7 +1,6 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import 'platform_utils.dart';
+import '../../shared/glass.dart';
 
 class AppActionSheetAction<T> {
   const AppActionSheetAction({
@@ -19,50 +18,26 @@ Future<T?> showAppActionSheet<T>({
   required String title,
   required List<AppActionSheetAction<T>> actions,
 }) {
-  if (isCupertino(context)) {
-    return showCupertinoModalPopup<T>(
-      context: context,
-      builder: (ctx) => CupertinoActionSheet(
-        title: Text(title),
-        actions: actions
-            .map(
-              (a) => CupertinoActionSheetAction(
-                onPressed: () => Navigator.of(ctx).pop(a.value),
-                isDestructiveAction: a.destructive,
-                child: Text(a.label),
-              ),
-            )
-            .toList(),
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text('取消'),
-        ),
-      ),
-    );
-  }
-  return showModalBottomSheet<T>(
+  return showGlassSheet<T>(
     context: context,
-    showDragHandle: true,
-    builder: (ctx) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text(title, style: Theme.of(ctx).textTheme.titleMedium),
-          ),
-          for (final a in actions)
-            ListTile(
-              title: Text(
-                a.label,
-                style: TextStyle(
-                  color: a.destructive ? Theme.of(ctx).colorScheme.error : null,
-                ),
+    builder: (ctx) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(title, style: Theme.of(ctx).textTheme.titleMedium),
+        ),
+        for (final a in actions)
+          ListTile(
+            title: Text(
+              a.label,
+              style: TextStyle(
+                color: a.destructive ? Theme.of(ctx).colorScheme.error : null,
               ),
-              onTap: () => Navigator.of(ctx).pop(a.value),
             ),
-        ],
-      ),
+            onTap: () => Navigator.of(ctx).pop(a.value),
+          ),
+      ],
     ),
   );
 }

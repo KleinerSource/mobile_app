@@ -27,6 +27,10 @@ class AppColors {
     required this.divider,
     required this.danger,
     required this.warning,
+    required this.sheetBackground,
+    required this.sheetBorder,
+    required this.sheetHandle,
+    required this.sheetBarrier,
   });
 
   /// Light · 浅灰紫主题
@@ -52,6 +56,10 @@ class AppColors {
     divider: const Color(0x0F000000),
     danger: const Color(0xFFD93025),
     warning: const Color(0xFFB89968),
+    sheetBackground: const Color(0xCCFFFFFF),
+    sheetBorder: const Color(0x66FFFFFF),
+    sheetHandle: const Color(0x809A96A8),
+    sheetBarrier: const Color(0x73000000),
   );
 
   /// Dark · 墨夜紫粉光晕主题
@@ -77,6 +85,10 @@ class AppColors {
     divider: const Color(0x0FFFFFFF),
     danger: const Color(0xFFFF6B6B),
     warning: const Color(0xFFD4A574),
+    sheetBackground: const Color(0xCC1B1A24),
+    sheetBorder: const Color(0x33FFFFFF),
+    sheetHandle: const Color(0x99FFFFFF),
+    sheetBarrier: const Color(0x99000000),
   );
 
   final Color bg;
@@ -100,6 +112,10 @@ class AppColors {
   final Color divider;
   final Color danger;
   final Color warning;
+  final Color sheetBackground;
+  final Color sheetBorder;
+  final Color sheetHandle;
+  final Color sheetBarrier;
 }
 
 /// 一个 brightness 配套的 6 个 collection hue —— 用于多彩 collection 卡片 / genre chips。
@@ -248,9 +264,12 @@ ThemeData buildAppTheme(Brightness brightness) {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
     bottomSheetTheme: BottomSheetThemeData(
-      backgroundColor: overlayBg,
+      backgroundColor: c.sheetBackground,
       surfaceTintColor: Colors.transparent,
-      modalBackgroundColor: overlayBg,
+      modalBackgroundColor: c.sheetBackground,
+      elevation: 0,
+      dragHandleColor: c.sheetHandle,
+      dragHandleSize: const Size(36, 4),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

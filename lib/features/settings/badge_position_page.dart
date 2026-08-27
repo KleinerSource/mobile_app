@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
@@ -305,9 +306,8 @@ class _CornerTile extends StatelessWidget {
   Future<void> _pick(BuildContext context) async {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final picked = await showModalBottomSheet<BadgeCorner>(
+    final picked = await showGlassSheet<BadgeCorner>(
       context: context,
-      showDragHandle: true,
       builder: (ctx) {
         return SafeArea(
           child: Column(

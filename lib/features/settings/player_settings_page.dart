@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../player/player_settings.dart';
@@ -309,9 +310,8 @@ class _PlayerOptionTile<T> extends StatelessWidget {
 
   Future<void> _pick(BuildContext context) async {
     final c = appColors(context);
-    final picked = await showModalBottomSheet<T>(
+    final picked = await showGlassSheet<T>(
       context: context,
-      showDragHandle: true,
       builder: (ctx) {
         return SafeArea(
           child: Column(

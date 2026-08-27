@@ -5,6 +5,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
 import '../../core/util/map_with_concurrency.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import 'movies_providers.dart';
 
 /// 批量合并重复番号 sheet
@@ -13,11 +14,9 @@ class BatchMergeSheet extends ConsumerStatefulWidget {
   final List<int> movieIds;
 
   static Future<bool?> show(BuildContext context, List<int> ids) {
-    return showModalBottomSheet<bool>(
+    return showGlassSheet<bool>(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) => BatchMergeSheet(movieIds: ids),
     );
   }

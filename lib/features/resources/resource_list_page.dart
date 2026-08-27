@@ -8,6 +8,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../shared/drag_selection.dart';
 import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/error_view.dart';
@@ -668,11 +669,9 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     }
 
     final result =
-        await showModalBottomSheet<({String name, bool autoMapping})>(
+        await showGlassSheet<({String name, bool autoMapping})>(
           context: context,
-          backgroundColor: c.bg,
           isScrollControlled: true,
-          showDragHandle: true,
           builder: (ctx) {
             return StatefulBuilder(
               builder: (ctx, setSheetState) {

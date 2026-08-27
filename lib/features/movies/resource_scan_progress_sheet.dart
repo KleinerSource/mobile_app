@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/models/resource_scan.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import 'movies_providers.dart';
 
 /// 资源扫描进度面板。任务没有暂停/取消接口，因此关闭面板只会停止轮询，
@@ -25,11 +26,9 @@ class ResourceScanProgressSheet extends ConsumerStatefulWidget {
     required String taskId,
     VoidCallback? onCompleted,
   }) {
-    return showModalBottomSheet<void>(
+    return showGlassSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: appColors(context).bg,
-      showDragHandle: true,
       builder: (_) =>
           ResourceScanProgressSheet(taskId: taskId, onCompleted: onCompleted),
     );

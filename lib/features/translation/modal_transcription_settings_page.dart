@@ -5,6 +5,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/modal_transcription_config.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/swipe_actions.dart';
 import '../settings/settings_common.dart';
@@ -125,11 +126,9 @@ class _ModalTranscriptionSettingsPageState
         if (i != index) _tokens[i].tokenId.trim(),
     ].where((value) => value.isNotEmpty).toList();
 
-    final result = await showModalBottomSheet<ModalTranscriptionToken>(
+    final result = await showGlassSheet<ModalTranscriptionToken>(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (sheetContext) =>
           _TokenEditorSheet(initial: initial, otherTokenIds: otherTokenIds),
     );

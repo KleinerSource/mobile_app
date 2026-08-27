@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import 'movies_providers.dart';
 
 /// 重复 NFO 比较 sheet · 标量字段选择来源，列表字段保留各自
@@ -11,11 +12,9 @@ class BatchDuplicateNfoCompareSheet extends ConsumerStatefulWidget {
   final List<int> movieIds;
 
   static Future<bool?> show(BuildContext context, List<int> ids) {
-    return showModalBottomSheet<bool>(
+    return showGlassSheet<bool>(
       context: context,
-      backgroundColor: appColors(context).bg,
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (_) => BatchDuplicateNfoCompareSheet(movieIds: ids),
     );
   }

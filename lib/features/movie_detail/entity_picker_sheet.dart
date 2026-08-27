@@ -9,6 +9,7 @@ import '../../core/api/providers.dart';
 import '../../core/models/paged_result.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../shared/pinyin_search.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/debouncer.dart';
@@ -73,11 +74,9 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
     Map<int, String> selectedNames = const {},
     Set<int>? allowedIds,
   }) async {
-    return showModalBottomSheet<EntityPickerSelection>(
+    return showGlassSheet<EntityPickerSelection>(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      barrierColor: Colors.black.withValues(alpha: 0.45),
       builder: (_) => EntityPickerSheet(
         kind: kind,
         initialSelectedIds: selected,
@@ -96,11 +95,9 @@ class EntityPickerSheet extends ConsumerStatefulWidget {
     Map<int, String> selectedNames = const {},
   }) async {
     assert(!kind.multi, 'multi 用 pickMulti');
-    final result = await showModalBottomSheet<EntityPickerSelection>(
+    final result = await showGlassSheet<EntityPickerSelection>(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      barrierColor: Colors.black.withValues(alpha: 0.45),
       builder: (_) => EntityPickerSheet(
         kind: kind,
         initialSelectedIds: selected != null ? [selected] : const [],
@@ -182,158 +179,129 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overlayBg = isDark
-        ? const Color(0xFF1B1A24)
-        : const Color(0xFFFAFAFA);
-
     final mediaQuery = MediaQuery.of(context);
     final height = mediaQuery.size.height * 0.85;
 
-    return Container(
+    return SizedBox(
       height: height,
-      decoration: BoxDecoration(
-        color: overlayBg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border(
-          top: BorderSide(
-            color: isDark ? const Color(0x33FFFFFF) : const Color(0x1F000000),
-            width: 1,
-          ),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 10, bottom: 4),
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: c.muted2.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-              ),
-            ),
-            // 头部
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 8, 16, 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+      child: Column(
+        children: [
+          // 头部
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 8, 16, 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '选择${widget.kind.label}',
+                        style: AppText.sectionTitle(context),
+                      ),
+                      if (_isMulti) ...[
+                        const SizedBox(height: 2),
                         Text(
-                          '选择${widget.kind.label}',
-                          style: AppText.sectionTitle(context),
+                          '${_selected.length} 已选',
+                          style: AppText.meta(context),
                         ),
-                        if (_isMulti) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            '${_selected.length} 已选',
-                            style: AppText.meta(context),
-                          ),
-                        ],
                       ],
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(_selection()),
+                  child: Text(
+                    _isMulti ? '完成' : '使用',
+                    style: TextStyle(
+                      color: c.accent,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
                     ),
                   ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(_selection()),
-                    child: Text(
-                      _isMulti ? '完成' : '使用',
-                      style: TextStyle(
-                        color: c.accent,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
+                ),
+              ],
+            ),
+          ),
+          // 搜索栏
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: c.chipBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: 12),
+                  Icon(Icons.search, size: 18, color: c.muted),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchCtrl,
+                      onChanged: _onSearchChanged,
+                      decoration: InputDecoration(
+                        hintText:
+                            widget.kind == EntityPickerKind.genre ||
+                                widget.kind == EntityPickerKind.tag
+                            ? '搜索名称'
+                            : widget.kind == EntityPickerKind.actor
+                            ? '搜索名称 / 别名'
+                            : '搜索名称',
+                        border: InputBorder.none,
+                        isCollapsed: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            // 搜索栏
+          ),
+          // 列表
+          Expanded(
+            child: widget.kind == EntityPickerKind.actor
+                ? _ActorList(
+                    search: _search,
+                    selected: _selected,
+                    selectedNames: widget.selectedNames,
+                    onToggle: _toggle,
+                  )
+                : _ResourceList(
+                    kind: _resourceKindOf(widget.kind),
+                    search: _search,
+                    selected: _selected,
+                    selectedNames: widget.selectedNames,
+                    allowedIds: widget.allowedIds,
+                    onToggle: _toggle,
+                    singleSelect: !_isMulti,
+                  ),
+          ),
+          // 底部清空按钮
+          if (_selected.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: c.chipBg,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 12),
-                    Icon(Icons.search, size: 18, color: c.muted),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchCtrl,
-                        onChanged: _onSearchChanged,
-                        decoration: InputDecoration(
-                          hintText:
-                              widget.kind == EntityPickerKind.genre ||
-                                  widget.kind == EntityPickerKind.tag
-                              ? '搜索名称'
-                              : widget.kind == EntityPickerKind.actor
-                              ? '搜索名称 / 别名'
-                              : '搜索名称',
-                          border: InputBorder.none,
-                          isCollapsed: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // 列表
-            Expanded(
-              child: widget.kind == EntityPickerKind.actor
-                  ? _ActorList(
-                      search: _search,
-                      selected: _selected,
-                      selectedNames: widget.selectedNames,
-                      onToggle: _toggle,
-                    )
-                  : _ResourceList(
-                      kind: _resourceKindOf(widget.kind),
-                      search: _search,
-                      selected: _selected,
-                      selectedNames: widget.selectedNames,
-                      allowedIds: widget.allowedIds,
-                      onToggle: _toggle,
-                      singleSelect: !_isMulti,
-                    ),
-            ),
-            // 底部清空按钮
-            if (_selected.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
-                child: TextButton(
-                  onPressed: () => setState(() {
-                    _selected.clear();
-                    _selectedNames.clear();
-                  }),
-                  child: Text(
-                    '清空',
-                    style: TextStyle(
-                      color: c.danger,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
+              padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
+              child: TextButton(
+                onPressed: () => setState(() {
+                  _selected.clear();
+                  _selectedNames.clear();
+                }),
+                child: Text(
+                  '清空',
+                  style: TextStyle(
+                    color: c.danger,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
                   ),
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

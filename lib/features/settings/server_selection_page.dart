@@ -10,6 +10,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/server_avatar.dart';
 import '../home/server_switch_transition.dart';
@@ -108,9 +109,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
 
   Future<void> _showServerActions(ServerProfile server) async {
     if (ref.read(serverSwitchTransitionProvider).isActive) return;
-    final action = await showModalBottomSheet<_ServerAction>(
+    final action = await showGlassSheet<_ServerAction>(
       context: context,
-      showDragHandle: true,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
