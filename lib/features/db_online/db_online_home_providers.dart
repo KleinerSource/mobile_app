@@ -38,6 +38,18 @@ final dbOnlineLatestPageProvider = FutureProvider.autoDispose
           );
     });
 
+final dbOnlineSearchPageProvider = FutureProvider.autoDispose
+    .family<DbOnlineMoviePage, DbOnlineSearchPageRequest>((ref, request) {
+      return ref
+          .watch(requiredApiClientProvider)
+          .dbOnline
+          .searchPage(
+            query: request.query,
+            page: request.page,
+            limit: request.limit,
+          );
+    });
+
 class DbOnlineLatestPageRequest {
   const DbOnlineLatestPageRequest({
     required this.page,
@@ -61,6 +73,28 @@ class DbOnlineLatestPageRequest {
 
   @override
   int get hashCode => Object.hash(page, limit, sortBy, sort);
+}
+
+class DbOnlineSearchPageRequest {
+  const DbOnlineSearchPageRequest({
+    required this.query,
+    required this.page,
+    required this.limit,
+  });
+
+  final String query;
+  final int page;
+  final int limit;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DbOnlineSearchPageRequest &&
+      other.query == query &&
+      other.page == page &&
+      other.limit == limit;
+
+  @override
+  int get hashCode => Object.hash(query, page, limit);
 }
 
 final dbOnlineMovieDetailProvider = FutureProvider.autoDispose

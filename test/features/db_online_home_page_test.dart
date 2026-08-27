@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/models/db_online_movie.dart';
 import 'package:omm/features/db_online/db_online_movie_card.dart';
+import 'package:omm/shared/poster.dart';
 
 void main() {
   const config = ServerConfig(baseUrl: 'http://example.test');
@@ -34,8 +35,13 @@ void main() {
   testWidgets('can_play=true 时显示在线播放角标', (tester) async {
     await pumpCard(tester, canPlay: true);
 
-    expect(find.text('在线播放'), findsOneWidget);
+    expect(find.text('在线播放'), findsNothing);
     expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+
+    final poster = tester.getRect(find.byType(Poster));
+    final badgeIcon = tester.getRect(find.byIcon(Icons.play_arrow_rounded));
+    expect(badgeIcon.left, lessThan(poster.center.dx));
+    expect(badgeIcon.top, lessThan(poster.center.dy));
   });
 
   testWidgets('can_play=false 时不显示在线播放角标', (tester) async {

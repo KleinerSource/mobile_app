@@ -310,8 +310,8 @@ class CatalogMovieCard extends StatelessWidget {
                   if (canPlay)
                     const Positioned(
                       top: 6,
-                      right: 6,
-                      child: OnlinePlayBadge(),
+                      left: 6,
+                      child: OnlinePlayBadge(iconOnly: true),
                     ),
                   if (rating != null && rating! > 0)
                     Positioned(

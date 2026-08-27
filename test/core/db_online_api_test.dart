@@ -62,6 +62,29 @@ void main() {
     expect(last.movies, hasLength(1));
     expect(last.hasMore, isFalse);
   });
+
+  test('searchPage 使用 DBO 电影搜索参数并解析结果', () async {
+    final adapter = _DbOnlineSearchAdapter();
+    final api = DbOnlineApi(
+      Dio(BaseOptions(baseUrl: 'http://test/api'))..httpClientAdapter = adapter,
+    );
+
+    final page = await api.searchPage(query: '示例', page: 2, limit: 24);
+
+    expect(page.movies.single.number, 'ABC-002');
+    expect(page.movies.single.canPlay, isTrue);
+    expect(page.hasMore, isFalse);
+    expect(
+      adapter.request,
+      '/api/search?q=%E7%A4%BA%E4%BE%8B&type=movie&page=2&limit=24&movie_type=all&movie_sort_by=relevance&movie_filter_by=p',
+    );
+  });
+
+  test('searchPage 拒绝空搜索关键词', () {
+    final api = DbOnlineApi(Dio(BaseOptions(baseUrl: 'http://test/api')));
+
+    expect(() => api.searchPage(query: '  '), throwsA(isA<ArgumentError>()));
+  });
 }
 
 class _DbOnlineAdapter implements HttpClientAdapter {
@@ -188,6 +211,43 @@ class _DbOnlinePageAdapter implements HttpClientAdapter {
       jsonEncode({
         'success': true,
         'data': {'movies': movies},
+      }),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+}
+
+class _DbOnlineSearchAdapter implements HttpClientAdapter {
+  String? request;
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    request =
+        options.uri.path +
+        (options.uri.hasQuery ? '?${options.uri.query}' : '');
+    return ResponseBody.fromString(
+      jsonEncode({
+        'success': true,
+        'data': {
+          'movies': [
+            {
+              'id': 'movie-2',
+              'number': 'ABC-002',
+              'title': '搜索结果',
+              'can_play': true,
+            },
+          ],
+        },
       }),
       200,
       headers: {

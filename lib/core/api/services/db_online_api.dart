@@ -47,6 +47,31 @@ class DbOnlineApi {
     });
   }
 
+  /// 按关键词获取 dbonline 搜索结果的一页。
+  ///
+  /// 搜索接口的电影类型必须显式传递，避免服务端默认值变化导致结果
+  /// 混入其他实体类型。默认只搜索支持在线播放的影片；DBO/JavDB 使用
+  /// `p` 表示在线播。响应沿用首页列表的 `data.movies` 解析逻辑。
+  Future<DbOnlineMoviePage> searchPage({
+    required String query,
+    int page = 1,
+    int limit = 24,
+  }) {
+    final normalized = query.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(query, 'query', '搜索关键词不能为空');
+    }
+    return _moviesPage('/search', {
+      'q': normalized,
+      'type': 'movie',
+      'page': page,
+      'limit': limit,
+      'movie_type': 'all',
+      'movie_sort_by': 'relevance',
+      'movie_filter_by': 'p',
+    });
+  }
+
   /// 按番号获取影片详情。dbonline 使用字符串番号作为稳定标识，不能
   /// 转换为 Oh-My-Media 的整数影片 ID。每次请求都会强制携带 refresh=true。
   Future<DbOnlineMovieDetail> detail(
