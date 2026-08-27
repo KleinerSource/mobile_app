@@ -39,9 +39,9 @@ void main() {
     expect(episodes.episodes.single.url, contains('playlist.m3u8'));
     expect(adapter.requests, <String>[
       '/api/recommend?page=1&limit=9',
-      '/api/latest?page=1&limit=9&type=all&sort=update&sort_by=update&filter_by=magnets',
-      '/api/latest?page=1&limit=9&type=all&sort=release&sort_by=release&filter_by=magnets',
-      '/api/latest?page=2&limit=24&type=all&sort=release&sort_by=release&filter_by=magnets',
+      '/api/latest?page=1&limit=9&type=all&sort=update&sort_by=update&filter_by=can_play',
+      '/api/latest?page=1&limit=9&type=all&sort=release&sort_by=release&filter_by=can_play',
+      '/api/latest?page=2&limit=24&type=all&sort=release&sort_by=release&filter_by=can_play',
       '/api/video/ABC-001?refresh=true',
       '/api/video/id/vid-1?refresh=true',
       '/api/video/ABC-001/online-play/episodes?source_id=2&video_id=vid-1',

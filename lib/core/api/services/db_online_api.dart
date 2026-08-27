@@ -30,6 +30,7 @@ class DbOnlineApi {
   ///
   /// `sort` 是移动端新约定；`sort_by` 保留给当前 dbonline 后端，两个
   /// 参数同时发送可兼容已经发布的服务端和使用新参数名的服务端。
+  /// 默认仅返回支持在线播放的影片。
   Future<DbOnlineMoviePage> latestPage({
     int page = 1,
     int limit = 9,
@@ -43,7 +44,7 @@ class DbOnlineApi {
       'type': 'all',
       'sort': sortValue,
       'sort_by': sortValue,
-      'filter_by': 'magnets',
+      'filter_by': 'can_play',
     });
   }
 
