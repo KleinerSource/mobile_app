@@ -9,6 +9,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/models/db_online_movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/poster.dart';
 import '../home/hero_backdrop.dart';
@@ -673,19 +674,14 @@ class _DbOnlinePlaybackSheetState
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 12, 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text('在线播放', style: AppText.sectionTitle(context)),
-                ),
-                IconButton(
-                  tooltip: '刷新剧集',
-                  icon: const Icon(Icons.refresh_rounded),
-                  onPressed: _refreshEpisodes,
-                ),
-              ],
+          SheetHeader(
+            icon: Icons.play_circle_outline,
+            title: '在线播放',
+            subtitle: widget.code,
+            trailing: IconButton(
+              tooltip: '刷新剧集',
+              icon: const Icon(Icons.refresh_rounded),
+              onPressed: _refreshEpisodes,
             ),
           ),
           ConstrainedBox(
@@ -772,41 +768,55 @@ class _EpisodeTile extends ConsumerWidget {
     final fallbackUrl = episode.urlForQuality(null);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: DecoratedBox(
-        decoration: settingsCardDecoration(context),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  episode.name.isEmpty
-                      ? '第 ${episode.index > 0 ? episode.index : 1} 集'
-                      : episode.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: Ink(
+          decoration: settingsCardDecoration(context),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: fallbackUrl.isEmpty
+                ? null
+                : () => _openPlayer(context, ref, fallbackUrl),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      episode.name.isEmpty
+                          ? '第 ${episode.index > 0 ? episode.index : 1} 集'
+                          : episode.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (qualities.length <= 1)
+                    IconButton(
+                      tooltip: '播放',
+                      icon: const Icon(Icons.play_circle_fill_rounded),
+                      onPressed: fallbackUrl.isEmpty
+                          ? null
+                          : () => _openPlayer(context, ref, fallbackUrl),
+                    )
+                  else
+                    PopupMenuButton<DbOnlinePlayQuality>(
+                      tooltip: '选择清晰度',
+                      icon: const Icon(Icons.play_circle_fill_rounded),
+                      onSelected: (quality) =>
+                          _openPlayer(context, ref, quality.url),
+                      itemBuilder: (_) => [
+                        for (final quality in qualities)
+                          PopupMenuItem(
+                            value: quality,
+                            child: Text(quality.name),
+                          ),
+                      ],
+                    ),
+                ],
               ),
-              if (qualities.length <= 1)
-                IconButton(
-                  tooltip: '播放',
-                  icon: const Icon(Icons.play_circle_fill_rounded),
-                  onPressed: fallbackUrl.isEmpty
-                      ? null
-                      : () => _openPlayer(context, ref, fallbackUrl),
-                )
-              else
-                PopupMenuButton<DbOnlinePlayQuality>(
-                  tooltip: '选择清晰度',
-                  icon: const Icon(Icons.play_circle_fill_rounded),
-                  onSelected: (quality) =>
-                      _openPlayer(context, ref, quality.url),
-                  itemBuilder: (_) => [
-                    for (final quality in qualities)
-                      PopupMenuItem(value: quality, child: Text(quality.name)),
-                  ],
-                ),
-            ],
+            ),
           ),
         ),
       ),
