@@ -38,12 +38,6 @@ class SubtitleVerticalOffsetBounds {
 
   double clamp(double value) => value.clamp(min, max).toDouble();
 
-  SubtitleAdjustments clampAdjustments(SubtitleAdjustments adjustments) {
-    return adjustments.copyWith(
-      verticalOffset: clamp(adjustments.verticalOffset),
-    );
-  }
-
   @override
   bool operator ==(Object other) {
     return other is SubtitleVerticalOffsetBounds &&
@@ -148,38 +142,62 @@ class SubtitleSettings {
 class SubtitleAdjustments {
   const SubtitleAdjustments({
     this.delayMs = 0,
-    this.verticalOffset = 0,
-    this.sizeScale = 1.0,
     this.opacity = 1.0,
+    this.verticalOffsetPortrait = 0,
+    this.verticalOffsetLandscape = 0,
+    this.sizeScalePortrait = 1.0,
+    this.sizeScaleLandscape = 1.0,
   });
 
+  // 延迟与不透明度跨方向共享；垂直偏移与大小缩放按竖屏/横屏分组
+  // 保存，两个方向各自调校，互不覆盖。
   final int delayMs;
-  final double verticalOffset;
-  final double sizeScale;
   final double opacity;
+  final double verticalOffsetPortrait;
+  final double verticalOffsetLandscape;
+  final double sizeScalePortrait;
+  final double sizeScaleLandscape;
+
+  double verticalOffsetFor(bool landscape) =>
+      landscape ? verticalOffsetLandscape : verticalOffsetPortrait;
+
+  double sizeScaleFor(bool landscape) =>
+      landscape ? sizeScaleLandscape : sizeScalePortrait;
 
   SubtitleAdjustments copyWith({
     int? delayMs,
-    double? verticalOffset,
-    double? sizeScale,
     double? opacity,
+    double? verticalOffsetPortrait,
+    double? verticalOffsetLandscape,
+    double? sizeScalePortrait,
+    double? sizeScaleLandscape,
   }) {
     return SubtitleAdjustments(
       delayMs: delayMs ?? this.delayMs,
-      verticalOffset: verticalOffset ?? this.verticalOffset,
-      sizeScale: sizeScale ?? this.sizeScale,
       opacity: opacity ?? this.opacity,
+      verticalOffsetPortrait:
+          verticalOffsetPortrait ?? this.verticalOffsetPortrait,
+      verticalOffsetLandscape:
+          verticalOffsetLandscape ?? this.verticalOffsetLandscape,
+      sizeScalePortrait: sizeScalePortrait ?? this.sizeScalePortrait,
+      sizeScaleLandscape: sizeScaleLandscape ?? this.sizeScaleLandscape,
     );
   }
 
   SubtitleAdjustments normalized() {
+    double finiteOffset(double value) =>
+        value.isFinite ? value : 0;
     return SubtitleAdjustments(
       delayMs: delayMs,
-      verticalOffset: verticalOffset.isFinite ? verticalOffset : 0,
-      sizeScale: sizeScale
+      opacity: opacity.clamp(subtitleOpacityMin, subtitleOpacityMax).toDouble(),
+      verticalOffsetPortrait: finiteOffset(verticalOffsetPortrait),
+      verticalOffsetLandscape: finiteOffset(verticalOffsetLandscape),
+      sizeScalePortrait: sizeScalePortrait
           .clamp(subtitleSizeScaleMin, subtitleSizeScaleMax)
           .toDouble(),
-      opacity: opacity.clamp(subtitleOpacityMin, subtitleOpacityMax).toDouble(),
+      sizeScaleLandscape: sizeScaleLandscape
+          .clamp(subtitleSizeScaleMin, subtitleSizeScaleMax)
+          .toDouble(),
     );
   }
 }
@@ -213,18 +231,28 @@ class SubtitleSettingsRepository {
   static const _shadowColorKey = 'subtitle.shadow_color';
   static const _shadowSizeKey = 'subtitle.shadow_size';
   static const _delayMsKey = 'subtitle.adjustment_delay_ms';
-  static const _verticalOffsetKey = 'subtitle.adjustment_vertical_offset';
-  static const _sizeScaleKey = 'subtitle.adjustment_size_scale';
+  // 兼容读取旧版共享键，迁移时使用。
+  static const _legacyVerticalOffsetKey = 'subtitle.adjustment_vertical_offset';
+  static const _legacySizeScaleKey = 'subtitle.adjustment_size_scale';
+  static const _verticalOffsetPortraitKey =
+      'subtitle.adjustment_vertical_offset_portrait';
+  static const _verticalOffsetLandscapeKey =
+      'subtitle.adjustment_vertical_offset_landscape';
+  static const _sizeScalePortraitKey = 'subtitle.adjustment_size_scale_portrait';
+  static const _sizeScaleLandscapeKey =
+      'subtitle.adjustment_size_scale_landscape';
   static const _opacityKey = 'subtitle.adjustment_opacity';
   static const _rememberedSubtitleKey = 'subtitle.remembered_selection';
-  // v2: 垂直偏移从"距屏幕底部"改为"距视频画面底部"。两种语义无法换算
-  // （旧值依赖当时的视口几何），迁移时归零，只执行一次。
-  static const _offsetSchemaKey = 'subtitle.adjustment_offset_schema';
+  // v3: 垂直偏移与大小缩放按竖屏/横屏分组存储。分组前各版本存储的
+  // 偏移无法判断属于哪个方向，统一归零重新校准；大小缩放始终是倍率
+  // 语义，直接带入两组。
+  static const _adjustmentSchemaKey = 'subtitle.adjustment_schema';
+  static const _adjustmentSchemaVersion = 3;
 
   final SharedPreferences _prefs;
 
   SubtitleSettings load() {
-    _migrateVerticalOffsetToContentAnchor();
+    _migrateAdjustmentGroups();
     return SubtitleSettings(
       rememberSelectedSubtitle: _prefs.getBool(_rememberKey) ?? true,
       ignoreAssStyle: _prefs.getBool(_ignoreAssKey) ?? false,
@@ -249,8 +277,12 @@ class SubtitleSettingsRepository {
       shadowSize: _prefs.getDouble(_shadowSizeKey) ?? 0.0,
       adjustments: SubtitleAdjustments(
         delayMs: _prefs.getInt(_delayMsKey) ?? 0,
-        verticalOffset: _prefs.getDouble(_verticalOffsetKey) ?? 0.0,
-        sizeScale: _prefs.getDouble(_sizeScaleKey) ?? 1.0,
+        verticalOffsetPortrait:
+            _prefs.getDouble(_verticalOffsetPortraitKey) ?? 0.0,
+        verticalOffsetLandscape:
+            _prefs.getDouble(_verticalOffsetLandscapeKey) ?? 0.0,
+        sizeScalePortrait: _prefs.getDouble(_sizeScalePortraitKey) ?? 1.0,
+        sizeScaleLandscape: _prefs.getDouble(_sizeScaleLandscapeKey) ?? 1.0,
         opacity: _prefs.getDouble(_opacityKey) ?? 1.0,
       ).normalized(),
       rememberedSubtitleKey: _prefs.getString(_rememberedSubtitleKey),
@@ -288,12 +320,17 @@ class SubtitleSettingsRepository {
 
   List<Future<bool>> _adjustmentEntries(SubtitleAdjustments adjustments) {
     final value = adjustments.normalized();
-    // 写入即视为新语义数据，打上 schema 标记，之后 load 不再迁移。
-    _prefs.setInt(_offsetSchemaKey, 2);
+    // 写入即视为当前 schema 数据，之后 load 不再迁移。
+    _prefs.setInt(_adjustmentSchemaKey, _adjustmentSchemaVersion);
     return [
       _prefs.setInt(_delayMsKey, value.delayMs),
-      _prefs.setDouble(_verticalOffsetKey, value.verticalOffset),
-      _prefs.setDouble(_sizeScaleKey, value.sizeScale),
+      _prefs.setDouble(_verticalOffsetPortraitKey, value.verticalOffsetPortrait),
+      _prefs.setDouble(
+        _verticalOffsetLandscapeKey,
+        value.verticalOffsetLandscape,
+      ),
+      _prefs.setDouble(_sizeScalePortraitKey, value.sizeScalePortrait),
+      _prefs.setDouble(_sizeScaleLandscapeKey, value.sizeScaleLandscape),
       _prefs.setDouble(_opacityKey, value.opacity),
     ];
   }
@@ -303,16 +340,22 @@ class SubtitleSettingsRepository {
     return value == null ? fallback : Color(value);
   }
 
-  /// 旧版偏移以屏幕底部为锚点，新版以视频画面底部为锚点。
-  /// 首次加载时把旧值归零并写入 schema 标记，之后不再干预。
-  /// set 系列会同步更新内存缓存，因此迁移后本次读取即为新值；
+  /// v3 分组迁移：把旧版共享的偏移/缩放拆成竖屏、横屏两组。
+  /// 偏移归零（旧值无法判断属于哪个方向），缩放带入两组；清理旧键。
+  /// set 系列会同步更新内存缓存，迁移后本次读取即为新值；
   /// 落盘失败时下次启动重试，结果幂等。
-  void _migrateVerticalOffsetToContentAnchor() {
-    if (_prefs.getInt(_offsetSchemaKey) == 2) return;
-    if (_prefs.getDouble(_verticalOffsetKey) != null) {
-      _prefs.setDouble(_verticalOffsetKey, 0);
+  void _migrateAdjustmentGroups() {
+    if (_prefs.getInt(_adjustmentSchemaKey) == _adjustmentSchemaVersion) return;
+    final sharedScale = _prefs.getDouble(_legacySizeScaleKey);
+    _prefs.setDouble(_verticalOffsetPortraitKey, 0);
+    _prefs.setDouble(_verticalOffsetLandscapeKey, 0);
+    if (sharedScale != null) {
+      _prefs.setDouble(_sizeScalePortraitKey, sharedScale);
+      _prefs.setDouble(_sizeScaleLandscapeKey, sharedScale);
     }
-    _prefs.setInt(_offsetSchemaKey, 2);
+    _prefs.remove(_legacyVerticalOffsetKey);
+    _prefs.remove(_legacySizeScaleKey);
+    _prefs.setInt(_adjustmentSchemaKey, _adjustmentSchemaVersion);
   }
 }
 

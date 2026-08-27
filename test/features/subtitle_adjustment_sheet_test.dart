@@ -14,6 +14,7 @@ void main() {
           body: SubtitleAdjustmentSheet(
             initial: adjustments,
             onChanged: (value) => adjustments = value,
+            orientation: Orientation.portrait,
           ),
         ),
       ),
@@ -50,6 +51,7 @@ void main() {
           body: SubtitleAdjustmentSheet(
             initial: adjustments,
             onChanged: (value) => adjustments = value,
+            orientation: Orientation.portrait,
           ),
         ),
       ),
@@ -76,6 +78,7 @@ void main() {
           body: SubtitleAdjustmentSheet(
             initial: adjustments,
             onChanged: (value) => adjustments = value,
+            orientation: Orientation.portrait,
           ),
         ),
       ),
@@ -104,6 +107,7 @@ void main() {
           body: SubtitleAdjustmentSheet(
             initial: adjustments,
             onChanged: (value) => adjustments = value,
+            orientation: Orientation.portrait,
           ),
         ),
       ),
@@ -154,6 +158,7 @@ void main() {
           body: SubtitleAdjustmentSheet(
             initial: adjustments,
             onChanged: (value) => adjustments = value,
+            orientation: Orientation.portrait,
           ),
         ),
       ),
@@ -163,6 +168,44 @@ void main() {
     await tester.pump();
 
     expect(adjustments.delayMs, 10000);
+  });
+
+  testWidgets('横屏下编辑只修改横屏分组', (tester) async {
+    var adjustments = const SubtitleAdjustments(
+      verticalOffsetPortrait: 480,
+      verticalOffsetLandscape: 60,
+      sizeScalePortrait: 1.2,
+      sizeScaleLandscape: 0.9,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SubtitleAdjustmentSheet(
+            initial: adjustments,
+            onChanged: (value) => adjustments = value,
+            orientation: Orientation.landscape,
+          ),
+        ),
+      ),
+    );
+
+    // 面板展示横屏分组的值。
+    expect(find.text('60'), findsOneWidget);
+    expect(find.text('90%'), findsOneWidget);
+    expect(
+      find.textContaining('当前调节：横屏'),
+      findsOneWidget,
+    );
+
+    // 大小缩放行是第 3 行（延迟/垂直偏移之后），点击其加号步进。
+    await tester.tap(find.byIcon(Icons.add).at(2));
+    await tester.pump();
+
+    expect(adjustments.sizeScaleLandscape, closeTo(0.95, 0.001));
+    // 竖屏分组保持原值不被覆盖。
+    expect(adjustments.sizeScalePortrait, 1.2);
+    expect(adjustments.verticalOffsetPortrait, 480);
   });
 
   test('垂直偏移使用运行时屏幕边界', () {

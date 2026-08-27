@@ -33,8 +33,10 @@ void main() {
     expect(actual.fontColor, const Color(0xFFFFFFFF));
     expect(actual.backgroundColor, const Color(0xAA000000));
     expect(actual.adjustments.delayMs, 0);
-    expect(actual.adjustments.verticalOffset, 0);
-    expect(actual.adjustments.sizeScale, 1);
+    expect(actual.adjustments.verticalOffsetPortrait, 0);
+    expect(actual.adjustments.verticalOffsetLandscape, 0);
+    expect(actual.adjustments.sizeScalePortrait, 1);
+    expect(actual.adjustments.sizeScaleLandscape, 1);
     expect(actual.adjustments.opacity, 1);
   });
 
@@ -57,8 +59,10 @@ void main() {
       shadowSize: 4,
       adjustments: SubtitleAdjustments(
         delayMs: 1200,
-        verticalOffset: 640,
-        sizeScale: 1.35,
+        verticalOffsetPortrait: 640,
+        verticalOffsetLandscape: 320,
+        sizeScalePortrait: 1.35,
+        sizeScaleLandscape: 1.1,
         opacity: 0.65,
       ),
       rememberedSubtitleKey: 'remembered',
@@ -78,8 +82,10 @@ void main() {
     expect(actual.outlineWidth, 2.5);
     expect(actual.shadowSize, 4);
     expect(actual.adjustments.delayMs, 1200);
-    expect(actual.adjustments.verticalOffset, 640);
-    expect(actual.adjustments.sizeScale, 1.35);
+    expect(actual.adjustments.verticalOffsetPortrait, 640);
+    expect(actual.adjustments.verticalOffsetLandscape, 320);
+    expect(actual.adjustments.sizeScalePortrait, 1.35);
+    expect(actual.adjustments.sizeScaleLandscape, 1.1);
     expect(actual.adjustments.opacity, 0.65);
     expect(actual.rememberedSubtitleKey, 'remembered');
   });
@@ -94,43 +100,58 @@ void main() {
     expect(subtitleSelectionKey(track), isNot(contains('/api/subtitles')));
   });
 
-  test('旧版屏幕锚定偏移在首次加载时迁移归零', () async {
+  test('旧版共享偏移迁移到分组时归零，缩放带入两组', () async {
     SharedPreferences.setMockInitialValues({
       'subtitle.adjustment_vertical_offset': 500.0,
+      'subtitle.adjustment_size_scale': 1.4,
       'subtitle.adjustment_delay_ms': 300,
     });
     final prefs = await SharedPreferences.getInstance();
 
     final actual = SubtitleSettingsRepository(prefs).load();
 
-    // 垂直偏移语义从屏幕底部变为画面底部，无法换算，归零重新校准。
-    expect(actual.adjustments.verticalOffset, 0);
-    // 其他调节项不受迁移影响。
+    // 偏移无法判断旧值属于哪个方向，统一归零重新校准。
+    expect(actual.adjustments.verticalOffsetPortrait, 0);
+    expect(actual.adjustments.verticalOffsetLandscape, 0);
+    // 缩放是倍率语义，与方向无关，直接带入两组。
+    expect(actual.adjustments.sizeScalePortrait, 1.4);
+    expect(actual.adjustments.sizeScaleLandscape, 1.4);
+    // 共享项不受迁移影响。
     expect(actual.adjustments.delayMs, 300);
-    // 迁移幂等：再次加载不会重复处理。
-    await prefs.setDouble('subtitle.adjustment_vertical_offset', 120);
+    // 迁移幂等：写入分组值后再次加载保持不变。
+    await prefs.setDouble('subtitle.adjustment_vertical_offset_portrait', 120);
     final again = SubtitleSettingsRepository(prefs).load();
-    expect(again.adjustments.verticalOffset, 120);
+    expect(again.adjustments.verticalOffsetPortrait, 120);
   });
 
-  test('新版画面锚定偏移保存后加载保持不变', () async {
+  test('竖屏与横屏分组独立保存互不覆盖', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final repository = SubtitleSettingsRepository(prefs);
 
     const adjustments = SubtitleAdjustments(
       delayMs: 100,
-      verticalOffset: 480,
-      sizeScale: 1.2,
+      verticalOffsetPortrait: 480,
+      verticalOffsetLandscape: 60,
+      sizeScalePortrait: 1.2,
+      sizeScaleLandscape: 0.9,
       opacity: 0.8,
     );
     await repository.saveAdjustments(adjustments);
 
     final actual = SubtitleSettingsRepository(prefs).load();
-    expect(actual.adjustments.verticalOffset, 480);
+    expect(actual.adjustments.verticalOffsetPortrait, 480);
+    expect(actual.adjustments.verticalOffsetLandscape, 60);
+    expect(actual.adjustments.sizeScalePortrait, 1.2);
+    expect(actual.adjustments.sizeScaleLandscape, 0.9);
     expect(actual.adjustments.delayMs, 100);
-    expect(actual.adjustments.sizeScale, 1.2);
     expect(actual.adjustments.opacity, 0.8);
+
+    // 按方向读取：竖屏用竖屏组，横屏用横屏组。
+    expect(adjustments.verticalOffsetFor(false), 480);
+    expect(adjustments.verticalOffsetFor(true), 60);
+    expect(adjustments.sizeScaleFor(false), 1.2);
+    expect(adjustments.sizeScaleFor(true), 0.9);
   });
 }
 

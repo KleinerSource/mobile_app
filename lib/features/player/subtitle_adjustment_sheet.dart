@@ -15,6 +15,7 @@ Future<void> showSubtitleAdjustmentDialog({
   required BuildContext context,
   required SubtitleAdjustments initial,
   required ValueChanged<SubtitleAdjustments> onChanged,
+  required Orientation orientation,
   SubtitleVerticalOffsetBounds verticalOffsetBounds =
       const SubtitleVerticalOffsetBounds(),
 }) {
@@ -40,6 +41,7 @@ Future<void> showSubtitleAdjustmentDialog({
                 child: SubtitleAdjustmentSheet(
                   initial: initial,
                   onChanged: onChanged,
+                  orientation: orientation,
                   verticalOffsetBounds: verticalOffsetBounds,
                 ),
               ),
@@ -63,16 +65,21 @@ Future<void> showSubtitleAdjustmentDialog({
 }
 
 /// 播放器内字幕调节控件。
+///
+/// 延迟偏移与不透明度全局共享；垂直偏移与大小缩放按 [orientation]
+/// 对应的竖屏/横屏分组编辑，另一组保持用户原值不受影响。
 class SubtitleAdjustmentSheet extends StatefulWidget {
   const SubtitleAdjustmentSheet({
     super.key,
     required this.initial,
     required this.onChanged,
+    required this.orientation,
     this.verticalOffsetBounds = const SubtitleVerticalOffsetBounds(),
   });
 
   final SubtitleAdjustments initial;
   final ValueChanged<SubtitleAdjustments> onChanged;
+  final Orientation orientation;
   final SubtitleVerticalOffsetBounds verticalOffsetBounds;
 
   @override
@@ -81,14 +88,39 @@ class SubtitleAdjustmentSheet extends StatefulWidget {
 }
 
 class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
-  late SubtitleAdjustments _adjustments = widget.initial.copyWith(
-    verticalOffset: widget.verticalOffsetBounds.clamp(
-      widget.initial.verticalOffset,
-    ),
+  bool get _landscape => widget.orientation == Orientation.landscape;
+
+  double _verticalOffsetOf(SubtitleAdjustments adjustments) =>
+      adjustments.verticalOffsetFor(_landscape);
+
+  double _sizeScaleOf(SubtitleAdjustments adjustments) =>
+      adjustments.sizeScaleFor(_landscape);
+
+  SubtitleAdjustments _withVerticalOffset(
+    SubtitleAdjustments adjustments,
+    double value,
+  ) => _landscape
+      ? adjustments.copyWith(verticalOffsetLandscape: value)
+      : adjustments.copyWith(verticalOffsetPortrait: value);
+
+  SubtitleAdjustments _withSizeScale(
+    SubtitleAdjustments adjustments,
+    double value,
+  ) => _landscape
+      ? adjustments.copyWith(sizeScaleLandscape: value)
+      : adjustments.copyWith(sizeScalePortrait: value);
+
+  // 只钳制当前方向的偏移；另一方向的值不属于当前几何，不能被覆盖。
+  late SubtitleAdjustments _adjustments = _withVerticalOffset(
+    widget.initial,
+    widget.verticalOffsetBounds.clamp(_verticalOffsetOf(widget.initial)),
   );
 
   void _update(SubtitleAdjustments next) {
-    final bounded = widget.verticalOffsetBounds.clampAdjustments(next);
+    final bounded = _withVerticalOffset(
+      next,
+      widget.verticalOffsetBounds.clamp(_verticalOffsetOf(next)),
+    );
     setState(() => _adjustments = bounded);
     widget.onChanged(bounded);
   }
@@ -104,19 +136,19 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
 
   void _changeVertical(double delta) {
     final next = widget.verticalOffsetBounds.clamp(
-      _adjustments.verticalOffset + delta,
+      _verticalOffsetOf(_adjustments) + delta,
     );
-    _update(_adjustments.copyWith(verticalOffset: next));
+    _update(_withVerticalOffset(_adjustments, next));
   }
 
   void _changeSize(double delta) {
     final next = _stepDouble(
-      _adjustments.sizeScale,
+      _sizeScaleOf(_adjustments),
       delta,
       min: subtitleSizeScaleMin,
       max: subtitleSizeScaleMax,
     );
-    _update(_adjustments.copyWith(sizeScale: next));
+    _update(_withSizeScale(_adjustments, next));
   }
 
   void _changeOpacity(double delta) {
@@ -143,26 +175,26 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
 
   Future<void> _editVerticalOffset() async {
     final value = await _showNumericInput(
-      title: '垂直偏移',
-      initialValue: _adjustments.verticalOffset.round().toString(),
+      title: '垂直偏移（${_landscape ? '横屏' : '竖屏'}）',
+      initialValue: _verticalOffsetOf(_adjustments).round().toString(),
       unit: '像素',
       min: widget.verticalOffsetBounds.min,
       max: widget.verticalOffsetBounds.max,
     );
     if (!mounted || value == null) return;
-    _update(_adjustments.copyWith(verticalOffset: value.roundToDouble()));
+    _update(_withVerticalOffset(_adjustments, value.roundToDouble()));
   }
 
   Future<void> _editSize() async {
     final value = await _showNumericInput(
-      title: '大小缩放',
-      initialValue: (_adjustments.sizeScale * 100).round().toString(),
+      title: '大小缩放（${_landscape ? '横屏' : '竖屏'}）',
+      initialValue: (_sizeScaleOf(_adjustments) * 100).round().toString(),
       unit: '%',
       min: subtitleSizeScaleMin * 100,
       max: subtitleSizeScaleMax * 100,
     );
     if (!mounted || value == null) return;
-    _update(_adjustments.copyWith(sizeScale: value / 100));
+    _update(_withSizeScale(_adjustments, value / 100));
   }
 
   Future<void> _editOpacity() async {
@@ -253,6 +285,22 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
               ],
             ),
             const SizedBox(height: 8),
+            // 垂直偏移与大小缩放分方向保存，明确告知当前编辑的是哪一组。
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '垂直偏移与大小缩放按竖屏/横屏分别保存，当前调节：${_landscape ? '横屏' : '竖屏'}',
+                  style: TextStyle(
+                    color: c.muted,
+                    fontFamily: 'Inter',
+                    fontSize: 12,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+            ),
             _AdjustmentRow(
               title: '延迟偏移',
               value: '${(_adjustments.delayMs / 1000).toStringAsFixed(1)} s',
@@ -262,25 +310,27 @@ class _SubtitleAdjustmentSheetState extends State<SubtitleAdjustmentSheet> {
             ),
             _AdjustmentRow(
               title: '垂直偏移',
-              value: _adjustments.verticalOffset.round().toString(),
+              value: _verticalOffsetOf(_adjustments).round().toString(),
               onValueTap: _editVerticalOffset,
               onDecrease:
-                  _adjustments.verticalOffset <= widget.verticalOffsetBounds.min
+                  _verticalOffsetOf(_adjustments) <=
+                      widget.verticalOffsetBounds.min
                   ? null
                   : () => _changeVertical(-5),
               onIncrease:
-                  _adjustments.verticalOffset >= widget.verticalOffsetBounds.max
+                  _verticalOffsetOf(_adjustments) >=
+                      widget.verticalOffsetBounds.max
                   ? null
                   : () => _changeVertical(5),
             ),
             _AdjustmentRow(
               title: '大小缩放',
-              value: '${(_adjustments.sizeScale * 100).round()}%',
+              value: '${(_sizeScaleOf(_adjustments) * 100).round()}%',
               onValueTap: _editSize,
-              onDecrease: _adjustments.sizeScale <= subtitleSizeScaleMin
+              onDecrease: _sizeScaleOf(_adjustments) <= subtitleSizeScaleMin
                   ? null
                   : () => _changeSize(-0.05),
-              onIncrease: _adjustments.sizeScale >= subtitleSizeScaleMax
+              onIncrease: _sizeScaleOf(_adjustments) >= subtitleSizeScaleMax
                   ? null
                   : () => _changeSize(0.05),
             ),

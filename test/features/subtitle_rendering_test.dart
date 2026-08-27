@@ -69,8 +69,12 @@ void main() {
         outlineWidth: 2,
         shadowSize: 3,
       ),
-      const SubtitleAdjustments(sizeScale: 1.5),
+      const SubtitleAdjustments(
+        sizeScalePortrait: 1.5,
+        sizeScaleLandscape: 2.5,
+      ),
       baseFontSize: 20,
+      landscape: false,
     );
 
     expect(style.fontFamily, 'monospace');
@@ -79,6 +83,18 @@ void main() {
     expect(style.fontStyle, FontStyle.italic);
     expect(style.color, const Color(0xFFFFD166));
     expect(style.shadows, isNotEmpty);
+
+    // 横屏分组独立生效。
+    final landscapeStyle = subtitleTextStyle(
+      const SubtitleSettings(),
+      const SubtitleAdjustments(
+        sizeScalePortrait: 1.5,
+        sizeScaleLandscape: 2.5,
+      ),
+      baseFontSize: 20,
+      landscape: true,
+    );
+    expect(landscapeStyle.fontSize, 50);
   });
 
   test('字幕垂直边界允许覆盖视频但不会超出视口', () {

@@ -55,6 +55,7 @@ TextStyle subtitleTextStyle(
   SubtitleSettings settings,
   SubtitleAdjustments adjustments, {
   double baseFontSize = 32,
+  bool landscape = false,
 }) {
   final outlineWidth = settings.outlineWidth.clamp(0.0, 6.0).toDouble();
   final shadowSize = settings.shadowSize.clamp(0.0, 12.0).toDouble();
@@ -90,10 +91,9 @@ TextStyle subtitleTextStyle(
         settings.fontFamily == 'System' || settings.fontFamily.trim().isEmpty
         ? null
         : settings.fontFamily,
-    fontSize: baseFontSize * adjustments.sizeScale.clamp(
-      subtitleSizeScaleMin,
-      subtitleSizeScaleMax,
-    ).toDouble(),
+    fontSize: baseFontSize * adjustments.sizeScaleFor(
+      landscape,
+    ).clamp(subtitleSizeScaleMin, subtitleSizeScaleMax).toDouble(),
     fontWeight: settings.bold ? FontWeight.w700 : FontWeight.normal,
     fontStyle: settings.italic ? FontStyle.italic : FontStyle.normal,
     color: settings.fontColor,
@@ -302,6 +302,8 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
               constraints.maxWidth,
               constraints.maxHeight,
             );
+            // 偏移与缩放按视口方向分组，横竖屏各自的调校互不覆盖。
+            final landscape = viewport.width > viewport.height;
             final area = viewport.width * viewport.height;
             const referenceArea = 1920 * 1080;
             final viewportScale = math.sqrt(
@@ -311,6 +313,7 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
               widget.settings,
               widget.adjustments,
               baseFontSize: 32 * viewportScale,
+              landscape: landscape,
             );
             final text = lines.join('\n');
             final textPainter = TextPainter(
@@ -330,7 +333,10 @@ class _PlayerSubtitleOverlayState extends State<PlayerSubtitleOverlay> {
             );
             _reportOffsetBounds(bounds);
             final verticalOffset =
-                bounds.clamp(widget.adjustments.verticalOffset) * viewportScale;
+                bounds.clamp(
+                  widget.adjustments.verticalOffsetFor(landscape),
+                ) *
+                viewportScale;
             // 字幕锚定视频画面底边而非屏幕底边，横竖屏切换时
             // 相同偏移值始终相对画面定位。
             final anchorBottom =

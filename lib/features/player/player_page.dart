@@ -1115,6 +1115,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<void> _showSubtitleSettings() async {
     if (!mounted || _isLeaving) return;
     final wasPlaying = _host.playing;
+    // 弹窗存续期间方向可能变化，打开时定格一次，编辑始终作用于
+    // 用户看到字幕的方向分组。
+    final orientation = MediaQuery.orientationOf(context);
     try {
       if (wasPlaying) {
         await _host.pause();
@@ -1124,6 +1127,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         context: context,
         initial: _subtitleAdjustments,
         onChanged: _updateSubtitleAdjustments,
+        orientation: orientation,
         verticalOffsetBounds: _subtitleOffsetBounds,
       );
     } finally {
