@@ -47,10 +47,10 @@ void main() {
   test('dbonline 项目和开发版/构建元数据版本通过', () {
     final info = requireCompatibleServerVersion({
       'success': true,
-      'data': {'project_name': 'db_online', 'version': 'v1.13.0-dev+build.7'},
+      'data': {'project_name': 'db_online', 'version': 'v1.14.0-dev+build.7'},
     });
     expect(info.project, ServerProject.dbOnline);
-    expect(isSupportedServerVersion('1.13.14-dev', '1.13.0'), isTrue);
+    expect(isSupportedServerVersion('1.14.14-dev', '1.14.0'), isTrue);
     expect(isSupportedServerVersion('1.12.99-dev', '1.13.0'), isFalse);
   });
 

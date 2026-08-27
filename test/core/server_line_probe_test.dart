@@ -135,7 +135,7 @@ void main() {
         request.response.write(
           jsonEncode({
             'success': true,
-            'data': {'project_name': 'db_online', 'version': '1.13.0'},
+            'data': {'project_name': 'db_online', 'version': '1.14.0'},
           }),
         );
       } else if (request.uri.path == '/api/health') {

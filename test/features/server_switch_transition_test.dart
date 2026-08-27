@@ -30,7 +30,7 @@ void main() {
                 10,
                 versionInfo: const ServerVersionInfo(
                   projectName: 'db_online',
-                  version: '1.13.0',
+                  version: '1.14.0',
                 ),
               );
             },
@@ -108,7 +108,7 @@ void main() {
               10,
               versionInfo: const ServerVersionInfo(
                 projectName: 'db_online',
-                version: '1.13.0',
+                version: '1.14.0',
               ),
             ),
           ),
@@ -190,7 +190,7 @@ void main() {
               10,
               versionInfo: const ServerVersionInfo(
                 projectName: 'db_online',
-                version: '1.13.0',
+                version: '1.14.0',
               ),
             ),
           ),

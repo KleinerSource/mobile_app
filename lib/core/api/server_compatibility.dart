@@ -14,7 +14,7 @@ enum ServerProject {
   dbOnline(
     projectName: 'db_online',
     displayName: 'dbonline',
-    minimumVersion: '1.13.0',
+    minimumVersion: '1.14.0',
   );
 
   const ServerProject({
