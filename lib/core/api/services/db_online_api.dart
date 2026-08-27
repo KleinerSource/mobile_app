@@ -27,7 +27,7 @@ class DbOnlineApi {
   }
 
   /// 按番号获取影片详情。dbonline 使用字符串番号作为稳定标识，不能
-  /// 转换为 Oh-My-Media 的整数影片 ID。
+  /// 转换为 Oh-My-Media 的整数影片 ID。每次请求都会强制携带 refresh=true。
   Future<DbOnlineMovieDetail> detail(
     String code, {
     bool refresh = false,
@@ -38,7 +38,7 @@ class DbOnlineApi {
       throw ArgumentError.value(code, 'code', '番号不能为空');
     }
     final query = <String, dynamic>{
-      if (refresh) 'refresh': true,
+      'refresh': true,
       if (videoId?.trim().isNotEmpty == true) 'video_id': videoId!.trim(),
     };
     final response = await _dio.get<dynamic>(
@@ -53,7 +53,7 @@ class DbOnlineApi {
   }
 
   /// 通过 dbonline/JavDB 的 video_id 获取详情，适用于番号尚未写入本地
-  /// 数据库的推荐结果。
+  /// 数据库的推荐结果。每次请求都会强制携带 refresh=true。
   Future<DbOnlineMovieDetail> detailByVideoId(
     String videoId, {
     bool refresh = false,
@@ -64,7 +64,7 @@ class DbOnlineApi {
     }
     final response = await _dio.get<dynamic>(
       '/video/id/${Uri.encodeComponent(normalized)}',
-      queryParameters: refresh ? const {'refresh': true} : null,
+      queryParameters: const {'refresh': true},
     );
     return unwrapStd<DbOnlineMovieDetail>(
       response.data,

@@ -26,7 +26,10 @@ final dbOnlineLatestReleasedProvider =
 
 final dbOnlineMovieDetailProvider = FutureProvider.autoDispose
     .family<DbOnlineMovieDetail, String>((ref, code) {
-      return ref.watch(requiredApiClientProvider).dbOnline.detail(code);
+      return ref
+          .watch(requiredApiClientProvider)
+          .dbOnline
+          .detail(code, refresh: true);
     });
 
 final dbOnlineMovieDetailByVideoIdProvider = FutureProvider.autoDispose
@@ -34,7 +37,7 @@ final dbOnlineMovieDetailByVideoIdProvider = FutureProvider.autoDispose
       return ref
           .watch(requiredApiClientProvider)
           .dbOnline
-          .detailByVideoId(videoId);
+          .detailByVideoId(videoId, refresh: true);
     });
 
 final dbOnlinePlayEpisodesProvider = FutureProvider.autoDispose

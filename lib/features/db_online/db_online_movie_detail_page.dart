@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
+import '../../core/api/providers.dart';
 import '../../core/api/url_resolver.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
@@ -52,7 +53,25 @@ class DbOnlineMovieDetailPage extends ConsumerWidget {
             }
           },
         ),
-        data: (movie) => _DbOnlineDetailBody(movie: movie, config: config),
+        data: (movie) => _DbOnlineDetailBody(
+          movie: movie,
+          config: config,
+          loadPlaybackMovie: () {
+            final client = ref.read(requiredApiClientProvider).dbOnline;
+            if (movie.code.trim().isNotEmpty) {
+              return client.detail(
+                movie.code,
+                refresh: true,
+                videoId: movie.videoId,
+              );
+            }
+            final videoId = movie.videoId?.trim() ?? '';
+            if (videoId.isEmpty) {
+              throw StateError('影片缺少番号和 video_id');
+            }
+            return client.detailByVideoId(videoId, refresh: true);
+          },
+        ),
       ),
     );
   }
@@ -82,10 +101,15 @@ class _ErrorBody extends StatelessWidget {
 }
 
 class _DbOnlineDetailBody extends StatefulWidget {
-  const _DbOnlineDetailBody({required this.movie, required this.config});
+  const _DbOnlineDetailBody({
+    required this.movie,
+    required this.config,
+    required this.loadPlaybackMovie,
+  });
 
   final DbOnlineMovieDetail movie;
   final ServerConfig? config;
+  final Future<DbOnlineMovieDetail> Function() loadPlaybackMovie;
 
   @override
   State<_DbOnlineDetailBody> createState() => _DbOnlineDetailBodyState();
@@ -153,11 +177,14 @@ class _DbOnlineDetailBodyState extends State<_DbOnlineDetailBody> {
             child: _DbOnlineTitleBlock(movie: movie),
           ),
         ),
-        if (movie.canPlay && movie.playSources.any((item) => item.id > 0))
+        if (movie.canPlay)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-              child: _PlayButton(movie: movie),
+              child: _PlayButton(
+                movie: movie,
+                loadPlaybackMovie: widget.loadPlaybackMovie,
+              ),
             ),
           ),
         if (movie.overview?.isNotEmpty == true)
@@ -566,20 +593,22 @@ class _RelatedMovieSection extends StatelessWidget {
 }
 
 class _PlayButton extends StatelessWidget {
-  const _PlayButton({required this.movie});
+  const _PlayButton({required this.movie, required this.loadPlaybackMovie});
 
   final DbOnlineMovieDetail movie;
+  final Future<DbOnlineMovieDetail> Function() loadPlaybackMovie;
 
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final source = movie.playSources.where((item) => item.id > 0).firstOrNull;
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: source == null
-            ? null
-            : () => _openDbOnlinePlayback(context, movie),
+        onPressed: () => _openDbOnlinePlayback(
+          context,
+          movie,
+          loadPlaybackMovie: loadPlaybackMovie,
+        ),
         style: ElevatedButton.styleFrom(
           backgroundColor: colors.text,
           foregroundColor: colors.bg,
@@ -593,12 +622,9 @@ class _PlayButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
         icon: const Icon(Icons.play_arrow_rounded, size: 18),
-        label: Text(
-          source == null ? '暂无在线播放源' : '在线播放',
-          style: const TextStyle(
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w700,
-          ),
+        label: const Text(
+          '在线播放',
+          style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700),
         ),
       ),
     );
@@ -607,10 +633,37 @@ class _PlayButton extends StatelessWidget {
 
 Future<void> _openDbOnlinePlayback(
   BuildContext context,
-  DbOnlineMovieDetail movie,
-) async {
-  final sources = movie.playSources.where((item) => item.id > 0).toList();
-  if (sources.isEmpty) return;
+  DbOnlineMovieDetail movie, {
+  Future<DbOnlineMovieDetail> Function()? loadPlaybackMovie,
+}) async {
+  var resolvedMovie = movie;
+  var sources = resolvedMovie.playSources
+      .where((item) => item.id > 0)
+      .toList(growable: false);
+  if (sources.isEmpty && loadPlaybackMovie != null) {
+    try {
+      resolvedMovie = await loadPlaybackMovie();
+      sources = resolvedMovie.playSources
+          .where((item) => item.id > 0)
+          .toList(growable: false);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(toApiException(error).message)));
+      }
+      return;
+    }
+  }
+  if (sources.isEmpty) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('暂无有效在线播放源')));
+    }
+    return;
+  }
+  if (!context.mounted) return;
 
   // 只有一个播放源时直接进入播放流程，不额外打断用户选择。
   final source = sources.length == 1
@@ -625,8 +678,8 @@ Future<void> _openDbOnlinePlayback(
   await Navigator.of(context).push<void>(
     MaterialPageRoute(
       builder: (_) => DbOnlinePlaybackPage(
-        code: movie.code,
-        videoId: movie.videoId,
+        code: resolvedMovie.code,
+        videoId: resolvedMovie.videoId,
         sources: sources,
         initialSourceId: source.id,
       ),

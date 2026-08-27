@@ -14,7 +14,7 @@ void main() {
     final recommend = await api.recommend();
     final updated = await api.latest(sortBy: 'update');
     final released = await api.latest(sortBy: 'release');
-    final detail = await api.detail('ABC-001', refresh: true);
+    final detail = await api.detail('ABC-001');
     final detailByVideoId = await api.detailByVideoId('vid-1');
     final episodes = await api.onlinePlayEpisodes(
       'ABC-001',
@@ -39,7 +39,7 @@ void main() {
       '/api/latest?page=1&limit=9&type=all&sort_by=update&filter_by=magnets',
       '/api/latest?page=1&limit=9&type=all&sort_by=release&filter_by=magnets',
       '/api/video/ABC-001?refresh=true',
-      '/api/video/id/vid-1',
+      '/api/video/id/vid-1?refresh=true',
       '/api/video/ABC-001/online-play/episodes?source_id=2&video_id=vid-1',
     ]);
   });
