@@ -115,7 +115,7 @@ class _DbOnlineDetailBodyState extends State<_DbOnlineDetailBody> {
   }
 
   void _syncHeroArt() {
-    final rawImage = widget.movie.coverUrl ?? widget.movie.thumbUrl;
+    final rawImage = widget.movie.thumbUrl ?? widget.movie.coverUrl;
     final image = widget.config == null || rawImage == null
         ? ''
         : resolveServerUrl(widget.config!, rawImage);
@@ -133,7 +133,7 @@ class _DbOnlineDetailBodyState extends State<_DbOnlineDetailBody> {
   Widget build(BuildContext context) {
     final movie = widget.movie;
     final config = widget.config;
-    final image = movie.coverUrl ?? movie.thumbUrl;
+    final image = movie.thumbUrl ?? movie.coverUrl;
     final imageUrl = config == null || image == null
         ? null
         : resolveServerUrl(config, image);
@@ -195,15 +195,43 @@ class _DbOnlineDetailBodyState extends State<_DbOnlineDetailBody> {
               ),
             ),
           ),
-        if (_hasCredits(movie))
+        if (_hasCreators(movie))
           SliverToBoxAdapter(
             child: MovieDetailSection(
-              title: '主创与分类',
+              title: '主创',
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: _creditChips(movie),
+                children: _creatorChips(movie),
               ),
+            ),
+          ),
+        if (movie.actors.isNotEmpty)
+          SliverToBoxAdapter(
+            child: _DbOnlineChipSection(
+              title: '演员',
+              labels: [
+                for (final actor in movie.actors)
+                  if (actor.name.trim().isNotEmpty) _actorLabel(actor),
+              ],
+            ),
+          ),
+        if (_hasPersonName(movie.series))
+          SliverToBoxAdapter(
+            child: _DbOnlineChipSection(
+              title: '系列',
+              labels: [movie.series!.name],
+              prefix: '◇ ',
+            ),
+          ),
+        if (movie.categories.isNotEmpty)
+          SliverToBoxAdapter(
+            child: _DbOnlineChipSection(
+              title: '分类',
+              labels: [
+                for (final category in movie.categories)
+                  if (category.name.trim().isNotEmpty) category.name,
+              ],
             ),
           ),
         if (_hasDetails(movie))
@@ -316,18 +344,57 @@ class _DbOnlineTitleBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = appColors(context);
     final title = movie.title.trim().isEmpty ? movie.code : movie.title;
+    const baseStyle = TextStyle(
+      fontFamily: 'Inter',
+      fontWeight: FontWeight.w600,
+      fontSize: 11.5,
+      letterSpacing: 1.4,
+    );
+    final dot = TextSpan(
+      text: '  ·  ',
+      style: baseStyle.copyWith(color: c.muted),
+    );
+    final spans = <InlineSpan>[];
+    void add(InlineSpan span) {
+      if (spans.isNotEmpty) spans.add(dot);
+      spans.add(span);
+    }
+
+    final year = _yearFromDate(movie.date);
+    if (year != null) {
+      add(
+        TextSpan(
+          text: '$year',
+          style: baseStyle.copyWith(color: c.muted),
+        ),
+      );
+    }
+    if (movie.duration != null && movie.duration! > 0) {
+      add(
+        TextSpan(
+          text: '${movie.duration} MIN',
+          style: baseStyle.copyWith(color: c.accent),
+        ),
+      );
+    }
+    if (movie.score != null && movie.score! > 0) {
+      add(
+        TextSpan(
+          text: '★ ${movie.score!.toStringAsFixed(1)}',
+          style: baseStyle.copyWith(color: c.warning),
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        if (movie.code.trim().isNotEmpty)
-          Text(movie.code, style: AppText.eyebrow(context)),
-        const SizedBox(height: 4),
         Text(
           title,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: appColors(context).text,
+            color: c.text,
             fontFamily: 'Inter',
             fontWeight: FontWeight.w800,
             fontSize: 28,
@@ -335,21 +402,39 @@ class _DbOnlineTitleBlock extends StatelessWidget {
             height: 1.1,
           ),
         ),
+        if (movie.originTitle?.trim().isNotEmpty == true &&
+            movie.originTitle!.trim() != title) ...[
+          const SizedBox(height: 4),
+          Text(
+            movie.originTitle!.trim(),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: c.muted,
+              fontStyle: FontStyle.italic,
+              fontSize: 13,
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
-        if (_movieMeta(movie) case final meta?)
-          Text(meta, style: AppText.meta(context)),
+        if (spans.isNotEmpty)
+          RichText(
+            textAlign: TextAlign.center,
+            text: TextSpan(children: spans),
+          ),
       ],
     );
   }
 }
 
-bool _hasCredits(DbOnlineMovieDetail movie) =>
+int? _yearFromDate(String? date) {
+  final match = RegExp(r'^(\d{4})').firstMatch(date?.trim() ?? '');
+  return match == null ? null : int.tryParse(match.group(1)!);
+}
+
+bool _hasCreators(DbOnlineMovieDetail movie) =>
     _hasPersonName(movie.director) ||
     _hasPersonName(movie.maker) ||
-    _hasPersonName(movie.publisher) ||
-    _hasPersonName(movie.series) ||
-    movie.categories.any((item) => item.name.trim().isNotEmpty) ||
-    movie.actors.any((item) => item.name.trim().isNotEmpty);
+    _hasPersonName(movie.publisher);
 
 bool _hasPersonName(DbOnlinePerson? person) =>
     person?.name.trim().isNotEmpty == true;
@@ -357,11 +442,9 @@ bool _hasPersonName(DbOnlinePerson? person) =>
 bool _hasDetails(DbOnlineMovieDetail movie) =>
     movie.code.trim().isNotEmpty ||
     movie.date?.trim().isNotEmpty == true ||
-    (movie.duration != null && movie.duration! > 0) ||
-    movie.score != null ||
     (movie.watchedCount != null && movie.watchedCount! > 0);
 
-List<Widget> _creditChips(DbOnlineMovieDetail movie) {
+List<Widget> _creatorChips(DbOnlineMovieDetail movie) {
   final labels = <String>[];
   if (_hasPersonName(movie.director)) {
     labels.add('导演 · ${movie.director!.name}');
@@ -372,19 +455,42 @@ List<Widget> _creditChips(DbOnlineMovieDetail movie) {
   if (_hasPersonName(movie.publisher)) {
     labels.add('发行 · ${movie.publisher!.name}');
   }
-  if (_hasPersonName(movie.series)) {
-    labels.add('系列 · ${movie.series!.name}');
-  }
-  labels.addAll(
-    movie.categories.map((item) => item.name).where((x) => x.trim().isNotEmpty),
-  );
-  labels.addAll(
-    movie.actors.where((item) => item.name.trim().isNotEmpty).map(_actorLabel),
-  );
   return [
     for (var i = 0; i < labels.length; i++)
       HueChip(label: labels[i], hue: AppHues.all[i % AppHues.all.length]),
   ];
+}
+
+class _DbOnlineChipSection extends StatelessWidget {
+  const _DbOnlineChipSection({
+    required this.title,
+    required this.labels,
+    this.prefix = '',
+  });
+
+  final String title;
+  final List<String> labels;
+  final String prefix;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = labels.where((item) => item.trim().isNotEmpty).toList();
+    if (items.isEmpty) return const SizedBox.shrink();
+    return MovieDetailSection(
+      title: title,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (var i = 0; i < items.length; i++)
+            HueChip(
+              label: '$prefix${items[i]}',
+              hue: AppHues.all[i % AppHues.all.length],
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 String _actorLabel(DbOnlinePerson actor) {
@@ -551,12 +657,6 @@ class _DetailsTable extends StatelessWidget {
     final rows = <(String, String)>[];
     if (movie.code.trim().isNotEmpty) rows.add(('番号', movie.code));
     if (movie.date?.trim().isNotEmpty == true) rows.add(('日期', movie.date!));
-    if (movie.duration != null && movie.duration! > 0) {
-      rows.add(('时长', '${movie.duration} MIN'));
-    }
-    if (movie.score != null) {
-      rows.add(('评分', movie.score!.toStringAsFixed(1)));
-    }
     if (movie.watchedCount != null && movie.watchedCount! > 0) {
       rows.add(('评分人数', '${movie.watchedCount}'));
     }
@@ -776,17 +876,4 @@ class _EpisodeTile extends ConsumerWidget {
       directUrl: url,
     );
   }
-}
-
-String? _movieMeta(DbOnlineMovieDetail movie) {
-  final parts = <String>[];
-  if (movie.date?.isNotEmpty == true) parts.add(movie.date!);
-  if (movie.duration != null && movie.duration! > 0) {
-    parts.add('${movie.duration} 分钟');
-  }
-  if (movie.score != null) parts.add('评分 ${movie.score!.toStringAsFixed(1)}');
-  if (movie.watchedCount != null && movie.watchedCount! > 0) {
-    parts.add('${movie.watchedCount} 人评分');
-  }
-  return parts.isEmpty ? null : parts.join(' · ');
 }

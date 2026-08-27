@@ -3,18 +3,19 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/models/db_online_movie.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/poster.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../movies/movie_data_changes.dart';
 import '../privacy/privacy_mask.dart';
 
-/// 首页 hero 轮播 · 固定封面 + 信息层横向切换:
-/// - 封面固定在 viewport 内,切换时按垂直边缘直切,不随页面横向位移
-/// - 影片信息由透明 PageView 承载,保留左右滑动手势和信息切换
-/// - 封面底部渐隐溶入氛围背景 + 大标题 + 信息胶囊叠加其上,圆点指示器压底部
-/// - 5 秒自动切换,虚拟页无限循环(取模映射首尾相连)
-/// - 通过 [pagePosition] 输出归一化连续页位,驱动氛围背景跟随滑动
+/// 首页 hero 轮播。
+///
+/// OMM 与 dbonline 共用这一套轮播布局。dbonline 使用命名构造器提供
+/// 自己的字符串 ID、图片 URL 和详情跳转回调，避免把数据强行转换为
+/// [MovieListItem]。
 class RecommendCarousel extends StatefulWidget {
   const RecommendCarousel({
     super.key,
@@ -22,14 +23,34 @@ class RecommendCarousel extends StatefulWidget {
     required this.urlBuilder,
     required this.onMovieReturned,
     this.pagePosition,
-  });
+  }) : _dbOnlineItems = null,
+       _dbOnlineImageUrlBuilder = null,
+       _dbOnlineOnTap = null;
+
+  const RecommendCarousel.dbOnline({
+    super.key,
+    required List<DbOnlineMovie> items,
+    required String Function(DbOnlineMovie movie) imageUrlBuilder,
+    required Future<void> Function(BuildContext context, DbOnlineMovie movie)
+    onMovieTap,
+    this.pagePosition,
+  }) : items = const <MovieListItem>[],
+       urlBuilder = null,
+       onMovieReturned = _noopMovieReturned,
+       _dbOnlineItems = items,
+       _dbOnlineImageUrlBuilder = imageUrlBuilder,
+       _dbOnlineOnTap = onMovieTap;
 
   final List<MovieListItem> items;
-  final String Function(String uuid) urlBuilder;
+  final String Function(String uuid)? urlBuilder;
   final ValueChanged<MovieDataChanges> onMovieReturned;
-
-  /// 连续页位 [0, items.length),拖动/翻页动画期间逐帧更新
   final ValueNotifier<double>? pagePosition;
+  final List<DbOnlineMovie>? _dbOnlineItems;
+  final String Function(DbOnlineMovie movie)? _dbOnlineImageUrlBuilder;
+  final Future<void> Function(BuildContext context, DbOnlineMovie movie)?
+  _dbOnlineOnTap;
+
+  static void _noopMovieReturned(MovieDataChanges _) {}
 
   @override
   State<RecommendCarousel> createState() => _RecommendCarouselState();
@@ -41,11 +62,13 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
   static const _initialPageBase = 10000;
   int _page = 0;
   int _index = 0;
+  late List<_CarouselItem> _items;
 
   @override
   void initState() {
     super.initState();
-    _page = _initialPage(widget.items.length);
+    _items = _itemsFor(widget);
+    _page = _initialPage(_items.length);
     _controller = PageController(initialPage: _page);
     _controller.addListener(_syncPagePosition);
     _startAutoplay();
@@ -55,25 +78,27 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
   @override
   void didUpdateWidget(covariant RecommendCarousel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_itemsChanged(oldWidget.items, widget.items)) return;
+    final previousItems = _items;
+    _items = _itemsFor(widget);
+    if (!_itemsChanged(previousItems, _items)) return;
 
-    if (widget.items.isEmpty) {
+    if (_items.isEmpty) {
       _autoplay?.cancel();
       _page = 0;
       _index = 0;
       return;
     }
 
-    final currentId = oldWidget.items.isEmpty
+    final currentKey = previousItems.isEmpty
         ? null
-        : oldWidget.items[_index % oldWidget.items.length].id;
-    final matchingIndex = currentId == null
+        : previousItems[_index % previousItems.length].key;
+    final matchingIndex = currentKey == null
         ? -1
-        : widget.items.indexWhere((item) => item.id == currentId);
+        : _items.indexWhere((item) => item.key == currentKey);
     final nextIndex = matchingIndex >= 0
         ? matchingIndex
-        : _index.clamp(0, widget.items.length - 1);
-    final nextPage = _page - (_page % widget.items.length) + nextIndex;
+        : _index.clamp(0, _items.length - 1);
+    final nextPage = _page - (_page % _items.length) + nextIndex;
     _page = nextPage;
     _index = nextIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -93,15 +118,11 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
     super.dispose();
   }
 
-  /// 把 PageController 的虚拟页位归一化到 [0, items.length),
-  /// 首尾相连的取模保证跨圈翻页时背景也能连续过渡
   void _syncPagePosition() {
     final notifier = widget.pagePosition;
-    if (notifier == null || !_controller.hasClients) return;
-    final n = widget.items.length;
-    if (n <= 0) return;
+    if (notifier == null || !_controller.hasClients || _items.isEmpty) return;
     final raw = _controller.page ?? _page.toDouble();
-    final normalized = raw % n;
+    final normalized = raw % _items.length;
     if ((notifier.value - normalized).abs() > 0.001) {
       notifier.value = normalized;
     }
@@ -109,7 +130,7 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
 
   void _startAutoplay() {
     _autoplay?.cancel();
-    if (widget.items.length <= 1) return;
+    if (_items.length <= 1) return;
     _autoplay = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || !_controller.hasClients) return;
       _controller.animateToPage(
@@ -120,50 +141,27 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
     });
   }
 
-  String? _hero(MovieListItem m) {
-    final uuid = m.fanartUuid ?? m.posterUuid ?? m.thumbUuid;
-    return uuid != null ? widget.urlBuilder(uuid) : null;
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (widget.items.isEmpty) return const SizedBox.shrink();
-
+    if (_items.isEmpty) return const SizedBox.shrink();
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 封面层不参与命中,只根据 PageController 的进度做固定位置的边缘裁切。
         IgnorePointer(child: _buildCoverStage()),
         PageView.builder(
           controller: _controller,
           onPageChanged: (i) {
             setState(() {
               _page = i;
-              _index = i % widget.items.length;
+              _index = i % _items.length;
             });
-            // 用户手动滑动后,重新启动 autoplay 计时
             _startAutoplay();
           },
-          itemBuilder: (ctx, i) {
-            final m = widget.items[i % widget.items.length];
-            return _HeroInfoCard(
-              movie: m,
-              onTap: () async {
-                final changesBeforeVisit = MovieDataChanges.snapshot(movieId: m.id);
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => MovieDetailPage(movieId: m.id),
-                  ),
-                );
-                if (mounted) {
-                  widget.onMovieReturned(changesBeforeVisit);
-                }
-              },
-            );
+          itemBuilder: (context, i) {
+            final item = _items[i % _items.length];
+            return _HeroInfoCard(movie: item, onTap: () => item.onTap(context));
           },
         ),
-        // 顶部渐隐 · 供问候语/状态栏方向的文字压图可读
-        // (无子节点的 DecoratedBox 会吸收指针,必须忽略命中才能让 PageView 接管手势)
         const IgnorePointer(
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -176,13 +174,12 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
             ),
           ),
         ),
-        // 圆点指示器 · 压在 hero 底缘,不参与手势
         Positioned(
           left: 0,
           right: 0,
           bottom: 12,
           child: IgnorePointer(
-            child: _Dots(active: _index, total: widget.items.length),
+            child: _Dots(active: _index, total: _items.length),
           ),
         ),
       ],
@@ -198,17 +195,89 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
             : _page.toDouble();
         final basePage = rawPage.floor();
         final progress = (rawPage - basePage).clamp(0.0, 1.0);
-        final current = widget.items[basePage % widget.items.length];
-        final next = widget.items[(basePage + 1) % widget.items.length];
+        final current = _items[basePage % _items.length];
+        final next = _items[(basePage + 1) % _items.length];
         return _HeroCoverStage(
           current: current,
           next: next,
-          currentImageUrl: _hero(current),
-          nextImageUrl: _hero(next),
+          currentImageUrl: current.imageUrl,
+          nextImageUrl: next.imageUrl,
           progress: progress,
         );
       },
     );
+  }
+
+  List<_CarouselItem> _itemsFor(RecommendCarousel value) {
+    final dbItems = value._dbOnlineItems;
+    final dbImageBuilder = value._dbOnlineImageUrlBuilder;
+    final dbOnTap = value._dbOnlineOnTap;
+    if (dbItems != null && dbImageBuilder != null && dbOnTap != null) {
+      return [
+        for (final movie in dbItems)
+          _CarouselItem(
+            key: movie.id.trim().isEmpty ? movie.number : movie.id,
+            title: movie.title.trim().isEmpty ? movie.number : movie.title,
+            code: movie.number,
+            imageUrl: _nullableUrl(dbImageBuilder(movie)),
+            rating: movie.score,
+            runtime: _runtimeMinutes(movie.duration),
+            year: _yearFromDate(movie.releaseDate),
+            canPlay: movie.canPlay,
+            onTap: (context) => dbOnTap(context, movie),
+          ),
+      ];
+    }
+
+    final urlBuilder = value.urlBuilder;
+    if (urlBuilder == null) return const <_CarouselItem>[];
+    return [
+      for (final movie in value.items)
+        _CarouselItem(
+          key: '${movie.id}',
+          title: movie.title,
+          code: movie.num,
+          imageUrl: _nullableUrl(_ommImageUrl(movie, urlBuilder)),
+          rating: movie.rating,
+          runtime: movie.runtime,
+          year: movie.year,
+          privacyId: movie.id,
+          onTap: (context) async {
+            final changesBeforeVisit = MovieDataChanges.snapshot(
+              movieId: movie.id,
+            );
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => MovieDetailPage(movieId: movie.id),
+              ),
+            );
+            if (mounted) value.onMovieReturned(changesBeforeVisit);
+          },
+        ),
+    ];
+  }
+
+  static String? _ommImageUrl(
+    MovieListItem movie,
+    String Function(String uuid) urlBuilder,
+  ) {
+    final uuid = movie.fanartUuid ?? movie.posterUuid ?? movie.thumbUuid;
+    return uuid == null ? null : urlBuilder(uuid);
+  }
+
+  static String? _nullableUrl(String? value) {
+    final normalized = value?.trim() ?? '';
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  static int? _runtimeMinutes(String? duration) {
+    final match = RegExp(r'\d+').firstMatch(duration ?? '');
+    return match == null ? null : int.tryParse(match.group(0)!);
+  }
+
+  static int? _yearFromDate(String? date) {
+    final match = RegExp(r'^(\d{4})').firstMatch(date?.trim() ?? '');
+    return match == null ? null : int.tryParse(match.group(1)!);
   }
 
   int _initialPage(int length) {
@@ -216,16 +285,41 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
     return _initialPageBase - (_initialPageBase % length);
   }
 
-  bool _itemsChanged(List<MovieListItem> previous, List<MovieListItem> next) {
+  bool _itemsChanged(List<_CarouselItem> previous, List<_CarouselItem> next) {
     if (previous.length != next.length) return true;
     for (var i = 0; i < previous.length; i++) {
-      if (previous[i].id != next[i].id) return true;
+      if (previous[i].key != next[i].key) return true;
     }
     return false;
   }
 }
 
-/// 固定封面层 · 当前封面与下一张封面按垂直边缘直切
+class _CarouselItem {
+  const _CarouselItem({
+    required this.key,
+    required this.title,
+    required this.onTap,
+    this.code,
+    this.imageUrl,
+    this.rating,
+    this.runtime,
+    this.year,
+    this.privacyId,
+    this.canPlay = false,
+  });
+
+  final String key;
+  final String title;
+  final String? code;
+  final String? imageUrl;
+  final double? rating;
+  final int? runtime;
+  final int? year;
+  final int? privacyId;
+  final bool canPlay;
+  final Future<void> Function(BuildContext context) onTap;
+}
+
 class _HeroCoverStage extends StatelessWidget {
   const _HeroCoverStage({
     required this.current,
@@ -235,8 +329,8 @@ class _HeroCoverStage extends StatelessWidget {
     required this.progress,
   });
 
-  final MovieListItem current;
-  final MovieListItem next;
+  final _CarouselItem current;
+  final _CarouselItem next;
   final String? currentImageUrl;
   final String? nextImageUrl;
   final double progress;
@@ -244,48 +338,39 @@ class _HeroCoverStage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final split = 1 - progress;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // 封面层整体底部渐隐 · 不渐变到纯色底,直接透出页面底层
-        // 同图的模糊氛围背景,与影片详情页一致的溶入式一体衔接
-        ShaderMask(
-          blendMode: BlendMode.dstIn,
-          shaderCallback: (bounds) => const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.white, Colors.white, Colors.transparent],
-            stops: [0.0, 0.45, 1.0],
-          ).createShader(bounds),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _HeroCover(movie: current, imageUrl: currentImageUrl),
-              if (progress > 0)
-                Positioned.fill(
-                  child: ClipRect(
-                    key: const ValueKey('hero-cover-edge-clip'),
-                    clipper: _RightRevealClipper(split),
-                    child: _HeroCover(movie: next, imageUrl: nextImageUrl),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
+    return ShaderMask(
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (bounds) => const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Colors.white, Colors.white, Colors.transparent],
+        stops: [0.0, 0.45, 1.0],
+      ).createShader(bounds),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          _HeroCover(movie: current, imageUrl: currentImageUrl),
+          if (progress > 0)
+            Positioned.fill(
+              child: ClipRect(
+                key: const ValueKey('hero-cover-edge-clip'),
+                clipper: _RightRevealClipper(split),
+                child: _HeroCover(movie: next, imageUrl: nextImageUrl),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
 
 class _RightRevealClipper extends CustomClipper<Rect> {
   const _RightRevealClipper(this.split);
-
   final double split;
 
   @override
-  Rect getClip(Size size) {
-    return Rect.fromLTRB(size.width * split, 0, size.width, size.height);
-  }
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(size.width * split, 0, size.width, size.height);
 
   @override
   bool shouldReclip(_RightRevealClipper oldClipper) =>
@@ -294,110 +379,87 @@ class _RightRevealClipper extends CustomClipper<Rect> {
 
 class _HeroCover extends StatelessWidget {
   const _HeroCover({required this.movie, required this.imageUrl});
-
-  final MovieListItem movie;
+  final _CarouselItem movie;
   final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
-    return PrivacyMask(
-      movieId: movie.id,
-      radius: 0,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          const ColoredBox(color: Color(0xFF15161C)),
-          if (imageUrl != null)
-            CachedNetworkImage(
-              imageUrl: imageUrl!,
-              fit: BoxFit.cover,
-              fadeInDuration: Duration.zero,
-              placeholder: (_, __) => const SizedBox.shrink(),
-              errorWidget: (_, __, ___) => const SizedBox.shrink(),
-            ),
-        ],
-      ),
+    final content = Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: Color(0xFF15161C)),
+        if (imageUrl != null)
+          CachedNetworkImage(
+            imageUrl: imageUrl!,
+            fit: BoxFit.cover,
+            fadeInDuration: Duration.zero,
+            placeholder: (_, __) => const SizedBox.shrink(),
+            errorWidget: (_, __, ___) => const SizedBox.shrink(),
+          ),
+      ],
     );
+    final privacyId = movie.privacyId;
+    return privacyId == null
+        ? content
+        : PrivacyMask(movieId: privacyId, radius: 0, child: content);
   }
 }
 
-/// 透明信息层 · PageView 只滚动影片信息,不携带封面
 class _HeroInfoCard extends StatelessWidget {
   const _HeroInfoCard({required this.movie, required this.onTap});
-
-  final MovieListItem movie;
+  final _CarouselItem movie;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return PrivacyAwareInkWell(
-      movieId: movie.id,
-      onTap: onTap,
-      child: PrivacyMask(
-        movieId: movie.id,
-        radius: 0,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 信息区 · 左下
-            Positioned(
-              left: 22,
-              right: 22,
-              bottom: 34,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    final content = Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned(
+          left: 22,
+          right: 22,
+          bottom: 34,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      if (movie.num != null && movie.num!.isNotEmpty) ...[
-                        _GlassPill(text: movie.num!.toUpperCase(), mono: true),
-                        const SizedBox(width: 8),
-                      ],
-                      if (movie.rating != null && movie.rating! > 0)
-                        _GlassPill(
-                          text: '★ ${movie.rating!.toStringAsFixed(1)}',
-                          accent: const Color(0xFFFFD600),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  PrivacyText(
-                    movieId: movie.id,
-                    text: movie.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 24,
-                      height: 1.12,
-                      letterSpacing: -0.5,
-                      shadows: [
-                        Shadow(
-                          offset: Offset(0, 1),
-                          blurRadius: 8,
-                          color: Color(0xB3000000),
-                        ),
-                      ],
+                  if (movie.code?.isNotEmpty == true) ...[
+                    _GlassPill(text: movie.code!.toUpperCase(), mono: true),
+                    const SizedBox(width: 8),
+                  ],
+                  if (movie.rating != null && movie.rating! > 0)
+                    _GlassPill(
+                      text: '★ ${movie.rating!.toStringAsFixed(1)}',
+                      accent: const Color(0xFFFFD600),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  _MetaRow(movie: movie),
+                  if (movie.canPlay) ...[
+                    const SizedBox(width: 8),
+                    const OnlinePlayBadge(),
+                  ],
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 10),
+              _HeroTitle(movie: movie),
+              const SizedBox(height: 6),
+              _MetaRow(movie: movie),
+            ],
+          ),
         ),
-      ),
+      ],
     );
+    final privacyId = movie.privacyId;
+    final masked = privacyId == null
+        ? content
+        : PrivacyMask(movieId: privacyId, radius: 0, child: content);
+    return privacyId == null
+        ? InkWell(onTap: onTap, child: masked)
+        : PrivacyAwareInkWell(movieId: privacyId, onTap: onTap, child: masked);
   }
 }
 
-/// 黑玻璃信息胶囊
 class _GlassPill extends StatelessWidget {
   const _GlassPill({required this.text, this.mono = false, this.accent});
-
   final String text;
   final bool mono;
   final Color? accent;
@@ -424,9 +486,47 @@ class _GlassPill extends StatelessWidget {
   }
 }
 
+class _HeroTitle extends StatelessWidget {
+  const _HeroTitle({required this.movie});
+
+  final _CarouselItem movie;
+
+  static const _style = TextStyle(
+    color: Colors.white,
+    fontFamily: 'Inter',
+    fontWeight: FontWeight.w800,
+    fontSize: 24,
+    height: 1.12,
+    letterSpacing: -0.5,
+    shadows: [
+      Shadow(offset: Offset(0, 1), blurRadius: 8, color: Color(0xB3000000)),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final id = movie.privacyId;
+    if (id == null) {
+      return Text(
+        movie.title,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: _style,
+      );
+    }
+    return PrivacyText(
+      movieId: id,
+      text: movie.title,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: _style,
+    );
+  }
+}
+
 class _MetaRow extends StatelessWidget {
   const _MetaRow({required this.movie});
-  final MovieListItem movie;
+  final _CarouselItem movie;
 
   @override
   Widget build(BuildContext context) {

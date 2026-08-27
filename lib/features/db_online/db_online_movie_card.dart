@@ -110,11 +110,22 @@ class DbOnlineMovieCard extends StatelessWidget {
 
 String _metaText(DbOnlineMovie movie) {
   final parts = <String>[];
-  if (movie.releaseDate != null) parts.add(movie.releaseDate!);
-  if (movie.duration != null) parts.add(movie.duration!);
+  final year = _yearFromDate(movie.releaseDate);
+  if (year != null) parts.add('$year');
+  final duration = _durationMinutes(movie.duration);
+  if (duration != null && duration > 0) parts.add('${duration}m');
   if (movie.library != null) parts.add(movie.library!);
   if (movie.magnetsCount > 0) parts.add('${movie.magnetsCount} 磁链');
   if (movie.hasCnsub) parts.add('中字');
-  if (movie.score != null) parts.add('评分 ${movie.score!.toStringAsFixed(1)}');
   return parts.isEmpty ? '暂无信息' : parts.join(' · ');
+}
+
+int? _yearFromDate(String? value) {
+  final match = RegExp(r'^(\d{4})').firstMatch(value?.trim() ?? '');
+  return match == null ? null : int.tryParse(match.group(1)!);
+}
+
+int? _durationMinutes(String? value) {
+  final match = RegExp(r'\d+').firstMatch(value?.trim() ?? '');
+  return match == null ? null : int.tryParse(match.group(0)!);
 }

@@ -268,6 +268,7 @@ class DbOnlineMovieDetail {
   const DbOnlineMovieDetail({
     required this.code,
     required this.title,
+    this.originTitle,
     this.overview,
     this.videoId,
     this.coverUrl,
@@ -294,6 +295,7 @@ class DbOnlineMovieDetail {
 
   final String code;
   final String title;
+  final String? originTitle;
   final String? overview;
   final String? videoId;
   final String? coverUrl;
@@ -321,12 +323,15 @@ class DbOnlineMovieDetail {
     return DbOnlineMovieDetail(
       code: json['code']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
+      originTitle: _stringOrNull(
+        json['origin_title'] ?? json['original_title'],
+      ),
       overview: _stringOrNull(json['overview']),
       videoId: _stringOrNull(json['video_id']),
       coverUrl: _stringOrNull(json['cover_url']),
       thumbUrl: _stringOrNull(json['thumb_url']),
       previews: _stringList(json['previews']),
-      date: _stringOrNull(json['date']),
+      date: _stringOrNull(json['date'] ?? json['release_date']),
       duration: _intValue(json['duration']),
       director: _personOrNull(json['director']),
       maker: _personOrNull(json['maker']),

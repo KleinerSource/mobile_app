@@ -1,13 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
+import '../../core/api/url_resolver.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/db_online_movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import '../settings/settings_common.dart';
+import '../home/recommend_carousel.dart';
+import '../home/server_switcher.dart';
 import 'db_online_movie_card.dart';
 import 'db_online_home_providers.dart';
 import 'db_online_movie_detail_page.dart';
@@ -45,11 +50,24 @@ class DbOnlineHomePage extends ConsumerWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(22, 20, 22, 120),
               children: [
-                Text('DBONLINE', style: AppText.eyebrow(context)),
-                const SizedBox(height: 4),
-                Text('首页', style: AppText.pageTitle(context)),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('DBONLINE', style: AppText.eyebrow(context)),
+                          const SizedBox(height: 4),
+                          Text('首页', style: AppText.pageTitle(context)),
+                        ],
+                      ),
+                    ),
+                    const HomeServerSwitcher(),
+                  ],
+                ),
                 const SizedBox(height: 22),
-                _DbOnlineSection(
+                _DbOnlineRecommendSection(
                   title: '佳片推荐',
                   value: ref.watch(dbOnlineRecommendProvider),
                   config: config,
@@ -76,6 +94,91 @@ class DbOnlineHomePage extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _DbOnlineRecommendSection extends StatelessWidget {
+  const _DbOnlineRecommendSection({
+    required this.title,
+    required this.value,
+    required this.config,
+    required this.onRetry,
+  });
+
+  final String title;
+  final AsyncValue<List<DbOnlineMovie>> value;
+  final ServerConfig? config;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final heroHeight = MediaQuery.sizeOf(context).height * 0.5;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: AppText.sectionTitle(context)),
+        const SizedBox(height: 10),
+        value.when(
+          loading: () => SizedBox(
+            height: heroHeight,
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, _) => Container(
+            height: 150,
+            alignment: Alignment.center,
+            decoration: settingsCardDecoration(context),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  toApiException(error).message,
+                  style: TextStyle(color: colors.muted),
+                ),
+                const SizedBox(height: 8),
+                TextButton(onPressed: onRetry, child: const Text('重试')),
+              ],
+            ),
+          ),
+          data: (items) => items.isEmpty
+              ? Container(
+                  height: 100,
+                  alignment: Alignment.center,
+                  decoration: settingsCardDecoration(context),
+                  child: Text('暂无数据', style: TextStyle(color: colors.muted)),
+                )
+              : SizedBox(
+                  height: heroHeight,
+                  child: RecommendCarousel.dbOnline(
+                    items: items,
+                    imageUrlBuilder: (movie) {
+                      final raw = movie.thumbUrl ?? movie.coverUrl;
+                      if (config == null || raw == null) return '';
+                      return resolveServerUrl(config!, raw);
+                    },
+                    onMovieTap: (context, movie) =>
+                        _openDbOnlineMovie(context, movie),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+Future<void> _openDbOnlineMovie(
+  BuildContext context,
+  DbOnlineMovie movie,
+) async {
+  final code = movie.number.trim();
+  final videoId = movie.id.trim();
+  if (code.isEmpty && videoId.isEmpty) return;
+  await Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      builder: (_) => code.isNotEmpty
+          ? DbOnlineMovieDetailPage(code: code)
+          : DbOnlineMovieDetailPage.byVideoId(videoId: videoId),
+    ),
+  );
 }
 
 class _DbOnlineSection extends StatelessWidget {
@@ -138,19 +241,7 @@ class _DbOnlineSection extends StatelessWidget {
                       movie: items[index],
                       config: config,
                       onTap: () {
-                        final movie = items[index];
-                        final code = movie.number.trim();
-                        final videoId = movie.id.trim();
-                        if (code.isEmpty && videoId.isEmpty) return;
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => code.isNotEmpty
-                                ? DbOnlineMovieDetailPage(code: code)
-                                : DbOnlineMovieDetailPage.byVideoId(
-                                    videoId: videoId,
-                                  ),
-                          ),
-                        );
+                        unawaited(_openDbOnlineMovie(context, items[index]));
                       },
                     ),
                   ),
