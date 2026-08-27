@@ -19,7 +19,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(brightness: Brightness.dark),
-        home: Scaffold(
+        home: const Scaffold(
           body: SizedBox(
             height: 320,
             child: MovieDetailHero(
