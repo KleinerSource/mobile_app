@@ -51,7 +51,7 @@ class DbOnlineApi {
   ///
   /// 搜索接口的电影类型必须显式传递，避免服务端默认值变化导致结果
   /// 混入其他实体类型。默认只搜索支持在线播放的影片；DBO/JavDB 使用
-  /// `p` 表示在线播。响应沿用首页列表的 `data.movies` 解析逻辑。
+  /// `can_play` 表示在线播。响应沿用首页列表的 `data.movies` 解析逻辑。
   Future<DbOnlineMoviePage> searchPage({
     required String query,
     int page = 1,
@@ -68,7 +68,7 @@ class DbOnlineApi {
       'limit': limit,
       'movie_type': 'all',
       'movie_sort_by': 'relevance',
-      'movie_filter_by': 'p',
+      'movie_filter_by': 'can_play',
     });
   }
 

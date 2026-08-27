@@ -76,7 +76,7 @@ void main() {
     expect(page.hasMore, isFalse);
     expect(
       adapter.request,
-      '/api/search?q=%E7%A4%BA%E4%BE%8B&type=movie&page=2&limit=24&movie_type=all&movie_sort_by=relevance&movie_filter_by=p',
+      '/api/search?q=%E7%A4%BA%E4%BE%8B&type=movie&page=2&limit=24&movie_type=all&movie_sort_by=relevance&movie_filter_by=can_play',
     );
   });
 
