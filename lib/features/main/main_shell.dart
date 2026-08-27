@@ -230,6 +230,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         tabs: tabs,
         active: _index,
         onTap: _selectTab,
+        quickMenuEnabled: !dbOnline,
         quickMenuEntries: _quickMenuEntries(context),
         onQuickMenuSelected: (action) => unawaited(_openYouQuickAction(action)),
       ),
@@ -253,6 +254,7 @@ class _FloatingTabBar extends StatelessWidget {
     required this.tabs,
     required this.active,
     required this.onTap,
+    required this.quickMenuEnabled,
     required this.quickMenuEntries,
     required this.onQuickMenuSelected,
   });
@@ -260,6 +262,7 @@ class _FloatingTabBar extends StatelessWidget {
   final List<_TabSpec> tabs;
   final int active;
   final ValueChanged<int> onTap;
+  final bool quickMenuEnabled;
   final List<GlassMenuEntry<_YouQuickAction>> quickMenuEntries;
   final ValueChanged<_YouQuickAction> onQuickMenuSelected;
 
@@ -318,8 +321,12 @@ class _FloatingTabBar extends StatelessWidget {
                       spec: tabs[i],
                       active: i == active,
                       onTap: () => onTap(i),
-                      quickMenuEntries: i == 3 ? quickMenuEntries : null,
-                      onQuickMenuSelected: i == 3 ? onQuickMenuSelected : null,
+                      quickMenuEntries: i == 3 && quickMenuEnabled
+                          ? quickMenuEntries
+                          : null,
+                      onQuickMenuSelected: i == 3 && quickMenuEnabled
+                          ? onQuickMenuSelected
+                          : null,
                     ),
                   ),
               ],
