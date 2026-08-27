@@ -51,20 +51,23 @@ final privacyShakeProvider = NotifierProvider<PrivacyShakeNotifier, bool>(
 /// 当前 session 内被临时揭开的实体 id 集合 · 不持久化
 /// 隐私模式开启时,内容被遮罩盖住,点击单卡片揭开该张
 ///
-/// 每个数据域各一份实例:影片/演员/演员关联的自增 id 互不相关,
+/// 每个数据域各一份实例:影片/演员/演员关联的 id 互不相关,
 /// 共用一个集合会让"揭开影片 5"连带揭开"演员 5"。
-class RevealedIdsNotifier extends Notifier<Set<int>> {
+///
+/// id 保留原始类型，以兼容 OMM 的整数 id 和 dbonline 的字符串 id，
+/// 避免把字符串哈希成整数带来的碰撞和不稳定。
+class RevealedIdsNotifier extends Notifier<Set<Object>> {
   @override
-  Set<int> build() => const {};
+  Set<Object> build() => const {};
 
   /// 揭开某张 · 同一 session 内有效
-  void reveal(int id) {
+  void reveal(Object id) {
     if (state.contains(id)) return;
     state = {...state, id};
   }
 
   /// 重新遮罩 (例如关闭隐私模式或手动收起)
-  void hide(int id) {
+  void hide(Object id) {
     if (!state.contains(id)) return;
     final next = {...state}..remove(id);
     state = next;
@@ -76,18 +79,16 @@ class RevealedIdsNotifier extends Notifier<Set<int>> {
     state = const {};
   }
 
-  bool isRevealed(int id) => state.contains(id);
+  bool isRevealed(Object id) => state.contains(id);
 }
 
-final revealedMoviesProvider = NotifierProvider<RevealedIdsNotifier, Set<int>>(
-  RevealedIdsNotifier.new,
-);
+final revealedMoviesProvider =
+    NotifierProvider<RevealedIdsNotifier, Set<Object>>(RevealedIdsNotifier.new);
 
 /// 演员域 · 演员管理页的揭示集合 (key 为演员 id)
-final revealedActorsProvider = NotifierProvider<RevealedIdsNotifier, Set<int>>(
-  RevealedIdsNotifier.new,
-);
+final revealedActorsProvider =
+    NotifierProvider<RevealedIdsNotifier, Set<Object>>(RevealedIdsNotifier.new);
 
 /// 演员关联域 · 演员关联页的揭示集合 (key 为关联规则 id)
 final revealedActorAssociationsProvider =
-    NotifierProvider<RevealedIdsNotifier, Set<int>>(RevealedIdsNotifier.new);
+    NotifierProvider<RevealedIdsNotifier, Set<Object>>(RevealedIdsNotifier.new);

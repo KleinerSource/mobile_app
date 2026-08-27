@@ -19,6 +19,16 @@ import 'server_setup_page.dart';
 ///
 /// 页面只负责选择服务器和打开创建页。鉴权、线路探测和登录统一交给
 /// [ServerSwitchTransitionController]，与首页服务器切换使用同一条路径。
+class _ServerSelectionMetrics {
+  const _ServerSelectionMetrics._();
+
+  static const avatarSize = 93.0;
+  static const addIconSize = 40.0;
+  static const itemWidth = 108.0;
+  static const gap = 13.0;
+  static const hoverRadius = 18.0;
+}
+
 class ServerSelectionPage extends ConsumerStatefulWidget {
   const ServerSelectionPage({super.key});
 
@@ -273,7 +283,9 @@ class _AddServerCard extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(
+              _ServerSelectionMetrics.hoverRadius,
+            ),
             splashColor: colors.accent.withValues(alpha: 0.12),
             highlightColor: colors.accent.withValues(alpha: 0.06),
             child: Padding(
@@ -281,8 +293,8 @@ class _AddServerCard extends StatelessWidget {
               child: Column(
                 children: [
                   Container(
-                    width: 116,
-                    height: 116,
+                    width: _ServerSelectionMetrics.avatarSize,
+                    height: _ServerSelectionMetrics.avatarSize,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
@@ -305,7 +317,10 @@ class _AddServerCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.add_rounded, size: 50),
+                    child: const Icon(
+                      Icons.add_rounded,
+                      size: _ServerSelectionMetrics.addIconSize,
+                    ),
                   ),
                   const SizedBox(height: 14),
                   Text('添加服务器', style: AppText.cardTitle(context)),
@@ -342,8 +357,8 @@ class _ServerStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        const itemWidth = 108.0;
-        const gap = 13.0;
+        const itemWidth = _ServerSelectionMetrics.itemWidth;
+        const gap = _ServerSelectionMetrics.gap;
         final itemCount = servers.length + 1;
         final gaps = itemCount - 1;
         final contentWidth = itemCount * itemWidth + gaps * gap;
@@ -401,7 +416,9 @@ class _AddServerAvatarCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(
+            _ServerSelectionMetrics.hoverRadius,
+          ),
           splashColor: colors.accent.withValues(alpha: 0.12),
           highlightColor: colors.accent.withValues(alpha: 0.06),
           child: Padding(
@@ -409,8 +426,8 @@ class _AddServerAvatarCard extends StatelessWidget {
             child: Column(
               children: [
                 Container(
-                  width: 93,
-                  height: 93,
+                  width: _ServerSelectionMetrics.avatarSize,
+                  height: _ServerSelectionMetrics.avatarSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
@@ -433,7 +450,10 @@ class _AddServerAvatarCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.add_rounded, size: 40),
+                  child: const Icon(
+                    Icons.add_rounded,
+                    size: _ServerSelectionMetrics.addIconSize,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 Text('添加服务器', style: AppText.cardTitle(context)),
@@ -483,7 +503,9 @@ class _ServerAvatarCard extends StatelessWidget {
             child: InkWell(
               onTap: busy ? null : onTap,
               onLongPress: busy ? null : onLongPress,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(
+                _ServerSelectionMetrics.hoverRadius,
+              ),
               splashColor: colors.accent.withValues(alpha: 0.12),
               highlightColor: colors.accent.withValues(alpha: 0.06),
               child: Padding(
@@ -496,7 +518,7 @@ class _ServerAvatarCard extends StatelessWidget {
                     ServerAvatar(
                       displayName: displayName,
                       avatarUrl: avatarUrl,
-                      size: 93,
+                      size: _ServerSelectionMetrics.avatarSize,
                       busy: busy,
                       colors: colors,
                       project: server.project,

@@ -18,6 +18,7 @@ import '../home/home_page.dart';
 import '../db_online/db_online_home_page.dart';
 import '../db_online/db_online_search_page.dart';
 import '../libraries/libraries_page.dart';
+import '../db_online/db_online_library_page.dart';
 import '../movies/movies_page.dart';
 import '../resources/resource_list_page.dart';
 import '../resources/resources_repository.dart';
@@ -168,6 +169,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     if (dbOnline) {
       return [
         _TabSpec(label: l.tabHome, icon: _TabIcon.home),
+        _TabSpec(label: l.tabLibrary, icon: _TabIcon.library),
         _TabSpec(label: l.tabSearch, icon: _TabIcon.search),
         _TabSpec(label: l.settingsTitle, icon: _TabIcon.you),
       ];
@@ -185,11 +187,11 @@ class _MainShellState extends ConsumerState<MainShell> {
       case 0:
         return dbOnline ? const DbOnlineHomePage() : const HomePage();
       case 1:
-        return dbOnline ? const DbOnlineSearchPage() : const MoviesPage();
+        return dbOnline ? const DbOnlineLibraryPage() : const MoviesPage();
       case 2:
-        return dbOnline ? const SettingsPage() : const SearchPage();
+        return dbOnline ? const DbOnlineSearchPage() : const SearchPage();
       case 3:
-        return const FavoritesPage();
+        return dbOnline ? const SettingsPage() : const FavoritesPage();
       default:
         return const SizedBox.shrink();
     }

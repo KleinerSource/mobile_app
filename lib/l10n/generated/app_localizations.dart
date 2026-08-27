@@ -469,6 +469,24 @@ abstract class AppL10n {
   /// **'影片'**
   String get searchModeTitle;
 
+  /// No description provided for @searchModeList.
+  ///
+  /// In zh, this message translates to:
+  /// **'列表搜索'**
+  String get searchModeList;
+
+  /// No description provided for @searchModeActorSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'演员搜索'**
+  String get searchModeActorSearch;
+
+  /// No description provided for @searchModeSeries.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列搜索'**
+  String get searchModeSeries;
+
   /// No description provided for @searchModeNum.
   ///
   /// In zh, this message translates to:
@@ -492,6 +510,18 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'搜索影片标题...'**
   String get searchPlaceholderTitle;
+
+  /// No description provided for @searchPlaceholderList.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索影片标题、番号、演员'**
+  String get searchPlaceholderList;
+
+  /// No description provided for @searchPlaceholderSeries.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索系列名称'**
+  String get searchPlaceholderSeries;
 
   /// No description provided for @searchPlaceholderNum.
   ///

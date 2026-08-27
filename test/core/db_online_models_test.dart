@@ -9,6 +9,7 @@ void main() {
       'overview': '影片简介',
       'video_id': 'vid-1',
       'duration': 120,
+      'has_cnsub': true,
       'director': {'external_id': 'd1', 'name': '导演'},
       'maker': {'name': '片商'},
       'categories': [
@@ -49,6 +50,7 @@ void main() {
     expect(detail.code, 'ABC-001');
     expect(detail.overview, '影片简介');
     expect(detail.duration, 120);
+    expect(detail.hasCnsub, isTrue);
     expect(detail.director?.externalId, 'd1');
     expect(detail.categories.single.name, '剧情');
     expect(detail.actors.single.gender, '♀');

@@ -6,7 +6,6 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
-import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/error_view.dart';
@@ -15,6 +14,7 @@ import '../../shared/movie_card.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/debouncer.dart';
 import '../../shared/pagination_footer.dart';
+import '../../shared/search_type_menu.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../movies/movie_data_changes.dart';
 import '../movies/movie_filter.dart';
@@ -84,10 +84,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 child: Row(
                   children: [
                     const SizedBox(width: 14),
-                    Icon(Icons.search, size: 18, color: c.muted),
-                    const SizedBox(width: 4),
-                    _SearchTypeMenu(
+                    SearchTypeMenu<MovieSearchType>(
                       value: _searchType,
+                      options: [
+                        for (final type in MovieSearchType.values)
+                          SearchTypeOption<MovieSearchType>(
+                            value: type,
+                            label: type.label(AppL10n.of(context)),
+                            icon: type.icon,
+                          ),
+                      ],
                       onChanged: (type) {
                         setState(() => _searchType = type);
                       },
@@ -127,6 +133,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           setState(() => _query = '');
                         },
                       ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.search, size: 18, color: c.muted),
+                    const SizedBox(width: 14),
                   ],
                 ),
               ),
@@ -168,261 +177,6 @@ extension on MovieSearchType {
     MovieSearchType.actor => l.searchPlaceholderActor,
     MovieSearchType.filename => l.searchPlaceholderFilename,
   };
-}
-
-class _SearchTypeMenu extends StatefulWidget {
-  const _SearchTypeMenu({required this.value, required this.onChanged});
-
-  final MovieSearchType value;
-  final ValueChanged<MovieSearchType> onChanged;
-
-  @override
-  State<_SearchTypeMenu> createState() => _SearchTypeMenuState();
-}
-
-class _SearchTypeMenuState extends State<_SearchTypeMenu> {
-  static const _menuWidth = 204.0;
-  static const _menuPadding = 8.0;
-  static const _itemHeight = kMinInteractiveDimension;
-
-  OverlayEntry? _overlayEntry;
-  Rect? _menuRect;
-  MovieSearchType? _hovered;
-  bool _interactive = false;
-
-  @override
-  void dispose() {
-    _closeMenu();
-    super.dispose();
-  }
-
-  Rect? _calculateMenuRect() {
-    final anchorObject = context.findRenderObject();
-    final overlay = Overlay.of(context, rootOverlay: true);
-    final overlayObject = overlay.context.findRenderObject();
-    if (anchorObject is! RenderBox || overlayObject is! RenderBox) return null;
-
-    final anchorTopLeft = anchorObject.localToGlobal(Offset.zero);
-    final anchorRect = anchorTopLeft & anchorObject.size;
-    final overlayTopLeft = overlayObject.localToGlobal(Offset.zero);
-    final overlayRect = overlayTopLeft & overlayObject.size;
-    final menuHeight =
-        _menuPadding * 2 + MovieSearchType.values.length * _itemHeight;
-    const inset = 12.0;
-    final left = (anchorRect.left).clamp(
-      overlayRect.left + inset,
-      overlayRect.right - _menuWidth - inset,
-    );
-    final below = anchorRect.bottom;
-    final top = below + menuHeight + inset <= overlayRect.bottom
-        ? below
-        : anchorRect.top - menuHeight;
-    return Rect.fromLTWH(left, top, _menuWidth, menuHeight);
-  }
-
-  MovieSearchType? _valueAt(Offset globalPosition) {
-    final rect = _menuRect;
-    if (rect == null || !rect.contains(globalPosition)) return null;
-    final y = globalPosition.dy - rect.top - _menuPadding;
-    if (y < 0) return null;
-    final index = (y / _itemHeight).floor();
-    if (index < 0 || index >= MovieSearchType.values.length) return null;
-    return MovieSearchType.values[index];
-  }
-
-  void _openMenu({required bool interactive, Offset? initialPosition}) {
-    final rect = _calculateMenuRect();
-    if (rect == null) return;
-    _closeMenu();
-    _menuRect = rect;
-    _interactive = interactive;
-    _hovered = interactive ? widget.value : null;
-
-    final overlay = Overlay.of(context, rootOverlay: true);
-    final overlayObject = overlay.context.findRenderObject();
-    if (overlayObject is! RenderBox) return;
-    final localTopLeft = overlayObject.globalToLocal(rect.topLeft);
-    final entry = OverlayEntry(
-      builder: (context) => Positioned.fill(
-        child: Stack(
-          children: [
-            if (_interactive)
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _closeMenu,
-                  child: const SizedBox.expand(),
-                ),
-              ),
-            Positioned(
-              left: localTopLeft.dx,
-              top: localTopLeft.dy,
-              width: rect.width,
-              height: rect.height,
-              child: IgnorePointer(
-                ignoring: !_interactive,
-                child: _SearchTypeMenuPopup(state: this),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    _overlayEntry = entry;
-    overlay.insert(entry);
-    if (initialPosition != null) _updateHover(initialPosition);
-  }
-
-  void _startLongPress(LongPressStartDetails details) {
-    AppHaptics.medium();
-    _openMenu(interactive: false, initialPosition: details.globalPosition);
-  }
-
-  void _toggleMenu() {
-    if (_overlayEntry == null) {
-      _openMenu(interactive: true);
-    } else {
-      _closeMenu();
-    }
-  }
-
-  void _updateHover(Offset globalPosition) {
-    if (_overlayEntry == null) return;
-    final next = _valueAt(globalPosition);
-    if (next == _hovered) return;
-    _hovered = next;
-    _overlayEntry?.markNeedsBuild();
-    if (next != null) AppHaptics.selection();
-  }
-
-  void _finishLongPress(LongPressEndDetails details) {
-    final selected = _valueAt(details.globalPosition);
-    if (selected != null) {
-      _select(selected);
-    } else {
-      _closeMenu();
-    }
-  }
-
-  void _select(MovieSearchType type) {
-    _closeMenu();
-    if (type == widget.value) return;
-    AppHaptics.selection();
-    widget.onChanged(type);
-  }
-
-  void _closeMenu() {
-    final entry = _overlayEntry;
-    _overlayEntry = null;
-    _menuRect = null;
-    _hovered = null;
-    _interactive = false;
-    entry?.remove();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: _toggleMenu,
-      onLongPressStart: _startLongPress,
-      onLongPressMoveUpdate: (details) => _updateHover(details.globalPosition),
-      onLongPressEnd: _finishLongPress,
-      onLongPressCancel: _closeMenu,
-      child: _SearchTypeButton(type: widget.value),
-    );
-  }
-}
-
-class _SearchTypeMenuPopup extends StatelessWidget {
-  const _SearchTypeMenuPopup({required this.state});
-
-  final _SearchTypeMenuState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Material(
-      color: Color.alphaBlend(c.surface, c.bg),
-      elevation: 8,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          children: [
-            for (final type in MovieSearchType.values)
-              SizedBox(
-                height: kMinInteractiveDimension,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 90),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: state._hovered == type
-                        ? c.accent.withValues(alpha: 0.12)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    child: InkWell(
-                      onTap: state._interactive
-                          ? () => state._select(type)
-                          : null,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Row(
-                        children: [
-                          const SizedBox(width: 14),
-                          Icon(type.icon, size: 18, color: c.text),
-                          const SizedBox(width: 10),
-                          Text(
-                            type.label(AppL10n.of(context)),
-                            style: TextStyle(
-                              color: c.text,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SearchTypeButton extends StatelessWidget {
-  const _SearchTypeButton({required this.type});
-
-  final MovieSearchType type;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(type.icon, size: 16, color: c.text),
-        const SizedBox(width: 5),
-        Text(
-          type.label(AppL10n.of(context)),
-          style: TextStyle(
-            color: c.text,
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
-        ),
-        const SizedBox(width: 2),
-        Icon(Icons.expand_more, size: 16, color: c.muted),
-      ],
-    );
-  }
 }
 
 class _EmptyHint extends StatelessWidget {

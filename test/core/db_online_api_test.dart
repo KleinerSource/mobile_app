@@ -15,6 +15,7 @@ void main() {
     final updated = await api.latest(sortBy: 'update');
     final released = await api.latest(sortBy: 'release');
     final page = await api.latestPage(page: 2, limit: 24, sort: 'release');
+    final library = await api.taggedMoviesPage();
     final detail = await api.detail('ABC-001');
     final detailByVideoId = await api.detailByVideoId('vid-1');
     final episodes = await api.onlinePlayEpisodes(
@@ -30,6 +31,7 @@ void main() {
     expect(released, isNotEmpty);
     expect(page.movies, isNotEmpty);
     expect(page.hasMore, isTrue);
+    expect(library.movies, isNotEmpty);
     expect(detail.code, 'ABC-001');
     expect(detailByVideoId.code, 'ABC-001');
     expect(detail.canPlay, isTrue);
@@ -42,6 +44,7 @@ void main() {
       '/api/latest?page=1&limit=9&type=all&sort=update&sort_by=update&filter_by=can_play',
       '/api/latest?page=1&limit=9&type=all&sort=release&sort_by=release&filter_by=can_play',
       '/api/latest?page=2&limit=24&type=all&sort=release&sort_by=release&filter_by=can_play',
+      '/api/subs/tags?filter_by=0%3At%3Ap%3A%3A%3A%3A&page=1&limit=24&sort_by=update&order_by=desc',
       '/api/video/ABC-001?refresh=true',
       '/api/video/id/vid-1?refresh=true',
       '/api/video/ABC-001/online-play/episodes?source_id=2&video_id=vid-1',
@@ -84,6 +87,31 @@ void main() {
     final api = DbOnlineApi(Dio(BaseOptions(baseUrl: 'http://test/api')));
 
     expect(() => api.searchPage(query: '  '), throwsA(isA<ArgumentError>()));
+  });
+
+  test('searchActors 解析演员结果，searchSeriesPage 使用实体搜索参数', () async {
+    final adapter = _DbOnlineEntitySearchAdapter();
+    final api = DbOnlineApi(
+      Dio(BaseOptions(baseUrl: 'http://test/api'))..httpClientAdapter = adapter,
+    );
+
+    final actors = await api.searchActors(query: '演员');
+    final series = await api.searchSeriesPage(query: '系列', page: 2, limit: 24);
+
+    expect(actors.actors.single.id, 'actor-1');
+    expect(actors.actors.single.videosCount, 12);
+    expect(series.items.single.name, '系列结果');
+    expect(adapter.actorRequest, '/api/search/actors?q=%E6%BC%94%E5%91%98');
+    expect(
+      adapter.seriesRequest,
+      '/api/search?q=%E7%B3%BB%E5%88%97&type=series&page=2&limit=24&movie_type=all&movie_sort_by=relevance&movie_filter_by=can_play',
+    );
+  });
+
+  test('searchActors 拒绝空搜索关键词', () {
+    final api = DbOnlineApi(Dio(BaseOptions(baseUrl: 'http://test/api')));
+
+    expect(() => api.searchActors(query: '  '), throwsA(isA<ArgumentError>()));
   });
 }
 
@@ -249,6 +277,51 @@ class _DbOnlineSearchAdapter implements HttpClientAdapter {
           ],
         },
       }),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+}
+
+class _DbOnlineEntitySearchAdapter implements HttpClientAdapter {
+  String? actorRequest;
+  String? seriesRequest;
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final request =
+        options.uri.path +
+        (options.uri.hasQuery ? '?${options.uri.query}' : '');
+    if (options.uri.path.endsWith('/search/actors')) {
+      actorRequest = request;
+      return _response({
+        'actors': [
+          {'id': 'actor-1', 'name': '演员结果', 'videos_count': 12},
+        ],
+        'total': 1,
+      });
+    }
+    seriesRequest = request;
+    return _response({
+      'items': [
+        {'id': 'series-1', 'name': '系列结果', 'movies_count': 4},
+      ],
+      'total': 1,
+    });
+  }
+
+  ResponseBody _response(Map<String, dynamic> data) {
+    return ResponseBody.fromString(
+      jsonEncode({'success': true, 'data': data}),
       200,
       headers: {
         Headers.contentTypeHeader: ['application/json'],

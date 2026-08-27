@@ -266,7 +266,7 @@ class MovieCard extends ConsumerWidget {
 /// dbonline 等数据源的影片标识不一定是 OMM 的整数 ID，因此不强行转换为
 /// [MovieListItem]。数据源只负责把字段整理成这里需要的展示值，海报、字号、
 /// 角标和点击反馈仍由共享组件统一维护。
-class CatalogMovieCard extends StatelessWidget {
+class CatalogMovieCard extends ConsumerWidget {
   const CatalogMovieCard({
     super.key,
     required this.title,
@@ -276,7 +276,11 @@ class CatalogMovieCard extends StatelessWidget {
     this.width = 112,
     this.rating,
     this.canPlay = false,
+    this.hasSubtitle = false,
     this.onTap,
+    this.privacyId,
+    this.showTitle = true,
+    this.showMeta = true,
   });
 
   final String title;
@@ -286,13 +290,51 @@ class CatalogMovieCard extends StatelessWidget {
   final double width;
   final double? rating;
   final bool canPlay;
+  final bool hasSubtitle;
   final VoidCallback? onTap;
+  final bool showTitle;
+  final bool showMeta;
+
+  /// 为非 OMM 影片提供隐私遮罩键；为空时保持普通目录卡片行为。
+  final Object? privacyId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = appColors(context);
+    final positions = ref.watch(badgePositionsProvider);
     final displayTitle = title.trim().isEmpty ? '未命名影片' : title.trim();
     final displayCode = code.trim().isEmpty ? '未命名番号' : code.trim();
+    final displayMeta = meta.trim().isEmpty ? '暂无信息' : meta;
+    final badgesByCorner = <BadgeCorner, List<Widget>>{
+      for (final corner in BadgeCorner.values) corner: <Widget>[],
+    };
+    if (canPlay) {
+      badgesByCorner[BadgeCorner.topLeft]!.add(
+        const OnlinePlayBadge(iconOnly: true),
+      );
+    }
+    if (hasSubtitle && positions.subtitleEnabled) {
+      badgesByCorner[positions.subtitle]!.add(
+        const _SubtitleBadge(color: Color(0xFFFFD60A), tooltip: '中字'),
+      );
+    }
+    if (rating != null && rating! > 0 && positions.ratingEnabled) {
+      badgesByCorner[positions.rating]!.add(RatingBadge(rating: rating!));
+    }
+    final poster = Stack(
+      children: [
+        Poster(url: imageUrl, title: displayTitle, radius: 10),
+        for (final corner in BadgeCorner.values)
+          if (badgesByCorner[corner]!.isNotEmpty)
+            _CornerBadges(
+              corner: corner,
+              completed: false,
+              skipTopLeftForSelection: false,
+              offset: positions.offsetOf(corner),
+              children: badgesByCorner[corner]!,
+            ),
+      ],
+    );
     return SizedBox(
       width: width,
       child: Material(
@@ -304,46 +346,62 @@ class CatalogMovieCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Stack(
-                children: [
-                  Poster(url: imageUrl, title: displayTitle, radius: 10),
-                  if (canPlay)
-                    const Positioned(
-                      top: 6,
-                      left: 6,
-                      child: OnlinePlayBadge(iconOnly: true),
-                    ),
-                  if (rating != null && rating! > 0)
-                    Positioned(
-                      right: 6,
-                      bottom: 6,
-                      child: RatingBadge(rating: rating!),
-                    ),
-                ],
-              ),
+              privacyId == null
+                  ? poster
+                  : PrivacyMask(movieId: privacyId!, child: poster),
               const SizedBox(height: 8),
-              Text(
-                displayCode,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppText.movieCardMeta(
-                  context,
-                ).copyWith(color: colors.accent, fontSize: 11.5),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                displayTitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AppText.movieCardTitle(context),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                meta.trim().isEmpty ? '暂无信息' : meta,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppText.movieCardMeta(context),
-              ),
+              privacyId == null
+                  ? Text(
+                      displayCode,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.movieCardMeta(
+                        context,
+                      ).copyWith(color: colors.accent, fontSize: 11.5),
+                    )
+                  : PrivacyText(
+                      movieId: privacyId!,
+                      text: displayCode,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.movieCardMeta(
+                        context,
+                      ).copyWith(color: colors.accent, fontSize: 11.5),
+                    ),
+              if (showTitle) ...[
+                const SizedBox(height: 2),
+                privacyId == null
+                    ? Text(
+                        displayTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.movieCardTitle(context),
+                      )
+                    : PrivacyText(
+                        movieId: privacyId!,
+                        text: displayTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.movieCardTitle(context),
+                      ),
+              ],
+              if (showMeta) ...[
+                const SizedBox(height: 2),
+                privacyId == null
+                    ? Text(
+                        displayMeta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.movieCardMeta(context),
+                      )
+                    : PrivacyText(
+                        movieId: privacyId!,
+                        text: displayMeta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.movieCardMeta(context),
+                      ),
+              ],
             ],
           ),
         ),

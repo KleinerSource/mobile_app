@@ -209,6 +209,15 @@ class AppL10nEn extends AppL10n {
   String get searchModeTitle => 'Movies';
 
   @override
+  String get searchModeList => 'List search';
+
+  @override
+  String get searchModeActorSearch => 'Actor search';
+
+  @override
+  String get searchModeSeries => 'Series search';
+
+  @override
   String get searchModeNum => 'Code';
 
   @override
@@ -219,6 +228,12 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get searchPlaceholderTitle => 'Search movie titles...';
+
+  @override
+  String get searchPlaceholderList => 'Search titles, codes, or actors...';
+
+  @override
+  String get searchPlaceholderSeries => 'Search series names...';
 
   @override
   String get searchPlaceholderNum => 'Search codes...';

@@ -311,6 +311,7 @@ class DbOnlineMovieDetail {
     this.ed2ks = const <DbOnlineEd2k>[],
     this.library,
     this.canPlay = false,
+    this.hasCnsub = false,
     this.playSources = const <DbOnlinePlaySource>[],
   });
 
@@ -338,6 +339,7 @@ class DbOnlineMovieDetail {
   final List<DbOnlineEd2k> ed2ks;
   final DbOnlineLibraryInfo? library;
   final bool canPlay;
+  final bool hasCnsub;
   final List<DbOnlinePlaySource> playSources;
 
   factory DbOnlineMovieDetail.fromJson(Map<String, dynamic> json) {
@@ -370,6 +372,7 @@ class DbOnlineMovieDetail {
           ? DbOnlineLibraryInfo.fromJson(json['library'])
           : null,
       canPlay: json['can_play'] == true,
+      hasCnsub: json['has_cnsub'] == true,
       playSources: _playSourceList(json['play_sources']),
     );
   }

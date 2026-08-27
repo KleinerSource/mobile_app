@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/platform/app_theme.dart';
 import '../../shared/actor_detail_header.dart';
+import '../../shared/glass.dart';
 import '../../shared/poster.dart';
 import '../home/hero_backdrop.dart';
+import 'movie_detail_formatters.dart';
 
 /// 影片详情页的统一页面骨架。
 ///
@@ -112,6 +116,73 @@ class MovieDetailSection extends StatelessWidget {
           const SizedBox(height: 14),
           child,
         ],
+      ),
+    );
+  }
+}
+
+/// 详情页简介的统一折叠与展开交互。
+///
+/// 预览最多显示三行，点击后在可滚动弹窗中查看完整内容。
+class MovieDetailPlot extends StatelessWidget {
+  const MovieDetailPlot({super.key, required this.plot});
+
+  final String plot;
+
+  Future<void> _showFullPlot(BuildContext context) {
+    final normalizedPlot = normalizeMoviePlot(plot);
+    return showGlassDialog<void>(
+      context: context,
+      title: const Text('影片简介'),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.58,
+        ),
+        child: Scrollbar(
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(right: 8),
+            child: Text(
+              normalizedPlot,
+              style: AppText.body(context).copyWith(height: 1.55),
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('关闭'),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final normalizedPlot = normalizeMoviePlot(plot);
+
+    return Semantics(
+      button: true,
+      label: '查看完整简介',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          splashColor: colors.accent.withValues(alpha: 0.08),
+          highlightColor: colors.surfaceAlt.withValues(alpha: 0.28),
+          onTap: () => unawaited(_showFullPlot(context)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Text(
+              normalizedPlot,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.body(context).copyWith(height: 1.55),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -255,27 +326,31 @@ class MovieDetailTitle extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: colors.text,
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w800,
-            fontSize: 28,
-            letterSpacing: -0.84,
-            height: 1.1,
+        SelectionArea(
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colors.text,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w800,
+              fontSize: 28,
+              letterSpacing: -0.84,
+              height: 1.1,
+            ),
           ),
         ),
         if (normalizedOriginal.isNotEmpty && normalizedOriginal != title) ...[
           const SizedBox(height: 4),
-          Text(
-            normalizedOriginal,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: colors.muted,
-              fontStyle: FontStyle.italic,
-              fontSize: 13,
+          SelectionArea(
+            child: Text(
+              normalizedOriginal,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colors.muted,
+                fontStyle: FontStyle.italic,
+                fontSize: 13,
+              ),
             ),
           ),
         ],

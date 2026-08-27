@@ -38,4 +38,22 @@ void main() {
     expect(container.read(privacyShakeProvider), isFalse);
     expect(prefs.getBool('privacy.shake_to_toggle'), isFalse);
   });
+
+  test('隐私揭示集合同时支持 OMM 整数 ID 和 DBO 字符串 ID', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(revealedMoviesProvider.notifier);
+    notifier.reveal(7);
+    notifier.reveal('movie-7');
+
+    expect(container.read(revealedMoviesProvider), containsAll([7, 'movie-7']));
+
+    notifier.hide('movie-7');
+    expect(container.read(revealedMoviesProvider), contains(7));
+    expect(container.read(revealedMoviesProvider), isNot(contains('movie-7')));
+  });
 }

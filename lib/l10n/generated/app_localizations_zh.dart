@@ -209,6 +209,15 @@ class AppL10nZh extends AppL10n {
   String get searchModeTitle => '影片';
 
   @override
+  String get searchModeList => '列表搜索';
+
+  @override
+  String get searchModeActorSearch => '演员搜索';
+
+  @override
+  String get searchModeSeries => '系列搜索';
+
+  @override
   String get searchModeNum => '番号';
 
   @override
@@ -219,6 +228,12 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get searchPlaceholderTitle => '搜索影片标题...';
+
+  @override
+  String get searchPlaceholderList => '搜索影片标题、番号、演员';
+
+  @override
+  String get searchPlaceholderSeries => '搜索系列名称';
 
   @override
   String get searchPlaceholderNum => '搜索番号...';

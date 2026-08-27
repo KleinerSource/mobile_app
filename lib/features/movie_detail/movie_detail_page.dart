@@ -13,7 +13,6 @@ import '../../core/models/actor.dart';
 import '../../core/models/watch_record.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/filter_chip.dart';
-import '../../shared/glass.dart';
 import '../../shared/glass_menu.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/actor_avatar.dart';
@@ -207,7 +206,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-              child: _PlotSection(plot: movie.plot!),
+              child: MovieDetailPlot(plot: movie.plot!),
             ),
           ),
         SliverToBoxAdapter(
@@ -400,70 +399,6 @@ class _TitleBlock extends StatelessWidget {
       year: movie.year,
       runtime: movie.runtime,
       rating: movie.rating,
-    );
-  }
-}
-
-class _PlotSection extends StatelessWidget {
-  const _PlotSection({required this.plot});
-
-  final String plot;
-
-  Future<void> _showFullPlot(BuildContext context) {
-    final normalizedPlot = normalizeMoviePlot(plot);
-    return showGlassDialog<void>(
-      context: context,
-      title: const Text('影片简介'),
-      content: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.58,
-        ),
-        child: Scrollbar(
-          thumbVisibility: true,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(right: 8),
-            child: Text(
-              normalizedPlot,
-              style: AppText.body(context).copyWith(height: 1.55),
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('关闭'),
-        ),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    final normalizedPlot = normalizeMoviePlot(plot);
-
-    return Semantics(
-      button: true,
-      label: '查看完整简介',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          splashColor: c.accent.withValues(alpha: 0.08),
-          highlightColor: c.surfaceAlt.withValues(alpha: 0.28),
-          onTap: () => unawaited(_showFullPlot(context)),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Text(
-              normalizedPlot,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: AppText.body(context).copyWith(height: 1.55),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

@@ -7,20 +7,21 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/db_online_movie.dart';
+import '../../core/models/db_online_search.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
-import '../../shared/debouncer.dart';
 import '../../shared/error_view.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
+import '../../shared/search_type_menu.dart';
 import 'db_online_home_providers.dart';
 import 'db_online_movie_card.dart';
 import 'db_online_movie_navigation.dart';
 
 /// dbonline 搜索页。
 ///
-/// 搜索输入、延迟触发、分页网格、空态和错误重试沿用 OMM 搜索页的交互
-/// 结构；这里只替换 DBO 的数据请求、影片卡片和详情跳转。
+/// 搜索类型和结果卡片沿用 OMM 搜索页的交互结构；这里只替换 DBO 的
+/// 数据请求、影片卡片和详情跳转。
 class DbOnlineSearchPage extends ConsumerStatefulWidget {
   const DbOnlineSearchPage({super.key});
 
@@ -28,21 +29,67 @@ class DbOnlineSearchPage extends ConsumerStatefulWidget {
   ConsumerState<DbOnlineSearchPage> createState() => _DbOnlineSearchPageState();
 }
 
+enum DbOnlineSearchType { list, actor, series }
+
+extension on DbOnlineSearchType {
+  String label(AppL10n l) => switch (this) {
+    DbOnlineSearchType.list => l.searchModeList,
+    DbOnlineSearchType.actor => l.searchModeActorSearch,
+    DbOnlineSearchType.series => l.searchModeSeries,
+  };
+
+  String placeholder(AppL10n l) => switch (this) {
+    DbOnlineSearchType.list => l.searchPlaceholderList,
+    DbOnlineSearchType.actor => l.searchPlaceholderActor,
+    DbOnlineSearchType.series => l.searchPlaceholderSeries,
+  };
+
+  IconData get icon => switch (this) {
+    DbOnlineSearchType.list => Icons.list_alt_outlined,
+    DbOnlineSearchType.actor => Icons.person_outline_rounded,
+    DbOnlineSearchType.series => Icons.layers_outlined,
+  };
+}
+
 class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
   final _controller = TextEditingController();
-  final _debounce = Debouncer();
-  String _query = '';
+  String _submittedQuery = '';
+  DbOnlineSearchType _searchType = DbOnlineSearchType.list;
+  int _searchSerial = 0;
 
   @override
   void dispose() {
     _controller.dispose();
-    _debounce.cancel();
     super.dispose();
   }
 
   void _onChanged(String value) {
-    _debounce.run(() {
-      if (mounted) setState(() => _query = value.trim());
+    setState(() {});
+  }
+
+  void _submitSearch([String? value]) {
+    final query = (value ?? _controller.text).trim();
+    if (query.isEmpty) {
+      if (_submittedQuery.isNotEmpty) {
+        setState(() {
+          _submittedQuery = '';
+          _searchSerial++;
+        });
+      }
+      return;
+    }
+    setState(() {
+      _submittedQuery = query;
+      _searchSerial++;
+    });
+  }
+
+  void _changeSearchType(DbOnlineSearchType type) {
+    if (type == _searchType) return;
+    setState(() {
+      _searchType = type;
+      _submittedQuery = '';
+      _searchSerial++;
     });
   }
 
@@ -79,14 +126,26 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                 child: Row(
                   children: [
                     const SizedBox(width: 14),
-                    Icon(Icons.search, size: 18, color: colors.muted),
-                    const SizedBox(width: 10),
+                    SearchTypeMenu<DbOnlineSearchType>(
+                      value: _searchType,
+                      options: [
+                        for (final type in DbOnlineSearchType.values)
+                          SearchTypeOption<DbOnlineSearchType>(
+                            value: type,
+                            label: type.label(l),
+                            icon: type.icon,
+                          ),
+                      ],
+                      onChanged: _changeSearchType,
+                    ),
+                    const SizedBox(width: 4),
                     Expanded(
                       child: TextField(
                         controller: _controller,
                         autofocus: true,
+                        textInputAction: TextInputAction.search,
                         decoration: InputDecoration(
-                          hintText: l.searchPlaceholderTitle,
+                          hintText: _searchType.placeholder(l),
                           hintStyle: TextStyle(
                             color: colors.muted,
                             fontWeight: FontWeight.w500,
@@ -102,28 +161,47 @@ class _DbOnlineSearchPageState extends ConsumerState<DbOnlineSearchPage> {
                           fontWeight: FontWeight.w500,
                         ),
                         onChanged: _onChanged,
+                        onSubmitted: _submitSearch,
                       ),
                     ),
                     if (_controller.text.isNotEmpty)
                       IconButton(
                         icon: Icon(Icons.close, size: 16, color: colors.muted),
                         onPressed: () {
-                          _debounce.cancel();
                           _controller.clear();
-                          setState(() => _query = '');
+                          setState(() {
+                            _submittedQuery = '';
+                            _searchSerial++;
+                          });
                         },
                       ),
+                    IconButton(
+                      tooltip: '搜索',
+                      icon: Icon(Icons.search, size: 18, color: colors.muted),
+                      onPressed: _submitSearch,
+                    ),
+                    const SizedBox(width: 4),
                   ],
                 ),
               ),
             ),
             Expanded(
-              child: _query.isEmpty
+              child: _submittedQuery.isEmpty
                   ? const _DbOnlineSearchEmptyHint()
-                  : _DbOnlineSearchResults(
-                      key: ValueKey(_query),
-                      query: _query,
-                    ),
+                  : switch (_searchType) {
+                      DbOnlineSearchType.list => _DbOnlineSearchResults(
+                        key: ValueKey('list:$_submittedQuery:$_searchSerial'),
+                        query: _submittedQuery,
+                      ),
+                      DbOnlineSearchType.actor => _DbOnlineActorSearchResults(
+                        key: ValueKey('actor:$_submittedQuery:$_searchSerial'),
+                        query: _submittedQuery,
+                      ),
+                      DbOnlineSearchType.series => _DbOnlineSeriesSearchResults(
+                        key: ValueKey('series:$_submittedQuery:$_searchSerial'),
+                        query: _submittedQuery,
+                      ),
+                    },
             ),
           ],
         ),
@@ -282,4 +360,243 @@ class _DbOnlineSearchResultsState
       ],
     );
   }
+}
+
+class _DbOnlineActorSearchResults extends ConsumerWidget {
+  const _DbOnlineActorSearchResults({super.key, required this.query});
+
+  final String query;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final result = ref.watch(dbOnlineActorSearchProvider(query));
+    return result.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => ErrorView(
+        message: toApiException(error).message,
+        onRetry: () => ref.invalidate(dbOnlineActorSearchProvider(query)),
+      ),
+      data: (value) {
+        if (value.actors.isEmpty) {
+          return const _DbOnlineSearchNoResults();
+        }
+        return CustomScrollView(
+          primary: false,
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 1.9,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final actor = value.actors[index];
+                  return _DbOnlineSearchEntityCard(
+                    name: actor.name,
+                    label: AppL10n.of(context).searchModeActorSearch,
+                    count: actor.videosCount,
+                    icon: Icons.person_outline_rounded,
+                  );
+                }, childCount: value.actors.length),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _DbOnlineSeriesSearchResults extends ConsumerStatefulWidget {
+  const _DbOnlineSeriesSearchResults({super.key, required this.query});
+
+  final String query;
+
+  @override
+  ConsumerState<_DbOnlineSeriesSearchResults> createState() =>
+      _DbOnlineSeriesSearchResultsState();
+}
+
+class _DbOnlineSeriesSearchResultsState
+    extends ConsumerState<_DbOnlineSeriesSearchResults> {
+  static const _pageSize = 24;
+
+  final _pagingController = PagingController<int, DbOnlineSearchEntity>(
+    firstPageKey: 1,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _pagingController.addPageRequestListener(_fetchPage);
+  }
+
+  @override
+  void dispose() {
+    _pagingController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchPage(int page) async {
+    try {
+      final result = await ref.read(
+        dbOnlineSeriesSearchPageProvider(
+          DbOnlineSeriesSearchPageRequest(
+            query: widget.query,
+            page: page,
+            limit: _pageSize,
+          ),
+        ).future,
+      );
+      if (!mounted) return;
+
+      final current =
+          _pagingController.itemList ?? const <DbOnlineSearchEntity>[];
+      final seen = <String>{for (final item in current) _entityKey(item)};
+      final items = result.items
+          .where((item) => seen.add(_entityKey(item)))
+          .toList(growable: false);
+      final isLastPage =
+          !result.hasMore || result.items.length < _pageSize || items.isEmpty;
+      if (isLastPage) {
+        _pagingController.appendLastPage(items);
+      } else {
+        _pagingController.appendPage(items, page + 1);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      _pagingController.error = toApiException(error).message;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      primary: false,
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
+          sliver: PagedSliverGrid<int, DbOnlineSearchEntity>(
+            pagingController: _pagingController,
+            showNoMoreItemsIndicatorAsGridChild: false,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 1.9,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+            builderDelegate: PagedChildBuilderDelegate<DbOnlineSearchEntity>(
+              itemBuilder: (context, item, _) => _DbOnlineSearchEntityCard(
+                name: item.name,
+                label: AppL10n.of(context).searchModeSeries,
+                count: item.moviesCount,
+                icon: Icons.layers_outlined,
+              ),
+              firstPageProgressIndicatorBuilder: (_) =>
+                  const Center(child: CircularProgressIndicator()),
+              firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                message: _pagingController.error?.toString() ?? '加载失败',
+                onRetry: _pagingController.refresh,
+              ),
+              newPageErrorIndicatorBuilder: (_) => PaginationRetry(
+                onRetry: _pagingController.retryLastFailedRequest,
+              ),
+              noItemsFoundIndicatorBuilder: (_) =>
+                  const _DbOnlineSearchNoResults(),
+              noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DbOnlineSearchEntityCard extends StatelessWidget {
+  const _DbOnlineSearchEntityCard({
+    required this.name,
+    required this.label,
+    required this.count,
+    required this.icon,
+  });
+
+  final String name;
+  final String label;
+  final int count;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.accent.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Icon(icon, size: 22, color: colors.accent),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.body(
+                      context,
+                    ).copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(label, style: AppText.meta(context)),
+                  if (count > 0)
+                    Text(
+                      AppL10n.of(context).libraryCount(count),
+                      style: AppText.meta(context),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DbOnlineSearchNoResults extends StatelessWidget {
+  const _DbOnlineSearchNoResults();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          AppL10n.of(context).searchNoResult,
+          style: AppText.body(context).copyWith(fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+}
+
+String _entityKey(DbOnlineSearchEntity item) {
+  final id = item.id.trim();
+  return id.isNotEmpty ? 'id:$id' : 'name:${item.name.trim()}';
 }

@@ -18,7 +18,7 @@ enum PrivacyScope {
   actorAssociation,
 }
 
-NotifierProvider<RevealedIdsNotifier, Set<int>> _revealedProviderFor(
+NotifierProvider<RevealedIdsNotifier, Set<Object>> _revealedProviderFor(
   PrivacyScope scope,
 ) {
   return switch (scope) {
@@ -47,7 +47,8 @@ class PrivacyMask extends ConsumerWidget {
     this.icon = true,
   });
 
-  final int movieId;
+  /// OMM 使用整数 id，外部数据源（如 dbonline）可以使用字符串 id。
+  final Object movieId;
   final PrivacyScope scope;
   final Widget child;
   final double radius;
@@ -102,7 +103,8 @@ class PrivacyText extends ConsumerWidget {
     this.overflow,
   });
 
-  final int movieId;
+  /// OMM 使用整数 id，外部数据源（如 dbonline）可以使用字符串 id。
+  final Object movieId;
   final PrivacyScope scope;
   final String text;
   final TextStyle style;
@@ -140,7 +142,8 @@ class PrivacyAwareInkWell extends ConsumerWidget {
     this.borderRadius = 10,
   });
 
-  final int movieId;
+  /// OMM 使用整数 id，外部数据源（如 dbonline）可以使用字符串 id。
+  final Object movieId;
   final PrivacyScope scope;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;

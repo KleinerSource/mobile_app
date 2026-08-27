@@ -7,12 +7,13 @@ import '../../core/api/url_resolver.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/db_online_movie.dart';
-import '../../core/platform/app_action_sheet.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/poster.dart';
 import '../home/hero_backdrop.dart';
+import '../i18n/poster_badge_visibility_provider.dart';
 import '../movie_detail/movie_detail_page.dart' show showMovieImageLightbox;
+import '../movie_detail/cover_badges.dart';
 import '../player/player_page.dart';
 import '../settings/settings_common.dart';
 import '../movie_detail/movie_detail_scaffold.dart';
@@ -101,7 +102,7 @@ class _ErrorBody extends StatelessWidget {
   }
 }
 
-class _DbOnlineDetailBody extends StatefulWidget {
+class _DbOnlineDetailBody extends ConsumerStatefulWidget {
   const _DbOnlineDetailBody({
     required this.movie,
     required this.config,
@@ -113,10 +114,11 @@ class _DbOnlineDetailBody extends StatefulWidget {
   final Future<DbOnlineMovieDetail> Function() loadPlaybackMovie;
 
   @override
-  State<_DbOnlineDetailBody> createState() => _DbOnlineDetailBodyState();
+  ConsumerState<_DbOnlineDetailBody> createState() =>
+      _DbOnlineDetailBodyState();
 }
 
-class _DbOnlineDetailBodyState extends State<_DbOnlineDetailBody> {
+class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
   final _heroArts = ValueNotifier<List<HeroArt>>(const []);
   final _heroPosition = ValueNotifier(0.0);
 
@@ -159,24 +161,44 @@ class _DbOnlineDetailBodyState extends State<_DbOnlineDetailBody> {
     final movie = widget.movie;
     final config = widget.config;
     final image = movie.coverUrl ?? movie.thumbUrl;
+    final displayTitle = _dbOnlineDisplayTitle(movie);
     final imageUrl = config == null || image == null
         ? null
         : resolveServerUrl(config, image);
+    final posterBadgeVisibility = ref.watch(posterBadgeVisibilityProvider);
+    final heroBadges = <Widget>[
+      if (movie.hasCnsub &&
+          posterBadgeVisibility.isEnabled(PosterBadgeKind.subtitle))
+        const CoverBadgePill(
+          icon: Icons.closed_caption_rounded,
+          label: '中字',
+          color: Color(0xFFFFD60A),
+          tooltip: '中字',
+        ),
+      if (movie.canPlay)
+        CoverBadgePill(
+          icon: Icons.play_arrow_rounded,
+          label: '在线播放',
+          color: appColors(context).accent,
+        ),
+    ];
     return MovieDetailScaffold(
       heroArts: _heroArts,
       heroPosition: _heroPosition,
       hero: MovieDetailHero(
         imageUrl: imageUrl,
-        title: movie.title,
+        title: displayTitle,
         year: _yearFromDate(movie.date),
-        bottomOverlay: movie.canPlay ? const OnlinePlayBadge() : null,
+        bottomOverlay: heroBadges.isEmpty
+            ? null
+            : Wrap(spacing: 6, runSpacing: 6, children: heroBadges),
       ),
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(22, 6, 22, 24),
             child: MovieDetailTitle(
-              title: movie.title.trim().isEmpty ? movie.code : movie.title,
+              title: displayTitle,
               originalTitle: movie.originTitle,
               year: _yearFromDate(movie.date),
               runtime: movie.duration,
@@ -196,14 +218,9 @@ class _DbOnlineDetailBodyState extends State<_DbOnlineDetailBody> {
           ),
         if (movie.overview?.isNotEmpty == true)
           SliverToBoxAdapter(
-            child: MovieDetailSection(
-              title: '简介',
-              child: Text(
-                movie.overview!,
-                maxLines: 5,
-                overflow: TextOverflow.ellipsis,
-                style: AppText.body(context).copyWith(height: 1.55),
-              ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+              child: MovieDetailPlot(plot: movie.overview!),
             ),
           ),
         if (movie.previews.isNotEmpty && config != null)
@@ -241,13 +258,6 @@ class _DbOnlineDetailBodyState extends State<_DbOnlineDetailBody> {
               ],
             ),
           ),
-        if (_hasDetails(movie))
-          SliverToBoxAdapter(
-            child: MovieDetailSection(
-              title: '详细信息',
-              child: _DetailsTable(movie: movie),
-            ),
-          ),
         if (movie.relativeMovies.isNotEmpty && config != null)
           SliverToBoxAdapter(
             child: _RelatedMovieSection(
@@ -262,6 +272,13 @@ class _DbOnlineDetailBodyState extends State<_DbOnlineDetailBody> {
               title: '同演员作品',
               movies: movie.actorMovies,
               config: config,
+            ),
+          ),
+        if (_hasDetails(movie))
+          SliverToBoxAdapter(
+            child: MovieDetailSection(
+              title: '详细信息',
+              child: _DetailsTable(movie: movie),
             ),
           ),
         if (movie.library?.inLibrary == true)
@@ -282,6 +299,14 @@ class _DbOnlineDetailBodyState extends State<_DbOnlineDetailBody> {
 
 int _stableHeroId(String value) {
   return value.codeUnits.fold(0, (result, codeUnit) => result * 31 + codeUnit);
+}
+
+String _dbOnlineDisplayTitle(DbOnlineMovieDetail movie) {
+  final title = movie.title.trim();
+  final code = movie.code.trim();
+  if (title.isEmpty) return code;
+  if (code.isEmpty) return title;
+  return '[$code] $title';
 }
 
 int? _yearFromDate(String? date) {
@@ -339,7 +364,6 @@ bool _hasPersonName(DbOnlinePerson? person) =>
     person?.name.trim().isNotEmpty == true;
 
 bool _hasDetails(DbOnlineMovieDetail movie) =>
-    movie.code.trim().isNotEmpty ||
     movie.date?.trim().isNotEmpty == true ||
     (movie.watchedCount != null && movie.watchedCount! > 0);
 
@@ -426,6 +450,7 @@ class _RelatedMovieSection extends StatelessWidget {
                 canPlay: movie.canPlay,
               ),
               config: config,
+              codeOnly: true,
               onTap:
                   movie.number.trim().isEmpty &&
                       movie.id?.trim().isNotEmpty != true
@@ -520,38 +545,17 @@ Future<void> _openDbOnlinePlayback(
   }
   if (!context.mounted) return;
 
-  // 只有一个播放源时直接进入播放流程，不额外打断用户选择。
-  final source = sources.length == 1
-      ? sources.first
-      : await showAppActionSheet<DbOnlinePlaySource>(
-          context: context,
-          title: '选择播放源',
-          actions: _playSourceActions(sources),
-        );
-  if (source == null || !context.mounted) return;
-
-  await Navigator.of(context).push<void>(
-    MaterialPageRoute(
-      builder: (_) => DbOnlinePlaybackPage(
-        code: resolvedMovie.code,
-        videoId: resolvedMovie.videoId,
-        sources: sources,
-        initialSourceId: source.id,
-      ),
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (_) => _DbOnlinePlaybackSheet(
+      code: resolvedMovie.code,
+      videoId: resolvedMovie.videoId,
+      sources: sources,
     ),
   );
-}
-
-List<AppActionSheetAction<DbOnlinePlaySource>> _playSourceActions(
-  List<DbOnlinePlaySource> sources,
-) {
-  return [
-    for (final item in sources)
-      AppActionSheetAction<DbOnlinePlaySource>(
-        label: item.name.trim().isEmpty ? '在线播放源 ${item.id}' : item.name.trim(),
-        value: item,
-      ),
-  ];
 }
 
 class _DetailsTable extends StatelessWidget {
@@ -563,7 +567,6 @@ class _DetailsTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final rows = <(String, String)>[];
-    if (movie.code.trim().isNotEmpty) rows.add(('番号', movie.code));
     if (movie.date?.trim().isNotEmpty == true) rows.add(('日期', movie.date!));
     if (movie.watchedCount != null && movie.watchedCount! > 0) {
       rows.add(('评分人数', '${movie.watchedCount}'));
@@ -614,39 +617,68 @@ class _DetailsTable extends StatelessWidget {
   }
 }
 
-class DbOnlinePlaybackPage extends ConsumerStatefulWidget {
-  const DbOnlinePlaybackPage({
-    super.key,
+class _DbOnlinePlaybackSheet extends ConsumerStatefulWidget {
+  const _DbOnlinePlaybackSheet({
     required this.code,
     required this.sources,
     this.videoId,
-    this.initialSourceId,
   });
 
   final String code;
   final String? videoId;
   final List<DbOnlinePlaySource> sources;
-  final int? initialSourceId;
 
   @override
-  ConsumerState<DbOnlinePlaybackPage> createState() =>
-      _DbOnlinePlaybackPageState();
+  ConsumerState<_DbOnlinePlaybackSheet> createState() =>
+      _DbOnlinePlaybackSheetState();
 }
 
-class _DbOnlinePlaybackPageState extends ConsumerState<DbOnlinePlaybackPage> {
+class _DbOnlinePlaybackSheetState
+    extends ConsumerState<_DbOnlinePlaybackSheet> {
+  final _sheetController = DraggableScrollableController();
+
   late DbOnlinePlaySource _source;
+  int? _lastEpisodeCount;
 
   @override
   void initState() {
     super.initState();
     final validSources = widget.sources.where((item) => item.id > 0).toList();
-    _source = validSources.firstWhere(
-      (item) => item.id == widget.initialSourceId,
-      orElse: () => const DbOnlinePlaySource(id: 0, name: ''),
+    _source = validSources.first;
+  }
+
+  @override
+  void dispose() {
+    _sheetController.dispose();
+    super.dispose();
+  }
+
+  void _refreshEpisodes() {
+    final request = DbOnlinePlayRequest(
+      code: widget.code,
+      sourceId: _source.id,
+      videoId: widget.videoId,
     );
-    if (_source.id <= 0 && validSources.isNotEmpty) {
-      _source = validSources.first;
-    }
+    ref.invalidate(dbOnlinePlayEpisodesProvider(request));
+  }
+
+  void _syncSheetSize(int episodeCount) {
+    if (_lastEpisodeCount == episodeCount) return;
+    _lastEpisodeCount = episodeCount;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_sheetController.isAttached) return;
+      final screenHeight = MediaQuery.sizeOf(context).height;
+      final estimatedHeight = 190 + episodeCount * 82;
+      final targetSize = (estimatedHeight / screenHeight)
+          .clamp(0.28, 0.9)
+          .toDouble();
+      if ((_sheetController.size - targetSize).abs() < 0.01) return;
+      _sheetController.animateTo(
+        targetSize,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   @override
@@ -656,69 +688,115 @@ class _DbOnlinePlaybackPageState extends ConsumerState<DbOnlinePlaybackPage> {
       sourceId: _source.id,
       videoId: widget.videoId,
     );
-    final value = _source.id <= 0
-        ? const AsyncValue<DbOnlinePlayEpisodes>.error(
-            '暂无有效在线播放源',
-            StackTrace.empty,
-          )
-        : ref.watch(dbOnlinePlayEpisodesProvider(request));
     final validSources = widget.sources.where((item) => item.id > 0).toList();
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _source.name.trim().isEmpty ? '在线播放' : '在线播放 · ${_source.name}',
-        ),
-        actions: [
-          if (validSources.length > 1)
-            IconButton(
-              tooltip: '切换播放源',
-              icon: const Icon(Icons.alt_route_outlined),
-              onPressed: _switchSource,
-            ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          if (_source.name.trim().isNotEmpty) ...[
-            Text(_source.name, style: AppText.meta(context)),
-            const SizedBox(height: 18),
-          ],
-          value.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => _ErrorBody(
-              message: toApiException(error).message,
-              onRetry: () =>
-                  ref.invalidate(dbOnlinePlayEpisodesProvider(request)),
-            ),
-            data: (episodes) => episodes.episodes.isEmpty
-                ? const Center(child: Text('暂无可播放剧集'))
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('剧集', style: AppText.sectionTitle(context)),
-                      const SizedBox(height: 10),
-                      for (final episode in episodes.episodes)
-                        _EpisodeTile(code: widget.code, episode: episode),
-                    ],
-                  ),
+    final value = ref.watch(dbOnlinePlayEpisodesProvider(request));
+    return DraggableScrollableSheet(
+      controller: _sheetController,
+      expand: false,
+      initialChildSize: 0.28,
+      minChildSize: 0.28,
+      maxChildSize: 0.9,
+      builder: (context, scrollController) {
+        return Material(
+          color: appColors(context).bg,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 12, 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text('在线播放', style: AppText.sectionTitle(context)),
+                    ),
+                    IconButton(
+                      tooltip: '刷新剧集',
+                      icon: const Icon(Icons.refresh_rounded),
+                      onPressed: _refreshEpisodes,
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text('播放源', style: AppText.meta(context)),
+                    ),
+                    SizedBox(
+                      height: 42,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: validSources.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (_, index) {
+                          final source = validSources[index];
+                          return ChoiceChip(
+                            label: Text(_playSourceLabel(source)),
+                            selected: source.id == _source.id,
+                            onSelected: (_) {
+                              if (source.id != _source.id) {
+                                setState(() => _source = source);
+                              }
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    value.when(
+                      loading: () => const SizedBox(
+                        height: 160,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                      error: (error, _) => SizedBox(
+                        height: 180,
+                        child: _ErrorBody(
+                          message: toApiException(error).message,
+                          onRetry: _refreshEpisodes,
+                        ),
+                      ),
+                      data: (episodes) {
+                        _syncSheetSize(episodes.episodes.length);
+                        return episodes.episodes.isEmpty
+                            ? const SizedBox(
+                                height: 120,
+                                child: Center(child: Text('暂无可播放剧集')),
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '剧集',
+                                    style: AppText.sectionTitle(context),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  for (final episode in episodes.episodes)
+                                    _EpisodeTile(
+                                      code: widget.code,
+                                      episode: episode,
+                                    ),
+                                ],
+                              );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
+}
 
-  Future<void> _switchSource() async {
-    final validSources = widget.sources.where((item) => item.id > 0).toList();
-    if (validSources.length <= 1) return;
-    final selected = await showAppActionSheet<DbOnlinePlaySource>(
-      context: context,
-      title: '选择播放源',
-      actions: _playSourceActions(validSources),
-    );
-    if (!mounted || selected == null || selected.id == _source.id) return;
-    setState(() => _source = selected);
-  }
+String _playSourceLabel(DbOnlinePlaySource source) {
+  final name = source.name.trim();
+  return name.isEmpty ? '在线播放源 ${source.id}' : name;
 }
 
 class _EpisodeTile extends ConsumerWidget {

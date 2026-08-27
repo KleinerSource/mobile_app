@@ -257,21 +257,29 @@ class CoverBadgeRow extends StatelessWidget {
   }
 }
 
-/// 单个彩色胶囊徽章 (原 CoverBadgeRow 的内联样式)
-class _CoverBadgePill extends StatelessWidget {
-  const _CoverBadgePill({required this.spec});
+/// OMM 风格的彩色详情徽章。
+class CoverBadgePill extends StatelessWidget {
+  const CoverBadgePill({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.color,
+    this.tooltip,
+  });
 
-  final CoverBadgeSpec spec;
+  final IconData icon;
+  final String label;
+  final Color color;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
-    final b = spec;
     return Tooltip(
-      message: b.tooltip ?? b.label,
+      message: tooltip ?? label,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
         decoration: BoxDecoration(
-          color: b.color,
+          color: color,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: Colors.white.withValues(alpha: 0.24),
@@ -288,10 +296,10 @@ class _CoverBadgePill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(b.icon, color: Colors.white, size: 11),
+            Icon(icon, color: Colors.white, size: 11),
             const SizedBox(width: 3),
             Text(
-              b.label,
+              label,
               style: const TextStyle(
                 color: Colors.white,
                 fontFamily: 'Inter',
@@ -304,6 +312,23 @@ class _CoverBadgePill extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 单个彩色胶囊徽章 (原 CoverBadgeRow 的内联样式)
+class _CoverBadgePill extends StatelessWidget {
+  const _CoverBadgePill({required this.spec});
+
+  final CoverBadgeSpec spec;
+
+  @override
+  Widget build(BuildContext context) {
+    return CoverBadgePill(
+      icon: spec.icon,
+      label: spec.label,
+      color: spec.color,
+      tooltip: spec.tooltip,
     );
   }
 }

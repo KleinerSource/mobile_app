@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../models/db_online_movie.dart';
+import '../../models/db_online_search.dart';
 import '../envelope.dart';
 
 class DbOnlineApi {
@@ -48,6 +49,38 @@ class DbOnlineApi {
     });
   }
 
+  /// 获取 dbonline 影片库的一页。
+  ///
+  /// `/subs/tags` 使用 `filter_by` 的第一段表示影片分类，第二段固定为
+  /// `t`，第三段的 `p` 表示支持在线播放。影片库只开放这条线上筛选链路。
+  Future<DbOnlineMoviePage> taggedMoviesPage({
+    String filterBy = '0:t:p::::',
+    int page = 1,
+    int limit = 24,
+    String sortBy = 'update',
+    String orderBy = 'desc',
+  }) {
+    final normalizedFilter = filterBy.trim();
+    if (normalizedFilter.isEmpty) {
+      throw ArgumentError.value(filterBy, 'filterBy', '筛选参数不能为空');
+    }
+    final normalizedSort = sortBy.trim();
+    if (normalizedSort != 'update' && normalizedSort != 'release') {
+      throw ArgumentError.value(sortBy, 'sortBy', '排序方式必须是 update 或 release');
+    }
+    final normalizedOrder = orderBy.trim();
+    if (normalizedOrder != 'asc' && normalizedOrder != 'desc') {
+      throw ArgumentError.value(orderBy, 'orderBy', '排序顺序必须是 asc 或 desc');
+    }
+    return _moviesPage('/subs/tags', {
+      'filter_by': normalizedFilter,
+      'page': page,
+      'limit': limit,
+      'sort_by': normalizedSort,
+      'order_by': normalizedOrder,
+    });
+  }
+
   /// 按关键词获取 dbonline 搜索结果的一页。
   ///
   /// 搜索接口的电影类型必须显式传递，避免服务端默认值变化导致结果
@@ -65,6 +98,59 @@ class DbOnlineApi {
     return _moviesPage('/search', {
       'q': normalized,
       'type': 'movie',
+      'page': page,
+      'limit': limit,
+      'movie_type': 'all',
+      'movie_sort_by': 'relevance',
+      'movie_filter_by': 'can_play',
+    });
+  }
+
+  /// 搜索 dbonline 演员。该接口返回一次性结果，不提供影片列表式分页。
+  Future<DbOnlineActorSearchResult> searchActors({
+    required String query,
+  }) async {
+    final normalized = query.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(query, 'query', '搜索关键词不能为空');
+    }
+    final response = await _dio.get<dynamic>(
+      '/search/actors',
+      queryParameters: {'q': normalized},
+    );
+    return unwrapStd<DbOnlineActorSearchResult>(response.data, (data) {
+      if (data is! Map) {
+        return const DbOnlineActorSearchResult(
+          actors: <DbOnlineActorSearchItem>[],
+        );
+      }
+      final rawActors = data['actors'];
+      final actors = rawActors is List
+          ? rawActors
+                .map(DbOnlineActorSearchItem.fromJson)
+                .where((actor) => actor.id.isNotEmpty && actor.name.isNotEmpty)
+                .toList(growable: false)
+          : const <DbOnlineActorSearchItem>[];
+      return DbOnlineActorSearchResult(
+        actors: actors,
+        total: _intValue(data['total']) ?? actors.length,
+      );
+    });
+  }
+
+  /// 搜索 dbonline 系列。系列搜索沿用通用搜索接口的实体响应格式。
+  Future<DbOnlineSearchEntityPage> searchSeriesPage({
+    required String query,
+    int page = 1,
+    int limit = 24,
+  }) {
+    final normalized = query.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(query, 'query', '搜索关键词不能为空');
+    }
+    return _searchEntitiesPage('/search', {
+      'q': normalized,
+      'type': 'series',
       'page': page,
       'limit': limit,
       'movie_type': 'all',
@@ -190,6 +276,46 @@ class DbOnlineApi {
           : items.length >= limit && limit > 0;
       return DbOnlineMoviePage(
         movies: items,
+        page: page,
+        limit: limit,
+        total: total,
+        hasMore: hasMore,
+      );
+    });
+  }
+
+  Future<DbOnlineSearchEntityPage> _searchEntitiesPage(
+    String path,
+    Map<String, dynamic> query,
+  ) async {
+    final response = await _dio.get<dynamic>(path, queryParameters: query);
+    return unwrapStd<DbOnlineSearchEntityPage>(response.data, (data) {
+      if (data is! Map) {
+        return DbOnlineSearchEntityPage(
+          items: const <DbOnlineSearchEntity>[],
+          page: _intValue(query['page']) ?? 1,
+          limit: _intValue(query['limit']) ?? 0,
+          hasMore: false,
+        );
+      }
+      final rawItems = data['items'];
+      final items = rawItems is List
+          ? rawItems
+                .map(DbOnlineSearchEntity.fromJson)
+                .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
+                .toList(growable: false)
+          : const <DbOnlineSearchEntity>[];
+      final page = _intValue(query['page']) ?? 1;
+      final limit = _intValue(query['limit']) ?? items.length;
+      final total = _intValue(data['total']);
+      final explicitHasMore = data['has_more'];
+      final hasMore = explicitHasMore is bool
+          ? explicitHasMore
+          : total != null && total > page * limit
+          ? true
+          : items.length >= limit && limit > 0;
+      return DbOnlineSearchEntityPage(
+        items: items,
         page: page,
         limit: limit,
         total: total,

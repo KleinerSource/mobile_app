@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/providers.dart';
 import '../../core/models/db_online_movie.dart';
+import '../../core/models/db_online_search.dart';
 
 final dbOnlineRecommendProvider =
     FutureProvider.autoDispose<List<DbOnlineMovie>>((ref) async {
@@ -38,12 +39,50 @@ final dbOnlineLatestPageProvider = FutureProvider.autoDispose
           );
     });
 
+/// DBO 影片库按分类、排序方式和顺序读取一页数据。
+final dbOnlineLibraryPageProvider = FutureProvider.autoDispose
+    .family<DbOnlineMoviePage, DbOnlineLibraryPageRequest>((ref, request) {
+      return ref
+          .watch(requiredApiClientProvider)
+          .dbOnline
+          .taggedMoviesPage(
+            filterBy: request.filterBy,
+            page: request.page,
+            limit: request.limit,
+            sortBy: request.sortBy,
+            orderBy: request.orderBy,
+          );
+    });
+
 final dbOnlineSearchPageProvider = FutureProvider.autoDispose
     .family<DbOnlineMoviePage, DbOnlineSearchPageRequest>((ref, request) {
       return ref
           .watch(requiredApiClientProvider)
           .dbOnline
           .searchPage(
+            query: request.query,
+            page: request.page,
+            limit: request.limit,
+          );
+    });
+
+final dbOnlineActorSearchProvider = FutureProvider.autoDispose
+    .family<DbOnlineActorSearchResult, String>((ref, query) {
+      return ref
+          .watch(requiredApiClientProvider)
+          .dbOnline
+          .searchActors(query: query);
+    });
+
+final dbOnlineSeriesSearchPageProvider = FutureProvider.autoDispose
+    .family<DbOnlineSearchEntityPage, DbOnlineSeriesSearchPageRequest>((
+      ref,
+      request,
+    ) {
+      return ref
+          .watch(requiredApiClientProvider)
+          .dbOnline
+          .searchSeriesPage(
             query: request.query,
             page: request.page,
             limit: request.limit,
@@ -75,6 +114,34 @@ class DbOnlineLatestPageRequest {
   int get hashCode => Object.hash(page, limit, sortBy, sort);
 }
 
+class DbOnlineLibraryPageRequest {
+  const DbOnlineLibraryPageRequest({
+    required this.page,
+    required this.limit,
+    this.filterBy = '0:t:p::::',
+    this.sortBy = 'update',
+    this.orderBy = 'desc',
+  });
+
+  final int page;
+  final int limit;
+  final String filterBy;
+  final String sortBy;
+  final String orderBy;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DbOnlineLibraryPageRequest &&
+      other.page == page &&
+      other.limit == limit &&
+      other.filterBy == filterBy &&
+      other.sortBy == sortBy &&
+      other.orderBy == orderBy;
+
+  @override
+  int get hashCode => Object.hash(page, limit, filterBy, sortBy, orderBy);
+}
+
 class DbOnlineSearchPageRequest {
   const DbOnlineSearchPageRequest({
     required this.query,
@@ -89,6 +156,28 @@ class DbOnlineSearchPageRequest {
   @override
   bool operator ==(Object other) =>
       other is DbOnlineSearchPageRequest &&
+      other.query == query &&
+      other.page == page &&
+      other.limit == limit;
+
+  @override
+  int get hashCode => Object.hash(query, page, limit);
+}
+
+class DbOnlineSeriesSearchPageRequest {
+  const DbOnlineSeriesSearchPageRequest({
+    required this.query,
+    required this.page,
+    required this.limit,
+  });
+
+  final String query;
+  final int page;
+  final int limit;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DbOnlineSeriesSearchPageRequest &&
       other.query == query &&
       other.page == page &&
       other.limit == limit;
