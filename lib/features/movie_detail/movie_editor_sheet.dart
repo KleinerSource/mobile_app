@@ -8,6 +8,7 @@ import '../../core/models/movie.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../../shared/filter_chip.dart';
 import '../movies/movies_providers.dart';
 import '../resources/resources_providers.dart';
@@ -352,39 +353,21 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: '返回',
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: _saving
-                      ? null
-                      : () => Navigator.of(context).maybePop(),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 40,
-                    minHeight: 40,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text('编辑影片', style: AppText.sectionTitle(context)),
-                ),
-                TextButton(
-                  onPressed: _saving || _flagUpdating ? null : _save,
-                  child: Text(
-                    '保存',
-                    style: TextStyle(
-                      color: c.accent,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14.5,
-                    ),
-                  ),
-                ),
-              ],
+          SheetHeader(
+            icon: Icons.movie_outlined,
+            title: '编辑影片',
+            leading: IconButton(
+              tooltip: '返回',
+              icon: const Icon(Icons.arrow_back),
+              onPressed: _saving
+                  ? null
+                  : () => Navigator.of(context).maybePop(),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            ),
+            trailing: TextButton(
+              onPressed: _saving || _flagUpdating ? null : _save,
+              child: const Text('保存'),
             ),
           ),
           const SizedBox(height: 12),
@@ -815,32 +798,21 @@ class _MovieEditorSheetState extends ConsumerState<MovieEditorSheet> {
     IconData? icon,
   }) {
     final c = appColors(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: c.surface,
-        border: Border.all(color: c.cardBorder),
-        borderRadius: BorderRadius.circular(12),
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      keyboardType: numeric
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : null,
+      decoration: sheetInputDecoration(
+        context,
+        prefixIcon: icon == null ? null : Icon(icon),
       ),
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines,
-        keyboardType: numeric
-            ? const TextInputType.numberWithOptions(decimal: true)
-            : null,
-        decoration: InputDecoration(
-          prefixIcon: icon == null ? null : Icon(icon),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 12,
-          ),
-        ),
-        style: TextStyle(
-          color: c.text,
-          fontFamily: mono ? 'monospace' : 'Inter',
-          fontSize: mono ? 13 : 14,
-          fontWeight: FontWeight.w500,
-        ),
+      style: TextStyle(
+        color: c.text,
+        fontFamily: mono ? 'monospace' : 'Inter',
+        fontSize: mono ? 13 : 14,
+        fontWeight: FontWeight.w500,
       ),
     );
   }

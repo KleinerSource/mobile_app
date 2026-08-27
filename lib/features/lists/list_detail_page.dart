@@ -7,6 +7,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/poster.dart';
+import '../../shared/sheet_controls.dart';
 import '../movie_detail/movie_detail_page.dart';
 import '../movies/movies_providers.dart';
 import '../privacy/privacy_mask.dart';
@@ -120,6 +121,12 @@ class ListDetailPage extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              SheetHeader(
+                icon: Icons.playlist_play_outlined,
+                title: '集合操作',
+                subtitle: list.name,
+                padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
+              ),
               ListTile(
                 leading: Icon(Icons.edit_outlined, color: c.text),
                 title: const Text(

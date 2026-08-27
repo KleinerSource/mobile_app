@@ -7,6 +7,7 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/sheet_controls.dart';
 import '../settings/settings_common.dart';
 import 'translation_providers.dart';
 
@@ -115,16 +116,10 @@ class _TranslationSettingsPageState
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Padding(
+                SheetHeader(
+                  icon: Icons.model_training_outlined,
+                  title: '选择模型 (${models.length})',
                   padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
-                  child: Row(
-                    children: [
-                      Text(
-                        '选择模型 (${models.length})',
-                        style: AppText.sectionTitle(ctx),
-                      ),
-                    ],
-                  ),
                 ),
                 Flexible(
                   child: ListView.builder(

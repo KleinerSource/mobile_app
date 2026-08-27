@@ -17,6 +17,7 @@ import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/debouncer.dart';
+import '../../shared/sheet_controls.dart';
 import '../../shared/swipe_actions.dart';
 import '../settings/settings_common.dart';
 import 'mappings_providers.dart';
@@ -538,13 +539,14 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        rule == null
+                      SheetHeader(
+                        icon: Icons.rule_outlined,
+                        title: rule == null
                             ? '新建${widget.type.label}映射'
                             : '编辑${widget.type.label}映射',
-                        style: AppText.sectionTitle(ctx),
+                        padding: EdgeInsets.zero,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       Text('ORIGINAL VALUES', style: AppText.eyebrow(ctx)),
                       const SizedBox(height: 2),
                       Text(
@@ -552,32 +554,21 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                         style: AppText.meta(ctx),
                       ),
                       const SizedBox(height: 6),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: c.surface,
-                          border: Border.all(color: c.cardBorder),
-                          borderRadius: BorderRadius.circular(12),
+                      TextField(
+                        controller: originalCtrl,
+                        minLines: 1,
+                        maxLines: rule == null ? 5 : 1,
+                        autofocus: rule == null,
+                        decoration: sheetInputDecoration(
+                          sctx,
+                          hintText: rule == null ? '原始值1\n原始值2' : '原始值',
+                          prefixIcon: const Icon(Icons.notes),
                         ),
-                        child: TextField(
-                          controller: originalCtrl,
-                          minLines: 1,
-                          maxLines: rule == null ? 5 : 1,
-                          autofocus: rule == null,
-                          decoration: InputDecoration(
-                            hintText: rule == null ? '原始值1\n原始值2' : '原始值',
-                            prefixIcon: const Icon(Icons.notes),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                          ),
-                          style: TextStyle(
-                            color: c.text,
-                            fontFamily: 'monospace',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        style: TextStyle(
+                          color: c.text,
+                          fontFamily: 'monospace',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -625,29 +616,20 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                       ),
                       if (!isDelete) ...[
                         const SizedBox(height: 6),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: c.surface,
-                            border: Border.all(color: c.cardBorder),
-                            borderRadius: BorderRadius.circular(12),
+                        TextField(
+                          controller: mappedCtrl,
+                          decoration: sheetInputDecoration(
+                            sctx,
+                            hintText: '目标值',
+                            prefixIcon: const Icon(
+                              Icons.drive_file_rename_outline,
+                            ),
                           ),
-                          child: TextField(
-                            controller: mappedCtrl,
-                            decoration: const InputDecoration(
-                              hintText: '目标值',
-                              prefixIcon: Icon(Icons.drive_file_rename_outline),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 12,
-                              ),
-                            ),
-                            style: TextStyle(
-                              color: c.text,
-                              fontFamily: 'Inter',
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          style: TextStyle(
+                            color: c.text,
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -673,14 +655,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                               mapped: isDelete ? null : mappedCtrl.text.trim(),
                             ));
                           },
-                          style: FilledButton.styleFrom(
-                            backgroundColor: c.text,
-                            foregroundColor: c.bg,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
+                          style: sheetPrimaryButtonStyle(sctx),
                           child: Text(
                             rule == null ? '创建' : '保存',
                             style: const TextStyle(

@@ -7,6 +7,7 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/sheet_controls.dart';
 import '../player/subtitle_rendering.dart';
 import '../player/subtitle_settings.dart';
 import 'settings_common.dart';
@@ -301,9 +302,10 @@ class _SubtitleOptionTile<T> extends StatelessWidget {
         shrinkWrap: true,
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
-            child: Text(title, style: AppText.sectionTitle(ctx)),
+          SheetHeader(
+            icon: icon,
+            title: title,
+            padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
           ),
           for (final option in options)
             ListTile(
@@ -361,8 +363,8 @@ class _SubtitleColorTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: AppText.sectionTitle(ctx)),
-            const SizedBox(height: 16),
+            SheetHeader(icon: icon, title: title, padding: EdgeInsets.zero),
+            const SizedBox(height: 14),
             Wrap(
               spacing: 14,
               runSpacing: 14,

@@ -9,6 +9,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/models/db_online_movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/status_bar_scroll_to_top.dart';
@@ -153,21 +154,12 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '筛选影片类型',
-                        style: AppText.sectionTitle(sheetContext),
-                      ),
-                    ),
-                    Text('仅在线播', style: AppText.meta(sheetContext)),
-                  ],
-                ),
+              const SheetHeader(
+                icon: Icons.tune_rounded,
+                title: '筛选影片类型',
+                subtitle: '仅在线播',
+                padding: EdgeInsets.fromLTRB(22, 6, 22, 8),
               ),
-              const Divider(height: 1),
               for (final option in _categoryOptions)
                 ListTile(
                   dense: true,
@@ -202,29 +194,18 @@ class _DbOnlineLibraryPageState extends ConsumerState<DbOnlineLibraryPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '排序',
-                        style: AppText.sectionTitle(sheetContext),
-                      ),
-                    ),
-                    _LibraryOrderButton(
-                      ascending: _orderBy == 'asc',
-                      onTap: () {
-                        Navigator.pop(sheetContext);
-                        _reloadWith(
-                          orderBy: _orderBy == 'asc' ? 'desc' : 'asc',
-                        );
-                      },
-                    ),
-                  ],
+              SheetHeader(
+                icon: Icons.sort_rounded,
+                title: '排序',
+                padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
+                trailing: _LibraryOrderButton(
+                  ascending: _orderBy == 'asc',
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _reloadWith(orderBy: _orderBy == 'asc' ? 'desc' : 'asc');
+                  },
                 ),
               ),
-              const Divider(height: 1),
               for (final option in _sortOptions)
                 ListTile(
                   dense: true,

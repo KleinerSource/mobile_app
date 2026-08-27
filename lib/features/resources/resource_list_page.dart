@@ -17,6 +17,7 @@ import '../../shared/glow_background.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/paged_scroll_position_restorer.dart';
 import '../../shared/debouncer.dart';
+import '../../shared/sheet_controls.dart';
 import '../../shared/swipe_actions.dart';
 import '../settings/settings_common.dart';
 import '../translation/translation_providers.dart';
@@ -668,178 +669,158 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
       }
     }
 
-    final result =
-        await showGlassSheet<({String name, bool autoMapping})>(
-          context: context,
-          isScrollControlled: true,
-          builder: (ctx) {
-            return StatefulBuilder(
-              builder: (ctx, setSheetState) {
-                final canAutoMap = nameChanged(nameCtrl.text);
-                final mappingActive = autoMapping && canAutoMap;
+    final result = await showGlassSheet<({String name, bool autoMapping})>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final canAutoMap = nameChanged(nameCtrl.text);
+            final mappingActive = autoMapping && canAutoMap;
 
-                return Padding(
-                  padding: EdgeInsets.only(
-                    left: 22,
-                    right: 22,
-                    top: 4,
-                    bottom: MediaQuery.of(ctx).viewInsets.bottom + 22,
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 22,
+                right: 22,
+                top: 4,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 22,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SheetHeader(
+                    icon: isEdit
+                        ? Icons.edit_outlined
+                        : Icons.add_circle_outline,
+                    title: isEdit
+                        ? '编辑${widget.kind.label}'
+                        : '新建${widget.kind.label}',
+                    padding: EdgeInsets.zero,
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isEdit
-                            ? '编辑${widget.kind.label}'
-                            : '新建${widget.kind.label}',
-                        style: AppText.sectionTitle(ctx),
-                      ),
-                      const SizedBox(height: 16),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
+                  const SizedBox(height: 14),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.kind.label.toUpperCase(),
+                            style: AppText.eyebrow(ctx),
+                          ),
+                        ),
+                        _ResourceTranslateButton(
+                          loading: translating,
+                          onTap: () => translateName(ctx, setSheetState),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextField(
+                    controller: nameCtrl,
+                    autofocus: !isEdit,
+                    onChanged: (_) {
+                      final changed = nameChanged(nameCtrl.text);
+                      setSheetState(() {
+                        if (!changed) autoMapping = false;
+                      });
+                    },
+                    decoration: sheetInputDecoration(
+                      ctx,
+                      hintText: '${widget.kind.label}名称',
+                      prefixIcon: const Icon(Icons.drive_file_rename_outline),
+                    ),
+                    style: TextStyle(
+                      color: c.text,
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (isEdit) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: canAutoMap
+                            ? () => setSheetState(
+                                () => autoMapping = !autoMapping,
+                              )
+                            : null,
+                        style: OutlinedButton.styleFrom(
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          foregroundColor: mappingActive ? c.accent : c.text,
+                          backgroundColor: mappingActive
+                              ? c.accent.withValues(alpha: 0.1)
+                              : c.surface,
+                          side: BorderSide(
+                            color: mappingActive ? c.accent : c.cardBorder,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                         child: Row(
                           children: [
-                            Expanded(
-                              child: Text(
-                                widget.kind.label.toUpperCase(),
-                                style: AppText.eyebrow(ctx),
+                            IgnorePointer(
+                              child: Checkbox(
+                                value: mappingActive,
+                                onChanged: canAutoMap ? (_) {} : null,
+                                activeColor: c.accent,
+                                checkColor: c.bg,
+                                visualDensity: VisualDensity.compact,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
                               ),
                             ),
-                            _ResourceTranslateButton(
-                              loading: translating,
-                              onTap: () => translateName(ctx, setSheetState),
+                            const SizedBox(width: 4),
+                            Text(
+                              '自动映射',
+                              style: TextStyle(
+                                color: canAutoMap ? c.text : c.muted,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: c.surface,
-                          border: Border.all(color: c.cardBorder),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: TextField(
-                          controller: nameCtrl,
-                          autofocus: !isEdit,
-                          onChanged: (_) {
-                            final changed = nameChanged(nameCtrl.text);
-                            setSheetState(() {
-                              if (!changed) autoMapping = false;
-                            });
-                          },
-                          decoration: InputDecoration(
-                            hintText: '${widget.kind.label}名称',
-                            prefixIcon: const Icon(
-                              Icons.drive_file_rename_outline,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                          ),
-                          style: TextStyle(
-                            color: c.text,
-                            fontFamily: 'Inter',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () {
+                        final name = nameCtrl.text.trim();
+                        if (name.isEmpty) return;
+                        Navigator.pop(ctx, (
+                          name: name,
+                          autoMapping: autoMapping && nameChanged(name),
+                        ));
+                      },
+                      style: sheetPrimaryButtonStyle(ctx),
+                      child: Text(
+                        isEdit ? '保存' : '创建',
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
                         ),
                       ),
-                      if (isEdit) ...[
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton(
-                            onPressed: canAutoMap
-                                ? () => setSheetState(
-                                    () => autoMapping = !autoMapping,
-                                  )
-                                : null,
-                            style: OutlinedButton.styleFrom(
-                              alignment: Alignment.centerLeft,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              foregroundColor: mappingActive
-                                  ? c.accent
-                                  : c.text,
-                              backgroundColor: mappingActive
-                                  ? c.accent.withValues(alpha: 0.1)
-                                  : c.surface,
-                              side: BorderSide(
-                                color: mappingActive ? c.accent : c.cardBorder,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                IgnorePointer(
-                                  child: Checkbox(
-                                    value: mappingActive,
-                                    onChanged: canAutoMap ? (_) {} : null,
-                                    activeColor: c.accent,
-                                    checkColor: c.bg,
-                                    visualDensity: VisualDensity.compact,
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '自动映射',
-                                  style: TextStyle(
-                                    color: canAutoMap ? c.text : c.muted,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          onPressed: () {
-                            final name = nameCtrl.text.trim();
-                            if (name.isEmpty) return;
-                            Navigator.pop(ctx, (
-                              name: name,
-                              autoMapping: autoMapping && nameChanged(name),
-                            ));
-                          },
-                          style: FilledButton.styleFrom(
-                            backgroundColor: c.text,
-                            foregroundColor: c.bg,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            isEdit ? '保存' : '创建',
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                );
-              },
+                ],
+              ),
             );
           },
         );
+      },
+    );
 
     nameCtrl.dispose();
 

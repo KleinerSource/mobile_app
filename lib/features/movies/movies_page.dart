@@ -11,6 +11,7 @@ import '../../core/models/movie.dart';
 import '../../core/models/paged_result.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/empty_view.dart';
 import '../../shared/entity_batch_toolbar.dart';
@@ -935,56 +936,51 @@ class _SortButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
-              child: Row(
-                children: [
-                  Expanded(child: Text('排序', style: AppText.sectionTitle(ctx))),
-                  // 升降序 toggle
-                  GestureDetector(
-                    onTap: () {
-                      final next = sortOrder == 'asc' ? 'desc' : 'asc';
-                      Navigator.pop(ctx);
-                      onChanged(sortBy, next);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: c.chipBg,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: c.cardBorder),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            sortOrder == 'asc'
-                                ? Icons.arrow_upward_rounded
-                                : Icons.arrow_downward_rounded,
-                            size: 14,
-                            color: c.accent,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            sortOrder == 'asc' ? '升序' : '降序',
-                            style: TextStyle(
-                              color: c.accent,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 11.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+            SheetHeader(
+              icon: Icons.sort_rounded,
+              title: '排序',
+              padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
+              trailing: GestureDetector(
+                onTap: () {
+                  final next = sortOrder == 'asc' ? 'desc' : 'asc';
+                  Navigator.pop(ctx);
+                  onChanged(sortBy, next);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
                   ),
-                ],
+                  decoration: BoxDecoration(
+                    color: c.chipBg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: c.cardBorder),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        sortOrder == 'asc'
+                            ? Icons.arrow_upward_rounded
+                            : Icons.arrow_downward_rounded,
+                        size: 14,
+                        color: c.accent,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        sortOrder == 'asc' ? '升序' : '降序',
+                        style: TextStyle(
+                          color: c.accent,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const Divider(height: 1),
             for (final opt in _kSortOptions)
               ListTile(
                 dense: true,
@@ -1056,6 +1052,11 @@ class _UpdatedDropdownChip extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const SheetHeader(
+              icon: Icons.update_rounded,
+              title: '更新状态',
+              padding: EdgeInsets.fromLTRB(22, 6, 22, 8),
+            ),
             for (final opt in const <({bool? v, String label})>[
               (v: null, label: '不限'),
               (v: true, label: '已更新'),

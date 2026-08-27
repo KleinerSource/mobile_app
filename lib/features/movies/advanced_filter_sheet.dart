@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../movie_detail/entity_picker_sheet.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
@@ -156,30 +157,15 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
         top: false,
         child: Column(
           children: [
-            // 头部
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 6, 22, 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('高级筛选', style: AppText.sectionTitle(context)),
-                        const SizedBox(height: 2),
-                        Text(
-                          '按标签、分类、系列、年份评分和文件属性组合筛选',
-                          style: AppText.meta(context),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextButton(onPressed: _onReset, child: const Text('重置')),
-                ],
+            SheetHeader(
+              icon: Icons.filter_alt_outlined,
+              title: '高级筛选',
+              subtitle: '按标签、分类、系列、年份评分和文件属性组合筛选',
+              trailing: TextButton(
+                onPressed: _onReset,
+                child: const Text('重置'),
               ),
             ),
-            const Divider(height: 1),
             // 内容
             Expanded(
               child: ListView(
@@ -371,23 +357,13 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
               ),
             ),
             // 底部按钮
-            Container(
-              padding: const EdgeInsets.fromLTRB(22, 10, 22, 10),
-              decoration: BoxDecoration(
-                color: c.bg,
-                border: Border(top: BorderSide(color: c.divider)),
-              ),
+            SheetActionBar(
               child: Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
+                      style: sheetSecondaryButtonStyle(context),
                       child: const Text('取消'),
                     ),
                   ),
@@ -398,12 +374,7 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
                       onPressed: _yearError ? null : _onApply,
                       icon: const Icon(Icons.filter_alt, size: 16),
                       label: const Text('应用筛选'),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
+                      style: sheetPrimaryButtonStyle(context),
                     ),
                   ),
                 ],
@@ -523,28 +494,20 @@ class _NumberField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = appColors(context);
     return TextField(
       controller: controller,
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       onChanged: onChanged,
-      decoration: InputDecoration(
+      decoration: sheetInputDecoration(
+        context,
         hintText: hint,
-        hintStyle: TextStyle(color: c.muted),
         prefixIcon: icon == null ? null : Icon(icon),
+        error: hasError,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
           vertical: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: hasError ? c.danger : c.cardBorder),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: hasError ? c.danger : c.cardBorder),
         ),
       ),
     );
@@ -567,17 +530,10 @@ class _DropdownField<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = appColors(context);
     return InputDecorator(
-      decoration: InputDecoration(
+      decoration: sheetInputDecoration(
+        context,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: c.cardBorder),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: c.cardBorder),
-        ),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(

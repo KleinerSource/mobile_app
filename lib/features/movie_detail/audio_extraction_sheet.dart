@@ -10,6 +10,7 @@ import '../../core/models/movie.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../settings/settings_common.dart';
 
 const _audioFormatOptions = <({String value, String label})>[
@@ -121,35 +122,11 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: c.accent.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.audiotrack_outlined, color: c.accent),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('提取音频', style: AppText.sectionTitle(context)),
-                      const SizedBox(height: 2),
-                      Text(
-                        widget.movie.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppText.meta(context),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            SheetHeader(
+              icon: Icons.audiotrack_outlined,
+              title: '提取音频',
+              subtitle: widget.movie.title,
+              padding: EdgeInsets.zero,
             ),
             const SizedBox(height: 18),
             DropdownButtonFormField<String>(
@@ -213,50 +190,36 @@ class _AudioExtractionSheetState extends ConsumerState<AudioExtractionSheet> {
               ),
             ],
             const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _submitting
-                        ? null
-                        : () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                      foregroundColor: c.text,
-                      side: BorderSide(color: c.cardBorder),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+            SheetActionBar(
+              padding: EdgeInsets.zero,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _submitting
+                          ? null
+                          : () => Navigator.pop(context),
+                      style: sheetSecondaryButtonStyle(context),
+                      child: const Text('取消'),
                     ),
-                    child: const Text('取消'),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _submitting ? null : _submit,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                      backgroundColor: c.text,
-                      foregroundColor: c.bg,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _submitting ? null : _submit,
+                      style: sheetPrimaryButtonStyle(context),
+                      icon: _submitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.playlist_add, size: 18),
+                      label: Text(_submitting ? '提交中...' : '提交任务'),
                     ),
-                    icon: _submitting
-                        ? SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: c.bg,
-                            ),
-                          )
-                        : const Icon(Icons.playlist_add, size: 18),
-                    label: Text(_submitting ? '提交中...' : '提交任务'),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),

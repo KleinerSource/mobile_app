@@ -6,6 +6,7 @@ import '../../core/models/movie.dart';
 import '../../core/util/map_with_concurrency.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import 'movies_providers.dart';
 
 /// 批量合并重复番号 sheet
@@ -109,25 +110,11 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
         top: false,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '合并 ${widget.movieIds.length} 部重复影片',
-                    style: AppText.sectionTitle(context),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '选择主导影片, 其他相关文件会移到该影片所在目录',
-                    style: AppText.meta(context),
-                  ),
-                ],
-              ),
+            SheetHeader(
+              icon: Icons.merge_outlined,
+              title: '合并 ${widget.movieIds.length} 部重复影片',
+              subtitle: '选择主导影片, 其他相关文件会移到该影片所在目录',
             ),
-            const Divider(height: 1),
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
@@ -210,12 +197,7 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
                       ],
                     ),
             ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(22, 10, 22, 10),
-              decoration: BoxDecoration(
-                color: c.bg,
-                border: Border(top: BorderSide(color: c.divider)),
-              ),
+            SheetActionBar(
               child: Row(
                 children: [
                   Expanded(
@@ -223,6 +205,7 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
                       onPressed: _merging
                           ? null
                           : () => Navigator.of(context).pop(false),
+                      style: sheetSecondaryButtonStyle(context),
                       child: const Text('取消'),
                     ),
                   ),
@@ -244,8 +227,8 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.merge_rounded, size: 18),
+                      style: sheetPrimaryButtonStyle(context),
                       label: Text(_merging ? '合并中...' : '确认合并'),
-                      style: FilledButton.styleFrom(backgroundColor: c.warning),
                     ),
                   ),
                 ],

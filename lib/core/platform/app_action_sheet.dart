@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 
 class AppActionSheetAction<T> {
   const AppActionSheetAction({
@@ -17,15 +18,17 @@ Future<T?> showAppActionSheet<T>({
   required BuildContext context,
   required String title,
   required List<AppActionSheetAction<T>> actions,
+  IconData icon = Icons.tune_rounded,
 }) {
   return showGlassSheet<T>(
     context: context,
     builder: (ctx) => Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(title, style: Theme.of(ctx).textTheme.titleMedium),
+        SheetHeader(
+          icon: icon,
+          title: title,
+          padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
         ),
         for (final a in actions)
           ListTile(

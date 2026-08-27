@@ -4,10 +4,10 @@
 
 | 项目 | 内容 |
 |---|---|
-| 报告版本 | v1.0 |
+| 报告版本 | v1.2 |
 | 审计日期 | 2026-08-28 |
 | 审计方式 | 源码级静态检查 |
-| 当前状态 | 仅审计，未修改业务源码 |
+| 当前状态 | 第一阶段高优先级统一已实施，待运行态视觉验收 |
 | 后续用途 | 作为分阶段统一设计和回归验收清单 |
 
 ## 2. 审计范围
@@ -54,7 +54,14 @@
 
 ### 3.3 公共控件
 
-基准文件：`lib/features/settings/settings_common.dart:67-309`
+基准文件：`lib/shared/sheet_controls.dart`、`lib/features/settings/settings_common.dart`
+
+- `SheetHeader`：左对齐标题、用途图标、副标题和右侧操作的统一头部。
+- `SheetActionBar`：透明底部操作区，只保留统一内边距，不再覆盖不透明页面背景。
+- `sheetInputDecoration`：12px 圆角、`c.surface` 填充、统一内边距、焦点 `c.accent` 边框和错误态 `c.danger` 边框。
+- `SheetSwitch` / `SheetSwitchTile`：固定 Material 开关视觉和统一触觉反馈。
+- `sheetPrimaryButtonStyle` / `sheetSecondaryButtonStyle`：48px 最小高度、12px 圆角和统一主次色。
+- `settingsInputDecoration` 已委托到 `sheetInputDecoration`，设置页和底部面板共享同一输入框令牌。
 
 - `SettingsTile`：标准设置行、标题、辅助文本、点击反馈和触觉反馈。
 - `SettingsSwitch`：统一开关颜色、轨道、拇指、描边和触觉反馈。
@@ -104,6 +111,8 @@ decoration: BoxDecoration(
 
 验收标准：浅色和深色主题下，操作区与面板主体保持连续的玻璃层次，不出现实色横带。
 
+实施状态：已完成。5 个批量面板已改用 `SheetActionBar`，移除 `color: c.bg` 和顶部结构性分割线。
+
 ### H2：开关控件存在平台样式分裂
 
 涉及文件：
@@ -122,6 +131,8 @@ decoration: BoxDecoration(
 
 调整建议：将开关本身统一为 `SettingsSwitch`，标题和副标题统一使用 `SheetSettingRow` 或现有 `SettingsTile`。
 
+实施状态：已完成。批量下载面板的 3 个 `SwitchListTile.adaptive` 已改为 `SheetSwitchTile`；`SettingsSwitch` 也复用 `SheetSwitch`。
+
 ### H3：危险操作的语义色不完整
 
 涉及文件：
@@ -132,6 +143,8 @@ decoration: BoxDecoration(
 公共 `AppActionSheetAction` 已支持 `destructive`，但“删除服务器”面板直接使用默认 `ListTile`，和“编辑服务器”同色同层级。
 
 调整建议：危险操作统一使用 `c.danger` 图标、标题和点击反馈；警告色仅用于可逆或需要提醒的操作。
+
+实施状态：已完成。服务器操作面板的删除入口已使用 `c.danger` 图标和标题，并补充统一的“服务器操作”面板标题。
 
 ## 6. 中优先级问题
 
@@ -257,6 +270,45 @@ decoration: BoxDecoration(
 - 进度：允许暂停、后台运行、关闭或重试。
 
 建议统一的是反馈入口和状态过渡，不是强行让所有面板采用同一种关闭逻辑。
+
+## 7. 第一阶段实施清单
+
+### 7.1 已统一的面板标题
+
+以下底部面板已接入 `SheetHeader`，标题统一左对齐并补充用途图标：
+
+- 高级筛选、批量下载、重复 NFO、批量编辑、批量合并。
+- 音频提取、影片编辑、在线资源、DB Online 元数据、获取字幕。
+- 实体选择、资源编辑、资源合并、映射规则、演员关联编辑与同步、头像选择。
+- 媒体库扫描、资源扫描、服务器操作、集合操作。
+- 语言/主题/播放器/字幕/角标设置选择、翻译模型选择、Modal Token 编辑。
+- 排序/更新状态等通用 action sheet。
+
+标题与主体之间原有的结构性 `Divider` 已删除；资源列表、字幕列表、设置项之间仍保留必要的内容分组线。
+
+### 7.2 输入框迁移结果
+
+已优先迁移高级筛选、批量下载、批量编辑系列搜索、影片编辑、资源编辑、映射规则、实体选择、资源合并和演员关联编辑等表单。保留番号、Token、映射原值等字段的等宽字体语义，但边框、填充、圆角和焦点态统一由公共 decoration 提供。
+
+### 7.3 播放源面板高度
+
+`lib/features/movie_detail/resources_sheet.dart` 已移除屏幕高度比例固定值和内容区强制 `Expanded`。面板现在按标题、筛选器、状态提示和资源列表的实际内容自适应；资源较多时仅通过最大高度约束进入列表滚动。底部安全区继续由 `showGlassSheet` 的统一 `SafeArea` 处理，同时保留下滑关闭面板的能力。
+
+### 7.4 本阶段未覆盖
+
+- 灯箱、`Dialog`、`AlertDialog` 和播放器内部浮层，按需求继续排除。
+- 运行态截图、浏览器预览和像素级视觉验收，按需求未调用浏览器。
+- 选择列表行、复杂标签卡片及进度面板内部统计卡的细节进一步收敛，留作下一阶段，不影响本阶段标题/输入框/操作栏统一。
+
+## 8. 验证记录
+
+- `dart format`：已执行，涉及源码格式化通过。
+- `flutter analyze --no-pub`：通过，`No issues found`。
+- `flutter test --no-pub`：通过，`All tests passed!`。
+
+## 9. 下一阶段回归入口
+
+新增底部面板必须通过 `showGlassSheet`，标题必须使用 `SheetHeader`，输入框必须使用 `sheetInputDecoration` 或 `settingsInputDecoration`，底部操作区必须使用 `SheetActionBar`。新增语义色时优先使用 `AppColors`，禁止在业务面板中重新定义圆角、边框和主题色。
 
 ## 7. 低优先级问题
 

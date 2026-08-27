@@ -8,6 +8,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/sheet_controls.dart';
 import '../i18n/locale_providers.dart';
 import '../i18n/theme_provider.dart';
 import '../privacy/privacy_providers.dart';
@@ -209,13 +210,10 @@ class _LanguageTile extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
+              SheetHeader(
+                icon: Icons.language_outlined,
+                title: l.settingsLanguage,
                 padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
-                child: Row(
-                  children: [
-                    Text(l.settingsLanguage, style: AppText.sectionTitle(ctx)),
-                  ],
-                ),
               ),
               for (final loc in AppLocale.values)
                 ListTile(
@@ -294,13 +292,10 @@ class _ThemeTile extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
+              SheetHeader(
+                icon: Icons.tune_rounded,
+                title: l.settingsTheme,
                 padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
-                child: Row(
-                  children: [
-                    Text(l.settingsTheme, style: AppText.sectionTitle(ctx)),
-                  ],
-                ),
               ),
               for (final m in AppThemeMode.values)
                 ListTile(

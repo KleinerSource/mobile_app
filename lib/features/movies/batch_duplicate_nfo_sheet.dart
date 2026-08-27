@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import 'movies_providers.dart';
 
 /// 重复 NFO 比较 sheet · 标量字段选择来源，列表字段保留各自
@@ -193,19 +194,11 @@ class _BatchDuplicateNfoCompareSheetState
         top: false,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('比较重复 NFO', style: AppText.sectionTitle(context)),
-                  const SizedBox(height: 2),
-                  Text('为每个字段选择同步来源', style: AppText.meta(context)),
-                ],
-              ),
+            const SheetHeader(
+              icon: Icons.compare_arrows_outlined,
+              title: '比较重复 NFO',
+              subtitle: '为每个字段选择同步来源',
             ),
-            const Divider(height: 1),
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
@@ -242,12 +235,7 @@ class _BatchDuplicateNfoCompareSheetState
                       ],
                     ),
             ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(22, 10, 22, 10),
-              decoration: BoxDecoration(
-                color: c.bg,
-                border: Border(top: BorderSide(color: c.divider)),
-              ),
+            SheetActionBar(
               child: Row(
                 children: [
                   Expanded(
@@ -255,6 +243,7 @@ class _BatchDuplicateNfoCompareSheetState
                       onPressed: _saving
                           ? null
                           : () => Navigator.of(context).pop(false),
+                      style: sheetSecondaryButtonStyle(context),
                       child: const Text('取消'),
                     ),
                   ),
@@ -272,6 +261,7 @@ class _BatchDuplicateNfoCompareSheetState
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.check, size: 18),
+                      style: sheetPrimaryButtonStyle(context),
                       label: Text(_saving ? '应用中...' : '应用同步'),
                     ),
                   ),

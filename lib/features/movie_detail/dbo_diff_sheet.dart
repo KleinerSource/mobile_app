@@ -9,6 +9,7 @@ import '../../core/models/movie.dart';
 import '../../core/models/resource.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
 import '../movies/movies_providers.dart';
@@ -319,39 +320,18 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
         top: false,
         child: Column(
           children: [
-            // ===== 头部 =====
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 6, 22, 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'DB Online 元数据',
-                          style: AppText.sectionTitle(context),
-                        ),
-                        const SizedBox(height: 2),
-                        if (dboTitle.isNotEmpty || dboCode.isNotEmpty)
-                          Text(
-                            [
-                              if (dboCode.isNotEmpty) dboCode,
-                              if (dboTitle.isNotEmpty) dboTitle,
-                            ].join(' · '),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppText.meta(context),
-                          ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, size: 18),
-                    onPressed: _loading ? null : _load,
-                  ),
-                ],
+            SheetHeader(
+              icon: Icons.sync_alt_outlined,
+              title: 'DB Online 元数据',
+              subtitle: (dboTitle.isNotEmpty || dboCode.isNotEmpty)
+                  ? [
+                      if (dboCode.isNotEmpty) dboCode,
+                      if (dboTitle.isNotEmpty) dboTitle,
+                    ].join(' · ')
+                  : null,
+              trailing: IconButton(
+                icon: const Icon(Icons.refresh, size: 18),
+                onPressed: _loading ? null : _load,
               ),
             ),
             // ===== 主体 =====

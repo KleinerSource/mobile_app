@@ -9,6 +9,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../../shared/drag_selection.dart';
 import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/error_view.dart';
@@ -624,8 +625,12 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: AppText.sectionTitle(sheetContext)),
-                  const SizedBox(height: 6),
+                  SheetHeader(
+                    icon: Icons.subtitles_outlined,
+                    title: title,
+                    padding: EdgeInsets.zero,
+                  ),
+                  const SizedBox(height: 14),
                   Text(message, style: AppText.meta(sheetContext)),
                   const SizedBox(height: 14),
                   Container(
@@ -658,14 +663,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(sheetContext),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(48),
-                            foregroundColor: c.text,
-                            side: BorderSide(color: c.cardBorder),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
+                          style: sheetSecondaryButtonStyle(sheetContext),
                           child: const Text('取消'),
                         ),
                       ),
@@ -675,14 +673,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                         child: FilledButton(
                           onPressed: () =>
                               Navigator.pop(sheetContext, overwrite),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size.fromHeight(48),
-                            backgroundColor: c.text,
-                            foregroundColor: c.bg,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
+                          style: sheetPrimaryButtonStyle(sheetContext),
                           child: Text(confirmLabel),
                         ),
                       ),

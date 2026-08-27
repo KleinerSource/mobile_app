@@ -7,6 +7,7 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/sheet_controls.dart';
 import '../../shared/swipe_actions.dart';
 import '../settings/settings_common.dart';
 import 'modal_transcription_providers.dart';
@@ -768,18 +769,15 @@ class _TokenEditorSheetState extends State<_TokenEditorSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              isEdit ? '编辑令牌' : '添加令牌',
-              style: AppText.sectionTitle(context),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              isEdit
+            SheetHeader(
+              icon: isEdit ? Icons.edit_outlined : Icons.key_outlined,
+              title: isEdit ? '编辑令牌' : '添加令牌',
+              subtitle: isEdit
                   ? '留空的凭据保持服务端原值不变。'
                   : '填写 Modal 账号的 Token ID 与 Token Secret。',
-              style: AppText.meta(context),
+              padding: EdgeInsets.zero,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             TextField(
               controller: _name,
               maxLength: 32,
@@ -820,14 +818,7 @@ class _TokenEditorSheetState extends State<_TokenEditorSheet> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: colors.muted,
-                      side: BorderSide(color: colors.cardBorder),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                    style: sheetSecondaryButtonStyle(context),
                     child: const Text('取消'),
                   ),
                 ),
@@ -836,14 +827,7 @@ class _TokenEditorSheetState extends State<_TokenEditorSheet> {
                   flex: 2,
                   child: FilledButton(
                     onPressed: _submit,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: colors.text,
-                      foregroundColor: colors.bg,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                    style: sheetPrimaryButtonStyle(context),
                     child: const Text('确定'),
                   ),
                 ),

@@ -11,6 +11,7 @@ import '../../core/models/movie.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/drag_selection.dart';
 import '../../shared/error_view.dart';
@@ -426,11 +427,10 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
-                child: Row(
-                  children: [Text('排序方式', style: AppText.sectionTitle(ctx))],
-                ),
+              const SheetHeader(
+                icon: Icons.sort_rounded,
+                title: '排序方式',
+                padding: EdgeInsets.fromLTRB(22, 4, 22, 14),
               ),
               for (final s in FavoritesSort.values)
                 ListTile(

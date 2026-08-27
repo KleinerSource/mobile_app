@@ -9,6 +9,7 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/util/map_with_concurrency.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../../shared/debouncer.dart';
 import '../../shared/pagination_footer.dart';
 import '../movie_detail/entity_picker_sheet.dart';
@@ -205,28 +206,11 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
         top: false,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '批量编辑 ${widget.movieIds.length} 部',
-                          style: AppText.sectionTitle(context),
-                        ),
-                        const SizedBox(height: 2),
-                        Text('集中调整标签、分类、系列和快速标记', style: AppText.meta(context)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            SheetHeader(
+              icon: Icons.edit_note_outlined,
+              title: '批量编辑 ${widget.movieIds.length} 部',
+              subtitle: '集中调整标签、分类、系列和快速标记',
             ),
-            const Divider(height: 1),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
@@ -348,12 +332,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(22, 10, 22, 10),
-              decoration: BoxDecoration(
-                color: c.bg,
-                border: Border(top: BorderSide(color: c.divider)),
-              ),
+            SheetActionBar(
               child: Row(
                 children: [
                   Expanded(
@@ -361,6 +340,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                       onPressed: _saving
                           ? null
                           : () => Navigator.of(context).pop(false),
+                      style: sheetSecondaryButtonStyle(context),
                       child: const Text('取消'),
                     ),
                   ),
@@ -376,6 +356,7 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.check, size: 18),
+                      style: sheetPrimaryButtonStyle(context),
                       label: Text(_saving ? '保存中...' : '保存'),
                     ),
                   ),
@@ -718,9 +699,10 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
               height: mq.size.height * 0.75,
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
-                    child: Text('选择系列', style: AppText.sectionTitle(ctx)),
+                  const SheetHeader(
+                    icon: Icons.collections_bookmark_outlined,
+                    title: '选择系列',
+                    padding: EdgeInsets.fromLTRB(22, 0, 22, 10),
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
@@ -732,15 +714,11 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
                         });
                         setS(() {});
                       },
-                      decoration: InputDecoration(
+                      decoration: sheetInputDecoration(
+                        ctx,
                         hintText: '搜索系列...',
-                        prefixIcon: Icon(
-                          Icons.search,
-                          size: 18,
-                          color: c.muted,
-                        ),
+                        prefixIcon: const Icon(Icons.search, size: 18),
                         isDense: true,
-                        border: const OutlineInputBorder(),
                       ),
                     ),
                   ),

@@ -12,6 +12,7 @@ import '../../core/models/mapping_rule.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/drag_selection.dart';
 import '../../shared/entity_batch_toolbar.dart';
@@ -609,7 +610,6 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
         : await _loadActorAssociation(actor.name);
     if (!context.mounted) return;
 
-    final c = appColors(context);
     final nameController = TextEditingController(text: actor?.name ?? '');
     final biographyController = TextEditingController(
       text: actor?.biography ?? '',
@@ -635,11 +635,14 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  isEdit ? '编辑演员' : '新建演员',
-                  style: AppText.sectionTitle(sheetContext),
+                SheetHeader(
+                  icon: isEdit
+                      ? Icons.edit_outlined
+                      : Icons.person_add_outlined,
+                  title: isEdit ? '编辑演员' : '新建演员',
+                  padding: EdgeInsets.zero,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 TextField(
                   controller: nameController,
                   autofocus: !isEdit,
@@ -691,14 +694,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                         ),
                       );
                     },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: c.text,
-                      foregroundColor: c.bg,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                    style: sheetPrimaryButtonStyle(sheetContext),
                     child: Text(isEdit ? '保存' : '创建'),
                   ),
                 ),

@@ -6,6 +6,7 @@ import '../../core/models/resource.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import 'resources_providers.dart';
 import 'resources_repository.dart';
 
@@ -72,7 +73,6 @@ class _EntityMergeSheetState extends ConsumerState<EntityMergeSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final c = appColors(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(
         22,
@@ -84,33 +84,20 @@ class _EntityMergeSheetState extends ConsumerState<EntityMergeSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '批量合并${widget.kind.label}',
-            style: AppText.sectionTitle(context),
+          SheetHeader(
+            icon: Icons.merge_rounded,
+            title: '批量合并${widget.kind.label}',
+            subtitle:
+                '将 ${widget.items.length} 个${widget.kind.label}合并为一个，影片关联会转移到保留项。',
+            padding: EdgeInsets.zero,
           ),
-          const SizedBox(height: 8),
-          Text(
-            '将 ${widget.items.length} 个${widget.kind.label}合并为一个，影片关联会转移到保留项。',
-            style: AppText.meta(context),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Text('保留的${widget.kind.label}', style: AppText.eyebrow(context)),
           const SizedBox(height: 6),
           DropdownButtonFormField<int>(
             initialValue: _targetId,
             isExpanded: true,
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: c.surface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: c.cardBorder),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: c.cardBorder),
-              ),
-            ),
+            decoration: sheetInputDecoration(context),
             items: [
               for (final item in widget.items)
                 DropdownMenuItem<int>(
@@ -140,14 +127,7 @@ class _EntityMergeSheetState extends ConsumerState<EntityMergeSheet> {
                     )
                   : const Icon(Icons.merge_rounded),
               label: Text(_saving ? '合并中' : '确认合并'),
-              style: FilledButton.styleFrom(
-                backgroundColor: c.warning,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
+              style: sheetPrimaryButtonStyle(context),
             ),
           ),
         ],

@@ -10,6 +10,7 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/sheet_controls.dart';
 import '../player/player_settings.dart';
 import '../player/playback_engine.dart';
 import 'settings_common.dart';
@@ -317,12 +318,10 @@ class _PlayerOptionTile<T> extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
+              SheetHeader(
+                icon: icon,
+                title: title,
                 padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(title, style: AppText.sectionTitle(ctx)),
-                ),
               ),
               for (final option in options)
                 ListTile(

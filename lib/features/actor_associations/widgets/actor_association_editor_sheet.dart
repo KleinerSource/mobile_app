@@ -6,6 +6,7 @@ import '../../../core/models/mapping_rule.dart';
 import '../../../core/platform/app_haptics.dart';
 import '../../../core/platform/app_theme.dart';
 import '../../../shared/glass.dart';
+import '../../../shared/sheet_controls.dart';
 import '../actor_associations_providers.dart';
 import '../actor_associations_repository.dart';
 
@@ -165,13 +166,13 @@ class _ActorAssociationEditorSheetState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_title, style: AppText.sectionTitle(context)),
-            const SizedBox(height: 4),
-            Text(
-              _isAppend
+            SheetHeader(
+              icon: Icons.person_outline,
+              title: _title,
+              subtitle: _isAppend
                   ? '已有 ${widget.existing?.originalValues.length ?? 0} 个别名'
                   : '使用换行 / 逗号 / 顿号分隔多个别名',
-              style: AppText.meta(context),
+              padding: EdgeInsets.zero,
             ),
             const SizedBox(height: 16),
             Text('标准演员名称', style: AppText.eyebrow(context)),
@@ -181,31 +182,20 @@ class _ActorAssociationEditorSheetState
               style: AppText.meta(context),
             ),
             const SizedBox(height: 6),
-            Container(
-              decoration: BoxDecoration(
-                color: _isCreate ? c.surface : c.chipBg,
-                border: Border.all(color: c.cardBorder),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TextField(
-                controller: _mapped,
-                enabled: _isCreate,
-                autofocus: _isCreate,
-                decoration: const InputDecoration(
-                  hintText: '例: 加勒比海岛',
-                  prefixIcon: Icon(Icons.person_outline),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                ),
-                style: TextStyle(
-                  color: c.text,
-                  fontFamily: 'Inter',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+            TextField(
+              controller: _mapped,
+              enabled: _isCreate,
+              autofocus: _isCreate,
+              decoration: sheetInputDecoration(
+                context,
+                hintText: '例: 加勒比海岛',
+                prefixIcon: const Icon(Icons.person_outline),
+              ).copyWith(fillColor: _isCreate ? c.surface : c.chipBg),
+              style: TextStyle(
+                color: c.text,
+                fontFamily: 'Inter',
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 16),
@@ -216,31 +206,20 @@ class _ActorAssociationEditorSheetState
             const SizedBox(height: 2),
             Text('多个值用换行分隔', style: AppText.meta(context)),
             const SizedBox(height: 6),
-            Container(
-              decoration: BoxDecoration(
-                color: c.surface,
-                border: Border.all(color: c.cardBorder),
-                borderRadius: BorderRadius.circular(12),
+            TextField(
+              controller: _aliases,
+              minLines: 2,
+              maxLines: 5,
+              decoration: sheetInputDecoration(
+                context,
+                hintText: '一行一个, 或用 , ; 、 分隔',
+                prefixIcon: const Icon(Icons.sell_outlined),
               ),
-              child: TextField(
-                controller: _aliases,
-                minLines: 2,
-                maxLines: 5,
-                decoration: const InputDecoration(
-                  hintText: '一行一个, 或用 , ; 、 分隔',
-                  prefixIcon: Icon(Icons.sell_outlined),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                ),
-                style: TextStyle(
-                  color: c.text,
-                  fontFamily: 'monospace',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
+              style: TextStyle(
+                color: c.text,
+                fontFamily: 'monospace',
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 18),
@@ -248,14 +227,7 @@ class _ActorAssociationEditorSheetState
               width: double.infinity,
               child: FilledButton(
                 onPressed: _saving ? null : _save,
-                style: FilledButton.styleFrom(
-                  backgroundColor: c.text,
-                  foregroundColor: c.bg,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+                style: sheetPrimaryButtonStyle(context),
                 child: _saving
                     ? SizedBox(
                         width: 18,

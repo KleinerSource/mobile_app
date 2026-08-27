@@ -7,6 +7,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/resource_scan.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import 'movies_providers.dart';
 
 /// 资源扫描进度面板。任务没有暂停/取消接口，因此关闭面板只会停止轮询，
@@ -98,20 +99,14 @@ class _ResourceScanProgressSheetState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('RESOURCE SCAN', style: AppText.eyebrow(context)),
-                      const SizedBox(height: 4),
-                      Text('扫描资源', style: AppText.sectionTitle(context)),
-                    ],
-                  ),
-                ),
-                _ResourceScanStatusPill(status: task?.status ?? 'pending'),
-              ],
+            SheetHeader(
+              icon: Icons.manage_search_outlined,
+              title: '扫描资源',
+              subtitle: '资源扫描进度',
+              trailing: _ResourceScanStatusPill(
+                status: task?.status ?? 'pending',
+              ),
+              padding: EdgeInsets.zero,
             ),
             const SizedBox(height: 22),
             ClipRRect(

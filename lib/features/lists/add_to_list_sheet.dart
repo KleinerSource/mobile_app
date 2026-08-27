@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import 'lists_providers.dart';
 
 /// 弹出底部 sheet 让用户把 movieId 加入/移出 多个 list
@@ -46,20 +47,13 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('加入集合', style: AppText.sectionTitle(context)),
-            const SizedBox(height: 4),
-            Text(
-              widget.movieTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: c.muted,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
+            SheetHeader(
+              icon: Icons.playlist_add_outlined,
+              title: '加入集合',
+              subtitle: widget.movieTitle,
+              padding: EdgeInsets.zero,
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
             Flexible(
               child: ListView.builder(
                 shrinkWrap: true,
@@ -231,9 +225,10 @@ class _AddToListSheetState extends ConsumerState<AddToListSheet> {
                 TextField(
                   controller: controller,
                   autofocus: true,
-                  decoration: const InputDecoration(
+                  decoration: sheetInputDecoration(
+                    ctx,
                     hintText: '集合名称',
-                    prefixIcon: Icon(Icons.label_outline),
+                    prefixIcon: const Icon(Icons.label_outline),
                   ),
                 ),
                 const SizedBox(height: 16),

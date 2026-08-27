@@ -6,6 +6,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/subtitle_search.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../movies/movies_providers.dart';
 
 /// 迅雷字幕搜索 / 预览 / 下载 sheet
@@ -177,29 +178,13 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
         top: false,
         child: Column(
           children: [
-            // 头部
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 22, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('获取字幕', style: AppText.sectionTitle(context)),
-                        if (_keyword.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text('关键词: $_keyword', style: AppText.meta(context)),
-                        ],
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.refresh, color: c.muted, size: 20),
-                    onPressed: _loading ? null : _load,
-                  ),
-                ],
+            SheetHeader(
+              icon: Icons.subtitles_outlined,
+              title: '获取字幕',
+              subtitle: _keyword.isEmpty ? null : '关键词: $_keyword',
+              trailing: IconButton(
+                icon: Icon(Icons.refresh, color: c.muted, size: 20),
+                onPressed: _loading ? null : _load,
               ),
             ),
             Expanded(child: _buildBody(c)),

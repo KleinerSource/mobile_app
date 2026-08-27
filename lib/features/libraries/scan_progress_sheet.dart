@@ -7,6 +7,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/library.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../../shared/status_pill.dart';
 import 'libraries_providers.dart';
 
@@ -147,23 +148,12 @@ class _ScanProgressSheetState extends ConsumerState<ScanProgressSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('SCANNING', style: AppText.eyebrow(context)),
-                      const SizedBox(height: 4),
-                      Text(
-                        widget.libraryName,
-                        style: AppText.sectionTitle(context),
-                      ),
-                    ],
-                  ),
-                ),
-                StatusPill(status: t?.status ?? 'pending'),
-              ],
+            SheetHeader(
+              icon: Icons.folder_open_outlined,
+              title: widget.libraryName,
+              subtitle: '扫描进度',
+              trailing: StatusPill(status: t?.status ?? 'pending'),
+              padding: EdgeInsets.zero,
             ),
             const SizedBox(height: 22),
 

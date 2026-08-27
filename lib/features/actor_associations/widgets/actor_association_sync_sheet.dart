@@ -10,6 +10,7 @@ import '../../../core/models/dbo_config.dart';
 import '../../../core/models/mapping_rule.dart';
 import '../../../core/platform/app_theme.dart';
 import '../../../shared/glass.dart';
+import '../../../shared/sheet_controls.dart';
 import '../../configs/configs_providers.dart';
 import '../actor_associations_providers.dart';
 import '../actor_associations_repository.dart';
@@ -575,31 +576,22 @@ class _ActorAssociationSyncSheetState
         top: false,
         child: Column(
           children: [
+            SheetHeader(
+              icon: Icons.sync_alt_outlined,
+              title: '同步演员关联: $_actorName',
+              subtitle: '从选定数据源拉取演员别名预览',
+            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '同步演员关联: $_actorName',
-                    style: AppText.sectionTitle(context),
-                  ),
-                  const SizedBox(height: 2),
-                  Text('从选定数据源拉取演员别名预览', style: AppText.meta(context)),
-                  const SizedBox(height: 12),
-                  _ActorDataSourceSelector(
-                    sources: _availableSources,
-                    notFoundSources: _notFoundSources,
-                    failedSources: _failedSources,
-                    selectedSource: _source,
-                    enabled: !_applying,
-                    onChanged: _selectSource,
-                  ),
-                ],
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
+              child: _ActorDataSourceSelector(
+                sources: _availableSources,
+                notFoundSources: _notFoundSources,
+                failedSources: _failedSources,
+                selectedSource: _source,
+                enabled: !_applying,
+                onChanged: _selectSource,
               ),
             ),
-            const Divider(height: 1),
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
@@ -690,12 +682,7 @@ class _ActorAssociationSyncSheetState
                       ],
                     ),
             ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(22, 10, 22, 10),
-              decoration: BoxDecoration(
-                color: c.bg,
-                border: Border(top: BorderSide(color: c.divider)),
-              ),
+            SheetActionBar(
               child: Row(
                 children: [
                   Expanded(
@@ -1151,49 +1138,29 @@ class _AvatarChoicePickerState extends State<_AvatarChoicePicker> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 22, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '选择演员头像',
-                          style: AppText.sectionTitle(context),
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: _toggleAll,
-                        icon: Icon(
-                          _selected.length == ordered.length
-                              ? Icons.deselect
-                              : Icons.select_all,
-                          size: 16,
-                        ),
-                        label: Text(
-                          _selected.length == ordered.length ? '清空' : '全选',
-                        ),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          minimumSize: const Size(0, 30),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '${widget.mappedValue.isEmpty ? '演员' : widget.mappedValue} · '
-                    '已选 ${_selected.length}/${widget.choices.length} 张'
-                    '${widget.avatarLoadFailed.isEmpty ? '' : '（${widget.avatarLoadFailed.length} 张加载失败已后置，点击可重试）'}',
-                    style: AppText.meta(context),
-                  ),
-                ],
+            SheetHeader(
+              icon: Icons.account_box_outlined,
+              title: '选择演员头像',
+              subtitle:
+                  '${widget.mappedValue.isEmpty ? '演员' : widget.mappedValue} · '
+                  '已选 ${_selected.length}/${widget.choices.length} 张'
+                  '${widget.avatarLoadFailed.isEmpty ? '' : '（${widget.avatarLoadFailed.length} 张加载失败已后置，点击可重试）'}',
+              trailing: TextButton.icon(
+                onPressed: _toggleAll,
+                icon: Icon(
+                  _selected.length == ordered.length
+                      ? Icons.deselect
+                      : Icons.select_all,
+                  size: 16,
+                ),
+                label: Text(_selected.length == ordered.length ? '清空' : '全选'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  minimumSize: const Size(0, 30),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
               ),
             ),
-            Divider(height: 1, color: c.divider),
             Expanded(
               child: GridView.builder(
                 padding: const EdgeInsets.fromLTRB(22, 14, 22, 22),

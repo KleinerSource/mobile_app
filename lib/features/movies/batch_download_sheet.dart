@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api/dio_factory.dart';
-import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import 'movies_providers.dart';
 
 const _kDownloadPrefsKey = 'batchDownloadParams';
@@ -115,7 +115,6 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final c = appColors(context);
     final mq = MediaQuery.of(context);
     return SizedBox(
       height: mq.size.height * 0.88,
@@ -123,22 +122,11 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
         top: false,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '批量下载 ${widget.movieIds.length} 部',
-                    style: AppText.sectionTitle(context),
-                  ),
-                  const SizedBox(height: 2),
-                  Text('按条件批量提交下载请求, 缺失番号会自动跳过', style: AppText.meta(context)),
-                ],
-              ),
+            SheetHeader(
+              icon: Icons.cloud_download_outlined,
+              title: '批量下载 ${widget.movieIds.length} 部',
+              subtitle: '按条件批量提交下载请求, 缺失番号会自动跳过',
             ),
-            const Divider(height: 1),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
@@ -182,41 +170,27 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
                     icon: Icons.calendar_today_outlined,
                   ),
                   const SizedBox(height: 12),
-                  SwitchListTile.adaptive(
-                    title: const Text('要求字幕'),
+                  SheetSwitchTile(
+                    title: '要求字幕',
                     value: _requireSub,
-                    onChanged: AppHaptics.wrapToggle(
-                      (v) => setState(() => _requireSub = v),
-                    ),
-                    contentPadding: EdgeInsets.zero,
+                    onChanged: (v) => setState(() => _requireSub = v),
                   ),
-                  SwitchListTile.adaptive(
-                    title: const Text('要求无码'),
+                  SheetSwitchTile(
+                    title: '要求无码',
                     value: _requireUncensored,
-                    onChanged: AppHaptics.wrapToggle(
-                      (v) => setState(() => _requireUncensored = v),
-                    ),
-                    contentPadding: EdgeInsets.zero,
+                    onChanged: (v) => setState(() => _requireUncensored = v),
                   ),
-                  SwitchListTile.adaptive(
-                    title: const Text('精洗模式'),
-                    subtitle: Text('已存在影片也重新下载', style: AppText.meta(context)),
+                  SheetSwitchTile(
+                    title: '精洗模式',
+                    subtitle: '已存在影片也重新下载',
                     value: _washMode,
-                    onChanged: AppHaptics.wrapToggle(
-                      (v) => setState(() => _washMode = v),
-                    ),
-                    contentPadding: EdgeInsets.zero,
+                    onChanged: (v) => setState(() => _washMode = v),
                   ),
                   const SizedBox(height: 20),
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(22, 10, 22, 10),
-              decoration: BoxDecoration(
-                color: c.bg,
-                border: Border(top: BorderSide(color: c.divider)),
-              ),
+            SheetActionBar(
               child: Row(
                 children: [
                   Expanded(
@@ -224,6 +198,7 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
                       onPressed: _submitting
                           ? null
                           : () => Navigator.of(context).pop(false),
+                      style: sheetSecondaryButtonStyle(context),
                       child: const Text('取消'),
                     ),
                   ),
@@ -239,6 +214,7 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.cloud_download_outlined, size: 18),
+                      style: sheetPrimaryButtonStyle(context),
                       label: Text(_submitting ? '提交中...' : '确认提交'),
                     ),
                   ),
@@ -273,11 +249,11 @@ class _Field extends StatelessWidget {
         const SizedBox(height: 4),
         TextField(
           controller: controller,
-          decoration: InputDecoration(
+          decoration: sheetInputDecoration(
+            context,
             hintText: hint,
             prefixIcon: icon == null ? null : Icon(icon),
             isDense: true,
-            border: const OutlineInputBorder(),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
               vertical: 12,
@@ -306,11 +282,11 @@ class _NumField extends StatelessWidget {
           controller: controller,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: InputDecoration(
+          decoration: sheetInputDecoration(
+            context,
             hintText: hint,
             prefixIcon: const Icon(Icons.pin_outlined),
             isDense: true,
-            border: const OutlineInputBorder(),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
               vertical: 12,

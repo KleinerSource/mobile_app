@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/shake_error_text.dart';
 import '../settings/settings_common.dart';
@@ -320,9 +321,10 @@ class _CredentialActionSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ListTile(
-            leading: Icon(icon, color: colors.accent),
-            title: Text(title, style: AppText.sectionTitle(context)),
+          SheetHeader(
+            icon: icon,
+            title: title,
+            padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
           ),
           ListTile(
             leading: const Icon(Icons.edit_outlined),

@@ -13,6 +13,7 @@ import '../../shared/glass.dart';
 import '../../shared/pinyin_search.dart';
 import '../../shared/pagination_footer.dart';
 import '../../shared/debouncer.dart';
+import '../../shared/sheet_controls.dart';
 import '../../shared/taxonomy_search_policy.dart';
 import '../resources/resources_providers.dart';
 import '../resources/resources_repository.dart';
@@ -181,84 +182,43 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
     final c = appColors(context);
     final mediaQuery = MediaQuery.of(context);
     final height = mediaQuery.size.height * 0.85;
+    final headerIcon = switch (widget.kind) {
+      EntityPickerKind.genre => Icons.category_outlined,
+      EntityPickerKind.tag => Icons.sell_outlined,
+      EntityPickerKind.series => Icons.collections_bookmark_outlined,
+      EntityPickerKind.actor => Icons.person_outline,
+    };
 
     return SizedBox(
       height: height,
       child: Column(
         children: [
-          // 头部
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 8, 16, 14),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '选择${widget.kind.label}',
-                        style: AppText.sectionTitle(context),
-                      ),
-                      if (_isMulti) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          '${_selected.length} 已选',
-                          style: AppText.meta(context),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(_selection()),
-                  child: Text(
-                    _isMulti ? '完成' : '使用',
-                    style: TextStyle(
-                      color: c.accent,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
+          SheetHeader(
+            icon: headerIcon,
+            title: '选择${widget.kind.label}',
+            subtitle: _isMulti ? '${_selected.length} 已选' : null,
+            trailing: TextButton(
+              onPressed: () => Navigator.of(context).pop(_selection()),
+              child: Text(_isMulti ? '完成' : '使用'),
             ),
           ),
           // 搜索栏
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-            child: Container(
-              decoration: BoxDecoration(
-                color: c.chipBg,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 12),
-                  Icon(Icons.search, size: 18, color: c.muted),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchCtrl,
-                      onChanged: _onSearchChanged,
-                      decoration: InputDecoration(
-                        hintText:
-                            widget.kind == EntityPickerKind.genre ||
-                                widget.kind == EntityPickerKind.tag
-                            ? '搜索名称'
-                            : widget.kind == EntityPickerKind.actor
-                            ? '搜索名称 / 别名'
-                            : '搜索名称',
-                        border: InputBorder.none,
-                        isCollapsed: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: _onSearchChanged,
+              decoration: sheetInputDecoration(
+                context,
+                hintText:
+                    widget.kind == EntityPickerKind.genre ||
+                        widget.kind == EntityPickerKind.tag
+                    ? '搜索名称'
+                    : widget.kind == EntityPickerKind.actor
+                    ? '搜索名称 / 别名'
+                    : '搜索名称',
+                prefixIcon: const Icon(Icons.search, size: 18),
+                isDense: true,
               ),
             ),
           ),

@@ -7,6 +7,7 @@ import '../../shared/glass.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/movie_card.dart';
+import '../../shared/sheet_controls.dart';
 import '../i18n/badge_position_provider.dart';
 import 'settings_common.dart';
 
@@ -313,11 +314,10 @@ class _CornerTile extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
+              SheetHeader(
+                icon: icon,
+                title: label,
                 padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
-                child: Row(
-                  children: [Text(label, style: AppText.sectionTitle(ctx))],
-                ),
               ),
               for (final corner in BadgeCorner.values)
                 ListTile(

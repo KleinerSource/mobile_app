@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../shared/sheet_controls.dart';
 import '../../shared/status_bar_scroll_to_top.dart';
 
 /// 标记子树中的 [SettingsTile] 位于分组容器内：
@@ -175,16 +176,7 @@ class SettingsSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Switch(
-      value: value,
-      onChanged: AppHaptics.wrapToggle(onChanged),
-      activeThumbColor: c.accent,
-      activeTrackColor: c.accent.withValues(alpha: 0.38),
-      inactiveThumbColor: c.muted,
-      inactiveTrackColor: c.muted2.withValues(alpha: 0.32),
-      trackOutlineColor: WidgetStatePropertyAll(c.cardBorder),
-    );
+    return SheetSwitch(value: value, onChanged: onChanged);
   }
 }
 
@@ -197,24 +189,14 @@ InputDecoration settingsInputDecoration(
   Widget? suffixIcon,
   bool borderless = false,
 }) {
-  final c = appColors(context);
-  final border = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(12),
-    borderSide: BorderSide(color: c.cardBorder),
-  );
-  return InputDecoration(
-    filled: true,
-    fillColor: borderless ? Colors.transparent : c.surface,
+  return sheetInputDecoration(
+    context,
     hintText: hintText,
     labelText: labelText,
     prefixIcon: prefixIcon,
     suffixIcon: suffixIcon,
+    borderless: borderless,
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    border: borderless ? InputBorder.none : border,
-    enabledBorder: borderless ? InputBorder.none : border,
-    focusedBorder: borderless
-        ? InputBorder.none
-        : border.copyWith(borderSide: BorderSide(color: c.accent, width: 1.5)),
   );
 }
 

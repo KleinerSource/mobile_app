@@ -8,6 +8,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../movies/movies_repository.dart';
 import '../movies/movies_providers.dart';
 
@@ -229,9 +230,10 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 14, 22, 8),
-                child: Text('选择下载器', style: AppText.sectionTitle(ctx)),
+              const SheetHeader(
+                icon: Icons.download_outlined,
+                title: '选择下载器',
+                padding: EdgeInsets.fromLTRB(22, 6, 22, 8),
               ),
               for (final d in downloaders)
                 ListTile(
@@ -349,39 +351,22 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final mq = MediaQuery.of(context);
-    return SizedBox(
-      height: mq.size.height * 0.82,
-      child: SafeArea(
-        top: false,
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.88;
+    return SafeArea(
+      top: false,
+      bottom: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // ===== 头部 =====
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 6, 22, 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('在线资源', style: AppText.sectionTitle(context)),
-                        const SizedBox(height: 2),
-                        Text(
-                          _movieTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppText.meta(context),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, size: 18),
-                    onPressed: _loadingResources ? null : _load,
-                  ),
-                ],
+            SheetHeader(
+              icon: Icons.cloud_download_outlined,
+              title: '在线资源',
+              subtitle: _movieTitle,
+              trailing: IconButton(
+                icon: const Icon(Icons.refresh, size: 18),
+                onPressed: _loadingResources ? null : _load,
               ),
             ),
             // ===== Tab 切换 =====
@@ -456,84 +441,77 @@ class _ResourcesSheetState extends ConsumerState<ResourcesSheet> {
                 ),
               ),
             // ===== 内容 =====
-            Expanded(
-              child: _error != null
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(22),
-                        child: Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: c.danger,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
-                          ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.all(22),
+                child: Text(
+                  _error!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: c.danger,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            else ...[
+              if (_loadingResources)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: c.accent,
                         ),
                       ),
-                    )
-                  : Column(
-                      children: [
-                        if (_loadingResources)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: c.accent,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text('正在加载在线资源…', style: AppText.meta(context)),
-                              ],
-                            ),
-                          ),
-                        Expanded(
-                          child: _activeList.isEmpty
-                              ? Center(
-                                  child: _loadingResources
-                                      ? Text(
-                                          '已返回的渠道暂无资源，继续等待其他渠道…',
-                                          style: AppText.body(context),
-                                        )
-                                      : Text(
-                                          _tab == _ResTab.magnet
-                                              ? '没有磁力资源'
-                                              : '没有 ED2K 资源',
-                                          style: AppText.body(context),
-                                        ),
-                                )
-                              : ListView.separated(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 22,
-                                  ),
-                                  itemCount: _activeList.length,
-                                  separatorBuilder: (_, __) =>
-                                      Divider(height: 1, color: c.divider),
-                                  itemBuilder: (ctx, i) {
-                                    final r = _activeList[i];
-                                    final url = _pickUrl(r);
-                                    final downloadedAt = _getDownloadedAt(r);
-                                    return _ResourceTile(
-                                      item: r,
-                                      url: url,
-                                      downloadedAt: downloadedAt,
-                                      pushing: _pushingKey == url,
-                                      pushDisabled:
-                                          _pushingKey != null ||
-                                          _activeDownloaders.isEmpty,
-                                      onPush: () => _onPush(r),
-                                    );
-                                  },
-                                ),
-                        ),
-                      ],
-                    ),
-            ),
+                      const SizedBox(width: 8),
+                      Text('正在加载在线资源…', style: AppText.meta(context)),
+                    ],
+                  ),
+                ),
+              if (_activeList.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
+                  child: Text(
+                    _loadingResources
+                        ? '已返回的渠道暂无资源，继续等待其他渠道…'
+                        : _tab == _ResTab.magnet
+                        ? '没有磁力资源'
+                        : '没有 ED2K 资源',
+                    textAlign: TextAlign.center,
+                    style: AppText.body(context),
+                  ),
+                )
+              else
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    itemCount: _activeList.length,
+                    separatorBuilder: (_, __) =>
+                        Divider(height: 1, color: c.divider),
+                    itemBuilder: (ctx, i) {
+                      final r = _activeList[i];
+                      final url = _pickUrl(r);
+                      final downloadedAt = _getDownloadedAt(r);
+                      return _ResourceTile(
+                        item: r,
+                        url: url,
+                        downloadedAt: downloadedAt,
+                        pushing: _pushingKey == url,
+                        pushDisabled:
+                            _pushingKey != null || _activeDownloaders.isEmpty,
+                        onPush: () => _onPush(r),
+                      );
+                    },
+                  ),
+                ),
+            ],
           ],
         ),
       ),
