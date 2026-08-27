@@ -196,6 +196,47 @@ class RatingBadge extends StatelessWidget {
   }
 }
 
+/// 在线播放徽章 · 影片卡片与详情页共用。
+class OnlinePlayBadge extends StatelessWidget {
+  const OnlinePlayBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = appColors(context).accent;
+    return Semantics(
+      container: true,
+      label: '在线播放',
+      child: Tooltip(
+        message: '在线播放',
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.play_arrow_rounded, size: 12, color: Colors.white),
+                SizedBox(width: 2),
+                Text(
+                  '在线播放',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _StarPainter extends CustomPainter {
   _StarPainter({required this.color});
   final Color color;

@@ -15,7 +15,6 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/glass.dart';
 import '../../shared/glass_menu.dart';
-import '../../shared/actor_detail_header.dart';
 import '../../shared/movie_card.dart';
 import '../../shared/poster.dart';
 import '../../shared/actor_avatar.dart';
@@ -38,12 +37,13 @@ import 'resources_sheet.dart';
 import '../resources/resources_repository.dart';
 import 'movie_editor_sheet.dart';
 import 'movie_detail_formatters.dart';
+import 'movie_detail_scaffold.dart';
 import 'cover_badges.dart';
 import 'media_stream_cards.dart';
 import 'thunder_subtitle_sheet.dart';
 import 'audio_extraction_sheet.dart';
-import '../home/hero_backdrop.dart';
 import '../home/home_movie_view_state.dart';
+import '../home/hero_backdrop.dart';
 import '../i18n/poster_badge_visibility_provider.dart';
 
 class MovieDetailPage extends ConsumerStatefulWidget {
@@ -187,169 +187,121 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
     }
     final isFavorited = favStatus[movie.id] ?? movie.isFavorited;
 
-    // 与首页轮播 hero 相同的收窄参数: 上滑先把封面收窄到 62% 再整体推出屏外
-    const heroMaxHeight = 320.0;
-    final heroMinHeight = heroMaxHeight * 0.62;
-
-    // 状态栏穿透: 封面延伸到状态栏底下(不做 SafeArea 遮罩),悬浮操作行单独避开状态栏
-    final statusBarTop = MediaQuery.paddingOf(context).top;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // -------- 氛围背景: 封面大模糊毛玻璃(同首页),下拉回弹露出的是封面色调而非纯色底 --------
-        HeroBackdrop(arts: _heroArts, position: _heroPagePosition),
-        CustomScrollView(
-          slivers: [
-            // -------- 顶部封面 (上滑先收窄再推出 · 同首页 hero 轮播) --------
-            SliverPersistentHeader(
-              pinned: false,
-              delegate: CollapsibleHeroDelegate(
-                minHeight: heroMinHeight,
-                maxHeight: heroMaxHeight,
-                child: KeyedSubtree(
-                  key: const ValueKey('detail-hero'),
-                  child: _HeroHeader(movie: movie, urlBuilder: urlBuilder),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 6, 22, 24),
-                child: _TitleBlock(movie: movie),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-                child: _ActionRow(movie: movie),
-              ),
-            ),
-            if (movie.plot != null && movie.plot!.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-                  child: _PlotSection(plot: movie.plot!),
-                ),
-              ),
-            SliverToBoxAdapter(
-              child: _ExtraFanartSection(
-                movieId: movie.id,
-                movieTitle: movie.title,
-                canFetch: movie.num?.trim().isNotEmpty == true,
-                trailerUrl: _trailerUrl(movie),
-                posterUrl: _trailerPosterUrl(movie, urlBuilder),
-              ),
-            ),
-            if (movie.actors.isNotEmpty)
-              SliverToBoxAdapter(child: _CastSection(actors: movie.actors)),
-            SliverToBoxAdapter(
-              child: _ActorRelatedMoviesSection(
-                movie: movie,
-                urlBuilder: urlBuilder,
-                onMovieReturned: () =>
-                    ref.invalidate(movieDetailProvider(movie.id)),
-              ),
-            ),
-            // 分组显示 series / genres / tags
-            if (movie.series != null)
-              SliverToBoxAdapter(
-                child: _TaxonomySection(
-                  label: '系列',
-                  items: [movie.series!],
-                  kind: ResourceKind.series,
-                  hueOffset: 0,
-                  prefix: '◇ ',
-                ),
-              ),
-            if (movie.genres.isNotEmpty)
-              SliverToBoxAdapter(
-                child: _TaxonomySection(
-                  label: '分类',
-                  items: movie.genres,
-                  kind: ResourceKind.genre,
-                  hueOffset: 0,
-                ),
-              ),
-            if (movie.tags.isNotEmpty)
-              SliverToBoxAdapter(
-                child: _TaxonomySection(
-                  label: '标签',
-                  items: movie.tags,
-                  kind: ResourceKind.tag,
-                  hueOffset: 2,
-                  prefix: '# ',
-                ),
-              ),
-            SliverToBoxAdapter(child: _DetailsTable(movie: movie)),
-            SliverToBoxAdapter(child: _MediaInfoSection(movieId: movie.id)),
-            SliverToBoxAdapter(child: _RelatedFilesSection(movie: movie)),
-            const SliverToBoxAdapter(child: SizedBox(height: 60)),
-          ],
-        ),
-        // -------- 悬浮操作行 · 封面推出屏外后返回/收藏/更多仍可达 --------
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
+    return MovieDetailScaffold(
+      heroArts: _heroArts,
+      heroPosition: _heroPagePosition,
+      hero: _HeroHeader(movie: movie, urlBuilder: urlBuilder),
+      slivers: [
+        SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(6, statusBarTop + 6, 6, 0),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: c.surface.withValues(alpha: 0.6),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.arrow_back, size: 18),
-                  ),
-                  onPressed: () => Navigator.of(context).maybePop(),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: c.surface.withValues(alpha: 0.6),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isFavorited ? Icons.favorite : Icons.favorite_border,
-                      size: 18,
-                      color: isFavorited ? c.accent : null,
-                    ),
-                  ),
-                  onPressed: () async {
-                    final messenger = ScaffoldMessenger.of(context);
-                    final l = AppL10n.of(context);
-                    try {
-                      final value = await ref
-                          .read(favoriteStatusProvider.notifier)
-                          .toggle(movie.id);
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            value ? l.detailFavorited : l.detailUnfavorited,
-                          ),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    } catch (e) {
-                      messenger.showSnackBar(
-                        SnackBar(content: Text('操作失败: $e')),
-                      );
-                    }
-                  },
-                ),
-                const SizedBox(width: 6),
-                _MoreMenuButton(movie: movie),
-                const SizedBox(width: 6),
-              ],
-            ),
+            padding: const EdgeInsets.fromLTRB(22, 6, 22, 24),
+            child: _TitleBlock(movie: movie),
           ),
         ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+            child: _ActionRow(movie: movie),
+          ),
+        ),
+        if (movie.plot != null && movie.plot!.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+              child: _PlotSection(plot: movie.plot!),
+            ),
+          ),
+        SliverToBoxAdapter(
+          child: _ExtraFanartSection(
+            movieId: movie.id,
+            movieTitle: movie.title,
+            canFetch: movie.num?.trim().isNotEmpty == true,
+            trailerUrl: _trailerUrl(movie),
+            posterUrl: _trailerPosterUrl(movie, urlBuilder),
+          ),
+        ),
+        if (movie.actors.isNotEmpty)
+          SliverToBoxAdapter(child: _CastSection(actors: movie.actors)),
+        SliverToBoxAdapter(
+          child: _ActorRelatedMoviesSection(
+            movie: movie,
+            urlBuilder: urlBuilder,
+            onMovieReturned: () =>
+                ref.invalidate(movieDetailProvider(movie.id)),
+          ),
+        ),
+        // 分组显示 series / genres / tags
+        if (movie.series != null)
+          SliverToBoxAdapter(
+            child: _TaxonomySection(
+              label: '系列',
+              items: [movie.series!],
+              kind: ResourceKind.series,
+              hueOffset: 0,
+              prefix: '◇ ',
+            ),
+          ),
+        if (movie.genres.isNotEmpty)
+          SliverToBoxAdapter(
+            child: _TaxonomySection(
+              label: '分类',
+              items: movie.genres,
+              kind: ResourceKind.genre,
+              hueOffset: 0,
+            ),
+          ),
+        if (movie.tags.isNotEmpty)
+          SliverToBoxAdapter(
+            child: _TaxonomySection(
+              label: '标签',
+              items: movie.tags,
+              kind: ResourceKind.tag,
+              hueOffset: 2,
+              prefix: '# ',
+            ),
+          ),
+        SliverToBoxAdapter(child: _DetailsTable(movie: movie)),
+        SliverToBoxAdapter(child: _MediaInfoSection(movieId: movie.id)),
+        SliverToBoxAdapter(child: _RelatedFilesSection(movie: movie)),
+        const SliverToBoxAdapter(child: SizedBox(height: 60)),
+      ],
+      actions: [
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: c.surface.withValues(alpha: 0.6),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isFavorited ? Icons.favorite : Icons.favorite_border,
+              size: 18,
+              color: isFavorited ? c.accent : null,
+            ),
+          ),
+          onPressed: () async {
+            final messenger = ScaffoldMessenger.of(context);
+            final l = AppL10n.of(context);
+            try {
+              final value = await ref
+                  .read(favoriteStatusProvider.notifier)
+                  .toggle(movie.id);
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    value ? l.detailFavorited : l.detailUnfavorited,
+                  ),
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+            } catch (e) {
+              messenger.showSnackBar(SnackBar(content: Text('操作失败: $e')));
+            }
+          },
+        ),
+        const SizedBox(width: 6),
+        _MoreMenuButton(movie: movie),
+        const SizedBox(width: 6),
       ],
     );
   }
@@ -715,7 +667,9 @@ class _ActionRow extends ConsumerWidget {
     final engineKinds = availablePlaybackEngineKinds();
 
     Future<void> openPlayer(PlaybackEngineKind? engineKind) async {
-      final changesBeforePlayback = MovieDataChanges.snapshot(movieId: movie.id);
+      final changesBeforePlayback = MovieDataChanges.snapshot(
+        movieId: movie.id,
+      );
       await PlayerPage.open(
         context,
         movieId: movie.id,
@@ -1895,8 +1849,9 @@ class _ActorRelatedMoviesSection extends StatelessWidget {
                         movie: _toMovieListItem(related),
                         posterUrlBuilder: urlBuilder,
                         onTap: () async {
-                          final changesBeforeVisit =
-                              MovieDataChanges.snapshot(movieId: related.id);
+                          final changesBeforeVisit = MovieDataChanges.snapshot(
+                            movieId: related.id,
+                          );
                           await Navigator.of(ctx).push(
                             MaterialPageRoute(
                               builder: (_) =>

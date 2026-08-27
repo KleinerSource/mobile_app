@@ -7,9 +7,13 @@ import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/db_online_movie.dart';
 import '../../core/platform/app_theme.dart';
-import '../../shared/glow_background.dart';
+import '../../shared/filter_chip.dart';
+import '../../shared/poster.dart';
+import '../home/hero_backdrop.dart';
 import '../player/player_page.dart';
 import '../settings/settings_common.dart';
+import '../movie_detail/movie_detail_scaffold.dart';
+import 'db_online_movie_card.dart';
 import 'db_online_home_providers.dart';
 
 class DbOnlineMovieDetailPage extends ConsumerWidget {
@@ -26,16 +30,13 @@ class DbOnlineMovieDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final target = code?.trim().isNotEmpty == true
-        ? code!.trim()
-        : videoId?.trim() ?? '';
     final value = code?.trim().isNotEmpty == true
         ? ref.watch(dbOnlineMovieDetailProvider(code!.trim()))
         : ref.watch(dbOnlineMovieDetailByVideoIdProvider(videoId!.trim()));
     final config = ref.watch(serverConfigProvider);
+    final colors = appColors(context);
     return Scaffold(
-      backgroundColor: appColors(context).bg,
-      appBar: AppBar(title: Text(target), backgroundColor: Colors.transparent),
+      backgroundColor: colors.bg,
       body: value.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _ErrorBody(
@@ -79,163 +80,310 @@ class _ErrorBody extends StatelessWidget {
   }
 }
 
-class _DbOnlineDetailBody extends StatelessWidget {
+class _DbOnlineDetailBody extends StatefulWidget {
   const _DbOnlineDetailBody({required this.movie, required this.config});
 
   final DbOnlineMovieDetail movie;
   final ServerConfig? config;
 
   @override
+  State<_DbOnlineDetailBody> createState() => _DbOnlineDetailBodyState();
+}
+
+class _DbOnlineDetailBodyState extends State<_DbOnlineDetailBody> {
+  final _heroArts = ValueNotifier<List<HeroArt>>(const []);
+  final _heroPosition = ValueNotifier(0.0);
+
+  @override
+  void initState() {
+    super.initState();
+    _syncHeroArt();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DbOnlineDetailBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncHeroArt();
+  }
+
+  @override
+  void dispose() {
+    _heroArts.dispose();
+    _heroPosition.dispose();
+    super.dispose();
+  }
+
+  void _syncHeroArt() {
+    final rawImage = widget.movie.coverUrl ?? widget.movie.thumbUrl;
+    final image = widget.config == null || rawImage == null
+        ? ''
+        : resolveServerUrl(widget.config!, rawImage);
+    final art = HeroArt(movieId: _stableHeroId(widget.movie.code), url: image);
+    final current = _heroArts.value;
+    if (current.length == 1 &&
+        current.first.movieId == art.movieId &&
+        current.first.url == art.url) {
+      return;
+    }
+    _heroArts.value = [art];
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final colors = appColors(context);
+    final movie = widget.movie;
+    final config = widget.config;
     final image = movie.coverUrl ?? movie.thumbUrl;
     final imageUrl = config == null || image == null
         ? null
-        : resolveServerUrl(config!, image);
-    return GlowBackground(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 132,
-                height: 186,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: imageUrl == null
-                      ? ColoredBox(
-                          color: colors.surface,
-                          child: const Icon(Icons.movie_outlined, size: 36),
-                        )
-                      : Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => ColoredBox(
-                            color: colors.surface,
-                            child: const Icon(Icons.broken_image_outlined),
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      movie.code,
-                      style: TextStyle(
-                        color: colors.accent,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(movie.title, style: AppText.pageTitle(context)),
-                    const SizedBox(height: 12),
-                    Text(
-                      _movieMeta(movie),
-                      style: TextStyle(color: colors.muted),
-                    ),
-                    if (movie.canPlay) ...[
-                      const SizedBox(height: 16),
-                      _PlayButton(movie: movie),
-                    ],
-                  ],
-                ),
-              ),
-            ],
+        : resolveServerUrl(config, image);
+    return MovieDetailScaffold(
+      heroArts: _heroArts,
+      heroPosition: _heroPosition,
+      hero: _DbOnlineHeroHeader(
+        imageUrl: imageUrl,
+        title: movie.title,
+        code: movie.code,
+        canPlay: movie.canPlay,
+      ),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 6, 22, 24),
+            child: _DbOnlineTitleBlock(movie: movie),
           ),
-          const SizedBox(height: 24),
-          if (movie.overview?.isNotEmpty == true)
-            _InfoSection(title: '简介', child: Text(movie.overview!)),
-          if (movie.previews.isNotEmpty && config != null)
-            _InfoSection(
+        ),
+        if (movie.canPlay && movie.playSources.any((item) => item.id > 0))
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+              child: _PlayButton(movie: movie),
+            ),
+          ),
+        if (movie.overview?.isNotEmpty == true)
+          SliverToBoxAdapter(
+            child: MovieDetailSection(
+              title: '简介',
+              child: Text(
+                movie.overview!,
+                maxLines: 5,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.body(context).copyWith(height: 1.55),
+              ),
+            ),
+          ),
+        if (movie.previews.isNotEmpty && config != null)
+          SliverToBoxAdapter(
+            child: MovieDetailSection(
               title: '预览图',
               child: SizedBox(
-                height: 120,
+                height: 112,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: movie.previews.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (_, index) => ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      resolveServerUrl(config!, movie.previews[index]),
-                      width: 180,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const SizedBox(
-                        width: 180,
-                        child: Icon(Icons.broken_image_outlined),
-                      ),
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (_, index) => SizedBox(
+                    width: 180,
+                    child: Poster(
+                      url: resolveServerUrl(config, movie.previews[index]),
+                      title: movie.title,
+                      aspectRatio: 16 / 9,
+                      radius: 8,
                     ),
                   ),
                 ),
               ),
             ),
-          _InfoSection(
-            title: '主创与分类',
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (movie.director?.name.isNotEmpty == true)
-                  _InfoChip('导演 · ${movie.director!.name}'),
-                if (movie.maker?.name.isNotEmpty == true)
-                  _InfoChip('片商 · ${movie.maker!.name}'),
-                if (movie.publisher?.name.isNotEmpty == true)
-                  _InfoChip('发行 · ${movie.publisher!.name}'),
-                if (movie.series?.name.isNotEmpty == true)
-                  _InfoChip('系列 · ${movie.series!.name}'),
-                for (final item in movie.categories) _InfoChip(item.name),
-                for (final item in movie.actors)
-                  if (item.name.isNotEmpty) _InfoChip(_actorLabel(item)),
-              ],
+          ),
+        if (_hasCredits(movie))
+          SliverToBoxAdapter(
+            child: MovieDetailSection(
+              title: '主创与分类',
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _creditChips(movie),
+              ),
             ),
           ),
-          if (movie.relativeMovies.isNotEmpty && config != null)
-            _RelatedMovieSection(
+        if (_hasDetails(movie))
+          SliverToBoxAdapter(
+            child: MovieDetailSection(
+              title: '详细信息',
+              child: _DetailsTable(movie: movie),
+            ),
+          ),
+        if (movie.relativeMovies.isNotEmpty && config != null)
+          SliverToBoxAdapter(
+            child: _RelatedMovieSection(
               title: '相关推荐',
               movies: movie.relativeMovies,
-              config: config!,
+              config: config,
             ),
-          if (movie.actorMovies.isNotEmpty && config != null)
-            _RelatedMovieSection(
+          ),
+        if (movie.actorMovies.isNotEmpty && config != null)
+          SliverToBoxAdapter(
+            child: _RelatedMovieSection(
               title: '同演员作品',
               movies: movie.actorMovies,
-              config: config!,
+              config: config,
             ),
-          if (movie.magnets.isNotEmpty)
-            _InfoSection(
-              title: '磁力资源 (${movie.magnets.length})',
-              child: _ResourceList<DbOnlineMagnet>(
-                items: movie.magnets,
-                label: (item) => item.name,
-                value: (item) => item.magnet,
-              ),
-            ),
-          if (movie.ed2ks.isNotEmpty)
-            _InfoSection(
-              title: 'ED2K 资源 (${movie.ed2ks.length})',
-              child: _ResourceList<DbOnlineEd2k>(
-                items: movie.ed2ks,
-                label: (item) => item.name,
-                value: (item) => item.ed2k,
-              ),
-            ),
-          if (movie.library?.inLibrary == true)
-            _InfoSection(
+          ),
+        if (movie.library?.inLibrary == true)
+          SliverToBoxAdapter(
+            child: MovieDetailSection(
               title: '媒体库',
               child: Text(
                 movie.library?.name ?? movie.library?.source ?? '已入库',
+                style: AppText.body(context),
               ),
             ),
-        ],
-      ),
+          ),
+        const SliverToBoxAdapter(child: SizedBox(height: 60)),
+      ],
     );
   }
+}
+
+int _stableHeroId(String value) {
+  return value.codeUnits.fold(0, (result, codeUnit) => result * 31 + codeUnit);
+}
+
+class _DbOnlineHeroHeader extends StatelessWidget {
+  const _DbOnlineHeroHeader({
+    required this.imageUrl,
+    required this.title,
+    required this.code,
+    required this.canPlay,
+  });
+
+  final String? imageUrl;
+  final String title;
+  final String code;
+  final bool canPlay;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (bounds) => const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.white, Colors.white, Colors.transparent],
+            stops: [0.0, 0.45, 1.0],
+          ).createShader(bounds),
+          child: Poster(
+            url: imageUrl,
+            title: title.isEmpty ? code : title,
+            aspectRatio: 16 / 9,
+            radius: 0,
+            imageAlignment: const Alignment(0, -0.6),
+          ),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.35),
+                Colors.transparent,
+              ],
+              stops: const [0.0, 0.35],
+            ),
+          ),
+        ),
+        if (canPlay)
+          const Align(
+            alignment: Alignment.bottomLeft,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: OnlinePlayBadge(),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _DbOnlineTitleBlock extends StatelessWidget {
+  const _DbOnlineTitleBlock({required this.movie});
+
+  final DbOnlineMovieDetail movie;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = movie.title.trim().isEmpty ? movie.code : movie.title;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (movie.code.trim().isNotEmpty)
+          Text(movie.code, style: AppText.eyebrow(context)),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: appColors(context).text,
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w800,
+            fontSize: 28,
+            letterSpacing: -0.84,
+            height: 1.1,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_movieMeta(movie) case final meta?)
+          Text(meta, style: AppText.meta(context)),
+      ],
+    );
+  }
+}
+
+bool _hasCredits(DbOnlineMovieDetail movie) =>
+    _hasPersonName(movie.director) ||
+    _hasPersonName(movie.maker) ||
+    _hasPersonName(movie.publisher) ||
+    _hasPersonName(movie.series) ||
+    movie.categories.any((item) => item.name.trim().isNotEmpty) ||
+    movie.actors.any((item) => item.name.trim().isNotEmpty);
+
+bool _hasPersonName(DbOnlinePerson? person) =>
+    person?.name.trim().isNotEmpty == true;
+
+bool _hasDetails(DbOnlineMovieDetail movie) =>
+    movie.code.trim().isNotEmpty ||
+    movie.date?.trim().isNotEmpty == true ||
+    (movie.duration != null && movie.duration! > 0) ||
+    movie.score != null ||
+    (movie.watchedCount != null && movie.watchedCount! > 0);
+
+List<Widget> _creditChips(DbOnlineMovieDetail movie) {
+  final labels = <String>[];
+  if (_hasPersonName(movie.director)) {
+    labels.add('导演 · ${movie.director!.name}');
+  }
+  if (_hasPersonName(movie.maker)) {
+    labels.add('片商 · ${movie.maker!.name}');
+  }
+  if (_hasPersonName(movie.publisher)) {
+    labels.add('发行 · ${movie.publisher!.name}');
+  }
+  if (_hasPersonName(movie.series)) {
+    labels.add('系列 · ${movie.series!.name}');
+  }
+  labels.addAll(
+    movie.categories.map((item) => item.name).where((x) => x.trim().isNotEmpty),
+  );
+  labels.addAll(
+    movie.actors.where((item) => item.name.trim().isNotEmpty).map(_actorLabel),
+  );
+  return [
+    for (var i = 0; i < labels.length; i++)
+      HueChip(label: labels[i], hue: AppHues.all[i % AppHues.all.length]),
+  ];
 }
 
 String _actorLabel(DbOnlinePerson actor) {
@@ -262,121 +410,48 @@ class _RelatedMovieSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _InfoSection(
+    return MovieDetailSection(
       title: title,
       child: SizedBox(
-        height: 206,
+        height: 250,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: movies.length,
           separatorBuilder: (_, __) => const SizedBox(width: 10),
-          itemBuilder: (_, index) =>
-              _RelatedMovieCard(movie: movies[index], config: config),
-        ),
-      ),
-    );
-  }
-}
-
-class _RelatedMovieCard extends StatelessWidget {
-  const _RelatedMovieCard({required this.movie, required this.config});
-
-  final DbOnlineRecommendedMovie movie;
-  final ServerConfig config;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    final image = movie.thumbUrl == null
-        ? null
-        : resolveServerUrl(config, movie.thumbUrl!);
-    final code = movie.number.trim();
-    final videoId = movie.id?.trim() ?? '';
-    return SizedBox(
-      width: 126,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: code.isEmpty && videoId.isEmpty
-            ? null
-            : () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => code.isNotEmpty
-                      ? DbOnlineMovieDetailPage(code: code)
-                      : DbOnlineMovieDetailPage.byVideoId(videoId: videoId),
-                ),
+          itemBuilder: (_, index) {
+            final movie = movies[index];
+            final score = double.tryParse(movie.score ?? '');
+            return DbOnlineMovieCard(
+              width: 112,
+              movie: DbOnlineMovie(
+                id: movie.id ?? movie.number,
+                number: movie.number,
+                title: movie.title ?? movie.number,
+                coverUrl: movie.coverUrl,
+                thumbUrl: movie.thumbUrl,
+                releaseDate: movie.releaseDate,
+                duration: movie.duration == null
+                    ? null
+                    : '${movie.duration} 分钟',
+                score: score,
+                canPlay: movie.canPlay,
               ),
-        child: Ink(
-          decoration: settingsCardDecoration(context),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      image == null
-                          ? ColoredBox(
-                              color: colors.surface,
-                              child: const Icon(Icons.movie_outlined),
-                            )
-                          : Image.network(
-                              image,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => ColoredBox(
-                                color: colors.surface,
-                                child: const Icon(Icons.broken_image_outlined),
+              config: config,
+              onTap:
+                  movie.number.trim().isEmpty &&
+                      movie.id?.trim().isNotEmpty != true
+                  ? null
+                  : () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => movie.number.trim().isNotEmpty
+                            ? DbOnlineMovieDetailPage(code: movie.number)
+                            : DbOnlineMovieDetailPage.byVideoId(
+                                videoId: movie.id!,
                               ),
-                            ),
-                      if (movie.canPlay)
-                        const Positioned(
-                          top: 6,
-                          right: 6,
-                          child: Icon(
-                            Icons.play_circle_fill_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        code.isEmpty ? '未命名影片' : code,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colors.accent,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
                       ),
-                      if (movie.title?.isNotEmpty == true &&
-                          movie.title != code) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          movie.title!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: colors.text,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+                    ),
+            );
+          },
         ),
       ),
     );
@@ -390,91 +465,108 @@ class _PlayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = appColors(context);
     final source = movie.playSources.where((item) => item.id > 0).firstOrNull;
-    return FilledButton.icon(
-      onPressed: source == null
-          ? null
-          : () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => DbOnlinePlaybackPage(
-                  code: movie.code,
-                  videoId: movie.videoId,
-                  sources: movie.playSources,
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: source == null
+            ? null
+            : () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => DbOnlinePlaybackPage(
+                    code: movie.code,
+                    videoId: movie.videoId,
+                    sources: movie.playSources,
+                  ),
                 ),
               ),
-            ),
-      icon: const Icon(Icons.play_arrow_rounded),
-      label: Text(source == null ? '暂无在线播放源' : '在线播放'),
-    );
-  }
-}
-
-class _InfoSection extends StatelessWidget {
-  const _InfoSection({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: AppText.sectionTitle(context)),
-          const SizedBox(height: 10),
-          DecoratedBox(
-            decoration: settingsCardDecoration(context),
-            child: Padding(padding: const EdgeInsets.all(14), child: child),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: colors.text,
+          foregroundColor: colors.bg,
+          disabledBackgroundColor: colors.surfaceAlt,
+          disabledForegroundColor: colors.muted,
+          shadowColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+        icon: const Icon(Icons.play_arrow_rounded, size: 18),
+        label: Text(
+          source == null ? '暂无在线播放源' : '在线播放',
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     );
   }
 }
 
-class _InfoChip extends StatelessWidget {
-  const _InfoChip(this.label);
+class _DetailsTable extends StatelessWidget {
+  const _DetailsTable({required this.movie});
 
-  final String label;
+  final DbOnlineMovieDetail movie;
 
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    return Chip(
-      label: Text(label),
-      backgroundColor: colors.surface,
-      side: BorderSide(color: colors.divider),
-    );
-  }
-}
-
-class _ResourceList<T> extends StatelessWidget {
-  const _ResourceList({
-    required this.items,
-    required this.label,
-    required this.value,
-  });
-
-  final List<T> items;
-  final String Function(T) label;
-  final String Function(T) value;
-
-  @override
-  Widget build(BuildContext context) {
+    final rows = <(String, String)>[];
+    if (movie.code.trim().isNotEmpty) rows.add(('番号', movie.code));
+    if (movie.date?.trim().isNotEmpty == true) rows.add(('日期', movie.date!));
+    if (movie.duration != null && movie.duration! > 0) {
+      rows.add(('时长', '${movie.duration} MIN'));
+    }
+    if (movie.score != null) {
+      rows.add(('评分', movie.score!.toStringAsFixed(1)));
+    }
+    if (movie.watchedCount != null && movie.watchedCount! > 0) {
+      rows.add(('评分人数', '${movie.watchedCount}'));
+    }
     return Column(
       children: [
-        for (var i = 0; i < items.length; i++) ...[
-          if (i > 0) const Divider(height: 18),
-          Text(label(items[i]), maxLines: 2, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 4),
-          SelectableText(
-            value(items[i]),
-            maxLines: 2,
-            style: TextStyle(color: appColors(context).muted, fontSize: 11),
+        for (var i = 0; i < rows.length; i++)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              border: i < rows.length - 1
+                  ? Border(bottom: BorderSide(color: colors.divider))
+                  : null,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 90,
+                  child: Text(
+                    rows[i].$1,
+                    style: TextStyle(
+                      color: colors.muted,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    rows[i].$2,
+                    style: TextStyle(
+                      color: colors.text,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
       ],
     );
   }
@@ -633,7 +725,7 @@ class _EpisodeTile extends ConsumerWidget {
   }
 }
 
-String _movieMeta(DbOnlineMovieDetail movie) {
+String? _movieMeta(DbOnlineMovieDetail movie) {
   final parts = <String>[];
   if (movie.date?.isNotEmpty == true) parts.add(movie.date!);
   if (movie.duration != null && movie.duration! > 0) {
@@ -643,6 +735,5 @@ String _movieMeta(DbOnlineMovieDetail movie) {
   if (movie.watchedCount != null && movie.watchedCount! > 0) {
     parts.add('${movie.watchedCount} 人评分');
   }
-  if (movie.magnets.isNotEmpty) parts.add('${movie.magnets.length} 磁链');
-  return parts.isEmpty ? '暂无信息' : parts.join(' · ');
+  return parts.isEmpty ? null : parts.join(' · ');
 }

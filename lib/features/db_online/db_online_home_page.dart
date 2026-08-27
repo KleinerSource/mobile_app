@@ -2,15 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
-import '../../core/api/url_resolver.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/db_online_movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import '../settings/settings_common.dart';
+import 'db_online_movie_card.dart';
 import 'db_online_home_providers.dart';
 import 'db_online_movie_detail_page.dart';
+
+export 'db_online_movie_card.dart';
 
 class DbOnlineHomePage extends ConsumerWidget {
   const DbOnlineHomePage({super.key});
@@ -126,7 +128,8 @@ class _DbOnlineSection extends StatelessWidget {
                   child: Text('暂无数据', style: TextStyle(color: colors.muted)),
                 )
               : SizedBox(
-                  height: 220,
+                  // 与 OMM 影片卡片的 2:3 海报 + 标题/元数据高度保持一致。
+                  height: 250,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: items.length,
@@ -156,163 +159,4 @@ class _DbOnlineSection extends StatelessWidget {
       ],
     );
   }
-}
-
-class DbOnlineMovieCard extends StatelessWidget {
-  const DbOnlineMovieCard({
-    super.key,
-    required this.movie,
-    required this.config,
-    this.onTap,
-  });
-
-  final DbOnlineMovie movie;
-  final ServerConfig? config;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    final imageValue = movie.thumbUrl ?? movie.coverUrl;
-    final imageUrl = imageValue == null || config == null
-        ? null
-        : resolveServerUrl(config!, imageValue);
-    return SizedBox(
-      width: 142,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Ink(
-            decoration: settingsCardDecoration(context),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    height: 130,
-                    width: double.infinity,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        imageUrl == null
-                            ? ColoredBox(
-                                color: colors.surface,
-                                child: const Icon(Icons.movie_outlined),
-                              )
-                            : Image.network(
-                                imageUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => ColoredBox(
-                                  color: colors.surface,
-                                  child: const Icon(
-                                    Icons.broken_image_outlined,
-                                  ),
-                                ),
-                              ),
-                        if (movie.canPlay)
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: Semantics(
-                              container: true,
-                              label: '在线播放',
-                              child: Tooltip(
-                                message: '在线播放',
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: colors.accent.withValues(
-                                      alpha: 0.92,
-                                    ),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: const Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 7,
-                                      vertical: 4,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.play_arrow_rounded,
-                                          size: 12,
-                                          color: Colors.white,
-                                        ),
-                                        SizedBox(width: 2),
-                                        Text(
-                                          '在线播放',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 9),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          movie.number.isEmpty ? '未命名番号' : movie.number,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: colors.accent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          movie.title.isEmpty ? '未命名影片' : movie.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: colors.text,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          _metaText(movie),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: colors.muted, fontSize: 10),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-String _metaText(DbOnlineMovie movie) {
-  final parts = <String>[];
-  if (movie.releaseDate != null) parts.add(movie.releaseDate!);
-  if (movie.duration != null) parts.add(movie.duration!);
-  if (movie.library != null) parts.add(movie.library!);
-  if (movie.magnetsCount > 0) parts.add('${movie.magnetsCount} 磁链');
-  if (movie.hasCnsub) parts.add('中字');
-  if (movie.score != null) parts.add('评分 ${movie.score!.toStringAsFixed(1)}');
-  return parts.isEmpty ? '暂无信息' : parts.join(' · ');
 }
