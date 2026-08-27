@@ -17,6 +17,7 @@ import 'services/movies_extended_api.dart';
 import 'services/libraries_extended_api.dart';
 import 'services/catalog_extended_api.dart';
 import 'services/configs_extended_api.dart';
+import 'services/db_online_api.dart';
 import 'services/mappings_extended_api.dart';
 import 'services/modal_transcription_api.dart';
 import 'services/series_api.dart';
@@ -47,7 +48,8 @@ class ApiClient {
       mappings = MappingsApi(dio),
       mappingsExtended = MappingsExtendedApi(dio),
       configs = ConfigsApi(dio),
-      configsExtended = ConfigsExtendedApi(dio);
+      configsExtended = ConfigsExtendedApi(dio),
+      dbOnline = DbOnlineApi(dio);
 
   factory ApiClient.fromConfig(
     ServerConfig config, {
@@ -90,5 +92,6 @@ class ApiClient {
   final MappingsExtendedApi mappingsExtended;
   final ConfigsApi configs;
   final ConfigsExtendedApi configsExtended;
+  final DbOnlineApi dbOnline;
   final SystemExtendedApi systemExtended;
 }

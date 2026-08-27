@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -32,6 +33,7 @@ class ServerSettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cfg = ref.watch(serverConfigProvider);
     final l = AppL10n.of(context);
+    final dbOnline = cfg?.activeServer?.project == ServerProject.dbOnline;
 
     return Scaffold(
       backgroundColor: appColors(context).bg,
@@ -64,7 +66,7 @@ class ServerSettingsPage extends ConsumerWidget {
                     ),
                   ],
                 ),
-                SettingsGroup(
+                if (!dbOnline) SettingsGroup(
                   title: l.settingsGroupSystem,
                   items: [
                     SettingsTile(
@@ -120,7 +122,7 @@ class ServerSettingsPage extends ConsumerWidget {
                     ),
                   ],
                 ),
-                SettingsGroup(
+                if (!dbOnline) SettingsGroup(
                   title: l.settingsGroupLibrary,
                   items: [
                     SettingsTile(
@@ -198,7 +200,7 @@ class ServerSettingsPage extends ConsumerWidget {
                     ),
                   ],
                 ),
-                SettingsGroup(
+                if (!dbOnline) SettingsGroup(
                   title: l.settingsGroupMappings,
                   items: [
                     SettingsTile(
@@ -236,7 +238,7 @@ class ServerSettingsPage extends ConsumerWidget {
                     ),
                   ],
                 ),
-                SettingsGroup(
+                if (!dbOnline) SettingsGroup(
                   title: l.settingsGroupTools,
                   items: [
                     SettingsTile(

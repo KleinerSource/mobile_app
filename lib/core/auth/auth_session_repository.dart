@@ -110,7 +110,7 @@ class AuthSessionRepository {
   Future<AuthSession?> current() => load();
 
   Future<void> save(AuthSession session) async {
-    if (!session.isUsable) {
+    if (!session.hasAccessToken) {
       await clear();
       return;
     }
@@ -136,16 +136,13 @@ class AuthSessionRepository {
   }) async {
     final access = await _store.read(accessKey);
     final refresh = await _store.read(refreshKey);
-    if (access == null ||
-        refresh == null ||
-        access.isEmpty ||
-        refresh.isEmpty) {
+    if (access == null || access.isEmpty) {
       return null;
     }
     final expires = int.tryParse(await _store.read(expiresKey) ?? '') ?? 0;
     return AuthSession(
       accessToken: access,
-      refreshToken: refresh,
+      refreshToken: refresh ?? '',
       expiresIn: expires,
     );
   }

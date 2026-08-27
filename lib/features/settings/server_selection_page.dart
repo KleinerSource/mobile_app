@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/dio_factory.dart';
+import '../../core/api/server_compatibility.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/auth/auth_session.dart';
 import '../../core/config/server_config.dart';
@@ -316,22 +317,14 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
         builder: (context, constraints) {
           final height = constraints.maxHeight;
           final headerTop = math.max(24.0, height / 2 - avatarCenterOffset);
-          final stackHeight = math.max(
-            height,
-            headerTop + headerHeight + 344,
-          );
+          final stackHeight = math.max(height, headerTop + headerHeight + 344);
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: SizedBox(
               height: stackHeight,
               child: _needsLogin == true
                   ? _buildInlineLogin(context, colors, selected, headerTop)
-                  : _buildPendingServer(
-                      context,
-                      colors,
-                      selected,
-                      headerTop,
-                    ),
+                  : _buildPendingServer(context, colors, selected, headerTop),
             ),
           );
         },
@@ -563,9 +556,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
                       displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppText.pageTitle(
-                        context,
-                      ).copyWith(fontSize: 25),
+                      style: AppText.pageTitle(context).copyWith(fontSize: 25),
                     ),
                   ],
                 ),
@@ -603,7 +594,10 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
         final t = start.transform(_formEntry.value);
         return Opacity(
           opacity: t,
-          child: Transform.translate(offset: Offset(0, 24 * (1 - t)), child: child),
+          child: Transform.translate(
+            offset: Offset(0, 24 * (1 - t)),
+            child: child,
+          ),
         );
       },
       child: child,
@@ -1086,6 +1080,14 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage>
 
   Future<ServerProfileData?> _loadProfile(ServerProfile server) async {
     final cached = _cachedProfileFor(server);
+    if (server.project != ServerProject.ohMyMedia) {
+      final profile = ServerProfileData(
+        name: server.name,
+        avatarUrl: server.avatarUrl,
+      );
+      _profiles[server.id] = profile;
+      return profile;
+    }
     final line = server.activeLine;
     if (line == null) {
       _profiles[server.id] = cached;
@@ -1218,9 +1220,7 @@ class _ServerAvatarCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      style: AppText.cardTitle(
-                        context,
-                      ).copyWith(fontSize: 15),
+                      style: AppText.cardTitle(context).copyWith(fontSize: 15),
                     ),
                   ],
                 ),

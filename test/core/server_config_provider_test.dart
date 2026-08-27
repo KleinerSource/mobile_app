@@ -253,4 +253,54 @@ void main() {
     expect(config.baseUrl, 'https://remote.example');
     expect(config.activeServer?.activeLine?.id, 'remote-wan');
   });
+
+  test('同一服务器禁止保存不同项目的线路元数据', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    const line = ServerLine(
+      id: 'omm-line',
+      name: '主线路',
+      baseUrl: 'https://omm.example',
+    );
+    const server = ServerProfile(
+      id: 'server',
+      name: '媒体服务器',
+      lines: [line],
+      activeLineId: 'omm-line',
+      projectName: 'oh-my-media',
+      serverVersion: '2.0.0',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          const ServerConfig(
+            baseUrl: 'https://omm.example',
+            lines: [line],
+            servers: [server],
+            activeServerId: 'server',
+          ),
+        );
+
+    await expectLater(
+      container
+          .read(serverConfigProvider.notifier)
+          .saveServer(
+            server.copyWith(
+              projectName: 'db_online',
+              serverVersion: '1.13.14-dev',
+            ),
+          ),
+      throwsA(isA<StateError>()),
+    );
+
+    expect(
+      container.read(serverConfigProvider)?.activeServer?.projectName,
+      'oh-my-media',
+    );
+  });
 }

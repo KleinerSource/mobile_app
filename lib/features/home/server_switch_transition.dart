@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
+import '../../core/api/server_compatibility.dart';
 import '../../core/auth/auth_provider.dart';
 import '../../core/auth/auth_session.dart';
 import '../../core/config/server_config.dart';
@@ -15,6 +16,7 @@ import '../../shared/server_avatar.dart';
 import '../../shared/shake_error_text.dart';
 import '../../shared/totp_input_field.dart';
 import '../libraries/libraries_providers.dart';
+import '../db_online/db_online_home_providers.dart';
 import 'home_providers.dart';
 
 enum ServerSwitchPhase { idle, checking, needsLogin, error }
@@ -212,6 +214,19 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
 
   Future<void> _completeAuthenticatedSwitch(int operation) async {
     if (!_isCurrent(operation)) return;
+    final project = ref.read(serverConfigProvider)?.activeServer?.project;
+    if (project == ServerProject.dbOnline) {
+      final refresh = Future.wait([
+        ref.refresh(dbOnlineRecommendProvider.future),
+        ref.refresh(dbOnlineLatestUpdatedProvider.future),
+        ref.refresh(dbOnlineLatestReleasedProvider.future),
+      ]);
+      if (_isCurrent(operation)) {
+        state = const ServerSwitchState.idle();
+      }
+      unawaited(refresh);
+      return;
+    }
     // 鉴权状态已经确认后立即解除遮罩。首页刷新在后台启动，避免未配置鉴权
     // 的服务器在清理旧会话或某个首页区块响应较慢时一直停留在检查状态。
     final refresh = refreshHomeProviders(
@@ -521,10 +536,7 @@ class _ServerSwitchTransitionOverlayState
         ],
         if (error != null && error.isNotEmpty) ...[
           const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ShakeErrorText(error),
-          ),
+          Align(alignment: Alignment.centerLeft, child: ShakeErrorText(error)),
         ],
         const SizedBox(height: 20),
         SizedBox(
@@ -808,9 +820,7 @@ class _TransitionIcon extends StatelessWidget {
         ),
         child: Stack(
           alignment: Alignment.center,
-          children: [
-            Icon(icon, color: colors.bg, size: 36),
-          ],
+          children: [Icon(icon, color: colors.bg, size: 36)],
         ),
       ),
     );

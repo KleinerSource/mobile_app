@@ -90,6 +90,8 @@ void main() {
     const remote = ServerProfile(
       id: 'remote',
       name: '公网服务器',
+      projectName: 'db_online',
+      serverVersion: '1.13.14-dev',
       lines: [
         ServerLine(
           id: 'remote-cdn',
@@ -114,6 +116,8 @@ void main() {
     expect(config?.activeServerId, 'home');
     expect(config?.baseUrl, 'http://192.168.1.10:8001');
     expect(config?.servers[1].lines.single.baseUrl, 'https://media.example');
+    expect(config?.servers[1].projectName, 'db_online');
+    expect(config?.servers[1].serverVersion, '1.13.14-dev');
     expect(config?.servers[0].avatarUrl, 'https://media.example/avatar.png');
 
     await repo.save(

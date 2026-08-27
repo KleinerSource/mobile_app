@@ -5,6 +5,7 @@ import '../../core/api/dio_factory.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_line_probe.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
@@ -56,33 +57,75 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       _error = null;
     });
     try {
-      final dio = buildDio(ServerConfig(baseUrl: normalized));
-      final response = await dio.get<dynamic>('/version');
-      requireCompatibleServerVersion(response.data);
       final existing =
           _savedConfig ??
           ref.read(serverConfigProvider) ??
           ref.read(serverConfigRepoProvider).load();
-      final config = ServerConfig(
+      final sameServer = existing?.baseUrl == normalized;
+      final existingProject = existing?.activeServer?.projectName;
+      final line = ServerLine(
+        id: sameServer && existing!.lines.isNotEmpty
+            ? existing.lines
+                  .firstWhere(
+                    (item) => item.baseUrl == normalized,
+                    orElse: () => existing.lines.first,
+                  )
+                  .id
+            : 'main-${DateTime.now().microsecondsSinceEpoch}',
+        name: '主线路',
         baseUrl: normalized,
-        lines: existing?.baseUrl == normalized ? existing!.lines : const [],
-        servers: existing?.baseUrl == normalized ? existing!.servers : const [],
-        activeServerId: existing?.baseUrl == normalized
-            ? existing!.activeServerId
-            : null,
       );
+      final probe = await probeServerLine(line);
+      if (!probe.success || probe.versionInfo == null) {
+        throw ServerCompatibilityException(
+          probe.message.isEmpty ? '服务器版本检测失败' : probe.message,
+        );
+      }
+      final versionInfo = probe.versionInfo!;
+      if (sameServer &&
+          existingProject != null &&
+          existingProject.isNotEmpty &&
+          existingProject.toLowerCase() !=
+              versionInfo.projectName.toLowerCase()) {
+        throw StateError('检测到不同项目，请新建独立服务器配置');
+      }
+      final ServerConfig config;
+      if (sameServer && existing!.activeServer != null) {
+        final activeId = existing.activeServer!.id;
+        final servers = existing.servers
+            .map(
+              (server) => server.id == activeId
+                  ? server.copyWith(
+                      projectName: versionInfo.projectName,
+                      serverVersion: versionInfo.version,
+                    )
+                  : server,
+            )
+            .toList();
+        config = existing.copyWith(servers: servers);
+      } else {
+        final server = ServerProfile(
+          id: 'server-${DateTime.now().microsecondsSinceEpoch}',
+          name: versionInfo.project?.displayName ?? '主服务器',
+          lines: [line],
+          activeLineId: line.id,
+          projectName: versionInfo.projectName,
+          serverVersion: versionInfo.version,
+        );
+        config = ServerConfig(
+          baseUrl: normalized,
+          lines: [line],
+          servers: [server],
+          activeServerId: server.id,
+        );
+      }
       await ref.read(serverConfigProvider.notifier).save(config);
       _savedConfig = ref.read(serverConfigProvider);
       AppHaptics.medium();
       if (mounted) await Navigator.of(context).maybePop();
     } catch (e) {
       final exception = toApiException(e);
-      final incompatible = exception.status == 401 || exception.status == 404;
-      setState(
-        () => _error = incompatible
-            ? serverCompatibilityRequirementMessage
-            : exception.message,
-      );
+      setState(() => _error = exception.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -99,7 +142,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
               eyebrow: '服务器',
-              title: editing ? '更换服务器' : '连接到 Oh-My-Media',
+              title: editing ? '更换服务器' : '连接到媒体服务器',
               subtitle: editing
                   ? '修改服务器地址后重新测试连接。'
                   : '输入服务器地址，包含协议和端口。\n例：http://192.168.1.10:8001',

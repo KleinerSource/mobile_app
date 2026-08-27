@@ -43,4 +43,40 @@ void main() {
       throwsA(isA<ServerCompatibilityException>()),
     );
   });
+
+  test('dbonline 项目和开发版/构建元数据版本通过', () {
+    final info = requireCompatibleServerVersion({
+      'success': true,
+      'data': {'project_name': 'db_online', 'version': 'v1.13.0-dev+build.7'},
+    });
+    expect(info.project, ServerProject.dbOnline);
+    expect(isSupportedServerVersion('1.13.14-dev', '1.13.0'), isTrue);
+    expect(isSupportedServerVersion('1.12.99-dev', '1.13.0'), isFalse);
+  });
+
+  test('未知项目和格式错误包含实际值及兼容要求', () {
+    expect(
+      () => requireCompatibleServerVersion({
+        'success': true,
+        'data': {'project_name': 'other', 'version': '9.9.9'},
+      }),
+      throwsA(
+        isA<ServerCompatibilityException>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('other'), contains('9.9.9'), contains('db_online')),
+        ),
+      ),
+    );
+    expect(
+      () => requireCompatibleServerVersion(const {'success': true}),
+      throwsA(
+        isA<ServerCompatibilityException>().having(
+          (error) => error.message,
+          'message',
+          contains('响应格式不兼容'),
+        ),
+      ),
+    );
+  });
 }

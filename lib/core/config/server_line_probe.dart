@@ -16,27 +16,34 @@ class ServerLineProbeResult {
     required this.latencyMs,
     required this.message,
     required this.incompatible,
+    required this.versionInfo,
   });
 
-  const ServerLineProbeResult.success(ServerLine line, int latencyMs)
-    : this._(
-        line: line,
-        success: true,
-        latencyMs: latencyMs,
-        message: '',
-        incompatible: false,
-      );
+  const ServerLineProbeResult.success(
+    ServerLine line,
+    int latencyMs, {
+    ServerVersionInfo? versionInfo,
+  }) : this._(
+         line: line,
+         success: true,
+         latencyMs: latencyMs,
+         message: '',
+         incompatible: false,
+         versionInfo: versionInfo,
+       );
 
   const ServerLineProbeResult.failure(
     ServerLine line,
     String message, {
     bool incompatible = false,
+    ServerVersionInfo? versionInfo,
   }) : this._(
          line: line,
          success: false,
          latencyMs: 0,
          message: message,
          incompatible: incompatible,
+         versionInfo: versionInfo,
        );
 
   final ServerLine line;
@@ -44,6 +51,7 @@ class ServerLineProbeResult {
   final int latencyMs;
   final String message;
   final bool incompatible;
+  final ServerVersionInfo? versionInfo;
 }
 
 class ServerLineProbeBatch {
@@ -75,6 +83,7 @@ class ServerLineProbeCoordinator {
   ServerLineProbeBatch probeAll(
     Iterable<ServerLine> lines, {
     void Function(ServerLineProbeResult result)? onResult,
+    String? expectedProjectName,
   }) {
     final candidates = List<ServerLine>.of(lines);
     final firstAvailable = Completer<ServerLineProbeResult?>();
@@ -89,7 +98,10 @@ class ServerLineProbeCoordinator {
     }
 
     final futures = candidates.map((line) async {
-      final result = await _safeProbe(line);
+      final result = await _safeProbe(
+        line,
+        expectedProjectName: expectedProjectName,
+      );
       onResult?.call(result);
       if (result.success && !firstAvailable.isCompleted) {
         firstAvailable.complete(result);
@@ -111,6 +123,7 @@ class ServerLineProbeCoordinator {
   Future<ServerLineSelection> selectPreferred({
     required ServerLine current,
     Iterable<ServerLine> alternatives = const [],
+    String? expectedProjectName,
   }) async {
     final fallbackLines = List<ServerLine>.of(alternatives);
     final completed = Completer<ServerLineSelection>();
@@ -146,14 +159,21 @@ class ServerLineProbeCoordinator {
       fallbackTimer?.cancel();
       pending += fallbackLines.length;
       for (final line in fallbackLines) {
-        unawaited(_safeProbe(line).then(record));
+        unawaited(
+          _safeProbe(
+            line,
+            expectedProjectName: expectedProjectName,
+          ).then(record),
+        );
       }
       finishIfUnavailable();
     }
 
     fallbackTimer = Timer(fallbackDelay, startFallbacks);
     unawaited(
-      _safeProbe(current).then((result) {
+      _safeProbe(current, expectedProjectName: expectedProjectName).then((
+        result,
+      ) {
         record(result);
         if (!result.success) startFallbacks();
       }),
@@ -162,9 +182,26 @@ class ServerLineProbeCoordinator {
     return completed.future.whenComplete(() => fallbackTimer?.cancel());
   }
 
-  Future<ServerLineProbeResult> _safeProbe(ServerLine line) async {
+  Future<ServerLineProbeResult> _safeProbe(
+    ServerLine line, {
+    String? expectedProjectName,
+  }) async {
     try {
-      return await _probe(line);
+      final result = await _probe(line);
+      final expected = expectedProjectName?.trim().toLowerCase();
+      final actual = result.versionInfo?.projectName.trim().toLowerCase();
+      if (result.success &&
+          expected != null &&
+          expected.isNotEmpty &&
+          actual != expected) {
+        return ServerLineProbeResult.failure(
+          line,
+          '线路项目不匹配，需要 $expectedProjectName，实际为 ${result.versionInfo?.projectName ?? '未知'}',
+          incompatible: true,
+          versionInfo: result.versionInfo,
+        );
+      }
+      return result;
     } catch (error) {
       return ServerLineProbeResult.failure(line, error.toString());
     }
@@ -186,9 +223,13 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
         extra: const {'skipAuth': true, 'skipRefresh': true, 'skipRetry': true},
       ),
     );
-    requireCompatibleServerVersion(response.data);
+    final versionInfo = requireCompatibleServerVersion(response.data);
     stopwatch.stop();
-    return ServerLineProbeResult.success(line, stopwatch.elapsedMilliseconds);
+    return ServerLineProbeResult.success(
+      line,
+      stopwatch.elapsedMilliseconds,
+      versionInfo: versionInfo,
+    );
   } catch (error) {
     stopwatch.stop();
     final exception = toApiException(error);

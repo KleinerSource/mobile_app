@@ -47,9 +47,11 @@ class AuthController extends AsyncNotifier<AuthState> {
             : candidates.first,
       );
       final alternatives = candidates.where((line) => line.id != current.id);
+      final activeProject = config.activeServer?.projectName;
       final selection = await ServerLineProbeCoordinator().selectPreferred(
         current: current,
         alternatives: alternatives,
+        expectedProjectName: activeProject,
       );
       final selected = selection.selected;
       if (selected == null) {
@@ -58,20 +60,17 @@ class AuthController extends AsyncNotifier<AuthState> {
         );
         final detail = selection.results
             .map((result) => '${result.line.name}：${result.message}')
+            .where((message) => message.trim().isNotEmpty)
             .join('\n');
         return AuthState(
           phase: incompatible ? AuthPhase.incompatible : AuthPhase.unavailable,
-          message: incompatible
-              ? serverCompatibilityRequirementMessage
-              : detail.isEmpty
-              ? '没有可用的服务器线路'
-              : detail,
+          message: detail.isEmpty ? '没有可用的服务器线路' : detail,
         );
       }
       selectedConfig = _withSelectedLine(config, selected);
     }
 
-    if (selectedConfig.baseUrl != config.baseUrl) {
+    if (selectedConfig != config) {
       await ref.read(serverConfigProvider.notifier).save(selectedConfig);
     }
     final client = ApiClient.fromConfig(
@@ -83,12 +82,21 @@ class AuthController extends AsyncNotifier<AuthState> {
   }
 
   Future<AuthState> _bootstrap(ApiClient client) async {
+    final isDbOnline =
+        client.config?.activeServer?.project == ServerProject.dbOnline;
     AuthStatus status;
     try {
       status = await client.auth.status();
     } catch (error) {
       final exception = toApiException(error);
-      if (exception.status == 401 && await _refresh(client)) {
+      if (isDbOnline && exception.status == 401) {
+        await ref.read(authSessionRepositoryProvider).clear();
+        return AuthState(
+          phase: AuthPhase.needsLogin,
+          message: exception.message,
+        );
+      }
+      if (!isDbOnline && exception.status == 401 && await _refresh(client)) {
         try {
           status = await client.auth.status();
         } catch (retryError) {
@@ -118,8 +126,38 @@ class AuthController extends AsyncNotifier<AuthState> {
       );
       return AuthState(phase: AuthPhase.authenticated, status: status);
     }
+    if (isDbOnline) {
+      final session = await ref.read(authSessionRepositoryProvider).load();
+      if (session == null || !session.hasAccessToken) {
+        return AuthState(phase: AuthPhase.needsLogin, status: status);
+      }
+      try {
+        final valid = await client.auth.verify();
+        if (valid) {
+          return AuthState(phase: AuthPhase.authenticated, status: status);
+        }
+      } catch (error) {
+        final exception = toApiException(error);
+        if (exception.status != 401) {
+          return AuthState(
+            phase: AuthPhase.unavailable,
+            status: status,
+            message: exception.message,
+          );
+        }
+      }
+      await ref.read(authSessionRepositoryProvider).clear();
+      return AuthState(phase: AuthPhase.needsLogin, status: status);
+    }
     if (status.authenticated) {
-      return AuthState(phase: AuthPhase.authenticated, status: status);
+      final session = await ref.read(authSessionRepositoryProvider).load();
+      if (session?.isUsable == true) {
+        return AuthState(phase: AuthPhase.authenticated, status: status);
+      }
+      // Oh-My-Media 会话必须同时具备 access/refresh 两个令牌；旧版或
+      // 异常迁移留下的 token-only 会话不能绕过登录页。
+      await ref.read(authSessionRepositoryProvider).clear();
+      return AuthState(phase: AuthPhase.needsLogin, status: status);
     }
 
     final session = await ref.read(authSessionRepositoryProvider).load();
@@ -177,6 +215,8 @@ class AuthController extends AsyncNotifier<AuthState> {
 
   Future<bool> login({required String password, String? totpCode}) async {
     final client = ref.read(requiredApiClientProvider);
+    final isDbOnline =
+        client.config?.activeServer?.project == ServerProject.dbOnline;
     final current = state.valueOrNull;
     // 登录请求期间保留 needsLogin 状态（页面有自己的 busy 指示），避免根
     // 路由进入 loading 分支重建登录页。
@@ -185,10 +225,20 @@ class AuthController extends AsyncNotifier<AuthState> {
         password: password,
         totpCode: totpCode,
       );
-      if (!session.isUsable) {
+      if (isDbOnline ? !session.hasAccessToken : !session.isUsable) {
         throw ApiException('登录响应缺少有效会话');
       }
       await ref.read(authSessionRepositoryProvider).save(session);
+      if (isDbOnline) {
+        try {
+          if (!await client.auth.verify()) {
+            throw ApiException('登录响应令牌无效');
+          }
+        } catch (_) {
+          await ref.read(authSessionRepositoryProvider).clear();
+          rethrow;
+        }
+      }
       final status = await client.auth.status();
       state = AsyncData(
         AuthState(phase: AuthPhase.authenticated, status: status),
@@ -220,8 +270,11 @@ class AuthController extends AsyncNotifier<AuthState> {
   }
 
   Future<bool> _refresh(ApiClient client) async {
+    if (client.config?.activeServer?.project == ServerProject.dbOnline) {
+      return false;
+    }
     final current = await ref.read(authSessionRepositoryProvider).current();
-    if (current == null || current.refreshToken.isEmpty) return false;
+    if (current == null || !current.canRefresh) return false;
     try {
       final session = await client.auth.refresh(current.refreshToken);
       if (!session.isUsable) {
@@ -251,7 +304,30 @@ class AuthController extends AsyncNotifier<AuthState> {
               : line,
         )
         .toList();
-    return config.copyWith(baseUrl: selected.line.baseUrl, lines: lines);
+    final activeServer = config.activeServer;
+    final updatedServers = activeServer == null
+        ? config.servers
+        : config.servers
+              .map(
+                (server) => server.id == activeServer.id
+                    ? server.copyWith(
+                        lines: lines,
+                        activeLineId: selected.line.id,
+                        projectName:
+                            selected.versionInfo?.projectName ??
+                            server.projectName,
+                        serverVersion:
+                            selected.versionInfo?.version ??
+                            server.serverVersion,
+                      )
+                    : server,
+              )
+              .toList();
+    return config.copyWith(
+      baseUrl: selected.line.baseUrl,
+      lines: lines,
+      servers: updatedServers,
+    );
   }
 
   Future<void> logout() async {

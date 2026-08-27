@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
@@ -50,6 +51,9 @@ class _HomeServerSwitcherMenuState
 
   Future<ServerProfileData?> _loadProfile(ServerProfile server) async {
     final cached = _cachedProfileFor(server);
+    if (server.project != ServerProject.ohMyMedia) {
+      return ServerProfileData(name: server.name, avatarUrl: server.avatarUrl);
+    }
     final line = server.activeLine;
     if (line == null) return cached;
     try {

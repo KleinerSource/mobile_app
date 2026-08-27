@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_line_probe.dart';
 
@@ -76,5 +77,49 @@ void main() {
     slowResult.complete(const ServerLineProbeResult.failure(current, '连接超时'));
     final results = await batch.completed;
     expect(results, hasLength(2));
+  });
+
+  test('线路探测会拒绝与服务器项目不一致的线路', () async {
+    final coordinator = ServerLineProbeCoordinator(
+      probe: (line) async => ServerLineProbeResult.success(
+        line,
+        12,
+        versionInfo: const ServerVersionInfo(
+          projectName: 'db_online',
+          version: '1.13.14-dev',
+        ),
+      ),
+    );
+
+    final selection = await coordinator.selectPreferred(
+      current: current,
+      expectedProjectName: ServerProject.ohMyMedia.projectName,
+    );
+
+    expect(selection.selected, isNull);
+    expect(selection.results.single.incompatible, isTrue);
+    expect(selection.results.single.message, contains('db_online'));
+    expect(selection.results.single.versionInfo?.version, '1.13.14-dev');
+  });
+
+  test('线路探测成功结果携带项目和版本信息', () async {
+    final coordinator = ServerLineProbeCoordinator(
+      probe: (line) async => ServerLineProbeResult.success(
+        line,
+        8,
+        versionInfo: const ServerVersionInfo(
+          projectName: 'oh-my-media',
+          version: '2.1.0',
+        ),
+      ),
+    );
+
+    final selection = await coordinator.selectPreferred(
+      current: current,
+      expectedProjectName: ServerProject.ohMyMedia.projectName,
+    );
+
+    expect(selection.selected?.versionInfo?.project, ServerProject.ohMyMedia);
+    expect(selection.selected?.versionInfo?.version, '2.1.0');
   });
 }

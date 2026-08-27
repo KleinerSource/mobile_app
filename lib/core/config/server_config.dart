@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../api/server_compatibility.dart';
+
 @immutable
 class ServerLine {
   const ServerLine({
@@ -84,6 +86,8 @@ class ServerProfile {
     required this.lines,
     this.activeLineId,
     this.avatarUrl,
+    this.projectName,
+    this.serverVersion,
   });
 
   final String id;
@@ -91,6 +95,11 @@ class ServerProfile {
   final List<ServerLine> lines;
   final String? activeLineId;
   final String? avatarUrl;
+  final String? projectName;
+  final String? serverVersion;
+
+  ServerProject? get project =>
+      ServerProject.fromProjectName(projectName?.trim() ?? '');
 
   factory ServerProfile.fromJson(Map<String, dynamic> json) {
     final id = json['id']?.toString().trim() ?? '';
@@ -111,6 +120,8 @@ class ServerProfile {
       lines: lines,
       activeLineId: json['active_line_id']?.toString(),
       avatarUrl: _optionalString(json['avatar_url']),
+      projectName: _optionalString(json['project_name']),
+      serverVersion: _optionalString(json['server_version']),
     );
   }
 
@@ -120,6 +131,10 @@ class ServerProfile {
     'lines': lines.map((line) => line.toJson()).toList(),
     if (activeLineId != null) 'active_line_id': activeLineId,
     if (avatarUrl != null && avatarUrl!.isNotEmpty) 'avatar_url': avatarUrl,
+    if (projectName != null && projectName!.isNotEmpty)
+      'project_name': projectName,
+    if (serverVersion != null && serverVersion!.isNotEmpty)
+      'server_version': serverVersion,
   };
 
   ServerLine? get activeLine {
@@ -139,6 +154,8 @@ class ServerProfile {
     List<ServerLine>? lines,
     String? activeLineId,
     String? avatarUrl,
+    String? projectName,
+    String? serverVersion,
   }) {
     return ServerProfile(
       id: id ?? this.id,
@@ -146,6 +163,8 @@ class ServerProfile {
       lines: lines ?? this.lines,
       activeLineId: activeLineId ?? this.activeLineId,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      projectName: projectName ?? this.projectName,
+      serverVersion: serverVersion ?? this.serverVersion,
     );
   }
 
@@ -157,11 +176,20 @@ class ServerProfile {
           other.name == name &&
           listEquals(other.lines, lines) &&
           other.activeLineId == activeLineId &&
-          other.avatarUrl == avatarUrl;
+          other.avatarUrl == avatarUrl &&
+          other.projectName == projectName &&
+          other.serverVersion == serverVersion;
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, Object.hashAll(lines), activeLineId, avatarUrl);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    Object.hashAll(lines),
+    activeLineId,
+    avatarUrl,
+    projectName,
+    serverVersion,
+  );
 }
 
 String? _optionalString(Object? value) {

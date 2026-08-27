@@ -121,6 +121,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
         .selectPreferred(
           current: currentLine,
           alternatives: candidates.where((line) => line.id != currentLine.id),
+          expectedProjectName: server.projectName,
         );
     final selected = selection.selected;
     if (selected == null) {
@@ -139,7 +140,12 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
         )
         .toList();
     await saveServer(
-      server.copyWith(lines: testedLines, activeLineId: selected.line.id),
+      server.copyWith(
+        lines: testedLines,
+        activeLineId: selected.line.id,
+        projectName: selected.versionInfo?.projectName ?? server.projectName,
+        serverVersion: selected.versionInfo?.version ?? server.serverVersion,
+      ),
       select: true,
     );
     ref.read(serverSelectionReadyProvider.notifier).state = true;
@@ -164,6 +170,15 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
         previousServer = item;
         break;
       }
+    }
+    final previousProject = previousServer?.projectName?.trim().toLowerCase();
+    final nextProject = server.projectName?.trim().toLowerCase();
+    if (previousProject != null &&
+        previousProject.isNotEmpty &&
+        nextProject != null &&
+        nextProject.isNotEmpty &&
+        previousProject != nextProject) {
+      throw StateError('同一服务器的线路必须属于同一项目，请新建服务器配置');
     }
     final previousBaseUrl = previousServer?.activeLine?.baseUrl;
     final updatedServerBaseUrl = server.activeLine?.baseUrl;
@@ -284,8 +299,10 @@ ServerLine _lineForUrl(List<ServerLine> lines, String baseUrl) {
 }
 
 String _lineSelectionFailureMessage(ServerLineSelection selection) {
-  if (selection.results.any((result) => result.incompatible)) {
-    return serverCompatibilityRequirementMessage;
+  final incompatible = selection.results.where((result) => result.incompatible);
+  if (incompatible.isNotEmpty) {
+    final message = incompatible.first.message.trim();
+    return message.isEmpty ? serverCompatibilityRequirementMessage : message;
   }
   final detail = selection.results
       .map((result) => '${result.line.name}：${result.message}')

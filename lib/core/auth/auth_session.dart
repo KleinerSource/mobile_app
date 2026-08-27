@@ -16,14 +16,24 @@ class AuthSession {
 
   factory AuthSession.fromJson(Map<String, dynamic> json) {
     return AuthSession(
-      accessToken: json['access_token']?.toString() ?? '',
+      accessToken:
+          json['access_token']?.toString() ?? json['token']?.toString() ?? '',
       refreshToken: json['refresh_token']?.toString() ?? '',
-      expiresIn: (json['expires_in'] as num?)?.toInt() ?? 0,
+      expiresIn: _intValue(json['expires_in']),
       issuedAt: DateTime.now().toUtc(),
     );
   }
 
   bool get isUsable => accessToken.isNotEmpty && refreshToken.isNotEmpty;
+
+  bool get hasAccessToken => accessToken.isNotEmpty;
+
+  bool get canRefresh => refreshToken.isNotEmpty;
+}
+
+int _intValue(Object? value) {
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString().trim() ?? '') ?? 0;
 }
 
 @immutable

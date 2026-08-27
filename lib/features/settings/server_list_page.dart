@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
+import '../../core/config/server_line_probe.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
@@ -142,19 +143,33 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
       builder: (_) => _ServerEditorDialog(existing: existing),
     );
     if (draft == null || !mounted) return;
+    final line =
+        existing?.activeLine ??
+        ServerLine(
+          id: 'main-${DateTime.now().microsecondsSinceEpoch}',
+          name: '主线路',
+          baseUrl: draft.baseUrl,
+        );
+    ServerLineProbeResult? probe;
+    if (existing == null) {
+      probe = await probeServerLine(line);
+      if (!probe.success) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('连接失败：${probe.message}')));
+        }
+        return;
+      }
+    }
     final server = ServerProfile(
       id: existing?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
       name: draft.name,
-      lines:
-          existing?.lines ??
-          [
-            ServerLine(
-              id: 'main-${DateTime.now().microsecondsSinceEpoch}',
-              name: '主线路',
-              baseUrl: draft.baseUrl,
-            ),
-          ],
-      activeLineId: existing?.activeLineId,
+      lines: existing?.lines ?? [line],
+      activeLineId: existing?.activeLineId ?? line.id,
+      avatarUrl: existing?.avatarUrl,
+      projectName: existing?.projectName ?? probe?.versionInfo?.projectName,
+      serverVersion: existing?.serverVersion ?? probe?.versionInfo?.version,
     );
     try {
       await ref.read(serverConfigProvider.notifier).saveServer(server);
@@ -260,7 +275,15 @@ class _ServerListCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${server.lines.length} 条线路',
+                      [
+                        '${server.lines.length} 条线路',
+                        if (server.project != null)
+                          server.project!.displayName
+                        else if (server.projectName?.isNotEmpty == true)
+                          server.projectName!,
+                        if (server.serverVersion?.isNotEmpty == true)
+                          server.serverVersion!,
+                      ].join(' · '),
                       style: AppText.meta(context),
                     ),
                   ],

@@ -73,7 +73,19 @@ class PlayerPage extends ConsumerStatefulWidget {
     this.queueIndex = 0,
   });
 
-  final int movieId;
+  /// 打开外部/第三方直连媒体。该模式不需要 OMM 的整数影片 ID，
+  /// 也不会请求播放决策或上报 OMM 观看记录。
+  const PlayerPage.direct({
+    super.key,
+    required this.title,
+    required this.directUrl,
+    this.engineKind,
+  }) : movieId = null,
+       startPositionSec = 0,
+       queue = const <PlayerQueueItem>[],
+       queueIndex = 0;
+
+  final int? movieId;
   final String title;
   final String? directUrl;
   final PlaybackEngineKind? engineKind;
@@ -101,6 +113,23 @@ class PlayerPage extends ConsumerStatefulWidget {
           startPositionSec: startPositionSec,
           queue: queue,
           queueIndex: queueIndex,
+        ),
+      ),
+    );
+  }
+
+  static Future<void> openDirect(
+    BuildContext context, {
+    required String title,
+    required String directUrl,
+    PlaybackEngineKind? engineKind,
+  }) {
+    return Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PlayerPage.direct(
+          title: title,
+          directUrl: directUrl,
+          engineKind: engineKind,
         ),
       ),
     );
@@ -340,13 +369,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _volumeChangedSub?.cancel();
     _volumeChangedSub = null;
     if (!wasLeaving) unawaited(_reportProgress());
-    if (_transcodeSessionActive) {
+    final movieId = widget.movieId;
+    if (_transcodeSessionActive && movieId != null) {
       _transcodeSessionActive = false;
       try {
         final stopFuture = ref
             .read(requiredApiClientProvider)
             .playback
-            .stop(widget.movieId);
+            .stop(movieId);
         unawaited(stopFuture);
       } catch (_) {}
     }
@@ -357,7 +387,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _reportProgress() {
-    if (_isDirectPlayback) return Future<void>.value();
+    final movieId = widget.movieId;
+    if (_isDirectPlayback || movieId == null) return Future<void>.value();
     final next = _progressReportChain.then<void>((_) async {
       final position = _host.position.inSeconds;
       final duration = _host.duration.inSeconds;
@@ -371,7 +402,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         await ref
             .read(moviesRepositoryProvider)
             .upsertWatchRecord(
-              widget.movieId,
+              movieId,
               positionSec: positionSec,
               durationSec: durationSec,
               completed: positionSec >= (durationSec * 0.95),
@@ -458,7 +489,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         );
         if (!mounted || generation != _loadGeneration) return;
 
-        await _openDirectWithClientFallback(trailerUrl, null, play: shouldPlay);
+        await _openDirectWithClientFallback(
+          trailerUrl,
+          fallbackResume,
+          play: shouldPlay,
+        );
         if (!mounted || generation != _loadGeneration) {
           await _stopPlayer();
           return;
@@ -472,6 +507,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
       final cfg = ref.read(serverConfigProvider);
       if (cfg == null) throw StateError('未配置服务器');
+      final movieId = widget.movieId;
+      if (movieId == null) throw StateError('播放影片 ID 缺失');
       final client = ref.read(requiredApiClientProvider);
       final token = await ref.read(authSessionRepositoryProvider).accessToken();
       if (!mounted || generation != _loadGeneration) return;
@@ -485,7 +522,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       final decision =
           cachedDecision ??
           await client.playback.decision(
-            widget.movieId,
+            movieId,
             _clientCaps(
               selectedQuality,
               forceVideoTranscode: forceVideoTranscode,
@@ -553,7 +590,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         try {
           savedRecord = await ref
               .read(moviesRepositoryProvider)
-              .watchRecord(widget.movieId);
+              .watchRecord(movieId);
         } catch (_) {
           // 观看记录是续播增强能力，读取失败不能阻塞首次播放。
         }
@@ -644,11 +681,25 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         mediaInfo: mediaInfo,
       );
     }
-    _usingHls = false;
+    // 直连模式也可能是 dbonline 返回的 HLS 清单。记录真实媒体类型，
+    // 这样后台恢复时会重新打开清单，而不是对已停止的会话直接 play。
+    _usingHls = _isHlsUrl(url, formatHint);
     _pictureInPictureUrl = _pictureInPictureSourceUrl(url);
     _pictureInPictureHeaders = headers == null
         ? null
         : Map<String, String>.from(headers);
+  }
+
+  bool _isHlsUrl(String url, String? formatHint) {
+    final hint = formatHint?.trim().toLowerCase() ?? '';
+    if (hint == 'm3u8' ||
+        hint == 'hls' ||
+        hint == 'application/vnd.apple.mpegurl') {
+      return true;
+    }
+    final uri = Uri.tryParse(url.trim());
+    final path = uri?.path.toLowerCase() ?? url.trim().toLowerCase();
+    return path.endsWith('.m3u8');
   }
 
   Future<void> _openBackendStream(
@@ -1196,8 +1247,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     // SSE 是长连接，cancel() 的 Future 可能要等到底层 HTTP stream 完整收尾。
     // 先让旧回调失效并异步取消，不能让它阻塞后续的清晰度切换队列。
     _cancelTranscodeMonitoring();
-    final stopFuture = shouldStopServerSession
-        ? ref.read(requiredApiClientProvider).playback.stop(widget.movieId)
+    final movieId = widget.movieId;
+    final stopFuture = shouldStopServerSession && movieId != null
+        ? ref.read(requiredApiClientProvider).playback.stop(movieId)
         : null;
     if (!shouldStopServerSession) return;
     if (stopFuture == null) return;
@@ -1228,6 +1280,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     String quality,
     playback_models.PlaybackDecision decision,
   ) {
+    final movieId = widget.movieId;
+    if (movieId == null) return;
     _cancelTranscodeMonitoring();
     _transcodePollTimer?.cancel();
     final monitoringGeneration = _transcodeMonitoringGeneration;
@@ -1244,7 +1298,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final subtitleTrackId = streamQuery['subtitle_track_id'];
     _eventsSub = api
         .events(
-          widget.movieId,
+          movieId,
           quality: sessionQuality,
           mode: mode,
           audioStreamIndex: audioStreamIndex,
@@ -1323,12 +1377,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         !_transcodeSessionActive) {
       return;
     }
+    final movieId = widget.movieId;
+    if (movieId == null) return;
     try {
       final status = await ref
           .read(requiredApiClientProvider)
           .playback
           .status(
-            widget.movieId,
+            movieId,
             quality: quality,
             mode: mode,
             audioStreamIndex: audioStreamIndex,
@@ -1341,7 +1397,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   bool _isCurrentTranscodeMonitoring(int generation) {
-    return mounted && !_isLeaving && generation == _transcodeMonitoringGeneration;
+    return mounted &&
+        !_isLeaving &&
+        generation == _transcodeMonitoringGeneration;
   }
 
   void _applyTranscodeStatus(playback_models.TranscodeStatus status) {

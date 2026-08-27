@@ -21,7 +21,7 @@ void main() {
     expect(store.values, isEmpty);
   });
 
-  test('不保存不完整会话', () async {
+  test('dbonline token-only 会话可以保存', () async {
     final store = _MemoryTokenStore();
     final repository = AuthSessionRepository(store: store);
     const incomplete = AuthSession(
@@ -31,8 +31,9 @@ void main() {
     );
 
     await repository.save(incomplete);
-    expect(await repository.current(), isNull);
-    expect(store.values, isEmpty);
+    expect((await repository.current())?.accessToken, 'access-token');
+    expect((await repository.current())?.refreshToken, isEmpty);
+    expect(store.values.values, contains('access-token'));
   });
 
   test('不同服务器使用彼此隔离的会话', () async {
@@ -62,10 +63,7 @@ void main() {
     expect(await repository.accessToken(), 'access-a');
     repository.setActiveServerId('server-b');
     expect(await repository.accessToken(), 'access-b');
-    expect(
-      store.values.keys,
-      everyElement(startsWith('omm.auth.server.')),
-    );
+    expect(store.values.keys, everyElement(startsWith('omm.auth.server.')));
   });
 
   test('首次选择服务器时会迁移旧版全局会话', () async {
@@ -81,10 +79,7 @@ void main() {
 
     repository.setActiveServerId('server-a');
     expect(await repository.accessToken(), 'legacy-access');
-    expect(
-      store.values.keys,
-      everyElement(startsWith('omm.auth.server.')),
-    );
+    expect(store.values.keys, everyElement(startsWith('omm.auth.server.')));
   });
 
   test('固定作用域客户端不会因主仓库切换服务器而串用会话', () async {

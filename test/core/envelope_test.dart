@@ -23,6 +23,19 @@ void main() {
         throwsA(isA<ApiException>().having((e) => e.message, 'message', '不行')),
       );
     });
+
+    test('success=false 支持 dbonline error 字段', () {
+      expect(
+        () => unwrapStd<void>({
+          'success': false,
+          'error': '密码错误',
+          'data': null,
+        }, (_) {}),
+        throwsA(
+          isA<ApiException>().having((e) => e.message, 'message', '密码错误'),
+        ),
+      );
+    });
   });
 
   group('unwrapMovieList', () {

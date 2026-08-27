@@ -11,6 +11,7 @@ import '../config/server_config.dart';
 import 'api_exception.dart';
 import 'envelope.dart';
 import 'error_mapper.dart';
+import 'server_compatibility.dart';
 
 // 缓存的 User-Agent：形如 omm/0.10.6，避免每个请求都读取 PackageInfo。
 String? _cachedUserAgent;
@@ -115,7 +116,9 @@ Dio buildDio(
               response: resp,
               type: DioExceptionType.badResponse,
               error: ApiException(
-                (data['message'] as String?) ?? '操作失败',
+                data['message']?.toString() ??
+                    data['error']?.toString() ??
+                    '操作失败',
                 status: resp.statusCode,
                 data: data['data'],
                 requestId: resp.headers.value('x-request-id'),
@@ -135,6 +138,7 @@ Dio buildDio(
                 : null);
         final canRefresh =
             sessionRepository != null &&
+            config.activeServer?.project != ServerProject.dbOnline &&
             status == 401 &&
             options.extra['skipRefresh'] != true &&
             options.extra['authRetried'] != true &&

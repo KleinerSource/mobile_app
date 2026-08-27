@@ -59,6 +59,12 @@ void main() {
       expect(ex.message, '已存在');
     });
 
+    test('回落 dbonline error 字段', () {
+      final ex = mapDioError(_resp(401, {'error': '密码错误'}));
+      expect(ex.message, '密码错误');
+      expect(ex.status, 401);
+    });
+
     test('二进制 JSON 错误仍解析业务 message 和 data', () {
       final ex = mapDioError(
         _resp(

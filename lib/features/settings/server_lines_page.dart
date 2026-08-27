@@ -359,9 +359,12 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       _testingIds.addAll(lines.map((line) => line.id));
       _testResults.clear();
     });
+    final initialConfig = ref.read(serverConfigProvider);
+    final server = initialConfig == null ? null : _serverFor(initialConfig);
     final batch = _probeCoordinator.probeAll(
       lines,
       onResult: _recordProbeResult,
+      expectedProjectName: server?.projectName,
     );
     try {
       final selected = await batch.firstAvailable;
@@ -503,6 +506,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       final batch = _probeCoordinator.probeAll(
         fallbackLines,
         onResult: _recordProbeResult,
+        expectedProjectName: server.projectName,
       );
       final selected = await batch.firstAvailable;
       if (!mounted) return;
@@ -583,7 +587,11 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       _testingIds.add(line.id);
       _testResults.remove(line.id);
     });
-    final result = await _probeCoordinator.probeAll([line]).firstAvailable;
+    final config = ref.read(serverConfigProvider);
+    final server = config == null ? null : _serverFor(config);
+    final result = await _probeCoordinator.probeAll([
+      line,
+    ], expectedProjectName: server?.projectName).firstAvailable;
     final resolved = result ?? ServerLineProbeResult.failure(line, '线路没有响应');
     if (!mounted) return resolved;
     setState(() {
@@ -626,10 +634,16 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       orElse: () =>
           lines.firstWhere((line) => line.enabled, orElse: () => lines.first),
     );
+    final versionInfo = _testResults[selectedLine.id]?.versionInfo;
     await ref
         .read(serverConfigProvider.notifier)
         .saveServer(
-          server.copyWith(lines: lines, activeLineId: selectedLine.id),
+          server.copyWith(
+            lines: lines,
+            activeLineId: selectedLine.id,
+            projectName: versionInfo?.projectName ?? server.projectName,
+            serverVersion: versionInfo?.version ?? server.serverVersion,
+          ),
           select: config?.activeServerId == server.id,
         );
     if (mounted) setState(() => _lines = List<ServerLine>.of(lines));

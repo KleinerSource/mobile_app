@@ -193,6 +193,8 @@ class ServerConfigRepository {
               ? '服务器 ${servers.length + 1}'
               : server.name.trim(),
           avatarUrl: server.avatarUrl,
+          projectName: server.projectName,
+          serverVersion: server.serverVersion,
           lines: lines,
           activeLineId: activeLineId,
         ),

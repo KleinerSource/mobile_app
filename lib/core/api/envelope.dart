@@ -7,7 +7,7 @@ T unwrapStd<T>(Object? raw, T Function(Object?) decode) {
   }
   if (raw['success'] != true) {
     throw ApiException(
-      (raw['message'] as String?) ?? '操作失败',
+      raw['message']?.toString() ?? raw['error']?.toString() ?? '操作失败',
       data: raw['data'],
     );
   }
@@ -23,7 +23,7 @@ PagedResult<T> unwrapMovieList<T>(
   }
   if (raw['success'] != true) {
     throw ApiException(
-      (raw['message'] as String?) ?? '操作失败',
+      raw['message']?.toString() ?? raw['error']?.toString() ?? '操作失败',
       data: raw['data'],
     );
   }
@@ -55,7 +55,7 @@ PagedResult<T> unwrapTopLevelList<T>(
   }
   if (raw['success'] != true) {
     throw ApiException(
-      (raw['message'] as String?) ?? '操作失败',
+      raw['message']?.toString() ?? raw['error']?.toString() ?? '操作失败',
       data: raw['data'],
     );
   }
@@ -83,7 +83,7 @@ OptionsResult<T> unwrapOptions<T>(
   }
   if (raw['success'] != true) {
     throw ApiException(
-      (raw['message'] as String?) ?? '操作失败',
+      raw['message']?.toString() ?? raw['error']?.toString() ?? '操作失败',
       data: raw['data'],
     );
   }

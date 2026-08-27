@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/server_compatibility.dart';
+import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -12,25 +15,28 @@ import '../actors/actor_management_page.dart';
 import '../audio/audio_management_page.dart';
 import '../favorites/favorites_page.dart';
 import '../home/home_page.dart';
+import '../db_online/db_online_home_page.dart';
 import '../libraries/libraries_page.dart';
 import '../movies/movies_page.dart';
 import '../resources/resource_list_page.dart';
 import '../resources/resources_repository.dart';
 import '../search/search_page.dart';
 import '../tasks/task_center_page.dart';
+import '../settings/settings_page.dart';
 
 /// omm 主框架 · 设计稿 4 Tab 悬浮胶囊
 ///
 /// Home / Library / Search / You
-class MainShell extends StatefulWidget {
+class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
 
   @override
-  State<MainShell> createState() => _MainShellState();
+  ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends ConsumerState<MainShell> {
   int _index = 0;
+  ServerProject? _lastProject;
 
   // 各 Tab 独立的回顶控制器：无自定义控制器的 Tab 页（首页/搜索）通过
   // PrimaryScrollController 自动挂接，状态栏回顶由 StatusBarScrollToTop
@@ -53,6 +59,16 @@ class _MainShellState extends State<MainShell> {
     if (index == _index) return;
     AppHaptics.selection();
     setState(() => _index = index);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final project = ref.read(serverConfigProvider)?.activeServer?.project;
+    if (_lastProject != null && project != _lastProject && _index != 0) {
+      _index = 0;
+    }
+    _lastProject = project;
   }
 
   List<GlassMenuEntry<_YouQuickAction>> _quickMenuEntries(
@@ -146,8 +162,14 @@ class _MainShellState extends State<MainShell> {
     ).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
-  List<_TabSpec> _tabsFor(BuildContext context) {
+  List<_TabSpec> _tabsFor(BuildContext context, {required bool dbOnline}) {
     final l = AppL10n.of(context);
+    if (dbOnline) {
+      return [
+        _TabSpec(label: l.tabHome, icon: _TabIcon.home),
+        _TabSpec(label: l.settingsTitle, icon: _TabIcon.you),
+      ];
+    }
     return [
       _TabSpec(label: l.tabHome, icon: _TabIcon.home),
       _TabSpec(label: l.tabLibrary, icon: _TabIcon.library),
@@ -156,12 +178,12 @@ class _MainShellState extends State<MainShell> {
     ];
   }
 
-  Widget _bodyFor(int i) {
+  Widget _bodyFor(int i, {required bool dbOnline}) {
     switch (i) {
       case 0:
-        return const HomePage();
+        return dbOnline ? const DbOnlineHomePage() : const HomePage();
       case 1:
-        return const MoviesPage();
+        return dbOnline ? const SettingsPage() : const MoviesPage();
       case 2:
         return const SearchPage();
       case 3:
@@ -174,7 +196,16 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final tabs = _tabsFor(context);
+    final dbOnline =
+        ref.watch(serverConfigProvider)?.activeServer?.project ==
+        ServerProject.dbOnline;
+    if (_lastProject != null &&
+        (_lastProject == ServerProject.dbOnline) != dbOnline &&
+        _index != 0) {
+      _index = 0;
+    }
+    _lastProject = dbOnline ? ServerProject.dbOnline : ServerProject.ohMyMedia;
+    final tabs = _tabsFor(context, dbOnline: dbOnline);
     return Scaffold(
       extendBody: true,
       backgroundColor: c.bg,
@@ -186,7 +217,7 @@ class _MainShellState extends State<MainShell> {
               active: i == _index,
               child: StatusBarScrollToTop(
                 scrollController: _tabScrollControllers[i],
-                child: _bodyFor(i),
+                child: _bodyFor(i, dbOnline: dbOnline),
               ),
             ),
         ],

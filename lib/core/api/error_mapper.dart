@@ -51,7 +51,7 @@ ApiException mapDioError(DioException e) {
         data: data['data'],
       );
     }
-    final msg = data['message'];
+    final msg = data['message'] ?? data['error'];
     if (msg is String && msg.isNotEmpty) {
       return ApiException(
         msg,

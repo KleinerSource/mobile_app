@@ -2,12 +2,25 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/api/services/auth_api.dart';
 
 void main() {
   test('鉴权 API 正确解包 Response.data 并覆盖完整会话路径', () async {
     final adapter = _AuthAdapter();
-    final api = AuthApi(_dio(adapter));
+    final dio = _dio(adapter);
+    Object? loginRequestData;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (options.uri.path.endsWith('/auth/login')) {
+            loginRequestData = options.data;
+          }
+          handler.next(options);
+        },
+      ),
+    );
+    final api = AuthApi(dio);
 
     final status = await api.status();
     final config = await api.config();
@@ -30,6 +43,7 @@ void main() {
     expect(config.configured, isTrue);
     expect(updatedConfig.refreshTokenExpireDays, 14);
     expect(session.accessToken, 'access-token');
+    expect(loginRequestData, {'password': 'password', 'totp_code': '123456'});
     expect(refreshed.refreshToken, 'refresh-token');
     expect(totp.secret, 'TOTPSECRET');
     expect(verified, isTrue);
@@ -46,6 +60,17 @@ void main() {
       '/api/auth/logout',
     ]);
     expect(adapter.refreshAuthorization, 'Bearer refresh-token');
+  });
+
+  test('dbonline token-only 登录会话可解析', () {
+    final session = AuthSession.fromJson(const {
+      'token': 'db-token',
+      'expires_in': 86400,
+    });
+    expect(session.accessToken, 'db-token');
+    expect(session.refreshToken, isEmpty);
+    expect(session.hasAccessToken, isTrue);
+    expect(session.isUsable, isFalse);
   });
 }
 
