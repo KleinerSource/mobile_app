@@ -218,4 +218,46 @@ void main() {
       'https://db.example',
     );
   });
+
+  testWidgets('头像横向滚动区域延伸到屏幕边缘', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        for (var i = 0; i < 6; i++)
+          {
+            'id': 'server-$i',
+            'name': '服务器 $i',
+            'lines': [
+              {
+                'id': 'line-$i',
+                'name': '主线路',
+                'base_url': 'https://server-$i.example',
+              },
+            ],
+            'active_line_id': 'line-$i',
+            'project_name': 'db_online',
+          },
+      ]),
+      'server.active_server_id': 'server-0',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: const MaterialApp(home: ServerSelectionPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final horizontalScrollView = find.byWidgetPredicate(
+      (widget) =>
+          widget is SingleChildScrollView &&
+          widget.scrollDirection == Axis.horizontal,
+    );
+    expect(horizontalScrollView, findsOneWidget);
+    expect(
+      tester.getSize(horizontalScrollView).width,
+      tester.getSize(find.byType(Scaffold)).width,
+    );
+  });
 }

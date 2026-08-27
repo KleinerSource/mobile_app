@@ -11,6 +11,7 @@ import '../../core/models/system.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/server_avatar.dart';
 import '../home/server_switch_transition.dart';
@@ -52,47 +53,57 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 48, 24, 48),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _BrandHeader(colors: colors),
-                    const SizedBox(height: 42),
-                    Text(
-                      servers.isEmpty ? '添加服务器' : '选择服务器',
-                      textAlign: TextAlign.center,
-                      style: AppText.pageTitle(context).copyWith(fontSize: 30),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      servers.isEmpty ? '还没有配置服务器，点击头像添加。' : '选择要连接的服务器',
-                      textAlign: TextAlign.center,
-                      style: AppText.body(
-                        context,
-                      ).copyWith(color: colors.muted, fontSize: 15),
-                    ),
-                    const SizedBox(height: 34),
-                    if (servers.isEmpty)
-                      _AddServerCard(onTap: _openCreateServer)
-                    else
-                      _ServerStrip(
-                        servers: servers,
-                        transition: transition,
-                        profileFor: _profileFor,
-                        cachedProfileFor: _cachedProfileFor,
-                        onSelect: (server) => unawaited(_selectServer(server)),
-                        onAdd: _openCreateServer,
-                        onLongPress: (server) =>
-                            unawaited(_showServerActions(server)),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 48),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _BrandHeader(colors: colors),
+                          const SizedBox(height: 42),
+                          Text(
+                            servers.isEmpty ? '添加服务器' : '选择服务器',
+                            textAlign: TextAlign.center,
+                            style: AppText.pageTitle(
+                              context,
+                            ).copyWith(fontSize: 30),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            servers.isEmpty ? '还没有配置服务器，点击头像添加。' : '选择要连接的服务器',
+                            textAlign: TextAlign.center,
+                            style: AppText.body(
+                              context,
+                            ).copyWith(color: colors.muted, fontSize: 15),
+                          ),
+                          const SizedBox(height: 34),
+                          if (servers.isEmpty)
+                            _AddServerCard(onTap: _openCreateServer),
+                        ],
                       ),
-                  ],
+                    ),
+                  ),
                 ),
-              ),
+                if (servers.isNotEmpty)
+                  _ServerStrip(
+                    servers: servers,
+                    transition: transition,
+                    profileFor: _profileFor,
+                    cachedProfileFor: _cachedProfileFor,
+                    onSelect: (server) => unawaited(_selectServer(server)),
+                    onAdd: _openCreateServer,
+                    onLongPress: (server) =>
+                        unawaited(_showServerActions(server)),
+                  ),
+              ],
             ),
           ),
         ),
@@ -111,24 +122,33 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     if (ref.read(serverSwitchTransitionProvider).isActive) return;
     final action = await showGlassSheet<_ServerAction>(
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('编辑服务器'),
-              onTap: () => Navigator.of(context).pop(_ServerAction.edit),
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: const Text('删除服务器'),
-              onTap: () => Navigator.of(context).pop(_ServerAction.delete),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
+      builder: (context) {
+        final c = appColors(context);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SheetHeader(
+                icon: Icons.dns_outlined,
+                title: '服务器操作',
+                subtitle: server.name,
+                padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
+              ),
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('编辑服务器'),
+                onTap: () => Navigator.of(context).pop(_ServerAction.edit),
+              ),
+              ListTile(
+                leading: Icon(Icons.delete_outline, color: c.danger),
+                title: Text('删除服务器', style: TextStyle(color: c.danger)),
+                onTap: () => Navigator.of(context).pop(_ServerAction.delete),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
     if (!mounted || action == null) return;
     switch (action) {
