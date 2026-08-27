@@ -43,15 +43,9 @@ Future<PlaybackEngineKind?> showPlaybackEnginePicker(
                   PlaybackEngineKind.ksPlayer => Icons.movie_outlined,
                 }),
                 title: Text(engineKind.label),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (engineKind == defaultEngineKind)
-                      _DefaultBadge(label: l.playerEnginePickerDefaultBadge),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right),
-                  ],
-                ),
+                trailing: engineKind == defaultEngineKind
+                    ? _DefaultBadge(label: l.playerEnginePickerDefaultBadge)
+                    : null,
                 onTap: () => Navigator.of(dialogContext).pop(engineKind),
               ),
           ],

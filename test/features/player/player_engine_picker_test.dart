@@ -39,6 +39,7 @@ void main() {
     expect(find.text('仅用于本次播放，不会修改默认设置'), findsOneWidget);
     expect(find.text('libmpv'), findsOneWidget);
     expect(find.text('KSPlayer'), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_right), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('player-engine-ksplayer')));
     await tester.pumpAndSettle();
