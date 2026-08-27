@@ -8,6 +8,7 @@ import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/features/db_online/db_online_library_page.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _PrivacyState extends PrivacyShieldNotifier {
   @override
@@ -26,6 +27,8 @@ class _ServerConfigState extends ServerConfigNotifier {
 void main() {
   testWidgets('影片库分类和排序会使用对应的 tags 请求参数', (tester) async {
     const config = ServerConfig(baseUrl: 'https://example.test');
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
     final requests = <Map<String, String>>[];
     final dio = Dio(BaseOptions(baseUrl: 'https://example.test/api'));
     dio.interceptors.add(
@@ -62,6 +65,7 @@ void main() {
       ProviderScope(
         overrides: [
           requiredApiClientProvider.overrideWithValue(ApiClient(dio)),
+          sharedPrefsProvider.overrideWithValue(prefs),
           serverConfigProvider.overrideWith(() => _ServerConfigState(config)),
           privacyShieldProvider.overrideWith(_PrivacyState.new),
         ],
