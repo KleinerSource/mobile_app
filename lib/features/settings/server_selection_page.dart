@@ -53,61 +53,68 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
       backgroundColor: colors.bg,
       body: GlowBackground(
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(vertical: 48),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: Padding(
+          child: Center(
+            child: SizedBox(
+              width: double.infinity,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 48),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _BrandHeader(colors: colors),
-                          const SizedBox(height: 42),
-                          Text(
-                            servers.isEmpty ? '添加服务器' : '选择服务器',
-                            textAlign: TextAlign.center,
-                            style: AppText.pageTitle(
-                              context,
-                            ).copyWith(fontSize: 30),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 720),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _BrandHeader(colors: colors),
+                              const SizedBox(height: 42),
+                              Text(
+                                servers.isEmpty ? '添加服务器' : '选择服务器',
+                                textAlign: TextAlign.center,
+                                style: AppText.pageTitle(
+                                  context,
+                                ).copyWith(fontSize: 30),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                servers.isEmpty
+                                    ? '还没有配置服务器，点击头像添加。'
+                                    : '选择要连接的服务器',
+                                textAlign: TextAlign.center,
+                                style: AppText.body(
+                                  context,
+                                ).copyWith(color: colors.muted, fontSize: 15),
+                              ),
+                              const SizedBox(height: 34),
+                              if (servers.isEmpty)
+                                _AddServerCard(onTap: _openCreateServer),
+                            ],
                           ),
-                          const SizedBox(height: 10),
-                          Text(
-                            servers.isEmpty ? '还没有配置服务器，点击头像添加。' : '选择要连接的服务器',
-                            textAlign: TextAlign.center,
-                            style: AppText.body(
-                              context,
-                            ).copyWith(color: colors.muted, fontSize: 15),
-                          ),
-                          const SizedBox(height: 34),
-                          if (servers.isEmpty)
-                            _AddServerCard(onTap: _openCreateServer),
-                        ],
+                        ),
                       ),
                     ),
+                    if (servers.isNotEmpty)
+                      _ServerStrip(
+                        servers: servers,
+                        transition: transition,
+                        profileFor: _profileFor,
+                        cachedProfileFor: _cachedProfileFor,
+                        onSelect: (server) => unawaited(_selectServer(server)),
+                        onAdd: _openCreateServer,
+                        onLongPress: (server) =>
+                            unawaited(_showServerActions(server)),
+                      ),
+                  ],
                   ),
                 ),
-                if (servers.isNotEmpty)
-                  _ServerStrip(
-                    servers: servers,
-                    transition: transition,
-                    profileFor: _profileFor,
-                    cachedProfileFor: _cachedProfileFor,
-                    onSelect: (server) => unawaited(_selectServer(server)),
-                    onAdd: _openCreateServer,
-                    onLongPress: (server) =>
-                        unawaited(_showServerActions(server)),
-                  ),
-              ],
+              ),
             ),
           ),
         ),
-      ),
     );
   }
 

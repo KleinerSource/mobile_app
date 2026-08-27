@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 报告版本 | v1.2 |
+| 报告版本 | v1.4 |
 | 审计日期 | 2026-08-28 |
 | 审计方式 | 源码级静态检查 |
 | 当前状态 | 第一阶段高优先级统一已实施，待运行态视觉验收 |
@@ -300,11 +300,15 @@ decoration: BoxDecoration(
 - 运行态截图、浏览器预览和像素级视觉验收，按需求未调用浏览器。
 - 选择列表行、复杂标签卡片及进度面板内部统计卡的细节进一步收敛，留作下一阶段，不影响本阶段标题/输入框/操作栏统一。
 
+### 7.5 模型选择面板安全区修复
+
+`lib/features/translation/translation_settings_page.dart` 的“选择模型”面板已移除内部重复 `SafeArea`，并按上下安全区计算最大高度。模型数量较少时面板按内容收缩；模型数量较多时仅列表滚动，顶部拖拽把手始终留在可操作区域，保留下滑关闭能力。
+
 ## 8. 验证记录
 
 - `dart format`：已执行，涉及源码格式化通过。
 - `flutter analyze --no-pub`：通过，`No issues found`。
-- `flutter test --no-pub`：通过，`All tests passed!`。
+- `flutter test --no-pub`：本次运行被工作区已有的 `lib/features/settings/server_selection_page.dart:118` 语法错误阻断；失败集中在 `server_selection_page_test.dart`，不属于本次模型选择面板改动范围。已单独重跑该测试，得到相同编译错误。待该已有改动修复后需重新执行完整测试。
 
 ## 9. 下一阶段回归入口
 

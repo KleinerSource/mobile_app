@@ -112,7 +112,16 @@ class _TranslationSettingsPageState
         context: context,
         builder: (ctx) {
           final c = appColors(ctx);
-          return SafeArea(
+          final mediaQuery = MediaQuery.of(ctx);
+          final maxHeight =
+              (mediaQuery.size.height -
+                      mediaQuery.viewPadding.top -
+                      mediaQuery.viewPadding.bottom -
+                      24)
+                  .clamp(0.0, mediaQuery.size.height)
+                  .toDouble();
+          return ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -122,6 +131,7 @@ class _TranslationSettingsPageState
                   padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
                 ),
                 Flexible(
+                  fit: FlexFit.loose,
                   child: ListView.builder(
                     shrinkWrap: true,
                     itemCount: models.length,
