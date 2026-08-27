@@ -6,6 +6,7 @@ import '../../core/api/url_resolver.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/db_online_movie.dart';
+import '../../core/platform/app_action_sheet.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/filter_chip.dart';
 import '../../shared/poster.dart';
@@ -472,15 +473,7 @@ class _PlayButton extends StatelessWidget {
       child: ElevatedButton.icon(
         onPressed: source == null
             ? null
-            : () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => DbOnlinePlaybackPage(
-                    code: movie.code,
-                    videoId: movie.videoId,
-                    sources: movie.playSources,
-                  ),
-                ),
-              ),
+            : () => _openDbOnlinePlayback(context, movie),
         style: ElevatedButton.styleFrom(
           backgroundColor: colors.text,
           foregroundColor: colors.bg,
@@ -504,6 +497,47 @@ class _PlayButton extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _openDbOnlinePlayback(
+  BuildContext context,
+  DbOnlineMovieDetail movie,
+) async {
+  final sources = movie.playSources.where((item) => item.id > 0).toList();
+  if (sources.isEmpty) return;
+
+  // 只有一个播放源时直接进入播放流程，不额外打断用户选择。
+  final source = sources.length == 1
+      ? sources.first
+      : await showAppActionSheet<DbOnlinePlaySource>(
+          context: context,
+          title: '选择播放源',
+          actions: _playSourceActions(sources),
+        );
+  if (source == null || !context.mounted) return;
+
+  await Navigator.of(context).push<void>(
+    MaterialPageRoute(
+      builder: (_) => DbOnlinePlaybackPage(
+        code: movie.code,
+        videoId: movie.videoId,
+        sources: sources,
+        initialSourceId: source.id,
+      ),
+    ),
+  );
+}
+
+List<AppActionSheetAction<DbOnlinePlaySource>> _playSourceActions(
+  List<DbOnlinePlaySource> sources,
+) {
+  return [
+    for (final item in sources)
+      AppActionSheetAction<DbOnlinePlaySource>(
+        label: item.name.trim().isEmpty ? '在线播放源 ${item.id}' : item.name.trim(),
+        value: item,
+      ),
+  ];
 }
 
 class _DetailsTable extends StatelessWidget {
@@ -578,11 +612,13 @@ class DbOnlinePlaybackPage extends ConsumerStatefulWidget {
     required this.code,
     required this.sources,
     this.videoId,
+    this.initialSourceId,
   });
 
   final String code;
   final String? videoId;
   final List<DbOnlinePlaySource> sources;
+  final int? initialSourceId;
 
   @override
   ConsumerState<DbOnlinePlaybackPage> createState() =>
@@ -595,10 +631,14 @@ class _DbOnlinePlaybackPageState extends ConsumerState<DbOnlinePlaybackPage> {
   @override
   void initState() {
     super.initState();
-    _source = widget.sources.firstWhere(
-      (item) => item.id > 0,
+    final validSources = widget.sources.where((item) => item.id > 0).toList();
+    _source = validSources.firstWhere(
+      (item) => item.id == widget.initialSourceId,
       orElse: () => const DbOnlinePlaySource(id: 0, name: ''),
     );
+    if (_source.id <= 0 && validSources.isNotEmpty) {
+      _source = validSources.first;
+    }
   }
 
   @override
@@ -614,27 +654,28 @@ class _DbOnlinePlaybackPageState extends ConsumerState<DbOnlinePlaybackPage> {
             StackTrace.empty,
           )
         : ref.watch(dbOnlinePlayEpisodesProvider(request));
+    final validSources = widget.sources.where((item) => item.id > 0).toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('在线播放')),
+      appBar: AppBar(
+        title: Text(
+          _source.name.trim().isEmpty ? '在线播放' : '在线播放 · ${_source.name}',
+        ),
+        actions: [
+          if (validSources.length > 1)
+            IconButton(
+              tooltip: '切换播放源',
+              icon: const Icon(Icons.alt_route_outlined),
+              onPressed: _switchSource,
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          if (widget.sources.where((item) => item.id > 0).length > 1)
-            DropdownButtonFormField<int>(
-              initialValue: _source.id,
-              decoration: const InputDecoration(labelText: '播放源'),
-              items: [
-                for (final item in widget.sources.where((item) => item.id > 0))
-                  DropdownMenuItem(value: item.id, child: Text(item.name)),
-              ],
-              onChanged: (id) {
-                final selected = widget.sources
-                    .where((item) => item.id == id)
-                    .firstOrNull;
-                if (selected != null) setState(() => _source = selected);
-              },
-            ),
-          const SizedBox(height: 18),
+          if (_source.name.trim().isNotEmpty) ...[
+            Text(_source.name, style: AppText.meta(context)),
+            const SizedBox(height: 18),
+          ],
           value.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => _ErrorBody(
@@ -657,6 +698,18 @@ class _DbOnlinePlaybackPageState extends ConsumerState<DbOnlinePlaybackPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _switchSource() async {
+    final validSources = widget.sources.where((item) => item.id > 0).toList();
+    if (validSources.length <= 1) return;
+    final selected = await showAppActionSheet<DbOnlinePlaySource>(
+      context: context,
+      title: '选择播放源',
+      actions: _playSourceActions(validSources),
+    );
+    if (!mounted || selected == null || selected.id == _source.id) return;
+    setState(() => _source = selected);
   }
 }
 

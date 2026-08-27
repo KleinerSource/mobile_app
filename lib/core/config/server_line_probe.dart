@@ -80,6 +80,14 @@ class ServerLineProbeCoordinator {
   final ServerLineProbe _probe;
   final Duration fallbackDelay;
 
+  /// 探测单条线路，供添加服务器等需要在保存前验证的流程复用统一逻辑。
+  Future<ServerLineProbeResult> probe(
+    ServerLine line, {
+    String? expectedProjectName,
+  }) {
+    return _safeProbe(line, expectedProjectName: expectedProjectName);
+  }
+
   ServerLineProbeBatch probeAll(
     Iterable<ServerLine> lines, {
     void Function(ServerLineProbeResult result)? onResult,

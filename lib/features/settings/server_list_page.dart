@@ -138,11 +138,24 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
   }
 
   Future<void> _showServerEditor({ServerProfile? existing}) async {
-    final draft = await showDialog<_ServerDraft>(
+    final saved = await showDialog<bool>(
       context: context,
-      builder: (_) => _ServerEditorDialog(existing: existing),
+      builder: (_) => _ServerEditorDialog(
+        existing: existing,
+        onSave: (draft) => _saveServerDraft(existing, draft),
+      ),
     );
-    if (draft == null || !mounted) return;
+    if (saved != true || !mounted) return;
+    AppHaptics.medium();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(existing == null ? '服务器已添加' : '服务器已更新')),
+    );
+  }
+
+  Future<String?> _saveServerDraft(
+    ServerProfile? existing,
+    _ServerDraft draft,
+  ) async {
     final line =
         existing?.activeLine ??
         ServerLine(
@@ -152,14 +165,11 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
         );
     ServerLineProbeResult? probe;
     if (existing == null) {
-      probe = await probeServerLine(line);
+      probe = await ref
+          .read(serverLineProbeCoordinatorProvider)
+          .probe(line);
       if (!probe.success) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('连接失败：${probe.message}')));
-        }
-        return;
+        return '连接失败：${probe.message}';
       }
     }
     final server = ServerProfile(
@@ -173,18 +183,9 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
     );
     try {
       await ref.read(serverConfigProvider.notifier).saveServer(server);
-      if (mounted) {
-        AppHaptics.medium();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(existing == null ? '服务器已添加' : '服务器已更新')),
-        );
-      }
+      return null;
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('保存失败：$error')));
-      }
+      return '保存失败：$error';
     }
   }
 
@@ -336,9 +337,10 @@ class _ServerDraft {
 }
 
 class _ServerEditorDialog extends StatefulWidget {
-  const _ServerEditorDialog({this.existing});
+  const _ServerEditorDialog({this.existing, required this.onSave});
 
   final ServerProfile? existing;
+  final Future<String?> Function(_ServerDraft draft) onSave;
 
   @override
   State<_ServerEditorDialog> createState() => _ServerEditorDialogState();
@@ -348,6 +350,8 @@ class _ServerEditorDialogState extends State<_ServerEditorDialog> {
   late final TextEditingController _name;
   late final TextEditingController _baseUrl;
   final _formKey = GlobalKey<FormState>();
+  bool _saving = false;
+  String? _error;
 
   @override
   void initState() {
@@ -363,6 +367,36 @@ class _ServerEditorDialogState extends State<_ServerEditorDialog> {
     _name.dispose();
     _baseUrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    final draft = _ServerDraft(
+      name: _name.text.trim(),
+      baseUrl: ServerConfig.normalize(_baseUrl.text),
+    );
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final error = await widget.onSave(draft);
+      if (!mounted) return;
+      if (error != null && error.trim().isNotEmpty) {
+        setState(() {
+          _saving = false;
+          _error = error;
+        });
+        return;
+      }
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = '保存失败：$error';
+      });
+    }
   }
 
   @override
@@ -404,26 +438,36 @@ class _ServerEditorDialogState extends State<_ServerEditorDialog> {
                   return null;
                 },
               ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _error!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _saving ? null : () => Navigator.pop(context),
           child: const Text('取消'),
         ),
         FilledButton(
-          onPressed: () {
-            if (!_formKey.currentState!.validate()) return;
-            Navigator.pop(
-              context,
-              _ServerDraft(
-                name: _name.text.trim(),
-                baseUrl: ServerConfig.normalize(_baseUrl.text),
-              ),
-            );
-          },
-          child: const Text('保存'),
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('保存'),
         ),
       ],
     );
