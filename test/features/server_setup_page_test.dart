@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/config/server_line_probe.dart';
 import 'package:omm/features/settings/server_list_page.dart';
 import 'package:omm/features/settings/server_setup_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -98,6 +99,73 @@ void main() {
     expect(fields[2].controller?.text, '8001');
     expect(find.text('HTTPS'), findsOneWidget);
     expect(find.text('已回填上次保存的服务器地址，可直接修改后重新测试。'), findsNothing);
+  });
+
+  testWidgets('编辑服务器时拒绝改成其他服务器的重复连接', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'first',
+          'name': '第一台服务器',
+          'lines': [
+            {
+              'id': 'first-line',
+              'name': '主线路',
+              'base_url': 'http://first.example:8001',
+            },
+          ],
+          'active_line_id': 'first-line',
+          'project_name': 'oh-my-media',
+        },
+        {
+          'id': 'second',
+          'name': '第二台服务器',
+          'lines': [
+            {
+              'id': 'second-line',
+              'name': '主线路',
+              'base_url': 'http://second.example:8001',
+            },
+          ],
+          'active_line_id': 'second-line',
+          'project_name': 'oh-my-media',
+        },
+      ]),
+      'server.active_server_id': 'first',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          serverLineProbeCoordinatorProvider.overrideWithValue(
+            ServerLineProbeCoordinator(
+              probe: (line) async => ServerLineProbeResult.success(
+                line,
+                8,
+                versionInfo: const ServerVersionInfo(
+                  projectName: 'oh-my-media',
+                  version: '2.0.0',
+                ),
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ServerSetupPage(editing: true, serverId: 'first'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(1), 'second.example');
+    await tester.tap(find.text('测试并保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('已存在相同连接'), findsOneWidget);
+    expect(find.text('更换服务器'), findsOneWidget);
   });
 
   testWidgets('服务器列表添加入口打开统一服务器页面', (tester) async {

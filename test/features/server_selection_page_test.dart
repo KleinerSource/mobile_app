@@ -63,6 +63,51 @@ void main() {
     expect(prefs.getString('server.servers'), contains('oh-my-media'));
   });
 
+  testWidgets('新增服务器拒绝重复的类型和连接地址', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          serverLineProbeCoordinatorProvider.overrideWithValue(
+            ServerLineProbeCoordinator(
+              probe: (line) async => ServerLineProbeResult.success(
+                line,
+                8,
+                versionInfo: const ServerVersionInfo(
+                  projectName: 'oh-my-media',
+                  version: '2.0.0',
+                ),
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(home: ServerSelectionPage()),
+      ),
+    );
+
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+    await _enterHttpFields(tester, '第一台服务器', 'media.example', '8001');
+    await tester.tap(find.text('测试并保存'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+    await _enterHttpFields(tester, '重复服务器', 'media.example', '8001');
+    await tester.tap(find.text('测试并保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('已存在相同连接'), findsOneWidget);
+    expect(find.text('连接到媒体服务器'), findsOneWidget);
+    expect(
+      (jsonDecode(prefs.getString('server.servers')!) as List),
+      hasLength(1),
+    );
+  });
+
   testWidgets('初始化页连续添加两台服务器时保留第一台', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();

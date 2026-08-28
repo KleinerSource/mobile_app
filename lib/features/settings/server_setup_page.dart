@@ -110,16 +110,25 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     final endpoint = _buildHttpEndpoint();
     if (endpoint == null) return;
     final normalized = ServerConfig.normalize(endpoint);
+    final existing =
+        ref.read(serverConfigProvider) ??
+        ref.read(serverConfigRepoProvider).load();
+    final editingServer = _findEditingServer(existing);
+    if (_isDuplicateServer(
+      existing,
+      project,
+      normalized,
+      excludingServerId: editingServer?.id,
+    )) {
+      _showError('已存在相同连接的${_projectLabel(project)}服务器，不能重复添加');
+      return;
+    }
 
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final existing =
-          ref.read(serverConfigProvider) ??
-          ref.read(serverConfigRepoProvider).load();
-      final editingServer = _findEditingServer(existing);
       final currentLine = editingServer?.activeLine;
       final sameServer =
           currentLine != null &&
@@ -196,6 +205,18 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     final uri = project == ServerProject.webDav
         ? _buildWebDavEndpoint(_scheme, host, port, share)
         : null;
+    final endpoint = project == ServerProject.smb
+        ? _buildSmbEndpoint(host, port, share)
+        : uri!;
+    if (_isDuplicateServer(
+      existing,
+      project,
+      endpoint,
+      excludingServerId: editingServer?.id,
+    )) {
+      _showError('已存在相同连接的${_projectLabel(project)}服务器，不能重复添加');
+      return;
+    }
     final config = project == ServerProject.smb
         ? FileSourceConfig.smb(
             id: sourceId,
@@ -248,9 +269,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
             editingServer?.activeLine?.id ??
             'main-${DateTime.now().microsecondsSinceEpoch}',
         name: '主线路',
-        baseUrl: project == ServerProject.smb
-            ? _buildSmbEndpoint(host, port, share)
-            : uri!,
+        baseUrl: endpoint,
       );
       final server = editingServer == null
           ? ServerProfile(
@@ -337,6 +356,41 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       if (config.serverId == serverId) return config;
     }
     return null;
+  }
+
+  bool _isDuplicateServer(
+    ServerConfig? config,
+    ServerProject project,
+    String endpoint, {
+    String? excludingServerId,
+  }) {
+    final normalizedEndpoint = _normalizeServerEndpoint(endpoint);
+    return config?.servers.any((server) {
+          if (server.id == excludingServerId || server.project != project) {
+            return false;
+          }
+          return server.lines.any(
+            (line) =>
+                _normalizeServerEndpoint(line.baseUrl) == normalizedEndpoint,
+          );
+        }) ??
+        false;
+  }
+
+  String _normalizeServerEndpoint(String raw) {
+    final normalized = ServerConfig.normalize(raw);
+    final uri = Uri.tryParse(normalized);
+    if (uri == null) return normalized;
+    final scheme = uri.scheme.toLowerCase();
+    final port =
+        uri.hasPort &&
+            !((scheme == 'http' && uri.port == 80) ||
+                (scheme == 'https' && uri.port == 443))
+        ? uri.port
+        : null;
+    return uri
+        .replace(scheme: scheme, host: uri.host.toLowerCase(), port: port)
+        .toString();
   }
 
   void _fillHttpFields(String raw) {
