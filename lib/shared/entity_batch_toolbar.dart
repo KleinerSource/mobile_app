@@ -9,12 +9,14 @@ class EntityBatchAction {
     required this.label,
     required this.onTap,
     this.color,
+    this.tooltip,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
   final Color? color;
+  final String? tooltip;
 }
 
 /// 管理类列表通用的底部批量工具栏。
@@ -158,7 +160,7 @@ class _EntityBatchActionButton extends StatelessWidget {
     final enabled = action.onTap != null;
     final foreground = enabled ? (action.color ?? c.accent) : c.muted;
 
-    return GestureDetector(
+    final button = GestureDetector(
       onTap: action.onTap,
       child: Container(
         height: 38,
@@ -188,5 +190,7 @@ class _EntityBatchActionButton extends StatelessWidget {
         ),
       ),
     );
+    final tooltip = action.tooltip;
+    return tooltip == null ? button : Tooltip(message: tooltip, child: button);
   }
 }

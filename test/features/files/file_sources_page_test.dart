@@ -11,6 +11,7 @@ import 'package:omm/core/sources/files/file_source_providers.dart';
 import 'package:omm/features/files/file_browser_page.dart';
 import 'package:omm/features/files/file_sources_page.dart';
 import 'package:omm/features/settings/server_selection_page.dart';
+import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -99,8 +100,132 @@ void main() {
 
     await tester.longPress(find.text('影片.mkv'));
     await tester.pumpAndSettle();
-    expect(find.text('已选 1 项'), findsNWidgets(2));
+    expect(find.text('已选 1 项'), findsOneWidget);
+    expect(find.byType(EntityBatchToolbar), findsOneWidget);
+    expect(find.text('移动'), findsOneWidget);
+    expect(find.text('重命名'), findsOneWidget);
     expect(find.byTooltip('删除所选'), findsOneWidget);
+  });
+
+  testWidgets('文件普通移动使用目录选择页而不是路径输入', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final request = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+          fileDirectoryProvider(
+            request,
+          ).overrideWith((ref) async => _listingWithHidden(sourceId)),
+        ],
+        child: MaterialApp(
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('文件操作').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('移动'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择目标目录'), findsOneWidget);
+    expect(find.byTooltip('选择此目录'), findsOneWidget);
+    expect(find.text('目标完整路径'), findsNothing);
+
+    await tester.tap(find.byTooltip('取消选择'));
+    await tester.pumpAndSettle();
+    expect(find.text('文件列表'), findsOneWidget);
+  });
+
+  testWidgets('文件批量重命名复用统一工具栏并提供替换预览', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final request = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+          fileDirectoryProvider(
+            request,
+          ).overrideWith((ref) async => _listing(sourceId)),
+        ],
+        child: MaterialApp(
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('影片.mkv'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('重命名').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('批量重命名'), findsOneWidget);
+    expect(find.text('查询'), findsOneWidget);
+    expect(find.text('替换为'), findsOneWidget);
+    expect(find.text('预览'), findsOneWidget);
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), '影片');
+    await tester.enterText(fields.at(1), '电影');
+    await tester.pump();
+    expect(find.text('电影.mkv'), findsOneWidget);
+
+    await tester.tap(find.text('取消').last);
+    await tester.pumpAndSettle();
+    expect(find.text('批量重命名'), findsNothing);
+  });
+
+  testWidgets('文件详情使用玻璃面板并显示视频预览入口', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final request = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+          fileDirectoryProvider(
+            request,
+          ).overrideWith((ref) async => _listing(sourceId)),
+        ],
+        child: MaterialApp(
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('影片.mkv'));
+    await tester.pumpAndSettle();
+    expect(find.text('文件详情'), findsOneWidget);
+    expect(find.text('播放视频'), findsOneWidget);
+    expect(find.byType(BottomSheet), findsOneWidget);
+
+    await tester.tap(find.text('关闭').last);
+    await tester.pumpAndSettle();
+    expect(find.text('文件详情'), findsNothing);
   });
 
   testWidgets('文件浏览页可以返回服务器选择器', (tester) async {

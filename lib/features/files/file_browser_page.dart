@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +15,11 @@ import '../../core/sources/files/file_source_providers.dart';
 import '../../core/sources/files/file_source_repository.dart';
 import '../../shared/drag_selection.dart';
 import '../../shared/edge_swipe_back.dart';
+import '../../shared/entity_batch_toolbar.dart';
+import '../../shared/glass.dart';
+import '../../shared/sheet_controls.dart';
 import '../../shared/swipe_actions.dart';
+import '../player/player_page.dart';
 import '../settings/server_selection_page.dart';
 
 enum _FileSortField { name, date, size, category }
@@ -29,17 +35,39 @@ enum _BrowserMenuAction {
   sortCategory,
 }
 
+enum _BatchRenameMode { replace, add }
+
+enum _FileDetailsAction { preview }
+
+class _BatchRenameDraft {
+  const _BatchRenameDraft({
+    required this.mode,
+    required this.search,
+    required this.replacement,
+    required this.addText,
+    required this.addBefore,
+  });
+
+  final _BatchRenameMode mode;
+  final String search;
+  final String replacement;
+  final String addText;
+  final bool addBefore;
+}
+
 class FileBrowserPage extends ConsumerStatefulWidget {
   const FileBrowserPage({
     super.key,
     required this.serverId,
     required this.sourceId,
     this.initialPath = '',
+    this.directoryPicker = false,
   });
 
   final String serverId;
   final SourceId sourceId;
   final String initialPath;
+  final bool directoryPicker;
 
   @override
   ConsumerState<FileBrowserPage> createState() => _FileBrowserPageState();
@@ -92,6 +120,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       _exitSelection();
       return;
     }
+    if (widget.directoryPicker) {
+      await Navigator.of(context).maybePop();
+      return;
+    }
     if (_isAtRoot) {
       await ServerSelectionPage.openForReturn(context);
       return;
@@ -122,71 +154,101 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
             leading: IconButton(
               tooltip: _selectionMode
                   ? '退出选择'
+                  : widget.directoryPicker
+                  ? _isAtRoot
+                        ? '取消选择'
+                        : '返回上一级'
                   : _isAtRoot
                   ? '返回服务器选择'
                   : '返回上一级',
-              onPressed: _selectionMode ? _exitSelection : _handleBack,
+              onPressed: _selectionMode
+                  ? _exitSelection
+                  : widget.directoryPicker
+                  ? _cancelDirectoryPicker
+                  : _handleBack,
               icon: Icon(_selectionMode ? Icons.close : Icons.arrow_back),
             ),
             title: source.when(
               data: (value) => Text(
-                _selectionMode
+                widget.directoryPicker
+                    ? '选择目标目录'
+                    : _selectionMode
                     ? '已选 ${_selectedKeys.length} 项'
                     : (value?.descriptor.name ?? '文件列表'),
               ),
-              loading: () => const Text('文件列表'),
-              error: (_, __) => const Text('文件列表'),
+              loading: () => Text(widget.directoryPicker ? '选择目标目录' : '文件列表'),
+              error: (_, __) =>
+                  Text(widget.directoryPicker ? '选择目标目录' : '文件列表'),
             ),
-            actions: [
-              PopupMenuButton<_BrowserMenuAction>(
-                enabled: !_busy,
-                tooltip: '更多',
-                onSelected: (action) =>
-                    _handleMenuAction(action, currentDirectoryPath),
-                itemBuilder: (_) => [
-                  _menuItem(
-                    _BrowserMenuAction.createDirectory,
-                    Icons.create_new_folder_outlined,
-                    '新建文件夹',
-                  ),
-                  _menuItem(
-                    _BrowserMenuAction.upload,
-                    Icons.upload_file_outlined,
-                    '上传文件',
-                  ),
-                  _menuItem(
-                    _BrowserMenuAction.enterSelection,
-                    Icons.checklist_outlined,
-                    '选择',
-                  ),
-                  CheckedPopupMenuItem<_BrowserMenuAction>(
-                    value: _BrowserMenuAction.toggleHidden,
-                    checked: _showHiddenFiles,
-                    child: const Text('显示隐藏文件'),
-                  ),
-                  CheckedPopupMenuItem<_BrowserMenuAction>(
-                    value: _BrowserMenuAction.sortName,
-                    checked: _sortField == _FileSortField.name,
-                    child: Text(_sortMenuLabel('名称', _FileSortField.name)),
-                  ),
-                  CheckedPopupMenuItem<_BrowserMenuAction>(
-                    value: _BrowserMenuAction.sortDate,
-                    checked: _sortField == _FileSortField.date,
-                    child: Text(_sortMenuLabel('日期', _FileSortField.date)),
-                  ),
-                  CheckedPopupMenuItem<_BrowserMenuAction>(
-                    value: _BrowserMenuAction.sortSize,
-                    checked: _sortField == _FileSortField.size,
-                    child: Text(_sortMenuLabel('大小', _FileSortField.size)),
-                  ),
-                  CheckedPopupMenuItem<_BrowserMenuAction>(
-                    value: _BrowserMenuAction.sortCategory,
-                    checked: _sortField == _FileSortField.category,
-                    child: Text(_sortMenuLabel('类别', _FileSortField.category)),
-                  ),
-                ],
-              ),
-            ],
+            actions: widget.directoryPicker
+                ? [
+                    IconButton(
+                      tooltip: '选择此目录',
+                      onPressed: _busy
+                          ? null
+                          : () =>
+                                Navigator.of(context).pop(currentDirectoryPath),
+                      icon: const Icon(Icons.check),
+                    ),
+                  ]
+                : [
+                    PopupMenuButton<_BrowserMenuAction>(
+                      enabled: !_busy,
+                      tooltip: '更多',
+                      onSelected: (action) =>
+                          _handleMenuAction(action, currentDirectoryPath),
+                      itemBuilder: (_) => [
+                        _menuItem(
+                          _BrowserMenuAction.createDirectory,
+                          Icons.create_new_folder_outlined,
+                          '新建文件夹',
+                        ),
+                        _menuItem(
+                          _BrowserMenuAction.upload,
+                          Icons.upload_file_outlined,
+                          '上传文件',
+                        ),
+                        _menuItem(
+                          _BrowserMenuAction.enterSelection,
+                          Icons.checklist_outlined,
+                          '选择',
+                        ),
+                        CheckedPopupMenuItem<_BrowserMenuAction>(
+                          value: _BrowserMenuAction.toggleHidden,
+                          checked: _showHiddenFiles,
+                          child: const Text('显示隐藏文件'),
+                        ),
+                        CheckedPopupMenuItem<_BrowserMenuAction>(
+                          value: _BrowserMenuAction.sortName,
+                          checked: _sortField == _FileSortField.name,
+                          child: Text(
+                            _sortMenuLabel('名称', _FileSortField.name),
+                          ),
+                        ),
+                        CheckedPopupMenuItem<_BrowserMenuAction>(
+                          value: _BrowserMenuAction.sortDate,
+                          checked: _sortField == _FileSortField.date,
+                          child: Text(
+                            _sortMenuLabel('日期', _FileSortField.date),
+                          ),
+                        ),
+                        CheckedPopupMenuItem<_BrowserMenuAction>(
+                          value: _BrowserMenuAction.sortSize,
+                          checked: _sortField == _FileSortField.size,
+                          child: Text(
+                            _sortMenuLabel('大小', _FileSortField.size),
+                          ),
+                        ),
+                        CheckedPopupMenuItem<_BrowserMenuAction>(
+                          value: _BrowserMenuAction.sortCategory,
+                          checked: _sortField == _FileSortField.category,
+                          child: Text(
+                            _sortMenuLabel('类别', _FileSortField.category),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
           ),
           body: Column(
             children: [
@@ -211,17 +273,36 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
             ],
           ),
           bottomNavigationBar: _selectionMode
-              ? _FileSelectionToolbar(
+              ? EntityBatchToolbar(
                   selectedCount: _selectedKeys.length,
-                  totalCount: visibleEntries.length,
-                  allSelected:
-                      visibleEntries.isNotEmpty &&
-                      visibleEntries.every(
-                        (entry) => _selectedKeys.contains(entry.stableKey),
-                      ),
-                  onSelectAll: () => _toggleSelectAll(visibleEntries),
-                  onDelete: () => _deleteSelected(visibleEntries),
+                  onSelectAll: () => _selectAllVisible(visibleEntries),
+                  onClear: _clearSelection,
                   onClose: _exitSelection,
+                  actions: [
+                    EntityBatchAction(
+                      icon: Icons.drive_file_move_outlined,
+                      label: '移动',
+                      onTap: _selectedKeys.isEmpty
+                          ? null
+                          : () => _moveSelected(visibleEntries),
+                    ),
+                    EntityBatchAction(
+                      icon: Icons.drive_file_rename_outline,
+                      label: '重命名',
+                      onTap: _selectedKeys.isEmpty
+                          ? null
+                          : () => _renameSelected(visibleEntries),
+                    ),
+                    EntityBatchAction(
+                      icon: Icons.delete_outline,
+                      label: '删除',
+                      tooltip: '删除所选',
+                      color: Theme.of(context).colorScheme.error,
+                      onTap: _selectedKeys.isEmpty
+                          ? null
+                          : () => _deleteSelected(visibleEntries),
+                    ),
+                  ],
                 )
               : null,
         ),
@@ -234,11 +315,19 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   void _handleBack() {
+    if (widget.directoryPicker) {
+      _cancelDirectoryPicker();
+      return;
+    }
     if (_isAtRoot) {
       unawaited(_returnToServerSelector());
     } else {
       unawaited(_popToParent());
     }
+  }
+
+  void _cancelDirectoryPicker() {
+    unawaited(Navigator.of(context).maybePop());
   }
 
   PopupMenuItem<_BrowserMenuAction> _menuItem(
@@ -259,16 +348,20 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
 
   Future<void> _openDirectory(String path) async {
     _openSwipe.value = null;
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
+    final selectedPath = await Navigator.of(context).push<FilePath>(
+      MaterialPageRoute<FilePath>(
         settings: RouteSettings(name: _routeName(path)),
         builder: (_) => FileBrowserPage(
           serverId: widget.serverId,
           sourceId: widget.sourceId,
           initialPath: path,
+          directoryPicker: widget.directoryPicker,
         ),
       ),
     );
+    if (mounted && widget.directoryPicker && selectedPath != null) {
+      Navigator.of(context).pop(selectedPath);
+    }
   }
 
   Future<void> _popToParent() async {
@@ -291,7 +384,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     if (path == _path) return;
     final navigator = Navigator.of(context);
     if (path.isEmpty) {
-      navigator.popUntil((route) => route.isFirst);
+      final rootRouteName = _routeName('');
+      navigator.popUntil(
+        (route) => widget.directoryPicker
+            ? route.settings.name == rootRouteName
+            : route.isFirst,
+      );
       return;
     }
     final target = _routeName(path);
@@ -346,15 +444,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     });
   }
 
-  void _toggleSelectAll(List<FileEntry> entries) {
+  void _clearSelection() {
+    if (!mounted) return;
+    setState(() => _selectedKeys.clear());
+  }
+
+  void _selectAllVisible(List<FileEntry> entries) {
     if (entries.isEmpty) return;
-    final allSelected = entries.every(
-      (entry) => _selectedKeys.contains(entry.stableKey),
-    );
-    if (allSelected) {
-      _exitSelection();
-      return;
-    }
     setState(() {
       _selectionMode = true;
       _selectedKeys
@@ -524,7 +620,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     return SwipeActionCell(
       group: _openSwipe,
       cellKey: entry.stableKey,
-      enabled: !_busy && !_selectionMode,
+      enabled: !_busy && !_selectionMode && !widget.directoryPicker,
       actions: [
         SwipeActionData(
           icon: Icons.delete_outline,
@@ -574,21 +670,27 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                 ),
           title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: entry.isDirectory ? null : Text(_entryMeta(entry)),
-          trailing: PopupMenuButton<String>(
-            tooltip: '文件操作',
-            enabled: !_busy,
-            onSelected: (action) => _handleEntryAction(entry, action),
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'detail', child: Text('详情')),
-              if (!entry.isDirectory)
-                const PopupMenuItem(value: 'download', child: Text('下载')),
-              const PopupMenuItem(value: 'rename', child: Text('重命名')),
-              const PopupMenuItem(value: 'move', child: Text('移动')),
-              const PopupMenuItem(value: 'delete', child: Text('删除')),
-            ],
-          ),
+          trailing: widget.directoryPicker
+              ? null
+              : PopupMenuButton<String>(
+                  tooltip: '文件操作',
+                  enabled: !_busy,
+                  onSelected: (action) => _handleEntryAction(entry, action),
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(value: 'detail', child: Text('详情')),
+                    if (!entry.isDirectory)
+                      const PopupMenuItem(value: 'download', child: Text('下载')),
+                    const PopupMenuItem(value: 'rename', child: Text('重命名')),
+                    const PopupMenuItem(value: 'move', child: Text('移动')),
+                    const PopupMenuItem(value: 'delete', child: Text('删除')),
+                  ],
+                ),
           onTap: _busy
               ? null
+              : widget.directoryPicker
+              ? entry.isDirectory
+                    ? () => unawaited(_openDirectory(entry.path.value))
+                    : null
               : _selectionMode
               ? () => _toggleSelect(entry)
               : entry.isDirectory
@@ -750,20 +852,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _move(FileEntry entry) async {
-    final destinationPath = await _askText(
-      '移动',
-      '目标完整路径',
-      initial: entry.path.value,
-    );
-    if (destinationPath == null ||
-        destinationPath.trim().isEmpty ||
-        destinationPath.trim() == entry.path.value) {
-      return;
-    }
+    final directory = await _pickDirectory();
+    if (directory == null) return;
+    if (_isInvalidMoveTarget(entry, directory)) return;
     final destination = FilePath(
       sourceId: widget.sourceId,
-      value: destinationPath.trim(),
+      value: _join(directory.value, entry.name),
     );
+    if (destination == entry.path) return;
     if (await _confirmOverwrite(destination) != true) return;
     await _run('移动失败', () async {
       await (await _repository()).move(
@@ -773,6 +869,168 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       );
       await _refresh();
     });
+  }
+
+  Future<FilePath?> _pickDirectory() {
+    return Navigator.of(context).push<FilePath>(
+      MaterialPageRoute<FilePath>(
+        settings: RouteSettings(name: _routeName('')),
+        builder: (_) => FileBrowserPage(
+          serverId: widget.serverId,
+          sourceId: widget.sourceId,
+          directoryPicker: true,
+        ),
+      ),
+    );
+  }
+
+  bool _isInvalidMoveTarget(FileEntry entry, FilePath directory) {
+    if (!entry.isDirectory) return false;
+    final sourcePath = entry.path.value.replaceAll(RegExp(r'/+$'), '');
+    final targetPath = directory.value.replaceAll(RegExp(r'/+$'), '');
+    if (targetPath == sourcePath ||
+        (sourcePath.isNotEmpty && targetPath.startsWith('$sourcePath/'))) {
+      _message('不能将目录移动到自身或其子目录');
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _moveSelected(List<FileEntry> entries) async {
+    final selected = entries
+        .where((entry) => _selectedKeys.contains(entry.stableKey))
+        .toList(growable: false);
+    if (selected.isEmpty) return;
+
+    final directory = await _pickDirectory();
+    if (directory == null || !mounted) return;
+    if (selected.any((entry) => _isInvalidMoveTarget(entry, directory))) {
+      return;
+    }
+
+    final moves = selected
+        .map(
+          (entry) => (
+            entry: entry,
+            destination: FilePath(
+              sourceId: widget.sourceId,
+              value: _join(directory.value, entry.name),
+            ),
+          ),
+        )
+        .where((move) => move.destination != move.entry.path)
+        .toList(growable: false);
+    if (moves.isEmpty) return;
+
+    await _run('批量移动失败', () async {
+      final repo = await _repository();
+      var conflictCount = 0;
+      for (final move in moves) {
+        if (await repo.exists(move.destination)) conflictCount++;
+      }
+      if (conflictCount > 0 &&
+          await _confirmBatchOverwrite(conflictCount, '移动') != true) {
+        return;
+      }
+      for (final move in moves) {
+        await repo.move(move.entry.path, move.destination, overwrite: true);
+      }
+      _exitSelection();
+      await _refresh();
+    });
+  }
+
+  Future<bool?> _confirmBatchOverwrite(int count, String action) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('目标已存在'),
+        content: Text('$count 个目标已存在，是否覆盖后继续$action？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('覆盖'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _renameSelected(List<FileEntry> entries) async {
+    final selected = entries
+        .where((entry) => _selectedKeys.contains(entry.stableKey))
+        .toList(growable: false);
+    if (selected.isEmpty) return;
+
+    final draft = await _showBatchRenameSheet(selected);
+    if (draft == null || !mounted) return;
+
+    final planned = selected
+        .map(
+          (entry) => (entry: entry, name: _batchRenameName(entry.name, draft)),
+        )
+        .where((item) => item.name.isNotEmpty && item.name != item.entry.name)
+        .toList(growable: false);
+    if (planned.isEmpty) {
+      _message('没有可应用的名称变化');
+      return;
+    }
+
+    final plannedPaths = <String>{};
+    final selectedPaths = selected.map((entry) => entry.path.value).toSet();
+    for (final item in planned) {
+      final path = _join(_parent(item.entry.path.value), item.name);
+      if (!plannedPaths.add(path)) {
+        _message('预览结果包含重复名称，请调整重命名规则');
+        return;
+      }
+      if (path != item.entry.path.value && selectedPaths.contains(path)) {
+        _message('不能批量重命名为其他已选项的现有名称');
+        return;
+      }
+    }
+
+    await _run('批量重命名失败', () async {
+      final repo = await _repository();
+      var conflictCount = 0;
+      for (final item in planned) {
+        final destination = FilePath(
+          sourceId: widget.sourceId,
+          value: _join(_parent(item.entry.path.value), item.name),
+        );
+        if (destination.value != item.entry.path.value &&
+            !selectedPaths.contains(destination.value) &&
+            await repo.exists(destination)) {
+          conflictCount++;
+        }
+      }
+      if (conflictCount > 0 &&
+          await _confirmBatchOverwrite(conflictCount, '重命名') != true) {
+        return;
+      }
+      for (final item in planned) {
+        await repo.rename(item.entry.path, item.name, overwrite: true);
+      }
+      _exitSelection();
+      await _refresh();
+    });
+  }
+
+  Future<_BatchRenameDraft?> _showBatchRenameSheet(
+    List<FileEntry> entries,
+  ) async {
+    return showGlassSheet<_BatchRenameDraft>(
+      context: context,
+      builder: (_) => _BatchRenameSheet(entries: entries),
+    );
+  }
+
+  String _batchRenameName(String name, _BatchRenameDraft draft) {
+    return _applyBatchRenameName(name, draft);
   }
 
   Future<void> _delete(FileEntry entry) async {
@@ -843,26 +1101,302 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _showDetails(FileEntry entry) async {
-    await showModalBottomSheet<void>(
+    final action = await showGlassSheet<_FileDetailsAction>(
       context: context,
       builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(entry.name, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 12),
-              Text('路径：${entry.path.value}'),
-              if (entry.size != null) Text('大小：${_formatBytes(entry.size!)}'),
-              if (entry.mimeType != null) Text('类型：${entry.mimeType}'),
-              if (entry.modifiedAt != null) Text('修改时间：${entry.modifiedAt}'),
-            ],
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SheetHeader(
+              icon: entry.isDirectory
+                  ? Icons.folder_outlined
+                  : _fileIcon(entry),
+              title: entry.name,
+              subtitle: entry.isDirectory ? '目录详情' : '文件详情',
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('路径：${entry.path.value}'),
+                  if (entry.size != null)
+                    Text('大小：${_formatBytes(entry.size!)}'),
+                  if (entry.mimeType != null) Text('类型：${entry.mimeType}'),
+                  if (entry.modifiedAt != null)
+                    Text('修改时间：${entry.modifiedAt}'),
+                ],
+              ),
+            ),
+            if (!entry.isDirectory && _canPreview(entry))
+              ListTile(
+                leading: Icon(_previewIcon(entry)),
+                title: Text(_previewLabel(entry)),
+                subtitle: const Text('在应用内查看文件内容'),
+                onTap: () =>
+                    Navigator.of(context).pop(_FileDetailsAction.preview),
+              ),
+            SheetActionBar(
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: sheetSecondaryButtonStyle(context),
+                child: const Text('关闭'),
+              ),
+            ),
+          ],
         ),
       ),
     );
+    if (action == _FileDetailsAction.preview && mounted) {
+      await _preview(entry);
+    }
+  }
+
+  Future<void> _preview(FileEntry entry) async {
+    if (_isVideoEntry(entry)) {
+      await _previewVideo(entry);
+    } else if (_isImageEntry(entry)) {
+      await _previewImage(entry);
+    } else if (_isTextEntry(entry)) {
+      await _previewText(entry);
+    }
+  }
+
+  Future<void> _previewVideo(FileEntry entry) async {
+    File? temporaryFile;
+    setState(() => _busy = true);
+    try {
+      temporaryFile = await _downloadPreviewFile(entry);
+      if (!mounted) return;
+      await PlayerPage.openDirect(
+        context,
+        title: entry.name,
+        directUrl: Uri.file(temporaryFile.path).toString(),
+      );
+    } catch (error) {
+      if (mounted) {
+        _message('视频预览失败：${error is SourceException ? error.message : error}');
+      }
+    } finally {
+      if (temporaryFile != null) {
+        try {
+          if (await temporaryFile.exists()) await temporaryFile.delete();
+        } catch (_) {}
+      }
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<File> _downloadPreviewFile(FileEntry entry) async {
+    final directory = await getTemporaryDirectory();
+    final safeName = entry.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+    final file = File(
+      '${directory.path}${Platform.pathSeparator}omm-preview-'
+      '${DateTime.now().microsecondsSinceEpoch}-${safeName.isEmpty ? 'file' : safeName}',
+    );
+    final output = file.openWrite();
+    var closed = false;
+    try {
+      final access = await (await _repository()).resolveAccess(entry.path);
+      final stream = await access.open();
+      await for (final chunk in stream) {
+        output.add(chunk);
+      }
+      await output.close();
+      closed = true;
+      return file;
+    } catch (_) {
+      if (!closed) {
+        try {
+          await output.close();
+        } catch (_) {}
+      }
+      try {
+        if (await file.exists()) await file.delete();
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+  Future<void> _previewImage(FileEntry entry) async {
+    try {
+      final bytes = await _readFileBytes(entry);
+      if (!mounted) return;
+      await showGlassSheet<void>(
+        context: context,
+        builder: (context) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SheetHeader(
+                icon: Icons.image_outlined,
+                title: entry.name,
+                subtitle: '图片预览',
+              ),
+              SizedBox(
+                height: MediaQuery.sizeOf(context).height * 0.62,
+                child: InteractiveViewer(
+                  child: Center(
+                    child: Image.memory(bytes, fit: BoxFit.contain),
+                  ),
+                ),
+              ),
+              SheetActionBar(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: sheetSecondaryButtonStyle(context),
+                  child: const Text('关闭'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) _message('图片预览失败：$error');
+    }
+  }
+
+  Future<void> _previewText(FileEntry entry) async {
+    try {
+      final bytes = await _readFileBytes(entry);
+      if (!mounted) return;
+      final text = _decodeTextPreview(entry, bytes);
+      await showGlassSheet<void>(
+        context: context,
+        builder: (context) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SheetHeader(
+                icon: Icons.description_outlined,
+                title: entry.name,
+                subtitle: '文本预览',
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
+                  child: SelectableText(text),
+                ),
+              ),
+              SheetActionBar(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: sheetSecondaryButtonStyle(context),
+                  child: const Text('关闭'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) _message('文本预览失败：$error');
+    }
+  }
+
+  Future<Uint8List> _readFileBytes(FileEntry entry) async {
+    final access = await (await _repository()).resolveAccess(entry.path);
+    final stream = await access.open();
+    final bytes = BytesBuilder(copy: false);
+    await for (final chunk in stream) {
+      bytes.add(chunk);
+    }
+    return bytes.takeBytes();
+  }
+
+  bool _canPreview(FileEntry entry) =>
+      _isVideoEntry(entry) || _isImageEntry(entry) || _isTextEntry(entry);
+
+  String _previewLabel(FileEntry entry) {
+    if (_isVideoEntry(entry)) return '播放视频';
+    if (_isImageEntry(entry)) return '查看图片';
+    return '查看文本';
+  }
+
+  IconData _previewIcon(FileEntry entry) {
+    if (_isVideoEntry(entry)) return Icons.play_circle_outline;
+    if (_isImageEntry(entry)) return Icons.image_outlined;
+    return Icons.description_outlined;
+  }
+
+  bool _isVideoEntry(FileEntry entry) {
+    final mime = entry.mimeType?.trim().toLowerCase() ?? '';
+    return mime.startsWith('video/') ||
+        _fileExtension(entry.name, const {
+          'mp4',
+          'mkv',
+          'webm',
+          'mov',
+          'avi',
+          'm4v',
+          'ts',
+          'm2ts',
+        });
+  }
+
+  bool _isImageEntry(FileEntry entry) {
+    final mime = entry.mimeType?.trim().toLowerCase() ?? '';
+    return mime.startsWith('image/') ||
+        _fileExtension(entry.name, const {
+          'jpg',
+          'jpeg',
+          'png',
+          'gif',
+          'webp',
+          'bmp',
+          'heic',
+          'heif',
+        });
+  }
+
+  bool _isTextEntry(FileEntry entry) {
+    final mime = entry.mimeType?.trim().toLowerCase() ?? '';
+    return mime.startsWith('text/') ||
+        mime == 'application/json' ||
+        mime == 'application/xml' ||
+        mime == 'application/javascript' ||
+        _fileExtension(entry.name, const {
+          'txt',
+          'json',
+          'csv',
+          'xml',
+          'html',
+          'htm',
+          'css',
+          'js',
+          'ts',
+          'yaml',
+          'yml',
+          'md',
+          'log',
+          'srt',
+          'vtt',
+          'ass',
+        });
+  }
+
+  bool _fileExtension(String name, Set<String> extensions) {
+    final dot = name.lastIndexOf('.');
+    if (dot <= 0 || dot == name.length - 1) return false;
+    return extensions.contains(name.substring(dot + 1).toLowerCase());
+  }
+
+  String _decodeTextPreview(FileEntry entry, List<int> bytes) {
+    final text = utf8.decode(bytes, allowMalformed: true);
+    final mime = entry.mimeType?.toLowerCase() ?? '';
+    final isJson =
+        mime == 'application/json' ||
+        _fileExtension(entry.name, const {'json'});
+    if (!isJson) return text;
+    try {
+      return const JsonEncoder.withIndent('  ').convert(jsonDecode(text));
+    } catch (_) {
+      return text;
+    }
   }
 
   Future<FileSourceRepository> _repository() async {
@@ -997,51 +1531,199 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       'file-browser:${widget.serverId}:${widget.sourceId.value}:$path';
 }
 
-class _FileSelectionToolbar extends StatelessWidget {
-  const _FileSelectionToolbar({
-    required this.selectedCount,
-    required this.totalCount,
-    required this.allSelected,
-    required this.onSelectAll,
-    required this.onDelete,
-    required this.onClose,
-  });
+class _BatchRenameSheet extends StatefulWidget {
+  const _BatchRenameSheet({required this.entries});
 
-  final int selectedCount;
-  final int totalCount;
-  final bool allSelected;
-  final VoidCallback onSelectAll;
-  final VoidCallback onDelete;
-  final VoidCallback onClose;
+  final List<FileEntry> entries;
+
+  @override
+  State<_BatchRenameSheet> createState() => _BatchRenameSheetState();
+}
+
+class _BatchRenameSheetState extends State<_BatchRenameSheet> {
+  final _searchController = TextEditingController();
+  final _replacementController = TextEditingController();
+  final _addController = TextEditingController();
+  var _mode = _BatchRenameMode.replace;
+  var _addBefore = true;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _replacementController.dispose();
+    _addController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: SafeArea(
-        top: false,
-        child: Row(
+    final draft = _BatchRenameDraft(
+      mode: _mode,
+      search: _searchController.text,
+      replacement: _replacementController.text,
+      addText: _addController.text,
+      addBefore: _addBefore,
+    );
+    final previews = widget.entries
+        .map(
+          (entry) => (
+            original: entry.name,
+            renamed: _applyBatchRenameName(entry.name, draft),
+          ),
+        )
+        .toList(growable: false);
+    final canSubmit = _mode == _BatchRenameMode.replace
+        ? _searchController.text.isNotEmpty
+        : _addController.text.isNotEmpty;
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 2),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            IconButton(
-              tooltip: '退出选择',
-              onPressed: onClose,
-              icon: const Icon(Icons.close),
+            const SheetHeader(
+              icon: Icons.drive_file_rename_outline,
+              title: '批量重命名',
+              subtitle: '选择规则并查看实时预览',
             ),
-            Expanded(child: Text('已选 $selectedCount 项')),
-            TextButton(
-              onPressed: totalCount == 0 ? null : onSelectAll,
-              child: Text(allSelected ? '取消全选' : '全选'),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              child: DropdownButtonFormField<_BatchRenameMode>(
+                initialValue: _mode,
+                decoration: sheetInputDecoration(context, labelText: '重命名模式'),
+                items: const [
+                  DropdownMenuItem(
+                    value: _BatchRenameMode.replace,
+                    child: Text('替换文本'),
+                  ),
+                  DropdownMenuItem(
+                    value: _BatchRenameMode.add,
+                    child: Text('添加文本'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _mode = value);
+                },
+              ),
             ),
-            IconButton(
-              tooltip: '删除所选',
-              onPressed: selectedCount == 0 ? null : onDelete,
-              icon: const Icon(Icons.delete_outline),
+            const SizedBox(height: 10),
+            if (_mode == _BatchRenameMode.replace) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: sheetInputDecoration(context, labelText: '查询'),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                child: TextField(
+                  controller: _replacementController,
+                  decoration: sheetInputDecoration(context, labelText: '替换为'),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ] else ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                child: TextField(
+                  controller: _addController,
+                  decoration: sheetInputDecoration(context, labelText: '添加文本'),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                child: DropdownButtonFormField<bool>(
+                  initialValue: _addBefore,
+                  decoration: sheetInputDecoration(context, labelText: '添加位置'),
+                  items: const [
+                    DropdownMenuItem(value: true, child: Text('在名字之前')),
+                    DropdownMenuItem(value: false, child: Text('在名字之后')),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _addBefore = value);
+                  },
+                ),
+              ),
+            ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 4, 22, 0),
+              child: Text('预览', style: Theme.of(context).textTheme.titleMedium),
+            ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
+                itemCount: previews.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, index) {
+                  final preview = previews[index];
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      preview.renamed,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: preview.original == preview.renamed
+                        ? null
+                        : Text(
+                            preview.original,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                  );
+                },
+              ),
+            ),
+            SheetActionBar(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: sheetSecondaryButtonStyle(context),
+                      child: const Text('取消'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: canSubmit
+                          ? () => Navigator.of(context).pop(draft)
+                          : null,
+                      style: sheetPrimaryButtonStyle(context),
+                      child: const Text('应用'),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+String _applyBatchRenameName(String name, _BatchRenameDraft draft) {
+  return switch (draft.mode) {
+    _BatchRenameMode.replace =>
+      draft.search.isEmpty
+          ? name
+          : name.replaceAll(draft.search, draft.replacement),
+    _BatchRenameMode.add =>
+      draft.addBefore ? '${draft.addText}$name' : '$name${draft.addText}',
+  };
 }
 
 class _FileOperationBanner extends StatelessWidget {
