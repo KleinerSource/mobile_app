@@ -7,6 +7,7 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/glow_background.dart';
+import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/db_online/settings/db_online_backend_config.dart';
 
@@ -185,6 +186,7 @@ class _DboBackendConfigDetailPageState
     extends ConsumerState<DboBackendConfigDetailPage> {
   late Map<String, dynamic> _working;
   final _controllers = <String, TextEditingController>{};
+  final _visiblePasswords = <String>{};
   bool _saving = false;
   bool _testing = false;
 
@@ -282,30 +284,17 @@ class _DboBackendConfigDetailPageState
               primary: true,
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 30),
               children: [
-                Container(
-                  decoration: settingsCardDecoration(context),
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < visibleFields.length; i++) ...[
-                        if (i > 0)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Divider(
-                              height: 1,
-                              color: appColors(context).divider,
-                            ),
-                          ),
-                        _buildField(visibleFields[i]),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
+                for (var i = 0; i < visibleFields.length; i++) ...[
+                  _buildField(visibleFields[i]),
+                  if (i < visibleFields.length - 1) const SizedBox(height: 12),
+                ],
+                const SizedBox(height: 16),
                 if (widget.section.testName != null) ...[
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: _testing ? null : _testConnection,
+                      style: sheetSecondaryButtonStyle(context),
                       icon: _testing
                           ? const SizedBox(
                               width: 16,
@@ -330,11 +319,24 @@ class _DboBackendConfigDetailPageState
   Widget _buildField(DboBackendConfigField field) {
     switch (field.type) {
       case DboBackendConfigFieldType.toggle:
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        return Container(
+          decoration: settingsCardDecoration(context),
+          padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
           child: Row(
             children: [
-              Expanded(child: _fieldLabel(field)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(field.label, style: AppText.cardTitle(context)),
+                    if (field.hint != null) ...[
+                      const SizedBox(height: 2),
+                      Text(field.hint!, style: AppText.meta(context)),
+                    ],
+                  ],
+                ),
+              ),
               SettingsSwitch(
                 value: _readPath(_working, field.path) == true,
                 onChanged: (value) =>
@@ -351,31 +353,38 @@ class _DboBackendConfigDetailPageState
           (option) => option.value == raw,
           orElse: () => options.first,
         );
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-          child: InputDecorator(
-            decoration: settingsInputDecoration(
-              context,
-              labelText: field.label,
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: current.value,
-                isExpanded: true,
-                icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                items: [
-                  for (final option in options)
-                    DropdownMenuItem(
-                      value: option.value,
-                      child: Text(option.label),
-                    ),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  AppHaptics.selection();
-                  setState(() => _writePath(_working, field.path, value));
-                },
+        final icon = _fieldIcon(field);
+        final colors = appColors(context);
+        return InputDecorator(
+          decoration: settingsInputDecoration(
+            context,
+            labelText: field.label,
+            prefixIcon: icon == null ? null : Icon(icon),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: current.value,
+              isExpanded: true,
+              isDense: true,
+              style: TextStyle(
+                color: colors.text,
+                fontFamily: 'Inter',
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded),
+              items: [
+                for (final option in options)
+                  DropdownMenuItem(
+                    value: option.value,
+                    child: Text(option.label),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                AppHaptics.selection();
+                setState(() => _writePath(_working, field.path, value));
+              },
             ),
           ),
         );
@@ -383,51 +392,100 @@ class _DboBackendConfigDetailPageState
       case DboBackendConfigFieldType.password:
       case DboBackendConfigFieldType.number:
         final controller = _controllers[field.path]!;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _fieldLabel(field),
-              const SizedBox(height: 7),
-              TextField(
-                controller: controller,
-                obscureText: field.type == DboBackendConfigFieldType.password,
-                keyboardType: field.type == DboBackendConfigFieldType.number
-                    ? TextInputType.number
-                    : TextInputType.text,
-                autocorrect: false,
-                decoration: settingsInputDecoration(
-                  context,
-                  hintText: field.type == DboBackendConfigFieldType.password
-                      ? '留空或保持掩码表示不修改'
-                      : null,
-                  borderless: true,
-                ),
-                onChanged: (value) {
-                  final next = field.type == DboBackendConfigFieldType.number
-                      ? num.tryParse(value) ?? value
-                      : value;
-                  _writePath(_working, field.path, next);
-                },
+        final isPassword = field.type == DboBackendConfigFieldType.password;
+        final icon = _fieldIcon(field);
+        final colors = appColors(context);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _fieldLabel(field),
+            TextField(
+              controller: controller,
+              obscureText:
+                  isPassword && !_visiblePasswords.contains(field.path),
+              keyboardType: field.type == DboBackendConfigFieldType.number
+                  ? TextInputType.number
+                  : TextInputType.text,
+              autocorrect: false,
+              enableSuggestions: !isPassword,
+              decoration: settingsInputDecoration(
+                context,
+                hintText: isPassword ? '留空或保持掩码表示不修改' : null,
+                prefixIcon: icon == null ? null : Icon(icon),
+                suffixIcon: isPassword
+                    ? IconButton(
+                        tooltip: _visiblePasswords.contains(field.path)
+                            ? '隐藏'
+                            : '显示',
+                        icon: Icon(
+                          _visiblePasswords.contains(field.path)
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                        ),
+                        onPressed: () => setState(() {
+                          if (_visiblePasswords.contains(field.path)) {
+                            _visiblePasswords.remove(field.path);
+                          } else {
+                            _visiblePasswords.add(field.path);
+                          }
+                        }),
+                      )
+                    : null,
               ),
-            ],
-          ),
+              style: TextStyle(
+                color: colors.text,
+                fontFamily: 'Inter',
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+              onChanged: (value) {
+                final next = field.type == DboBackendConfigFieldType.number
+                    ? num.tryParse(value) ?? value
+                    : value;
+                _writePath(_working, field.path, next);
+              },
+            ),
+          ],
         );
     }
   }
 
   Widget _fieldLabel(DboBackendConfigField field) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(field.label, style: AppText.cardTitle(context)),
-        if (field.hint != null) ...[
-          const SizedBox(height: 2),
-          Text(field.hint!, style: AppText.meta(context)),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(field.label.toUpperCase(), style: AppText.eyebrow(context)),
+          if (field.hint != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              field.hint!,
+              style: AppText.meta(context).copyWith(fontSize: 10.5),
+            ),
+          ],
         ],
-      ],
+      ),
     );
+  }
+
+  IconData? _fieldIcon(DboBackendConfigField field) {
+    return switch (field.path) {
+      'host' => Icons.link,
+      'authorization' ||
+      'secret' ||
+      'password' ||
+      'cookie' => Icons.key_outlined,
+      'port' || 'cid' || 'parent_folder_id' => Icons.numbers_outlined,
+      'save_path' => Icons.folder_open_outlined,
+      'protocol' => Icons.public_outlined,
+      'image_mode' => Icons.image_outlined,
+      'timeout' ||
+      'request_timeout' ||
+      'check_interval' ||
+      'retry_interval' => Icons.timer_outlined,
+      _ => null,
+    };
   }
 
   static bool _isTextField(DboBackendConfigFieldType type) {
