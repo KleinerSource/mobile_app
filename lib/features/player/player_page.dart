@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +15,7 @@ import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/playback.dart' as playback_models;
 import '../../core/models/watch_record.dart';
+import '../../core/platform/app_log_store.dart';
 import '../../core/platform/screen_brightness_channel.dart';
 import '../../core/sources/common/source_exception.dart';
 import '../../core/sources/common/source_id.dart';
@@ -782,8 +782,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   void _playerLog(String message) {
-    if (!kDebugMode) return;
-    debugPrint('[PlayerPage] $message');
+    appLog('[PlayerPage] $message');
   }
 
   bool _isHlsUrl(String url, String? formatHint) {

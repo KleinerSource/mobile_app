@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/platform/app_log_store.dart';
 import '../../core/sources/common/source_exception.dart';
 import '../../core/sources/files/file_entry.dart';
 import '../../core/sources/files/file_source_repository.dart';
@@ -131,7 +131,9 @@ class FilePlaybackProxy {
         _log('开始 resolveAccess: ${path.stableKey}');
         final resolved = await _access().timeout(_operationTimeout);
         access = resolved;
-        _log('resolveAccess 完成: size=${resolved.size} mime=${resolved.mimeType}');
+        _log(
+          'resolveAccess 完成: size=${resolved.size} mime=${resolved.mimeType}',
+        );
         return resolved;
       }
 
@@ -165,18 +167,12 @@ class FilePlaybackProxy {
       if (request.method == 'GET') {
         if (range != null) {
           try {
-            _log(
-              '开始远端区间读取: offset=${range.start} length=${range.length}',
-            );
+            _log('开始远端区间读取: offset=${range.start} length=${range.length}');
             if (!repository.supportsRange) {
               throw UnsupportedError('文件来源不支持 Range');
             }
             stream = await repository
-                .openRange(
-                  path,
-                  offset: range.start,
-                  length: range.length,
-                )
+                .openRange(path, offset: range.start, length: range.length)
                 .timeout(_operationTimeout);
             _log('远端区间读取已建立');
           } catch (error) {
@@ -207,7 +203,9 @@ class FilePlaybackProxy {
         total: total,
         range: range,
         effectiveMimeType:
-            mimeType ?? access?.mimeType ?? _mimeTypeForExtension(_pathExtension),
+            mimeType ??
+            access?.mimeType ??
+            _mimeTypeForExtension(_pathExtension),
       );
       responseStarted = true;
       if (request.method == 'HEAD') return;
@@ -393,16 +391,14 @@ class FilePlaybackProxy {
   }
 
   void _logError(HttpRequest request, Object error, StackTrace stackTrace) {
-    if (!kDebugMode) return;
-    debugPrint(
+    appLog(
       '[FilePlaybackProxy] ${request.method} ${request.uri.path} failed: '
       '$error\n$stackTrace',
     );
   }
 
   void _log(String message) {
-    if (!kDebugMode) return;
-    debugPrint('[FilePlaybackProxy] $message');
+    appLog('[FilePlaybackProxy] $message');
   }
 
   int _statusCode(Object error) {

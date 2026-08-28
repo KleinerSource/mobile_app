@@ -230,7 +230,19 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   }
 
   Future<void> playOrPause() => _playbackIntent ? pause() : play();
-  Future<void> seek(Duration position) => _engine.seek(position);
+
+  /// 定位期间部分内核会先进入 buffering，并清掉底层的播放状态。
+  ///
+  /// 会话层保存的是用户的播放意图，因此定位完成后必须显式恢复播放；
+  /// 暂停状态的定位仍保持暂停，不改变用户操作语义。
+  Future<void> seek(Duration position) async {
+    final shouldPlay = _playbackIntent;
+    await _engine.seek(position);
+    if (shouldPlay && !_disposed) {
+      await _engine.play();
+    }
+  }
+
   Future<void> setRate(double rate) => _engine.setRate(rate);
 
   Future<void> setAudioTrackById(String id) async {

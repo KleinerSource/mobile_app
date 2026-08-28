@@ -7,6 +7,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/platform/app_log_store.dart';
 import 'playback_engine.dart';
 import 'player_subtitle_track_resolver.dart';
 
@@ -48,6 +49,8 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
   String? _previewSourceUrl;
   Map<String, String>? _previewHeaders;
   PlaybackOpenRequest? _openRequest;
+  int _seekRecoveryGeneration = 0;
+  StreamSubscription<bool>? _seekBufferingSubscription;
 
   @override
   PlaybackEngineKind get kind => PlaybackEngineKind.libmpv;
@@ -232,6 +235,7 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
   /// 打开网络源并起播 · [startAt] 为起播定位 (续播 / 切源保位)
   @override
   Future<void> open(PlaybackOpenRequest request) async {
+    _cancelSeekRecovery();
     _openRequest = request;
     _updateState(
       (state) => state.copyWith(
@@ -450,10 +454,10 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
   }
 
   void _playerHostLog(String message) {
-  if (!kReleaseMode) debugPrint('[PlayerControllerHost] $message');
-}
+    appLog('[PlayerControllerHost] $message');
+  }
 
-Future<void> _logNativeCacheState(Player targetPlayer, String phase) async {
+  Future<void> _logNativeCacheState(Player targetPlayer, String phase) async {
     // 缓冲属性轮询 + 日志仅用于排障,release 下跳过避免无谓的 getProperty 往返。
     if (kReleaseMode) return;
     final platform = targetPlayer.platform;
@@ -691,6 +695,7 @@ Future<void> _logNativeCacheState(Player targetPlayer, String phase) async {
       return;
     }
     final previous = player;
+    _cancelSeekRecovery();
     hardwareAcceleration = enableHardwareAcceleration;
     this.bufferSize = nextBufferSize;
     _createPlayer();
@@ -710,17 +715,74 @@ Future<void> _logNativeCacheState(Player targetPlayer, String phase) async {
   }
 
   @override
-  Future<void> seek(Duration position) => player.seek(position);
+  Future<void> seek(Duration position) async {
+    final targetPlayer = player;
+    final wasPlaying = targetPlayer.state.playing;
+    _cancelSeekRecovery();
+    final generation = _seekRecoveryGeneration;
+
+    await targetPlayer.seek(position);
+    if (!wasPlaying || generation != _seekRecoveryGeneration) return;
+
+    // mpv 可能在 seek 命令返回之后才进入 paused-for-cache；先立即恢复一次，
+    // 再监听随后到达的 buffering 事件，避免长距离 HLS seek 卡在“持续下载但不解码”。
+    await targetPlayer.play();
+    _watchSeekBuffering(targetPlayer, generation);
+  }
+
+  void _watchSeekBuffering(Player targetPlayer, int generation) {
+    if (generation != _seekRecoveryGeneration) return;
+    if (targetPlayer.state.buffering) {
+      unawaited(_resumeAfterSeekBuffering(targetPlayer, generation));
+      return;
+    }
+
+    late StreamSubscription<bool> subscription;
+    subscription = targetPlayer.stream.buffering.listen((buffering) {
+      if (!buffering || generation != _seekRecoveryGeneration) return;
+      unawaited(_resumeAfterSeekBuffering(targetPlayer, generation));
+    });
+    _seekBufferingSubscription = subscription;
+    unawaited(
+      Future<void>.delayed(const Duration(seconds: 5), () {
+        if (generation == _seekRecoveryGeneration) _cancelSeekRecovery();
+      }),
+    );
+  }
+
+  Future<void> _resumeAfterSeekBuffering(
+    Player targetPlayer,
+    int generation,
+  ) async {
+    if (generation != _seekRecoveryGeneration) return;
+    try {
+      await targetPlayer.play();
+    } catch (_) {
+      return;
+    }
+    if (generation == _seekRecoveryGeneration) _cancelSeekRecovery();
+  }
+
+  void _cancelSeekRecovery() {
+    _seekRecoveryGeneration++;
+    final subscription = _seekBufferingSubscription;
+    _seekBufferingSubscription = null;
+    if (subscription != null) unawaited(subscription.cancel());
+  }
 
   @override
   Future<void> play() => player.play();
 
   @override
-  Future<void> pause() => player.pause();
+  Future<void> pause() async {
+    _cancelSeekRecovery();
+    await player.pause();
+  }
 
   /// 停止当前媒体但保留播放器实例, 用于退出播放页前的停播。
   @override
   Future<void> stop() async {
+    _cancelSeekRecovery();
     ++_openGeneration;
     await player.stop();
     _updateState(
@@ -872,6 +934,7 @@ Future<void> _logNativeCacheState(Player targetPlayer, String phase) async {
 
   @override
   Future<void> dispose() async {
+    _cancelSeekRecovery();
     ++_openGeneration;
     for (final subscription in _stateSubscriptions) {
       await subscription.cancel();

@@ -40,6 +40,30 @@ void main() {
     );
   });
 
+  test('播放中定位后恢复播放，暂停时定位保持暂停', () async {
+    for (final kind in PlaybackEngineKind.values) {
+      final playingEngine = FakePlaybackEngine(kind, pauseOnSeek: true);
+      final playingSession = PlayerSessionController(engine: playingEngine);
+
+      await playingSession.open('https://example.com/video.m3u8');
+      await playingSession.seek(const Duration(seconds: 42));
+
+      expect(playingEngine.commands, ['open', 'seek', 'play']);
+      expect(playingSession.value.playing, isTrue);
+      await playingSession.dispose();
+
+      final pausedEngine = FakePlaybackEngine(kind, pauseOnSeek: true);
+      final pausedSession = PlayerSessionController(engine: pausedEngine);
+
+      await pausedSession.open('https://example.com/video.m3u8', play: false);
+      await pausedSession.seek(const Duration(seconds: 42));
+
+      expect(pausedEngine.commands, ['open', 'seek']);
+      expect(pausedSession.value.playing, isFalse);
+      await pausedSession.dispose();
+    }
+  });
+
   test('所有内核停止后可按续播位置和播放意图再次打开', () async {
     const resume = Duration(seconds: 84);
     for (final kind in PlaybackEngineKind.values) {

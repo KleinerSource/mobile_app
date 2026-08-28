@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/platform/app_log_store.dart';
 import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/update/update_repository.dart';
+import 'package:omm/features/settings/app_log_page.dart';
 import 'package:omm/features/settings/app_update_settings_page.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    AppLogStore.instance.clear();
+  });
 
   testWidgets('开发版检测开关位于当前版本卡片并持久化状态', (tester) async {
     final prefs = await SharedPreferences.getInstance();
@@ -67,5 +72,28 @@ void main() {
     await pumpPage();
     await tester.pumpAndSettle();
     expect(tester.widget<Switch>(switchFinder).value, isTrue);
+  });
+
+  testWidgets('应用更新页提供播放日志入口', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    appLog('[FilePlaybackProxy] 测试日志');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: const MaterialApp(home: AppUpdateSettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('查看播放日志'), findsOneWidget);
+  });
+
+  testWidgets('播放日志页显示当前运行日志', (tester) async {
+    appLog('[FilePlaybackProxy] 测试日志');
+    await tester.pumpWidget(const MaterialApp(home: AppLogPage()));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppLogPage), findsOneWidget);
+    expect(find.textContaining('测试日志'), findsOneWidget);
   });
 }

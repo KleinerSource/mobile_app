@@ -14,6 +14,7 @@ import '../../core/update/update_repository.dart';
 import '../../core/update/update_service.dart';
 import '../../shared/glow_background.dart';
 import '../player/player_settings.dart';
+import 'app_log_page.dart';
 import 'settings_common.dart';
 
 class AppUpdateSettingsPage extends ConsumerStatefulWidget {
@@ -202,6 +203,14 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                                     .copyWith(debugMode: value),
                               ),
                         ),
+                      ),
+                    ),
+                    SettingsTile(
+                      title: '查看播放日志',
+                      subtitle: 'SMB / WebDAV 视频持续加载时，复制日志给开发者',
+                      leadingIcon: Icons.receipt_long_outlined,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const AppLogPage()),
                       ),
                     ),
                   ],
