@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -999,7 +1000,36 @@ Widget _trailerPlaceholder(BuildContext context) {
   );
 }
 
-/// 对外复用 OMM 详情页已有的图片灯箱实现，其他数据源不再重复维护一套。
+/// 让文件来源也复用 OMM 详情页已有的图片灯箱实现。
+///
+/// [loadBytes] 按页面懒加载，图片查看器本身的布局和手势仍完全由 OMM
+/// 灯箱统一处理。
+Future<void> showImageLightbox(
+  BuildContext context, {
+  required int itemCount,
+  required Future<Uint8List> Function(int index) loadBytes,
+  int initialIndex = 0,
+}) {
+  if (itemCount <= 0) return Future<void>.value();
+  final safeIndex = initialIndex.clamp(0, itemCount - 1).toInt();
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: '关闭预览图',
+    barrierColor: Colors.transparent,
+    pageBuilder: (_, __, ___) => _ExtraFanartViewer(
+      urls: const <String>[],
+      imageCount: itemCount,
+      loadBytes: loadBytes,
+      trailerUrl: null,
+      posterUrl: null,
+      initialIndex: safeIndex,
+      onPageChanged: (_) {},
+    ),
+  );
+}
+
+/// OMM URL 图片灯箱入口，继续使用同一套灯箱和手势逻辑。
 Future<void> showMovieImageLightbox(
   BuildContext context, {
   required List<String> urls,
@@ -1029,6 +1059,8 @@ Future<void> showMovieImageLightbox(
 class _ExtraFanartViewer extends StatefulWidget {
   const _ExtraFanartViewer({
     required this.urls,
+    this.imageCount,
+    this.loadBytes,
     required this.trailerUrl,
     required this.posterUrl,
     required this.initialIndex,
@@ -1036,6 +1068,8 @@ class _ExtraFanartViewer extends StatefulWidget {
   });
 
   final List<String> urls;
+  final int? imageCount;
+  final Future<Uint8List> Function(int index)? loadBytes;
   final String? trailerUrl;
   final String? posterUrl;
   final int initialIndex;
@@ -1049,6 +1083,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
   late final PageController _controller;
   final Map<int, TransformationController> _imageControllers =
       <int, TransformationController>{};
+  final Map<int, Future<Uint8List>> _imageBytes = <int, Future<Uint8List>>{};
   final Set<int> _zoomedIndexes = <int>{};
   late int _index;
   double _verticalDragOffset = 0;
@@ -1059,7 +1094,9 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
 
   bool get _hasTrailer => widget.trailerUrl != null;
 
-  int get _itemCount => widget.urls.length + (_hasTrailer ? 1 : 0);
+  int get _imageCount => widget.imageCount ?? widget.urls.length;
+
+  int get _itemCount => _imageCount + (_hasTrailer ? 1 : 0);
 
   bool _isTrailerIndex(int index) => _hasTrailer && index == 0;
 
@@ -1085,6 +1122,10 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
       controller.addListener(() => _onImageTransformChanged(index, controller));
       return controller;
     });
+  }
+
+  Future<Uint8List> _bytesFor(int index) {
+    return _imageBytes.putIfAbsent(index, () => widget.loadBytes!(index));
   }
 
   void _onImageTransformChanged(
@@ -1252,6 +1293,45 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
                                   builder: (context, constraints) {
                                     final imageIndex =
                                         index - (_hasTrailer ? 1 : 0);
+                                    final loadBytes = widget.loadBytes;
+                                    final image = loadBytes == null
+                                        ? CachedNetworkImage(
+                                            imageUrl: widget.urls[imageIndex],
+                                            fit: BoxFit.contain,
+                                            placeholder: (_, __) => const Center(
+                                              child:
+                                                  CircularProgressIndicator(),
+                                            ),
+                                            errorWidget: (_, __, ___) =>
+                                                const Icon(
+                                                  Icons.broken_image_outlined,
+                                                  color: Colors.white54,
+                                                  size: 48,
+                                                ),
+                                          )
+                                        : FutureBuilder<Uint8List>(
+                                            future: _bytesFor(imageIndex),
+                                            builder: (context, snapshot) {
+                                              if (snapshot.hasError) {
+                                                return const Icon(
+                                                  Icons.broken_image_outlined,
+                                                  color: Colors.white54,
+                                                  size: 48,
+                                                );
+                                              }
+                                              final bytes = snapshot.data;
+                                              if (bytes == null) {
+                                                return const Center(
+                                                  child:
+                                                      CircularProgressIndicator(),
+                                                );
+                                              }
+                                              return Image.memory(
+                                                bytes,
+                                                fit: BoxFit.contain,
+                                              );
+                                            },
+                                          );
                                     return InteractiveViewer(
                                       transformationController:
                                           imageController!,
@@ -1267,20 +1347,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
                                       child: SizedBox(
                                         width: constraints.maxWidth,
                                         height: constraints.maxHeight,
-                                        child: Center(
-                                          child: CachedNetworkImage(
-                                            imageUrl: widget.urls[imageIndex],
-                                            fit: BoxFit.contain,
-                                            placeholder: (_, __) =>
-                                                const CircularProgressIndicator(),
-                                            errorWidget: (_, __, ___) =>
-                                                const Icon(
-                                                  Icons.broken_image_outlined,
-                                                  color: Colors.white54,
-                                                  size: 48,
-                                                ),
-                                          ),
-                                        ),
+                                        child: Center(child: image),
                                       ),
                                     );
                                   },

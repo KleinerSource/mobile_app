@@ -384,12 +384,12 @@ void main() {
     await tester.tap(find.text('封面.png'));
     await tester.pumpAndSettle();
 
-    expect(find.text('封面.png'), findsOneWidget);
+    expect(find.text('1 / 2'), findsOneWidget);
     expect(find.byType(InteractiveViewer), findsOneWidget);
     expect(find.byType(PageView), findsOneWidget);
     await tester.fling(find.byType(PageView), const Offset(-360, 0), 1000);
     await tester.pumpAndSettle();
-    expect(find.text('第二张.jpg'), findsOneWidget);
+    expect(find.text('2 / 2'), findsOneWidget);
     expect(find.byType(BottomSheet), findsNothing);
   });
 

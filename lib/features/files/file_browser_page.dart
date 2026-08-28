@@ -20,6 +20,8 @@ import '../../shared/glass.dart';
 import '../../shared/sheet_controls.dart';
 import '../../shared/swipe_actions.dart';
 import '../player/player_page.dart';
+import '../oh_my_media/movie_detail/movie_detail_page.dart'
+    show showImageLightbox;
 import '../settings/server_selection_page.dart';
 import 'file_navigation.dart';
 import 'file_playback_proxy.dart';
@@ -1269,15 +1271,11 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         (item) => item.stableKey == entry.stableKey,
       );
       if (!mounted) return;
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          allowSnapshotting: false,
-          builder: (_) => _FileImageViewerPage(
-            entries: entries,
-            initialIndex: initialIndex < 0 ? 0 : initialIndex,
-            loadBytes: _readFileBytes,
-          ),
-        ),
+      await showImageLightbox(
+        context,
+        itemCount: entries.length,
+        initialIndex: initialIndex < 0 ? 0 : initialIndex,
+        loadBytes: (index) => _readFileBytes(entries[index]),
       );
     } catch (error) {
       if (mounted) _message('图片预览失败：$error');
@@ -1850,160 +1848,6 @@ class _FileMenuItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [Icon(icon, size: 20), const SizedBox(width: 12), Text(label)],
-    );
-  }
-}
-
-class _FileImageViewerPage extends StatefulWidget {
-  const _FileImageViewerPage({
-    required this.entries,
-    required this.initialIndex,
-    required this.loadBytes,
-  });
-
-  final List<FileEntry> entries;
-  final int initialIndex;
-  final Future<Uint8List> Function(FileEntry entry) loadBytes;
-
-  @override
-  State<_FileImageViewerPage> createState() => _FileImageViewerPageState();
-}
-
-class _FileImageViewerPageState extends State<_FileImageViewerPage> {
-  late final PageController _pageController;
-  late int _currentIndex;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: widget.initialIndex);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final entry = widget.entries[_currentIndex];
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-        actions: [
-          if (widget.entries.length > 1)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Text('${_currentIndex + 1}/${widget.entries.length}'),
-              ),
-            ),
-        ],
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-      ),
-      body: PageView.builder(
-        controller: _pageController,
-        itemCount: widget.entries.length,
-        onPageChanged: (index) => setState(() => _currentIndex = index),
-        itemBuilder: (context, index) {
-          final item = widget.entries[index];
-          return KeyedSubtree(
-            key: ValueKey(item.stableKey),
-            child: _FileImagePage(entry: item, loadBytes: widget.loadBytes),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _FileImagePage extends StatefulWidget {
-  const _FileImagePage({required this.entry, required this.loadBytes});
-
-  final FileEntry entry;
-  final Future<Uint8List> Function(FileEntry entry) loadBytes;
-
-  @override
-  State<_FileImagePage> createState() => _FileImagePageState();
-}
-
-class _FileImagePageState extends State<_FileImagePage> {
-  late Future<Uint8List> _bytesFuture;
-  late final TransformationController _transformationController;
-  var _zoomed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _bytesFuture = widget.loadBytes(widget.entry);
-    _transformationController = TransformationController();
-  }
-
-  @override
-  void dispose() {
-    _transformationController.dispose();
-    super.dispose();
-  }
-
-  void _updateZoomState() {
-    final scale = _transformationController.value.getMaxScaleOnAxis();
-    if (scale <= 1.01 && _zoomed && mounted) {
-      setState(() => _zoomed = false);
-    }
-  }
-
-  void _toggleZoom() {
-    if (_zoomed) {
-      _transformationController.value = Matrix4.identity();
-      setState(() => _zoomed = false);
-      return;
-    }
-    _transformationController.value = Matrix4.diagonal3Values(2.0, 2.0, 1.0);
-    setState(() => _zoomed = true);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<Uint8List>(
-      future: _bytesFuture,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(
-            child: Text(
-              '图片加载失败：${snapshot.error}',
-              style: const TextStyle(color: Colors.white70),
-              textAlign: TextAlign.center,
-            ),
-          );
-        }
-        final bytes = snapshot.data;
-        if (bytes == null) {
-          return const Center(
-            child: CircularProgressIndicator(color: Colors.white),
-          );
-        }
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onDoubleTap: _toggleZoom,
-          child: Center(
-            child: InteractiveViewer(
-              transformationController: _transformationController,
-              panEnabled: _zoomed,
-              scaleEnabled: _zoomed,
-              minScale: 0.5,
-              maxScale: 6,
-              boundaryMargin: const EdgeInsets.all(32),
-              onInteractionUpdate: (_) => _updateZoomState(),
-              onInteractionEnd: (_) => _updateZoomState(),
-              child: Image.memory(bytes, fit: BoxFit.contain),
-            ),
-          ),
-        );
-      },
     );
   }
 }
