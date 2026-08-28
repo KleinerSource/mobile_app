@@ -339,6 +339,37 @@ class _SheetDragCoordinatorState extends State<SheetDragCoordinator>
     _scrollState = next;
   }
 
+  void _recordScrollableSnapshot(
+    BuildContext notificationContext,
+    ScrollMetrics metrics,
+  ) {
+    final atTop = _isAtTop(metrics);
+    final existingIndex = _scrollables.indexWhere(
+      (snapshot) => identical(snapshot.context, notificationContext),
+    );
+    if (existingIndex == -1) {
+      _scrollables.add(
+        _SheetScrollableSnapshot(context: notificationContext, atTop: atTop),
+      );
+    } else {
+      _scrollables[existingIndex].atTop = atTop;
+    }
+
+    if (_pointer != null) {
+      final isActive = identical(_activeScrollableContext, notificationContext);
+      final canBecomeActive =
+          _activeScrollableContext == null &&
+          _lastPointerPosition != null &&
+          _containsGlobalPosition(notificationContext, _lastPointerPosition!);
+      if (isActive || canBecomeActive) {
+        _activeScrollableContext = notificationContext;
+        _setScrollState(
+          atTop ? _SheetScrollState.atTop : _SheetScrollState.awayFromTop,
+        );
+      }
+    }
+  }
+
   bool _handleScrollNotification(ScrollNotification notification) {
     if (!widget.enabled || notification.metrics.axis != Axis.vertical) {
       return false;
@@ -346,35 +377,20 @@ class _SheetDragCoordinatorState extends State<SheetDragCoordinator>
 
     final notificationContext = notification.context;
     if (notificationContext != null) {
-      final atTop = _isAtTop(notification.metrics);
-      final existingIndex = _scrollables.indexWhere(
-        (snapshot) => identical(snapshot.context, notificationContext),
-      );
-      if (existingIndex == -1) {
-        _scrollables.add(
-          _SheetScrollableSnapshot(context: notificationContext, atTop: atTop),
-        );
-      } else {
-        _scrollables[existingIndex].atTop = atTop;
-      }
-
-      if (_pointer != null) {
-        final isActive = identical(
-          _activeScrollableContext,
-          notificationContext,
-        );
-        final canBecomeActive =
-            _activeScrollableContext == null &&
-            _lastPointerPosition != null &&
-            _containsGlobalPosition(notificationContext, _lastPointerPosition!);
-        if (isActive || canBecomeActive) {
-          _activeScrollableContext = notificationContext;
-          _setScrollState(
-            atTop ? _SheetScrollState.atTop : _SheetScrollState.awayFromTop,
-          );
-        }
-      }
+      _recordScrollableSnapshot(notificationContext, notification.metrics);
     }
+    return false;
+  }
+
+  bool _handleScrollMetricsNotification(
+    ScrollMetricsNotification notification,
+  ) {
+    if (!widget.enabled || notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+
+    final notificationContext = notification.context;
+    _recordScrollableSnapshot(notificationContext, notification.metrics);
     return false;
   }
 
@@ -477,17 +493,20 @@ class _SheetDragCoordinatorState extends State<SheetDragCoordinator>
   Widget build(BuildContext context) {
     if (!widget.enabled) return widget.child;
 
-    return NotificationListener<ScrollNotification>(
-      onNotification: _handleScrollNotification,
-      child: Listener(
-        behavior: HitTestBehavior.opaque,
-        onPointerDown: _handlePointerDown,
-        onPointerMove: _handlePointerMove,
-        onPointerUp: _handlePointerUp,
-        onPointerCancel: _handlePointerCancel,
-        child: Transform.translate(
-          offset: Offset(0, _dragOffset),
-          child: widget.child,
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: _handleScrollMetricsNotification,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _handleScrollNotification,
+        child: Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: _handlePointerDown,
+          onPointerMove: _handlePointerMove,
+          onPointerUp: _handlePointerUp,
+          onPointerCancel: _handlePointerCancel,
+          child: Transform.translate(
+            offset: Offset(0, _dragOffset),
+            child: widget.child,
+          ),
         ),
       ),
     );
