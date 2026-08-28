@@ -263,7 +263,7 @@ void main() {
           ServerConfig(
             baseUrl: 'https://current.example',
             lines: current.lines,
-            servers: [current, target],
+            servers: const [current, target],
             activeServerId: 'current',
           ),
         );
