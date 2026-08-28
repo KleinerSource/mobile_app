@@ -26,17 +26,18 @@ import 'package:omm/features/oh_my_media/search/search_page.dart';
 import 'package:omm/features/oh_my_media/tasks/task_center_page.dart';
 import '../settings/settings_page.dart';
 
-/// omm 主框架 · 设计稿 4 Tab 悬浮胶囊
+/// 媒体管理器 Shell · 设计稿 4 Tab 悬浮胶囊。
 ///
+/// OMM、DBO 以及未来接入的 Emby/Jellyfin 等媒体管理器共用这一层。
 /// Home / Library / Search / You
-class MainShell extends ConsumerStatefulWidget {
-  const MainShell({super.key});
+class MediaManagerShell extends ConsumerStatefulWidget {
+  const MediaManagerShell({super.key});
 
   @override
-  ConsumerState<MainShell> createState() => _MainShellState();
+  ConsumerState<MediaManagerShell> createState() => _MediaManagerShellState();
 }
 
-class _MainShellState extends ConsumerState<MainShell> {
+class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
   int _index = 0;
   ServerProject? _lastProject;
 

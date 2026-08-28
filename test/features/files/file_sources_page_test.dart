@@ -85,6 +85,15 @@ void main() {
     expect(find.byTooltip('文件操作'), findsNWidgets(2));
     expect(find.text('.隐藏文件'), findsNothing);
 
+    await tester.tap(find.byTooltip('文件操作').first);
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.info_outline), findsOneWidget);
+    expect(find.byIcon(Icons.drive_file_rename_outline), findsOneWidget);
+    expect(find.byIcon(Icons.drive_file_move_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byTooltip('更多'));
     await tester.pumpAndSettle();
     expect(find.text('新建文件夹'), findsOneWidget);
@@ -361,13 +370,9 @@ void main() {
           fileSourceProvider(
             sourceId.value,
           ).overrideWith((ref) async => _PreviewFileSource(sourceId, png)),
-          fileDirectoryProvider(request).overrideWith(
-            (ref) async => _listingWithEntry(
-              sourceId,
-              name: '封面.png',
-              mimeType: 'image/png',
-            ),
-          ),
+          fileDirectoryProvider(
+            request,
+          ).overrideWith((ref) async => _listingWithImages(sourceId)),
         ],
         child: MaterialApp(
           home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
@@ -381,6 +386,10 @@ void main() {
 
     expect(find.text('封面.png'), findsOneWidget);
     expect(find.byType(InteractiveViewer), findsOneWidget);
+    expect(find.byType(PageView), findsOneWidget);
+    await tester.fling(find.byType(PageView), const Offset(-360, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('第二张.jpg'), findsOneWidget);
     expect(find.byType(BottomSheet), findsNothing);
   });
 
@@ -418,6 +427,49 @@ void main() {
 
     expect(find.text('选择服务器'), findsOneWidget);
     expect(find.text('WebDAV 二号'), findsOneWidget);
+  });
+
+  testWidgets('点击根目录面包屑回到文件列表根页而不是服务器选择器', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final rootRequest = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+    final nestedRequest = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+      path: '目录 A',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+          fileDirectoryProvider(
+            rootRequest,
+          ).overrideWith((ref) async => _listingWithDirectory(sourceId)),
+          fileDirectoryProvider(
+            nestedRequest,
+          ).overrideWith((ref) async => _listingAt(sourceId, '目录 A', '子目录内容')),
+        ],
+        child: MaterialApp(
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('目录 A'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('根目录'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('根目录内容'), findsOneWidget);
+    expect(find.text('子目录内容'), findsNothing);
+    expect(find.byType(ServerSelectionPage), findsNothing);
   });
 
   testWidgets('SMB 子目录边缘返回先回到根目录，再打开服务器选择器', (tester) async {
@@ -631,6 +683,25 @@ DirectoryListing _listingWithEntry(
       name: name,
       type: FileEntryType.file,
       mimeType: mimeType,
+    ),
+  ],
+);
+
+DirectoryListing _listingWithImages(SourceId sourceId) => DirectoryListing(
+  currentPath: FilePath(sourceId: sourceId, value: ''),
+  breadcrumbs: [FilePath(sourceId: sourceId, value: '')],
+  entries: [
+    FileEntry(
+      path: FilePath(sourceId: sourceId, value: '封面.png'),
+      name: '封面.png',
+      type: FileEntryType.file,
+      mimeType: 'image/png',
+    ),
+    FileEntry(
+      path: FilePath(sourceId: sourceId, value: '第二张.jpg'),
+      name: '第二张.jpg',
+      type: FileEntryType.file,
+      mimeType: 'image/jpeg',
     ),
   ],
 );

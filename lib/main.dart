@@ -11,11 +11,12 @@ import 'core/platform/app_theme.dart';
 import 'features/i18n/locale_providers.dart';
 import 'features/i18n/theme_provider.dart';
 import 'features/home/server_switch_transition.dart';
-import 'features/main/main_shell.dart';
+import 'features/main/media_manager_shell.dart';
 import 'features/privacy/privacy_shield.dart';
 import 'features/security/security_gate.dart';
 import 'features/security/security_providers.dart';
-import 'features/files/file_sources_page.dart';
+import 'features/files/file_manager_shell.dart';
+import 'features/files/file_navigation.dart';
 import 'features/settings/app_update_startup_gate.dart';
 import 'features/settings/server_selection_page.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -169,6 +170,7 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
       if (showContent && isFileServer)
         const MaterialPage<void>(
           key: _AppNavigator._fileKey,
+          name: fileManagerRootRouteName,
           child: _AuthenticatedFileHome(),
         ),
       if (serverSwitch.isActive)
@@ -284,7 +286,7 @@ class _AuthenticatedHomeWithServerSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 切换期间不能挂载 MainShell：目标服务器尚未完成鉴权时，DBO 首页
+    // 切换期间不能挂载媒体管理器 Shell：目标服务器尚未完成鉴权时，DBO 首页
     // 会立即请求 recommend/latest 等受保护接口并产生 401。
     return Stack(
       fit: StackFit.expand,
@@ -303,7 +305,7 @@ class _AuthenticatedMediaHome extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return StartupUpdateGate(
       enabled: ref.watch(securityGateReadyProvider),
-      child: const MainShell(),
+      child: const MediaManagerShell(),
     );
   }
 }
@@ -315,7 +317,7 @@ class _AuthenticatedFileHome extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return StartupUpdateGate(
       enabled: ref.watch(securityGateReadyProvider),
-      child: const FileSourcesPage(),
+      child: const FileManagerShell(),
     );
   }
 }

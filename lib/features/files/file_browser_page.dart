@@ -21,6 +21,8 @@ import '../../shared/sheet_controls.dart';
 import '../../shared/swipe_actions.dart';
 import '../player/player_page.dart';
 import '../settings/server_selection_page.dart';
+import 'file_navigation.dart';
+import 'file_playback_proxy.dart';
 
 enum _FileSortField { name, date, size, category }
 
@@ -359,7 +361,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       navigator.popUntil(
         (route) => widget.directoryPicker
             ? route.settings.name == rootRouteName
-            : route.isFirst,
+            : route.settings.name == fileManagerRootRouteName ||
+                  (!ServerNavigationScope.of(context) && route.isFirst),
       );
       return;
     }
@@ -649,12 +652,42 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                   onSelected: (action) => _handleEntryAction(entry, action),
                   itemBuilder: (_) => [
                     if (entry.isDirectory || !_canPreview(entry))
-                      const PopupMenuItem(value: 'detail', child: Text('详情')),
+                      const PopupMenuItem(
+                        value: 'detail',
+                        child: _FileMenuItem(
+                          icon: Icons.info_outline,
+                          label: '详情',
+                        ),
+                      ),
                     if (!entry.isDirectory)
-                      const PopupMenuItem(value: 'download', child: Text('下载')),
-                    const PopupMenuItem(value: 'rename', child: Text('重命名')),
-                    const PopupMenuItem(value: 'move', child: Text('移动')),
-                    const PopupMenuItem(value: 'delete', child: Text('删除')),
+                      const PopupMenuItem(
+                        value: 'download',
+                        child: _FileMenuItem(
+                          icon: Icons.download_outlined,
+                          label: '下载',
+                        ),
+                      ),
+                    const PopupMenuItem(
+                      value: 'rename',
+                      child: _FileMenuItem(
+                        icon: Icons.drive_file_rename_outline,
+                        label: '重命名',
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'move',
+                      child: _FileMenuItem(
+                        icon: Icons.drive_file_move_outlined,
+                        label: '移动',
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: _FileMenuItem(
+                        icon: Icons.delete_outline,
+                        label: '删除',
+                      ),
+                    ),
                   ],
                 ),
           onTap: _busy
@@ -1160,10 +1193,11 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                     Navigator.of(context).pop(_FileDetailsAction.preview),
               ),
             SheetActionBar(
-              child: OutlinedButton(
+              child: OutlinedButton.icon(
                 onPressed: () => Navigator.of(context).pop(),
                 style: sheetSecondaryButtonStyle(context),
-                child: const Text('关闭'),
+                icon: const Icon(Icons.close),
+                label: const Text('关闭'),
               ),
             ),
           ],
@@ -1194,69 +1228,55 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _previewVideo(FileEntry entry) async {
-    File? temporaryFile;
+    FilePlaybackProxy? proxy;
     setState(() => _busy = true);
     try {
-      temporaryFile = await _downloadPreviewFile(entry);
+      final repository = await _repository();
+      proxy = await FilePlaybackProxy.start(
+        repository: repository,
+        path: entry.path,
+        size: entry.size,
+        mimeType: entry.mimeType,
+      );
       if (!mounted) return;
       await PlayerPage.openDirect(
         context,
         title: entry.name,
-        directUrl: Uri.file(temporaryFile.path).toString(),
+        directUrl: proxy.uri.toString(),
       );
     } catch (error) {
       if (mounted) {
         _message('视频预览失败：${error is SourceException ? error.message : error}');
       }
     } finally {
-      if (temporaryFile != null) {
-        try {
-          if (await temporaryFile.exists()) await temporaryFile.delete();
-        } catch (_) {}
-      }
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<File> _downloadPreviewFile(FileEntry entry) async {
-    final directory = await getTemporaryDirectory();
-    final safeName = entry.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
-    final file = File(
-      '${directory.path}${Platform.pathSeparator}omm-preview-'
-      '${DateTime.now().microsecondsSinceEpoch}-${safeName.isEmpty ? 'file' : safeName}',
-    );
-    final output = file.openWrite();
-    var closed = false;
-    try {
-      final access = await (await _repository()).resolveAccess(entry.path);
-      final stream = await access.open();
-      await for (final chunk in stream) {
-        output.add(chunk);
-      }
-      await output.close();
-      closed = true;
-      return file;
-    } catch (_) {
-      if (!closed) {
-        try {
-          await output.close();
-        } catch (_) {}
-      }
       try {
-        if (await file.exists()) await file.delete();
+        await proxy?.close();
       } catch (_) {}
-      rethrow;
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _previewImage(FileEntry entry) async {
     try {
-      final bytes = await _readFileBytes(entry);
+      final listing = ref.read(fileDirectoryProvider(_request)).valueOrNull;
+      final entries = listing == null
+          ? <FileEntry>[entry]
+          : _visibleEntries(listing).where(_isImageEntry).toList();
+      if (!entries.any((item) => item.stableKey == entry.stableKey)) {
+        entries.insert(0, entry);
+      }
+      final initialIndex = entries.indexWhere(
+        (item) => item.stableKey == entry.stableKey,
+      );
       if (!mounted) return;
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
           allowSnapshotting: false,
-          builder: (_) => _FileImageViewerPage(title: entry.name, bytes: bytes),
+          builder: (_) => _FileImageViewerPage(
+            entries: entries,
+            initialIndex: initialIndex < 0 ? 0 : initialIndex,
+            loadBytes: _readFileBytes,
+          ),
         ),
       );
     } catch (error) {
@@ -1819,28 +1839,171 @@ class _BrowserError extends StatelessWidget {
   );
 }
 
-class _FileImageViewerPage extends StatelessWidget {
-  const _FileImageViewerPage({required this.title, required this.bytes});
+class _FileMenuItem extends StatelessWidget {
+  const _FileMenuItem({required this.icon, required this.label});
 
-  final String title;
-  final Uint8List bytes;
+  final IconData icon;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [Icon(icon, size: 20), const SizedBox(width: 12), Text(label)],
+    );
+  }
+}
+
+class _FileImageViewerPage extends StatefulWidget {
+  const _FileImageViewerPage({
+    required this.entries,
+    required this.initialIndex,
+    required this.loadBytes,
+  });
+
+  final List<FileEntry> entries;
+  final int initialIndex;
+  final Future<Uint8List> Function(FileEntry entry) loadBytes;
+
+  @override
+  State<_FileImageViewerPage> createState() => _FileImageViewerPageState();
+}
+
+class _FileImageViewerPageState extends State<_FileImageViewerPage> {
+  late final PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entry = widget.entries[_currentIndex];
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        actions: [
+          if (widget.entries.length > 1)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Text('${_currentIndex + 1}/${widget.entries.length}'),
+              ),
+            ),
+        ],
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
       ),
-      body: Center(
-        child: InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 6,
-          child: Image.memory(bytes, fit: BoxFit.contain),
-        ),
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: widget.entries.length,
+        onPageChanged: (index) => setState(() => _currentIndex = index),
+        itemBuilder: (context, index) {
+          final item = widget.entries[index];
+          return KeyedSubtree(
+            key: ValueKey(item.stableKey),
+            child: _FileImagePage(entry: item, loadBytes: widget.loadBytes),
+          );
+        },
       ),
+    );
+  }
+}
+
+class _FileImagePage extends StatefulWidget {
+  const _FileImagePage({required this.entry, required this.loadBytes});
+
+  final FileEntry entry;
+  final Future<Uint8List> Function(FileEntry entry) loadBytes;
+
+  @override
+  State<_FileImagePage> createState() => _FileImagePageState();
+}
+
+class _FileImagePageState extends State<_FileImagePage> {
+  late Future<Uint8List> _bytesFuture;
+  late final TransformationController _transformationController;
+  var _zoomed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _bytesFuture = widget.loadBytes(widget.entry);
+    _transformationController = TransformationController();
+  }
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  void _updateZoomState() {
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    if (scale <= 1.01 && _zoomed && mounted) {
+      setState(() => _zoomed = false);
+    }
+  }
+
+  void _toggleZoom() {
+    if (_zoomed) {
+      _transformationController.value = Matrix4.identity();
+      setState(() => _zoomed = false);
+      return;
+    }
+    _transformationController.value = Matrix4.diagonal3Values(2.0, 2.0, 1.0);
+    setState(() => _zoomed = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List>(
+      future: _bytesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              '图片加载失败：${snapshot.error}',
+              style: const TextStyle(color: Colors.white70),
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
+        final bytes = snapshot.data;
+        if (bytes == null) {
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          );
+        }
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onDoubleTap: _toggleZoom,
+          child: Center(
+            child: InteractiveViewer(
+              transformationController: _transformationController,
+              panEnabled: _zoomed,
+              scaleEnabled: _zoomed,
+              minScale: 0.5,
+              maxScale: 6,
+              boundaryMargin: const EdgeInsets.all(32),
+              onInteractionUpdate: (_) => _updateZoomState(),
+              onInteractionEnd: (_) => _updateZoomState(),
+              child: Image.memory(bytes, fit: BoxFit.contain),
+            ),
+          ),
+        );
+      },
     );
   }
 }
