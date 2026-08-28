@@ -280,6 +280,23 @@ void main() {
     }
   });
 
+  test('SMB 服务器根路径不要求共享名并保留根路径语义', () {
+    final paths = [
+      parseSmbPath('/'),
+      parseSmbPath(r'\'),
+      parseSmbPath(r'\\nas'),
+      parseSmbPath('smb://nas'),
+      parseSmbPath('smb://nas/'),
+    ];
+
+    for (final path in paths) {
+      expect(path.isServerRoot, isTrue);
+      expect(path.share, isEmpty);
+      expect(path.relativePath, isEmpty);
+      expect(path.normalizedPath, '/');
+    }
+  });
+
   test('文件来源缺少端口时使用协议默认端口且只接受 path', () {
     final smb = FileSourceConfig.fromJson(const {
       'id': 'smb',

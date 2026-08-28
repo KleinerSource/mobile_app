@@ -546,7 +546,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                             enabled: !_busy,
                             decoration: InputDecoration(
                               labelText: '路径',
-                              hintText: webDav ? 'dav/media' : 'media/Movies',
+                              hintText: webDav ? 'dav/media' : '共享名或 /',
                               prefixIcon: const Icon(Icons.folder_outlined),
                             ),
                           ),
@@ -765,6 +765,6 @@ String _buildSmbEndpoint(String host, int port, String path) {
     scheme: 'smb',
     host: host,
     port: port,
-    path: '/$normalizedPath',
+    path: normalizedPath.isEmpty ? '/' : '/$normalizedPath',
   ).toString();
 }
