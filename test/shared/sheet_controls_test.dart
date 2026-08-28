@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/shared/sheet_controls.dart';
 
 void main() {
-  testWidgets('sheetMaxHeight 为顶部状态栏和余量保留空间', (tester) async {
+  testWidgets('sheetMaxHeight 为灵动岛设备保留顶部状态栏和更大的余量', (tester) async {
     double? actual;
     await tester.pumpWidget(
       MediaQuery(
@@ -20,6 +20,6 @@ void main() {
       ),
     );
 
-    expect(actual, 773);
+    expect(actual, 733);
   });
 }
