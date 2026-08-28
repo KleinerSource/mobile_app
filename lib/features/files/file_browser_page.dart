@@ -11,7 +11,23 @@ import '../../core/sources/files/file_entry.dart';
 import '../../core/sources/files/file_operation.dart';
 import '../../core/sources/files/file_source_providers.dart';
 import '../../core/sources/files/file_source_repository.dart';
+import '../../shared/drag_selection.dart';
+import '../../shared/edge_swipe_back.dart';
+import '../../shared/swipe_actions.dart';
 import '../settings/server_selection_page.dart';
+
+enum _FileSortField { name, date, size, category }
+
+enum _BrowserMenuAction {
+  createDirectory,
+  upload,
+  enterSelection,
+  toggleHidden,
+  sortName,
+  sortDate,
+  sortSize,
+  sortCategory,
+}
 
 class FileBrowserPage extends ConsumerStatefulWidget {
   const FileBrowserPage({
@@ -32,9 +48,16 @@ class FileBrowserPage extends ConsumerStatefulWidget {
 class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   late String _path = widget.initialPath;
   late final FileOperationTracker _tracker;
+  final ScrollController _scrollController = ScrollController();
+  final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
+  final Set<String> _selectedKeys = <String>{};
   StreamSubscription<FileOperation>? _operationSubscription;
   FileOperation? _operation;
   bool _busy = false;
+  bool _selectionMode = false;
+  bool _showHiddenFiles = false;
+  _FileSortField _sortField = _FileSortField.name;
+  bool _sortAscending = true;
 
   FileDirectoryRequest get _request => FileDirectoryRequest(
     serverId: widget.serverId,
@@ -42,10 +65,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     path: _path,
   );
 
+  bool get _isAtRoot => _path.isEmpty || _path == '/';
+
   @override
   void initState() {
     super.initState();
     _tracker = FileOperationTracker(sourceId: widget.sourceId);
+    _scrollController.addListener(_closeSwipeOnScroll);
     _operationSubscription = _tracker.events.listen((operation) {
       if (mounted) setState(() => _operation = operation);
     });
@@ -54,64 +80,150 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   @override
   void dispose() {
     unawaited(_operationSubscription?.cancel());
+    _scrollController.removeListener(_closeSwipeOnScroll);
+    _scrollController.dispose();
+    _openSwipe.dispose();
     unawaited(_tracker.dispose());
     super.dispose();
+  }
+
+  void _handleEdgeSwipeBack() {
+    if (_selectionMode) {
+      _exitSelection();
+      return;
+    }
+    if (_isAtRoot) {
+      unawaited(ServerSelectionPage.openForReturn(context));
+      return;
+    }
+    setState(() => _path = '');
   }
 
   @override
   Widget build(BuildContext context) {
     final listing = ref.watch(fileDirectoryProvider(_request));
     final source = ref.watch(fileSourceProvider(widget.sourceId.value));
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: '返回服务器选择',
-          onPressed: _returnToServerSelector,
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: source.when(
-          data: (value) => Text(value?.descriptor.name ?? '文件列表'),
-          loading: () => const Text('文件列表'),
-          error: (_, __) => const Text('文件列表'),
-        ),
-        actions: [
-          IconButton(
-            onPressed: _busy
-                ? null
-                : () => ref.invalidate(fileDirectoryProvider(_request)),
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: listing.when(
-              data: _buildListing,
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => _BrowserError(
-                message: error is SourceException
-                    ? error.message
-                    : error.toString(),
-                onRetry: () => ref.invalidate(fileDirectoryProvider(_request)),
+    final currentDirectoryPath = listing.hasValue
+        ? listing.requireValue.currentPath
+        : FilePath(sourceId: widget.sourceId, value: _path);
+    final visibleEntries = listing.hasValue
+        ? _visibleEntries(listing.requireValue)
+        : const <FileEntry>[];
+
+    return PopScope(
+      canPop: !_selectionMode,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _selectionMode) _exitSelection();
+      },
+      child: EdgeSwipeBack(
+        onTriggered: _handleEdgeSwipeBack,
+        child: Scaffold(
+          appBar: AppBar(
+            leading: IconButton(
+              tooltip: _selectionMode ? '退出选择' : '返回服务器选择',
+              onPressed: _selectionMode
+                  ? _exitSelection
+                  : _returnToServerSelector,
+              icon: Icon(_selectionMode ? Icons.close : Icons.arrow_back),
+            ),
+            title: source.when(
+              data: (value) => Text(
+                _selectionMode
+                    ? '已选 ${_selectedKeys.length} 项'
+                    : (value?.descriptor.name ?? '文件列表'),
               ),
+              loading: () => const Text('文件列表'),
+              error: (_, __) => const Text('文件列表'),
             ),
+            actions: [
+              PopupMenuButton<_BrowserMenuAction>(
+                enabled: !_busy,
+                tooltip: '更多',
+                onSelected: (action) =>
+                    _handleMenuAction(action, currentDirectoryPath),
+                itemBuilder: (_) => [
+                  _menuItem(
+                    _BrowserMenuAction.createDirectory,
+                    Icons.create_new_folder_outlined,
+                    '新建文件夹',
+                  ),
+                  _menuItem(
+                    _BrowserMenuAction.upload,
+                    Icons.upload_file_outlined,
+                    '上传文件',
+                  ),
+                  _menuItem(
+                    _BrowserMenuAction.enterSelection,
+                    Icons.checklist_outlined,
+                    '选择',
+                  ),
+                  CheckedPopupMenuItem<_BrowserMenuAction>(
+                    value: _BrowserMenuAction.toggleHidden,
+                    checked: _showHiddenFiles,
+                    child: const Text('显示隐藏文件'),
+                  ),
+                  CheckedPopupMenuItem<_BrowserMenuAction>(
+                    value: _BrowserMenuAction.sortName,
+                    checked: _sortField == _FileSortField.name,
+                    child: Text(_sortMenuLabel('名称', _FileSortField.name)),
+                  ),
+                  CheckedPopupMenuItem<_BrowserMenuAction>(
+                    value: _BrowserMenuAction.sortDate,
+                    checked: _sortField == _FileSortField.date,
+                    child: Text(_sortMenuLabel('日期', _FileSortField.date)),
+                  ),
+                  CheckedPopupMenuItem<_BrowserMenuAction>(
+                    value: _BrowserMenuAction.sortSize,
+                    checked: _sortField == _FileSortField.size,
+                    child: Text(_sortMenuLabel('大小', _FileSortField.size)),
+                  ),
+                  CheckedPopupMenuItem<_BrowserMenuAction>(
+                    value: _BrowserMenuAction.sortCategory,
+                    checked: _sortField == _FileSortField.category,
+                    child: Text(_sortMenuLabel('类别', _FileSortField.category)),
+                  ),
+                ],
+              ),
+            ],
           ),
-          if (_operation != null)
-            _FileOperationBanner(
-              operation: _operation!,
-              onCancel: _cancelOperation,
-            ),
-        ],
+          body: Column(
+            children: [
+              Expanded(
+                child: listing.when(
+                  data: _buildListing,
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => _BrowserError(
+                    message: error is SourceException
+                        ? error.message
+                        : error.toString(),
+                    onRetry: () => unawaited(_refresh()),
+                  ),
+                ),
+              ),
+              if (_operation != null)
+                _FileOperationBanner(
+                  operation: _operation!,
+                  onCancel: _cancelOperation,
+                ),
+            ],
+          ),
+          bottomNavigationBar: _selectionMode
+              ? _FileSelectionToolbar(
+                  selectedCount: _selectedKeys.length,
+                  totalCount: visibleEntries.length,
+                  allSelected:
+                      visibleEntries.isNotEmpty &&
+                      visibleEntries.every(
+                        (entry) => _selectedKeys.contains(entry.stableKey),
+                      ),
+                  onSelectAll: () => _toggleSelectAll(visibleEntries),
+                  onDelete: () => _deleteSelected(visibleEntries),
+                  onClose: _exitSelection,
+                )
+              : null,
+        ),
       ),
-      floatingActionButton: listing.hasValue
-          ? FloatingActionButton(
-              onPressed: _busy
-                  ? null
-                  : () => _showActions(listing.requireValue),
-              child: const Icon(Icons.add),
-            )
-          : null,
     );
   }
 
@@ -119,12 +231,183 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     await ServerSelectionPage.openForReturn(context);
   }
 
+  PopupMenuItem<_BrowserMenuAction> _menuItem(
+    _BrowserMenuAction action,
+    IconData icon,
+    String label,
+  ) => PopupMenuItem<_BrowserMenuAction>(
+    value: action,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [Icon(icon, size: 20), const SizedBox(width: 12), Text(label)],
+    ),
+  );
+
+  void _closeSwipeOnScroll() {
+    if (_openSwipe.value != null) _openSwipe.value = null;
+  }
+
+  void _setPath(String path) {
+    _openSwipe.value = null;
+    setState(() {
+      _path = path;
+      _selectionMode = false;
+      _selectedKeys.clear();
+    });
+  }
+
+  void _startSelectionSweep(String key, bool selected) {
+    setState(() {
+      _selectionMode = true;
+      _setSelectionValue(key, selected);
+    });
+  }
+
+  void _applySelectionSweep(String key, bool selected) {
+    if (_selectedKeys.contains(key) == selected) return;
+    setState(() => _setSelectionValue(key, selected));
+  }
+
+  void _finishSelectionSweep() {
+    if (_selectionMode && _selectedKeys.isEmpty) _exitSelection();
+  }
+
+  void _setSelectionValue(String key, bool selected) {
+    if (selected) {
+      _selectedKeys.add(key);
+    } else {
+      _selectedKeys.remove(key);
+    }
+  }
+
+  void _toggleSelect(FileEntry entry) {
+    setState(() {
+      if (_selectedKeys.remove(entry.stableKey)) {
+        if (_selectedKeys.isEmpty) _selectionMode = false;
+      } else {
+        _selectedKeys.add(entry.stableKey);
+      }
+    });
+  }
+
+  void _enterSelectionMode() {
+    if (_busy || _selectionMode) return;
+    setState(() => _selectionMode = true);
+  }
+
+  void _exitSelection() {
+    _openSwipe.value = null;
+    if (!mounted) return;
+    setState(() {
+      _selectionMode = false;
+      _selectedKeys.clear();
+    });
+  }
+
+  void _toggleSelectAll(List<FileEntry> entries) {
+    if (entries.isEmpty) return;
+    final allSelected = entries.every(
+      (entry) => _selectedKeys.contains(entry.stableKey),
+    );
+    if (allSelected) {
+      _exitSelection();
+      return;
+    }
+    setState(() {
+      _selectionMode = true;
+      _selectedKeys
+        ..clear()
+        ..addAll(entries.map((entry) => entry.stableKey));
+    });
+  }
+
+  Future<void> _handleMenuAction(
+    _BrowserMenuAction action,
+    FilePath currentPath,
+  ) async {
+    switch (action) {
+      case _BrowserMenuAction.createDirectory:
+        await _createDirectory(currentPath);
+      case _BrowserMenuAction.upload:
+        await _upload(currentPath);
+      case _BrowserMenuAction.enterSelection:
+        _enterSelectionMode();
+      case _BrowserMenuAction.toggleHidden:
+        if (_selectionMode) _exitSelection();
+        if (mounted) setState(() => _showHiddenFiles = !_showHiddenFiles);
+      case _BrowserMenuAction.sortName:
+        _setSort(_FileSortField.name);
+      case _BrowserMenuAction.sortDate:
+        _setSort(_FileSortField.date);
+      case _BrowserMenuAction.sortSize:
+        _setSort(_FileSortField.size);
+      case _BrowserMenuAction.sortCategory:
+        _setSort(_FileSortField.category);
+    }
+  }
+
+  void _setSort(_FileSortField field) {
+    setState(() {
+      if (_sortField == field) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortField = field;
+        _sortAscending = true;
+      }
+    });
+  }
+
+  String _sortMenuLabel(String label, _FileSortField field) {
+    if (_sortField != field) return '$label排序';
+    return '$label排序 ${_sortAscending ? '↑' : '↓'}';
+  }
+
+  List<FileEntry> _visibleEntries(DirectoryListing listing) {
+    final entries = listing.entries
+        .where((entry) => _showHiddenFiles || !_isHiddenEntry(entry))
+        .toList();
+    entries.sort(_compareEntries);
+    return entries;
+  }
+
+  int _compareEntries(FileEntry a, FileEntry b) {
+    if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
+
+    final result = switch (_sortField) {
+      _FileSortField.name => _compareNames(a.name, b.name),
+      _FileSortField.date => _compareDates(
+        a.modifiedAt ?? a.createdAt,
+        b.modifiedAt ?? b.createdAt,
+      ),
+      _FileSortField.size => (a.size ?? -1).compareTo(b.size ?? -1),
+      _FileSortField.category => _entryCategory(a).compareTo(_entryCategory(b)),
+    };
+    if (result != 0) return _sortAscending ? result : -result;
+    return _compareNames(a.name, b.name);
+  }
+
+  int _compareNames(String a, String b) =>
+      a.toLowerCase().compareTo(b.toLowerCase());
+
+  int _compareDates(DateTime? a, DateTime? b) {
+    if (a == null && b == null) return 0;
+    if (a == null) return -1;
+    if (b == null) return 1;
+    return a.compareTo(b);
+  }
+
+  String _entryCategory(FileEntry entry) {
+    final mimeType = entry.mimeType?.trim().toLowerCase();
+    if (mimeType != null && mimeType.isNotEmpty) return mimeType;
+    final dot = entry.name.lastIndexOf('.');
+    return dot > 0 ? entry.name.substring(dot + 1).toLowerCase() : '';
+  }
+
+  bool _isHiddenEntry(FileEntry entry) =>
+      entry.isHidden || entry.name.startsWith('.');
+
   Widget _buildListing(DirectoryListing listing) {
-    final entries = [...listing.entries]
-      ..sort((a, b) {
-        if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
-        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-      });
+    final entries = _visibleEntries(listing);
     return Column(
       children: [
         if (listing.breadcrumbs.isNotEmpty)
@@ -138,9 +421,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                   TextButton(
                     onPressed: _busy
                         ? null
-                        : () => setState(
-                            () => _path = listing.breadcrumbs[i].value,
-                          ),
+                        : () => _setPath(listing.breadcrumbs[i].value),
                     child: Text(
                       i == 0 ? '根目录' : _pathName(listing.breadcrumbs[i].value),
                     ),
@@ -153,74 +434,125 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
           ListTile(
             leading: const Icon(Icons.arrow_upward),
             title: const Text('上一级'),
-            onTap: _busy
-                ? null
-                : () => setState(() => _path = listing.parentPath!.value),
+            onTap: _busy ? null : () => _setPath(listing.parentPath!.value),
           ),
         Expanded(
-          child: entries.isEmpty
-              ? const Center(child: Text('此目录为空'))
-              : ListView.separated(
-                  itemCount: entries.length,
-                  itemBuilder: (context, index) => _entryTile(entries[index]),
-                  separatorBuilder: (_, __) =>
-                      Divider(height: 1, color: Theme.of(context).dividerColor),
-                ),
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            child: DragSelectionScope<String>(
+              scrollController: _scrollController,
+              selectionLayout: DragSelectionLayout.list,
+              isSelected: _selectedKeys.contains,
+              onSelectionStart: _startSelectionSweep,
+              onSelectionChanged: _applySelectionSweep,
+              onSelectionEnd: _finishSelectionSweep,
+              selectionMode: _selectionMode,
+              enabled: !_busy,
+              child: entries.isEmpty
+                  ? ListView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 140),
+                        Center(child: Text('此目录为空')),
+                      ],
+                    )
+                  : ListView.separated(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: entries.length,
+                      itemBuilder: (context, index) =>
+                          _entryTile(entries[index], index),
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: Theme.of(context).dividerColor,
+                      ),
+                    ),
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _entryTile(FileEntry entry) {
-    return ListTile(
-      leading: Icon(
-        entry.isDirectory ? Icons.folder_outlined : _fileIcon(entry),
-      ),
-      title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: entry.isDirectory ? null : Text(_entryMeta(entry)),
-      trailing: PopupMenuButton<String>(
-        enabled: !_busy,
-        onSelected: (action) => _handleEntryAction(entry, action),
-        itemBuilder: (_) => [
-          const PopupMenuItem(value: 'detail', child: Text('详情')),
-          if (!entry.isDirectory)
-            const PopupMenuItem(value: 'download', child: Text('下载')),
-          const PopupMenuItem(value: 'rename', child: Text('重命名')),
-          const PopupMenuItem(value: 'move', child: Text('移动')),
-          const PopupMenuItem(value: 'delete', child: Text('删除')),
-        ],
-      ),
-      onTap: _busy
-          ? null
-          : entry.isDirectory
-          ? () => setState(() => _path = entry.path.value)
-          : () => _showDetails(entry),
-    );
-  }
-
-  Future<void> _showActions(DirectoryListing listing) async {
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.create_new_folder_outlined),
-              title: const Text('新建目录'),
-              onTap: () => Navigator.pop(context, 'mkdir'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.upload_file_outlined),
-              title: const Text('上传文件'),
-              onTap: () => Navigator.pop(context, 'upload'),
-            ),
-          ],
+  Widget _entryTile(FileEntry entry, int index) {
+    final colors = Theme.of(context).colorScheme;
+    return SwipeActionCell(
+      group: _openSwipe,
+      cellKey: entry.stableKey,
+      enabled: !_busy && !_selectionMode,
+      actions: [
+        SwipeActionData(
+          icon: Icons.delete_outline,
+          label: '删除',
+          color: colors.error,
+          onPressed: () => _delete(entry),
+        ),
+      ],
+      child: DragSelectionTarget<String>(
+        key: ValueKey(entry.stableKey),
+        id: entry.stableKey,
+        selectionIndex: index,
+        selectionHandleAlignment: Alignment.centerLeft,
+        child: ListTile(
+          leading: _selectionMode
+              ? SizedBox(
+                  width: 40,
+                  child: Center(
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _selectedKeys.contains(entry.stableKey)
+                            ? colors.primary
+                            : Colors.transparent,
+                        border: Border.all(
+                          color: _selectedKeys.contains(entry.stableKey)
+                              ? colors.primary
+                              : colors.outline,
+                          width: 1.5,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: _selectedKeys.contains(entry.stableKey)
+                          ? const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 14,
+                            )
+                          : null,
+                    ),
+                  ),
+                )
+              : Icon(
+                  entry.isDirectory ? Icons.folder_outlined : _fileIcon(entry),
+                ),
+          title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: entry.isDirectory ? null : Text(_entryMeta(entry)),
+          trailing: PopupMenuButton<String>(
+            tooltip: '文件操作',
+            enabled: !_busy,
+            onSelected: (action) => _handleEntryAction(entry, action),
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'detail', child: Text('详情')),
+              if (!entry.isDirectory)
+                const PopupMenuItem(value: 'download', child: Text('下载')),
+              const PopupMenuItem(value: 'rename', child: Text('重命名')),
+              const PopupMenuItem(value: 'move', child: Text('移动')),
+              const PopupMenuItem(value: 'delete', child: Text('删除')),
+            ],
+          ),
+          onTap: _busy
+              ? null
+              : _selectionMode
+              ? () => _toggleSelect(entry)
+              : entry.isDirectory
+              ? () => _setPath(entry.path.value)
+              : () => _showDetails(entry),
         ),
       ),
     );
-    if (!mounted || action == null) return;
-    if (action == 'mkdir') await _createDirectory(listing.currentPath);
-    if (action == 'upload') await _upload(listing.currentPath);
   }
 
   Future<void> _handleEntryAction(FileEntry entry, String action) async {
@@ -239,12 +571,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _createDirectory(FilePath parent) async {
-    final name = await _askText('新建目录', '目录名称');
+    final name = await _askText('新建文件夹', '文件夹名称');
     if (name == null || name.trim().isEmpty) return;
     await _run('创建目录失败', () async {
       final repo = await _repository();
       await repo.createDirectory(parent, name.trim());
-      _refresh();
+      await _refresh();
     });
   }
 
@@ -289,7 +621,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         }
         _tracker.complete(operationId, FileOperationKind.upload);
         _message('上传完成');
-        _refresh();
+        await _refresh();
       } catch (error) {
         _tracker.fail(operationId, FileOperationKind.upload, error);
         if (cancellation.isCancelled || _isCanceled(error)) {
@@ -369,7 +701,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         name.trim(),
         overwrite: true,
       );
-      _refresh();
+      await _refresh();
     });
   }
 
@@ -395,7 +727,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         destination,
         overwrite: true,
       );
-      _refresh();
+      await _refresh();
     });
   }
 
@@ -423,7 +755,46 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         entry.path,
         options: FileDeleteOptions(recursive: entry.isDirectory),
       );
-      _refresh();
+      if (_selectionMode) _exitSelection();
+      await _refresh();
+    });
+  }
+
+  Future<void> _deleteSelected(List<FileEntry> entries) async {
+    final selected = entries
+        .where((entry) => _selectedKeys.contains(entry.stableKey))
+        .toList(growable: false);
+    if (selected.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认批量删除？'),
+        content: Text('将从远程文件来源删除已选择的 ${selected.length} 项，此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await _run('批量删除失败', () async {
+      final repo = await _repository();
+      for (final entry in selected) {
+        await repo.delete(
+          entry.path,
+          options: FileDeleteOptions(recursive: entry.isDirectory),
+        );
+      }
+      _exitSelection();
+      await _refresh();
     });
   }
 
@@ -560,7 +931,15 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     );
   }
 
-  void _refresh() => ref.invalidate(fileDirectoryProvider(_request));
+  Future<void> _refresh() async {
+    final provider = fileDirectoryProvider(_request);
+    ref.invalidate(provider);
+    try {
+      await ref.read(provider.future);
+    } catch (_) {
+      // 错误由页面上的 AsyncValue 错误态展示，刷新指示器本身应正常收起。
+    }
+  }
 
   void _message(String message) {
     if (mounted) {
@@ -568,6 +947,53 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
     }
+  }
+}
+
+class _FileSelectionToolbar extends StatelessWidget {
+  const _FileSelectionToolbar({
+    required this.selectedCount,
+    required this.totalCount,
+    required this.allSelected,
+    required this.onSelectAll,
+    required this.onDelete,
+    required this.onClose,
+  });
+
+  final int selectedCount;
+  final int totalCount;
+  final bool allSelected;
+  final VoidCallback onSelectAll;
+  final VoidCallback onDelete;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: '退出选择',
+              onPressed: onClose,
+              icon: const Icon(Icons.close),
+            ),
+            Expanded(child: Text('已选 $selectedCount 项')),
+            TextButton(
+              onPressed: totalCount == 0 ? null : onSelectAll,
+              child: Text(allSelected ? '取消全选' : '全选'),
+            ),
+            IconButton(
+              tooltip: '删除所选',
+              onPressed: selectedCount == 0 ? null : onDelete,
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

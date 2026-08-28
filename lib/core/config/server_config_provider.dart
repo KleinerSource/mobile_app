@@ -30,6 +30,9 @@ final serverLineProbeCoordinatorProvider = Provider<ServerLineProbeCoordinator>(
 /// 多服务器启动选择只在当前进程首次进入时显示一次。
 final serverSelectionReadyProvider = StateProvider<bool>((ref) => false);
 
+/// 已登录页面主动返回服务器选择器时，要求根页面卸载当前服务器内容。
+final serverSelectionRequestedProvider = StateProvider<bool>((ref) => false);
+
 class ServerConfigNotifier extends Notifier<ServerConfig?> {
   Future<void> _configWriteQueue = Future<void>.value();
 
@@ -372,8 +375,17 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     state = repository.load();
   }
 
-  void showServerSelection() {
+  void showServerSelection({bool releaseResources = true}) {
     ref.read(serverSelectionReadyProvider.notifier).state = false;
+    if (releaseResources) {
+      // 清空运行态配置以释放所有服务器作用域资源；持久化配置仍由选择器读取。
+      state = null;
+    }
+    ref.read(serverSelectionRequestedProvider.notifier).state = true;
+  }
+
+  void completeServerSelection() {
+    ref.read(serverSelectionRequestedProvider.notifier).state = false;
   }
 
   Future<void> clear() async {
@@ -400,6 +412,12 @@ final serverConfigProvider =
     NotifierProvider<ServerConfigNotifier, ServerConfig?>(
       ServerConfigNotifier.new,
     );
+
+/// 选择器展示用配置：服务器运行态被卸载时回退到本地保存的配置。
+final serverSelectionConfigProvider = Provider<ServerConfig?>((ref) {
+  return ref.watch(serverConfigProvider) ??
+      ref.watch(serverConfigRepoProvider).load();
+});
 
 List<ServerLine> _normalizeLines(List<ServerLine> lines, String baseUrl) {
   final normalizedBaseUrl = ServerConfig.normalize(baseUrl);

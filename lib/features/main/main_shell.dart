@@ -25,9 +25,7 @@ import 'package:omm/features/oh_my_media/resources/resource_list_page.dart';
 import 'package:omm/features/oh_my_media/resources/resources_repository.dart';
 import 'package:omm/features/oh_my_media/search/search_page.dart';
 import 'package:omm/features/oh_my_media/tasks/task_center_page.dart';
-import '../settings/server_selection_page.dart';
 import '../settings/settings_page.dart';
-import '../../shared/edge_swipe_back.dart';
 
 /// omm 主框架 · 设计稿 4 Tab 悬浮胶囊
 ///
@@ -227,27 +225,18 @@ class _MainShellState extends ConsumerState<MainShell> {
     return Scaffold(
       extendBody: true,
       backgroundColor: c.bg,
-      body: EdgeSwipeBack(
-        enabled: _index == 0,
-        onTriggered: () =>
-            unawaited(ServerSelectionPage.openForReturn(context)),
-        child: IndexedStack(
-          index: _index,
-          children: [
-            for (var i = 0; i < tabs.length; i++)
-              ActiveTabScope(
-                active: i == _index,
-                child: StatusBarScrollToTop(
-                  scrollController: _tabScrollControllers[i],
-                  child: _bodyFor(
-                    i,
-                    dbOnline: dbOnline,
-                    fileServer: fileServer,
-                  ),
-                ),
+      body: IndexedStack(
+        index: _index,
+        children: [
+          for (var i = 0; i < tabs.length; i++)
+            ActiveTabScope(
+              active: i == _index,
+              child: StatusBarScrollToTop(
+                scrollController: _tabScrollControllers[i],
+                child: _bodyFor(i, dbOnline: dbOnline, fileServer: fileServer),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
       bottomNavigationBar: _FloatingTabBar(
         tabs: tabs,

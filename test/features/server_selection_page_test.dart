@@ -318,6 +318,62 @@ void main() {
       tester.getSize(find.byType(Scaffold)).width,
     );
   });
+
+  testWidgets('已登录页面打开服务器选择器使用普通页面转场', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: const MaterialApp(home: _SelectorLauncher()),
+      ),
+    );
+
+    await tester.tap(find.text('打开服务器选择器'));
+    await tester.pumpAndSettle();
+
+    final selector = find.byType(ServerSelectionPage);
+    expect(selector, findsOneWidget);
+    expect(tester.getTopLeft(selector).dx, greaterThanOrEqualTo(0));
+  });
+
+  testWidgets('服务器选择器是顶层时继续返回不会回到服务器页面', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: const MaterialApp(home: _SelectorLauncher()),
+      ),
+    );
+
+    await tester.tap(find.text('打开服务器选择器'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ServerSelectionPage), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ServerSelectionPage), findsOneWidget);
+  });
+}
+
+class _SelectorLauncher extends StatelessWidget {
+  const _SelectorLauncher();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: FilledButton(
+          onPressed: () => ServerSelectionPage.openForReturn(context),
+          child: const Text('打开服务器选择器'),
+        ),
+      ),
+    );
+  }
 }
 
 Future<void> _enterHttpFields(

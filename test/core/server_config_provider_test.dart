@@ -48,6 +48,50 @@ void main() {
     );
   });
 
+  test('返回服务器选择器会卸载运行态但保留选择器配置', () async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'saved',
+          'name': '已保存服务器',
+          'lines': [
+            {
+              'id': 'saved-line',
+              'name': '主线路',
+              'base_url': 'https://saved.example:8001',
+            },
+          ],
+          'active_line_id': 'saved-line',
+          'project_name': 'oh-my-media',
+        },
+      ]),
+      'server.active_server_id': 'saved',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(serverConfigProvider.notifier);
+    notifier.showServerSelection();
+
+    expect(container.read(serverConfigProvider), isNull);
+    expect(container.read(serverSelectionRequestedProvider), isTrue);
+    expect(
+      container.read(serverSelectionConfigProvider)?.activeServerId,
+      'saved',
+    );
+
+    notifier.completeServerSelection();
+
+    expect(container.read(serverSelectionRequestedProvider), isFalse);
+    expect(
+      container.read(serverConfigRepoProvider).load()?.activeServerId,
+      'saved',
+    );
+  });
+
   test('切换多服务器时会探测目标服务器并选择可用线路', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();

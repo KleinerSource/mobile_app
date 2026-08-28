@@ -76,6 +76,9 @@ class OmmApp extends ConsumerWidget {
     final cfg = ref.watch(serverConfigProvider);
     final auth = ref.watch(authControllerProvider);
     final serverSwitch = ref.watch(serverSwitchTransitionProvider);
+    final serverSelectionRequested = ref.watch(
+      serverSelectionRequestedProvider,
+    );
     final appLocale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
 
@@ -116,10 +119,12 @@ class OmmApp extends ConsumerWidget {
             ),
           ),
           child: KeyedSubtree(
-            key: ValueKey(_rootStageKey(cfg, serverSwitch, auth)),
+            key: ValueKey(
+              _rootStageKey(cfg, serverSwitch, auth, serverSelectionRequested),
+            ),
             child: serverSwitch.isActive
                 ? const _AuthenticatedHomeWithServerSwitch()
-                : cfg == null
+                : cfg == null || serverSelectionRequested
                 ? const ServerSelectionPage()
                 : auth.when(
                     skipLoadingOnReload: true,
@@ -148,8 +153,9 @@ String _rootStageKey(
   ServerConfig? cfg,
   ServerSwitchState serverSwitch,
   AsyncValue<AuthState> auth,
+  bool serverSelectionRequested,
 ) {
-  if (cfg == null) return 'selector';
+  if (cfg == null || serverSelectionRequested) return 'selector';
   if (serverSwitch.isActive) return 'server-switch';
   final state = auth.valueOrNull;
   if (auth.hasError) return 'selector';

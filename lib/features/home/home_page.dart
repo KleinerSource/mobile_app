@@ -26,6 +26,7 @@ import 'home_movie_section.dart';
 import 'home_providers.dart';
 import 'home_movie_view_state.dart';
 import 'recommend_carousel.dart';
+import '../settings/server_selection_page.dart';
 
 const _homeSectionGap = 24.0;
 const _homeSectionTitleGap = 14.0;
@@ -195,6 +196,8 @@ class _HomePageState extends ConsumerState<HomePage> {
         child: HomeGreetingRow(onHero: false),
       ),
       onRefresh: _refreshHome,
+      onEdgeSwipeBack: () =>
+          unawaited(ServerSelectionPage.openForReturn(context)),
       slivers: [
         // -------- 2. Continue Watching --------
         continueW.when(

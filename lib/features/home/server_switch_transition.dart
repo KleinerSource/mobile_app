@@ -156,7 +156,9 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       // 上一台服务器。上一台服务器可能从未登录过，恢复它会把用户带回
       // 另一个登录错误页。
       ++_operation;
-      ref.read(serverConfigProvider.notifier).showServerSelection();
+      ref
+          .read(serverConfigProvider.notifier)
+          .showServerSelection(releaseResources: false);
       state = const ServerSwitchState.idle();
       return;
     }
