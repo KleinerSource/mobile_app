@@ -363,6 +363,50 @@ void main() {
     expect(find.byType(ServerSelectionPage), findsOneWidget);
   });
 
+  testWidgets('应用内服务器页通过真实页面栈返回并在转场后释放运行态', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'smb-one',
+          'name': 'SMB 一号',
+          'lines': [
+            {
+              'id': 'smb-line',
+              'name': '主线路',
+              'base_url': 'smb://nas-one/share',
+            },
+          ],
+          'active_line_id': 'smb-line',
+          'project_name': 'smb',
+        },
+      ]),
+      'server.active_server_id': 'smb-one',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: const MaterialApp(home: _ServerStackFixture()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ServerSelectionPage, skipOffstage: false)),
+      listen: false,
+    );
+
+    await tester.tap(find.text('返回服务器选择'));
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(container.read(serverConfigProvider), isNotNull);
+
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ServerSelectionPage), findsOneWidget);
+    expect(container.read(serverConfigProvider), isNull);
+  });
+
   testWidgets('返回选择器释放运行态后仍可重新选择服务器', (tester) async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([
@@ -603,6 +647,104 @@ class _SelectorLauncher extends StatelessWidget {
         child: FilledButton(
           onPressed: () => ServerSelectionPage.openForReturn(context),
           child: const Text('打开服务器选择器'),
+        ),
+      ),
+    );
+  }
+}
+
+class _ServerStackFixture extends StatefulWidget {
+  const _ServerStackFixture();
+
+  @override
+  State<_ServerStackFixture> createState() => _ServerStackFixtureState();
+}
+
+class _ServerStackFixtureState extends State<_ServerStackFixture> {
+  bool _showContent = true;
+  late final NavigatorObserver _observer = _FixtureRouteObserver(
+    _handleContentExit,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return ServerNavigationScope(
+      child: Navigator(
+        observers: [_observer],
+        pages: [
+          const MaterialPage<void>(
+            key: ValueKey('fixture-selector'),
+            child: ServerSelectionPage(),
+          ),
+          if (_showContent)
+            const MaterialPage<void>(
+              key: ValueKey('fixture-content'),
+              child: _ServerStackContent(),
+            ),
+        ],
+        onDidRemovePage: (_) {},
+      ),
+    );
+  }
+
+  void _handleContentExit(Route<dynamic> route) {
+    final settings = route.settings;
+    if (settings is! Page ||
+        settings.key != const ValueKey('fixture-content')) {
+      return;
+    }
+    final animation = route is TransitionRoute<dynamic>
+        ? route.animation
+        : null;
+    if (animation == null || animation.status == AnimationStatus.dismissed) {
+      _finishContentExit();
+      return;
+    }
+    void onStatusChanged(AnimationStatus status) {
+      if (status != AnimationStatus.dismissed) return;
+      animation.removeStatusListener(onStatusChanged);
+      _finishContentExit();
+    }
+
+    animation.addStatusListener(onStatusChanged);
+  }
+
+  void _finishContentExit() {
+    if (!mounted || !_showContent) return;
+    setState(() => _showContent = false);
+    ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(serverConfigProvider.notifier).showServerSelection();
+  }
+}
+
+class _FixtureRouteObserver extends NavigatorObserver {
+  _FixtureRouteObserver(this.onExit);
+
+  final void Function(Route<dynamic> route) onExit;
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    onExit(route);
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    onExit(route);
+  }
+}
+
+class _ServerStackContent extends StatelessWidget {
+  const _ServerStackContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: FilledButton(
+          onPressed: () => ServerSelectionPage.requestReturn(context),
+          child: const Text('返回服务器选择'),
         ),
       ),
     );

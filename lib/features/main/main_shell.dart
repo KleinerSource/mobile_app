@@ -18,7 +18,6 @@ import '../home/home_page.dart';
 import 'package:omm/features/db_online/pages/db_online_home_page.dart';
 import 'package:omm/features/db_online/pages/db_online_search_page.dart';
 import 'package:omm/features/oh_my_media/libraries/libraries_page.dart';
-import '../files/file_sources_page.dart';
 import 'package:omm/features/db_online/pages/db_online_library_page.dart';
 import 'package:omm/features/oh_my_media/movies/movies_page.dart';
 import 'package:omm/features/oh_my_media/resources/resource_list_page.dart';
@@ -165,18 +164,8 @@ class _MainShellState extends ConsumerState<MainShell> {
     ).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
-  List<_TabSpec> _tabsFor(
-    BuildContext context, {
-    required bool dbOnline,
-    required bool fileServer,
-  }) {
+  List<_TabSpec> _tabsFor(BuildContext context, {required bool dbOnline}) {
     final l = AppL10n.of(context);
-    if (fileServer) {
-      return [
-        const _TabSpec(label: '文件', icon: _TabIcon.library),
-        _TabSpec(label: l.settingsTitle, icon: _TabIcon.you),
-      ];
-    }
     if (dbOnline) {
       return [
         _TabSpec(label: l.tabHome, icon: _TabIcon.home),
@@ -193,10 +182,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     ];
   }
 
-  Widget _bodyFor(int i, {required bool dbOnline, required bool fileServer}) {
-    if (fileServer) {
-      return i == 0 ? const FileSourcesPage() : const SettingsPage();
-    }
+  Widget _bodyFor(int i, {required bool dbOnline}) {
     switch (i) {
       case 0:
         return dbOnline ? const DbOnlineHomePage() : const HomePage();
@@ -216,12 +202,11 @@ class _MainShellState extends ConsumerState<MainShell> {
     final c = appColors(context);
     final project = ref.watch(serverConfigProvider)?.activeServer?.project;
     final dbOnline = project == ServerProject.dbOnline;
-    final fileServer = project?.isFileSource == true;
     if (_lastProject != null && project != _lastProject && _index != 0) {
       _index = 0;
     }
     _lastProject = project;
-    final tabs = _tabsFor(context, dbOnline: dbOnline, fileServer: fileServer);
+    final tabs = _tabsFor(context, dbOnline: dbOnline);
     return Scaffold(
       extendBody: true,
       backgroundColor: c.bg,
@@ -233,7 +218,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               active: i == _index,
               child: StatusBarScrollToTop(
                 scrollController: _tabScrollControllers[i],
-                child: _bodyFor(i, dbOnline: dbOnline, fileServer: fileServer),
+                child: _bodyFor(i, dbOnline: dbOnline),
               ),
             ),
         ],
@@ -242,7 +227,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         tabs: tabs,
         active: _index,
         onTap: _selectTab,
-        quickMenuEnabled: !dbOnline && !fileServer,
+        quickMenuEnabled: !dbOnline,
         quickMenuEntries: _quickMenuEntries(context),
         onQuickMenuSelected: (action) => unawaited(_openYouQuickAction(action)),
       ),

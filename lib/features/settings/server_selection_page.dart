@@ -37,11 +37,12 @@ class ServerSelectionPage extends ConsumerStatefulWidget {
 
   /// 在已登录页面中打开服务器选择器；选择成功后返回原页面。
   static void requestReturn(BuildContext context) {
-    final container = ProviderScope.containerOf(context, listen: false);
     // 应用服务器页和目录子页都由 Material 路由承载，直接让页面栈
-    // 完成 pop；独立嵌入的页面没有父选择器，只能保留兼容的普通打开入口。
+    // 完成 pop；onDidRemovePage 会在转场完成、页面真正移除后释放运行态。
+    // 独立嵌入的页面没有父选择器，只能保留兼容的普通打开入口。
     if (ServerNavigationScope.of(context)) {
-      container.read(serverConfigProvider.notifier).showServerSelection();
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) unawaited(navigator.maybePop());
       return;
     }
     unawaited(openForReturn(context));

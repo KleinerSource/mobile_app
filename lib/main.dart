@@ -15,6 +15,7 @@ import 'features/main/main_shell.dart';
 import 'features/privacy/privacy_shield.dart';
 import 'features/security/security_gate.dart';
 import 'features/security/security_providers.dart';
+import 'features/files/file_sources_page.dart';
 import 'features/settings/app_update_startup_gate.dart';
 import 'features/settings/server_selection_page.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -110,7 +111,8 @@ class _AppNavigator extends ConsumerStatefulWidget {
   const _AppNavigator();
 
   static const _selectorKey = ValueKey<String>('server-selector');
-  static const _homeKey = ValueKey<String>('server-home');
+  static const _mediaKey = ValueKey<String>('server-media');
+  static const _fileKey = ValueKey<String>('server-files');
   static const _switchKey = ValueKey<String>('server-switch');
 
   @override
@@ -118,8 +120,19 @@ class _AppNavigator extends ConsumerStatefulWidget {
 }
 
 class _AppNavigatorState extends ConsumerState<_AppNavigator> {
-  bool _homeWasVisible = false;
-  bool _homeRemovalBelongsToServerSwitch = false;
+  bool _contentWasVisible = false;
+  bool _contentRemovalBelongsToServerSwitch = false;
+  late final NavigatorObserver _routeObserver;
+  final Set<Route<dynamic>> _observedContentRoutes = <Route<dynamic>>{};
+  final Set<Route<dynamic>> _ignoredContentRoutes = <Route<dynamic>>{};
+  Animation<double>? _pendingExitAnimation;
+  AnimationStatusListener? _pendingExitListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _routeObserver = _AppRouteObserver(_observeRouteExit);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -129,56 +142,140 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
     final serverSwitch = ref.watch(serverSwitchTransitionProvider);
     final selectionRequested = ref.watch(serverSelectionRequestedProvider);
     final isAuthenticated = auth.valueOrNull?.phase == AuthPhase.authenticated;
-    final showHome =
+    final showContent =
         config != null &&
         !selectionRequested &&
         isAuthenticated &&
         !serverSwitch.isActive;
+    final isFileServer = config?.activeServer?.project?.isFileSource == true;
 
     // 切换服务器会先从声明式栈移除旧首页，再挂载切换遮罩。移除回调可能
     // 在异步切换完成后才到达，因此不能只在回调里读取 isActive 判断归属。
-    if (_homeWasVisible && !showHome && serverSwitch.isActive) {
-      _homeRemovalBelongsToServerSwitch = true;
+    if (_contentWasVisible && !showContent && serverSwitch.isActive) {
+      _contentRemovalBelongsToServerSwitch = true;
     }
-    _homeWasVisible = showHome;
+    _contentWasVisible = showContent;
 
     final pages = <Page<void>>[
       const MaterialPage<void>(
         key: _AppNavigator._selectorKey,
-        allowSnapshotting: false,
         child: ServerSelectionPage(),
       ),
-      if (showHome)
+      if (showContent && !isFileServer)
         const MaterialPage<void>(
-          key: _AppNavigator._homeKey,
-          allowSnapshotting: false,
-          child: _AuthenticatedHome(),
+          key: _AppNavigator._mediaKey,
+          child: _AuthenticatedMediaHome(),
+        ),
+      if (showContent && isFileServer)
+        const MaterialPage<void>(
+          key: _AppNavigator._fileKey,
+          child: _AuthenticatedFileHome(),
         ),
       if (serverSwitch.isActive)
         const MaterialPage<void>(
           key: _AppNavigator._switchKey,
-          allowSnapshotting: false,
           child: _AuthenticatedHomeWithServerSwitch(),
         ),
     ];
 
     return ServerNavigationScope(
       child: Navigator(
+        observers: [_routeObserver],
         pages: pages,
-        onDidRemovePage: (page) {
-          if (page.key != _AppNavigator._homeKey) {
-            return;
-          }
-          if (_homeRemovalBelongsToServerSwitch) {
-            _homeRemovalBelongsToServerSwitch = false;
-            return;
-          }
-          // 真实页面返回（包括边缘手势完成）后才释放运行态资源；选择器
-          // 已经在下层可见，重新选择服务器时会从持久化配置重新连接。
-          ref.read(serverConfigProvider.notifier).showServerSelection();
-        },
+        // 页面栈必须接收 Navigator 的真实返回；资源释放由 route observer
+        // 等待退出动画结束后执行，不能在 onDidRemovePage 的 pop 开始时执行。
+        onDidRemovePage: (_) {},
       ),
     );
+  }
+
+  void _observeRouteExit(Route<dynamic> route, {required bool didPop}) {
+    final settings = route.settings;
+    if (settings is! Page<void> ||
+        (settings.key != _AppNavigator._mediaKey &&
+            settings.key != _AppNavigator._fileKey)) {
+      return;
+    }
+
+    if (!didPop) {
+      // didRemove 是 pop 动画完成后的第二个通知；正常 pop 已经在 didPop
+      // 中登记，不能在这里再次释放。没有 didPop 的强制移除才直接处理。
+      if (_ignoredContentRoutes.remove(route) ||
+          _observedContentRoutes.remove(route)) {
+        return;
+      }
+      _releaseServerResources();
+      return;
+    }
+
+    if (!_observedContentRoutes.add(route)) return;
+
+    final belongsToServerSwitch = _contentRemovalBelongsToServerSwitch;
+    _contentRemovalBelongsToServerSwitch = false;
+    if (belongsToServerSwitch) {
+      _observedContentRoutes.remove(route);
+      _ignoredContentRoutes.add(route);
+      return;
+    }
+
+    final animation = route is TransitionRoute<dynamic>
+        ? route.animation
+        : null;
+    if (animation == null || animation.status == AnimationStatus.dismissed) {
+      _releaseServerResources();
+      return;
+    }
+
+    void onStatusChanged(AnimationStatus status) {
+      if (status != AnimationStatus.dismissed) return;
+      animation.removeStatusListener(onStatusChanged);
+      if (identical(_pendingExitAnimation, animation)) {
+        _pendingExitAnimation = null;
+        _pendingExitListener = null;
+      }
+      _releaseServerResources();
+    }
+
+    _pendingExitAnimation = animation;
+    _pendingExitListener = onStatusChanged;
+    animation.addStatusListener(onStatusChanged);
+  }
+
+  void _releaseServerResources() {
+    if (!mounted) return;
+    // 选择器已经在父路由中可见；此时再卸载运行态，下一次选择会重新创建
+    // 媒体客户端或 SMB/WebDAV 连接，而不会与退出动画争用旧资源。
+    ref.read(serverConfigProvider.notifier).showServerSelection();
+  }
+
+  @override
+  void dispose() {
+    final animation = _pendingExitAnimation;
+    final listener = _pendingExitListener;
+    if (animation != null && listener != null) {
+      animation.removeStatusListener(listener);
+    }
+    _pendingExitAnimation = null;
+    _pendingExitListener = null;
+    _observedContentRoutes.clear();
+    _ignoredContentRoutes.clear();
+    super.dispose();
+  }
+}
+
+class _AppRouteObserver extends NavigatorObserver {
+  _AppRouteObserver(this.onRouteExit);
+
+  final void Function(Route<dynamic> route, {required bool didPop}) onRouteExit;
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    onRouteExit(route, didPop: true);
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    onRouteExit(route, didPop: false);
   }
 }
 
@@ -199,14 +296,26 @@ class _AuthenticatedHomeWithServerSwitch extends StatelessWidget {
   }
 }
 
-class _AuthenticatedHome extends ConsumerWidget {
-  const _AuthenticatedHome();
+class _AuthenticatedMediaHome extends ConsumerWidget {
+  const _AuthenticatedMediaHome();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return StartupUpdateGate(
       enabled: ref.watch(securityGateReadyProvider),
       child: const MainShell(),
+    );
+  }
+}
+
+class _AuthenticatedFileHome extends ConsumerWidget {
+  const _AuthenticatedFileHome();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return StartupUpdateGate(
+      enabled: ref.watch(securityGateReadyProvider),
+      child: const FileSourcesPage(),
     );
   }
 }
