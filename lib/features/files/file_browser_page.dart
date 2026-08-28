@@ -34,6 +34,7 @@ import '../oh_my_media/movie_detail/movie_detail_page.dart'
 import '../settings/server_selection_page.dart';
 import '../settings/settings_common.dart';
 import 'file_navigation.dart';
+import 'file_image_preview_settings.dart';
 import 'file_playback_proxy.dart';
 
 enum _FileSortField { name, date, size, category }
@@ -94,6 +95,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   final ScrollController _scrollController = ScrollController();
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
   final Set<String> _selectedKeys = <String>{};
+  final Map<String, Future<Uint8List>> _imagePreviewFutures = {};
   StreamSubscription<FileOperation>? _operationSubscription;
   Timer? _operationDismissTimer;
   FileOperation? _operation;
@@ -129,6 +131,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     _scrollController.removeListener(_closeSwipeOnScroll);
     _scrollController.dispose();
     _openSwipe.dispose();
+    _imagePreviewFutures.clear();
     unawaited(_tracker.dispose());
     super.dispose();
   }
@@ -137,6 +140,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   Widget build(BuildContext context) {
     final listing = ref.watch(fileDirectoryProvider(_request));
     final source = ref.watch(fileSourceProvider(widget.sourceId.value));
+    final imagePreviewEnabled = ref.watch(fileImagePreviewProvider);
     final currentDirectoryPath = listing.hasValue
         ? listing.requireValue.currentPath
         : FilePath(sourceId: widget.sourceId, value: _path);
@@ -267,7 +271,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                 children: [
                   Expanded(
                     child: listing.when(
-                      data: _buildListing,
+                      data: (value) =>
+                          _buildListing(value, imagePreviewEnabled),
                       loading: () =>
                           const Center(child: CircularProgressIndicator()),
                       error: (error, _) => _BrowserError(
@@ -536,7 +541,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   bool _isHiddenEntry(FileEntry entry) =>
       entry.isHidden || entry.name.startsWith('.');
 
-  Widget _buildListing(DirectoryListing listing) {
+  Widget _buildListing(DirectoryListing listing, bool imagePreviewEnabled) {
     final entries = _visibleEntries(listing);
     return Column(
       children: [
@@ -607,8 +612,11 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                       controller: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemCount: entries.length,
-                      itemBuilder: (context, index) =>
-                          _entryTile(entries[index], index),
+                      itemBuilder: (context, index) => _entryTile(
+                        entries[index],
+                        index,
+                        imagePreviewEnabled,
+                      ),
                       separatorBuilder: (_, __) => Divider(
                         height: 1,
                         color: Theme.of(context).dividerColor,
@@ -621,7 +629,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     );
   }
 
-  Widget _entryTile(FileEntry entry, int index) {
+  Widget _entryTile(FileEntry entry, int index, bool imagePreviewEnabled) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final playbackProgress = !entry.isDirectory && _isVideoEntry(entry)
@@ -674,6 +682,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                           : null,
                     ),
                   ),
+                )
+              : imagePreviewEnabled &&
+                    !entry.isDirectory &&
+                    _isImageEntry(entry)
+              ? _FileImageThumbnail(
+                  bytes: _imagePreviewFuture(entry),
+                  fallbackIcon: _fileIcon(entry),
+                  fallbackColor: _fileIconColor(entry, theme.brightness),
                 )
               : Icon(
                   entry.isDirectory ? Icons.folder_outlined : _fileIcon(entry),
@@ -1366,6 +1382,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     return bytes.takeBytes();
   }
 
+  Future<Uint8List> _imagePreviewFuture(FileEntry entry) {
+    return _imagePreviewFutures.putIfAbsent(
+      entry.stableKey,
+      () => _readFileBytes(entry),
+    );
+  }
+
   bool _canPreview(FileEntry entry) =>
       _isVideoEntry(entry) ||
       _isImageEntry(entry) ||
@@ -1540,6 +1563,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _refresh() async {
+    _imagePreviewFutures.clear();
     final provider = fileDirectoryProvider(_request);
     ref.invalidate(provider);
     try {
@@ -1559,6 +1583,60 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
 
   String _routeName(String path) =>
       'file-browser:${widget.serverId}:${widget.sourceId.value}:$path';
+}
+
+class _FileImageThumbnail extends StatelessWidget {
+  const _FileImageThumbnail({
+    required this.bytes,
+    required this.fallbackIcon,
+    required this.fallbackColor,
+  });
+
+  static const _width = 64.0;
+  static const _height = 36.0;
+
+  final Future<Uint8List> bytes;
+  final IconData fallbackIcon;
+  final Color fallbackColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List>(
+      future: bytes,
+      builder: (context, snapshot) {
+        final data = snapshot.data;
+        if (data != null && data.isNotEmpty) {
+          return _frame(
+            Image.memory(
+              data,
+              width: _width,
+              height: _height,
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.medium,
+              gaplessPlayback: true,
+              errorBuilder: (_, __, ___) => _fallback(),
+            ),
+          );
+        }
+        return _frame(_fallback());
+      },
+    );
+  }
+
+  Widget _frame(Widget child) {
+    return SizedBox(
+      width: _width,
+      height: _height,
+      child: ClipRRect(borderRadius: BorderRadius.circular(6), child: child),
+    );
+  }
+
+  Widget _fallback() {
+    return ColoredBox(
+      color: fallbackColor.withValues(alpha: 0.12),
+      child: Center(child: Icon(fallbackIcon, color: fallbackColor, size: 22)),
+    );
+  }
 }
 
 class _BatchRenameSheet extends StatefulWidget {

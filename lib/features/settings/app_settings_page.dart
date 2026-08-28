@@ -13,6 +13,7 @@ import '../i18n/locale_providers.dart';
 import '../i18n/theme_provider.dart';
 import '../privacy/privacy_providers.dart';
 import '../security/security_settings_page.dart';
+import '../files/file_image_preview_settings.dart';
 import 'badge_position_page.dart';
 import 'cache_management_page.dart';
 import 'haptic_settings.dart';
@@ -85,6 +86,10 @@ class AppSettingsPage extends ConsumerWidget {
                       ),
                     ),
                   ],
+                ),
+                const SettingsGroup(
+                  title: '文件管理器',
+                  items: [_FileImagePreviewTile()],
                 ),
                 SettingsGroup(
                   title: '播放器',
@@ -345,6 +350,25 @@ class _HapticIntensityTile extends ConsumerWidget {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _FileImagePreviewTile extends ConsumerWidget {
+  const _FileImagePreviewTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(fileImagePreviewProvider);
+    return SettingsTile(
+      title: '图片预览',
+      subtitle: '在文件列表中显示图片缩略图',
+      leadingIcon: Icons.image_outlined,
+      trailing: SettingsSwitch(
+        value: enabled,
+        onChanged: (value) =>
+            ref.read(fileImagePreviewProvider.notifier).setEnabled(value),
       ),
     );
   }
