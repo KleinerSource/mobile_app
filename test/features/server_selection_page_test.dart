@@ -274,7 +274,7 @@ void main() {
         .toList();
     expect(fields[0].controller?.text, 'DB Online');
     expect(fields[1].controller?.text, 'db.example');
-    expect(fields[2].controller?.text, '443');
+    expect(fields[2].controller?.text, '9090');
   });
 
   testWidgets('头像横向滚动区域延伸到屏幕边缘', (tester) async {

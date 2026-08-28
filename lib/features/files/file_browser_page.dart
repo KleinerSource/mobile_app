@@ -116,11 +116,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _returnToServerSelector() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const ServerSelectionPage(returnAfterSelection: true),
-      ),
-    );
+    await ServerSelectionPage.openForReturn(context);
   }
 
   Widget _buildListing(DirectoryListing listing) {

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dart_smb2/dart_smb2.dart';
 
+import '../../api/server_compatibility.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';
 import '../common/source_id.dart';
@@ -12,11 +13,64 @@ import 'file_entry.dart';
 import 'file_operation.dart';
 import 'file_source.dart';
 
+class SmbPath {
+  const SmbPath({required this.share, required this.relativePath});
+
+  final String share;
+  final String relativePath;
+
+  String get normalizedPath =>
+      relativePath.isEmpty ? share : '$share/$relativePath';
+}
+
+SmbPath parseSmbPath(String value) {
+  final raw = value.trim();
+  if (raw.isEmpty) {
+    throw ArgumentError.value(value, 'value', 'SMB 路径不能为空');
+  }
+
+  final uri = Uri.tryParse(raw);
+  List<String> parts;
+  if (uri?.scheme.toLowerCase() == 'smb') {
+    parts = uri!.pathSegments;
+  } else {
+    var normalized = raw.replaceAll('\\', '/');
+    final unc = normalized.startsWith('//');
+    if (unc) normalized = normalized.substring(2);
+    while (normalized.startsWith('/')) {
+      normalized = normalized.substring(1);
+    }
+    parts = normalized.split('/');
+    if (unc) {
+      if (parts.length < 2) {
+        throw ArgumentError.value(value, 'value', 'SMB UNC 路径缺少共享名');
+      }
+      parts = parts.sublist(1);
+    }
+  }
+
+  final normalizedParts = <String>[];
+  for (final part in parts) {
+    if (part.isEmpty || part == '.') continue;
+    if (part == '..') {
+      throw ArgumentError.value(value, 'value', 'SMB 路径不能包含 ..');
+    }
+    normalizedParts.add(part);
+  }
+  if (normalizedParts.isEmpty) {
+    throw ArgumentError.value(value, 'value', 'SMB 路径缺少共享名');
+  }
+  return SmbPath(
+    share: normalizedParts.first,
+    relativePath: normalizedParts.skip(1).join('/'),
+  );
+}
+
 class SmbConnectionOptions {
   const SmbConnectionOptions({
     required this.host,
-    required this.port,
-    required this.share,
+    this.port = defaultSmbPort,
+    required this.path,
     this.user,
     this.password,
     this.domain,
@@ -29,7 +83,7 @@ class SmbConnectionOptions {
 
   final String host;
   final int port;
-  final String share;
+  final String path;
   final String? user;
   final String? password;
   final String? domain;
@@ -49,11 +103,12 @@ class SmbFileSource
         FileMutationCapability,
         FileAccessCapability,
         SourceLifecycle {
-  SmbFileSource._(this.pool, this._sourceId, this._descriptor);
+  SmbFileSource._(this.pool, this._sourceId, this._descriptor, this._rootPath);
 
   final Smb2Pool pool;
   final SourceId _sourceId;
   final SourceDescriptor _descriptor;
+  final String _rootPath;
 
   static Future<SmbFileSource> connect({
     required String id,
@@ -61,9 +116,10 @@ class SmbFileSource
     required SmbConnectionOptions options,
     String? serverId,
   }) async {
+    final smbPath = parseSmbPath(options.path);
     final pool = await Smb2Pool.connect(
       host: _smbHost(options.host, options.port),
-      share: options.share,
+      share: smbPath.share,
       user: options.user,
       password: options.password,
       domain: options.domain,
@@ -82,8 +138,13 @@ class SmbFileSource
         kind: SourceKind.smb,
         name: name,
         serverId: serverId,
-        endpoint: _smbEndpoint(options.host, options.port, options.share),
+        endpoint: _smbEndpoint(
+          options.host,
+          options.port,
+          smbPath.normalizedPath,
+        ),
       ),
+      smbPath.relativePath,
     );
   }
 
@@ -105,7 +166,7 @@ class SmbFileSource
   Future<DirectoryListing> listDirectory(FilePath path) async {
     final value = _checkPath(path);
     try {
-      final entries = await pool.listDirectory(value);
+      final entries = await pool.listDirectory(_remotePath(value));
       return DirectoryListing(
         currentPath: FilePath(sourceId: _sourceId, value: value),
         parentPath: value.isEmpty
@@ -139,7 +200,7 @@ class SmbFileSource
   Future<FileEntry> stat(FilePath path) async {
     final value = _checkPath(path);
     try {
-      final stat = await pool.stat(value);
+      final stat = await pool.stat(_remotePath(value));
       return _entry(value, _fileName(value), stat);
     } catch (error) {
       throw _error('SMB 文件信息读取失败', error);
@@ -150,7 +211,7 @@ class SmbFileSource
   Future<bool> exists(FilePath path) async {
     final value = _checkPath(path);
     try {
-      return await pool.exists(value);
+      return await pool.exists(_remotePath(value));
     } catch (error) {
       throw _error('SMB 路径检查失败', error);
     }
@@ -167,7 +228,7 @@ class SmbFileSource
     final value = _checkPath(path);
     return pool
         .streamFile(
-          value,
+          _remotePath(value),
           onProgress: (received, total) => options.onProgress?.call(
             FileTransferProgress(
               transferred: received,
@@ -199,7 +260,7 @@ class SmbFileSource
       return bytes;
     });
     try {
-      await pool.streamWrite(path, chunks);
+      await pool.streamWrite(_remotePath(path), chunks);
     } catch (error) {
       throw _error('SMB 文件上传失败', error);
     }
@@ -213,7 +274,7 @@ class SmbFileSource
       normalizeFileName(name),
     );
     try {
-      await pool.mkdir(destination);
+      await pool.mkdir(_remotePath(destination));
       return FilePath(sourceId: _sourceId, value: destination);
     } catch (error) {
       throw _error('SMB 创建目录失败', error);
@@ -227,13 +288,14 @@ class SmbFileSource
   }) async {
     final value = _checkPath(path);
     try {
-      final info = await pool.stat(value);
+      final remoteValue = _remotePath(value);
+      final info = await pool.stat(remoteValue);
       if (!info.isDirectory) {
-        await pool.deleteFile(value);
+        await pool.deleteFile(remoteValue);
         return;
       }
       if (options.recursive) {
-        for (final child in await pool.listDirectory(value)) {
+        for (final child in await pool.listDirectory(remoteValue)) {
           await delete(
             FilePath(
               sourceId: _sourceId,
@@ -243,7 +305,7 @@ class SmbFileSource
           );
         }
       }
-      await pool.rmdir(value);
+      await pool.rmdir(remoteValue);
     } catch (error) {
       throw _error('SMB 删除失败', error);
     }
@@ -267,7 +329,7 @@ class SmbFileSource
           options: const FileDeleteOptions(recursive: true),
         );
       }
-      await pool.rename(oldPath, newPath);
+      await pool.rename(_remotePath(oldPath), _remotePath(newPath));
     } catch (error) {
       if (error is FileSourceException) rethrow;
       throw _error('SMB 移动失败', error);
@@ -315,6 +377,14 @@ class SmbFileSource
       throw FileSourceException('路径不属于当前 SMB 来源：${path.sourceId.value}');
     }
     return normalizeRelativeFilePath(path.value);
+  }
+
+  String _remotePath(String value) {
+    final normalized = normalizeRelativeFilePath(value);
+    if (_rootPath.isEmpty || normalized.isEmpty) {
+      return _rootPath.isEmpty ? normalized : _rootPath;
+    }
+    return normalizeRelativeFilePath('$_rootPath/$normalized');
   }
 
   FileEntry _entry(String value, String name, Smb2Stat stat) => FileEntry(

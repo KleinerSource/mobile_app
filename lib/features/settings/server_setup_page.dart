@@ -35,7 +35,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
   final _nameController = TextEditingController();
   final _hostController = TextEditingController();
   final _portController = TextEditingController();
-  final _shareController = TextEditingController();
+  final _pathController = TextEditingController();
   final _userController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -77,7 +77,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       _fileSourceConfig = _findFileSourceConfig(server.id);
       _fillFileSourceFields(_fileSourceConfig);
     } else {
-      _fillHttpFields(server.activeLine?.baseUrl ?? saved.baseUrl);
+      _fillHttpFields(server.activeLine?.baseUrl ?? saved.baseUrl, _project!);
     }
   }
 
@@ -86,7 +86,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     _nameController.dispose();
     _hostController.dispose();
     _portController.dispose();
-    _shareController.dispose();
+    _pathController.dispose();
     _userController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -107,7 +107,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       return;
     }
 
-    final endpoint = _buildHttpEndpoint();
+    final endpoint = _buildHttpEndpoint(project);
     if (endpoint == null) return;
     final normalized = ServerConfig.normalize(endpoint);
     final existing =
@@ -179,8 +179,8 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
 
   Future<void> _testAndSaveFileSource(ServerProject project) async {
     final host = _hostController.text.trim();
-    final port = _readPort();
-    final share = _shareController.text.trim();
+    final port = _readPort(project);
+    final path = _pathController.text.trim();
     if (host.isEmpty) {
       _showError('请输入主机');
       return;
@@ -189,8 +189,8 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       _showError('请输入 1-65535 之间的端口');
       return;
     }
-    if (share.isEmpty) {
-      _showError('请输入共享名');
+    if (path.isEmpty) {
+      _showError('请输入路径');
       return;
     }
 
@@ -203,10 +203,10 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     final sourceId = _fileSourceConfig?.id ?? serverId;
     final reference = _fileSourceConfig?.credentialRef.trim() ?? sourceId;
     final uri = project == ServerProject.webDav
-        ? _buildWebDavEndpoint(_scheme, host, port, share)
+        ? _buildWebDavEndpoint(_scheme, host, port, path)
         : null;
     final endpoint = project == ServerProject.smb
-        ? _buildSmbEndpoint(host, port, share)
+        ? _buildSmbEndpoint(host, port, path)
         : uri!;
     if (_isDuplicateServer(
       existing,
@@ -223,7 +223,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
             name: _nameController.text.trim(),
             host: host,
             port: port,
-            share: share,
+            path: path,
             credentialRef: reference,
             serverId: serverId,
           )
@@ -232,7 +232,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
             name: _nameController.text.trim(),
             host: host,
             port: port,
-            share: share,
+            path: path,
             uri: uri!,
             credentialRef: reference,
             serverId: serverId,
@@ -312,7 +312,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
           options: SmbConnectionOptions(
             host: config.host,
             port: config.port,
-            share: config.share,
+            path: config.path,
             user: credentials.user,
             password: credentials.password,
             domain: credentials.domain,
@@ -393,13 +393,14 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         .toString();
   }
 
-  void _fillHttpFields(String raw) {
+  void _fillHttpFields(String raw, ServerProject project) {
     final uri = _tryParseUri(ServerConfig.normalize(raw));
     if (uri == null) return;
     if (uri.scheme == 'http' || uri.scheme == 'https') _scheme = uri.scheme;
     _hostController.text = uri.host;
-    _portController.text = (uri.hasPort ? uri.port : _defaultPort(_scheme))
-        .toString();
+    _portController.text =
+        (uri.hasPort ? uri.port : defaultServerPort(project, scheme: _scheme))
+            .toString();
   }
 
   void _fillFileSourceFields(FileSourceConfig? config) {
@@ -409,12 +410,12 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     }
     _hostController.text = config.host;
     _portController.text = config.port.toString();
-    _shareController.text = config.share;
+    _pathController.text = config.path;
   }
 
-  String? _buildHttpEndpoint() {
+  String? _buildHttpEndpoint(ServerProject project) {
     final host = _hostController.text.trim();
-    final port = _readPort();
+    final port = _readPort(project);
     if (host.isEmpty) {
       _showError('请输入主机');
       return null;
@@ -426,8 +427,12 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     return Uri(scheme: _scheme, host: host, port: port).toString();
   }
 
-  int? _readPort() {
-    final port = int.tryParse(_portController.text.trim());
+  int? _readPort(ServerProject project) {
+    final raw = _portController.text.trim();
+    if (raw.isEmpty) {
+      return defaultServerPort(project, scheme: _scheme);
+    }
+    final port = int.tryParse(raw);
     return port != null && port >= 1 && port <= 65535 ? port : null;
   }
 
@@ -523,9 +528,12 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                                   controller: _portController,
                                   enabled: !_busy,
                                   keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
+                                  decoration: InputDecoration(
                                     labelText: '端口',
-                                    hintText: '8001',
+                                    hintText: defaultServerPort(
+                                      project,
+                                      scheme: _scheme,
+                                    ).toString(),
                                   ),
                                 ),
                               ),
@@ -534,11 +542,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                         if (fileServer) ...[
                           const SizedBox(height: 12),
                           TextField(
-                            controller: _shareController,
+                            controller: _pathController,
                             enabled: !_busy,
                             decoration: InputDecoration(
-                              labelText: '共享名',
-                              hintText: webDav ? 'dav/media' : 'media',
+                              labelText: '路径',
+                              hintText: webDav ? 'dav/media' : 'media/Movies',
                               prefixIcon: const Icon(Icons.folder_outlined),
                             ),
                           ),
@@ -631,6 +639,7 @@ class _ProjectSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = appColors(context);
     return InputDecorator(
       decoration: settingsInputDecoration(
         context,
@@ -640,7 +649,13 @@ class _ProjectSelector extends StatelessWidget {
         child: DropdownButton<ServerProject>(
           value: value,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded),
+          isDense: true,
+          style: TextStyle(
+            color: c.text,
+            fontFamily: 'Inter',
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
           items: [
             for (final project in ServerProject.values)
               DropdownMenuItem(
@@ -675,6 +690,7 @@ class _ProtocolSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = appColors(context);
     return InputDecorator(
       decoration: settingsInputDecoration(
         context,
@@ -685,6 +701,13 @@ class _ProtocolSelector extends StatelessWidget {
         child: DropdownButton<String>(
           value: value,
           isExpanded: true,
+          isDense: true,
+          style: TextStyle(
+            color: c.text,
+            fontFamily: 'Inter',
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
           items: const [
             DropdownMenuItem(value: 'http', child: Text('HTTP')),
             DropdownMenuItem(value: 'https', child: Text('HTTPS')),
@@ -722,19 +745,26 @@ Uri? _tryParseUri(String? raw) {
   }
 }
 
-int _defaultPort(String scheme) => scheme == 'https' ? 443 : 80;
-
-String _buildWebDavEndpoint(
-  String scheme,
-  String host,
-  int port,
-  String share,
-) {
-  final path = share.replaceAll('\\', '/').replaceFirst(RegExp(r'^/+'), '');
-  return Uri(scheme: scheme, host: host, port: port, path: '/$path').toString();
+String _buildWebDavEndpoint(String scheme, String host, int port, String path) {
+  final normalizedPath = path
+      .replaceAll('\\', '/')
+      .replaceFirst(RegExp(r'^/+'), '');
+  return Uri(
+    scheme: scheme,
+    host: host,
+    port: port,
+    path: '/$normalizedPath',
+  ).toString();
 }
 
-String _buildSmbEndpoint(String host, int port, String share) {
-  final path = share.replaceAll('\\', '/').replaceFirst(RegExp(r'^/+'), '');
-  return Uri(scheme: 'smb', host: host, port: port, path: '/$path').toString();
+String _buildSmbEndpoint(String host, int port, String path) {
+  final normalizedPath = path
+      .replaceAll('\\', '/')
+      .replaceFirst(RegExp(r'^/+'), '');
+  return Uri(
+    scheme: 'smb',
+    host: host,
+    port: port,
+    path: '/$normalizedPath',
+  ).toString();
 }

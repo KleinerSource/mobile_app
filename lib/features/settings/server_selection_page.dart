@@ -35,6 +35,15 @@ class _ServerSelectionMetrics {
 class ServerSelectionPage extends ConsumerStatefulWidget {
   const ServerSelectionPage({super.key, this.returnAfterSelection = false});
 
+  /// 在已登录页面中打开服务器选择器；选择成功后返回原页面。
+  static Future<void> openForReturn(BuildContext context) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const ServerSelectionPage(returnAfterSelection: true),
+      ),
+    );
+  }
+
   /// 作为已登录页面上的选择器打开时，成功选择后返回原页面。
   final bool returnAfterSelection;
 

@@ -29,7 +29,7 @@ void main() {
     expect(find.text('协议'), findsOneWidget);
     expect(find.text('主机'), findsOneWidget);
     expect(find.text('端口'), findsOneWidget);
-    expect(find.text('共享名'), findsNothing);
+    expect(find.text('路径'), findsNothing);
     expect(find.text('用户名'), findsNothing);
     expect(find.text('密码'), findsNothing);
   });
@@ -42,17 +42,33 @@ void main() {
     expect(find.text('协议'), findsNothing);
     expect(find.text('主机'), findsOneWidget);
     expect(find.text('端口'), findsOneWidget);
-    expect(find.text('共享名'), findsOneWidget);
+    expect(find.text('路径'), findsOneWidget);
     expect(find.text('用户名'), findsOneWidget);
     expect(find.text('密码'), findsOneWidget);
+    expect(
+      tester
+          .widgetList<TextField>(find.byType(TextField))
+          .elementAt(2)
+          .decoration
+          ?.hintText,
+      '445',
+    );
 
     await _selectProject(tester, 'WebDAV');
     expect(find.text('协议'), findsOneWidget);
     expect(find.text('主机'), findsOneWidget);
     expect(find.text('端口'), findsOneWidget);
-    expect(find.text('共享名'), findsOneWidget);
+    expect(find.text('路径'), findsOneWidget);
     expect(find.text('用户名'), findsOneWidget);
     expect(find.text('密码'), findsOneWidget);
+    expect(
+      tester
+          .widgetList<TextField>(find.byType(TextField))
+          .elementAt(2)
+          .decoration
+          ?.hintText,
+      '80',
+    );
   });
 
   testWidgets('DB Online 显示 HTTP 字段而不显示文件服务器字段', (tester) async {
@@ -63,7 +79,7 @@ void main() {
     expect(find.text('协议'), findsOneWidget);
     expect(find.text('主机'), findsOneWidget);
     expect(find.text('端口'), findsOneWidget);
-    expect(find.text('共享名'), findsNothing);
+    expect(find.text('路径'), findsNothing);
     expect(find.text('用户名'), findsNothing);
     expect(find.text('密码'), findsNothing);
   });

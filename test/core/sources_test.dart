@@ -222,7 +222,7 @@ void main() {
         name: '家庭 NAS',
         host: 'nas.local',
         port: 445,
-        share: 'media',
+        path: 'media/Movies',
         credentialRef: 'nas-account',
         serverId: 'server-nas',
       );
@@ -241,9 +241,83 @@ void main() {
       final credentials = await credentialsRepository.read('nas-account');
       expect(restored, config);
       expect(restored!.toJson(), isNot(contains('password')));
+      expect(restored.toJson(), containsPair('path', 'media/Movies'));
+      expect(restored.toJson(), isNot(contains('share')));
       expect(credentials?.password, 'secret');
     },
   );
+
+  test('SMB 路径拆分共享名和共享内相对路径', () {
+    final paths = [
+      parseSmbPath('media'),
+      parseSmbPath('/media/Movies'),
+      parseSmbPath(r'\media\Movies'),
+      parseSmbPath(r'\\nas\media\Movies'),
+      parseSmbPath('smb://nas/media/Movies'),
+    ];
+    expect(paths.first.share, 'media');
+    expect(paths.first.relativePath, isEmpty);
+    for (final path in paths.skip(1)) {
+      expect(path.share, 'media');
+      expect(path.relativePath, 'Movies');
+    }
+  });
+
+  test('文件来源缺少端口时使用协议默认端口且只接受 path', () {
+    final smb = FileSourceConfig.fromJson(const {
+      'id': 'smb',
+      'name': 'SMB',
+      'protocol': 'smb',
+      'host': 'nas.local',
+      'path': 'media',
+      'credential_ref': 'smb-account',
+      'server_id': 'server-smb',
+      'enabled': true,
+      'timeout_ms': 30000,
+      'smb_workers': 2,
+    });
+    final webDav = FileSourceConfig.fromJson(const {
+      'id': 'webdav',
+      'name': 'WebDAV',
+      'protocol': 'webdav',
+      'host': 'dav.example',
+      'path': 'media',
+      'uri': 'https://dav.example/media',
+      'credential_ref': 'webdav-account',
+      'server_id': 'server-webdav',
+      'enabled': true,
+      'timeout_ms': 30000,
+      'smb_workers': 2,
+    });
+    final directWebDav = FileSourceConfig.webDav(
+      id: 'direct-webdav',
+      name: 'WebDAV',
+      host: 'dav.example',
+      path: 'media',
+      uri: 'https://dav.example/media',
+      credentialRef: 'direct-webdav-account',
+      serverId: 'server-webdav',
+    );
+
+    expect(smb.port, 445);
+    expect(webDav.port, 443);
+    expect(directWebDav.port, 443);
+    expect(
+      () => FileSourceConfig.fromJson(const {
+        'id': 'legacy',
+        'name': '旧字段',
+        'protocol': 'smb',
+        'host': 'nas.local',
+        'share': 'media',
+        'credential_ref': 'legacy-account',
+        'server_id': 'server-legacy',
+        'enabled': true,
+        'timeout_ms': 30000,
+        'smb_workers': 2,
+      }),
+      throwsA(isA<FormatException>()),
+    );
+  });
 
   test(
     'file source repository ignores every legacy file source shape',

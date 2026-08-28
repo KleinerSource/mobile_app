@@ -4,6 +4,11 @@ import 'api_exception.dart';
 
 const requiredServerProjectName = 'oh-my-media';
 const minimumSupportedServerVersion = '2.0.0';
+const defaultOmmPort = 8001;
+const defaultDboPort = 9090;
+const defaultSmbPort = 445;
+const defaultWebDavHttpPort = 80;
+const defaultWebDavHttpsPort = 443;
 
 enum ServerProject {
   ohMyMedia(
@@ -48,6 +53,18 @@ enum ServerProject {
     }
     return null;
   }
+}
+
+int defaultServerPort(ServerProject project, {String scheme = 'http'}) {
+  return switch (project) {
+    ServerProject.ohMyMedia => defaultOmmPort,
+    ServerProject.dbOnline => defaultDboPort,
+    ServerProject.smb => defaultSmbPort,
+    ServerProject.webDav =>
+      scheme.toLowerCase() == 'https'
+          ? defaultWebDavHttpsPort
+          : defaultWebDavHttpPort,
+  };
 }
 
 String get serverCompatibilityRequirementMessage =>

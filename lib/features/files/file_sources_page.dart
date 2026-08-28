@@ -46,11 +46,7 @@ class FileSourcesPage extends ConsumerWidget {
   }
 
   Future<void> _openServerSelector(BuildContext context) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const ServerSelectionPage(returnAfterSelection: true),
-      ),
-    );
+    await ServerSelectionPage.openForReturn(context);
   }
 }
 

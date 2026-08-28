@@ -131,6 +131,13 @@ class _FfmpegSettingsPageState extends ConsumerState<FfmpegSettingsPage> {
               child: DropdownButton<String>(
                 value: _hwAccel,
                 isExpanded: true,
+                isDense: true,
+                style: TextStyle(
+                  color: c.text,
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
                 items: [
                   for (final value in FfmpegConfig.supportedHardwareAccels)
                     DropdownMenuItem(

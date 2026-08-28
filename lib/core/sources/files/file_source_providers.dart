@@ -138,7 +138,7 @@ class FileSourceConnector {
           options: SmbConnectionOptions(
             host: config.host,
             port: config.port,
-            share: config.share,
+            path: config.path,
             user: secret.user,
             password: secret.password,
             domain: secret.domain,

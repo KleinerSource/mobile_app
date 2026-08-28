@@ -2,6 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 
 void main() {
+  test('各服务器类型返回正确的默认端口', () {
+    expect(defaultServerPort(ServerProject.ohMyMedia), 8001);
+    expect(defaultServerPort(ServerProject.dbOnline), 9090);
+    expect(defaultServerPort(ServerProject.smb), 445);
+    expect(defaultServerPort(ServerProject.webDav), 80);
+    expect(defaultServerPort(ServerProject.webDav, scheme: 'https'), 443);
+  });
+
   test('最低版本满足要求', () {
     expect(isSupportedServerVersion('2.0.0'), isTrue);
     expect(isSupportedServerVersion('2.0.1'), isTrue);

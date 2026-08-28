@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../auth/auth_session_repository.dart';
+import '../../api/server_compatibility.dart';
 
 enum FileSourceProtocol { smb, webDav }
 
@@ -19,7 +20,7 @@ class FileSourceConfig {
     required this.protocol,
     required this.host,
     required this.port,
-    required this.share,
+    required this.path,
     this.uri,
     required this.credentialRef,
     required this.serverId,
@@ -32,8 +33,8 @@ class FileSourceConfig {
     required this.id,
     required this.name,
     required this.host,
-    required this.port,
-    required this.share,
+    this.port = defaultSmbPort,
+    required this.path,
     required this.credentialRef,
     required this.serverId,
     this.enabled = true,
@@ -42,26 +43,27 @@ class FileSourceConfig {
   }) : protocol = FileSourceProtocol.smb,
        uri = null;
 
-  const FileSourceConfig.webDav({
+  FileSourceConfig.webDav({
     required this.id,
     required this.name,
     required this.host,
-    required this.port,
-    required this.share,
+    int? port,
+    required this.path,
     required this.uri,
     required this.credentialRef,
     required this.serverId,
     this.enabled = true,
     this.timeoutMilliseconds = 30 * 1000,
     this.smbWorkers = 2,
-  }) : protocol = FileSourceProtocol.webDav;
+  }) : protocol = FileSourceProtocol.webDav,
+       port = port ?? _defaultWebDavPort(uri ?? '');
 
   final String id;
   final String name;
   final FileSourceProtocol protocol;
   final String host;
   final int port;
-  final String share;
+  final String path;
   final String? uri;
   final String credentialRef;
   final String serverId;
@@ -73,7 +75,7 @@ class FileSourceConfig {
     if (id.trim().isEmpty ||
         name.trim().isEmpty ||
         host.trim().isEmpty ||
-        share.trim().isEmpty ||
+        path.trim().isEmpty ||
         credentialRef.trim().isEmpty ||
         serverId.trim().isEmpty) {
       return false;
@@ -91,7 +93,7 @@ class FileSourceConfig {
     'protocol': protocol.name,
     'host': host,
     'port': port,
-    'share': share,
+    'path': path,
     if (uri != null) 'uri': uri,
     'credential_ref': credentialRef,
     'server_id': serverId,
@@ -112,16 +114,16 @@ class FileSourceConfig {
     final id = _requiredString(json['id'], 'id');
     final name = _requiredString(json['name'], 'name');
     final host = _requiredString(json['host'], 'host');
-    final port = _requiredPort(json['port']);
-    final share = _requiredString(json['share'], 'share');
+    final uri = protocol == FileSourceProtocol.webDav
+        ? _requiredString(json['uri'], 'uri')
+        : null;
+    final port = _fileSourcePort(protocol, json['port'], uri);
+    final path = _requiredString(json['path'], 'path');
     final credentialRef = _requiredString(
       json['credential_ref'],
       'credential_ref',
     );
     final serverId = _requiredString(json['server_id'], 'server_id');
-    final uri = protocol == FileSourceProtocol.webDav
-        ? _requiredString(json['uri'], 'uri')
-        : null;
     final enabled = json['enabled'];
     if (enabled is! bool) {
       throw const FormatException('文件来源启用状态无效');
@@ -134,7 +136,7 @@ class FileSourceConfig {
       protocol: protocol,
       host: host,
       port: port,
-      share: share,
+      path: path,
       uri: uri,
       credentialRef: credentialRef,
       serverId: serverId,
@@ -155,7 +157,7 @@ class FileSourceConfig {
           other.protocol == protocol &&
           other.host == host &&
           other.port == port &&
-          other.share == share &&
+          other.path == path &&
           other.uri == uri &&
           other.credentialRef == credentialRef &&
           other.serverId == serverId &&
@@ -170,7 +172,7 @@ class FileSourceConfig {
     protocol,
     host,
     port,
-    share,
+    path,
     uri,
     credentialRef,
     serverId,
@@ -337,6 +339,17 @@ int _requiredPort(Object? value) {
   final port = _requiredPositiveInt(value);
   if (port > 65535) throw const FormatException('文件来源端口无效');
   return port;
+}
+
+int _fileSourcePort(FileSourceProtocol protocol, Object? value, String? uri) {
+  if (value != null) return _requiredPort(value);
+  if (protocol == FileSourceProtocol.smb) return defaultSmbPort;
+  return _defaultWebDavPort(uri ?? '');
+}
+
+int _defaultWebDavPort(String uri) {
+  final scheme = Uri.tryParse(uri.trim())?.scheme.toLowerCase() ?? 'http';
+  return defaultServerPort(ServerProject.webDav, scheme: scheme);
 }
 
 bool _isWebDavUri(String value) {
