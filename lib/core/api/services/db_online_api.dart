@@ -9,6 +9,41 @@ class DbOnlineApi {
 
   final Dio _dio;
 
+  /// 读取 DBO 后台配置。配置接口返回完整配置，但未鉴权时只包含公开字段。
+  Future<Map<String, dynamic>> getBackendConfig() async {
+    final response = await _dio.get<dynamic>('/config');
+    return unwrapStd<Map<String, dynamic>>(response.data, (data) {
+      if (data is Map) return Map<String, dynamic>.from(data);
+      return <String, dynamic>{};
+    });
+  }
+
+  /// 局部更新 DBO 后台配置，body 只应包含正在编辑的顶层分区。
+  Future<Map<String, dynamic>> updateBackendConfig(
+    Map<String, dynamic> body,
+  ) async {
+    final response = await _dio.put<dynamic>('/config', data: body);
+    return unwrapStd<Map<String, dynamic>>(response.data, (data) {
+      if (data is Map) return Map<String, dynamic>.from(data);
+      return <String, dynamic>{};
+    });
+  }
+
+  /// 测试 DBO 后台配置中的外部服务连接。
+  Future<Map<String, dynamic>> testBackendConnection(
+    String name,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await _dio.post<dynamic>(
+      '/${Uri.encodeComponent(name)}/test',
+      data: body,
+    );
+    if (response.data is Map) {
+      return Map<String, dynamic>.from(response.data as Map);
+    }
+    return <String, dynamic>{};
+  }
+
   Future<List<DbOnlineMovie>> recommend({int page = 1, int limit = 9}) {
     return _movies('/recommend', {'page': page, 'limit': limit});
   }

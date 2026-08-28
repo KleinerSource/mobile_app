@@ -122,38 +122,16 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         );
       }
       final versionInfo = probe.versionInfo!;
-      final ServerConfig? config;
-      final ServerProfile? newServer;
+      final ServerProfile server;
       if (editingServer != null && existing != null) {
-        newServer = null;
-        final updatedServer = editingServer.copyWith(
+        server = editingServer.copyWith(
           lines: sameServer ? editingServer.lines : [line],
           activeLineId: sameServer ? editingServer.activeLineId : line.id,
           projectName: project.projectName,
           serverVersion: versionInfo.version,
         );
-        final servers = existing.servers
-            .map(
-              (server) =>
-                  server.id == editingServer!.id ? updatedServer : server,
-            )
-            .toList();
-        ServerProfile? activeServer;
-        for (final server in servers) {
-          if (server.id == existing.activeServerId) {
-            activeServer = server;
-            break;
-          }
-        }
-        activeServer ??= servers.first;
-        config = existing.copyWith(
-          baseUrl: activeServer.activeLine?.baseUrl ?? existing.baseUrl,
-          lines: activeServer.lines,
-          servers: servers,
-          activeServerId: activeServer.id,
-        );
       } else {
-        final server = ServerProfile(
+        server = ServerProfile(
           id: 'server-${DateTime.now().microsecondsSinceEpoch}',
           name: project.displayName,
           lines: [line],
@@ -161,16 +139,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
           projectName: project.projectName,
           serverVersion: versionInfo.version,
         );
-        newServer = server;
-        config = null;
       }
-      if (newServer != null) {
-        // 追加服务器时在保存时读取最新配置，避免后台鉴权探测使用旧快照
-        // 覆盖用户刚刚添加的其它服务器。
-        await ref.read(serverConfigProvider.notifier).saveServer(newServer);
-      } else {
-        await ref.read(serverConfigProvider.notifier).save(config!);
-      }
+      // 保存层再次核对探测结果，避免其它保存入口绕过版本/类型检查。
+      await ref
+          .read(serverConfigProvider.notifier)
+          .saveServer(server, validatedProbe: probe);
       _savedConfig = ref.read(serverConfigProvider);
       AppHaptics.medium();
       if (mounted) await Navigator.of(context).maybePop();

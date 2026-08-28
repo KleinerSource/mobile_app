@@ -108,7 +108,7 @@
   "settingsGroupPrivacy": "Privacy",
   "settingsGroupAbout": "About",
   "settingsServerSettings": "Server settings",
-  "settingsServerSettingsSub": "Server / system configuration / library / mapping rules / tools",
+  "settingsServerSettingsSub": "OMM / DBO platform configuration",
   "settingsAppSettings": "App settings",
   "settingsAppSettingsSub": "Language / privacy / display preferences",
   "settingsTheme": "Theme",

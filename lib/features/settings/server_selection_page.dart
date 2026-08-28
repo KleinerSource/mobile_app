@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/dio_factory.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
@@ -109,12 +110,12 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                             unawaited(_showServerActions(server)),
                       ),
                   ],
-                  ),
                 ),
               ),
             ),
           ),
         ),
+      ),
     );
   }
 
@@ -194,9 +195,9 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
       AppHaptics.medium();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('删除失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败：${toApiException(error).message}')),
+        );
       }
     }
   }

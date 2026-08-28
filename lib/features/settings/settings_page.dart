@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/auth_provider.dart';
+import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/platform/app_version.dart';
@@ -13,10 +14,12 @@ import '../../shared/glow_background.dart';
 import 'app_settings_page.dart';
 import 'app_update_settings_page.dart';
 import 'app_update_startup_gate.dart';
+import 'server_list_page.dart';
 import 'server_settings_page.dart';
+import 'server_setup_page.dart';
 import 'settings_common.dart';
 
-/// 设置主入口 · 仅 2 个分类入口 + 关于
+/// 设置主入口 · 服务器、应用与关于入口
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
@@ -24,6 +27,7 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
     final l = AppL10n.of(context);
+    final serverConfig = ref.watch(serverConfigProvider);
     final packageInfo = ref.watch(appPackageInfoProvider);
     final updateRepository = ref.watch(updateRepositoryUrlProvider);
 
@@ -42,6 +46,20 @@ class SettingsPage extends ConsumerWidget {
                 SettingsGroup(
                   title: l.settingsPreferences,
                   items: [
+                    SettingsTile(
+                      title: '服务器列表',
+                      subtitle: serverConfig == null
+                          ? l.settingsServerNotConfigured
+                          : '${serverConfig.servers.length} 台服务器 · 可分别配置线路',
+                      leadingIcon: Icons.dns_outlined,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => serverConfig == null
+                              ? const ServerSetupPage()
+                              : const ServerListPage(),
+                        ),
+                      ),
+                    ),
                     SettingsTile(
                       title: l.settingsServerSettings,
                       subtitle: l.settingsServerSettingsSub,

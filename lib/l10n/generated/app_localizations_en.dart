@@ -299,8 +299,7 @@ class AppL10nEn extends AppL10n {
   String get settingsServerSettings => 'Server settings';
 
   @override
-  String get settingsServerSettingsSub =>
-      'Server / system configuration / library / mapping rules / tools';
+  String get settingsServerSettingsSub => 'OMM / DBO platform configuration';
 
   @override
   String get settingsAppSettings => 'App settings';

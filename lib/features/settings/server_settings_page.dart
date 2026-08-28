@@ -13,6 +13,7 @@ import '../configs/avdb_settings_page.dart';
 import '../configs/dbo_settings_page.dart';
 import '../configs/ffmpeg_settings_page.dart';
 import '../configs/video_extensions_page.dart';
+import '../db_online/db_online_backend_settings_page.dart';
 import '../libraries/libraries_page.dart';
 import '../mappings/mapping_rules_page.dart';
 import '../mappings/mappings_repository.dart';
@@ -21,8 +22,6 @@ import '../resources/resources_repository.dart';
 import '../translation/translation_settings_page.dart';
 import '../translation/modal_transcription_settings_page.dart';
 import 'access_control_page.dart';
-import 'server_list_page.dart';
-import 'server_setup_page.dart';
 import 'settings_common.dart';
 
 /// 服务器设置子页 · 依赖服务端 API 的配置按业务职责分组。
@@ -47,25 +46,22 @@ class ServerSettingsPage extends ConsumerWidget {
             body: ListView(
               primary: true,
               children: [
-                SettingsGroup(
-                  title: l.settingsGroupServer,
-                  items: [
-                    SettingsTile(
-                      title: '服务器列表',
-                      subtitle: cfg == null
-                          ? l.settingsServerNotConfigured
-                          : '${cfg.servers.length} 台服务器 · 可分别配置线路',
-                      leadingIcon: Icons.dns_outlined,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => cfg == null
-                              ? const ServerSetupPage()
-                              : const ServerListPage(),
+                if (dbOnline)
+                  SettingsGroup(
+                    title: 'DB Online',
+                    items: [
+                      SettingsTile(
+                        title: 'DBO 后台配置',
+                        subtitle: 'JavDB API、订阅、代理、下载器和播放器',
+                        leadingIcon: Icons.tune_outlined,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const DboBackendSettingsPage(),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 if (!dbOnline) SettingsGroup(
                   title: l.settingsGroupSystem,
                   items: [

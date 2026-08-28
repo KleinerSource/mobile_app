@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
+import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/config/server_line_probe.dart';
@@ -23,7 +24,6 @@ class ServerLinesPage extends ConsumerStatefulWidget {
 
 class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
   final _testResults = <String, ServerLineProbeResult>{};
-  final _probeCoordinator = ServerLineProbeCoordinator();
   final _testingIds = <String>{};
 
   /// 当前左滑展开的线路行，同一时刻只展开一个。
@@ -32,6 +32,9 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
   List<ServerLine> _lines = const [];
   bool _loaded = false;
   bool _testingAll = false;
+
+  ServerLineProbeCoordinator get _probeCoordinator =>
+      ref.read(serverLineProbeCoordinatorProvider);
 
   ServerProfile? _serverFor(ServerConfig config) {
     if (config.servers.isEmpty) return null;
@@ -370,7 +373,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       final selected = await batch.firstAvailable;
       if (selected != null && mounted) {
         // 首个健康线路立即成为当前服务器的线路，不再等待最慢线路的超时结果。
-        await _persist(_lines, selected.line.baseUrl);
+        await _persist(_lines, selected.line.baseUrl, validatedProbe: selected);
         if (mounted) {
           setState(() => _testingAll = false);
           _showMessage('已选择 ${selected.line.name}（${selected.latencyMs} ms）');
@@ -460,7 +463,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         ? testedLine.baseUrl
         : server.activeLine?.baseUrl ?? testedLine.baseUrl;
     try {
-      await _persist(next, activeUrl);
+      await _persist(next, activeUrl, validatedProbe: result);
       if (mounted) {
         _showMessage(
           editingActive ? '线路已更新并切换' : '线路已保存（${result.latencyMs} ms）',
@@ -483,7 +486,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
         .map((item) => item.id == line.id ? testedLine : item)
         .toList();
     try {
-      await _persist(next, testedLine.baseUrl);
+      await _persist(next, testedLine.baseUrl, validatedProbe: result);
       if (mounted) _showMessage('已切换到 ${line.name}');
     } catch (error) {
       if (mounted) _showMessage(toApiException(error).message);
@@ -522,7 +525,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
           )
           .toList();
       try {
-        await _persist(next, selected.line.baseUrl);
+        await _persist(next, selected.line.baseUrl, validatedProbe: selected);
       } catch (error) {
         if (mounted) _showMessage(toApiException(error).message);
       }
@@ -569,20 +572,40 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     final server = _serverFor(current);
     if (server == null) return;
     final next = _lines.where((item) => item.id != line.id).toList();
-    final activeUrl = line.id == server.activeLine?.id
-        ? next
-              .firstWhere((item) => item.enabled, orElse: () => next.first)
-              .baseUrl
-        : server.activeLine?.baseUrl ?? next.first.baseUrl;
+    ServerLineProbeResult? validatedProbe;
+    final deletingActive = line.id == server.activeLine?.id;
+    final String activeUrl;
+    if (deletingActive) {
+      ServerLine? fallback;
+      for (final item in next) {
+        if (item.enabled) {
+          fallback = item;
+          break;
+        }
+      }
+      final fallbackLine = fallback;
+      if (fallbackLine == null) {
+        _showMessage('至少保留一条启用线路，无法删除当前线路');
+        return;
+      }
+      validatedProbe = await _testAndShow(fallbackLine);
+      if (!mounted || !validatedProbe.success) return;
+      activeUrl = fallbackLine.baseUrl;
+    } else {
+      activeUrl = server.activeLine?.baseUrl ?? next.first.baseUrl;
+    }
     try {
-      await _persist(next, activeUrl);
+      await _persist(next, activeUrl, validatedProbe: validatedProbe);
       if (mounted) _showMessage('线路已删除');
     } catch (error) {
       if (mounted) _showMessage(toApiException(error).message);
     }
   }
 
-  Future<ServerLineProbeResult> _testAndShow(ServerLine line) async {
+  Future<ServerLineProbeResult> _testAndShow(
+    ServerLine line, {
+    bool showFailure = true,
+  }) async {
     setState(() {
       _testingIds.add(line.id);
       _testResults.remove(line.id);
@@ -598,7 +621,7 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       _testingIds.remove(line.id);
       _testResults[line.id] = resolved;
     });
-    if (!resolved.success) {
+    if (!resolved.success && showFailure) {
       _showMessage('线路测试失败：${resolved.message}');
     }
     return resolved;
@@ -625,7 +648,11 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
     });
   }
 
-  Future<void> _persist(List<ServerLine> lines, String activeUrl) async {
+  Future<void> _persist(
+    List<ServerLine> lines,
+    String activeUrl, {
+    ServerLineProbeResult? validatedProbe,
+  }) async {
     final config = ref.read(serverConfigProvider);
     final server = config == null ? null : _serverFor(config);
     if (server == null) return;
@@ -634,7 +661,22 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
       orElse: () =>
           lines.firstWhere((line) => line.enabled, orElse: () => lines.first),
     );
-    final versionInfo = _testResults[selectedLine.id]?.versionInfo;
+    final activeLineChanged =
+        ServerConfig.normalize(server.activeLine?.baseUrl ?? '') !=
+        ServerConfig.normalize(selectedLine.baseUrl);
+    if (activeLineChanged &&
+        !_isValidProbeForLine(validatedProbe, selectedLine)) {
+      final probe = await _testAndShow(selectedLine, showFailure: false);
+      if (!probe.success || probe.versionInfo == null) {
+        throw ServerCompatibilityException(
+          probe.message.isEmpty ? '服务器版本检测失败，未保存线路' : probe.message,
+        );
+      }
+      validatedProbe = probe;
+    }
+    final versionInfo =
+        validatedProbe?.versionInfo ??
+        _testResults[selectedLine.id]?.versionInfo;
     await ref
         .read(serverConfigProvider.notifier)
         .saveServer(
@@ -644,8 +686,16 @@ class _ServerLinesPageState extends ConsumerState<ServerLinesPage> {
             serverVersion: versionInfo?.version ?? server.serverVersion,
           ),
           select: config?.activeServerId == server.id,
+          validatedProbe: validatedProbe,
         );
     if (mounted) setState(() => _lines = List<ServerLine>.of(lines));
+  }
+
+  bool _isValidProbeForLine(ServerLineProbeResult? probe, ServerLine line) {
+    return probe?.success == true &&
+        probe?.versionInfo != null &&
+        ServerConfig.normalize(probe!.line.baseUrl) ==
+            ServerConfig.normalize(line.baseUrl);
   }
 
   void _showMessage(String message) {

@@ -652,7 +652,7 @@ abstract class AppL10n {
   /// No description provided for @settingsServerSettingsSub.
   ///
   /// In zh, this message translates to:
-  /// **'服务器 / 系统配置 / 媒体库 / 映射规则 / 工具'**
+  /// **'OMM / DBO 平台配置'**
   String get settingsServerSettingsSub;
 
   /// No description provided for @settingsAppSettings.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/dio_factory.dart';
 import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
@@ -185,10 +186,12 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
       serverVersion: existing?.serverVersion ?? probe?.versionInfo?.version,
     );
     try {
-      await ref.read(serverConfigProvider.notifier).saveServer(server);
+      await ref
+          .read(serverConfigProvider.notifier)
+          .saveServer(server, validatedProbe: probe);
       return null;
     } catch (error) {
-      return '保存失败：$error';
+      return toApiException(error).message;
     }
   }
 
@@ -215,9 +218,9 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
       await ref.read(serverConfigProvider.notifier).deleteServer(server.id);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('删除失败：$error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败：${toApiException(error).message}')),
+        );
       }
     }
   }

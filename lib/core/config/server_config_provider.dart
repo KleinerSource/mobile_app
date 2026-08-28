@@ -125,7 +125,11 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
         );
     final selected = selection.selected;
     if (selected == null) {
-      throw StateError(_lineSelectionFailureMessage(selection));
+      final message = _lineSelectionFailureMessage(selection);
+      if (selection.results.any((result) => result.incompatible)) {
+        throw ServerCompatibilityException(message);
+      }
+      throw StateError(message);
     }
 
     final testedAt = DateTime.now();
@@ -146,21 +150,50 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
         serverVersion: selected.versionInfo?.version ?? server.serverVersion,
       ),
       select: true,
+      validatedProbe: selected,
     );
     ref.read(serverSelectionReadyProvider.notifier).state = true;
   }
 
-  Future<void> saveServer(ServerProfile server, {bool select = false}) {
+  Future<void> saveServer(
+    ServerProfile server, {
+    bool select = false,
+    ServerLineProbeResult? validatedProbe,
+  }) {
     return _enqueueConfigWrite(
-      () => _saveServerNow(server, select: select),
+      () => _saveServerNow(
+        server,
+        select: select,
+        validatedProbe: validatedProbe,
+      ),
     );
   }
 
   Future<void> _saveServerNow(
     ServerProfile server, {
     required bool select,
+    required ServerLineProbeResult? validatedProbe,
   }) async {
     final current = state ?? ref.read(serverConfigRepoProvider).load();
+    ServerProfile? previousServer;
+    if (current != null) {
+      for (final item in current.servers) {
+        if (item.id == server.id) {
+          previousServer = item;
+          break;
+        }
+      }
+    }
+    final previousBaseUrl = previousServer?.activeLine?.baseUrl;
+    final nextBaseUrl = server.activeLine?.baseUrl;
+    final activeLineChanged =
+        current == null ||
+        previousServer == null ||
+        ServerConfig.normalize(previousBaseUrl ?? '') !=
+            ServerConfig.normalize(nextBaseUrl ?? '');
+    if (activeLineChanged) {
+      _requireValidatedProbe(server, validatedProbe);
+    }
     if (current == null) {
       await _saveNow(
         ServerConfig(
@@ -172,13 +205,6 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
       );
       return;
     }
-    ServerProfile? previousServer;
-    for (final item in current.servers) {
-      if (item.id == server.id) {
-        previousServer = item;
-        break;
-      }
-    }
     final previousProject = previousServer?.projectName?.trim().toLowerCase();
     final nextProject = server.projectName?.trim().toLowerCase();
     if (previousProject != null &&
@@ -188,7 +214,6 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
         previousProject != nextProject) {
       throw StateError('同一服务器的线路必须属于同一项目，请新建服务器配置');
     }
-    final previousBaseUrl = previousServer?.activeLine?.baseUrl;
     final updatedServerBaseUrl = server.activeLine?.baseUrl;
     final servers = current.servers
         .map((item) => item.id == server.id ? server : item)
@@ -220,6 +245,47 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     }
   }
 
+  void _requireValidatedProbe(
+    ServerProfile server,
+    ServerLineProbeResult? probe,
+  ) {
+    final project = server.project;
+    if (project == null) {
+      throw ServerCompatibilityException('服务器类型无效，请选择正确的服务器类型');
+    }
+    final line = server.activeLine;
+    if (line == null) {
+      throw ServerCompatibilityException('服务器没有可用线路，无法保存');
+    }
+    if (probe == null ||
+        !probe.success ||
+        probe.versionInfo == null ||
+        ServerConfig.normalize(probe.line.baseUrl) !=
+            ServerConfig.normalize(line.baseUrl)) {
+      final message = probe?.message.trim() ?? '';
+      throw ServerCompatibilityException(
+        message.isNotEmpty
+            ? message
+            : '保存前必须通过服务器版本检查，需要 ${project.projectName} >= ${project.minimumVersion}',
+      );
+    }
+
+    final info = probe.versionInfo!;
+    if (info.project != project) {
+      final actual = info.projectName.isEmpty ? '未知' : info.projectName;
+      throw ServerCompatibilityException(
+        '线路项目不匹配，需要 ${project.projectName}，实际为 $actual',
+      );
+    }
+    if (!isSupportedServerVersion(info.version, project.minimumVersion)) {
+      final actual = info.version.isEmpty ? '未知' : info.version;
+      throw ServerCompatibilityException(
+        '服务器版本不满足要求，需要 ${project.projectName} >= '
+        '${project.minimumVersion}，当前版本为 $actual',
+      );
+    }
+  }
+
   Future<void> deleteServer(String serverId) async {
     final current = state ?? ref.read(serverConfigRepoProvider).load();
     if (current == null) return;
@@ -232,12 +298,65 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     final nextActive = current.activeServer?.id == serverId
         ? remaining.first
         : current.activeServer ?? remaining.first;
-    final activeLine = nextActive.activeLine ?? nextActive.lines.first;
+    var validatedActiveServer = nextActive;
+    ServerLineProbeResult? validatedProbe;
+    if (current.activeServer?.id == serverId) {
+      final candidates = nextActive.lines
+          .where((line) => line.enabled)
+          .toList();
+      if (candidates.isEmpty) {
+        throw StateError('目标服务器没有启用线路，无法切换');
+      }
+      final preferred = nextActive.activeLine;
+      final currentLine = preferred != null && preferred.enabled
+          ? preferred
+          : candidates.first;
+      final selection = await ref
+          .read(serverLineProbeCoordinatorProvider)
+          .selectPreferred(
+            current: currentLine,
+            alternatives: candidates.where((line) => line.id != currentLine.id),
+            expectedProjectName: nextActive.projectName,
+          );
+      final selected = selection.selected;
+      if (selected == null) {
+        throw ServerCompatibilityException(
+          _lineSelectionFailureMessage(selection),
+        );
+      }
+      final testedAt = DateTime.now();
+      validatedActiveServer = nextActive.copyWith(
+        lines: nextActive.lines
+            .map(
+              (line) => line.id == selected.line.id
+                  ? line.copyWith(
+                      latencyMs: selected.latencyMs,
+                      lastTestedAt: testedAt,
+                    )
+                  : line,
+            )
+            .toList(),
+        activeLineId: selected.line.id,
+        serverVersion:
+            selected.versionInfo?.version ?? nextActive.serverVersion,
+      );
+      validatedProbe = selected;
+      _requireValidatedProbe(validatedActiveServer, validatedProbe);
+    }
+    final activeLine =
+        validatedActiveServer.activeLine ?? validatedActiveServer.lines.first;
+    final updatedServers = remaining
+        .map(
+          (server) => server.id == validatedActiveServer.id
+              ? validatedActiveServer
+              : server,
+        )
+        .toList();
     final next = ServerConfig(
       baseUrl: activeLine.baseUrl,
-      lines: nextActive.lines,
-      servers: remaining,
-      activeServerId: nextActive.id,
+      lines: validatedActiveServer.lines,
+      servers: updatedServers,
+      activeServerId: validatedActiveServer.id,
     );
     final repository = ref.read(serverConfigRepoProvider);
     await repository.save(next);
@@ -262,9 +381,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     state = null;
   }
 
-  Future<void> _enqueueConfigWrite(
-    Future<void> Function() operation,
-  ) {
+  Future<void> _enqueueConfigWrite(Future<void> Function() operation) {
     final result = _configWriteQueue.then((_) => operation());
     _configWriteQueue = result.then<void>((_) {}, onError: (_, __) {});
     return result;
