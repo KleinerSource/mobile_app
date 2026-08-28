@@ -34,6 +34,9 @@ class AuthController extends AsyncNotifier<AuthState> {
     if (config.hasMultipleServers && !serverSelectionReady) {
       return const AuthState(phase: AuthPhase.serverSelection);
     }
+    if (config.activeServer?.project?.isFileSource == true) {
+      return const AuthState(phase: AuthPhase.authenticated);
+    }
 
     // 用户刚刚明确选择服务器时，当前线路已经是用户选择的目标，不再重复
     // 探测所有线路；这样初始化和首页切换都可以立即检查鉴权状态。
@@ -209,6 +212,11 @@ class AuthController extends AsyncNotifier<AuthState> {
         .setActiveServerId(config.activeServerId);
     if (config.hasMultipleServers && !ref.read(serverSelectionReadyProvider)) {
       const result = AuthState(phase: AuthPhase.serverSelection);
+      state = const AsyncData(result);
+      return result;
+    }
+    if (config.activeServer?.project?.isFileSource == true) {
+      const result = AuthState(phase: AuthPhase.authenticated);
       state = const AsyncData(result);
       return result;
     }

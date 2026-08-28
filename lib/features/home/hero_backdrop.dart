@@ -13,7 +13,8 @@ import '../privacy/privacy_providers.dart';
 class HeroArt {
   const HeroArt({required this.movieId, required this.url});
 
-  final int movieId;
+  /// OMM 使用整数 id，外部数据源（如 dbonline）可以使用字符串 id。
+  final Object movieId;
 
   /// 无可用封面时为空字符串,该层不渲染
   final String url;

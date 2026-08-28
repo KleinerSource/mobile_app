@@ -169,6 +169,8 @@ class _ServerProjectBadge extends StatelessWidget {
         'Oh-My-Media',
       ),
       ServerProject.dbOnline => ('DBO', const Color(0xFF0E7490), 'dbonline'),
+      ServerProject.smb => ('SMB', const Color(0xFF2E7D32), 'SMB'),
+      ServerProject.webDav => ('DAV', const Color(0xFF6A1B9A), 'WebDAV'),
     };
     final height = (size * 0.34).clamp(11.0, 16.0).toDouble();
 

@@ -245,6 +245,10 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   Future<void> _completeAuthenticatedSwitch(int operation) async {
     if (!_isCurrent(operation)) return;
     final project = ref.read(serverConfigProvider)?.activeServer?.project;
+    if (project?.isFileSource == true) {
+      state = const ServerSwitchState.idle();
+      return;
+    }
     if (project == ServerProject.dbOnline) {
       final refresh = Future.wait([
         ref.refresh(dbOnlineRecommendProvider.future),
@@ -298,6 +302,13 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         await ref.read(serverConfigProvider.notifier).selectServer(serverId);
       }
       if (!_isCurrent(operation)) return;
+      final target = current.servers.firstWhere(
+        (server) => server.id == serverId,
+      );
+      if (target.project?.isFileSource == true) {
+        state = const ServerSwitchState.idle();
+        return;
+      }
       final auth = await _refreshAuthState();
       if (!_isCurrent(operation)) return;
       await _applyAuthResult(

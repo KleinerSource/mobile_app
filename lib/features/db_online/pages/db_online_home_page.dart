@@ -58,9 +58,7 @@ class _DbOnlineHomePageState extends ConsumerState<DbOnlineHomePage> {
     final arts = [
       for (final movie in items)
         HeroArt(
-          movieId: _dbOnlineHeroId(
-            movie.id.trim().isNotEmpty ? movie.id : movie.number,
-          ),
+          movieId: _dbOnlinePrivacyId(movie),
           url: _dbOnlineImageUrl(movie, config, horizontal: true),
         ),
     ];
@@ -288,9 +286,7 @@ String _dbOnlineImageUrl(
   return resolveServerUrl(config, raw);
 }
 
-int _dbOnlineHeroId(String value) {
-  final hash = value.codeUnits.fold(0, (result, codeUnit) {
-    return result * 31 + codeUnit;
-  });
-  return hash == 0 ? 1 : hash;
+String _dbOnlinePrivacyId(DbOnlineMovie movie) {
+  final id = movie.id.trim();
+  return id.isEmpty ? movie.number.trim() : id;
 }

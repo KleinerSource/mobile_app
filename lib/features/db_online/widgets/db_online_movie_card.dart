@@ -33,8 +33,11 @@ class DbOnlineMovieCard extends ConsumerWidget {
     final imageUrl = imageValue == null || config == null
         ? null
         : resolveServerUrl(config!, imageValue);
+    final privacyId = movie.id.trim().isEmpty
+        ? movie.number.trim()
+        : movie.id.trim();
     final privacyEnabled = ref.watch(privacyShieldProvider);
-    final revealed = ref.watch(revealedMoviesProvider).contains(movie.id);
+    final revealed = ref.watch(revealedMoviesProvider).contains(privacyId);
     // dbonline 没有 OMM 影片库的多选链路，因此卡片长按不应出现按压反馈。
     // 保留共享卡片的展示层，把点击交给外层 GestureDetector，避免
     // CatalogMovieCard 内部 InkWell 在长按时产生额外的 Material 特效。
@@ -42,7 +45,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () {
         if (privacyEnabled && !revealed) {
-          ref.read(revealedMoviesProvider.notifier).reveal(movie.id);
+          ref.read(revealedMoviesProvider.notifier).reveal(privacyId);
           return;
         }
         onTap?.call();
@@ -56,7 +59,7 @@ class DbOnlineMovieCard extends ConsumerWidget {
         rating: movie.score,
         canPlay: movie.canPlay,
         hasSubtitle: movie.hasCnsub,
-        privacyId: movie.id,
+        privacyId: privacyId,
         showTitle: !codeOnly,
         showMeta: !codeOnly,
       ),

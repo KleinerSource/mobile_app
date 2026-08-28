@@ -621,7 +621,9 @@ class _LibraryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return PrivacyAwareInkWell(
+      movieId: library.id,
+      scope: PrivacyScope.library,
       onTap: () async {
         final changesBeforeVisit = MovieDataChanges.snapshot();
         await Navigator.of(context).push(
@@ -631,7 +633,7 @@ class _LibraryCard extends StatelessWidget {
         );
         if (context.mounted) onMovieReturned(changesBeforeVisit);
       },
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: 16,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: AspectRatio(
@@ -640,49 +642,54 @@ class _LibraryCard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               // 背景: 封面就绪后淡入替换品牌渐变
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                layoutBuilder: (currentChild, previousChildren) => Stack(
-                  fit: StackFit.expand,
-                  alignment: Alignment.center,
-                  children: [
-                    ...previousChildren,
-                    if (currentChild != null) currentChild,
-                  ],
-                ),
-                child: cover != null
-                    ? KeyedSubtree(
-                        key: ValueKey('cover-${library.id}'),
-                        child: Image.memory(cover!, fit: BoxFit.cover),
-                      )
-                    : KeyedSubtree(
-                        key: ValueKey('hue-$hue'),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [AppHues.top(hue), AppHues.bottom(hue)],
+              PrivacyMask(
+                movieId: library.id,
+                scope: PrivacyScope.library,
+                radius: 0,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  layoutBuilder: (currentChild, previousChildren) => Stack(
+                    fit: StackFit.expand,
+                    alignment: Alignment.center,
+                    children: [
+                      ...previousChildren,
+                      if (currentChild != null) currentChild,
+                    ],
+                  ),
+                  child: cover != null
+                      ? KeyedSubtree(
+                          key: ValueKey('cover-${library.id}'),
+                          child: Image.memory(cover!, fit: BoxFit.cover),
+                        )
+                      : KeyedSubtree(
+                          key: ValueKey('hue-$hue'),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [AppHues.top(hue), AppHues.bottom(hue)],
+                              ),
                             ),
-                          ),
-                          child: Stack(
-                            children: [
-                              Positioned(
-                                top: -30,
-                                right: -30,
-                                width: 100,
-                                height: 100,
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: AppHues.highlight(hue),
+                            child: Stack(
+                              children: [
+                                Positioned(
+                                  top: -30,
+                                  right: -30,
+                                  width: 100,
+                                  height: 100,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppHues.highlight(hue),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
+                ),
               ),
               // 封面上的压暗渐变,保证白色文字可读
               if (cover != null)
@@ -708,8 +715,10 @@ class _LibraryCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        library.name,
+                      PrivacyText(
+                        movieId: library.id,
+                        scope: PrivacyScope.library,
+                        text: library.name,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

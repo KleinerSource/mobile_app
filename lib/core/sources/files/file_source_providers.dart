@@ -32,10 +32,7 @@ final fileSourceRegistryProvider =
       final activeServerId = ref.watch(serverConfigProvider)?.activeServerId;
       final configs = ref
           .watch(fileSourceConfigsProvider)
-          .where(
-            (config) =>
-                config.serverId == null || config.serverId == activeServerId,
-          )
+          .where((config) => config.serverId == activeServerId)
           .toList(growable: false);
       final credentials = ref.watch(fileSourceCredentialsRepositoryProvider);
       final registry = FileSourceRegistry(const []);
@@ -130,9 +127,7 @@ class FileSourceConnector {
     if (!config.isValid) {
       throw const FileSourceException('文件来源配置无效', code: 'invalid_config');
     }
-    final reference = config.credentialRef?.trim().isNotEmpty == true
-        ? config.credentialRef!.trim()
-        : config.id;
+    final reference = config.credentialRef.trim();
     final secret =
         await credentials.read(reference) ?? const FileSourceCredentials();
     try {
@@ -141,8 +136,9 @@ class FileSourceConnector {
           id: config.id,
           name: config.name,
           options: SmbConnectionOptions(
-            host: config.host!,
-            share: config.share!,
+            host: config.host,
+            port: config.port,
+            share: config.share,
             user: secret.user,
             password: secret.password,
             domain: secret.domain,
@@ -156,6 +152,7 @@ class FileSourceConnector {
           name: config.name,
           options: WebDavConnectionOptions(
             uri: config.uri!,
+            port: config.port,
             user: secret.user,
             password: secret.password,
             timeoutMilliseconds: config.timeoutMilliseconds,

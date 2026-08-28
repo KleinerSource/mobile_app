@@ -175,8 +175,18 @@ class _MainShellState extends ConsumerState<MainShell> {
     ).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
-  List<_TabSpec> _tabsFor(BuildContext context, {required bool dbOnline}) {
+  List<_TabSpec> _tabsFor(
+    BuildContext context, {
+    required bool dbOnline,
+    required bool fileServer,
+  }) {
     final l = AppL10n.of(context);
+    if (fileServer) {
+      return [
+        const _TabSpec(label: '文件', icon: _TabIcon.library),
+        _TabSpec(label: l.settingsTitle, icon: _TabIcon.you),
+      ];
+    }
     if (dbOnline) {
       return [
         _TabSpec(label: l.tabHome, icon: _TabIcon.home),
@@ -193,7 +203,10 @@ class _MainShellState extends ConsumerState<MainShell> {
     ];
   }
 
-  Widget _bodyFor(int i, {required bool dbOnline}) {
+  Widget _bodyFor(int i, {required bool dbOnline, required bool fileServer}) {
+    if (fileServer) {
+      return i == 0 ? const FileSourcesPage() : const SettingsPage();
+    }
     switch (i) {
       case 0:
         return dbOnline ? const DbOnlineHomePage() : const HomePage();
@@ -211,16 +224,14 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final dbOnline =
-        ref.watch(serverConfigProvider)?.activeServer?.project ==
-        ServerProject.dbOnline;
-    if (_lastProject != null &&
-        (_lastProject == ServerProject.dbOnline) != dbOnline &&
-        _index != 0) {
+    final project = ref.watch(serverConfigProvider)?.activeServer?.project;
+    final dbOnline = project == ServerProject.dbOnline;
+    final fileServer = project?.isFileSource == true;
+    if (_lastProject != null && project != _lastProject && _index != 0) {
       _index = 0;
     }
-    _lastProject = dbOnline ? ServerProject.dbOnline : ServerProject.ohMyMedia;
-    final tabs = _tabsFor(context, dbOnline: dbOnline);
+    _lastProject = project;
+    final tabs = _tabsFor(context, dbOnline: dbOnline, fileServer: fileServer);
     return Scaffold(
       extendBody: true,
       backgroundColor: c.bg,
@@ -232,7 +243,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               active: i == _index,
               child: StatusBarScrollToTop(
                 scrollController: _tabScrollControllers[i],
-                child: _bodyFor(i, dbOnline: dbOnline),
+                child: _bodyFor(i, dbOnline: dbOnline, fileServer: fileServer),
               ),
             ),
         ],
@@ -241,7 +252,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         tabs: tabs,
         active: _index,
         onTap: _selectTab,
-        quickMenuEnabled: !dbOnline,
+        quickMenuEnabled: !dbOnline && !fileServer,
         quickMenuEntries: _quickMenuEntries(context),
         onQuickMenuSelected: (action) => unawaited(_openYouQuickAction(action)),
       ),

@@ -22,6 +22,7 @@ class PrivacyShieldNotifier extends Notifier<bool> {
     ref.read(revealedMoviesProvider.notifier).clearAll();
     ref.read(revealedActorsProvider.notifier).clearAll();
     ref.read(revealedActorAssociationsProvider.notifier).clearAll();
+    ref.read(revealedLibrariesProvider.notifier).clearAll();
   }
 }
 
@@ -51,7 +52,7 @@ final privacyShakeProvider = NotifierProvider<PrivacyShakeNotifier, bool>(
 /// 当前 session 内被临时揭开的实体 id 集合 · 不持久化
 /// 隐私模式开启时,内容被遮罩盖住,点击单卡片揭开该张
 ///
-/// 每个数据域各一份实例:影片/演员/演员关联的 id 互不相关,
+/// 每个数据域各一份实例:影片/演员/演员关联/媒体库的 id 互不相关,
 /// 共用一个集合会让"揭开影片 5"连带揭开"演员 5"。
 ///
 /// id 保留原始类型，以兼容 OMM 的整数 id 和 dbonline 的字符串 id，
@@ -91,4 +92,8 @@ final revealedActorsProvider =
 
 /// 演员关联域 · 演员关联页的揭示集合 (key 为关联规则 id)
 final revealedActorAssociationsProvider =
+    NotifierProvider<RevealedIdsNotifier, Set<Object>>(RevealedIdsNotifier.new);
+
+/// 媒体库域 · 首页“我的媒体库”及相关媒体库信息的揭示集合 (key 为媒体库 id)
+final revealedLibrariesProvider =
     NotifierProvider<RevealedIdsNotifier, Set<Object>>(RevealedIdsNotifier.new);

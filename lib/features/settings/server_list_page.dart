@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/dio_factory.dart';
-import '../../core/api/server_compatibility.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
-import '../../core/config/server_line_probe.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
+import '../../core/sources/files/file_source_config.dart';
+import '../../core/sources/files/file_source_providers.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/swipe_actions.dart';
 import 'server_lines_page.dart';
+import 'server_setup_page.dart';
 import 'settings_common.dart';
 
 class ServerListPage extends ConsumerStatefulWidget {
@@ -88,7 +89,7 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
                               child: _ServerListCard(
                                 server: servers[i],
                                 active: servers[i].id == config?.activeServerId,
-                                onTap: () => _openLines(servers[i]),
+                                onTap: () => _openServer(servers[i]),
                               ),
                             ),
                           ],
@@ -113,16 +114,17 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
     return [
       SwipeActionData(
         icon: Icons.edit_outlined,
-        label: '编辑名称',
+        label: '编辑服务器',
         color: colors.accent,
         onPressed: () => _showServerEditor(existing: server),
       ),
-      SwipeActionData(
-        icon: Icons.alt_route_outlined,
-        label: '管理线路',
-        color: AppHues.top(AppHues.sky),
-        onPressed: () => _openLines(server),
-      ),
+      if (server.project?.isFileSource != true)
+        SwipeActionData(
+          icon: Icons.alt_route_outlined,
+          label: '管理线路',
+          color: AppHues.top(AppHues.sky),
+          onPressed: () => _openLines(server),
+        ),
       if (count > 1)
         SwipeActionData(
           icon: Icons.delete_outline,
@@ -139,12 +141,22 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
     );
   }
 
+  void _openServer(ServerProfile server) {
+    if (server.project?.isFileSource == true) {
+      _showServerEditor(existing: server);
+      return;
+    }
+    _openLines(server);
+  }
+
   Future<void> _showServerEditor({ServerProfile? existing}) async {
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (_) => _ServerEditorDialog(
-        existing: existing,
-        onSave: (draft) => _saveServerDraft(existing, draft),
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ServerSetupPage(
+          editing: existing != null,
+          serverId: existing?.id,
+          title: existing == null ? '添加服务器' : '编辑服务器',
+        ),
       ),
     );
     if (saved != true || !mounted) return;
@@ -154,45 +166,12 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
     );
   }
 
-  Future<String?> _saveServerDraft(
-    ServerProfile? existing,
-    _ServerDraft draft,
-  ) async {
-    final project = draft.project;
-    if (project == null) return '请选择服务器类型';
-    final line =
-        existing?.activeLine ??
-        ServerLine(
-          id: 'main-${DateTime.now().microsecondsSinceEpoch}',
-          name: '主线路',
-          baseUrl: draft.baseUrl,
-        );
-    ServerLineProbeResult? probe;
-    if (existing == null) {
-      probe = await ref
-          .read(serverLineProbeCoordinatorProvider)
-          .probe(line, expectedProjectName: project.projectName);
-      if (!probe.success || probe.versionInfo == null) {
-        return '连接失败：${probe.message.isEmpty ? '服务器版本检测失败' : probe.message}';
-      }
+  FileSourceConfig? _findFileSourceConfig(String serverId) {
+    for (final config
+        in ref.read(fileSourceConfigRepositoryProvider).loadAll()) {
+      if (config.serverId == serverId) return config;
     }
-    final server = ServerProfile(
-      id: existing?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
-      name: draft.name,
-      lines: existing?.lines ?? [line],
-      activeLineId: existing?.activeLineId ?? line.id,
-      avatarUrl: existing?.avatarUrl,
-      projectName: existing?.projectName ?? project.projectName,
-      serverVersion: existing?.serverVersion ?? probe?.versionInfo?.version,
-    );
-    try {
-      await ref
-          .read(serverConfigProvider.notifier)
-          .saveServer(server, validatedProbe: probe);
-      return null;
-    } catch (error) {
-      return toApiException(error).message;
-    }
+    return null;
   }
 
   Future<void> _deleteServer(ServerProfile server) async {
@@ -216,6 +195,16 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
     if (confirmed != true || !mounted) return;
     try {
       await ref.read(serverConfigProvider.notifier).deleteServer(server.id);
+      final fileSource = _findFileSourceConfig(server.id);
+      if (fileSource != null) {
+        await ref
+            .read(fileSourceConfigRepositoryProvider)
+            .delete(fileSource.id);
+        final reference = fileSource.credentialRef.trim();
+        await ref
+            .read(fileSourceCredentialsRepositoryProvider)
+            .delete(reference);
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -333,191 +322,4 @@ class _ActiveChip extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ServerDraft {
-  const _ServerDraft({
-    required this.name,
-    required this.baseUrl,
-    required this.project,
-  });
-
-  final String name;
-  final String baseUrl;
-  final ServerProject? project;
-}
-
-class _ServerEditorDialog extends StatefulWidget {
-  const _ServerEditorDialog({this.existing, required this.onSave});
-
-  final ServerProfile? existing;
-  final Future<String?> Function(_ServerDraft draft) onSave;
-
-  @override
-  State<_ServerEditorDialog> createState() => _ServerEditorDialogState();
-}
-
-class _ServerEditorDialogState extends State<_ServerEditorDialog> {
-  late final TextEditingController _name;
-  late final TextEditingController _baseUrl;
-  ServerProject? _project;
-  final _formKey = GlobalKey<FormState>();
-  bool _saving = false;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _name = TextEditingController(text: widget.existing?.name ?? '');
-    _baseUrl = TextEditingController(
-      text: widget.existing?.activeLine?.baseUrl ?? 'http://',
-    );
-    _project = widget.existing?.project ?? ServerProject.ohMyMedia;
-  }
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _baseUrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    final draft = _ServerDraft(
-      name: _name.text.trim(),
-      baseUrl: ServerConfig.normalize(_baseUrl.text),
-      project: _project,
-    );
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    try {
-      final error = await widget.onSave(draft);
-      if (!mounted) return;
-      if (error != null && error.trim().isNotEmpty) {
-        setState(() {
-          _saving = false;
-          _error = error;
-        });
-        return;
-      }
-      Navigator.of(context).pop(true);
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _saving = false;
-        _error = '保存失败：$error';
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.existing == null ? '添加服务器' : '编辑服务器'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<ServerProject>(
-              initialValue: _project,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: '服务器类型',
-                prefixIcon: Icon(Icons.dns_outlined),
-              ),
-              items: [
-                for (final project in ServerProject.values)
-                  DropdownMenuItem<ServerProject>(
-                    value: project,
-                    child: Text(_projectLabel(project)),
-                  ),
-              ],
-              onChanged: widget.existing == null
-                  ? (project) {
-                      if (project != null && project != _project) {
-                        AppHaptics.selection();
-                        setState(() => _project = project);
-                      }
-                    }
-                  : null,
-              validator: (value) => value == null ? '请选择服务器类型' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _name,
-              textAlignVertical: TextAlignVertical.center,
-              decoration: const InputDecoration(
-                labelText: '服务器名称',
-                prefixIcon: Icon(Icons.drive_file_rename_outline),
-              ),
-              validator: (value) =>
-                  value?.trim().isEmpty == true ? '请输入服务器名称' : null,
-            ),
-            const SizedBox(height: 12),
-            if (widget.existing == null)
-              TextFormField(
-                controller: _baseUrl,
-                keyboardType: TextInputType.url,
-                autocorrect: false,
-                textAlignVertical: TextAlignVertical.center,
-                decoration: const InputDecoration(
-                  labelText: '初始线路地址',
-                  hintText: 'http://192.168.1.10:8001',
-                  prefixIcon: Icon(Icons.link),
-                ),
-                validator: (value) {
-                  final normalized = ServerConfig.normalize(value ?? '');
-                  if (normalized.isEmpty) return '请输入线路地址';
-                  if (!normalized.startsWith('http://') &&
-                      !normalized.startsWith('https://')) {
-                    return '地址必须以 http:// 或 https:// 开头';
-                  }
-                  return null;
-                },
-              ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _error!,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : _submit,
-          child: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('保存'),
-        ),
-      ],
-    );
-  }
-}
-
-String _projectLabel(ServerProject project) {
-  return switch (project) {
-    ServerProject.ohMyMedia => 'Oh-My-Media',
-    ServerProject.dbOnline => 'DB Online',
-  };
 }

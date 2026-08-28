@@ -13,27 +13,29 @@ enum FileSourceProtocol { smb, webDav }
 /// [credentialRef] and never serialized into this model.
 @immutable
 class FileSourceConfig {
-  const FileSourceConfig({
+  const FileSourceConfig._({
     required this.id,
     required this.name,
     required this.protocol,
-    this.host,
-    this.share,
+    required this.host,
+    required this.port,
+    required this.share,
     this.uri,
-    this.credentialRef,
-    this.serverId,
-    this.enabled = true,
-    this.timeoutMilliseconds = 30 * 1000,
-    this.smbWorkers = 2,
+    required this.credentialRef,
+    required this.serverId,
+    required this.enabled,
+    required this.timeoutMilliseconds,
+    required this.smbWorkers,
   });
 
   const FileSourceConfig.smb({
     required this.id,
     required this.name,
     required this.host,
+    required this.port,
     required this.share,
-    this.credentialRef,
-    this.serverId,
+    required this.credentialRef,
+    required this.serverId,
     this.enabled = true,
     this.timeoutMilliseconds = 30 * 1000,
     this.smbWorkers = 2,
@@ -43,36 +45,43 @@ class FileSourceConfig {
   const FileSourceConfig.webDav({
     required this.id,
     required this.name,
+    required this.host,
+    required this.port,
+    required this.share,
     required this.uri,
-    this.credentialRef,
-    this.serverId,
+    required this.credentialRef,
+    required this.serverId,
     this.enabled = true,
     this.timeoutMilliseconds = 30 * 1000,
     this.smbWorkers = 2,
-  }) : protocol = FileSourceProtocol.webDav,
-       host = null,
-       share = null;
+  }) : protocol = FileSourceProtocol.webDav;
 
   final String id;
   final String name;
   final FileSourceProtocol protocol;
-  final String? host;
-  final String? share;
+  final String host;
+  final int port;
+  final String share;
   final String? uri;
-  final String? credentialRef;
-  final String? serverId;
+  final String credentialRef;
+  final String serverId;
   final bool enabled;
   final int timeoutMilliseconds;
   final int smbWorkers;
 
   bool get isValid {
-    if (id.trim().isEmpty || name.trim().isEmpty) return false;
-    if (timeoutMilliseconds <= 0) return false;
+    if (id.trim().isEmpty ||
+        name.trim().isEmpty ||
+        host.trim().isEmpty ||
+        share.trim().isEmpty ||
+        credentialRef.trim().isEmpty ||
+        serverId.trim().isEmpty) {
+      return false;
+    }
+    if (timeoutMilliseconds <= 0 || port < 1 || port > 65535) return false;
     return switch (protocol) {
-      FileSourceProtocol.smb =>
-        host?.trim().isNotEmpty == true && share?.trim().isNotEmpty == true,
-      FileSourceProtocol.webDav =>
-        uri != null && (Uri.tryParse(uri!.trim())?.hasScheme ?? false),
+      FileSourceProtocol.smb => uri == null,
+      FileSourceProtocol.webDav => uri != null && _isWebDavUri(uri!),
     };
   }
 
@@ -80,12 +89,12 @@ class FileSourceConfig {
     'id': id,
     'name': name,
     'protocol': protocol.name,
-    if (host != null) 'host': host,
-    if (share != null) 'share': share,
+    'host': host,
+    'port': port,
+    'share': share,
     if (uri != null) 'uri': uri,
-    if (credentialRef != null && credentialRef!.trim().isNotEmpty)
-      'credential_ref': credentialRef,
-    if (serverId != null && serverId!.trim().isNotEmpty) 'server_id': serverId,
+    'credential_ref': credentialRef,
+    'server_id': serverId,
     'enabled': enabled,
     'timeout_ms': timeoutMilliseconds,
     'smb_workers': smbWorkers,
@@ -97,22 +106,44 @@ class FileSourceConfig {
         .trim()
         .toLowerCase()) {
       'smb' => FileSourceProtocol.smb,
-      'webdav' || 'web_dav' => FileSourceProtocol.webDav,
+      'webdav' => FileSourceProtocol.webDav,
       _ => throw const FormatException('未知文件来源协议'),
     };
-    return FileSourceConfig(
-      id: json['id']?.toString().trim() ?? '',
-      name: json['name']?.toString().trim() ?? '',
-      protocol: protocol,
-      host: _optionalString(json['host']),
-      share: _optionalString(json['share']),
-      uri: _optionalString(json['uri']),
-      credentialRef: _optionalString(json['credential_ref']),
-      serverId: _optionalString(json['server_id']),
-      enabled: json['enabled'] != false,
-      timeoutMilliseconds: _positiveInt(json['timeout_ms'], 30 * 1000),
-      smbWorkers: _positiveInt(json['smb_workers'], 2),
+    final id = _requiredString(json['id'], 'id');
+    final name = _requiredString(json['name'], 'name');
+    final host = _requiredString(json['host'], 'host');
+    final port = _requiredPort(json['port']);
+    final share = _requiredString(json['share'], 'share');
+    final credentialRef = _requiredString(
+      json['credential_ref'],
+      'credential_ref',
     );
+    final serverId = _requiredString(json['server_id'], 'server_id');
+    final uri = protocol == FileSourceProtocol.webDav
+        ? _requiredString(json['uri'], 'uri')
+        : null;
+    final enabled = json['enabled'];
+    if (enabled is! bool) {
+      throw const FormatException('文件来源启用状态无效');
+    }
+    final timeoutMilliseconds = _requiredPositiveInt(json['timeout_ms']);
+    final smbWorkers = _requiredPositiveInt(json['smb_workers']);
+    final config = FileSourceConfig._(
+      id: id,
+      name: name,
+      protocol: protocol,
+      host: host,
+      port: port,
+      share: share,
+      uri: uri,
+      credentialRef: credentialRef,
+      serverId: serverId,
+      enabled: enabled,
+      timeoutMilliseconds: timeoutMilliseconds,
+      smbWorkers: smbWorkers,
+    );
+    if (!config.isValid) throw const FormatException('文件来源配置无效');
+    return config;
   }
 
   @override
@@ -123,6 +154,7 @@ class FileSourceConfig {
           other.name == name &&
           other.protocol == protocol &&
           other.host == host &&
+          other.port == port &&
           other.share == share &&
           other.uri == uri &&
           other.credentialRef == credentialRef &&
@@ -137,6 +169,7 @@ class FileSourceConfig {
     name,
     protocol,
     host,
+    port,
     share,
     uri,
     credentialRef,
@@ -286,9 +319,29 @@ String? _optionalString(Object? value) {
 
 String? _emptyToNull(String? value) => _optionalString(value);
 
-int _positiveInt(Object? value, int fallback) {
-  final parsed = value is num
-      ? value.toInt()
-      : int.tryParse(value?.toString() ?? '');
-  return parsed == null || parsed <= 0 ? fallback : parsed;
+String _requiredString(Object? value, String field) {
+  if (value is! String || value.trim().isEmpty) {
+    throw FormatException('文件来源字段无效：$field');
+  }
+  return value.trim();
+}
+
+int _requiredPositiveInt(Object? value) {
+  if (value is! int || value <= 0) {
+    throw const FormatException('文件来源数值字段无效');
+  }
+  return value;
+}
+
+int _requiredPort(Object? value) {
+  final port = _requiredPositiveInt(value);
+  if (port > 65535) throw const FormatException('文件来源端口无效');
+  return port;
+}
+
+bool _isWebDavUri(String value) {
+  final uri = Uri.tryParse(value.trim());
+  return uri != null &&
+      (uri.scheme == 'http' || uri.scheme == 'https') &&
+      uri.host.isNotEmpty;
 }

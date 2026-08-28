@@ -16,6 +16,9 @@ enum PrivacyScope {
 
   /// 演员关联 (key = 关联规则 id)
   actorAssociation,
+
+  /// 媒体库 (key = 媒体库 id)
+  library,
 }
 
 NotifierProvider<RevealedIdsNotifier, Set<Object>> _revealedProviderFor(
@@ -25,6 +28,7 @@ NotifierProvider<RevealedIdsNotifier, Set<Object>> _revealedProviderFor(
     PrivacyScope.movie => revealedMoviesProvider,
     PrivacyScope.actor => revealedActorsProvider,
     PrivacyScope.actorAssociation => revealedActorAssociationsProvider,
+    PrivacyScope.library => revealedLibrariesProvider,
   };
 }
 

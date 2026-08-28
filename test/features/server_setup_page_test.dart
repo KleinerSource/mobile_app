@@ -5,102 +5,69 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config_provider.dart';
-import 'package:omm/core/config/server_line_probe.dart';
 import 'package:omm/features/settings/server_list_page.dart';
 import 'package:omm/features/settings/server_setup_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('空地址点击保存显示报错', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
+  testWidgets('服务器名称为空时显示报错', (tester) async {
+    final prefs = await _prefs();
+    await _pumpSetup(tester, prefs);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: ServerSetupPage()),
-      ),
-    );
-
-    await tester.enterText(find.byType(TextField), '');
     await tester.tap(find.text('测试并保存'));
     await tester.pump();
-    expect(find.text('请输入服务器地址'), findsOneWidget);
+
+    expect(find.text('请输入服务器名称'), findsOneWidget);
   });
 
-  testWidgets('无协议前缀显示报错', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: ServerSetupPage()),
-      ),
-    );
-
-    await tester.enterText(find.byType(TextField), '192.168.1.10:8001');
-    await tester.tap(find.text('测试并保存'));
-    await tester.pump();
-    expect(find.text('地址必须以 http:// 或 https:// 开头'), findsOneWidget);
-  });
-
-  testWidgets('创建服务器默认选择 Oh-My-Media', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: ServerSetupPage()),
-      ),
-    );
+  testWidgets('创建服务器默认选择 Oh-My-Media 并显示 HTTP 字段', (tester) async {
+    final prefs = await _prefs();
+    await _pumpSetup(tester, prefs);
 
     expect(find.text('Oh-My-Media'), findsOneWidget);
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller?.text,
-      'http://',
-    );
+    expect(find.text('协议'), findsOneWidget);
+    expect(find.text('主机'), findsOneWidget);
+    expect(find.text('端口'), findsOneWidget);
+    expect(find.text('共享名'), findsNothing);
+    expect(find.text('用户名'), findsNothing);
+    expect(find.text('密码'), findsNothing);
   });
 
-  testWidgets('服务器类型与探测结果不匹配时拒绝保存且不改类型', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
+  testWidgets('切换服务器类型显示对应字段', (tester) async {
+    final prefs = await _prefs();
+    await _pumpSetup(tester, prefs);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          sharedPrefsProvider.overrideWithValue(prefs),
-          serverLineProbeCoordinatorProvider.overrideWithValue(
-            ServerLineProbeCoordinator(
-              probe: (line) async => ServerLineProbeResult.success(
-                line,
-                12,
-                versionInfo: const ServerVersionInfo(
-                  projectName: 'oh-my-media',
-                  version: '2.0.0',
-                ),
-              ),
-            ),
-          ),
-        ],
-        child: const MaterialApp(home: ServerSetupPage()),
-      ),
-    );
+    await _selectProject(tester, 'SMB');
+    expect(find.text('协议'), findsNothing);
+    expect(find.text('主机'), findsOneWidget);
+    expect(find.text('端口'), findsOneWidget);
+    expect(find.text('共享名'), findsOneWidget);
+    expect(find.text('用户名'), findsOneWidget);
+    expect(find.text('密码'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), 'http://127.0.0.1:8001');
-    await tester.tap(find.byType(DropdownButton<ServerProject>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('DB Online'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('测试并保存'));
-    await tester.pump();
-
-    expect(find.textContaining('线路项目不匹配'), findsOneWidget);
-    expect(prefs.getString('server.servers'), isNull);
+    await _selectProject(tester, 'WebDAV');
+    expect(find.text('协议'), findsOneWidget);
+    expect(find.text('主机'), findsOneWidget);
+    expect(find.text('端口'), findsOneWidget);
+    expect(find.text('共享名'), findsOneWidget);
+    expect(find.text('用户名'), findsOneWidget);
+    expect(find.text('密码'), findsOneWidget);
   });
 
-  testWidgets('更换服务器时回填已保存地址', (tester) async {
+  testWidgets('DB Online 显示 HTTP 字段而不显示文件服务器字段', (tester) async {
+    final prefs = await _prefs();
+    await _pumpSetup(tester, prefs);
+    await _selectProject(tester, 'DB Online');
+
+    expect(find.text('协议'), findsOneWidget);
+    expect(find.text('主机'), findsOneWidget);
+    expect(find.text('端口'), findsOneWidget);
+    expect(find.text('共享名'), findsNothing);
+    expect(find.text('用户名'), findsNothing);
+    expect(find.text('密码'), findsNothing);
+  });
+
+  testWidgets('编辑服务器时拆分回填名称、协议、主机和端口', (tester) async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([
         {
@@ -121,61 +88,58 @@ void main() {
     });
     final prefs = await SharedPreferences.getInstance();
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: ServerSetupPage(editing: true)),
-      ),
-    );
+    await _pumpSetup(tester, prefs, editing: true);
 
-    final field = tester.widget<TextField>(find.byType(TextField));
-    expect(field.controller?.text, 'https://saved.example:8001');
+    final fields = tester
+        .widgetList<TextField>(find.byType(TextField))
+        .toList();
+    expect(fields[0].controller?.text, '已保存服务器');
+    expect(fields[1].controller?.text, 'saved.example');
+    expect(fields[2].controller?.text, '8001');
+    expect(find.text('HTTPS'), findsOneWidget);
     expect(find.text('已回填上次保存的服务器地址，可直接修改后重新测试。'), findsNothing);
   });
 
-  testWidgets('服务器列表添加探测失败时保留输入框和已填写内容', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-
+  testWidgets('服务器列表添加入口打开统一服务器页面', (tester) async {
+    final prefs = await _prefs();
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          sharedPrefsProvider.overrideWithValue(prefs),
-          serverLineProbeCoordinatorProvider.overrideWithValue(
-            ServerLineProbeCoordinator(
-              probe: (line) async =>
-                  ServerLineProbeResult.failure(line, '服务不可用'),
-            ),
-          ),
-        ],
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
         child: const MaterialApp(home: ServerListPage()),
       ),
     );
 
     await tester.tap(find.text('添加'));
     await tester.pumpAndSettle();
+
     expect(find.text('添加服务器'), findsOneWidget);
+    expect(find.byType(ServerSetupPage), findsOneWidget);
     expect(find.byType(DropdownButton<ServerProject>), findsOneWidget);
-    expect(find.text('Oh-My-Media'), findsOneWidget);
-    expect(
-      tester
-          .widget<TextFormField>(find.byType(TextFormField).at(1))
-          .controller
-          ?.text,
-      'http://',
-    );
-
-    final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(0), '测试服务器');
-    await tester.enterText(fields.at(1), 'http://127.0.0.1:1');
-    await tester.tap(find.text('保存'));
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.text('添加服务器'), findsOneWidget);
-    final retainedFields = tester.widgetList<TextFormField>(fields).toList();
-    expect(retainedFields[0].controller?.text, '测试服务器');
-    expect(retainedFields[1].controller?.text, 'http://127.0.0.1:1');
-    expect(find.textContaining('连接失败'), findsOneWidget);
   });
+}
+
+Future<SharedPreferences> _prefs() async {
+  SharedPreferences.setMockInitialValues({});
+  return SharedPreferences.getInstance();
+}
+
+Future<void> _pumpSetup(
+  WidgetTester tester,
+  SharedPreferences prefs, {
+  bool editing = false,
+}) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+      child: MaterialApp(home: ServerSetupPage(editing: editing)),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _selectProject(WidgetTester tester, String project) async {
+  await tester.tap(find.byType(DropdownButton<ServerProject>));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(project).last);
+  await tester.pumpAndSettle();
 }

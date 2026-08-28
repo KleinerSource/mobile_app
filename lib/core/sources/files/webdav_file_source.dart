@@ -15,12 +15,14 @@ import 'file_source.dart';
 class WebDavConnectionOptions {
   const WebDavConnectionOptions({
     required this.uri,
+    required this.port,
     this.user = '',
     this.password = '',
     this.timeoutMilliseconds = 30 * 1000,
   });
 
   final String uri;
+  final int port;
   final String user;
   final String password;
   final int timeoutMilliseconds;

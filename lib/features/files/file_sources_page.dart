@@ -6,9 +6,9 @@ import '../../core/sources/common/source_descriptor.dart';
 import '../../core/sources/files/file_source_providers.dart';
 import '../../core/sources/common/source_exception.dart';
 import 'file_browser_page.dart';
-import 'file_source_settings_page.dart';
+import '../settings/server_list_page.dart';
 
-/// 文件列表来源入口。媒体库来源不会出现在这里，避免把 OMM/DBO 当成
+/// 文件列表页。媒体库来源不会出现在这里，避免把 OMM/DBO 当成
 /// 通用文件系统使用。
 class FileSourcesPage extends ConsumerWidget {
   const FileSourcesPage({super.key});
@@ -21,7 +21,7 @@ class FileSourcesPage extends ConsumerWidget {
       appBar: AppBar(title: const Text('文件列表')),
       body: sources.when(
         data: (items) => items.isEmpty
-            ? _EmptyFiles(onConfigure: () => _openSettings(context))
+            ? _EmptyFiles(onConfigure: () => _openServerList(context))
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
@@ -39,12 +39,6 @@ class FileSourcesPage extends ConsumerWidget {
                         ),
                       ),
                     ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: () => _openSettings(context),
-                    icon: const Icon(Icons.settings_outlined),
-                    label: const Text('管理文件来源'),
-                  ),
                 ],
               ),
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -52,16 +46,16 @@ class FileSourcesPage extends ConsumerWidget {
           message: error is SourceException ? error.message : error.toString(),
           onRetry: () =>
               ref.invalidate(fileSourceDescriptorsProvider(serverId)),
-          onConfigure: () => _openSettings(context),
+          onConfigure: () => _openServerList(context),
         ),
       ),
     );
   }
 
-  Future<void> _openSettings(BuildContext context) async {
+  Future<void> _openServerList(BuildContext context) async {
     await Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (_) => const FileSourceSettingsPage()));
+    ).push(MaterialPageRoute(builder: (_) => const ServerListPage()));
   }
 }
 
@@ -108,7 +102,7 @@ class _EmptyFiles extends StatelessWidget {
             FilledButton.icon(
               onPressed: onConfigure,
               icon: const Icon(Icons.add),
-              label: const Text('添加文件来源'),
+              label: const Text('添加文件服务器'),
             ),
           ],
         ),
@@ -142,7 +136,10 @@ class _FileError extends StatelessWidget {
               spacing: 8,
               children: [
                 OutlinedButton(onPressed: onRetry, child: const Text('重试')),
-                FilledButton(onPressed: onConfigure, child: const Text('管理来源')),
+                FilledButton(
+                  onPressed: onConfigure,
+                  child: const Text('管理服务器'),
+                ),
               ],
             ),
           ],

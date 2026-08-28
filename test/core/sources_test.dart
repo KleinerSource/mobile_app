@@ -221,8 +221,10 @@ void main() {
         id: 'nas',
         name: '家庭 NAS',
         host: 'nas.local',
+        port: 445,
         share: 'media',
         credentialRef: 'nas-account',
+        serverId: 'server-nas',
       );
 
       await configRepository.save(config);
@@ -240,6 +242,56 @@ void main() {
       expect(restored, config);
       expect(restored!.toJson(), isNot(contains('password')));
       expect(credentials?.password, 'secret');
+    },
+  );
+
+  test(
+    'file source repository ignores every legacy file source shape',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'file_sources.v1': jsonEncode([
+          {
+            'id': 'legacy-smb',
+            'name': '旧 SMB',
+            'protocol': 'smb',
+            'host': 'nas.local',
+            'share': 'media',
+            'credential_ref': 'legacy-smb-account',
+            'server_id': 'server-legacy',
+            'enabled': true,
+            'timeout_ms': 30000,
+            'smb_workers': 2,
+          },
+          {
+            'id': 'legacy-webdav',
+            'name': '旧 WebDAV',
+            'protocol': 'webdav',
+            'uri': 'https://dav.example/media',
+            'credential_ref': 'legacy-webdav-account',
+            'server_id': 'server-legacy',
+            'enabled': true,
+            'timeout_ms': 30000,
+            'smb_workers': 2,
+          },
+          {
+            'id': 'legacy-web-dav-alias',
+            'name': '旧协议别名',
+            'protocol': 'web_dav',
+            'host': 'dav.example',
+            'port': 443,
+            'share': 'media',
+            'uri': 'https://dav.example/media',
+            'credential_ref': 'legacy-alias-account',
+            'server_id': 'server-legacy',
+            'enabled': true,
+            'timeout_ms': 30000,
+            'smb_workers': 2,
+          },
+        ]),
+      });
+      final prefs = await SharedPreferences.getInstance();
+
+      expect(FileSourceConfigRepository(prefs).loadAll(), isEmpty);
     },
   );
 

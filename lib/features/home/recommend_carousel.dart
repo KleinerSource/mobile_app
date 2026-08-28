@@ -216,13 +216,14 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
       return [
         for (final movie in dbItems)
           _CarouselItem(
-            key: movie.id.trim().isEmpty ? movie.number : movie.id,
+            key: _dbOnlinePrivacyId(movie),
             title: movie.title.trim().isEmpty ? movie.number : movie.title,
             code: movie.number,
             imageUrl: _nullableUrl(dbImageBuilder(movie)),
             rating: movie.score,
             runtime: _runtimeMinutes(movie.duration),
             year: _yearFromDate(movie.releaseDate),
+            privacyId: _dbOnlinePrivacyId(movie),
             canPlay: movie.canPlay,
             onTap: (context) => dbOnTap(context, movie),
           ),
@@ -270,6 +271,11 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
     return normalized.isEmpty ? null : normalized;
   }
 
+  static String _dbOnlinePrivacyId(DbOnlineMovie movie) {
+    final id = movie.id.trim();
+    return id.isEmpty ? movie.number.trim() : id;
+  }
+
   static int? _runtimeMinutes(String? duration) {
     final match = RegExp(r'\d+').firstMatch(duration ?? '');
     return match == null ? null : int.tryParse(match.group(0)!);
@@ -315,7 +321,7 @@ class _CarouselItem {
   final double? rating;
   final int? runtime;
   final int? year;
-  final int? privacyId;
+  final Object? privacyId;
   final bool canPlay;
   final Future<void> Function(BuildContext context) onTap;
 }

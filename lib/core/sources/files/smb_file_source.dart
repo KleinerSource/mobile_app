@@ -15,6 +15,7 @@ import 'file_source.dart';
 class SmbConnectionOptions {
   const SmbConnectionOptions({
     required this.host,
+    required this.port,
     required this.share,
     this.user,
     this.password,
@@ -27,6 +28,7 @@ class SmbConnectionOptions {
   });
 
   final String host;
+  final int port;
   final String share;
   final String? user;
   final String? password;
@@ -60,7 +62,7 @@ class SmbFileSource
     String? serverId,
   }) async {
     final pool = await Smb2Pool.connect(
-      host: options.host,
+      host: _smbHost(options.host, options.port),
       share: options.share,
       user: options.user,
       password: options.password,
@@ -80,7 +82,7 @@ class SmbFileSource
         kind: SourceKind.smb,
         name: name,
         serverId: serverId,
-        endpoint: 'smb://${options.host}/${options.share}',
+        endpoint: _smbEndpoint(options.host, options.port, options.share),
       ),
     );
   }
@@ -329,6 +331,17 @@ class SmbFileSource
     return FileSourceException(message, cause: error);
   }
 }
+
+String _smbHost(String host, int port) {
+  if (port == 445) return host;
+  if (host.contains(':') && !host.startsWith('[')) {
+    return '[$host]:$port';
+  }
+  return '$host:$port';
+}
+
+String _smbEndpoint(String host, int port, String share) =>
+    'smb://${_smbHost(host, port)}/$share';
 
 String _fileName(String value) {
   final normalized = normalizeRelativeFilePath(value);

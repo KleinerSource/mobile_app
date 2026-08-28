@@ -30,7 +30,7 @@ void main() {
         .map((tile) => tile.title)
         .toList();
 
-    expect(titles, ['服务器列表', '服务器设置', '应用设置', '文件列表来源']);
+    expect(titles, ['服务器列表', '服务器设置', '应用设置']);
     expect(find.text('未配置'), findsOneWidget);
   });
 

@@ -108,6 +108,12 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
       orElse: () => throw StateError('服务器不存在'),
     );
 
+    if (server.project?.isFileSource == true) {
+      await saveServer(server, select: true);
+      ref.read(serverSelectionReadyProvider.notifier).state = true;
+      return;
+    }
+
     final candidates = server.lines.where((line) => line.enabled).toList();
     if (candidates.isEmpty) {
       throw StateError('目标服务器没有启用线路');
@@ -249,6 +255,7 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     ServerProfile server,
     ServerLineProbeResult? probe,
   ) {
+    if (server.project?.isFileSource == true) return;
     final project = server.project;
     if (project == null) {
       throw ServerCompatibilityException('服务器类型无效，请选择正确的服务器类型');
@@ -300,7 +307,8 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
         : current.activeServer ?? remaining.first;
     var validatedActiveServer = nextActive;
     ServerLineProbeResult? validatedProbe;
-    if (current.activeServer?.id == serverId) {
+    if (current.activeServer?.id == serverId &&
+        nextActive.project?.isFileSource != true) {
       final candidates = nextActive.lines
           .where((line) => line.enabled)
           .toList();

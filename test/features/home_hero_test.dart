@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/features/db_online/models/db_online_movie.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/home/recommend_carousel.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
@@ -259,6 +260,38 @@ void main() {
 
     await tester.pumpAndSettle();
     expect(find.byType(CachedNetworkImage), findsNothing);
+  });
+
+  testWidgets('dbonline 首页轮播封面适配隐私模式并支持点击揭示', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [privacyShieldProvider.overrideWith(() => _PrivacyOn())],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 300,
+              child: RecommendCarousel.dbOnline(
+                items: const [
+                  DbOnlineMovie(id: 'db-id', number: 'ABC-001', title: '示例影片'),
+                ],
+                imageUrlBuilder: (_) => 'http://test/cover.jpg',
+                onMovieTap: (_, __) async {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.visibility_off_outlined), findsNWidgets(2));
+    expect(find.text('▆▆▆▆▆'), findsOneWidget);
+
+    await tester.tapAt(tester.getCenter(find.byType(PageView)));
+    await tester.pump();
+
+    expect(find.byIcon(Icons.visibility_off_outlined), findsNothing);
+    expect(find.text('示例影片'), findsOneWidget);
   });
 }
 

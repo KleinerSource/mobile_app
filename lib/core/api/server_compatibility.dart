@@ -15,17 +15,31 @@ enum ServerProject {
     projectName: 'db_online',
     displayName: 'dbonline',
     minimumVersion: '1.14.0',
+  ),
+  smb(
+    projectName: 'smb',
+    displayName: 'SMB',
+    minimumVersion: '',
+    isFileSource: true,
+  ),
+  webDav(
+    projectName: 'webdav',
+    displayName: 'WebDAV',
+    minimumVersion: '',
+    isFileSource: true,
   );
 
   const ServerProject({
     required this.projectName,
     required this.displayName,
     required this.minimumVersion,
+    this.isFileSource = false,
   });
 
   final String projectName;
   final String displayName;
   final String minimumVersion;
+  final bool isFileSource;
 
   static ServerProject? fromProjectName(String value) {
     final normalized = value.trim().toLowerCase();

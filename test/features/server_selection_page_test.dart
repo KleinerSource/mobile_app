@@ -55,7 +55,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.add_rounded));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'https://media.example');
+    await _enterHttpFields(tester, '媒体服务器', 'media.example', '443');
     await tester.tap(find.text('测试并保存'));
     await tester.pumpAndSettle();
 
@@ -91,7 +91,14 @@ void main() {
     Future<void> addServer(String url) async {
       await tester.tap(find.byIcon(Icons.add_rounded));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), url);
+      final uri = Uri.parse(url);
+      await _enterHttpFields(
+        tester,
+        '服务器 ${uri.host}',
+        uri.host,
+        uri.hasPort ? uri.port.toString() : '443',
+        scheme: uri.scheme,
+      );
       await tester.tap(find.text('测试并保存'));
       await tester.pumpAndSettle();
     }
@@ -159,13 +166,17 @@ void main() {
 
     expect(find.text('连接到媒体服务器'), findsOneWidget);
     expect(find.text('Oh-My-Media'), findsOneWidget);
-    expect(find.byType(TextField), findsOneWidget);
+    expect(find.byType(TextField), findsNWidgets(3));
     expect(
-      tester.widget<TextField>(find.byType(TextField)).controller?.text,
-      'http://',
+      tester
+          .widgetList<TextField>(find.byType(TextField))
+          .elementAt(1)
+          .controller
+          ?.text,
+      isEmpty,
     );
 
-    await tester.enterText(find.byType(TextField), 'https://media.example');
+    await _enterHttpFields(tester, '媒体服务器', 'media.example', '443');
     await tester.tap(find.text('测试并保存'));
     await tester.pumpAndSettle();
 
@@ -213,10 +224,12 @@ void main() {
     await tester.tap(find.text('编辑服务器'));
     await tester.pumpAndSettle();
     expect(find.text('更换服务器'), findsOneWidget);
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller?.text,
-      'https://db.example',
-    );
+    final fields = tester
+        .widgetList<TextField>(find.byType(TextField))
+        .toList();
+    expect(fields[0].controller?.text, 'DB Online');
+    expect(fields[1].controller?.text, 'db.example');
+    expect(fields[2].controller?.text, '443');
   });
 
   testWidgets('头像横向滚动区域延伸到屏幕边缘', (tester) async {
@@ -260,4 +273,23 @@ void main() {
       tester.getSize(find.byType(Scaffold)).width,
     );
   });
+}
+
+Future<void> _enterHttpFields(
+  WidgetTester tester,
+  String name,
+  String host,
+  String port, {
+  String scheme = 'http',
+}) async {
+  if (scheme != 'http') {
+    await tester.tap(find.byType(DropdownButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(scheme.toUpperCase()).last);
+    await tester.pumpAndSettle();
+  }
+  final fields = find.byType(TextField);
+  await tester.enterText(fields.at(0), name);
+  await tester.enterText(fields.at(1), host);
+  await tester.enterText(fields.at(2), port);
 }
