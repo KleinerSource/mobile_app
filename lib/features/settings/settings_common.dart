@@ -366,6 +366,10 @@ class SettingsSubPageHeader extends StatelessWidget {
     this.trailing,
     this.titleTrailing,
     this.showBackButton = true,
+    this.backIcon = Icons.arrow_back,
+    this.backTooltip,
+    this.onBackPressed,
+    this.titleMaxLines,
   });
   final String eyebrow;
   final String title;
@@ -373,6 +377,16 @@ class SettingsSubPageHeader extends StatelessWidget {
   final Widget? trailing;
   final Widget? titleTrailing;
   final bool showBackButton;
+
+  /// 返回按钮图标；批量选择等模式可换成关闭图标。
+  final IconData backIcon;
+  final String? backTooltip;
+
+  /// 返回动作；省略时默认 [Navigator.maybePop]。
+  final VoidCallback? onBackPressed;
+
+  /// 主标题最大行数；长文件名等场景传 1 避免头部被撑高。
+  final int? titleMaxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -385,8 +399,10 @@ class SettingsSubPageHeader extends StatelessWidget {
             children: [
               if (showBackButton)
                 IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.of(context).maybePop(),
+                  tooltip: backTooltip,
+                  icon: Icon(backIcon),
+                  onPressed:
+                      onBackPressed ?? () => Navigator.of(context).maybePop(),
                 )
               else
                 const SizedBox(width: 48, height: 48),
@@ -405,7 +421,14 @@ class SettingsSubPageHeader extends StatelessWidget {
                   textBaseline: TextBaseline.alphabetic,
                   children: [
                     Expanded(
-                      child: Text(title, style: AppText.pageTitle(context)),
+                      child: Text(
+                        title,
+                        style: AppText.pageTitle(context),
+                        maxLines: titleMaxLines,
+                        overflow: titleMaxLines == null
+                            ? null
+                            : TextOverflow.ellipsis,
+                      ),
                     ),
                     if (titleTrailing != null) titleTrailing!,
                   ],

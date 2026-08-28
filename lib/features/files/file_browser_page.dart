@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/platform/app_theme.dart';
+import '../../core/sources/common/source_descriptor.dart';
 import '../../core/sources/common/source_exception.dart';
 import '../../core/sources/common/source_id.dart';
 import '../../core/sources/files/file_entry.dart';
@@ -17,12 +19,14 @@ import '../../shared/drag_selection.dart';
 import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/edge_swipe_back.dart';
 import '../../shared/glass.dart';
+import '../../shared/glow_background.dart';
 import '../../shared/sheet_controls.dart';
 import '../../shared/swipe_actions.dart';
 import '../player/player_page.dart';
 import '../oh_my_media/movie_detail/movie_detail_page.dart'
     show showImageLightbox;
 import '../settings/server_selection_page.dart';
+import '../settings/settings_common.dart';
 import 'file_navigation.dart';
 import 'file_playback_proxy.dart';
 
@@ -131,146 +135,150 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         : const <FileEntry>[];
     final batchActions = _batchActions(visibleEntries);
 
+    // 与偏好设置一致的固定头部：眉标题(协议) + 主标题 + 返回/右侧操作。
+    final descriptor = source.asData?.value?.descriptor;
+    final headerEyebrow = switch (descriptor?.kind) {
+      SourceKind.smb => 'SMB',
+      SourceKind.webDav => 'WEBDAV',
+      _ => '文件',
+    };
+    final headerTitle = widget.directoryPicker
+        ? '选择目标目录'
+        : _selectionMode
+        ? '已选 ${_selectedKeys.length} 项'
+        : (descriptor?.name ?? '文件列表');
+    final headerTrailing = widget.directoryPicker
+        ? IconButton(
+            tooltip: '选择此目录',
+            onPressed: _busy
+                ? null
+                : () => Navigator.of(context).pop(currentDirectoryPath),
+            icon: const Icon(Icons.check),
+          )
+        : _selectionMode
+        ? PopupMenuButton<int>(
+            tooltip: '批量操作',
+            onSelected: (index) => batchActions[index].onTap?.call(),
+            itemBuilder: (_) => [
+              for (var i = 0; i < batchActions.length; i++)
+                PopupMenuItem<int>(
+                  value: i,
+                  enabled: batchActions[i].onTap != null,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(batchActions[i].icon, size: 20),
+                      const SizedBox(width: 12),
+                      Text(batchActions[i].label),
+                    ],
+                  ),
+                ),
+            ],
+          )
+        : PopupMenuButton<_BrowserMenuAction>(
+            enabled: !_busy,
+            tooltip: '更多',
+            onSelected: (action) =>
+                _handleMenuAction(action, currentDirectoryPath),
+            itemBuilder: (_) => [
+              _menuItem(
+                _BrowserMenuAction.createDirectory,
+                Icons.create_new_folder_outlined,
+                '新建文件夹',
+              ),
+              _menuItem(
+                _BrowserMenuAction.upload,
+                Icons.upload_file_outlined,
+                '上传文件',
+              ),
+              _menuItem(
+                _BrowserMenuAction.enterSelection,
+                Icons.checklist_outlined,
+                '选择',
+              ),
+              CheckedPopupMenuItem<_BrowserMenuAction>(
+                value: _BrowserMenuAction.toggleHidden,
+                checked: _showHiddenFiles,
+                child: const Text('显示隐藏文件'),
+              ),
+              CheckedPopupMenuItem<_BrowserMenuAction>(
+                value: _BrowserMenuAction.sortName,
+                checked: _sortField == _FileSortField.name,
+                child: Text(_sortMenuLabel('名称', _FileSortField.name)),
+              ),
+              CheckedPopupMenuItem<_BrowserMenuAction>(
+                value: _BrowserMenuAction.sortDate,
+                checked: _sortField == _FileSortField.date,
+                child: Text(_sortMenuLabel('日期', _FileSortField.date)),
+              ),
+              CheckedPopupMenuItem<_BrowserMenuAction>(
+                value: _BrowserMenuAction.sortSize,
+                checked: _sortField == _FileSortField.size,
+                child: Text(_sortMenuLabel('大小', _FileSortField.size)),
+              ),
+              CheckedPopupMenuItem<_BrowserMenuAction>(
+                value: _BrowserMenuAction.sortCategory,
+                checked: _sortField == _FileSortField.category,
+                child: Text(
+                  _sortMenuLabel('类别', _FileSortField.category),
+                ),
+              ),
+            ],
+          );
+
     final page = PopScope(
       canPop: !_selectionMode,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && _selectionMode) _exitSelection();
       },
       child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            tooltip: _selectionMode
-                ? '退出选择'
-                : widget.directoryPicker
-                ? _isAtRoot
-                      ? '取消选择'
-                      : '返回上一级'
-                : _isAtRoot
-                ? '返回服务器选择'
-                : '返回上一级',
-            onPressed: _selectionMode
-                ? _exitSelection
-                : widget.directoryPicker
-                ? _cancelDirectoryPicker
-                : _handleBack,
-            icon: Icon(_selectionMode ? Icons.close : Icons.arrow_back),
-          ),
-          title: source.when(
-            data: (value) => Text(
-              widget.directoryPicker
-                  ? '选择目标目录'
-                  : _selectionMode
-                  ? '已选 ${_selectedKeys.length} 项'
-                  : (value?.descriptor.name ?? '文件列表'),
-            ),
-            loading: () => Text(widget.directoryPicker ? '选择目标目录' : '文件列表'),
-            error: (_, __) => Text(widget.directoryPicker ? '选择目标目录' : '文件列表'),
-          ),
-          actions: widget.directoryPicker
-              ? [
-                  IconButton(
-                    tooltip: '选择此目录',
-                    onPressed: _busy
-                        ? null
-                        : () => Navigator.of(context).pop(currentDirectoryPath),
-                    icon: const Icon(Icons.check),
+        backgroundColor: appColors(context).bg,
+        body: GlowBackground(
+          child: SafeArea(
+            bottom: false,
+            child: SettingsFixedHeaderLayout(
+              scrollController: _scrollController,
+              header: SettingsSubPageHeader(
+                eyebrow: headerEyebrow,
+                title: headerTitle,
+                titleMaxLines: 1,
+                backIcon: _selectionMode ? Icons.close : Icons.arrow_back,
+                backTooltip: _selectionMode
+                    ? '退出选择'
+                    : widget.directoryPicker
+                    ? (_isAtRoot ? '取消选择' : '返回上一级')
+                    : (_isAtRoot ? '返回服务器选择' : '返回上一级'),
+                onBackPressed: _selectionMode
+                    ? _exitSelection
+                    : widget.directoryPicker
+                    ? _cancelDirectoryPicker
+                    : _handleBack,
+                trailing: headerTrailing,
+              ),
+              body: Column(
+                children: [
+                  Expanded(
+                    child: listing.when(
+                      data: _buildListing,
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (error, _) => _BrowserError(
+                        message: error is SourceException
+                            ? error.message
+                            : error.toString(),
+                        onRetry: () => unawaited(_refresh()),
+                      ),
+                    ),
                   ),
-                ]
-              : _selectionMode
-              ? [
-                  PopupMenuButton<int>(
-                    tooltip: '批量操作',
-                    onSelected: (index) => batchActions[index].onTap?.call(),
-                    itemBuilder: (_) => [
-                      for (var i = 0; i < batchActions.length; i++)
-                        PopupMenuItem<int>(
-                          value: i,
-                          enabled: batchActions[i].onTap != null,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(batchActions[i].icon, size: 20),
-                              const SizedBox(width: 12),
-                              Text(batchActions[i].label),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ]
-              : [
-                  PopupMenuButton<_BrowserMenuAction>(
-                    enabled: !_busy,
-                    tooltip: '更多',
-                    onSelected: (action) =>
-                        _handleMenuAction(action, currentDirectoryPath),
-                    itemBuilder: (_) => [
-                      _menuItem(
-                        _BrowserMenuAction.createDirectory,
-                        Icons.create_new_folder_outlined,
-                        '新建文件夹',
-                      ),
-                      _menuItem(
-                        _BrowserMenuAction.upload,
-                        Icons.upload_file_outlined,
-                        '上传文件',
-                      ),
-                      _menuItem(
-                        _BrowserMenuAction.enterSelection,
-                        Icons.checklist_outlined,
-                        '选择',
-                      ),
-                      CheckedPopupMenuItem<_BrowserMenuAction>(
-                        value: _BrowserMenuAction.toggleHidden,
-                        checked: _showHiddenFiles,
-                        child: const Text('显示隐藏文件'),
-                      ),
-                      CheckedPopupMenuItem<_BrowserMenuAction>(
-                        value: _BrowserMenuAction.sortName,
-                        checked: _sortField == _FileSortField.name,
-                        child: Text(_sortMenuLabel('名称', _FileSortField.name)),
-                      ),
-                      CheckedPopupMenuItem<_BrowserMenuAction>(
-                        value: _BrowserMenuAction.sortDate,
-                        checked: _sortField == _FileSortField.date,
-                        child: Text(_sortMenuLabel('日期', _FileSortField.date)),
-                      ),
-                      CheckedPopupMenuItem<_BrowserMenuAction>(
-                        value: _BrowserMenuAction.sortSize,
-                        checked: _sortField == _FileSortField.size,
-                        child: Text(_sortMenuLabel('大小', _FileSortField.size)),
-                      ),
-                      CheckedPopupMenuItem<_BrowserMenuAction>(
-                        value: _BrowserMenuAction.sortCategory,
-                        checked: _sortField == _FileSortField.category,
-                        child: Text(
-                          _sortMenuLabel('类别', _FileSortField.category),
-                        ),
-                      ),
-                    ],
-                  ),
+                  if (_operation != null)
+                    _FileOperationBanner(
+                      operation: _operation!,
+                      onCancel: _cancelOperation,
+                    ),
                 ],
-        ),
-        body: Column(
-          children: [
-            Expanded(
-              child: listing.when(
-                data: _buildListing,
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) => _BrowserError(
-                  message: error is SourceException
-                      ? error.message
-                      : error.toString(),
-                  onRetry: () => unawaited(_refresh()),
-                ),
               ),
             ),
-            if (_operation != null)
-              _FileOperationBanner(
-                operation: _operation!,
-                onCancel: _cancelOperation,
-              ),
-          ],
+          ),
         ),
       ),
     );
@@ -527,10 +535,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         if (listing.breadcrumbs.isNotEmpty)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
+            padding: const EdgeInsets.fromLTRB(22, 2, 22, 2),
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                minWidth: MediaQuery.sizeOf(context).width - 32,
+                minWidth: MediaQuery.sizeOf(context).width - 44,
               ),
               child: Align(
                 alignment: Alignment.centerLeft,
@@ -1208,13 +1216,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                 onTap: () =>
                     Navigator.of(context).pop(_FileDetailsAction.preview),
               ),
-            SheetActionBar(
-              child: OutlinedButton.icon(
-                onPressed: () => Navigator.of(context).pop(),
-                style: sheetSecondaryButtonStyle(context),
-                icon: const Icon(Icons.close),
-                label: const Text('关闭'),
-              ),
             ),
           ],
         ),
@@ -1260,6 +1261,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         context,
         title: entry.name,
         directUrl: proxy.uri.toString(),
+        directPlaybackKey: entry.path.stableKey,
       );
     } catch (error) {
       if (mounted) {
@@ -1881,20 +1883,28 @@ class _FileTextViewerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = appColors(context);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      ),
-      body: SafeArea(
-        child: Scrollbar(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(22, 18, 22, 32),
-            child: SelectableText(
-              text,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 13,
-                height: 1.45,
+      backgroundColor: c.bg,
+      body: GlowBackground(
+        child: SafeArea(
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: '文件',
+              title: title,
+              titleMaxLines: 1,
+            ),
+            body: Scrollbar(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(22, 18, 22, 32),
+                child: SelectableText(
+                  text,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 13,
+                    height: 1.45,
+                  ),
+                ),
               ),
             ),
           ),

@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/server_config_provider.dart';
+import '../../core/platform/app_theme.dart';
 import '../../core/sources/files/file_source_providers.dart';
 import '../../core/sources/common/source_exception.dart';
+import '../../shared/glow_background.dart';
 import 'file_browser_page.dart';
 import '../settings/server_selection_page.dart';
+import '../settings/settings_common.dart';
 
 /// 文件列表页。文件服务器选中后直接进入根目录，不再展示来源 URL 列表。
 class FileSourcesPage extends ConsumerWidget {
@@ -33,9 +36,8 @@ class FileSourcesPage extends ConsumerWidget {
                   ref.invalidate(fileSourceDescriptorsProvider(serverId)),
               onConfigure: () => _openServerSelector(context),
             ),
-      loading: () => Scaffold(
-        appBar: AppBar(title: const Text('文件列表')),
-        body: const Center(child: CircularProgressIndicator()),
+      loading: () => const _FileSourcesShell(
+        body: Center(child: CircularProgressIndicator()),
       ),
       error: (error, _) => _FileError(
         message: error is SourceException ? error.message : error.toString(),
@@ -50,6 +52,37 @@ class FileSourcesPage extends ConsumerWidget {
   }
 }
 
+/// 与偏好设置一致的页面骨架 · GlowBackground + 固定「文件列表」头部。
+///
+/// 本页位于文件服务器流程根（声明式页面栈），头部不提供返回按钮，
+/// 返回服务器选择的入口由 body 内的兜底按钮承担。
+class _FileSourcesShell extends StatelessWidget {
+  const _FileSourcesShell({required this.body});
+
+  final Widget body;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    return Scaffold(
+      backgroundColor: c.bg,
+      body: GlowBackground(
+        child: SafeArea(
+          bottom: false,
+          child: SettingsFixedHeaderLayout(
+            header: const SettingsSubPageHeader(
+              eyebrow: '文件',
+              title: '文件列表',
+              showBackButton: false,
+            ),
+            body: body,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _NoFileServer extends StatelessWidget {
   const _NoFileServer({required this.onSelectServer});
 
@@ -57,8 +90,7 @@ class _NoFileServer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('文件列表')),
+    return _FileSourcesShell(
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -83,15 +115,17 @@ class _NoFileServer extends StatelessWidget {
 }
 
 class _MissingFileSource extends StatelessWidget {
-  const _MissingFileSource({required this.onRetry, required this.onConfigure});
+  const _MissingFileSource({
+    required this.onRetry,
+    required this.onConfigure,
+  });
 
   final VoidCallback onRetry;
   final VoidCallback onConfigure;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('文件列表')),
+    return _FileSourcesShell(
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -133,25 +167,27 @@ class _FileError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              children: [
-                OutlinedButton(onPressed: onRetry, child: const Text('重试')),
-                FilledButton(
-                  onPressed: onConfigure,
-                  child: const Text('管理服务器'),
-                ),
-              ],
-            ),
-          ],
+    return _FileSourcesShell(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(message, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                children: [
+                  OutlinedButton(onPressed: onRetry, child: const Text('重试')),
+                  FilledButton(
+                    onPressed: onConfigure,
+                    child: const Text('管理服务器'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

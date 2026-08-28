@@ -238,7 +238,8 @@ void main() {
     expect(find.text('文件详情'), findsOneWidget);
     expect(find.byType(BottomSheet), findsOneWidget);
 
-    await tester.tap(find.text('关闭').last);
+    // 详情面板不再提供关闭按钮；点遮罩收起。
+    await tester.tapAt(const Offset(20, 20));
     await tester.pumpAndSettle();
     expect(find.text('文件详情'), findsNothing);
   });

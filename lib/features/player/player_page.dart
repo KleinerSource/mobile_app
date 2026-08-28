@@ -18,6 +18,7 @@ import '../../core/models/watch_record.dart';
 import '../../core/platform/screen_brightness_channel.dart';
 import '../../core/sources/common/source_exception.dart';
 import '../../core/sources/common/source_id.dart';
+import '../../core/sources/files/file_playback_progress.dart';
 import '../../core/sources/media/media_models.dart' as source_models;
 import '../../core/sources/media/media_source_providers.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
@@ -70,6 +71,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     required this.title,
     this.directUrl,
     this.engineKind,
+    this.directPlaybackKey,
     this.startPositionSec = 0,
     this.queue = const <PlayerQueueItem>[],
     this.queueIndex = 0,
@@ -82,6 +84,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     required this.title,
     required this.directUrl,
     this.engineKind,
+    this.directPlaybackKey,
   }) : movieId = null,
        startPositionSec = 0,
        queue = const <PlayerQueueItem>[],
@@ -91,6 +94,7 @@ class PlayerPage extends ConsumerStatefulWidget {
   final String title;
   final String? directUrl;
   final PlaybackEngineKind? engineKind;
+  final String? directPlaybackKey;
   final int startPositionSec;
   final List<PlayerQueueItem> queue;
   final int queueIndex;
@@ -125,6 +129,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     required String title,
     required String directUrl,
     PlaybackEngineKind? engineKind,
+    String? directPlaybackKey,
   }) {
     return Navigator.of(context).push(
       MaterialPageRoute(
@@ -132,6 +137,7 @@ class PlayerPage extends ConsumerStatefulWidget {
           title: title,
           directUrl: directUrl,
           engineKind: engineKind,
+          directPlaybackKey: directPlaybackKey,
         ),
       ),
     );
@@ -148,6 +154,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   ];
 
   late final PlayerSessionController _host;
+  late final FilePlaybackProgressRepository _filePlaybackProgress;
   final PlayerDeviceStatsReader _deviceStatsReader = PlayerDeviceStatsReader();
 
   bool _loading = true;
@@ -217,6 +224,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _host = createPlayerSession(
       engineKind: widget.engineKind,
       iosEnginePreference: settings.iosEngine,
+    );
+    _filePlaybackProgress = FilePlaybackProgressRepository(
+      ref.read(sharedPrefsProvider),
     );
     _subtitleAdjustments = ref.read(subtitleSettingsProvider).adjustments;
     WidgetsBinding.instance.addObserver(this);
@@ -388,8 +398,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _reportProgress() {
+    if (_isDirectPlayback) return _reportFileProgress();
     final movieId = widget.movieId;
-    if (_isDirectPlayback || movieId == null) return Future<void>.value();
+    if (movieId == null) return Future<void>.value();
     final next = _progressReportChain.then<void>((_) async {
       final position = _host.position.inSeconds;
       final duration = _host.duration.inSeconds;
@@ -411,6 +422,32 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       } catch (_) {
         // 播放器退出时网络可能已经断开，不能影响退出流程。
       }
+    });
+    _progressReportChain = next;
+    return next;
+  }
+
+  Future<void> _reportFileProgress() {
+    final stableKey = widget.directPlaybackKey?.trim();
+    if (stableKey == null || stableKey.isEmpty) {
+      return Future<void>.value();
+    }
+    final next = _progressReportChain.then<void>((_) async {
+      final settings = ref.read(playerSettingsProvider);
+      if (!settings.resumeFromLastPosition) return;
+      final positionSec = _host.position.inSeconds > 0
+          ? _host.position.inSeconds
+          : _lastPositionSec;
+      final durationSec = _host.duration.inSeconds > 0
+          ? _host.duration.inSeconds
+          : _lastDurationSec;
+      _lastPositionSec = positionSec;
+      _lastDurationSec = durationSec;
+      await _filePlaybackProgress.savePosition(
+        stableKey: stableKey,
+        positionSec: positionSec,
+        durationSec: durationSec,
+      );
     });
     _progressReportChain = next;
     return next;
@@ -484,6 +521,17 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     try {
       final trailerUrl = widget.directUrl?.trim();
       if (trailerUrl != null && trailerUrl.isNotEmpty) {
+        if (ref.read(playerSettingsProvider).resumeFromLastPosition) {
+          final stableKey = widget.directPlaybackKey?.trim();
+          if (stableKey != null && stableKey.isNotEmpty) {
+            final savedPosition = _filePlaybackProgress.loadPositionSec(
+              stableKey,
+            );
+            if (savedPosition > 0) {
+              fallbackResume = Duration(seconds: savedPosition);
+            }
+          }
+        }
         // 文件源的回环代理是按需取流的，内核 open 可能会等待远端首段
         // 数据或容器探测。先展示播放器表面和控件，让播放器自己的 buffering
         // 状态接管等待过程，避免整个页面一直被“正在加载影片”覆盖。
