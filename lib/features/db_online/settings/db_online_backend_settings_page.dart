@@ -10,59 +10,62 @@ import 'package:omm/shared/glow_background.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/db_online/settings/db_online_backend_config.dart';
 
-/// 当前 DBO 服务器的后台配置入口。
-class DboBackendSettingsPage extends ConsumerWidget {
-  const DboBackendSettingsPage({super.key});
+/// DBO 后台配置内容，可直接嵌入服务器设置页。
+class DboBackendSettingsContent extends ConsumerWidget {
+  const DboBackendSettingsContent({super.key, this.scrollable = false});
+
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(dbOnlineBackendConfigProvider);
-    return Scaffold(
-      backgroundColor: appColors(context).bg,
-      body: GlowBackground(
-        child: SafeArea(
-          child: SettingsFixedHeaderLayout(
-            header: const SettingsSubPageHeader(
-              eyebrow: 'DB ONLINE',
-              title: '后台配置',
-              subtitle: '配置 DBO 服务端的 API、订阅、代理、下载器和播放器。',
-            ),
-            body: config.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => _ConfigLoadError(
-                error: error,
-                onRetry: () => ref.invalidate(dbOnlineBackendConfigProvider),
-              ),
-              data: (value) => ListView(
-                primary: true,
-                padding: const EdgeInsets.only(bottom: 80),
-                children: [
-                  for (final group in dboBackendConfigGroups)
-                    SettingsGroup(
-                      title: group.title,
-                      items: [
-                        for (final section in group.sections)
-                          SettingsTile(
-                            title: section.title,
-                            subtitle: _sectionSubtitle(section),
-                            leadingIcon: _sectionIcon(section),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => DboBackendConfigDetailPage(
-                                  section: section,
-                                  config: value,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
+    final content = config.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 48),
+        child: Center(child: CircularProgressIndicator()),
       ),
+      error: (error, _) => _ConfigLoadError(
+        error: error,
+        onRetry: () => ref.invalidate(dbOnlineBackendConfigProvider),
+      ),
+      data: (value) => _buildGroups(context, value),
+    );
+
+    if (!scrollable) return content;
+    return ListView(
+      primary: true,
+      padding: const EdgeInsets.only(bottom: 80),
+      children: [content],
+    );
+  }
+
+  static Widget _buildGroups(
+    BuildContext context,
+    Map<String, dynamic> config,
+  ) {
+    return Column(
+      children: [
+        for (final group in dboBackendConfigGroups)
+          SettingsGroup(
+            title: group.title,
+            items: [
+              for (final section in group.sections)
+                SettingsTile(
+                  title: section.title,
+                  subtitle: _sectionSubtitle(section),
+                  leadingIcon: _sectionIcon(section),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => DboBackendConfigDetailPage(
+                        section: section,
+                        config: config,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+      ],
     );
   }
 
@@ -86,6 +89,30 @@ class DboBackendSettingsPage extends ConsumerWidget {
   }
 }
 
+/// 当前 DBO 服务器的后台配置入口，保留给需要独立打开配置页的场景。
+class DboBackendSettingsPage extends StatelessWidget {
+  const DboBackendSettingsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: appColors(context).bg,
+      body: const GlowBackground(
+        child: SafeArea(
+          child: SettingsFixedHeaderLayout(
+            header: SettingsSubPageHeader(
+              eyebrow: 'DB ONLINE',
+              title: '后台配置',
+              subtitle: '配置 DBO 服务端的 API、订阅、代理、下载器和播放器。',
+            ),
+            body: DboBackendSettingsContent(scrollable: true),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ConfigLoadError extends StatelessWidget {
   const _ConfigLoadError({required this.error, required this.onRetry});
 
@@ -95,49 +122,46 @@ class _ConfigLoadError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    return ListView(
-      primary: true,
+    return Padding(
       padding: const EdgeInsets.fromLTRB(22, 8, 22, 80),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: c.danger.withValues(alpha: 0.09),
-            border: Border.all(color: c.danger.withValues(alpha: 0.24)),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.error_outline, color: c.danger),
-                  const SizedBox(width: 8),
-                  Text(
-                    '无法读取 DBO 配置',
-                    style: TextStyle(
-                      color: c.danger,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                toApiException(error).message,
-                style: AppText.meta(context).copyWith(color: c.danger),
-              ),
-              const SizedBox(height: 14),
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('重试'),
-              ),
-            ],
-          ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: c.danger.withValues(alpha: 0.09),
+          border: Border.all(color: c.danger.withValues(alpha: 0.24)),
+          borderRadius: BorderRadius.circular(16),
         ),
-      ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.error_outline, color: c.danger),
+                const SizedBox(width: 8),
+                Text(
+                  '无法读取 DBO 配置',
+                  style: TextStyle(
+                    color: c.danger,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              toApiException(error).message,
+              style: AppText.meta(context).copyWith(color: c.danger),
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('重试'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

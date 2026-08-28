@@ -46,22 +46,7 @@ class ServerSettingsPage extends ConsumerWidget {
             body: ListView(
               primary: true,
               children: [
-                if (dbOnline)
-                  SettingsGroup(
-                    title: 'DB Online',
-                    items: [
-                      SettingsTile(
-                        title: 'DBO 后台配置',
-                        subtitle: 'JavDB API、订阅、代理、下载器和播放器',
-                        leadingIcon: Icons.tune_outlined,
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const DboBackendSettingsPage(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                if (dbOnline) const DboBackendSettingsContent(),
                 if (!dbOnline)
                   SettingsGroup(
                     title: l.settingsGroupSystem,

@@ -13,7 +13,7 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('当前 DBO 服务器在服务器设置中显示后台配置入口', (tester) async {
+  testWidgets('当前 DBO 服务器在服务器设置中直接显示后台配置分区', (tester) async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([
         {
@@ -33,16 +33,22 @@ void main() {
       'server.active_server_id': 'dbo',
     });
     final prefs = await SharedPreferences.getInstance();
+    final dio = Dio(BaseOptions(baseUrl: 'http://test/api'))
+      ..httpClientAdapter = _BackendConfigAdapter();
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          requiredApiClientProvider.overrideWithValue(ApiClient(dio)),
+        ],
         child: _localizedApp(const ServerSettingsPage()),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('DBO 后台配置'), findsOneWidget);
+    expect(find.text('JavDB API'), findsOneWidget);
+    expect(find.text('DBO 后台配置'), findsNothing);
     expect(find.text('服务器列表'), findsNothing);
     expect(find.text('DB Online 数据源'), findsNothing);
   });
