@@ -10,6 +10,7 @@ import 'package:omm/core/api/providers.dart';
 import 'package:omm/features/db_online/api/db_online_api.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/config/server_config.dart';
+import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/sources/sources.dart';
 
 void main() {
@@ -64,6 +65,17 @@ void main() {
               },
             };
           }
+          if (path == '/api/movies/id/42') {
+            return {
+              'success': true,
+              'data': {
+                'id': 42,
+                'title': 'OMM 详情',
+                'num': 'ABC-042',
+                'plot': '详情简介',
+              },
+            };
+          }
           return {'success': true, 'data': <String, Object?>{}};
         });
       final source = OmmMediaSourceAdapter(ApiClient(dio));
@@ -76,6 +88,11 @@ void main() {
       );
       expect(page.items.single.title, 'OMM 影片');
       expect(page.items.single.code, 'ABC-042');
+      final detail = await source.getMovie(
+        const MediaRef(sourceId: SourceId('omm'), value: '42'),
+      );
+      expect(detail.payload, isA<MovieDetail>());
+      expect((detail.payload! as MovieDetail).plot, '详情简介');
       expect(source.supports(MediaCapability.libraryManagement), isTrue);
       expect(source.supports(MediaCapability.scanning), isTrue);
     },

@@ -173,7 +173,6 @@ class MediaDetails {
     this.tags = const <String>[],
     this.genres = const <String>[],
     this.actors = const <String>[],
-    this.files = const <String>[],
     this.attributes = const <String, Object?>{},
     this.payload,
   });
@@ -186,7 +185,6 @@ class MediaDetails {
   final List<String> tags;
   final List<String> genres;
   final List<String> actors;
-  final List<String> files;
   final Map<String, Object?> attributes;
   final Object? payload;
 }

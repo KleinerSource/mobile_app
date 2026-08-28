@@ -100,15 +100,6 @@ class _MainShellState extends ConsumerState<MainShell> {
         ),
       ),
       GlassMenuEntry<_YouQuickAction>.action(
-        value: _YouQuickAction.files,
-        builder: (context, selected, onTap) => GlassMenuRow(
-          icon: Icons.folder_outlined,
-          label: '文件列表',
-          selected: selected,
-          onTap: onTap,
-        ),
-      ),
-      GlassMenuEntry<_YouQuickAction>.action(
         value: _YouQuickAction.audios,
         builder: (context, selected, onTap) => GlassMenuRow(
           icon: Icons.graphic_eq_outlined,
@@ -161,7 +152,6 @@ class _MainShellState extends ConsumerState<MainShell> {
     final page = switch (action) {
       _YouQuickAction.tasks => const TaskCenterPage(),
       _YouQuickAction.libraries => const LibrariesPage(),
-      _YouQuickAction.files => const FileSourcesPage(),
       _YouQuickAction.audios => const AudioManagementPage(),
       _YouQuickAction.tags => const ResourceListPage(kind: ResourceKind.tag),
       _YouQuickAction.genres => const ResourceListPage(
@@ -271,16 +261,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   }
 }
 
-enum _YouQuickAction {
-  tasks,
-  libraries,
-  files,
-  audios,
-  tags,
-  genres,
-  series,
-  actors,
-}
+enum _YouQuickAction { tasks, libraries, audios, tags, genres, series, actors }
 
 class _TabSpec {
   const _TabSpec({required this.label, required this.icon});

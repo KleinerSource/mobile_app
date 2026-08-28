@@ -591,9 +591,7 @@ class OmmMediaSourceAdapter
       tags: movie.tags.map((item) => item.name).toList(growable: false),
       genres: movie.genres.map((item) => item.name).toList(growable: false),
       actors: movie.actors.map((item) => item.name).toList(growable: false),
-      files: movie.relatedFiles
-          .map((item) => item.path)
-          .toList(growable: false),
+      payload: movie,
     );
   }
 
