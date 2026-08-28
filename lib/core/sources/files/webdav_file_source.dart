@@ -176,7 +176,7 @@ class WebDavFileSource
         cancelToken: cancelToken,
       );
       if ((response.statusCode ?? 500) >= 400) {
-        response.data?.close();
+        await _cancelResponseStream(response.data);
         throw FileSourceException(
           'WebDAV 下载失败',
           statusCode: response.statusCode,
@@ -240,34 +240,31 @@ class WebDavFileSource
       if (status == 200) {
         // Some WebDAV servers ignore Range. Let the playback proxy spool a
         // complete local copy instead of silently returning the wrong bytes.
-        response.data?.close();
+        await _cancelResponseStream(response.data);
         throw UnsupportedError('WebDAV 服务不支持 Range');
       }
       if (status == 416) {
-        response.data?.close();
-        throw const FileSourceException(
-          'WebDAV 区间超出文件范围',
-          statusCode: 416,
-        );
+        await _cancelResponseStream(response.data);
+        throw const FileSourceException('WebDAV 区间超出文件范围', statusCode: 416);
       }
       if (status != 206 || status >= 400) {
-        response.data?.close();
+        await _cancelResponseStream(response.data);
         throw FileSourceException('WebDAV 区间读取失败', statusCode: status);
       }
       final body = response.data;
       if (body == null) {
-        throw const FileSourceException('WebDAV 区间响应缺少数据');
+        throw UnsupportedError('WebDAV 区间响应缺少数据');
       }
       final contentRange = response.headers.value('content-range');
       if (!_matchesRange(contentRange, offset: offset, end: end)) {
-        body.close();
-        throw const FileSourceException('WebDAV 未返回请求的 Content-Range');
+        await _cancelResponseStream(body);
+        throw UnsupportedError('WebDAV 未返回可靠的 Content-Range');
       }
       final contentLength = response.headers.value('content-length');
       final declaredLength = int.tryParse(contentLength ?? '');
       if (declaredLength != null && declaredLength != length) {
-        body.close();
-        throw const FileSourceException('WebDAV Content-Length 与区间不一致');
+        await _cancelResponseStream(body);
+        throw UnsupportedError('WebDAV Content-Length 与区间不一致');
       }
       return _streamResponseBody(body, expectedLength: length);
     } catch (error) {
@@ -442,27 +439,28 @@ class WebDavFileSource
     int? expectedLength,
   }) async* {
     var received = 0;
-    try {
-      await for (final chunk in body.stream) {
-        received += chunk.length;
-        if (expectedLength != null && received > expectedLength) {
-          throw const FileSourceException('WebDAV 返回的区间数据过长');
-        }
-        yield chunk;
+    await for (final chunk in body.stream) {
+      received += chunk.length;
+      if (expectedLength != null && received > expectedLength) {
+        throw const FileSourceException('WebDAV 返回的区间数据过长');
       }
-      if (expectedLength != null && received != expectedLength) {
-        throw const FileSourceException('WebDAV 返回的区间数据不完整');
-      }
-    } finally {
-      body.close();
+      yield chunk;
+    }
+    if (expectedLength != null && received != expectedLength) {
+      throw const FileSourceException('WebDAV 返回的区间数据不完整');
     }
   }
 
-  bool _matchesRange(
-    String? value, {
-    required int offset,
-    required int end,
-  }) {
+  Future<void> _cancelResponseStream(ResponseBody? body) async {
+    if (body == null) return;
+    try {
+      await body.stream.listen((_) {}).cancel();
+    } catch (_) {
+      // The adapter may already have closed the stream.
+    }
+  }
+
+  bool _matchesRange(String? value, {required int offset, required int end}) {
     final match = RegExp(
       r'^bytes\s+(\d+)-(\d+)/(\d+|\*)$',
       caseSensitive: false,

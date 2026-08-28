@@ -126,10 +126,7 @@ class FilePlaybackProxy {
       var range = _parseRange(rangeHeader, total);
       if (range?.invalid == true) {
         response.statusCode = HttpStatus.requestedRangeNotSatisfiable;
-        response.headers.set(
-          'content-range',
-          'bytes */${total ?? '*'}',
-        );
+        response.headers.set('content-range', 'bytes */${total ?? '*'}');
         return;
       }
 
@@ -163,7 +160,12 @@ class FilePlaybackProxy {
         }
       }
 
-      _setHeaders(response, total: total, range: range);
+      _setHeaders(
+        response,
+        total: total,
+        range: range,
+        effectiveMimeType: mimeType ?? access.mimeType,
+      );
       responseStarted = true;
       if (request.method == 'HEAD') return;
       await response.addStream(stream!);
@@ -185,9 +187,10 @@ class FilePlaybackProxy {
     HttpResponse response, {
     required int? total,
     required _FileByteRange? range,
+    required String? effectiveMimeType,
   }) {
     response.headers.set('accept-ranges', 'bytes');
-    final mime = mimeType?.trim();
+    final mime = effectiveMimeType?.trim();
     if (mime != null && mime.isNotEmpty) {
       try {
         response.headers.contentType = ContentType.parse(mime);
@@ -207,10 +210,17 @@ class FilePlaybackProxy {
 
   _FileByteRange? _parseRange(String? header, int? total) {
     if (header == null) return null;
-    if (!header.startsWith('bytes=') || total == null || total <= 0) {
+    final normalizedHeader = header.trim();
+    if (!normalizedHeader.toLowerCase().startsWith('bytes=') ||
+        total == null ||
+        total <= 0) {
       return const _FileByteRange.invalid();
     }
-    final value = header.substring('bytes='.length).split(',').first.trim();
+    final value = normalizedHeader
+        .substring('bytes='.length)
+        .split(',')
+        .first
+        .trim();
     final separator = value.indexOf('-');
     if (separator < 0) return const _FileByteRange.invalid();
     final startText = value.substring(0, separator).trim();

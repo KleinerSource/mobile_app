@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/common/source_descriptor.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/files/file_capabilities.dart';
@@ -57,14 +59,46 @@ void main() {
     );
     final client = HttpClient();
     try {
-      final request = await client.getUrl(proxy.uri);
-      request.headers.set('range', 'bytes=10-15');
+      final cases = <({String header, int start, int length})>[
+        (header: 'Bytes=0-3', start: 0, length: 4),
+        (header: 'bytes=10-15', start: 10, length: 6),
+        (header: 'bytes=20-', start: 20, length: 12),
+        (header: 'bytes=-5', start: 27, length: 5),
+      ];
+      for (final item in cases) {
+        final request = await client.getUrl(proxy.uri);
+        request.headers.set('range', item.header);
+        final response = await request.close();
+        final body = await _read(response);
+        expect(response.statusCode, HttpStatus.partialContent);
+        expect(response.contentLength, item.length);
+        expect(body, bytes.sublist(item.start, item.start + item.length));
+      }
+      expect(source.ranges, [(0, 4), (10, 6), (20, 12), (27, 5)]);
+    } finally {
+      await proxy.close();
+      client.close(force: true);
+    }
+  });
+
+  test('文件播放器代理的 HEAD 返回大小、MIME 和 Range 能力', () async {
+    final sourceId = SourceId.of('head-source');
+    final bytes = List<int>.generate(16, (index) => index);
+    final proxy = await FilePlaybackProxy.start(
+      repository: FileSourceRepository(_RangeStreamFileSource(sourceId, bytes)),
+      path: FilePath(sourceId: sourceId, value: '影片.mp4'),
+      size: bytes.length,
+      pathExtension: 'mp4',
+    );
+    final client = HttpClient();
+    try {
+      final request = await client.openUrl('HEAD', proxy.uri);
       final response = await request.close();
-      final body = await _read(response);
-      expect(response.statusCode, HttpStatus.partialContent);
-      expect(response.contentLength, 6);
-      expect(body, bytes.sublist(10, 16));
-      expect(source.ranges, [(10, 6)]);
+      expect(response.statusCode, HttpStatus.ok);
+      expect(response.contentLength, bytes.length);
+      expect(response.headers.contentType?.mimeType, 'video/x-matroska');
+      expect(response.headers.value('accept-ranges'), 'bytes');
+      expect(await _read(response), isEmpty);
     } finally {
       await proxy.close();
       client.close(force: true);
@@ -87,6 +121,55 @@ void main() {
       final response = await request.close();
       expect(response.statusCode, HttpStatus.requestedRangeNotSatisfiable);
       expect(response.headers.value('content-range'), 'bytes */8');
+
+      final malformed = await client.getUrl(proxy.uri);
+      malformed.headers.set('range', 'items=0-1');
+      final malformedResponse = await malformed.close();
+      expect(
+        malformedResponse.statusCode,
+        HttpStatus.requestedRangeNotSatisfiable,
+      );
+    } finally {
+      await proxy.close();
+      client.close(force: true);
+    }
+  });
+
+  test('文件大小未知时先落盘再响应 Range', () async {
+    final sourceId = SourceId.of('unknown-size-source');
+    final bytes = List<int>.generate(10, (index) => index + 10);
+    final proxy = await FilePlaybackProxy.start(
+      repository: FileSourceRepository(_UnknownSizeFileSource(sourceId, bytes)),
+      path: FilePath(sourceId: sourceId, value: '影片.mp4'),
+      pathExtension: 'mp4',
+    );
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(proxy.uri);
+      request.headers.set('range', 'bytes=4-6');
+      final response = await request.close();
+      expect(response.statusCode, HttpStatus.partialContent);
+      expect(response.headers.value('content-range'), 'bytes 4-6/10');
+      expect(await _read(response), bytes.sublist(4, 7));
+    } finally {
+      await proxy.close();
+      client.close(force: true);
+    }
+  });
+
+  test('文件播放器代理将上游解析错误转换为可识别的 HTTP 错误', () async {
+    final sourceId = SourceId.of('error-source');
+    final proxy = await FilePlaybackProxy.start(
+      repository: FileSourceRepository(_FailingFileSource(sourceId)),
+      path: FilePath(sourceId: sourceId, value: '影片.mp4'),
+      pathExtension: 'mp4',
+    );
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(proxy.uri);
+      final response = await request.close();
+      expect(response.statusCode, HttpStatus.notFound);
+      expect(await _read(response), utf8.encode('视频流读取失败'));
     } finally {
       await proxy.close();
       client.close(force: true);
@@ -142,4 +225,35 @@ class _RangeStreamFileSource extends _StreamFileSource
     ranges.add((offset, length));
     return Stream<List<int>>.value(bytes.sublist(offset, offset + length));
   }
+}
+
+class _FailingFileSource implements FileSource, FileAccessCapability {
+  _FailingFileSource(this.sourceId);
+
+  final SourceId sourceId;
+
+  @override
+  SourceDescriptor get descriptor =>
+      SourceDescriptor(id: sourceId, kind: SourceKind.webDav, name: '错误来源');
+
+  @override
+  Set<FileCapability> get capabilities => const {FileCapability.access};
+
+  @override
+  bool supports(FileCapability capability) => capabilities.contains(capability);
+
+  @override
+  Future<FileAccess> resolveAccess(FilePath path) => Future<FileAccess>.error(
+    const FileSourceException('上游文件不存在', statusCode: 404),
+  );
+}
+
+class _UnknownSizeFileSource extends _StreamFileSource {
+  _UnknownSizeFileSource(super.sourceId, super.bytes);
+
+  @override
+  Future<FileAccess> resolveAccess(FilePath path) async => FileAccess(
+    mimeType: 'video/mp4',
+    openStream: () => Stream<List<int>>.value(bytes),
+  );
 }
