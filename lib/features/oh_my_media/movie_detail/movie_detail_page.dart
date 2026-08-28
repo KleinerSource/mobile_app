@@ -260,6 +260,7 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
           ),
         SliverToBoxAdapter(child: _DetailsTable(movie: movie)),
         SliverToBoxAdapter(child: _MediaInfoSection(movieId: movie.id)),
+        SliverToBoxAdapter(child: _RelatedFilesSection(movie: movie)),
         const SliverToBoxAdapter(child: SizedBox(height: 60)),
       ],
       actions: [
@@ -1771,6 +1772,72 @@ class _TaxonomySection extends StatelessWidget {
                 ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 相关文件 section · 优先展示 related_files (含 label+path),
+/// fallback 显示单条 file_path。
+class _RelatedFilesSection extends StatelessWidget {
+  const _RelatedFilesSection({required this.movie});
+  final MovieDetail movie;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = appColors(context);
+    final files = <({String label, String path})>[];
+    if (movie.relatedFiles.isNotEmpty) {
+      for (final f in movie.relatedFiles) {
+        files.add((label: f.label ?? f.type ?? '文件', path: f.path));
+      }
+    } else if (movie.filePath != null && movie.filePath!.isNotEmpty) {
+      files.add((label: '影片', path: movie.filePath!));
+    }
+    if (files.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('文件路径', style: AppText.sectionTitle(context)),
+          const SizedBox(height: 12),
+          for (var i = 0; i < files.length; i++)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                border: i < files.length - 1
+                    ? Border(bottom: BorderSide(color: c.divider))
+                    : null,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    files[i].label,
+                    style: TextStyle(
+                      color: c.muted,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  SelectableText(
+                    files[i].path,
+                    style: TextStyle(
+                      color: c.text2,
+                      fontFamily: 'monospace',
+                      fontSize: 11.5,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
