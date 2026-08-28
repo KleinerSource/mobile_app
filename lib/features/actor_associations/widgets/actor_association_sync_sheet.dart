@@ -563,157 +563,155 @@ class _ActorAssociationSyncSheetState
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final mq = MediaQuery.of(context);
     final preview = _preview;
     final canApply =
         preview != null &&
         preview.found &&
         _hasSyncChanges(preview) &&
         !_applying;
-    return SizedBox(
-      height: mq.size.height * 0.78,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            SheetHeader(
-              icon: Icons.sync_alt_outlined,
-              title: '同步演员关联: $_actorName',
-              subtitle: '从选定数据源拉取演员别名预览',
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
-              child: _ActorDataSourceSelector(
-                sources: _availableSources,
-                notFoundSources: _notFoundSources,
-                failedSources: _failedSources,
-                selectedSource: _source,
-                enabled: !_applying,
-                onChanged: _selectSource,
-              ),
-            ),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                  ? _ErrorView(message: _error!, onRetry: _load)
-                  : preview == null
-                  ? const _NoPreviewView()
-                  : !preview.found
-                  ? Column(
-                      children: [
-                        Expanded(child: _EmptyView(actorName: _actorName)),
-                        if (_hasChannelStatuses)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                            child: _ActorChannelStatusSummary(
-                              pendingSources: _pendingSources,
-                              notFoundSources: _notFoundSources,
-                              failedSources: _failedSources,
-                            ),
-                          ),
-                        if (preview.warnings.isNotEmpty)
-                          _WarningsSection(warnings: preview.warnings),
-                      ],
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
-                      children: [
-                        if (preview.warnings.isNotEmpty) ...[
-                          _WarningsSection(warnings: preview.warnings),
-                          const SizedBox(height: 16),
-                        ],
-                        _ActorIdentitySection(
-                          mappedValue: preview.mappedValue,
-                          avatarExists: preview.avatarExists,
-                          avatarChoices: _avatarChoicesFor(preview),
-                          selectedAvatarCount: _selectedChoicesFor(
-                            preview,
-                          ).length,
-                          activeBytes: _previewAvatarBytes,
-                          activeLoading: _previewAvatarLoading,
-                          activeLoadFailed: _previewAvatarLoadFailed,
-                          avatarManuallySelected: _avatarManuallySelected,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SheetHeader(
+          icon: Icons.sync_alt_outlined,
+          title: '同步演员关联: $_actorName',
+          subtitle: '从选定数据源拉取演员别名预览',
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
+          child: _ActorDataSourceSelector(
+            sources: _availableSources,
+            notFoundSources: _notFoundSources,
+            failedSources: _failedSources,
+            selectedSource: _source,
+            enabled: !_applying,
+            onChanged: _selectSource,
+          ),
+        ),
+        Flexible(
+          fit: FlexFit.loose,
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? _ErrorView(message: _error!, onRetry: _load)
+              : preview == null
+              ? const _NoPreviewView()
+              : !preview.found
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: _EmptyView(actorName: _actorName),
+                    ),
+                    if (_hasChannelStatuses)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                        child: _ActorChannelStatusSummary(
                           pendingSources: _pendingSources,
                           notFoundSources: _notFoundSources,
                           failedSources: _failedSources,
-                          onAvatarTap: _applying
-                              ? null
-                              : () => unawaited(_openAvatarPicker()),
                         ),
-                        if (_biographyNeedsSync(preview)) ...[
-                          const SizedBox(height: 16),
-                          _BiographySection(biography: preview.biography),
-                        ],
-                        const SizedBox(height: 16),
-                        _AliasSection(
-                          title:
-                              '待新增名称（已选 ${_selectedAliases.length}/${preview.newAliases.length}）',
-                          empty: '没有需要新增的关联名称',
-                          aliases: preview.newAliases,
-                          color: c.accent,
-                          highlight: true,
-                          selectedAliases: _selectedAliases,
-                          allSelected: _allAliasesSelected(preview),
-                          onToggleAll: _applying || preview.newAliases.isEmpty
-                              ? null
-                              : () => _toggleAllAliases(preview),
-                          onToggle: (alias) {
-                            if (_applying) return;
-                            setState(() {
-                              if (_selectedAliases.contains(alias)) {
-                                _selectedAliases.remove(alias);
-                              } else {
-                                _selectedAliases.add(alias);
-                              }
-                            });
-                          },
-                        ),
-                        if (preview.existingAliases.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          _AliasSection(
-                            title: '已有关联',
-                            empty: '',
-                            aliases: preview.existingAliases,
-                            color: c.muted,
-                            highlight: false,
-                          ),
-                        ],
-                      ],
-                    ),
-            ),
-            SheetActionBar(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _applying
+                      ),
+                    if (preview.warnings.isNotEmpty)
+                      _WarningsSection(warnings: preview.warnings),
+                  ],
+                )
+              : ListView(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
+                  children: [
+                    if (preview.warnings.isNotEmpty) ...[
+                      _WarningsSection(warnings: preview.warnings),
+                      const SizedBox(height: 16),
+                    ],
+                    _ActorIdentitySection(
+                      mappedValue: preview.mappedValue,
+                      avatarExists: preview.avatarExists,
+                      avatarChoices: _avatarChoicesFor(preview),
+                      selectedAvatarCount: _selectedChoicesFor(preview).length,
+                      activeBytes: _previewAvatarBytes,
+                      activeLoading: _previewAvatarLoading,
+                      activeLoadFailed: _previewAvatarLoadFailed,
+                      avatarManuallySelected: _avatarManuallySelected,
+                      pendingSources: _pendingSources,
+                      notFoundSources: _notFoundSources,
+                      failedSources: _failedSources,
+                      onAvatarTap: _applying
                           ? null
-                          : () => Navigator.of(context).pop(false),
-                      child: const Text('取消'),
+                          : () => unawaited(_openAvatarPicker()),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton.icon(
-                      onPressed: canApply ? _apply : null,
-                      icon: _applying
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.cloud_download_outlined, size: 18),
-                      label: Text(_applying ? '应用中...' : '确认添加'),
+                    if (_biographyNeedsSync(preview)) ...[
+                      const SizedBox(height: 16),
+                      _BiographySection(biography: preview.biography),
+                    ],
+                    const SizedBox(height: 16),
+                    _AliasSection(
+                      title:
+                          '待新增名称（已选 ${_selectedAliases.length}/${preview.newAliases.length}）',
+                      empty: '没有需要新增的关联名称',
+                      aliases: preview.newAliases,
+                      color: c.accent,
+                      highlight: true,
+                      selectedAliases: _selectedAliases,
+                      allSelected: _allAliasesSelected(preview),
+                      onToggleAll: _applying || preview.newAliases.isEmpty
+                          ? null
+                          : () => _toggleAllAliases(preview),
+                      onToggle: (alias) {
+                        if (_applying) return;
+                        setState(() {
+                          if (_selectedAliases.contains(alias)) {
+                            _selectedAliases.remove(alias);
+                          } else {
+                            _selectedAliases.add(alias);
+                          }
+                        });
+                      },
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+                    if (preview.existingAliases.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      _AliasSection(
+                        title: '已有关联',
+                        empty: '',
+                        aliases: preview.existingAliases,
+                        color: c.muted,
+                        highlight: false,
+                      ),
+                    ],
+                  ],
+                ),
         ),
-      ),
+        SheetActionBar(
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _applying
+                      ? null
+                      : () => Navigator.of(context).pop(false),
+                  child: const Text('取消'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  onPressed: canApply ? _apply : null,
+                  icon: _applying
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cloud_download_outlined, size: 18),
+                  label: Text(_applying ? '应用中...' : '确认添加'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1122,7 +1120,6 @@ class _AvatarChoicePickerState extends State<_AvatarChoicePicker> {
 
   Widget _buildPicker(BuildContext context) {
     final c = appColors(context);
-    final height = MediaQuery.of(context).size.height * 0.58;
     // 加载失败的候选滞后到末尾展示，不占靠前的位置；保留原始索引供选中回传
     final ordered = <(int, ActorAssociationAvatarChoice)>[
       for (var i = 0; i < widget.choices.length; i++)
@@ -1132,159 +1129,157 @@ class _AvatarChoicePickerState extends State<_AvatarChoicePicker> {
         if (widget.avatarLoadFailed.contains(widget.choices[i].downloadUrl))
           (i, widget.choices[i]),
     ];
-    return SafeArea(
-      child: SizedBox(
-        height: height,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SheetHeader(
-              icon: Icons.account_box_outlined,
-              title: '选择演员头像',
-              subtitle:
-                  '${widget.mappedValue.isEmpty ? '演员' : widget.mappedValue} · '
-                  '已选 ${_selected.length}/${widget.choices.length} 张'
-                  '${widget.avatarLoadFailed.isEmpty ? '' : '（${widget.avatarLoadFailed.length} 张加载失败已后置，点击可重试）'}',
-              trailing: TextButton.icon(
-                onPressed: _toggleAll,
-                icon: Icon(
-                  _selected.length == ordered.length
-                      ? Icons.deselect
-                      : Icons.select_all,
-                  size: 16,
-                ),
-                label: Text(_selected.length == ordered.length ? '清空' : '全选'),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  minimumSize: const Size(0, 30),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SheetHeader(
+          icon: Icons.account_box_outlined,
+          title: '选择演员头像',
+          subtitle:
+              '${widget.mappedValue.isEmpty ? '演员' : widget.mappedValue} · '
+              '已选 ${_selected.length}/${widget.choices.length} 张'
+              '${widget.avatarLoadFailed.isEmpty ? '' : '（${widget.avatarLoadFailed.length} 张加载失败已后置，点击可重试）'}',
+          trailing: TextButton.icon(
+            onPressed: _toggleAll,
+            icon: Icon(
+              _selected.length == ordered.length
+                  ? Icons.deselect
+                  : Icons.select_all,
+              size: 16,
             ),
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.fromLTRB(22, 14, 22, 22),
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 120,
-                  childAspectRatio: 0.78,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                ),
-                itemCount: ordered.length,
-                itemBuilder: (context, slot) {
-                  final (index, choice) = ordered[slot];
-                  final url = choice.downloadUrl;
-                  final bytes = widget.avatarBytes[url];
-                  final loading = widget.avatarLoading.contains(url);
-                  final failed = widget.avatarLoadFailed.contains(url);
-                  final selected = _selected.contains(index);
-                  return Semantics(
-                    button: true,
-                    toggled: selected,
-                    label: failed
-                        ? '重试第 ${index + 1} 张演员头像'
-                        : '选择第 ${index + 1} 张演员头像',
-                    child: Material(
-                      color: c.surface,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: selected ? c.accent : c.cardBorder,
-                          width: 1,
-                        ),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: failed
-                            ? () => widget.onRetry?.call(url)
-                            : () => _toggle(index),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  if (bytes != null && bytes.isNotEmpty)
-                                    Image.memory(bytes, fit: BoxFit.cover)
-                                  else if (loading)
-                                    const Center(
-                                      child: SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      ),
-                                    )
-                                  else
-                                    Center(
-                                      child: Icon(
-                                        failed
-                                            ? Icons.refresh
-                                            : Icons.person_outline,
-                                        color: failed ? c.danger : c.muted,
-                                        size: 28,
-                                      ),
+            label: Text(_selected.length == ordered.length ? '清空' : '全选'),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              minimumSize: const Size(0, 30),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ),
+        Flexible(
+          fit: FlexFit.loose,
+          child: GridView.builder(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(22, 14, 22, 22),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 120,
+              childAspectRatio: 0.78,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: ordered.length,
+            itemBuilder: (context, slot) {
+              final (index, choice) = ordered[slot];
+              final url = choice.downloadUrl;
+              final bytes = widget.avatarBytes[url];
+              final loading = widget.avatarLoading.contains(url);
+              final failed = widget.avatarLoadFailed.contains(url);
+              final selected = _selected.contains(index);
+              return Semantics(
+                button: true,
+                toggled: selected,
+                label: failed
+                    ? '重试第 ${index + 1} 张演员头像'
+                    : '选择第 ${index + 1} 张演员头像',
+                child: Material(
+                  color: c.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: selected ? c.accent : c.cardBorder,
+                      width: 1,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: failed
+                        ? () => widget.onRetry?.call(url)
+                        : () => _toggle(index),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (bytes != null && bytes.isNotEmpty)
+                                Image.memory(bytes, fit: BoxFit.cover)
+                              else if (loading)
+                                const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
                                     ),
-                                  if (selected)
-                                    Positioned(
-                                      top: 6,
-                                      right: 6,
-                                      child: DecoratedBox(
-                                        decoration: BoxDecoration(
-                                          color: c.accent,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Icon(
-                                          Icons.check,
-                                          color: c.chipTextActive,
-                                          size: 16,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(
-                              height: 30,
-                              child: Center(
-                                child: Text(
-                                  failed
-                                      ? '点击重试'
-                                      : selected
-                                      ? '已选'
-                                      : '候选 ${index + 1}',
-                                  style: TextStyle(
+                                  ),
+                                )
+                              else
+                                Center(
+                                  child: Icon(
+                                    failed
+                                        ? Icons.refresh
+                                        : Icons.person_outline,
                                     color: failed ? c.danger : c.muted,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
+                                    size: 28,
                                   ),
                                 ),
+                              if (selected)
+                                Positioned(
+                                  top: 6,
+                                  right: 6,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: c.accent,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.check,
+                                      color: c.chipTextActive,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(
+                          height: 30,
+                          child: Center(
+                            child: Text(
+                              failed
+                                  ? '点击重试'
+                                  : selected
+                                  ? '已选'
+                                  : '候选 ${index + 1}',
+                              style: TextStyle(
+                                color: failed ? c.danger : c.muted,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 8, 22, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => Navigator.of(context).pop(_selected),
-                  icon: const Icon(Icons.check_rounded, size: 18),
-                  label: Text('确定（${_selected.length} 张）'),
+                  ),
                 ),
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         ),
-      ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 8, 22, 12),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop(_selected),
+              icon: const Icon(Icons.check_rounded, size: 18),
+              label: Text('确定（${_selected.length} 张）'),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

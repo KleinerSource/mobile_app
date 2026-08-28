@@ -199,179 +199,176 @@ class _BatchEditSheetState extends ConsumerState<BatchEditSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final mq = MediaQuery.of(context);
-    return SizedBox(
-      height: mq.size.height * 0.9,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            SheetHeader(
-              icon: Icons.edit_note_outlined,
-              title: '批量编辑 ${widget.movieIds.length} 部',
-              subtitle: '集中调整标签、分类、系列和快速标记',
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
-                children: [
-                  _Card(
-                    title: '快速标记',
-                    subtitle: '保存时会同步裁剪海报水印',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SheetHeader(
+          icon: Icons.edit_note_outlined,
+          title: '批量编辑 ${widget.movieIds.length} 部',
+          subtitle: '集中调整标签、分类、系列和快速标记',
+        ),
+        Flexible(
+          fit: FlexFit.loose,
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
+            children: [
+              _Card(
+                title: '快速标记',
+                subtitle: '保存时会同步裁剪海报水印',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _QuickFlagChip(
-                                label: '字幕',
-                                value: _quickSubtitle,
-                                onChanged: (v) => _onQuickSubtitle(v),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: _QuickFlagChip(
-                                label: '外挂字幕',
-                                value: _quickExsub,
-                                onChanged: (v) => _onQuickExsub(v),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: _QuickFlagChip(
-                                label: '破解',
-                                value: _quickCrack,
-                                onChanged: (v) =>
-                                    setState(() => _quickCrack = v ?? false),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: _QuickFlagChip(
-                                label: 'UHD',
-                                value: _quickUHD,
-                                onChanged: (v) =>
-                                    setState(() => _quickUHD = v ?? false),
-                              ),
-                            ),
-                          ],
+                        Expanded(
+                          child: _QuickFlagChip(
+                            label: '字幕',
+                            value: _quickSubtitle,
+                            onChanged: (v) => _onQuickSubtitle(v),
+                          ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            '字幕与外挂字幕互斥',
-                            style: TextStyle(
-                              color: c.muted,
-                              fontFamily: 'Inter',
-                              fontSize: 11.5,
-                            ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: _QuickFlagChip(
+                            label: '外挂字幕',
+                            value: _quickExsub,
+                            onChanged: (v) => _onQuickExsub(v),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: _QuickFlagChip(
+                            label: '破解',
+                            value: _quickCrack,
+                            onChanged: (v) =>
+                                setState(() => _quickCrack = v ?? false),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: _QuickFlagChip(
+                            label: 'UHD',
+                            value: _quickUHD,
+                            onChanged: (v) =>
+                                setState(() => _quickUHD = v ?? false),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _Card(
-                    title: '标签',
-                    subtitle: '分别指定要追加和移除的标签集合',
-                    child: Column(
-                      children: [
-                        _PickerField(
-                          label: '添加标签',
-                          kind: ResourceKind.tag,
-                          selected: _addTagIds,
-                          onChanged: (s) => setState(() => _addTagIds = s),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        '字幕与外挂字幕互斥',
+                        style: TextStyle(
+                          color: c.muted,
+                          fontFamily: 'Inter',
+                          fontSize: 11.5,
                         ),
-                        const SizedBox(height: 8),
-                        _PickerField(
-                          label: '移除标签 (仅共有)',
-                          kind: ResourceKind.tag,
-                          selected: _removeTagIds,
-                          restrictToIds: _commonTagIds ?? const <int>{},
-                          restrictLoading: _loadingCommon,
-                          onChanged: (s) => setState(() => _removeTagIds = s),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _Card(
-                    title: '分类',
-                    child: Column(
-                      children: [
-                        _PickerField(
-                          label: '添加分类',
-                          kind: ResourceKind.genre,
-                          selected: _addGenreIds,
-                          onChanged: (s) => setState(() => _addGenreIds = s),
-                        ),
-                        const SizedBox(height: 8),
-                        _PickerField(
-                          label: '移除分类 (仅共有)',
-                          kind: ResourceKind.genre,
-                          selected: _removeGenreIds,
-                          restrictToIds: _commonGenreIds ?? const <int>{},
-                          restrictLoading: _loadingCommon,
-                          onChanged: (s) => setState(() => _removeGenreIds = s),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _Card(
-                    title: '系列',
-                    subtitle: '可统一设置系列',
-                    child: _SingleSeriesPicker(
-                      selected: _setSeriesId,
-                      onChanged: (id) => setState(() => _setSeriesId = id),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
+                  ],
+                ),
               ),
-            ),
-            SheetActionBar(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _saving
-                          ? null
-                          : () => Navigator.of(context).pop(false),
-                      style: sheetSecondaryButtonStyle(context),
-                      child: const Text('取消'),
+              const SizedBox(height: 12),
+              _Card(
+                title: '标签',
+                subtitle: '分别指定要追加和移除的标签集合',
+                child: Column(
+                  children: [
+                    _PickerField(
+                      label: '添加标签',
+                      kind: ResourceKind.tag,
+                      selected: _addTagIds,
+                      onChanged: (s) => setState(() => _addTagIds = s),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton.icon(
-                      onPressed: _saving ? null : _onSave,
-                      icon: _saving
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.check, size: 18),
-                      style: sheetPrimaryButtonStyle(context),
-                      label: Text(_saving ? '保存中...' : '保存'),
+                    const SizedBox(height: 8),
+                    _PickerField(
+                      label: '移除标签 (仅共有)',
+                      kind: ResourceKind.tag,
+                      selected: _removeTagIds,
+                      restrictToIds: _commonTagIds ?? const <int>{},
+                      restrictLoading: _loadingCommon,
+                      onChanged: (s) => setState(() => _removeTagIds = s),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              _Card(
+                title: '分类',
+                child: Column(
+                  children: [
+                    _PickerField(
+                      label: '添加分类',
+                      kind: ResourceKind.genre,
+                      selected: _addGenreIds,
+                      onChanged: (s) => setState(() => _addGenreIds = s),
+                    ),
+                    const SizedBox(height: 8),
+                    _PickerField(
+                      label: '移除分类 (仅共有)',
+                      kind: ResourceKind.genre,
+                      selected: _removeGenreIds,
+                      restrictToIds: _commonGenreIds ?? const <int>{},
+                      restrictLoading: _loadingCommon,
+                      onChanged: (s) => setState(() => _removeGenreIds = s),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              _Card(
+                title: '系列',
+                subtitle: '可统一设置系列',
+                child: _SingleSeriesPicker(
+                  selected: _setSeriesId,
+                  onChanged: (id) => setState(() => _setSeriesId = id),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
-      ),
+        SheetActionBar(
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _saving
+                      ? null
+                      : () => Navigator.of(context).pop(false),
+                  style: sheetSecondaryButtonStyle(context),
+                  child: const Text('取消'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  onPressed: _saving ? null : _onSave,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check, size: 18),
+                  style: sheetPrimaryButtonStyle(context),
+                  label: Text(_saving ? '保存中...' : '保存'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _Card extends StatelessWidget {
   const _Card({required this.title, this.subtitle, required this.child});
+
   final String title;
   final String? subtitle;
   final Widget child;
@@ -383,26 +380,18 @@ class _Card extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: c.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: c.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: c.text,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
-          ),
+          Text(title, style: AppText.cardTitle(context)),
           if (subtitle != null) ...[
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(subtitle!, style: AppText.meta(context)),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           child,
         ],
       ),
@@ -617,7 +606,6 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
 
   Future<void> _open() async {
     final c = appColors(context);
-    final mq = MediaQuery.of(context);
     var q = '';
     var items = List<ResourceItem>.of(_all);
     var hasMore = _hasMore;
@@ -695,130 +683,127 @@ class _SingleSeriesPickerState extends ConsumerState<_SingleSeriesPicker> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setS) {
-            return SizedBox(
-              height: mq.size.height * 0.75,
-              child: Column(
-                children: [
-                  const SheetHeader(
-                    icon: Icons.collections_bookmark_outlined,
-                    title: '选择系列',
-                    padding: EdgeInsets.fromLTRB(22, 0, 22, 10),
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SheetHeader(
+                  icon: Icons.collections_bookmark_outlined,
+                  title: '选择系列',
+                  padding: EdgeInsets.fromLTRB(22, 0, 22, 10),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
+                  child: TextField(
+                    textAlignVertical: TextAlignVertical.center,
+                    onChanged: (v) {
+                      q = v.trim();
+                      debounce.run(() {
+                        searchSeries(q, setS);
+                      });
+                      setS(() {});
+                    },
+                    decoration: sheetInputDecoration(
+                      ctx,
+                      hintText: '搜索系列...',
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      isDense: true,
+                    ),
                   ),
+                ),
+                if (searchError != null)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
-                    child: TextField(
-                      textAlignVertical: TextAlignVertical.center,
-                      onChanged: (v) {
-                        q = v.trim();
-                        debounce.run(() {
-                          searchSeries(q, setS);
-                        });
-                        setS(() {});
-                      },
-                      decoration: sheetInputDecoration(
-                        ctx,
-                        hintText: '搜索系列...',
-                        prefixIcon: const Icon(Icons.search, size: 18),
-                        isDense: true,
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 6),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        searchError!,
+                        style: TextStyle(color: c.danger, fontSize: 12),
                       ),
                     ),
                   ),
-                  if (searchError != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 6),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          searchError!,
-                          style: TextStyle(color: c.danger, fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  Expanded(
-                    child: searching
-                        ? const Center(child: CircularProgressIndicator())
-                        : items.isEmpty
-                        ? Center(
-                            child: Text(
-                              q.isEmpty ? '暂无系列' : '未找到匹配的系列',
-                              style: AppText.body(ctx),
-                            ),
-                          )
-                        : NotificationListener<ScrollNotification>(
-                            onNotification: (notification) {
-                              if (notification.metrics.extentAfter < 240 &&
-                                  searchError == null) {
-                                loadMoreSeries(setS);
-                              }
-                              return false;
-                            },
-                            child: ListView.builder(
-                              itemCount: items.length + (hasMore ? 1 : 0),
-                              itemBuilder: (ctx, i) {
-                                if (i >= items.length) {
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                    child: Center(
-                                      child: searchError != null && !loadingMore
-                                          ? TextButton(
-                                              onPressed: () {
-                                                searchError = null;
-                                                loadMoreSeries(setS);
-                                              },
-                                              child: const Text('加载更多失败，点击重试'),
-                                            )
-                                          : loadingMore
-                                          ? const SizedBox(
-                                              width: 18,
-                                              height: 18,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
-                                            )
-                                          : const SizedBox.shrink(),
-                                    ),
-                                  );
-                                }
-                                final r = items[i];
-                                final isSel = widget.selected == r.id;
-                                return ListTile(
-                                  dense: true,
-                                  leading: Icon(
-                                    isSel
-                                        ? Icons.radio_button_checked
-                                        : Icons.radio_button_unchecked,
-                                    size: 18,
-                                    color: isSel ? c.accent : c.muted,
-                                  ),
-                                  title: Text(r.name),
-                                  onTap: () => Navigator.of(
-                                    ctx,
-                                  ).pop((id: r.id, clear: false)),
-                                );
-                              },
-                            ),
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: searching
+                      ? const Center(child: CircularProgressIndicator())
+                      : items.isEmpty
+                      ? Center(
+                          child: Text(
+                            q.isEmpty ? '暂无系列' : '未找到匹配的系列',
+                            style: AppText.body(ctx),
                           ),
-                  ),
-                  if (!searching &&
-                      !loadingMore &&
-                      !hasMore &&
-                      items.isNotEmpty)
-                    const NoMoreContent(),
-                  SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(22, 8, 22, 10),
-                      child: OutlinedButton(
-                        onPressed: () =>
-                            Navigator.of(ctx).pop((id: null, clear: true)),
-                        child: const Text('清空选择'),
-                      ),
+                        )
+                      : NotificationListener<ScrollNotification>(
+                          onNotification: (notification) {
+                            if (notification.metrics.extentAfter < 240 &&
+                                searchError == null) {
+                              loadMoreSeries(setS);
+                            }
+                            return false;
+                          },
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: items.length + (hasMore ? 1 : 0),
+                            itemBuilder: (ctx, i) {
+                              if (i >= items.length) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  child: Center(
+                                    child: searchError != null && !loadingMore
+                                        ? TextButton(
+                                            onPressed: () {
+                                              searchError = null;
+                                              loadMoreSeries(setS);
+                                            },
+                                            child: const Text('加载更多失败，点击重试'),
+                                          )
+                                        : loadingMore
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(),
+                                  ),
+                                );
+                              }
+                              final r = items[i];
+                              final isSel = widget.selected == r.id;
+                              return ListTile(
+                                dense: true,
+                                leading: Icon(
+                                  isSel
+                                      ? Icons.radio_button_checked
+                                      : Icons.radio_button_unchecked,
+                                  size: 18,
+                                  color: isSel ? c.accent : c.muted,
+                                ),
+                                title: Text(r.name),
+                                onTap: () => Navigator.of(
+                                  ctx,
+                                ).pop((id: r.id, clear: false)),
+                              );
+                            },
+                          ),
+                        ),
+                ),
+                if (!searching && !loadingMore && !hasMore && items.isNotEmpty)
+                  const NoMoreContent(),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 8, 22, 10),
+                    child: OutlinedButton(
+                      onPressed: () =>
+                          Navigator.of(ctx).pop((id: null, clear: true)),
+                      child: const Text('清空选择'),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             );
           },
         );

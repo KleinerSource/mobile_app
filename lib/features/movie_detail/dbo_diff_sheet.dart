@@ -284,6 +284,7 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
         .toList(growable: false);
 
     return ListView(
+      shrinkWrap: true,
       padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
       children: [
         for (var index = 0; index < visible.length; index++) ...[
@@ -309,136 +310,129 @@ class _DboDiffSheetState extends ConsumerState<DboDiffSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final mq = MediaQuery.of(context);
     final dboTitle = _meta?['title']?.toString() ?? '';
     final dboCode =
         _meta?['code']?.toString() ?? _meta?['num']?.toString() ?? '';
 
-    return SizedBox(
-      height: mq.size.height * 0.85,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            SheetHeader(
-              icon: Icons.sync_alt_outlined,
-              title: 'DB Online 元数据',
-              subtitle: (dboTitle.isNotEmpty || dboCode.isNotEmpty)
-                  ? [
-                      if (dboCode.isNotEmpty) dboCode,
-                      if (dboTitle.isNotEmpty) dboTitle,
-                    ].join(' · ')
-                  : null,
-              trailing: IconButton(
-                icon: const Icon(Icons.refresh, size: 18),
-                onPressed: _loading ? null : _load,
-              ),
-            ),
-            // ===== 主体 =====
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(22),
-                        child: Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: c.danger,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SheetHeader(
+          icon: Icons.sync_alt_outlined,
+          title: 'DB Online 元数据',
+          subtitle: (dboTitle.isNotEmpty || dboCode.isNotEmpty)
+              ? [
+                  if (dboCode.isNotEmpty) dboCode,
+                  if (dboTitle.isNotEmpty) dboTitle,
+                ].join(' · ')
+              : null,
+          trailing: IconButton(
+            icon: const Icon(Icons.refresh, size: 18),
+            onPressed: _loading ? null : _load,
+          ),
+        ),
+        // ===== 主体 =====
+        Flexible(
+          fit: FlexFit.loose,
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(22),
+                    child: Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: c.danger,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                )
+              : _items.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(36),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.check_circle_outline,
+                          size: 36,
+                          color: c.muted,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          '本地元数据已是最新',
+                          style: AppText.body(
+                            context,
+                          ).copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 4),
+                        Text('没有可覆盖的字段', style: AppText.meta(context)),
+                      ],
+                    ),
+                  ),
+                )
+              : _buildDiffSections(context, c),
+        ),
+        // ===== 底部 actions =====
+        if (!_loading && _items.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, 8),
+            child: Row(
+              children: [
+                TextButton(
+                  onPressed: _saving ? null : () => _selectAll(!_anySelected),
+                  child: Text(
+                    _anySelected ? '清空' : '全选',
+                    style: TextStyle(
+                      color: c.muted,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                FilledButton(
+                  onPressed: (_anySelected && !_saving) ? _apply : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: c.accent,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 22,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                  ),
+                  child: _saving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          _anySelected
+                              ? '应用 (${_items.where((i) => i.selected).length})'
+                              : '请选择字段',
+                          style: const TextStyle(
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13.5,
                           ),
                         ),
-                      ),
-                    )
-                  : _items.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(36),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.check_circle_outline,
-                              size: 36,
-                              color: c.muted,
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              '本地元数据已是最新',
-                              style: AppText.body(
-                                context,
-                              ).copyWith(fontWeight: FontWeight.w700),
-                            ),
-                            const SizedBox(height: 4),
-                            Text('没有可覆盖的字段', style: AppText.meta(context)),
-                          ],
-                        ),
-                      ),
-                    )
-                  : _buildDiffSections(context, c),
-            ),
-            // ===== 底部 actions =====
-            if (!_loading && _items.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 12, 22, 8),
-                child: Row(
-                  children: [
-                    TextButton(
-                      onPressed: _saving
-                          ? null
-                          : () => _selectAll(!_anySelected),
-                      child: Text(
-                        _anySelected ? '清空' : '全选',
-                        style: TextStyle(
-                          color: c.muted,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    FilledButton(
-                      onPressed: (_anySelected && !_saving) ? _apply : null,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: c.accent,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 22,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                      ),
-                      child: _saving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Text(
-                              _anySelected
-                                  ? '应用 (${_items.where((i) => i.selected).length})'
-                                  : '请选择字段',
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13.5,
-                              ),
-                            ),
-                    ),
-                  ],
                 ),
-              ),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

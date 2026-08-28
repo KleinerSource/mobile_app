@@ -187,90 +187,86 @@ class _BatchDuplicateNfoCompareSheetState
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final mq = MediaQuery.of(context);
-    return SizedBox(
-      height: mq.size.height * 0.88,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            const SheetHeader(
-              icon: Icons.compare_arrows_outlined,
-              title: '比较重复 NFO',
-              subtitle: '为每个字段选择同步来源',
-            ),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(22),
-                        child: Text(_error!, style: TextStyle(color: c.danger)),
-                      ),
-                    )
-                  : _scalarFields.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(22),
-                        child: Text(
-                          '影片标题、描述、概要、评分均一致, 无需选择',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: c.muted),
-                        ),
-                      ),
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
-                      children: [
-                        for (final f in _scalarFields)
-                          _FieldCard(
-                            field: f,
-                            selectedValue: _selections[f['field']],
-                            onSelect: (v) =>
-                                setState(() => _selections[f['field']] = v),
-                            movieLabel: _movieLabel,
-                          ),
-                        const SizedBox(height: 20),
-                      ],
-                    ),
-            ),
-            SheetActionBar(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _saving
-                          ? null
-                          : () => Navigator.of(context).pop(false),
-                      style: sheetSecondaryButtonStyle(context),
-                      child: const Text('取消'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton.icon(
-                      onPressed: (_saving || _loading || _error != null)
-                          ? null
-                          : _apply,
-                      icon: _saving
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.check, size: 18),
-                      style: sheetPrimaryButtonStyle(context),
-                      label: Text(_saving ? '应用中...' : '应用同步'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SheetHeader(
+          icon: Icons.compare_arrows_outlined,
+          title: '比较重复 NFO',
+          subtitle: '为每个字段选择同步来源',
         ),
-      ),
+        Flexible(
+          fit: FlexFit.loose,
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(22),
+                    child: Text(_error!, style: TextStyle(color: c.danger)),
+                  ),
+                )
+              : _scalarFields.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(22),
+                    child: Text(
+                      '影片标题、描述、概要、评分均一致, 无需选择',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: c.muted),
+                    ),
+                  ),
+                )
+              : ListView(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
+                  children: [
+                    for (final f in _scalarFields)
+                      _FieldCard(
+                        field: f,
+                        selectedValue: _selections[f['field']],
+                        onSelect: (v) =>
+                            setState(() => _selections[f['field']] = v),
+                        movieLabel: _movieLabel,
+                      ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+        ),
+        SheetActionBar(
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _saving
+                      ? null
+                      : () => Navigator.of(context).pop(false),
+                  style: sheetSecondaryButtonStyle(context),
+                  child: const Text('取消'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  onPressed: (_saving || _loading || _error != null)
+                      ? null
+                      : _apply,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check, size: 18),
+                  style: sheetPrimaryButtonStyle(context),
+                  label: Text(_saving ? '应用中...' : '应用同步'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

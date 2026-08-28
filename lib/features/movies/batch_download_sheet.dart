@@ -115,115 +115,111 @@ class _BatchDownloadSheetState extends ConsumerState<BatchDownloadSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
-    return SizedBox(
-      height: mq.size.height * 0.88,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            SheetHeader(
-              icon: Icons.cloud_download_outlined,
-              title: '批量下载 ${widget.movieIds.length} 部',
-              subtitle: '按条件批量提交下载请求, 缺失番号会自动跳过',
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
-                children: [
-                  _Field(
-                    label: '画质偏好',
-                    hint: '如 4k, hd, uhd 等, 留空不限',
-                    controller: _qualityCtl,
-                    icon: Icons.high_quality_outlined,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _NumField(
-                          label: '最小大小 (MB)',
-                          controller: _minSizeCtl,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _NumField(
-                          label: '最大大小 (MB)',
-                          controller: _maxSizeCtl,
-                          hint: '0 = 不限',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _NumField(
-                    label: '最大文件数',
-                    controller: _maxFilesCtl,
-                    hint: '0 = 不限',
-                  ),
-                  const SizedBox(height: 12),
-                  _Field(
-                    label: '截止日期',
-                    hint: 'YYYY-MM-DD',
-                    controller: _afterDateCtl,
-                    icon: Icons.calendar_today_outlined,
-                  ),
-                  const SizedBox(height: 12),
-                  SheetSwitchTile(
-                    title: '要求字幕',
-                    value: _requireSub,
-                    onChanged: (v) => setState(() => _requireSub = v),
-                  ),
-                  SheetSwitchTile(
-                    title: '要求无码',
-                    value: _requireUncensored,
-                    onChanged: (v) => setState(() => _requireUncensored = v),
-                  ),
-                  SheetSwitchTile(
-                    title: '精洗模式',
-                    subtitle: '已存在影片也重新下载',
-                    value: _washMode,
-                    onChanged: (v) => setState(() => _washMode = v),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-              ),
-            ),
-            SheetActionBar(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _submitting
-                          ? null
-                          : () => Navigator.of(context).pop(false),
-                      style: sheetSecondaryButtonStyle(context),
-                      child: const Text('取消'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton.icon(
-                      onPressed: _submitting ? null : _submit,
-                      icon: _submitting
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.cloud_download_outlined, size: 18),
-                      style: sheetPrimaryButtonStyle(context),
-                      label: Text(_submitting ? '提交中...' : '确认提交'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SheetHeader(
+          icon: Icons.cloud_download_outlined,
+          title: '批量下载 ${widget.movieIds.length} 部',
+          subtitle: '按条件批量提交下载请求, 缺失番号会自动跳过',
         ),
-      ),
+        Flexible(
+          fit: FlexFit.loose,
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
+            children: [
+              _Field(
+                label: '画质偏好',
+                hint: '如 4k, hd, uhd 等, 留空不限',
+                controller: _qualityCtl,
+                icon: Icons.high_quality_outlined,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _NumField(
+                      label: '最小大小 (MB)',
+                      controller: _minSizeCtl,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _NumField(
+                      label: '最大大小 (MB)',
+                      controller: _maxSizeCtl,
+                      hint: '0 = 不限',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _NumField(
+                label: '最大文件数',
+                controller: _maxFilesCtl,
+                hint: '0 = 不限',
+              ),
+              const SizedBox(height: 12),
+              _Field(
+                label: '截止日期',
+                hint: 'YYYY-MM-DD',
+                controller: _afterDateCtl,
+                icon: Icons.calendar_today_outlined,
+              ),
+              const SizedBox(height: 12),
+              SheetSwitchTile(
+                title: '要求字幕',
+                value: _requireSub,
+                onChanged: (v) => setState(() => _requireSub = v),
+              ),
+              SheetSwitchTile(
+                title: '要求无码',
+                value: _requireUncensored,
+                onChanged: (v) => setState(() => _requireUncensored = v),
+              ),
+              SheetSwitchTile(
+                title: '精洗模式',
+                subtitle: '已存在影片也重新下载',
+                value: _washMode,
+                onChanged: (v) => setState(() => _washMode = v),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+        SheetActionBar(
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _submitting
+                      ? null
+                      : () => Navigator.of(context).pop(false),
+                  style: sheetSecondaryButtonStyle(context),
+                  child: const Text('取消'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  onPressed: _submitting ? null : _submit,
+                  icon: _submitting
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cloud_download_outlined, size: 18),
+                  style: sheetPrimaryButtonStyle(context),
+                  label: Text(_submitting ? '提交中...' : '确认提交'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

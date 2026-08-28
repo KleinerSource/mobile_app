@@ -180,8 +180,6 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final mediaQuery = MediaQuery.of(context);
-    final height = mediaQuery.size.height * 0.85;
     final headerIcon = switch (widget.kind) {
       EntityPickerKind.genre => Icons.category_outlined,
       EntityPickerKind.tag => Icons.sell_outlined,
@@ -189,81 +187,80 @@ class _EntityPickerSheetState extends ConsumerState<EntityPickerSheet> {
       EntityPickerKind.actor => Icons.person_outline,
     };
 
-    return SizedBox(
-      height: height,
-      child: Column(
-        children: [
-          SheetHeader(
-            icon: headerIcon,
-            title: '选择${widget.kind.label}',
-            subtitle: _isMulti ? '${_selected.length} 已选' : null,
-            trailing: TextButton(
-              onPressed: () => Navigator.of(context).pop(_selection()),
-              child: Text(_isMulti ? '完成' : '使用'),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SheetHeader(
+          icon: headerIcon,
+          title: '选择${widget.kind.label}',
+          subtitle: _isMulti ? '${_selected.length} 已选' : null,
+          trailing: TextButton(
+            onPressed: () => Navigator.of(context).pop(_selection()),
+            child: Text(_isMulti ? '完成' : '使用'),
+          ),
+        ),
+        // 搜索栏
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+          child: TextField(
+            controller: _searchCtrl,
+            textAlignVertical: TextAlignVertical.center,
+            onChanged: _onSearchChanged,
+            decoration: sheetInputDecoration(
+              context,
+              hintText:
+                  widget.kind == EntityPickerKind.genre ||
+                      widget.kind == EntityPickerKind.tag
+                  ? '搜索名称'
+                  : widget.kind == EntityPickerKind.actor
+                  ? '搜索名称 / 别名'
+                  : '搜索名称',
+              prefixIcon: const Icon(Icons.search, size: 18),
+              isDense: true,
             ),
           ),
-          // 搜索栏
+        ),
+        // 列表
+        Flexible(
+          fit: FlexFit.loose,
+          child: widget.kind == EntityPickerKind.actor
+              ? _ActorList(
+                  search: _search,
+                  selected: _selected,
+                  selectedNames: widget.selectedNames,
+                  onToggle: _toggle,
+                )
+              : _ResourceList(
+                  kind: _resourceKindOf(widget.kind),
+                  search: _search,
+                  selected: _selected,
+                  selectedNames: widget.selectedNames,
+                  allowedIds: widget.allowedIds,
+                  onToggle: _toggle,
+                  singleSelect: !_isMulti,
+                ),
+        ),
+        // 底部清空按钮
+        if (_selected.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-            child: TextField(
-              controller: _searchCtrl,
-              textAlignVertical: TextAlignVertical.center,
-              onChanged: _onSearchChanged,
-              decoration: sheetInputDecoration(
-                context,
-                hintText:
-                    widget.kind == EntityPickerKind.genre ||
-                        widget.kind == EntityPickerKind.tag
-                    ? '搜索名称'
-                    : widget.kind == EntityPickerKind.actor
-                    ? '搜索名称 / 别名'
-                    : '搜索名称',
-                prefixIcon: const Icon(Icons.search, size: 18),
-                isDense: true,
-              ),
-            ),
-          ),
-          // 列表
-          Expanded(
-            child: widget.kind == EntityPickerKind.actor
-                ? _ActorList(
-                    search: _search,
-                    selected: _selected,
-                    selectedNames: widget.selectedNames,
-                    onToggle: _toggle,
-                  )
-                : _ResourceList(
-                    kind: _resourceKindOf(widget.kind),
-                    search: _search,
-                    selected: _selected,
-                    selectedNames: widget.selectedNames,
-                    allowedIds: widget.allowedIds,
-                    onToggle: _toggle,
-                    singleSelect: !_isMulti,
-                  ),
-          ),
-          // 底部清空按钮
-          if (_selected.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
-              child: TextButton(
-                onPressed: () => setState(() {
-                  _selected.clear();
-                  _selectedNames.clear();
-                }),
-                child: Text(
-                  '清空',
-                  style: TextStyle(
-                    color: c.danger,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
+            padding: const EdgeInsets.fromLTRB(22, 4, 22, 8),
+            child: TextButton(
+              onPressed: () => setState(() {
+                _selected.clear();
+                _selectedNames.clear();
+              }),
+              child: Text(
+                '清空',
+                style: TextStyle(
+                  color: c.danger,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
                 ),
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }
@@ -501,9 +498,12 @@ class _ResourceListState extends ConsumerState<_ResourceList> {
     }
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Expanded(
+        Flexible(
+          fit: FlexFit.loose,
           child: ListView.builder(
+            shrinkWrap: true,
             controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
             itemCount:
@@ -711,9 +711,12 @@ class _ActorListState extends ConsumerState<_ActorList> {
       return Center(child: Text('没有匹配的演员', style: AppText.meta(context)));
     }
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Expanded(
+        Flexible(
+          fit: FlexFit.loose,
           child: ListView.builder(
+            shrinkWrap: true,
             controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
             itemCount: items.length + (_hasMore ? 1 : 0),

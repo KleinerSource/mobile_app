@@ -150,239 +150,227 @@ class _AdvancedFilterSheetState extends ConsumerState<AdvancedFilterSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final mq = MediaQuery.of(context);
-    return SizedBox(
-      height: mq.size.height * 0.9,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            SheetHeader(
-              icon: Icons.filter_alt_outlined,
-              title: '高级筛选',
-              subtitle: '按标签、分类、系列、年份评分和文件属性组合筛选',
-              trailing: TextButton(
-                onPressed: _onReset,
-                child: const Text('重置'),
-              ),
-            ),
-            // 内容
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
-                children: [
-                  _SectionCard(
-                    title: '标签',
-                    trailing: _ModeToggle(
-                      mode: _tagMode,
-                      onChanged: (m) => setState(() => _tagMode = m),
-                    ),
-                    child: _ResourceMultiSelect(
-                      kind: ResourceKind.tag,
-                      selected: _tagIds,
-                      onChanged: (s) => setState(() => _tagIds = s),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _SectionCard(
-                    title: '分类',
-                    trailing: _ModeToggle(
-                      mode: _genreMode,
-                      onChanged: (m) => setState(() => _genreMode = m),
-                    ),
-                    child: _ResourceMultiSelect(
-                      kind: ResourceKind.genre,
-                      selected: _genreIds,
-                      onChanged: (s) => setState(() => _genreIds = s),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _SectionCard(
-                    title: '系列',
-                    child: _ResourceMultiSelect(
-                      kind: ResourceKind.series,
-                      selected: _seriesIds,
-                      onChanged: (s) => setState(() => _seriesIds = s),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _SectionCard(
-                    title: '年份与评分',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('年份范围', style: AppText.meta(context)),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _NumberField(
-                                controller: _yearFromCtl,
-                                hint: '起始年份',
-                                icon: Icons.calendar_today_outlined,
-                                hasError: _yearError,
-                                onChanged: (_) => setState(() {}),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _NumberField(
-                                controller: _yearToCtl,
-                                hint: '结束年份',
-                                icon: Icons.calendar_today_outlined,
-                                hasError: _yearError,
-                                onChanged: (_) => setState(() {}),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (_yearError) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            '起始年份不能大于结束年份',
-                            style: TextStyle(
-                              color: c.danger,
-                              fontFamily: 'Inter',
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 14),
-                        Text('评分范围', style: AppText.meta(context)),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _DropdownField<int?>(
-                                value: _ratingFrom,
-                                hint: '最低评分',
-                                items: <DropdownMenuItem<int?>>[
-                                  const DropdownMenuItem<int?>(
-                                    value: null,
-                                    child: Text('最低评分'),
-                                  ),
-                                  for (var i = 1; i <= 9; i++)
-                                    DropdownMenuItem<int?>(
-                                      value: i,
-                                      child: Text('$i 分以上'),
-                                    ),
-                                ],
-                                onChanged: (v) =>
-                                    setState(() => _ratingFrom = v),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _DropdownField<int?>(
-                                value: _ratingTo,
-                                hint: '最高评分',
-                                items: <DropdownMenuItem<int?>>[
-                                  const DropdownMenuItem<int?>(
-                                    value: null,
-                                    child: Text('最高评分'),
-                                  ),
-                                  for (var i = 10; i >= 2; i--)
-                                    DropdownMenuItem<int?>(
-                                      value: i,
-                                      child: Text('$i 分以下'),
-                                    ),
-                                ],
-                                onChanged: (v) => setState(() => _ratingTo = v),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _SectionCard(
-                    title: '字幕与文件',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('外挂字幕', style: AppText.meta(context)),
-                        const SizedBox(height: 6),
-                        _DropdownField<String>(
-                          value: _subtitleMode,
-                          hint: '不限',
-                          items: const [
-                            DropdownMenuItem(value: '', child: Text('不限')),
-                            DropdownMenuItem(
-                              value: 'include',
-                              child: Text('包含外挂字幕'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'exclude',
-                              child: Text('排除外挂字幕'),
-                            ),
-                          ],
-                          onChanged: (v) =>
-                              setState(() => _subtitleMode = v ?? ''),
-                        ),
-                        const SizedBox(height: 14),
-                        Text('文件过滤器', style: AppText.meta(context)),
-                        const SizedBox(height: 6),
-                        _DropdownField<String>(
-                          value: _fileFilterMode,
-                          hint: '不限',
-                          items: const [
-                            DropdownMenuItem(value: '', child: Text('不限')),
-                            DropdownMenuItem(
-                              value: 'standard',
-                              child: Text('仅限标准'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'crack',
-                              child: Text('仅限破解'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'subtitle',
-                              child: Text('仅限中字'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'subtitle_crack',
-                              child: Text('仅限中字破解'),
-                            ),
-                          ],
-                          onChanged: (v) =>
-                              setState(() => _fileFilterMode = v ?? ''),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-            // 底部按钮
-            SheetActionBar(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: sheetSecondaryButtonStyle(context),
-                      child: const Text('取消'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton.icon(
-                      onPressed: _yearError ? null : _onApply,
-                      icon: const Icon(Icons.filter_alt, size: 16),
-                      label: const Text('应用筛选'),
-                      style: sheetPrimaryButtonStyle(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SheetHeader(
+          icon: Icons.filter_alt_outlined,
+          title: '高级筛选',
+          subtitle: '按标签、分类、系列、年份评分和文件属性组合筛选',
+          trailing: TextButton(onPressed: _onReset, child: const Text('重置')),
         ),
-      ),
+        // 内容
+        Flexible(
+          fit: FlexFit.loose,
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
+            children: [
+              _SectionCard(
+                title: '标签',
+                trailing: _ModeToggle(
+                  mode: _tagMode,
+                  onChanged: (m) => setState(() => _tagMode = m),
+                ),
+                child: _ResourceMultiSelect(
+                  kind: ResourceKind.tag,
+                  selected: _tagIds,
+                  onChanged: (s) => setState(() => _tagIds = s),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _SectionCard(
+                title: '分类',
+                trailing: _ModeToggle(
+                  mode: _genreMode,
+                  onChanged: (m) => setState(() => _genreMode = m),
+                ),
+                child: _ResourceMultiSelect(
+                  kind: ResourceKind.genre,
+                  selected: _genreIds,
+                  onChanged: (s) => setState(() => _genreIds = s),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _SectionCard(
+                title: '系列',
+                child: _ResourceMultiSelect(
+                  kind: ResourceKind.series,
+                  selected: _seriesIds,
+                  onChanged: (s) => setState(() => _seriesIds = s),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _SectionCard(
+                title: '年份与评分',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('年份范围', style: AppText.meta(context)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _NumberField(
+                            controller: _yearFromCtl,
+                            hint: '起始年份',
+                            icon: Icons.calendar_today_outlined,
+                            hasError: _yearError,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _NumberField(
+                            controller: _yearToCtl,
+                            hint: '结束年份',
+                            icon: Icons.calendar_today_outlined,
+                            hasError: _yearError,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_yearError) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '起始年份不能大于结束年份',
+                        style: TextStyle(
+                          color: c.danger,
+                          fontFamily: 'Inter',
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    Text('评分范围', style: AppText.meta(context)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _DropdownField<int?>(
+                            value: _ratingFrom,
+                            hint: '最低评分',
+                            items: <DropdownMenuItem<int?>>[
+                              const DropdownMenuItem<int?>(
+                                value: null,
+                                child: Text('最低评分'),
+                              ),
+                              for (var i = 1; i <= 9; i++)
+                                DropdownMenuItem<int?>(
+                                  value: i,
+                                  child: Text('$i 分以上'),
+                                ),
+                            ],
+                            onChanged: (v) => setState(() => _ratingFrom = v),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _DropdownField<int?>(
+                            value: _ratingTo,
+                            hint: '最高评分',
+                            items: <DropdownMenuItem<int?>>[
+                              const DropdownMenuItem<int?>(
+                                value: null,
+                                child: Text('最高评分'),
+                              ),
+                              for (var i = 10; i >= 2; i--)
+                                DropdownMenuItem<int?>(
+                                  value: i,
+                                  child: Text('$i 分以下'),
+                                ),
+                            ],
+                            onChanged: (v) => setState(() => _ratingTo = v),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              _SectionCard(
+                title: '字幕与文件',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('外挂字幕', style: AppText.meta(context)),
+                    const SizedBox(height: 6),
+                    _DropdownField<String>(
+                      value: _subtitleMode,
+                      hint: '不限',
+                      items: const [
+                        DropdownMenuItem(value: '', child: Text('不限')),
+                        DropdownMenuItem(
+                          value: 'include',
+                          child: Text('包含外挂字幕'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'exclude',
+                          child: Text('排除外挂字幕'),
+                        ),
+                      ],
+                      onChanged: (v) => setState(() => _subtitleMode = v ?? ''),
+                    ),
+                    const SizedBox(height: 14),
+                    Text('文件过滤器', style: AppText.meta(context)),
+                    const SizedBox(height: 6),
+                    _DropdownField<String>(
+                      value: _fileFilterMode,
+                      hint: '不限',
+                      items: const [
+                        DropdownMenuItem(value: '', child: Text('不限')),
+                        DropdownMenuItem(
+                          value: 'standard',
+                          child: Text('仅限标准'),
+                        ),
+                        DropdownMenuItem(value: 'crack', child: Text('仅限破解')),
+                        DropdownMenuItem(
+                          value: 'subtitle',
+                          child: Text('仅限中字'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'subtitle_crack',
+                          child: Text('仅限中字破解'),
+                        ),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _fileFilterMode = v ?? ''),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+        // 底部按钮
+        SheetActionBar(
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: sheetSecondaryButtonStyle(context),
+                  child: const Text('取消'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  onPressed: _yearError ? null : _onApply,
+                  icon: const Icon(Icons.filter_alt, size: 16),
+                  label: const Text('应用筛选'),
+                  style: sheetPrimaryButtonStyle(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -3,6 +3,17 @@ import 'package:flutter/material.dart';
 import '../core/platform/app_haptics.dart';
 import '../core/platform/app_theme.dart';
 
+/// BottomSheet 可占用的最大总高度。
+///
+/// 底部面板必须始终为顶部状态栏保留安全区和一段可见余量，确保公共拖拽
+/// 把手不会贴到状态栏或被系统区域遮挡。实际高度仍由业务内容决定。
+double sheetMaxHeight(BuildContext context) {
+  final mediaQuery = MediaQuery.of(context);
+  return (mediaQuery.size.height - mediaQuery.viewPadding.top - 24)
+      .clamp(0.0, mediaQuery.size.height)
+      .toDouble();
+}
+
 /// 底部面板统一标题。
 ///
 /// 标题始终左对齐，并通过图标建立面板用途的快速识别；副标题和右侧操作

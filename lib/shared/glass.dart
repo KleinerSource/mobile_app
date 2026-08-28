@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../core/platform/app_theme.dart';
+import 'sheet_controls.dart';
 
 /// 毛玻璃容器 · 用于 dialog / sheet / popup 等浮层。
 ///
@@ -180,11 +181,15 @@ Future<T?> showGlassSheet<T>({
           Flexible(child: builder(ctx)),
         ],
       );
+      final safeSheet = useSafeArea
+          ? SafeArea(top: true, bottom: true, child: sheet)
+          : sheet;
       return GlassPanel(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        child: useSafeArea
-            ? SafeArea(top: true, bottom: true, child: sheet)
-            : sheet,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: sheetMaxHeight(ctx)),
+          child: safeSheet,
+        ),
       );
     },
   );

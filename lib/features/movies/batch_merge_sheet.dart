@@ -103,140 +103,136 @@ class _BatchMergeSheetState extends ConsumerState<BatchMergeSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final mq = MediaQuery.of(context);
-    return SizedBox(
-      height: mq.size.height * 0.82,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            SheetHeader(
-              icon: Icons.merge_outlined,
-              title: '合并 ${widget.movieIds.length} 部重复影片',
-              subtitle: '选择主导影片, 其他相关文件会移到该影片所在目录',
-            ),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(22),
-                        child: Text(_error!, style: TextStyle(color: c.danger)),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SheetHeader(
+          icon: Icons.merge_outlined,
+          title: '合并 ${widget.movieIds.length} 部重复影片',
+          subtitle: '选择主导影片, 其他相关文件会移到该影片所在目录',
+        ),
+        Flexible(
+          fit: FlexFit.loose,
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(22),
+                    child: Text(_error!, style: TextStyle(color: c.danger)),
+                  ),
+                )
+              : ListView(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
                       ),
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: c.warning.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: c.warning.withValues(alpha: 0.4),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.warning_amber_rounded,
-                                color: c.warning,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '同名视频文件会被覆盖, 文件名冲突时非主导记录将被删除',
-                                  style: TextStyle(
-                                    color: c.warning,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                      decoration: BoxDecoration(
+                        color: c.warning.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: c.warning.withValues(alpha: 0.4),
                         ),
-                        if (_allInSameFolder) ...[
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: c.danger.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: c.danger.withValues(alpha: 0.4),
-                              ),
-                            ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: c.warning,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
                             child: Text(
-                              '所有选中影片已在同一目录, 无需合并',
+                              '同名视频文件会被覆盖, 文件名冲突时非主导记录将被删除',
                               style: TextStyle(
-                                color: c.danger,
+                                color: c.warning,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
                         ],
-                        const SizedBox(height: 12),
-                        for (final m in _movies)
-                          _MovieOption(
-                            movie: m,
-                            selected: _targetId == m.id,
-                            disabled: _allInSameFolder,
-                            onTap: () => setState(() => _targetId = m.id),
+                      ),
+                    ),
+                    if (_allInSameFolder) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: c.danger.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: c.danger.withValues(alpha: 0.4),
                           ),
-                        const SizedBox(height: 20),
-                      ],
-                    ),
-            ),
-            SheetActionBar(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _merging
-                          ? null
-                          : () => Navigator.of(context).pop(false),
-                      style: sheetSecondaryButtonStyle(context),
-                      child: const Text('取消'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton.icon(
-                      onPressed:
-                          (_merging ||
-                              _targetId == null ||
-                              _allInSameFolder ||
-                              _loading)
-                          ? null
-                          : _confirm,
-                      icon: _merging
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.merge_rounded, size: 18),
-                      style: sheetPrimaryButtonStyle(context),
-                      label: Text(_merging ? '合并中...' : '确认合并'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+                        ),
+                        child: Text(
+                          '所有选中影片已在同一目录, 无需合并',
+                          style: TextStyle(
+                            color: c.danger,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    for (final m in _movies)
+                      _MovieOption(
+                        movie: m,
+                        selected: _targetId == m.id,
+                        disabled: _allInSameFolder,
+                        onTap: () => setState(() => _targetId = m.id),
+                      ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
         ),
-      ),
+        SheetActionBar(
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _merging
+                      ? null
+                      : () => Navigator.of(context).pop(false),
+                  style: sheetSecondaryButtonStyle(context),
+                  child: const Text('取消'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  onPressed:
+                      (_merging ||
+                          _targetId == null ||
+                          _allInSameFolder ||
+                          _loading)
+                      ? null
+                      : _confirm,
+                  icon: _merging
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.merge_rounded, size: 18),
+                  style: sheetPrimaryButtonStyle(context),
+                  label: Text(_merging ? '合并中...' : '确认合并'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

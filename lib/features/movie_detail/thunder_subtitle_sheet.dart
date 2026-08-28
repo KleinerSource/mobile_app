@@ -170,27 +170,20 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
   @override
   Widget build(BuildContext context) {
     final c = appColors(context);
-    final mq = MediaQuery.of(context);
-
-    return SizedBox(
-      height: mq.size.height * 0.82,
-      child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            SheetHeader(
-              icon: Icons.subtitles_outlined,
-              title: '获取字幕',
-              subtitle: _keyword.isEmpty ? null : '关键词: $_keyword',
-              trailing: IconButton(
-                icon: Icon(Icons.refresh, color: c.muted, size: 20),
-                onPressed: _loading ? null : _load,
-              ),
-            ),
-            Expanded(child: _buildBody(c)),
-          ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SheetHeader(
+          icon: Icons.subtitles_outlined,
+          title: '获取字幕',
+          subtitle: _keyword.isEmpty ? null : '关键词: $_keyword',
+          trailing: IconButton(
+            icon: Icon(Icons.refresh, color: c.muted, size: 20),
+            onPressed: _loading ? null : _load,
+          ),
         ),
-      ),
+        Flexible(fit: FlexFit.loose, child: _buildBody(c)),
+      ],
     );
   }
 
@@ -235,6 +228,7 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
       );
     }
     return ListView.separated(
+      shrinkWrap: true,
       padding: const EdgeInsets.symmetric(horizontal: 22),
       itemCount: _items.length,
       separatorBuilder: (_, __) => Divider(height: 1, color: c.divider),
