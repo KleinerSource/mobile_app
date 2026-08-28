@@ -33,7 +33,10 @@ class _ServerSelectionMetrics {
 }
 
 class ServerSelectionPage extends ConsumerStatefulWidget {
-  const ServerSelectionPage({super.key});
+  const ServerSelectionPage({super.key, this.returnAfterSelection = false});
+
+  /// 作为已登录页面上的选择器打开时，成功选择后返回原页面。
+  final bool returnAfterSelection;
 
   @override
   ConsumerState<ServerSelectionPage> createState() =>
@@ -211,6 +214,12 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
           allowActiveTarget: true,
           returnToSelectionOnCancel: true,
         );
+    if (!mounted || !widget.returnAfterSelection) return;
+    final transition = ref.read(serverSwitchTransitionProvider);
+    final activeServerId = ref.read(serverConfigProvider)?.activeServerId;
+    if (!transition.isActive && activeServerId == server.id) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<ServerProfileData?> _profileFor(ServerProfile server) {

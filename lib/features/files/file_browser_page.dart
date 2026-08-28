@@ -5,21 +5,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../../core/config/server_config_provider.dart';
 import '../../core/sources/common/source_exception.dart';
 import '../../core/sources/common/source_id.dart';
 import '../../core/sources/files/file_entry.dart';
 import '../../core/sources/files/file_operation.dart';
 import '../../core/sources/files/file_source_providers.dart';
 import '../../core/sources/files/file_source_repository.dart';
+import '../settings/server_selection_page.dart';
 
 class FileBrowserPage extends ConsumerStatefulWidget {
   const FileBrowserPage({
     super.key,
+    required this.serverId,
     required this.sourceId,
     this.initialPath = '',
   });
 
+  final String serverId;
   final SourceId sourceId;
   final String initialPath;
 
@@ -35,7 +37,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   bool _busy = false;
 
   FileDirectoryRequest get _request => FileDirectoryRequest(
-    serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+    serverId: widget.serverId,
     sourceId: widget.sourceId,
     path: _path,
   );
@@ -62,6 +64,11 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final source = ref.watch(fileSourceProvider(widget.sourceId.value));
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          tooltip: '返回服务器选择',
+          onPressed: _returnToServerSelector,
+          icon: const Icon(Icons.arrow_back),
+        ),
         title: source.when(
           data: (value) => Text(value?.descriptor.name ?? '文件列表'),
           loading: () => const Text('文件列表'),
@@ -108,6 +115,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     );
   }
 
+  Future<void> _returnToServerSelector() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ServerSelectionPage(returnAfterSelection: true),
+      ),
+    );
+  }
+
   Widget _buildListing(DirectoryListing listing) {
     final entries = [...listing.entries]
       ..sort((a, b) {
@@ -149,9 +164,11 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         Expanded(
           child: entries.isEmpty
               ? const Center(child: Text('此目录为空'))
-              : ListView.builder(
+              : ListView.separated(
                   itemCount: entries.length,
                   itemBuilder: (context, index) => _entryTile(entries[index]),
+                  separatorBuilder: (_, __) =>
+                      Divider(height: 1, color: Theme.of(context).dividerColor),
                 ),
         ),
       ],
