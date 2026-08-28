@@ -1079,6 +1079,8 @@ class _ExtraFanartViewer extends StatefulWidget {
   State<_ExtraFanartViewer> createState() => _ExtraFanartViewerState();
 }
 
+enum _LightboxGestureMode { undecided, horizontal, vertical, imagePan, pinch }
+
 class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
   late final PageController _controller;
   final Map<int, TransformationController> _imageControllers =
@@ -1087,8 +1089,13 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
   final Set<int> _zoomedIndexes = <int>{};
   late int _index;
   double _verticalDragOffset = 0;
+  Offset? _doubleTapPosition;
   bool _isDragging = false;
+  bool _isTwoFingerGesture = false;
   bool _isClosing = false;
+  _LightboxGestureMode _gestureMode = _LightboxGestureMode.undecided;
+  Offset _gestureStartFocalPoint = Offset.zero;
+  double _lastScaleFactor = 1;
 
   static const _dragAnimationDuration = Duration(milliseconds: 220);
 
@@ -1162,21 +1169,158 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
     _zoomedIndexes.remove(index);
   }
 
-  void _close() {
-    if (mounted) Navigator.of(context).pop();
+  void _onGestureStart(ScaleStartDetails details) {
+    if (_isClosing) return;
+    _gestureStartFocalPoint = details.localFocalPoint;
+    _lastScaleFactor = 1;
+    _gestureMode = _isZoomed(_index)
+        ? _LightboxGestureMode.imagePan
+        : _LightboxGestureMode.undecided;
+    if (details.pointerCount >= 2) {
+      _isTwoFingerGesture = true;
+      _gestureMode = _LightboxGestureMode.pinch;
+      if (mounted) {
+        setState(() {
+          _isDragging = false;
+          _verticalDragOffset = 0;
+        });
+      }
+    }
   }
 
-  void _startVerticalDrag() {
-    if (_isClosing || _isZoomed(_index)) return;
+  void _onGestureUpdate(ScaleUpdateDetails details) {
+    if (_isClosing) return;
+    if (details.pointerCount >= 2) {
+      _isTwoFingerGesture = true;
+      if (_gestureMode != _LightboxGestureMode.pinch) {
+        _gestureMode = _LightboxGestureMode.pinch;
+        _lastScaleFactor = details.scale;
+        return;
+      }
+      final controller = _imageControllerFor(_index);
+      final scaleChange = details.scale / _lastScaleFactor;
+      _scaleImageAround(controller, scaleChange, details.localFocalPoint);
+      _translateImage(controller, details.focalPointDelta);
+      _lastScaleFactor = details.scale;
+      return;
+    }
+
+    if (_gestureMode == _LightboxGestureMode.pinch) {
+      // 双指结束后若仍保持放大，允许剩余的一根手指继续平移图片；
+      // 未放大时不把收尾动作误判成翻页或下滑关闭。
+      if (_isZoomed(_index)) {
+        _gestureMode = _LightboxGestureMode.imagePan;
+      } else {
+        return;
+      }
+    }
+
+    final delta = details.focalPointDelta;
+    if (_gestureMode == _LightboxGestureMode.imagePan) {
+      _translateImage(_imageControllerFor(_index), delta);
+      return;
+    }
+
+    if (_gestureMode == _LightboxGestureMode.undecided) {
+      final total = details.localFocalPoint - _gestureStartFocalPoint;
+      if (total.distance < 10) return;
+      _gestureMode = total.dx.abs() >= total.dy.abs()
+          ? _LightboxGestureMode.horizontal
+          : _LightboxGestureMode.vertical;
+      if (_gestureMode == _LightboxGestureMode.vertical) {
+        _startVerticalGesture();
+      }
+    }
+
+    switch (_gestureMode) {
+      case _LightboxGestureMode.horizontal:
+        _updateHorizontalPage(delta.dx);
+      case _LightboxGestureMode.vertical:
+        _updateVerticalGesture(delta.dy);
+      case _LightboxGestureMode.undecided:
+      case _LightboxGestureMode.imagePan:
+      case _LightboxGestureMode.pinch:
+        break;
+    }
+  }
+
+  void _onGestureEnd(ScaleEndDetails details) {
+    if (_isClosing) return;
+    final mode = _gestureMode;
+    _gestureMode = _LightboxGestureMode.undecided;
+    _isTwoFingerGesture = false;
+    switch (mode) {
+      case _LightboxGestureMode.horizontal:
+        _finishHorizontalPage(details.velocity.pixelsPerSecond.dx);
+      case _LightboxGestureMode.vertical:
+        _finishVerticalDismiss(details.velocity.pixelsPerSecond.dy);
+      case _LightboxGestureMode.undecided:
+      case _LightboxGestureMode.imagePan:
+      case _LightboxGestureMode.pinch:
+        break;
+    }
+  }
+
+  void _scaleImageAround(
+    TransformationController controller,
+    double scaleChange,
+    Offset focalPoint,
+  ) {
+    final currentScale = controller.value.getMaxScaleOnAxis();
+    final targetScale = (currentScale * scaleChange).clamp(1.0, 6.0).toDouble();
+    final effectiveScale = targetScale / currentScale;
+    if ((effectiveScale - 1).abs() < 0.0001) return;
+    final next = controller.value.clone()
+      ..translateByDouble(focalPoint.dx, focalPoint.dy, 0, 1)
+      ..scaleByDouble(effectiveScale, effectiveScale, effectiveScale, 1)
+      ..translateByDouble(-focalPoint.dx, -focalPoint.dy, 0, 1);
+    controller.value = next;
+  }
+
+  void _translateImage(TransformationController controller, Offset delta) {
+    if (delta == Offset.zero) return;
+    controller.value = controller.value.clone()
+      ..translateByDouble(delta.dx, delta.dy, 0, 1);
+  }
+
+  void _toggleDoubleTapZoom(int index) {
+    if (_isClosing || _isTwoFingerGesture || _isTrailerIndex(index)) return;
+    final controller = _imageControllerFor(index);
+    if (_isZoomed(index)) {
+      _resetImageTransform(index);
+      if (mounted) setState(() {});
+      _doubleTapPosition = null;
+      return;
+    }
+
+    const targetScale = 2.0;
+    final focalPoint = _doubleTapPosition;
+    final transform = Matrix4.identity();
+    if (focalPoint != null) {
+      transform.translateByDouble(
+        focalPoint.dx * (1 - targetScale),
+        focalPoint.dy * (1 - targetScale),
+        0,
+        1,
+      );
+    }
+    transform.scaleByDouble(targetScale, targetScale, targetScale, 1);
+    controller.value = transform;
+    _doubleTapPosition = null;
+  }
+
+  void _close() {
+    if (mounted && !_isTwoFingerGesture) Navigator.of(context).pop();
+  }
+
+  void _startVerticalGesture() {
     setState(() {
       _isDragging = true;
       _verticalDragOffset = 0;
     });
   }
 
-  void _updateVerticalDrag(DragUpdateDetails details) {
-    if (_isClosing || _isZoomed(_index)) return;
-    final delta = details.primaryDelta ?? 0;
+  void _updateVerticalGesture(double delta) {
     setState(() {
       // 只允许向下退出，向上拖动时保持在原位，避免灯箱被拖出屏幕顶部。
       _verticalDragOffset = (_verticalDragOffset + delta)
@@ -1185,10 +1329,8 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
     });
   }
 
-  void _endVerticalDrag(DragEndDetails details) {
-    if (_isClosing || _isZoomed(_index)) return;
+  void _finishVerticalDismiss(double velocity) {
     final height = MediaQuery.sizeOf(context).height;
-    final velocity = details.primaryVelocity ?? 0;
     final shouldClose = _verticalDragOffset > height * 0.2 || velocity > 700;
 
     if (shouldClose) {
@@ -1211,12 +1353,29 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
     });
   }
 
-  void _cancelVerticalDrag() {
-    if (_isClosing || _isZoomed(_index)) return;
-    setState(() {
-      _isDragging = false;
-      _verticalDragOffset = 0;
-    });
+  void _updateHorizontalPage(double delta) {
+    if (!_controller.hasClients || delta == 0) return;
+    final position = _controller.position;
+    final pixels = (position.pixels - delta)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    if (pixels != position.pixels) position.jumpTo(pixels);
+  }
+
+  void _finishHorizontalPage(double velocity) {
+    if (!_controller.hasClients) return;
+    final page = _controller.page ?? _index.toDouble();
+    final target = velocity.abs() > 500
+        ? (velocity < 0 ? page.ceil() : page.floor())
+        : page.round();
+    final safeTarget = target.clamp(0, _itemCount - 1).toInt();
+    unawaited(
+      _controller.animateToPage(
+        safeTarget,
+        duration: _dragAnimationDuration,
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   @override
@@ -1255,9 +1414,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
                   children: [
                     PageView.builder(
                       controller: _controller,
-                      physics: _isZoomed(_index)
-                          ? const NeverScrollableScrollPhysics()
-                          : null,
+                      physics: const NeverScrollableScrollPhysics(),
                       itemCount: _itemCount,
                       onPageChanged: (value) {
                         _resetImageTransform(_index);
@@ -1269,20 +1426,19 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
                         final imageController = isTrailer
                             ? null
                             : _imageControllerFor(index);
-                        final isZoomed = !isTrailer && _isZoomed(index);
                         return GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: isTrailer ? null : _close,
-                          onVerticalDragStart: isZoomed
+                          onDoubleTapDown: isTrailer
                               ? null
-                              : (_) => _startVerticalDrag(),
-                          onVerticalDragUpdate: isZoomed
+                              : (details) =>
+                                    _doubleTapPosition = details.localPosition,
+                          onDoubleTap: isTrailer
                               ? null
-                              : _updateVerticalDrag,
-                          onVerticalDragEnd: isZoomed ? null : _endVerticalDrag,
-                          onVerticalDragCancel: isZoomed
-                              ? null
-                              : _cancelVerticalDrag,
+                              : () => _toggleDoubleTapZoom(index),
+                          onScaleStart: _onGestureStart,
+                          onScaleUpdate: _onGestureUpdate,
+                          onScaleEnd: _onGestureEnd,
                           child: isTrailer
                               ? _TrailerViewer(
                                   url: widget.trailerUrl!,
@@ -1332,22 +1488,24 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
                                               );
                                             },
                                           );
-                                    return InteractiveViewer(
-                                      transformationController:
-                                          imageController!,
-                                      minScale: 1,
-                                      maxScale: 6,
-                                      panEnabled: isZoomed,
-                                      scaleEnabled: true,
-                                      constrained: false,
-                                      boundaryMargin: const EdgeInsets.all(
-                                        100000,
-                                      ),
-                                      clipBehavior: Clip.none,
-                                      child: SizedBox(
-                                        width: constraints.maxWidth,
-                                        height: constraints.maxHeight,
-                                        child: Center(child: image),
+                                    return IgnorePointer(
+                                      child: InteractiveViewer(
+                                        transformationController:
+                                            imageController!,
+                                        minScale: 1,
+                                        maxScale: 6,
+                                        panEnabled: false,
+                                        scaleEnabled: false,
+                                        constrained: false,
+                                        boundaryMargin: const EdgeInsets.all(
+                                          100000,
+                                        ),
+                                        clipBehavior: Clip.none,
+                                        child: SizedBox(
+                                          width: constraints.maxWidth,
+                                          height: constraints.maxHeight,
+                                          child: Center(child: image),
+                                        ),
                                       ),
                                     );
                                   },

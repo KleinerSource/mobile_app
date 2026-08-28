@@ -387,10 +387,74 @@ void main() {
     expect(find.text('1 / 2'), findsOneWidget);
     expect(find.byType(InteractiveViewer), findsOneWidget);
     expect(find.byType(PageView), findsOneWidget);
+
+    final viewerFinder = find.byType(InteractiveViewer);
+    final viewerCenter = tester.getCenter(viewerFinder);
+    final firstFinger = await tester.startGesture(
+      viewerCenter + const Offset(-24, 0),
+      pointer: 1,
+    );
+    final secondFinger = await tester.startGesture(
+      viewerCenter + const Offset(24, 0),
+      pointer: 2,
+    );
+    await firstFinger.moveBy(const Offset(-36, 0));
+    await secondFinger.moveBy(const Offset(36, 0));
+    await tester.pump();
+    expect(find.text('1 / 2'), findsOneWidget);
+    expect(
+      tester
+          .widget<InteractiveViewer>(viewerFinder)
+          .transformationController!
+          .value
+          .getMaxScaleOnAxis(),
+      greaterThan(1.0),
+    );
+    await firstFinger.up();
+    await secondFinger.up();
+    await tester.pumpAndSettle();
+
+    await tester.tapAt(viewerCenter);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tapAt(viewerCenter);
+    await tester.pumpAndSettle();
+    expect(find.text('1 / 2'), findsOneWidget);
+    expect(
+      tester
+          .widget<InteractiveViewer>(viewerFinder)
+          .transformationController!
+          .value
+          .getMaxScaleOnAxis(),
+      closeTo(1.0, 0.01),
+    );
+
+    await tester.tapAt(viewerCenter);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tapAt(viewerCenter);
+    await tester.pumpAndSettle();
+    expect(find.text('1 / 2'), findsOneWidget);
+    expect(
+      tester
+          .widget<InteractiveViewer>(viewerFinder)
+          .transformationController!
+          .value
+          .getMaxScaleOnAxis(),
+      closeTo(2.0, 0.01),
+    );
+
+    await tester.tapAt(viewerCenter);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tapAt(viewerCenter);
+    await tester.pumpAndSettle();
+
     await tester.fling(find.byType(PageView), const Offset(-360, 0), 1000);
     await tester.pumpAndSettle();
     expect(find.text('2 / 2'), findsOneWidget);
     expect(find.byType(BottomSheet), findsNothing);
+
+    await tester.fling(find.byType(PageView), const Offset(0, 360), 1000);
+    await tester.pumpAndSettle();
+    expect(find.byType(InteractiveViewer), findsNothing);
   });
 
   testWidgets('文件浏览页可以返回服务器选择器', (tester) async {
