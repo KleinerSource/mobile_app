@@ -71,6 +71,13 @@ class Smb2Pool {
     bool Function()? isCanceled,
   }) => _unsupportedStream<Uint8List>();
 
+  Future<Uint8List> readFileRange(
+    String path, {
+    int offset = 0,
+    required int length,
+  }) =>
+      _unsupported<Uint8List>();
+
   Future<void> streamWrite(String path, Stream<Uint8List> chunks) =>
       _unsupported<void>();
 

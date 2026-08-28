@@ -118,6 +118,7 @@ class SmbFileSource
         FileTransferCapability,
         FileMutationCapability,
         FileAccessCapability,
+        FileRangeAccessCapability,
         SourceLifecycle {
   SmbFileSource._(
     this.pool,
@@ -305,6 +306,64 @@ class SmbFileSource
           isCanceled: () => options.cancellation?.isCancelled ?? false,
         )
         .cast<List<int>>();
+  }
+
+  @override
+  Future<Stream<List<int>>> openRange(
+    FilePath path, {
+    required int offset,
+    required int length,
+    FileTransferOptions options = const FileTransferOptions(),
+  }) async {
+    if (offset < 0 || length < 0) {
+      throw ArgumentError('SMB 区间读取参数无效');
+    }
+    if (length == 0) return const Stream<List<int>>.empty();
+    final value = _checkPath(path);
+    final target = await _target(value);
+    return _readRange(
+      target.pool,
+      target.path,
+      offset: offset,
+      length: length,
+      cancellation: options.cancellation,
+      onProgress: options.onProgress,
+    );
+  }
+
+  Stream<List<int>> _readRange(
+    Smb2Pool pool,
+    String path, {
+    required int offset,
+    required int length,
+    FileCancellationToken? cancellation,
+    FileProgressCallback? onProgress,
+  }) async* {
+    const chunkSize = 1024 * 1024;
+    var current = offset;
+    var remaining = length;
+    var transferred = 0;
+    while (remaining > 0) {
+      if (cancellation?.isCancelled == true) {
+        throw const FileSourceException('下载已取消', code: 'canceled');
+      }
+      final requested = remaining < chunkSize ? remaining : chunkSize;
+      final chunk = await pool.readFileRange(
+        path,
+        offset: current,
+        length: requested,
+      );
+      if (chunk.isEmpty) {
+        throw const FileSourceException('SMB 区间读取返回空数据');
+      }
+      current += chunk.length;
+      remaining -= chunk.length;
+      transferred += chunk.length;
+      onProgress?.call(
+        FileTransferProgress(transferred: transferred, total: length),
+      );
+      yield chunk;
+    }
   }
 
   @override

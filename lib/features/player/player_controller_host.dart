@@ -17,6 +17,11 @@ const playerPreloadBackBufferBytes = 64 * 1024 * 1024;
 /// 媒体时长未知时的预读时间窗兜底；实际预载深度由字节档位约束。
 const playerPreloadWindowFallbackSeconds = 3600;
 
+/// HLS seek 后只需要覆盖少量后续切片即可开始解码；如果沿用本地文件的
+/// 大缓存窗口，播放器可能会在定位后等待过多前向数据，表现为拖动后久等。
+const playerHlsPreloadWindowSeconds = 8;
+const playerHlsPreloadBytes = 64 * 1024 * 1024;
+
 /// media_kit 内核封装 · libmpv (内置 ffmpeg 软解 + VideoToolbox 硬解)
 ///
 /// 把命令式播放 API + 状态流收拢到一个对象, 供 PlayerPage 编排。
@@ -250,6 +255,7 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
       startAt: request.startAt,
       headers: request.headers,
       play: request.play,
+      formatHint: request.formatHint,
     );
     _updateState(
       (state) => state.copyWith(
@@ -265,10 +271,16 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
     Duration? startAt,
     Map<String, String>? headers,
     bool play = true,
+    String? formatHint,
   }) async {
     final openGeneration = ++_openGeneration;
     final targetPlayer = player;
     final targetPreloadBytes = preloadBytes;
+    final isHls = _isHlsPlaybackUrl(url, formatHint);
+    final effectivePreloadBytes =
+        isHls && targetPreloadBytes > playerHlsPreloadBytes
+        ? playerHlsPreloadBytes
+        : targetPreloadBytes;
     try {
       final platform = targetPlayer.platform;
       if (platform is NativePlayer) {
@@ -286,12 +298,14 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
         await _setNativeProperty(
           platform,
           'cache-secs',
-          '$playerPreloadWindowFallbackSeconds',
+          isHls
+              ? '$playerHlsPreloadWindowSeconds'
+              : '$playerPreloadWindowFallbackSeconds',
         );
         await _setNativeProperty(
           platform,
           'demuxer-max-bytes',
-          '$targetPreloadBytes',
+          '$effectivePreloadBytes',
         );
         await _setNativeProperty(
           platform,
@@ -311,14 +325,16 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
     await _ensureCacheOptionsAfterOpen(
       targetPlayer,
       openGeneration,
-      preloadBytes: targetPreloadBytes,
+      preloadBytes: effectivePreloadBytes,
+      isHls: isHls,
     );
     await _logNativeCacheState(targetPlayer, 'open');
     unawaited(
       _applyPreloadWindow(
         targetPlayer,
         openGeneration,
-        preloadBytes: targetPreloadBytes,
+        preloadBytes: effectivePreloadBytes,
+        isHls: isHls,
       ),
     );
   }
@@ -340,7 +356,11 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
     Player targetPlayer,
     int generation, {
     required int preloadBytes,
+    required bool isHls,
   }) async {
+    // HLS 的时长可能很长；把 cache-secs 扩展到整片会让后续 seek 等待
+    // 大量切片，违背“定位后尽快恢复播放”的目标。
+    if (isHls) return;
     try {
       final duration = await _waitForDuration(targetPlayer, generation);
       if (duration == null || generation != _openGeneration) return;
@@ -389,6 +409,7 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
     Player targetPlayer,
     int generation, {
     required int preloadBytes,
+    required bool isHls,
   }) async {
     if (generation != _openGeneration) return;
     final platform = targetPlayer.platform;
@@ -397,7 +418,9 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
     final expected = <String, String>{
       'cache': 'yes',
       'cache-on-disk': 'no',
-      'cache-secs': '$playerPreloadWindowFallbackSeconds',
+      'cache-secs': isHls
+          ? '$playerHlsPreloadWindowSeconds'
+          : '$playerPreloadWindowFallbackSeconds',
       'demuxer-max-bytes': '$preloadBytes',
       'demuxer-max-back-bytes': '$playerPreloadBackBufferBytes',
     };
@@ -861,4 +884,14 @@ Future<void> _logNativeCacheState(Player targetPlayer, String phase) async {
     if (subtitleFile != null) await _deleteQuietly(subtitleFile);
     _state.dispose();
   }
+}
+
+bool _isHlsPlaybackUrl(String url, String? formatHint) {
+  final hint = formatHint?.trim().toLowerCase() ?? '';
+  if (hint == 'm3u8' || hint == 'hls' || hint.contains('mpegurl')) {
+    return true;
+  }
+  final uri = Uri.tryParse(url.trim());
+  final path = uri?.path.toLowerCase() ?? url.trim().toLowerCase();
+  return path.endsWith('.m3u8');
 }

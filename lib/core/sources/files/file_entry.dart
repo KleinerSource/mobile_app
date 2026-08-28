@@ -180,6 +180,8 @@ String normalizeWebDavPath(String value) {
   return relative.isEmpty ? '/' : '/$relative';
 }
 
+bool isRootFilePath(String value) => normalizeRelativeFilePath(value).isEmpty;
+
 String joinRelativeFilePath(String parent, String child) {
   final normalizedParent = normalizeRelativeFilePath(parent);
   final normalizedChild = normalizeFileName(child);

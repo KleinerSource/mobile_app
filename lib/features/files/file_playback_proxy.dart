@@ -1,13 +1,18 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+
+import '../../core/sources/common/source_exception.dart';
 import '../../core/sources/files/file_entry.dart';
 import '../../core/sources/files/file_source_repository.dart';
 
 /// 将 SMB/WebDAV 的文件流暴露为播放器可读取的本机 HTTP 地址。
 ///
-/// 播放器连接后立即消费远程流，不在本地落盘完整视频。代理只绑定回环
-/// 地址，并且每个实例只有一个不可枚举的媒体路径。
+/// 播放器连接后按需消费远程流。支持 Range 的来源会直接读取对应区间；
+/// 不支持随机读取的来源则退回到临时文件，避免播放器为了读取尾部索引
+/// 而从远端文件开头重复扫描。
 class FilePlaybackProxy {
   FilePlaybackProxy._({
     required this.repository,
@@ -25,6 +30,9 @@ class FilePlaybackProxy {
   final String _token =
       '${DateTime.now().microsecondsSinceEpoch}-${Object().hashCode}';
   final Set<HttpResponse> _responses = <HttpResponse>{};
+  Future<FileAccess>? _accessFuture;
+  Future<File>? _fallbackFileFuture;
+  File? _fallbackFile;
   HttpServer? _server;
   var _closed = false;
 
@@ -82,9 +90,18 @@ class FilePlaybackProxy {
     }
   }
 
+  Future<FileAccess> _access() {
+    final current = _accessFuture;
+    if (current != null) return current;
+    final next = repository.resolveAccess(path);
+    _accessFuture = next;
+    return next;
+  }
+
   Future<void> _handle(HttpRequest request) async {
     final response = request.response;
     _responses.add(response);
+    var responseStarted = false;
     try {
       if (_closed || request.uri.path != _requestPath) {
         response.statusCode = HttpStatus.notFound;
@@ -95,36 +112,67 @@ class FilePlaybackProxy {
         response.headers.set(HttpHeaders.allowHeader, 'GET, HEAD');
         return;
       }
-      _setHeaders(response);
-      final range = _parseRange(request.headers.value('range'));
+
+      final access = await _access();
+      var total = size ?? access.size;
+      final rangeHeader = request.headers.value(HttpHeaders.rangeHeader);
+
+      // Range 无法在未知总大小上安全解析。先建立临时文件取得大小，
+      // 之后 HEAD/Range 请求都能返回稳定的 HTTP 元数据。
+      if (rangeHeader != null && total == null) {
+        final fallback = await _ensureFallbackFile(access);
+        total = await fallback.length();
+      }
+      var range = _parseRange(rangeHeader, total);
       if (range?.invalid == true) {
         response.statusCode = HttpStatus.requestedRangeNotSatisfiable;
-        if (size != null) {
-          response.headers.set('content-range', 'bytes */$size');
-        }
-        return;
-      }
-      if (range != null) {
-        response.statusCode = HttpStatus.partialContent;
-        response.headers.contentLength = range.length;
         response.headers.set(
           'content-range',
-          'bytes ${range.start}-${range.end}/${size ?? '*'}',
+          'bytes */${total ?? '*'}',
         );
-      } else if (size != null) {
-        response.headers.contentLength = size!;
+        return;
       }
-      if (request.method == 'HEAD') return;
 
-      final access = await repository.resolveAccess(path);
-      var stream = await access.open();
-      if (range != null) {
-        stream = _slice(stream, skip: range.start, take: range.length);
+      Stream<List<int>>? stream;
+      File? fallbackFile;
+      if (request.method == 'GET') {
+        if (range != null) {
+          try {
+            if (!repository.supportsRange) {
+              throw UnsupportedError('文件来源不支持 Range');
+            }
+            stream = await repository.openRange(
+              path,
+              offset: range.start,
+              length: range.length,
+            );
+          } on UnsupportedError {
+            fallbackFile = await _ensureFallbackFile(access);
+            total ??= await fallbackFile.length();
+            range = _parseRange(rangeHeader, total);
+            if (range?.invalid == true || range == null) {
+              throw const FileSourceException(
+                '文件区间无效',
+                statusCode: HttpStatus.requestedRangeNotSatisfiable,
+              );
+            }
+            stream = fallbackFile.openRead(range.start, range.end + 1);
+          }
+        } else {
+          stream = await access.open();
+        }
       }
-      await response.addStream(stream);
-    } catch (_) {
-      // 播放器断开连接或远端连接失败时直接结束本次响应；播放器会展示
-      // 自己的错误态，不能再向已发送部分响应的 socket 写错误正文。
+
+      _setHeaders(response, total: total, range: range);
+      responseStarted = true;
+      if (request.method == 'HEAD') return;
+      await response.addStream(stream!);
+    } catch (error, stackTrace) {
+      _logError(request, error, stackTrace);
+      if (!responseStarted) {
+        response.statusCode = _statusCode(error);
+        response.write('视频流读取失败');
+      }
     } finally {
       _responses.remove(response);
       try {
@@ -133,7 +181,11 @@ class FilePlaybackProxy {
     }
   }
 
-  void _setHeaders(HttpResponse response) {
+  void _setHeaders(
+    HttpResponse response, {
+    required int? total,
+    required _FileByteRange? range,
+  }) {
     response.headers.set('accept-ranges', 'bytes');
     final mime = mimeType?.trim();
     if (mime != null && mime.isNotEmpty) {
@@ -141,12 +193,22 @@ class FilePlaybackProxy {
         response.headers.contentType = ContentType.parse(mime);
       } catch (_) {}
     }
+    if (range != null) {
+      response.statusCode = HttpStatus.partialContent;
+      response.headers.contentLength = range.length;
+      response.headers.set(
+        'content-range',
+        'bytes ${range.start}-${range.end}/${total ?? '*'}',
+      );
+    } else if (total != null) {
+      response.headers.contentLength = total;
+    }
   }
 
-  _FileByteRange? _parseRange(String? header) {
-    final total = size;
-    if (header == null || !header.startsWith('bytes=') || total == null) {
-      return null;
+  _FileByteRange? _parseRange(String? header, int? total) {
+    if (header == null) return null;
+    if (!header.startsWith('bytes=') || total == null || total <= 0) {
+      return const _FileByteRange.invalid();
     }
     final value = header.substring('bytes='.length).split(',').first.trim();
     final separator = value.indexOf('-');
@@ -176,27 +238,48 @@ class FilePlaybackProxy {
     );
   }
 
-  Stream<List<int>> _slice(
-    Stream<List<int>> source, {
-    int skip = 0,
-    required int take,
-  }) async* {
-    var remainingSkip = skip;
-    var remainingTake = take;
-    await for (final chunk in source) {
-      if (remainingTake <= 0) break;
-      var start = 0;
-      if (remainingSkip > 0) {
-        final skipped = remainingSkip.clamp(0, chunk.length).toInt();
-        remainingSkip -= skipped;
-        start = skipped;
-      }
-      if (start >= chunk.length) continue;
-      final end = (start + remainingTake).clamp(start, chunk.length).toInt();
-      yield start == 0 && end == chunk.length
-          ? chunk
-          : chunk.sublist(start, end);
-      remainingTake -= end - start;
+  Future<File> _ensureFallbackFile(FileAccess access) async {
+    final existingFile = _fallbackFile;
+    if (existingFile != null) return existingFile;
+    final current = _fallbackFileFuture;
+    if (current != null) return current;
+    late final Future<File> next;
+    next = _spoolToTempFile(access);
+    _fallbackFileFuture = next;
+    try {
+      final file = await next;
+      _fallbackFile = file;
+      return file;
+    } catch (_) {
+      if (identical(_fallbackFileFuture, next)) _fallbackFileFuture = null;
+      rethrow;
+    }
+  }
+
+  Future<File> _spoolToTempFile(FileAccess access) async {
+    late final Directory directory;
+    try {
+      directory = await getTemporaryDirectory();
+    } catch (_) {
+      // Unit tests and headless callers may not have a Flutter path-provider
+      // binding. The process temp directory is a safe compatibility fallback.
+      directory = Directory.systemTemp;
+    }
+    final file = File(
+      '${directory.path}${Platform.pathSeparator}omm-playback-$_token.tmp',
+    );
+    final output = file.openWrite();
+    try {
+      await output.addStream(await access.open());
+      await output.close();
+      if (_closed) throw StateError('视频流代理已关闭');
+      return file;
+    } catch (_) {
+      try {
+        await output.close();
+      } catch (_) {}
+      await _deleteQuietly(file);
+      rethrow;
     }
   }
 
@@ -214,6 +297,34 @@ class FilePlaybackProxy {
       } catch (_) {}
     }
     _responses.clear();
+    final fallback = _fallbackFile;
+    if (fallback != null) {
+      await _deleteQuietly(fallback);
+    }
+    final pending = _fallbackFileFuture;
+    if (pending != null) {
+      unawaited(pending.then(_deleteQuietly, onError: (_, __) {}));
+    }
+  }
+
+  Future<void> _deleteQuietly(File file) async {
+    try {
+      if (await file.exists()) await file.delete();
+    } catch (_) {}
+  }
+
+  void _logError(HttpRequest request, Object error, StackTrace stackTrace) {
+    if (!kDebugMode) return;
+    debugPrint(
+      '[FilePlaybackProxy] ${request.method} ${request.uri.path} failed: '
+      '$error\n$stackTrace',
+    );
+  }
+
+  int _statusCode(Object error) {
+    final status = error is FileSourceException ? error.statusCode : null;
+    if (status != null && status >= 400 && status <= 599) return status;
+    return HttpStatus.badGateway;
   }
 }
 

@@ -104,7 +104,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     path: _path,
   );
 
-  bool get _isAtRoot => _path.isEmpty || _path == '/';
+  bool get _isAtRoot => isRootFilePath(_path);
 
   @override
   void initState() {
@@ -370,7 +370,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     _openSwipe.value = null;
     if (path == _path) return;
     final navigator = Navigator.of(context);
-    if (path.isEmpty) {
+    if (isRootFilePath(path)) {
       final rootRouteName = _routeName('');
       navigator.popUntil(
         (route) => widget.directoryPicker
@@ -672,6 +672,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                 )
               : Icon(
                   entry.isDirectory ? Icons.folder_outlined : _fileIcon(entry),
+                  color: entry.isDirectory
+                      ? colors.primary
+                      : _fileIconColor(entry, colors),
                 ),
           title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: entry.isDirectory
@@ -1344,81 +1347,33 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   bool _canPreview(FileEntry entry) =>
-      _isVideoEntry(entry) || _isImageEntry(entry) || _isTextEntry(entry);
+      _isVideoEntry(entry) ||
+      _isImageEntry(entry) ||
+      _isSubtitleEntry(entry) ||
+      _isTextEntry(entry);
 
   String _previewLabel(FileEntry entry) {
     if (_isVideoEntry(entry)) return '播放视频';
     if (_isImageEntry(entry)) return '查看图片';
+    if (_isSubtitleEntry(entry)) return '查看字幕';
     return '查看文本';
   }
 
   IconData _previewIcon(FileEntry entry) {
     if (_isVideoEntry(entry)) return Icons.play_circle_outline;
     if (_isImageEntry(entry)) return Icons.image_outlined;
+    if (_isSubtitleEntry(entry)) return Icons.closed_caption_outlined;
     return Icons.description_outlined;
   }
 
-  bool _isVideoEntry(FileEntry entry) {
-    final mime = entry.mimeType?.trim().toLowerCase() ?? '';
-    return mime.startsWith('video/') ||
-        _fileExtension(entry.name, const {
-          'mp4',
-          'mkv',
-          'webm',
-          'mov',
-          'avi',
-          'm4v',
-          'ts',
-          'm2ts',
-        });
-  }
+  bool _isVideoEntry(FileEntry entry) => _fileTypeFor(entry) == _FileType.video;
 
-  bool _isImageEntry(FileEntry entry) {
-    final mime = entry.mimeType?.trim().toLowerCase() ?? '';
-    return mime.startsWith('image/') ||
-        _fileExtension(entry.name, const {
-          'jpg',
-          'jpeg',
-          'png',
-          'gif',
-          'webp',
-          'bmp',
-          'heic',
-          'heif',
-        });
-  }
+  bool _isImageEntry(FileEntry entry) => _fileTypeFor(entry) == _FileType.image;
 
-  bool _isTextEntry(FileEntry entry) {
-    final mime = entry.mimeType?.trim().toLowerCase() ?? '';
-    return mime.startsWith('text/') ||
-        mime == 'application/json' ||
-        mime == 'application/xml' ||
-        mime == 'application/javascript' ||
-        _fileExtension(entry.name, const {
-          'txt',
-          'json',
-          'csv',
-          'xml',
-          'html',
-          'htm',
-          'css',
-          'js',
-          'ts',
-          'yaml',
-          'yml',
-          'md',
-          'log',
-          'srt',
-          'vtt',
-          'ass',
-        });
-  }
+  bool _isSubtitleEntry(FileEntry entry) =>
+      _fileTypeFor(entry) == _FileType.subtitle;
 
-  bool _fileExtension(String name, Set<String> extensions) {
-    final dot = name.lastIndexOf('.');
-    if (dot <= 0 || dot == name.length - 1) return false;
-    return extensions.contains(name.substring(dot + 1).toLowerCase());
-  }
+  bool _isTextEntry(FileEntry entry) => _fileTypeFor(entry) == _FileType.text;
 
   String? _pathExtension(String name) {
     final dot = name.lastIndexOf('.');
@@ -1430,8 +1385,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final text = utf8.decode(bytes, allowMalformed: true);
     final mime = entry.mimeType?.toLowerCase() ?? '';
     final isJson =
-        mime == 'application/json' ||
-        _fileExtension(entry.name, const {'json'});
+        mime == 'application/json' || _fileExtensionFor(entry.name) == 'json';
     if (!isJson) return text;
     try {
       return const JsonEncoder.withIndent('  ').convert(jsonDecode(text));
@@ -1951,12 +1905,118 @@ String _join(String parent, String child) {
   return '$left/$right';
 }
 
+enum _FileType { text, video, image, subtitle, other }
+
+const _videoFileExtensions = <String>{
+  'mp4',
+  'mkv',
+  'webm',
+  'mov',
+  'avi',
+  'm4v',
+  'ts',
+  'm2ts',
+};
+
+const _imageFileExtensions = <String>{
+  'jpg',
+  'jpeg',
+  'png',
+  'gif',
+  'webp',
+  'bmp',
+  'heic',
+  'heif',
+};
+
+const _subtitleFileExtensions = <String>{
+  'srt',
+  'vtt',
+  'ass',
+  'ssa',
+  'sub',
+  'idx',
+  'sup',
+  'smi',
+  'sami',
+  'ttml',
+};
+
+const _textFileExtensions = <String>{
+  'txt',
+  'json',
+  'csv',
+  'xml',
+  'html',
+  'htm',
+  'css',
+  'js',
+  'ts',
+  'yaml',
+  'yml',
+  'md',
+  'log',
+};
+
+_FileType _fileTypeFor(FileEntry entry) {
+  final mime = entry.mimeType?.trim().toLowerCase() ?? '';
+  final extension = _fileExtensionFor(entry.name);
+
+  if (_isSubtitleMimeType(mime) ||
+      _subtitleFileExtensions.contains(extension)) {
+    return _FileType.subtitle;
+  }
+  if (mime.startsWith('video/') || _videoFileExtensions.contains(extension)) {
+    return _FileType.video;
+  }
+  if (mime.startsWith('image/') || _imageFileExtensions.contains(extension)) {
+    return _FileType.image;
+  }
+  if (mime.startsWith('text/') ||
+      mime == 'application/json' ||
+      mime == 'application/xml' ||
+      mime == 'application/javascript' ||
+      _textFileExtensions.contains(extension)) {
+    return _FileType.text;
+  }
+  return _FileType.other;
+}
+
+bool _isSubtitleMimeType(String mime) =>
+    mime == 'text/vtt' ||
+    mime == 'application/x-subrip' ||
+    mime == 'application/ttml+xml' ||
+    mime == 'application/ass' ||
+    mime == 'application/x-ass' ||
+    mime == 'text/x-ssa';
+
+String? _fileExtensionFor(String name) {
+  final dot = name.lastIndexOf('.');
+  if (dot <= 0 || dot == name.length - 1) return null;
+  return name.substring(dot + 1).toLowerCase();
+}
+
 IconData _fileIcon(FileEntry entry) {
-  final type = entry.mimeType?.toLowerCase() ?? '';
-  if (type.startsWith('video/')) return Icons.movie_outlined;
-  if (type.startsWith('audio/')) return Icons.music_note_outlined;
-  if (type.startsWith('image/')) return Icons.image_outlined;
-  return Icons.insert_drive_file_outlined;
+  return switch (_fileTypeFor(entry)) {
+    _FileType.text => Icons.description_outlined,
+    _FileType.video => Icons.movie_outlined,
+    _FileType.image => Icons.image_outlined,
+    _FileType.subtitle => Icons.closed_caption_outlined,
+    _FileType.other =>
+      (entry.mimeType?.trim().toLowerCase().startsWith('audio/') ?? false)
+          ? Icons.music_note_outlined
+          : Icons.insert_drive_file_outlined,
+  };
+}
+
+Color _fileIconColor(FileEntry entry, ColorScheme colors) {
+  return switch (_fileTypeFor(entry)) {
+    _FileType.text => colors.primary,
+    _FileType.video => colors.secondary,
+    _FileType.image => colors.tertiary,
+    _FileType.subtitle => colors.error,
+    _FileType.other => colors.onSurfaceVariant,
+  };
 }
 
 String _entryMeta(FileEntry entry) {

@@ -343,12 +343,20 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     options.startPlayRate = desiredRate
     options.isSeekedAutoPlay = autoplay
     options.hardwareDecode = hardwareAcceleration
-    let bufferSeconds = forwardBufferDuration(for: preloadBytes)
-    options.preferredForwardBufferDuration = bufferSeconds
-    options.maxBufferDuration = bufferSeconds
+    let isHls = isHlsStream(url: mediaURL, formatHint: formatHint)
+    if isHls {
+      // HLS seek 后只需拉取目标切片及少量后续切片即可恢复播放。
+      // 复用本地文件的大前向缓存会让 KSPlayer 在定位后等待很久。
+      options.preferredForwardBufferDuration = 3
+      options.maxBufferDuration = 8
+    } else {
+      let bufferSeconds = forwardBufferDuration(for: preloadBytes)
+      options.preferredForwardBufferDuration = bufferSeconds
+      options.maxBufferDuration = bufferSeconds
+    }
     // AVPlayer/HLS 使用 KSPlayer 的秒开门控；KSMEPlayer 直流容器（尤其 MKV）
     // 需要先完成默认前向缓冲，否则可能只渲染首帧而没有启动音视频时钟。
-    options.isSecondOpen = !useFfmpegPlayer
+    options.isSecondOpen = isHls || !useFfmpegPlayer
     if let headers, !headers.isEmpty {
       options.appendHeader(headers)
     }
@@ -374,6 +382,16 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     guard bytes > 0 else { return 30 }
     let seconds = Double(bytes) / (8 * 1024 * 1024)
     return min(max(seconds, 30), 120)
+  }
+
+  private func isHlsStream(url: URL, formatHint: String?) -> Bool {
+    let hint = formatHint?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+    if hint == "m3u8" ||
+        hint == "hls" ||
+        hint.contains("mpegurl") {
+      return true
+    }
+    return url.pathExtension.lowercased() == "m3u8"
   }
 
   private func installLayerCallbacks() {

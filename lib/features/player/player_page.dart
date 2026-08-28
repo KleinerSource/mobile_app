@@ -548,6 +548,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           fallbackResume,
           play: shouldPlay,
         );
+        if (widget.directPlaybackFileName?.trim().isNotEmpty == true) {
+          await _waitForFirstFrame();
+        }
         if (!mounted || generation != _loadGeneration) {
           await _stopPlayer();
           return;
@@ -739,6 +742,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _pictureInPictureHeaders = headers == null
         ? null
         : Map<String, String>.from(headers);
+  }
+
+  Future<void> _waitForFirstFrame() async {
+    final deadline = DateTime.now().add(const Duration(seconds: 15));
+    while (mounted && !_isLeaving && DateTime.now().isBefore(deadline)) {
+      if (_host.value.firstFrameRendered) return;
+      final error = _host.value.error;
+      if (error != null && error.trim().isNotEmpty) {
+        throw StateError(error);
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    throw TimeoutException('视频首帧加载超时');
   }
 
   bool _isHlsUrl(String url, String? formatHint) {

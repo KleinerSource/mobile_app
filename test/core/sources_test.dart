@@ -209,6 +209,10 @@ void main() {
   test('file path helpers keep SMB relative and WebDAV absolute semantics', () {
     expect(normalizeRelativeFilePath(r'\\Movies\\A.mkv'), 'Movies/A.mkv');
     expect(normalizeWebDavPath(r'Movies\\A.mkv'), '/Movies/A.mkv');
+    expect(isRootFilePath(''), isTrue);
+    expect(isRootFilePath('/'), isTrue);
+    expect(isRootFilePath('///'), isTrue);
+    expect(isRootFilePath('/Movies'), isFalse);
     expect(joinRelativeFilePath('Movies', 'A.mkv'), 'Movies/A.mkv');
     expect(joinWebDavPath('/Movies', 'A.mkv'), '/Movies/A.mkv');
     expect(

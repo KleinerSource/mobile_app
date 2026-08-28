@@ -58,6 +58,17 @@ abstract interface class FileAccessCapability {
   Future<FileAccess> resolveAccess(FilePath path);
 }
 
+/// Provides random-access reads for media players that issue HTTP Range
+/// requests while probing containers or seeking.
+abstract interface class FileRangeAccessCapability {
+  Future<Stream<List<int>>> openRange(
+    FilePath path, {
+    required int offset,
+    required int length,
+    FileTransferOptions options = const FileTransferOptions(),
+  });
+}
+
 class FileSourceRegistry {
   FileSourceRegistry(Iterable<FileSource> sources) {
     for (final source in sources) {

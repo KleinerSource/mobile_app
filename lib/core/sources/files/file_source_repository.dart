@@ -55,6 +55,21 @@ class FileSourceRepository {
   Future<FileAccess> resolveAccess(FilePath path) =>
       _access().resolveAccess(path);
 
+  bool get supportsRange => source is FileRangeAccessCapability;
+
+  Future<Stream<List<int>>> openRange(
+    FilePath path, {
+    required int offset,
+    required int length,
+    FileTransferOptions options = const FileTransferOptions(),
+  }) =>
+      _range().openRange(
+        path,
+        offset: offset,
+        length: length,
+        options: options,
+      );
+
   FileBrowseCapability _browse() => _require<FileBrowseCapability>('browse');
 
   FileTransferCapability _transfer() =>
@@ -64,6 +79,9 @@ class FileSourceRepository {
       _require<FileMutationCapability>('mutation');
 
   FileAccessCapability _access() => _require<FileAccessCapability>('access');
+
+  FileRangeAccessCapability _range() =>
+      _require<FileRangeAccessCapability>('range_access');
 
   T _require<T extends Object>(String capability) {
     if (source is T) return source as T;

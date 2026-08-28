@@ -537,6 +537,51 @@ void main() {
     expect(find.byType(ServerSelectionPage), findsNothing);
   });
 
+  testWidgets('WebDAV 根目录面包屑使用与 SMB 相同的文件根页返回逻辑', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'webdav-two';
+    final sourceId = SourceId.of('webdav-source');
+    final rootRequest = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+    final nestedRequest = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+      path: '/目录 A',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+          fileDirectoryProvider(
+            rootRequest,
+          ).overrideWith((ref) async => _webDavListingWithDirectory(sourceId)),
+          fileDirectoryProvider(
+            nestedRequest,
+          ).overrideWith((ref) async => _webDavListingAt(sourceId)),
+        ],
+        child: MaterialApp(
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('目录 A').first);
+    await tester.pumpAndSettle();
+    expect(find.text('子目录内容'), findsOneWidget);
+
+    await tester.tap(find.text('根目录'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('根目录内容'), findsOneWidget);
+    expect(find.text('子目录内容'), findsNothing);
+    expect(find.byType(ServerSelectionPage), findsNothing);
+  });
+
   testWidgets('SMB 子目录边缘返回先回到根目录，再打开服务器选择器', (tester) async {
     await _testNestedEdgeBack(
       tester,
@@ -783,6 +828,39 @@ DirectoryListing _listingWithDirectory(SourceId sourceId) => DirectoryListing(
     FileEntry(
       path: FilePath(sourceId: sourceId, value: '根目录内容'),
       name: '根目录内容',
+      type: FileEntryType.file,
+    ),
+  ],
+);
+
+DirectoryListing _webDavListingWithDirectory(SourceId sourceId) =>
+    DirectoryListing(
+      currentPath: FilePath(sourceId: sourceId, value: '/'),
+      breadcrumbs: [FilePath(sourceId: sourceId, value: '/')],
+      entries: [
+        FileEntry(
+          path: FilePath(sourceId: sourceId, value: '/目录 A'),
+          name: '目录 A',
+          type: FileEntryType.directory,
+        ),
+        FileEntry(
+          path: FilePath(sourceId: sourceId, value: '/根目录内容'),
+          name: '根目录内容',
+          type: FileEntryType.file,
+        ),
+      ],
+    );
+
+DirectoryListing _webDavListingAt(SourceId sourceId) => DirectoryListing(
+  currentPath: FilePath(sourceId: sourceId, value: '/目录 A'),
+  breadcrumbs: [
+    FilePath(sourceId: sourceId, value: '/'),
+    FilePath(sourceId: sourceId, value: '/目录 A'),
+  ],
+  entries: [
+    FileEntry(
+      path: FilePath(sourceId: sourceId, value: '/目录 A/子目录内容'),
+      name: '子目录内容',
       type: FileEntryType.file,
     ),
   ],
