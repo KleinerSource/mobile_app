@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/auth/auth_provider.dart';
 import 'core/auth/auth_session.dart';
-import 'core/config/server_config.dart';
 import 'core/config/server_config_provider.dart';
 import 'core/platform/app_haptics.dart';
 import 'core/platform/app_theme.dart';
@@ -73,12 +72,6 @@ class OmmApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cfg = ref.watch(serverConfigProvider);
-    final auth = ref.watch(authControllerProvider);
-    final serverSwitch = ref.watch(serverSwitchTransitionProvider);
-    final serverSelectionRequested = ref.watch(
-      serverSelectionRequestedProvider,
-    );
     final appLocale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
 
@@ -102,71 +95,91 @@ class OmmApp extends ConsumerWidget {
         onReady: () {
           ref.read(securityGateReadyProvider.notifier).state = true;
         },
-        // 鉴权阶段切换（选择页 → 首页）用统一的淡入浮出过渡，
-        // 避免登录成功瞬间整页硬切。
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 320),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.02),
-                end: Offset.zero,
-              ).animate(animation),
-              child: child,
-            ),
-          ),
-          child: KeyedSubtree(
-            key: ValueKey(
-              _rootStageKey(cfg, serverSwitch, auth, serverSelectionRequested),
-            ),
-            child: serverSwitch.isActive
-                ? const _AuthenticatedHomeWithServerSwitch()
-                : cfg == null || serverSelectionRequested
-                ? const ServerSelectionPage()
-                : auth.when(
-                    skipLoadingOnReload: true,
-                    loading: () => const ServerSelectionPage(),
-                    error: (_, __) => const ServerSelectionPage(),
-                    data: (state) => switch (state.phase) {
-                      AuthPhase.needsLogin ||
-                      AuthPhase.totpRequired ||
-                      AuthPhase.serverSelection ||
-                      AuthPhase.unconfigured => const ServerSelectionPage(),
-                      AuthPhase.incompatible ||
-                      AuthPhase.unavailable => const ServerSelectionPage(),
-                      _ => const _AuthenticatedHome(),
-                    },
-                  ),
-          ),
-        ),
+        child: const _AppNavigator(),
       ),
     );
   }
 }
 
-/// 根路由当前阶段的稳定键：阶段变化时触发 AnimatedSwitcher 过渡，
-/// 阶段内的重建（如登录中状态翻转）保持同一键，不触发换页动画。
-String _rootStageKey(
-  ServerConfig? cfg,
-  ServerSwitchState serverSwitch,
-  AsyncValue<AuthState> auth,
-  bool serverSelectionRequested,
-) {
-  if (cfg == null || serverSelectionRequested) return 'selector';
-  if (serverSwitch.isActive) return 'server-switch';
-  final state = auth.valueOrNull;
-  if (auth.hasError) return 'selector';
-  return switch (state?.phase) {
-    AuthPhase.needsLogin ||
-    AuthPhase.totpRequired ||
-    AuthPhase.serverSelection ||
-    AuthPhase.unconfigured => 'selector',
-    AuthPhase.incompatible || AuthPhase.unavailable => 'selector',
-    _ => 'home',
-  };
+/// 应用内服务器导航栈：选择器始终是父页，服务器内容是可交互返回的子页。
+///
+/// 服务器内容使用 [MaterialPage]，复用 OMM 普通详情页的自适应页面返回手势：
+/// 拖动时上一页会持续绘制在下层，释放时可根据速度完成或取消，取消后还能
+/// 立即反向拖动。目录子页也使用相同的页面路由，因此不会再有两套手势逻辑。
+class _AppNavigator extends ConsumerStatefulWidget {
+  const _AppNavigator();
+
+  static const _selectorKey = ValueKey<String>('server-selector');
+  static const _homeKey = ValueKey<String>('server-home');
+  static const _switchKey = ValueKey<String>('server-switch');
+
+  @override
+  ConsumerState<_AppNavigator> createState() => _AppNavigatorState();
+}
+
+class _AppNavigatorState extends ConsumerState<_AppNavigator> {
+  bool _homeWasVisible = false;
+  bool _homeRemovalBelongsToServerSwitch = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final ref = this.ref;
+    final config = ref.watch(serverConfigProvider);
+    final auth = ref.watch(authControllerProvider);
+    final serverSwitch = ref.watch(serverSwitchTransitionProvider);
+    final selectionRequested = ref.watch(serverSelectionRequestedProvider);
+    final isAuthenticated = auth.valueOrNull?.phase == AuthPhase.authenticated;
+    final showHome =
+        config != null &&
+        !selectionRequested &&
+        isAuthenticated &&
+        !serverSwitch.isActive;
+
+    // 切换服务器会先从声明式栈移除旧首页，再挂载切换遮罩。移除回调可能
+    // 在异步切换完成后才到达，因此不能只在回调里读取 isActive 判断归属。
+    if (_homeWasVisible && !showHome && serverSwitch.isActive) {
+      _homeRemovalBelongsToServerSwitch = true;
+    }
+    _homeWasVisible = showHome;
+
+    final pages = <Page<void>>[
+      const MaterialPage<void>(
+        key: _AppNavigator._selectorKey,
+        allowSnapshotting: false,
+        child: ServerSelectionPage(),
+      ),
+      if (showHome)
+        const MaterialPage<void>(
+          key: _AppNavigator._homeKey,
+          allowSnapshotting: false,
+          child: _AuthenticatedHome(),
+        ),
+      if (serverSwitch.isActive)
+        const MaterialPage<void>(
+          key: _AppNavigator._switchKey,
+          allowSnapshotting: false,
+          child: _AuthenticatedHomeWithServerSwitch(),
+        ),
+    ];
+
+    return ServerNavigationScope(
+      child: Navigator(
+        pages: pages,
+        onDidRemovePage: (page) {
+          if (page.key != _AppNavigator._homeKey) {
+            return;
+          }
+          if (_homeRemovalBelongsToServerSwitch) {
+            _homeRemovalBelongsToServerSwitch = false;
+            return;
+          }
+          // 真实页面返回（包括边缘手势完成）后才释放运行态资源；选择器
+          // 已经在下层可见，重新选择服务器时会从持久化配置重新连接。
+          ref.read(serverConfigProvider.notifier).showServerSelection();
+        },
+      ),
+    );
+  }
 }
 
 class _AuthenticatedHomeWithServerSwitch extends StatelessWidget {

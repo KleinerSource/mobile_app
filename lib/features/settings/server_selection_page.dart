@@ -36,6 +36,21 @@ class ServerSelectionPage extends ConsumerStatefulWidget {
   const ServerSelectionPage({super.key, this.returnAfterSelection = false});
 
   /// 在已登录页面中打开服务器选择器；选择成功后返回原页面。
+  static void requestReturn(BuildContext context) {
+    final container = ProviderScope.containerOf(context, listen: false);
+    // 应用服务器页和目录子页都由 Material 路由承载，直接让页面栈
+    // 完成 pop；独立嵌入的页面没有父选择器，只能保留兼容的普通打开入口。
+    if (ServerNavigationScope.of(context)) {
+      container.read(serverConfigProvider.notifier).showServerSelection();
+      return;
+    }
+    unawaited(openForReturn(context));
+  }
+
+  /// 兼容不在应用服务器导航栈中的独立调用方。
+  ///
+  /// 应用内页面应使用 [requestReturn]，由页面栈完成真实返回；这个入口
+  /// 仍保留普通路由打开能力，避免独立设置/测试页面失去选择器入口。
   static Future<void> openForReturn(BuildContext context) async {
     final container = ProviderScope.containerOf(context, listen: false);
     final routeActive = container.read(serverSelectionRouteActiveProvider);
@@ -101,11 +116,40 @@ class ServerSelectionPage extends ConsumerStatefulWidget {
       _ServerSelectionPageState();
 }
 
+/// 标记应用内真实服务器页面栈。
+///
+/// 文件浏览器可能被单独嵌入测试页或设置页；只有应用主导航栈内的页面
+/// 才应该使用 Material 路由提供的真实交互式 pop，独立嵌入时才启用
+/// 兼容返回手势。
+class ServerNavigationScope extends InheritedWidget {
+  const ServerNavigationScope({super.key, required super.child});
+
+  static bool of(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<ServerNavigationScope>() !=
+        null;
+  }
+
+  @override
+  bool updateShouldNotify(ServerNavigationScope oldWidget) => false;
+}
+
 class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   final _profileFutures = <String, Future<ServerProfileData?>>{};
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<ServerSwitchState>(serverSwitchTransitionProvider, (
+      previous,
+      next,
+    ) {
+      if (previous?.isActive == true && !next.isActive) {
+        final serverId = previous?.targetServerId;
+        if (serverId != null) {
+          unawaited(_completeSelectionIfReady(serverId));
+        }
+      }
+    });
     final colors = appColors(context);
     final config = ref.watch(serverSelectionConfigProvider);
     final servers = config?.servers ?? const <ServerProfile>[];
@@ -276,11 +320,20 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
           allowActiveTarget: true,
           returnToSelectionOnCancel: true,
         );
-    if (!mounted || !widget.returnAfterSelection) return;
-    final transition = ref.read(serverSwitchTransitionProvider);
-    final activeServerId = ref.read(serverConfigProvider)?.activeServerId;
-    if (!transition.isActive && activeServerId == server.id) {
-      ref.read(serverConfigProvider.notifier).completeServerSelection();
+    if (!mounted) return;
+    await _completeSelectionIfReady(server.id);
+  }
+
+  Future<void> _completeSelectionIfReady(String serverId) async {
+    if (!mounted ||
+        ref.read(serverSelectionRequestedProvider) == false ||
+        ref.read(serverSwitchTransitionProvider).isActive ||
+        ref.read(serverSelectionReadyProvider) == false ||
+        ref.read(serverConfigProvider)?.activeServerId != serverId) {
+      return;
+    }
+    ref.read(serverConfigProvider.notifier).completeServerSelection();
+    if (widget.returnAfterSelection && mounted) {
       Navigator.of(context).pop();
     }
   }

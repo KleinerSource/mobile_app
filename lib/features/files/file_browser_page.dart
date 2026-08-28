@@ -14,8 +14,8 @@ import '../../core/sources/files/file_operation.dart';
 import '../../core/sources/files/file_source_providers.dart';
 import '../../core/sources/files/file_source_repository.dart';
 import '../../shared/drag_selection.dart';
-import '../../shared/edge_swipe_back.dart';
 import '../../shared/entity_batch_toolbar.dart';
+import '../../shared/edge_swipe_back.dart';
 import '../../shared/glass.dart';
 import '../../shared/sheet_controls.dart';
 import '../../shared/swipe_actions.dart';
@@ -115,22 +115,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     super.dispose();
   }
 
-  Future<void> _handleEdgeSwipeBack() async {
-    if (_selectionMode) {
-      _exitSelection();
-      return;
-    }
-    if (widget.directoryPicker) {
-      await Navigator.of(context).maybePop();
-      return;
-    }
-    if (_isAtRoot) {
-      await ServerSelectionPage.openForReturn(context);
-      return;
-    }
-    await _popToParent();
-  }
-
   @override
   Widget build(BuildContext context) {
     final listing = ref.watch(fileDirectoryProvider(_request));
@@ -142,176 +126,172 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         ? _visibleEntries(listing.requireValue)
         : const <FileEntry>[];
 
-    return PopScope(
+    final page = PopScope(
       canPop: !_selectionMode,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && _selectionMode) _exitSelection();
       },
-      child: EdgeSwipeBack(
-        onTriggered: () => unawaited(_handleEdgeSwipeBack()),
-        child: Scaffold(
-          appBar: AppBar(
-            leading: IconButton(
-              tooltip: _selectionMode
-                  ? '退出选择'
-                  : widget.directoryPicker
-                  ? _isAtRoot
-                        ? '取消选择'
-                        : '返回上一级'
-                  : _isAtRoot
-                  ? '返回服务器选择'
-                  : '返回上一级',
-              onPressed: _selectionMode
-                  ? _exitSelection
-                  : widget.directoryPicker
-                  ? _cancelDirectoryPicker
-                  : _handleBack,
-              icon: Icon(_selectionMode ? Icons.close : Icons.arrow_back),
-            ),
-            title: source.when(
-              data: (value) => Text(
-                widget.directoryPicker
-                    ? '选择目标目录'
-                    : _selectionMode
-                    ? '已选 ${_selectedKeys.length} 项'
-                    : (value?.descriptor.name ?? '文件列表'),
-              ),
-              loading: () => Text(widget.directoryPicker ? '选择目标目录' : '文件列表'),
-              error: (_, __) =>
-                  Text(widget.directoryPicker ? '选择目标目录' : '文件列表'),
-            ),
-            actions: widget.directoryPicker
-                ? [
-                    IconButton(
-                      tooltip: '选择此目录',
-                      onPressed: _busy
-                          ? null
-                          : () =>
-                                Navigator.of(context).pop(currentDirectoryPath),
-                      icon: const Icon(Icons.check),
-                    ),
-                  ]
-                : [
-                    PopupMenuButton<_BrowserMenuAction>(
-                      enabled: !_busy,
-                      tooltip: '更多',
-                      onSelected: (action) =>
-                          _handleMenuAction(action, currentDirectoryPath),
-                      itemBuilder: (_) => [
-                        _menuItem(
-                          _BrowserMenuAction.createDirectory,
-                          Icons.create_new_folder_outlined,
-                          '新建文件夹',
-                        ),
-                        _menuItem(
-                          _BrowserMenuAction.upload,
-                          Icons.upload_file_outlined,
-                          '上传文件',
-                        ),
-                        _menuItem(
-                          _BrowserMenuAction.enterSelection,
-                          Icons.checklist_outlined,
-                          '选择',
-                        ),
-                        CheckedPopupMenuItem<_BrowserMenuAction>(
-                          value: _BrowserMenuAction.toggleHidden,
-                          checked: _showHiddenFiles,
-                          child: const Text('显示隐藏文件'),
-                        ),
-                        CheckedPopupMenuItem<_BrowserMenuAction>(
-                          value: _BrowserMenuAction.sortName,
-                          checked: _sortField == _FileSortField.name,
-                          child: Text(
-                            _sortMenuLabel('名称', _FileSortField.name),
-                          ),
-                        ),
-                        CheckedPopupMenuItem<_BrowserMenuAction>(
-                          value: _BrowserMenuAction.sortDate,
-                          checked: _sortField == _FileSortField.date,
-                          child: Text(
-                            _sortMenuLabel('日期', _FileSortField.date),
-                          ),
-                        ),
-                        CheckedPopupMenuItem<_BrowserMenuAction>(
-                          value: _BrowserMenuAction.sortSize,
-                          checked: _sortField == _FileSortField.size,
-                          child: Text(
-                            _sortMenuLabel('大小', _FileSortField.size),
-                          ),
-                        ),
-                        CheckedPopupMenuItem<_BrowserMenuAction>(
-                          value: _BrowserMenuAction.sortCategory,
-                          checked: _sortField == _FileSortField.category,
-                          child: Text(
-                            _sortMenuLabel('类别', _FileSortField.category),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            tooltip: _selectionMode
+                ? '退出选择'
+                : widget.directoryPicker
+                ? _isAtRoot
+                      ? '取消选择'
+                      : '返回上一级'
+                : _isAtRoot
+                ? '返回服务器选择'
+                : '返回上一级',
+            onPressed: _selectionMode
+                ? _exitSelection
+                : widget.directoryPicker
+                ? _cancelDirectoryPicker
+                : _handleBack,
+            icon: Icon(_selectionMode ? Icons.close : Icons.arrow_back),
           ),
-          body: Column(
-            children: [
-              Expanded(
-                child: listing.when(
-                  data: _buildListing,
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (error, _) => _BrowserError(
-                    message: error is SourceException
-                        ? error.message
-                        : error.toString(),
-                    onRetry: () => unawaited(_refresh()),
+          title: source.when(
+            data: (value) => Text(
+              widget.directoryPicker
+                  ? '选择目标目录'
+                  : _selectionMode
+                  ? '已选 ${_selectedKeys.length} 项'
+                  : (value?.descriptor.name ?? '文件列表'),
+            ),
+            loading: () => Text(widget.directoryPicker ? '选择目标目录' : '文件列表'),
+            error: (_, __) => Text(widget.directoryPicker ? '选择目标目录' : '文件列表'),
+          ),
+          actions: widget.directoryPicker
+              ? [
+                  IconButton(
+                    tooltip: '选择此目录',
+                    onPressed: _busy
+                        ? null
+                        : () => Navigator.of(context).pop(currentDirectoryPath),
+                    icon: const Icon(Icons.check),
                   ),
+                ]
+              : [
+                  PopupMenuButton<_BrowserMenuAction>(
+                    enabled: !_busy,
+                    tooltip: '更多',
+                    onSelected: (action) =>
+                        _handleMenuAction(action, currentDirectoryPath),
+                    itemBuilder: (_) => [
+                      _menuItem(
+                        _BrowserMenuAction.createDirectory,
+                        Icons.create_new_folder_outlined,
+                        '新建文件夹',
+                      ),
+                      _menuItem(
+                        _BrowserMenuAction.upload,
+                        Icons.upload_file_outlined,
+                        '上传文件',
+                      ),
+                      _menuItem(
+                        _BrowserMenuAction.enterSelection,
+                        Icons.checklist_outlined,
+                        '选择',
+                      ),
+                      CheckedPopupMenuItem<_BrowserMenuAction>(
+                        value: _BrowserMenuAction.toggleHidden,
+                        checked: _showHiddenFiles,
+                        child: const Text('显示隐藏文件'),
+                      ),
+                      CheckedPopupMenuItem<_BrowserMenuAction>(
+                        value: _BrowserMenuAction.sortName,
+                        checked: _sortField == _FileSortField.name,
+                        child: Text(_sortMenuLabel('名称', _FileSortField.name)),
+                      ),
+                      CheckedPopupMenuItem<_BrowserMenuAction>(
+                        value: _BrowserMenuAction.sortDate,
+                        checked: _sortField == _FileSortField.date,
+                        child: Text(_sortMenuLabel('日期', _FileSortField.date)),
+                      ),
+                      CheckedPopupMenuItem<_BrowserMenuAction>(
+                        value: _BrowserMenuAction.sortSize,
+                        checked: _sortField == _FileSortField.size,
+                        child: Text(_sortMenuLabel('大小', _FileSortField.size)),
+                      ),
+                      CheckedPopupMenuItem<_BrowserMenuAction>(
+                        value: _BrowserMenuAction.sortCategory,
+                        checked: _sortField == _FileSortField.category,
+                        child: Text(
+                          _sortMenuLabel('类别', _FileSortField.category),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: listing.when(
+                data: _buildListing,
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => _BrowserError(
+                  message: error is SourceException
+                      ? error.message
+                      : error.toString(),
+                  onRetry: () => unawaited(_refresh()),
                 ),
               ),
-              if (_operation != null)
-                _FileOperationBanner(
-                  operation: _operation!,
-                  onCancel: _cancelOperation,
-                ),
-            ],
-          ),
-          bottomNavigationBar: _selectionMode
-              ? EntityBatchToolbar(
-                  selectedCount: _selectedKeys.length,
-                  onSelectAll: () => _selectAllVisible(visibleEntries),
-                  onClear: _clearSelection,
-                  onClose: _exitSelection,
-                  actions: [
-                    EntityBatchAction(
-                      icon: Icons.drive_file_move_outlined,
-                      label: '移动',
-                      onTap: _selectedKeys.isEmpty
-                          ? null
-                          : () => _moveSelected(visibleEntries),
-                    ),
-                    EntityBatchAction(
-                      icon: Icons.drive_file_rename_outline,
-                      label: '重命名',
-                      onTap: _selectedKeys.isEmpty
-                          ? null
-                          : () => _renameSelected(visibleEntries),
-                    ),
-                    EntityBatchAction(
-                      icon: Icons.delete_outline,
-                      label: '删除',
-                      tooltip: '删除所选',
-                      color: Theme.of(context).colorScheme.error,
-                      onTap: _selectedKeys.isEmpty
-                          ? null
-                          : () => _deleteSelected(visibleEntries),
-                    ),
-                  ],
-                )
-              : null,
+            ),
+            if (_operation != null)
+              _FileOperationBanner(
+                operation: _operation!,
+                onCancel: _cancelOperation,
+              ),
+          ],
         ),
+        bottomNavigationBar: _selectionMode
+            ? EntityBatchToolbar(
+                selectedCount: _selectedKeys.length,
+                onSelectAll: () => _selectAllVisible(visibleEntries),
+                onClear: _clearSelection,
+                onClose: _exitSelection,
+                actions: [
+                  EntityBatchAction(
+                    icon: Icons.drive_file_move_outlined,
+                    label: '移动',
+                    onTap: _selectedKeys.isEmpty
+                        ? null
+                        : () => _moveSelected(visibleEntries),
+                  ),
+                  EntityBatchAction(
+                    icon: Icons.drive_file_rename_outline,
+                    label: '重命名',
+                    onTap: _selectedKeys.isEmpty
+                        ? null
+                        : () => _renameSelected(visibleEntries),
+                  ),
+                  EntityBatchAction(
+                    icon: Icons.delete_outline,
+                    label: '删除',
+                    tooltip: '删除所选',
+                    color: Theme.of(context).colorScheme.error,
+                    onTap: _selectedKeys.isEmpty
+                        ? null
+                        : () => _deleteSelected(visibleEntries),
+                  ),
+                ],
+              )
+            : null,
       ),
+    );
+    // 正常应用入口由上层服务器 MaterialPage 提供 OMM 相同的自适应 pop。
+    // 直接作为独立 home 使用时没有父页面，只保留兼容手势以避免该嵌入
+    // 场景完全失去返回能力；它不会参与应用内服务器/目录页面的手势。
+    if (ServerNavigationScope.of(context)) return page;
+    return EdgeSwipeBack(
+      onTriggered: () => unawaited(_handleLegacyEdgeSwipeBack()),
+      child: page,
     );
   }
 
   Future<void> _returnToServerSelector() async {
-    await ServerSelectionPage.openForReturn(context);
+    ServerSelectionPage.requestReturn(context);
   }
 
   void _handleBack() {
@@ -351,6 +331,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final selectedPath = await Navigator.of(context).push<FilePath>(
       MaterialPageRoute<FilePath>(
         settings: RouteSettings(name: _routeName(path)),
+        allowSnapshotting: false,
         builder: (_) => FileBrowserPage(
           serverId: widget.serverId,
           sourceId: widget.sourceId,
@@ -701,6 +682,22 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     );
   }
 
+  Future<void> _handleLegacyEdgeSwipeBack() async {
+    if (_selectionMode) {
+      _exitSelection();
+      return;
+    }
+    if (widget.directoryPicker) {
+      await Navigator.of(context).maybePop();
+      return;
+    }
+    if (_isAtRoot) {
+      ServerSelectionPage.requestReturn(context);
+      return;
+    }
+    await _popToParent();
+  }
+
   Future<void> _handleEntryAction(FileEntry entry, String action) async {
     switch (action) {
       case 'detail':
@@ -875,6 +872,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     return Navigator.of(context).push<FilePath>(
       MaterialPageRoute<FilePath>(
         settings: RouteSettings(name: _routeName('')),
+        allowSnapshotting: false,
         builder: (_) => FileBrowserPage(
           serverId: widget.serverId,
           sourceId: widget.sourceId,

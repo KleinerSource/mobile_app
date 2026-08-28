@@ -46,7 +46,7 @@ class FileSourcesPage extends ConsumerWidget {
   }
 
   Future<void> _openServerSelector(BuildContext context) async {
-    await ServerSelectionPage.openForReturn(context);
+    ServerSelectionPage.requestReturn(context);
   }
 }
 

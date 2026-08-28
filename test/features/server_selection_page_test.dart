@@ -4,8 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/server_compatibility.dart';
+import 'package:omm/core/auth/auth_provider.dart';
+import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_line_probe.dart';
+import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
+import 'package:omm/features/home/server_switch_transition.dart';
 import 'package:omm/features/settings/server_selection_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -412,6 +416,181 @@ void main() {
     expect(prefs.getString('server.active_server_id'), 'webdav-two');
     expect(stored, hasLength(2));
   });
+
+  testWidgets('主选择器重新选择服务器后清除返回请求状态', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'smb-one',
+          'name': 'SMB 一号',
+          'lines': [
+            {
+              'id': 'smb-line',
+              'name': '主线路',
+              'base_url': 'smb://nas-one/share',
+            },
+          ],
+          'active_line_id': 'smb-line',
+          'project_name': 'smb',
+        },
+        {
+          'id': 'webdav-two',
+          'name': 'WebDAV 二号',
+          'lines': [
+            {
+              'id': 'webdav-line',
+              'name': '主线路',
+              'base_url': 'https://nas-two/dav',
+            },
+          ],
+          'active_line_id': 'webdav-line',
+          'project_name': 'webdav',
+        },
+      ]),
+      'server.active_server_id': 'smb-one',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: const MaterialApp(home: ServerSelectionPage()),
+      ),
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ServerSelectionPage)),
+      listen: false,
+    );
+    container.read(serverConfigProvider.notifier).showServerSelection();
+    await tester.pump();
+
+    await tester.tap(find.text('WebDAV 二号'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(serverSelectionRequestedProvider), isFalse);
+    expect(container.read(serverConfigProvider)?.activeServerId, 'webdav-two');
+  });
+
+  testWidgets('需要密码的服务器登录完成后离开主选择状态', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'db-one',
+          'name': 'DB Online 一号',
+          'lines': [
+            {
+              'id': 'db-line-one',
+              'name': '主线路',
+              'base_url': 'https://db-one.example',
+            },
+          ],
+          'active_line_id': 'db-line-one',
+          'project_name': 'db_online',
+        },
+        {
+          'id': 'db-two',
+          'name': 'DB Online 二号',
+          'lines': [
+            {
+              'id': 'db-line-two',
+              'name': '主线路',
+              'base_url': 'https://db-two.example',
+            },
+          ],
+          'active_line_id': 'db-line-two',
+          'project_name': 'db_online',
+        },
+      ]),
+      'server.active_server_id': 'db-one',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final loginCalls = <String>[];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          serverLineProbeCoordinatorProvider.overrideWithValue(
+            ServerLineProbeCoordinator(
+              probe: (line) async => ServerLineProbeResult.success(
+                line,
+                8,
+                versionInfo: const ServerVersionInfo(
+                  projectName: 'db_online',
+                  version: '1.14.0',
+                ),
+              ),
+            ),
+          ),
+          authControllerProvider.overrideWith(
+            () => _LoginAuthController(loginCalls),
+          ),
+          dbOnlineRecommendProvider.overrideWith((ref) async => const []),
+          dbOnlineLatestUpdatedProvider.overrideWith((ref) async => const []),
+          dbOnlineLatestReleasedProvider.overrideWith((ref) async => const []),
+        ],
+        child: const MaterialApp(home: ServerSelectionPage()),
+      ),
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ServerSelectionPage)),
+      listen: false,
+    );
+    container.read(serverConfigProvider.notifier).showServerSelection();
+    await tester.pump();
+
+    await tester.tap(find.text('DB Online 二号'));
+    await tester.pump();
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.needsLogin,
+    );
+
+    await container
+        .read(serverSwitchTransitionProvider.notifier)
+        .login(password: 'password');
+    await tester.pump();
+
+    expect(loginCalls, ['password']);
+    expect(container.read(serverSelectionRequestedProvider), isFalse);
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.idle,
+    );
+
+    container.read(serverConfigProvider.notifier).showServerSelection();
+    await tester.pump();
+    await tester.tap(find.text('DB Online 一号'));
+    await tester.pump();
+    await container
+        .read(serverSwitchTransitionProvider.notifier)
+        .login(password: 'password-again');
+    await tester.pump();
+
+    expect(loginCalls, ['password', 'password-again']);
+    expect(container.read(serverSelectionRequestedProvider), isFalse);
+    expect(container.read(serverConfigProvider)?.activeServerId, 'db-one');
+  });
+}
+
+class _LoginAuthController extends AuthController {
+  _LoginAuthController(this.loginCalls);
+
+  final List<String> loginCalls;
+
+  @override
+  Future<AuthState> build() async =>
+      const AuthState(phase: AuthPhase.needsLogin);
+
+  @override
+  Future<AuthState> refreshCurrentServer() async =>
+      const AuthState(phase: AuthPhase.needsLogin);
+
+  @override
+  Future<bool> login({required String password, String? totpCode}) async {
+    loginCalls.add(password);
+    return true;
+  }
 }
 
 class _SelectorLauncher extends StatelessWidget {

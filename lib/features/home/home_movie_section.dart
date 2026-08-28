@@ -6,7 +6,6 @@ import '../../core/api/dio_factory.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/actor_detail_header.dart';
-import '../../shared/edge_swipe_back.dart';
 import 'hero_backdrop.dart';
 import 'server_switcher.dart';
 
@@ -81,7 +80,6 @@ class HomePageScaffold extends StatelessWidget {
     required this.hero,
     required this.heroFallback,
     required this.onRefresh,
-    required this.onEdgeSwipeBack,
     required this.slivers,
     this.heroMaxHeight,
   });
@@ -92,7 +90,6 @@ class HomePageScaffold extends StatelessWidget {
   final Widget hero;
   final Widget heroFallback;
   final Future<void> Function() onRefresh;
-  final VoidCallback onEdgeSwipeBack;
   final List<Widget> slivers;
   final double? heroMaxHeight;
 
@@ -100,39 +97,36 @@ class HomePageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final maxHeight = heroMaxHeight ?? MediaQuery.sizeOf(context).height * 0.5;
     final minHeight = maxHeight * 0.62;
-    return EdgeSwipeBack(
-      onTriggered: onEdgeSwipeBack,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          HeroBackdrop(arts: heroArts, position: heroPosition),
-          SafeArea(
-            top: false,
-            bottom: false,
-            child: RefreshIndicator(
-              onRefresh: onRefresh,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  if (heroReady)
-                    SliverPersistentHeader(
-                      pinned: false,
-                      delegate: CollapsibleHeroDelegate(
-                        minHeight: minHeight,
-                        maxHeight: maxHeight,
-                        child: hero,
-                      ),
-                    )
-                  else
-                    SliverToBoxAdapter(child: heroFallback),
-                  ...slivers,
-                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
-                ],
-              ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        HeroBackdrop(arts: heroArts, position: heroPosition),
+        SafeArea(
+          top: false,
+          bottom: false,
+          child: RefreshIndicator(
+            onRefresh: onRefresh,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                if (heroReady)
+                  SliverPersistentHeader(
+                    pinned: false,
+                    delegate: CollapsibleHeroDelegate(
+                      minHeight: minHeight,
+                      maxHeight: maxHeight,
+                      child: hero,
+                    ),
+                  )
+                else
+                  SliverToBoxAdapter(child: heroFallback),
+                ...slivers,
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

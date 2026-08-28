@@ -392,7 +392,9 @@ class _ServerSwitchTransitionOverlayState
     if (!transition.isActive) return const SizedBox.shrink();
 
     final colors = appColors(context);
-    final config = ref.watch(serverConfigProvider);
+    // 从选择器重新进入服务器时，旧服务器运行态可能已经释放；目标信息
+    // 仍应从本地持久化配置读取，不能在这段过渡期把页面渲染成“配置无效”。
+    final config = ref.watch(serverSelectionConfigProvider);
     final target = _targetServer(config, transition.targetServerId);
     if (target == null) {
       return _buildMaterial(
