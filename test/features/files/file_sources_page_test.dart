@@ -7,11 +7,12 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/common/source_descriptor.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/files/file_entry.dart';
+import 'package:omm/core/sources/files/file_capabilities.dart';
+import 'package:omm/core/sources/files/file_source.dart';
 import 'package:omm/core/sources/files/file_source_providers.dart';
 import 'package:omm/features/files/file_browser_page.dart';
 import 'package:omm/features/files/file_sources_page.dart';
 import 'package:omm/features/settings/server_selection_page.dart';
-import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -101,10 +102,14 @@ void main() {
     await tester.longPress(find.text('影片.mkv'));
     await tester.pumpAndSettle();
     expect(find.text('已选 1 项'), findsOneWidget);
-    expect(find.byType(EntityBatchToolbar), findsOneWidget);
+    expect(find.byType(BottomNavigationBar), findsNothing);
+    expect(find.byTooltip('批量操作'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('批量操作'));
+    await tester.pumpAndSettle();
     expect(find.text('移动'), findsOneWidget);
     expect(find.text('重命名'), findsOneWidget);
-    expect(find.byTooltip('删除所选'), findsOneWidget);
+    expect(find.text('删除'), findsOneWidget);
   });
 
   testWidgets('文件普通移动使用目录选择页而不是路径输入', (tester) async {
@@ -173,6 +178,8 @@ void main() {
 
     await tester.longPress(find.text('影片.mkv'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('批量操作'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('重命名').last);
     await tester.pumpAndSettle();
 
@@ -192,7 +199,7 @@ void main() {
     expect(find.text('批量重命名'), findsNothing);
   });
 
-  testWidgets('文件详情使用玻璃面板并显示视频预览入口', (tester) async {
+  testWidgets('无法识别的文件点击后使用玻璃面板显示详情', (tester) async {
     final prefs = await _prefs();
     const serverId = 'smb-one';
     final sourceId = SourceId.of('source-one');
@@ -208,7 +215,7 @@ void main() {
           fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
           fileDirectoryProvider(
             request,
-          ).overrideWith((ref) async => _listing(sourceId)),
+          ).overrideWith((ref) async => _listingWithUnknown(sourceId)),
         ],
         child: MaterialApp(
           home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
@@ -217,15 +224,164 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('影片.mkv'));
+    await tester.tap(find.text('未知文件.bin'));
     await tester.pumpAndSettle();
     expect(find.text('文件详情'), findsOneWidget);
-    expect(find.text('播放视频'), findsOneWidget);
     expect(find.byType(BottomSheet), findsOneWidget);
 
     await tester.tap(find.text('关闭').last);
     await tester.pumpAndSettle();
     expect(find.text('文件详情'), findsNothing);
+  });
+
+  testWidgets('可识别文本直接打开文本查看器并格式化 JSON', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final request = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+    const jsonText = '{"name":"测试","items":[1,2]}';
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(sourceId.value).overrideWith(
+            (ref) async => _PreviewFileSource(sourceId, jsonText.codeUnits),
+          ),
+          fileDirectoryProvider(request).overrideWith(
+            (ref) async => _listingWithEntry(
+              sourceId,
+              name: '数据.json',
+              mimeType: 'application/json',
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('数据.json'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('数据.json'), findsOneWidget);
+    expect(find.byType(SelectableText), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
+  });
+
+  testWidgets('可识别图片直接打开图片查看器', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final request = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+    final png = <int>[
+      0x89,
+      0x50,
+      0x4e,
+      0x47,
+      0x0d,
+      0x0a,
+      0x1a,
+      0x0a,
+      0x00,
+      0x00,
+      0x00,
+      0x0d,
+      0x49,
+      0x48,
+      0x44,
+      0x52,
+      0x00,
+      0x00,
+      0x00,
+      0x01,
+      0x00,
+      0x00,
+      0x00,
+      0x01,
+      0x08,
+      0x06,
+      0x00,
+      0x00,
+      0x00,
+      0x1f,
+      0x15,
+      0xc4,
+      0x89,
+      0x00,
+      0x00,
+      0x00,
+      0x0d,
+      0x49,
+      0x44,
+      0x41,
+      0x54,
+      0x78,
+      0x9c,
+      0x63,
+      0xf8,
+      0xcf,
+      0xf0,
+      0x1f,
+      0x00,
+      0x05,
+      0x00,
+      0x01,
+      0xff,
+      0x89,
+      0x99,
+      0x3d,
+      0x1d,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x49,
+      0x45,
+      0x4e,
+      0x44,
+      0xae,
+      0x42,
+      0x60,
+      0x82,
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(
+            sourceId.value,
+          ).overrideWith((ref) async => _PreviewFileSource(sourceId, png)),
+          fileDirectoryProvider(request).overrideWith(
+            (ref) async => _listingWithEntry(
+              sourceId,
+              name: '封面.png',
+              mimeType: 'image/png',
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('封面.png'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('封面.png'), findsOneWidget);
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
   });
 
   testWidgets('文件浏览页可以返回服务器选择器', (tester) async {
@@ -459,6 +615,26 @@ DirectoryListing _listingWithHidden(SourceId sourceId) {
   );
 }
 
+DirectoryListing _listingWithUnknown(SourceId sourceId) =>
+    _listingWithEntry(sourceId, name: '未知文件.bin');
+
+DirectoryListing _listingWithEntry(
+  SourceId sourceId, {
+  required String name,
+  String? mimeType,
+}) => DirectoryListing(
+  currentPath: FilePath(sourceId: sourceId, value: ''),
+  breadcrumbs: [FilePath(sourceId: sourceId, value: '')],
+  entries: [
+    FileEntry(
+      path: FilePath(sourceId: sourceId, value: name),
+      name: name,
+      type: FileEntryType.file,
+      mimeType: mimeType,
+    ),
+  ],
+);
+
 DirectoryListing _listingWithDirectory(SourceId sourceId) => DirectoryListing(
   currentPath: FilePath(sourceId: sourceId, value: ''),
   breadcrumbs: [FilePath(sourceId: sourceId, value: '')],
@@ -494,3 +670,24 @@ DirectoryListing _listingAt(SourceId sourceId, String path, String name) =>
         ),
       ],
     );
+
+class _PreviewFileSource implements FileSource, FileAccessCapability {
+  _PreviewFileSource(this.sourceId, this.bytes);
+
+  final SourceId sourceId;
+  final List<int> bytes;
+
+  @override
+  SourceDescriptor get descriptor =>
+      SourceDescriptor(id: sourceId, kind: SourceKind.smb, name: '测试文件来源');
+
+  @override
+  Set<FileCapability> get capabilities => const {FileCapability.access};
+
+  @override
+  bool supports(FileCapability capability) => capabilities.contains(capability);
+
+  @override
+  Future<FileAccess> resolveAccess(FilePath path) async =>
+      FileAccess(openStream: () => Stream<List<int>>.value(bytes));
+}

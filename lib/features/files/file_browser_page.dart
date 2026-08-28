@@ -125,6 +125,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final visibleEntries = listing.hasValue
         ? _visibleEntries(listing.requireValue)
         : const <FileEntry>[];
+    final batchActions = _batchActions(visibleEntries);
 
     final page = PopScope(
       canPop: !_selectionMode,
@@ -169,6 +170,28 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                         ? null
                         : () => Navigator.of(context).pop(currentDirectoryPath),
                     icon: const Icon(Icons.check),
+                  ),
+                ]
+              : _selectionMode
+              ? [
+                  PopupMenuButton<int>(
+                    tooltip: '批量操作',
+                    onSelected: (index) => batchActions[index].onTap?.call(),
+                    itemBuilder: (_) => [
+                      for (var i = 0; i < batchActions.length; i++)
+                        PopupMenuItem<int>(
+                          value: i,
+                          enabled: batchActions[i].onTap != null,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(batchActions[i].icon, size: 20),
+                              const SizedBox(width: 12),
+                              Text(batchActions[i].label),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ]
               : [
@@ -245,39 +268,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
               ),
           ],
         ),
-        bottomNavigationBar: _selectionMode
-            ? EntityBatchToolbar(
-                selectedCount: _selectedKeys.length,
-                onSelectAll: () => _selectAllVisible(visibleEntries),
-                onClear: _clearSelection,
-                onClose: _exitSelection,
-                actions: [
-                  EntityBatchAction(
-                    icon: Icons.drive_file_move_outlined,
-                    label: '移动',
-                    onTap: _selectedKeys.isEmpty
-                        ? null
-                        : () => _moveSelected(visibleEntries),
-                  ),
-                  EntityBatchAction(
-                    icon: Icons.drive_file_rename_outline,
-                    label: '重命名',
-                    onTap: _selectedKeys.isEmpty
-                        ? null
-                        : () => _renameSelected(visibleEntries),
-                  ),
-                  EntityBatchAction(
-                    icon: Icons.delete_outline,
-                    label: '删除',
-                    tooltip: '删除所选',
-                    color: Theme.of(context).colorScheme.error,
-                    onTap: _selectedKeys.isEmpty
-                        ? null
-                        : () => _deleteSelected(visibleEntries),
-                  ),
-                ],
-              )
-            : null,
       ),
     );
     // 正常应用入口由上层服务器 MaterialPage 提供 OMM 相同的自适应 pop。
@@ -533,29 +523,29 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Row(
-              children: [
-                for (var i = 0; i < listing.breadcrumbs.length; i++) ...[
-                  if (i > 0) const Icon(Icons.chevron_right, size: 18),
-                  TextButton(
-                    onPressed: _busy
-                        ? null
-                        : () => unawaited(
-                            _popToPath(listing.breadcrumbs[i].value),
-                          ),
-                    child: Text(
-                      i == 0 ? '根目录' : _pathName(listing.breadcrumbs[i].value),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < listing.breadcrumbs.length; i++) ...[
+                    if (i > 0) const Icon(Icons.chevron_right, size: 18),
+                    TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => unawaited(
+                              _popToPath(listing.breadcrumbs[i].value),
+                            ),
+                      child: Text(
+                        i == 0
+                            ? '根目录'
+                            : _pathName(listing.breadcrumbs[i].value),
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        if (listing.parentPath != null)
-          ListTile(
-            leading: const Icon(Icons.arrow_upward),
-            title: const Text('上一级'),
-            onTap: _busy ? null : () => unawaited(_popToParent()),
           ),
         Expanded(
           child: RefreshIndicator(
@@ -658,7 +648,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                   enabled: !_busy,
                   onSelected: (action) => _handleEntryAction(entry, action),
                   itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'detail', child: Text('详情')),
+                    if (entry.isDirectory || !_canPreview(entry))
+                      const PopupMenuItem(value: 'detail', child: Text('详情')),
                     if (!entry.isDirectory)
                       const PopupMenuItem(value: 'download', child: Text('下载')),
                     const PopupMenuItem(value: 'rename', child: Text('重命名')),
@@ -676,10 +667,43 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
               ? () => _toggleSelect(entry)
               : entry.isDirectory
               ? () => unawaited(_openDirectory(entry.path.value))
-              : () => _showDetails(entry),
+              : () => unawaited(_openFile(entry)),
         ),
       ),
     );
+  }
+
+  List<EntityBatchAction> _batchActions(List<FileEntry> entries) {
+    final error = Theme.of(context).colorScheme.error;
+    return [
+      EntityBatchAction(
+        icon: Icons.select_all,
+        label: '全选',
+        onTap: entries.isEmpty ? null : () => _selectAllVisible(entries),
+      ),
+      EntityBatchAction(
+        icon: Icons.remove_done,
+        label: '清空',
+        onTap: _selectedKeys.isEmpty ? null : _clearSelection,
+      ),
+      EntityBatchAction(
+        icon: Icons.drive_file_move_outlined,
+        label: '移动',
+        onTap: _selectedKeys.isEmpty ? null : () => _moveSelected(entries),
+      ),
+      EntityBatchAction(
+        icon: Icons.drive_file_rename_outline,
+        label: '重命名',
+        onTap: _selectedKeys.isEmpty ? null : () => _renameSelected(entries),
+      ),
+      EntityBatchAction(
+        icon: Icons.delete_outline,
+        label: '删除',
+        tooltip: '删除所选',
+        color: error,
+        onTap: _selectedKeys.isEmpty ? null : () => _deleteSelected(entries),
+      ),
+    ];
   }
 
   Future<void> _handleLegacyEdgeSwipeBack() async {
@@ -1151,6 +1175,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     }
   }
 
+  Future<void> _openFile(FileEntry entry) async {
+    if (_canPreview(entry)) {
+      await _preview(entry);
+      return;
+    }
+    await _showDetails(entry);
+  }
+
   Future<void> _preview(FileEntry entry) async {
     if (_isVideoEntry(entry)) {
       await _previewVideo(entry);
@@ -1221,35 +1253,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     try {
       final bytes = await _readFileBytes(entry);
       if (!mounted) return;
-      await showGlassSheet<void>(
-        context: context,
-        builder: (context) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SheetHeader(
-                icon: Icons.image_outlined,
-                title: entry.name,
-                subtitle: '图片预览',
-              ),
-              SizedBox(
-                height: MediaQuery.sizeOf(context).height * 0.62,
-                child: InteractiveViewer(
-                  child: Center(
-                    child: Image.memory(bytes, fit: BoxFit.contain),
-                  ),
-                ),
-              ),
-              SheetActionBar(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: sheetSecondaryButtonStyle(context),
-                  child: const Text('关闭'),
-                ),
-              ),
-            ],
-          ),
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          allowSnapshotting: false,
+          builder: (_) => _FileImageViewerPage(title: entry.name, bytes: bytes),
         ),
       );
     } catch (error) {
@@ -1262,33 +1269,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       final bytes = await _readFileBytes(entry);
       if (!mounted) return;
       final text = _decodeTextPreview(entry, bytes);
-      await showGlassSheet<void>(
-        context: context,
-        builder: (context) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SheetHeader(
-                icon: Icons.description_outlined,
-                title: entry.name,
-                subtitle: '文本预览',
-              ),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
-                  child: SelectableText(text),
-                ),
-              ),
-              SheetActionBar(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: sheetSecondaryButtonStyle(context),
-                  child: const Text('关闭'),
-                ),
-              ),
-            ],
-          ),
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          allowSnapshotting: false,
+          builder: (_) => _FileTextViewerPage(title: entry.name, text: text),
         ),
       );
     } catch (error) {
@@ -1833,6 +1817,63 @@ class _BrowserError extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _FileImageViewerPage extends StatelessWidget {
+  const _FileImageViewerPage({required this.title, required this.bytes});
+
+  final String title;
+  final Uint8List bytes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 6,
+          child: Image.memory(bytes, fit: BoxFit.contain),
+        ),
+      ),
+    );
+  }
+}
+
+class _FileTextViewerPage extends StatelessWidget {
+  const _FileTextViewerPage({required this.title, required this.text});
+
+  final String title;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
+      body: SafeArea(
+        child: Scrollbar(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 32),
+            child: SelectableText(
+              text,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 13,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 String _pathName(String path) {
