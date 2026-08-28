@@ -130,18 +130,18 @@ void main() {
       name: '第二台服务器',
       baseUrl: 'https://second.example',
     );
-    final firstServer = ServerProfile(
+    const firstServer = ServerProfile(
       id: 'first-server',
       name: '第一台服务器',
-      lines: const [firstLine],
-      activeLineId: firstLine.id,
+      lines: [firstLine],
+      activeLineId: 'first-line',
       projectName: 'db_online',
     );
-    final secondServer = ServerProfile(
+    const secondServer = ServerProfile(
       id: 'second-server',
       name: '第二台服务器',
-      lines: const [secondLine],
-      activeLineId: secondLine.id,
+      lines: [secondLine],
+      activeLineId: 'second-line',
       projectName: 'db_online',
     );
     await container
@@ -150,7 +150,7 @@ void main() {
           ServerConfig(
             baseUrl: firstLine.baseUrl,
             lines: const [firstLine],
-            servers: [firstServer, secondServer],
+            servers: const [firstServer, secondServer],
             activeServerId: firstServer.id,
           ),
         );
@@ -174,6 +174,70 @@ void main() {
     );
     expect(container.read(serverSelectionReadyProvider), isFalse);
     expect(refreshCalls, [1]);
+  });
+
+  test('释放运行态后仍可从持久化配置重新选择文件服务器', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    const firstLine = ServerLine(
+      id: 'first-line',
+      name: '第一台线路',
+      baseUrl: 'smb://first.example/share',
+    );
+    const secondLine = ServerLine(
+      id: 'second-line',
+      name: '第二台线路',
+      baseUrl: 'https://second.example/dav',
+    );
+    final firstServer = ServerProfile(
+      id: 'first-server',
+      name: '第一台服务器',
+      lines: const [firstLine],
+      activeLineId: firstLine.id,
+      projectName: 'smb',
+    );
+    final secondServer = ServerProfile(
+      id: 'second-server',
+      name: '第二台服务器',
+      lines: const [secondLine],
+      activeLineId: secondLine.id,
+      projectName: 'webdav',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          ServerConfig(
+            baseUrl: firstLine.baseUrl,
+            lines: const [firstLine],
+            servers: [firstServer, secondServer],
+            activeServerId: firstServer.id,
+          ),
+        );
+
+    container.read(serverConfigProvider.notifier).showServerSelection();
+    expect(container.read(serverConfigProvider), isNull);
+
+    await container
+        .read(serverSwitchTransitionProvider.notifier)
+        .switchTo(
+          secondServer.id,
+          allowActiveTarget: true,
+          returnToSelectionOnCancel: true,
+        );
+
+    expect(
+      container.read(serverConfigProvider)?.activeServerId,
+      secondServer.id,
+    );
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.idle,
+    );
   });
 
   test('登录后取消切换仍恢复原服务器', () async {

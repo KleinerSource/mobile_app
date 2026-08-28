@@ -33,6 +33,9 @@ final serverSelectionReadyProvider = StateProvider<bool>((ref) => false);
 /// 已登录页面主动返回服务器选择器时，要求根页面卸载当前服务器内容。
 final serverSelectionRequestedProvider = StateProvider<bool>((ref) => false);
 
+/// 防止同一次边缘返回同时打开多个选择器路由。
+final serverSelectionRouteActiveProvider = StateProvider<bool>((ref) => false);
+
 class ServerConfigNotifier extends Notifier<ServerConfig?> {
   Future<void> _configWriteQueue = Future<void>.value();
 

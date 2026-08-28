@@ -285,7 +285,11 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     String? previousServerIdOverride,
     bool returnToSelectionOnCancel = false,
   }) async {
-    final current = ref.read(serverConfigProvider);
+    // 从已登录页面返回选择器时，旧运行态会先被卸载以释放服务器资源；
+    // 选择器仍通过持久化配置展示服务器，因此切换也必须使用同一份回退配置。
+    final current =
+        ref.read(serverConfigProvider) ??
+        ref.read(serverConfigRepoProvider).load();
     if (current == null) return;
     if (current.activeServerId == serverId && !allowActiveTarget) return;
     if (state.isActive && !allowActiveTarget) return;

@@ -87,16 +87,16 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     super.dispose();
   }
 
-  void _handleEdgeSwipeBack() {
+  Future<void> _handleEdgeSwipeBack() async {
     if (_selectionMode) {
       _exitSelection();
       return;
     }
     if (_isAtRoot) {
-      unawaited(ServerSelectionPage.openForReturn(context));
+      await ServerSelectionPage.openForReturn(context);
       return;
     }
-    setState(() => _path = '');
+    await _popToParent();
   }
 
   @override
@@ -116,14 +116,16 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         if (!didPop && _selectionMode) _exitSelection();
       },
       child: EdgeSwipeBack(
-        onTriggered: _handleEdgeSwipeBack,
+        onTriggered: () => unawaited(_handleEdgeSwipeBack()),
         child: Scaffold(
           appBar: AppBar(
             leading: IconButton(
-              tooltip: _selectionMode ? '退出选择' : '返回服务器选择',
-              onPressed: _selectionMode
-                  ? _exitSelection
-                  : _returnToServerSelector,
+              tooltip: _selectionMode
+                  ? '退出选择'
+                  : _isAtRoot
+                  ? '返回服务器选择'
+                  : '返回上一级',
+              onPressed: _selectionMode ? _exitSelection : _handleBack,
               icon: Icon(_selectionMode ? Icons.close : Icons.arrow_back),
             ),
             title: source.when(
@@ -231,6 +233,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     await ServerSelectionPage.openForReturn(context);
   }
 
+  void _handleBack() {
+    if (_isAtRoot) {
+      unawaited(_returnToServerSelector());
+    } else {
+      unawaited(_popToParent());
+    }
+  }
+
   PopupMenuItem<_BrowserMenuAction> _menuItem(
     _BrowserMenuAction action,
     IconData icon,
@@ -247,13 +257,45 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     if (_openSwipe.value != null) _openSwipe.value = null;
   }
 
-  void _setPath(String path) {
+  Future<void> _openDirectory(String path) async {
     _openSwipe.value = null;
-    setState(() {
-      _path = path;
-      _selectionMode = false;
-      _selectedKeys.clear();
-    });
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        settings: RouteSettings(name: _routeName(path)),
+        builder: (_) => FileBrowserPage(
+          serverId: widget.serverId,
+          sourceId: widget.sourceId,
+          initialPath: path,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _popToParent() async {
+    _openSwipe.value = null;
+    if (await Navigator.of(context).maybePop()) return;
+    // 兼容直接作为根路由打开的深层页面；正常入口始终走上面的页面栈。
+    final parent = _parent(_path);
+    if (parent == _path) return;
+    if (mounted) {
+      setState(() {
+        _path = parent;
+        _selectionMode = false;
+        _selectedKeys.clear();
+      });
+    }
+  }
+
+  Future<void> _popToPath(String path) async {
+    _openSwipe.value = null;
+    if (path == _path) return;
+    final navigator = Navigator.of(context);
+    if (path.isEmpty) {
+      navigator.popUntil((route) => route.isFirst);
+      return;
+    }
+    final target = _routeName(path);
+    navigator.popUntil((route) => route.settings.name == target);
   }
 
   void _startSelectionSweep(String key, bool selected) {
@@ -421,7 +463,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                   TextButton(
                     onPressed: _busy
                         ? null
-                        : () => _setPath(listing.breadcrumbs[i].value),
+                        : () => unawaited(
+                            _popToPath(listing.breadcrumbs[i].value),
+                          ),
                     child: Text(
                       i == 0 ? '根目录' : _pathName(listing.breadcrumbs[i].value),
                     ),
@@ -434,7 +478,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
           ListTile(
             leading: const Icon(Icons.arrow_upward),
             title: const Text('上一级'),
-            onTap: _busy ? null : () => _setPath(listing.parentPath!.value),
+            onTap: _busy ? null : () => unawaited(_popToParent()),
           ),
         Expanded(
           child: RefreshIndicator(
@@ -548,7 +592,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
               : _selectionMode
               ? () => _toggleSelect(entry)
               : entry.isDirectory
-              ? () => _setPath(entry.path.value)
+              ? () => unawaited(_openDirectory(entry.path.value))
               : () => _showDetails(entry),
         ),
       ),
@@ -948,6 +992,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
+
+  String _routeName(String path) =>
+      'file-browser:${widget.serverId}:${widget.sourceId.value}:$path';
 }
 
 class _FileSelectionToolbar extends StatelessWidget {

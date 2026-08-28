@@ -358,6 +358,60 @@ void main() {
 
     expect(find.byType(ServerSelectionPage), findsOneWidget);
   });
+
+  testWidgets('返回选择器释放运行态后仍可重新选择服务器', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'smb-one',
+          'name': 'SMB 一号',
+          'lines': [
+            {
+              'id': 'smb-line',
+              'name': '主线路',
+              'base_url': 'smb://nas-one/share',
+            },
+          ],
+          'active_line_id': 'smb-line',
+          'project_name': 'smb',
+        },
+        {
+          'id': 'webdav-two',
+          'name': 'WebDAV 二号',
+          'lines': [
+            {
+              'id': 'webdav-line',
+              'name': '主线路',
+              'base_url': 'https://nas-two/dav',
+            },
+          ],
+          'active_line_id': 'webdav-line',
+          'project_name': 'webdav',
+        },
+      ]),
+      'server.active_server_id': 'smb-one',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: const MaterialApp(home: _SelectorLauncher()),
+      ),
+    );
+
+    await tester.tap(find.text('打开服务器选择器'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ServerSelectionPage), findsOneWidget);
+
+    await tester.tap(find.text('WebDAV 二号'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ServerSelectionPage), findsNothing);
+    final stored = jsonDecode(prefs.getString('server.servers')!) as List;
+    expect(prefs.getString('server.active_server_id'), 'webdav-two');
+    expect(stored, hasLength(2));
+  });
 }
 
 class _SelectorLauncher extends StatelessWidget {

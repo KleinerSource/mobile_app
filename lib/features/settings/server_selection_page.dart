@@ -38,12 +38,59 @@ class ServerSelectionPage extends ConsumerStatefulWidget {
   /// 在已登录页面中打开服务器选择器；选择成功后返回原页面。
   static Future<void> openForReturn(BuildContext context) async {
     final container = ProviderScope.containerOf(context, listen: false);
-    container.read(serverConfigProvider.notifier).showServerSelection();
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => const ServerSelectionPage(returnAfterSelection: true),
-      ),
+    final routeActive = container.read(serverSelectionRouteActiveProvider);
+    if (routeActive) return;
+    container.read(serverSelectionRouteActiveProvider.notifier).state = true;
+    final navigator = Navigator.of(context);
+    final route = PageRouteBuilder<void>(
+      opaque: false,
+      transitionDuration: const Duration(milliseconds: 280),
+      reverseTransitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (_, __, ___) =>
+          const ServerSelectionPage(returnAfterSelection: true),
+      transitionsBuilder: (_, animation, __, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(-1, 0),
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        );
+      },
     );
+    var released = false;
+    void releaseResources() {
+      if (released) return;
+      released = true;
+      container.read(serverConfigProvider.notifier).showServerSelection();
+    }
+
+    void releaseWhenSettled(AnimationStatus status) {
+      if (status == AnimationStatus.completed) {
+        route.animation?.removeStatusListener(releaseWhenSettled);
+        releaseResources();
+      }
+    }
+
+    try {
+      final result = navigator.push<void>(route);
+      final animation = route.animation;
+      if (animation == null || animation.status == AnimationStatus.completed) {
+        releaseResources();
+      } else {
+        animation.addStatusListener(releaseWhenSettled);
+      }
+      await result;
+    } finally {
+      route.animation?.removeStatusListener(releaseWhenSettled);
+      releaseResources();
+      container.read(serverSelectionRouteActiveProvider.notifier).state = false;
+    }
   }
 
   /// 作为已登录页面上的选择器打开时，成功选择后返回原页面。

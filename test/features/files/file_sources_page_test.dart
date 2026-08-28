@@ -154,6 +154,66 @@ void main() {
       serverName: 'WebDAV 二号',
     );
   });
+
+  testWidgets('文件目录使用页面返回栈并可从选择器重新进入服务器', (tester) async {
+    final prefs = await _prefs(twoServers: true);
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('smb-source');
+    final rootRequest = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+    final nestedRequest = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+      path: '目录 A',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+          fileDirectoryProvider(
+            rootRequest,
+          ).overrideWith((ref) async => _listingWithDirectory(sourceId)),
+          fileDirectoryProvider(
+            nestedRequest,
+          ).overrideWith((ref) async => _listingAt(sourceId, '目录 A', '子目录内容')),
+        ],
+        child: MaterialApp(
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('目录 A'));
+    await tester.pumpAndSettle();
+    expect(find.text('子目录内容'), findsOneWidget);
+    expect(find.byType(FileBrowserPage, skipOffstage: false), findsNWidgets(2));
+
+    Future<void> swipeFromEdge() async {
+      final gesture = await tester.startGesture(const Offset(2, 300));
+      await gesture.moveTo(const Offset(100, 300));
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    await swipeFromEdge();
+    expect(find.text('根目录内容'), findsOneWidget);
+    expect(find.text('子目录内容'), findsNothing);
+    expect(find.byType(FileBrowserPage), findsOneWidget);
+
+    await swipeFromEdge();
+    expect(find.byType(ServerSelectionPage), findsOneWidget);
+    expect(find.text('WebDAV 二号'), findsOneWidget);
+
+    await tester.tap(find.text('WebDAV 二号'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ServerSelectionPage), findsNothing);
+    expect(prefs.getString('server.active_server_id'), 'webdav-two');
+  });
 }
 
 Future<void> _testNestedEdgeBack(
@@ -273,6 +333,23 @@ DirectoryListing _listingWithHidden(SourceId sourceId) {
     ],
   );
 }
+
+DirectoryListing _listingWithDirectory(SourceId sourceId) => DirectoryListing(
+  currentPath: FilePath(sourceId: sourceId, value: ''),
+  breadcrumbs: [FilePath(sourceId: sourceId, value: '')],
+  entries: [
+    FileEntry(
+      path: FilePath(sourceId: sourceId, value: '目录 A'),
+      name: '目录 A',
+      type: FileEntryType.directory,
+    ),
+    FileEntry(
+      path: FilePath(sourceId: sourceId, value: '根目录内容'),
+      name: '根目录内容',
+      type: FileEntryType.file,
+    ),
+  ],
+);
 
 DirectoryListing _listingAt(SourceId sourceId, String path, String name) =>
     DirectoryListing(
