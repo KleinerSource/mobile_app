@@ -24,7 +24,11 @@ import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/sheet_controls.dart';
 import '../../shared/swipe_actions.dart';
+import '../player/playback_engine.dart';
+import '../player/player_engine_picker.dart';
 import '../player/player_page.dart';
+import '../player/player_session_factory.dart';
+import '../player/player_settings.dart';
 import '../oh_my_media/movie_detail/movie_detail_page.dart'
     show showImageLightbox;
 import '../settings/server_selection_page.dart';
@@ -1266,6 +1270,18 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _previewVideo(FileEntry entry) async {
+    PlaybackEngineKind? engineKind;
+    final playerSettings = ref.read(playerSettingsProvider);
+    if (playerSettings.debugMode) {
+      final engineKinds = availablePlaybackEngineKinds();
+      engineKind = await showPlaybackEnginePicker(
+        context,
+        engineKinds: engineKinds,
+        defaultEngineKind: playerSettings.iosEngine,
+      );
+      if (!mounted || engineKind == null) return;
+    }
+
     FilePlaybackProxy? proxy;
     setState(() => _busy = true);
     try {
@@ -1282,6 +1298,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         context,
         title: entry.name,
         directUrl: proxy.uri.toString(),
+        engineKind: engineKind,
         directPlaybackFileName: entry.name,
       );
     } catch (error) {

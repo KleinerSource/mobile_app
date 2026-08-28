@@ -13,6 +13,7 @@ import 'package:omm/core/sources/files/file_source_providers.dart';
 import 'package:omm/features/files/file_browser_page.dart';
 import 'package:omm/features/files/file_sources_page.dart';
 import 'package:omm/features/settings/server_selection_page.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -56,6 +57,83 @@ void main() {
       tester.widget<FileBrowserPage>(find.byType(FileBrowserPage)).serverId,
       serverId,
     );
+  });
+
+  testWidgets('debug 模式下点击视频先显示播放器选择器', (tester) async {
+    final prefs = await _prefs();
+    await prefs.setBool('player.debug_mode', true);
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final request = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+          fileDirectoryProvider(request).overrideWith(
+            (ref) async => _listing(sourceId),
+          ),
+        ],
+        child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('影片.mkv'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择播放器'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('player-engine-libmpv')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.text('选择播放器'), findsNothing);
+  });
+
+  testWidgets('非 debug 模式下点击视频不显示播放器选择器', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final request = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+          fileDirectoryProvider(request).overrideWith(
+            (ref) async => _listing(sourceId),
+          ),
+        ],
+        child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('影片.mkv'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择播放器'), findsNothing);
   });
 
   testWidgets('文件浏览页使用更多菜单管理列表，并支持隐藏文件和多选', (tester) async {
