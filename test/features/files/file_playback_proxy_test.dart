@@ -7,6 +7,7 @@ import 'package:omm/core/sources/common/source_descriptor.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/files/file_capabilities.dart';
 import 'package:omm/core/sources/files/file_entry.dart';
+import 'package:omm/core/sources/files/file_operation.dart';
 import 'package:omm/core/sources/files/file_source.dart';
 import 'package:omm/core/sources/files/file_source_repository.dart';
 import 'package:omm/features/files/file_playback_proxy.dart';
@@ -75,6 +76,31 @@ void main() {
         expect(body, bytes.sublist(item.start, item.start + item.length));
       }
       expect(source.ranges, [(0, 4), (10, 6), (20, 12), (27, 5)]);
+    } finally {
+      await proxy.close();
+      client.close(force: true);
+    }
+  });
+
+  test('播放代理 GET 优先使用下载流，不依赖 stat/resolveAccess', () async {
+    final sourceId = SourceId.of('download-only-source');
+    final bytes = List<int>.generate(6, (index) => index + 30);
+    final source = _DownloadOnlyFileSource(sourceId, bytes);
+    final proxy = await FilePlaybackProxy.start(
+      repository: FileSourceRepository(source),
+      path: FilePath(sourceId: sourceId, value: '影片.mp4'),
+      size: bytes.length,
+      mimeType: 'video/mp4',
+      pathExtension: 'mp4',
+    );
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(proxy.uri);
+      final response = await request.close();
+      expect(response.statusCode, HttpStatus.ok);
+      expect(await _read(response), bytes);
+      expect(source.resolveAccessCalls, 0);
+      expect(source.downloadCalls, 1);
     } finally {
       await proxy.close();
       client.close(force: true);
@@ -224,6 +250,45 @@ class _RangeStreamFileSource extends _StreamFileSource
   }) async {
     ranges.add((offset, length));
     return Stream<List<int>>.value(bytes.sublist(offset, offset + length));
+  }
+}
+
+class _DownloadOnlyFileSource
+    implements FileSource, FileTransferCapability, FileAccessCapability {
+  _DownloadOnlyFileSource(this.sourceId, this.bytes);
+
+  final SourceId sourceId;
+  final List<int> bytes;
+  var resolveAccessCalls = 0;
+  var downloadCalls = 0;
+
+  @override
+  SourceDescriptor get descriptor =>
+      SourceDescriptor(id: sourceId, kind: SourceKind.smb, name: '仅下载来源');
+
+  @override
+  Set<FileCapability> get capabilities =>
+      const {FileCapability.transfer, FileCapability.access};
+
+  @override
+  bool supports(FileCapability capability) => capabilities.contains(capability);
+
+  @override
+  Stream<List<int>> download(
+    FilePath path, {
+    FileTransferOptions options = const FileTransferOptions(),
+  }) {
+    downloadCalls++;
+    return Stream<List<int>>.value(bytes);
+  }
+
+  @override
+  Future<void> upload(FileUploadRequest request) async {}
+
+  @override
+  Future<FileAccess> resolveAccess(FilePath path) {
+    resolveAccessCalls++;
+    return Future<FileAccess>.error(StateError('不应调用 stat'));
   }
 }
 

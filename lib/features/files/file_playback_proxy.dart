@@ -8,6 +8,9 @@ import '../../core/sources/common/source_exception.dart';
 import '../../core/sources/files/file_entry.dart';
 import '../../core/sources/files/file_source_repository.dart';
 
+const _operationTimeout = Duration(seconds: 30);
+const _metadataTimeout = Duration(seconds: 2);
+
 /// 将 SMB/WebDAV 的文件流暴露为播放器可读取的本机 HTTP 地址。
 ///
 /// 播放器连接后按需消费远程流。支持 Range 的来源会直接读取对应区间；
@@ -52,6 +55,7 @@ class FilePlaybackProxy {
     );
     try {
       proxy._server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      proxy._log('代理已启动: ${proxy.uri} source=${path.stableKey}');
       unawaited(proxy._serve());
       return proxy;
     } catch (_) {
@@ -103,6 +107,10 @@ class FilePlaybackProxy {
     _responses.add(response);
     var responseStarted = false;
     try {
+      _log(
+        '收到请求: ${request.method} ${request.uri} '
+        'range=${request.headers.value(HttpHeaders.rangeHeader)}',
+      );
       if (_closed || request.uri.path != _requestPath) {
         response.statusCode = HttpStatus.notFound;
         return;
@@ -113,15 +121,38 @@ class FilePlaybackProxy {
         return;
       }
 
-      final access = await _access();
-      var total = size ?? access.size;
       final rangeHeader = request.headers.value(HttpHeaders.rangeHeader);
+      var total = size;
+      FileAccess? access;
+
+      Future<FileAccess> loadAccess() async {
+        final current = access;
+        if (current != null) return current;
+        _log('开始 resolveAccess: ${path.stableKey}');
+        final resolved = await _access().timeout(_operationTimeout);
+        access = resolved;
+        _log('resolveAccess 完成: size=${resolved.size} mime=${resolved.mimeType}');
+        return resolved;
+      }
 
       // Range 无法在未知总大小上安全解析。先建立临时文件取得大小，
       // 之后 HEAD/Range 请求都能返回稳定的 HTTP 元数据。
       if (rangeHeader != null && total == null) {
-        final fallback = await _ensureFallbackFile(access);
+        _log('Range 请求缺少文件大小，先落盘获取大小');
+        final fallback = await _ensureFallbackFile();
         total = await fallback.length();
+      }
+      // HEAD 没有文件大小时才需要 stat/PROPFIND；常规视频播放不应被
+      // resolveAccess 阻塞，GET 会直接进入 download/openRange。
+      if (request.method == 'HEAD' && (total == null || mimeType == null)) {
+        try {
+          final resolved = await loadAccess().timeout(_metadataTimeout);
+          total ??= resolved.size;
+        } catch (error) {
+          // HEAD 元数据不是播放必需条件。SMB/WebDAV 的 stat/PROPFIND
+          // 失败或超时不能阻塞后续 GET，播放器会继续按流读取。
+          _log('HEAD 元数据读取失败，继续返回可播放响应: $error');
+        }
       }
       var range = _parseRange(rangeHeader, total);
       if (range?.invalid == true) {
@@ -131,20 +162,29 @@ class FilePlaybackProxy {
       }
 
       Stream<List<int>>? stream;
-      File? fallbackFile;
       if (request.method == 'GET') {
         if (range != null) {
           try {
+            _log(
+              '开始远端区间读取: offset=${range.start} length=${range.length}',
+            );
             if (!repository.supportsRange) {
               throw UnsupportedError('文件来源不支持 Range');
             }
-            stream = await repository.openRange(
-              path,
-              offset: range.start,
-              length: range.length,
-            );
-          } on UnsupportedError {
-            fallbackFile = await _ensureFallbackFile(access);
+            stream = await repository
+                .openRange(
+                  path,
+                  offset: range.start,
+                  length: range.length,
+                )
+                .timeout(_operationTimeout);
+            _log('远端区间读取已建立');
+          } catch (error) {
+            if (error is! UnsupportedError && error is! TimeoutException) {
+              rethrow;
+            }
+            _log('远端区间读取不可用（$error），退回临时文件');
+            final fallbackFile = await _ensureFallbackFile();
             total ??= await fallbackFile.length();
             range = _parseRange(rangeHeader, total);
             if (range?.invalid == true || range == null) {
@@ -156,7 +196,9 @@ class FilePlaybackProxy {
             stream = fallbackFile.openRead(range.start, range.end + 1);
           }
         } else {
-          stream = await access.open();
+          _log('开始远端完整流读取');
+          stream = await _openFullStream(access: access);
+          _log('远端完整流已建立');
         }
       }
 
@@ -164,11 +206,23 @@ class FilePlaybackProxy {
         response,
         total: total,
         range: range,
-        effectiveMimeType: mimeType ?? access.mimeType,
+        effectiveMimeType:
+            mimeType ?? access?.mimeType ?? _mimeTypeForExtension(_pathExtension),
       );
       responseStarted = true;
       if (request.method == 'HEAD') return;
-      await response.addStream(stream!);
+      _log('开始向播放器发送响应: status=${response.statusCode}');
+      await response.addStream(
+        stream!.timeout(
+          _operationTimeout,
+          onTimeout: (sink) {
+            _log('远端流读取超时，关闭播放器响应');
+            sink.addError(TimeoutException('远端视频流读取超时'));
+            sink.close();
+          },
+        ),
+      );
+      _log('播放器响应发送完成: status=${response.statusCode}');
     } catch (error, stackTrace) {
       _logError(request, error, stackTrace);
       if (!responseStarted) {
@@ -248,13 +302,13 @@ class FilePlaybackProxy {
     );
   }
 
-  Future<File> _ensureFallbackFile(FileAccess access) async {
+  Future<File> _ensureFallbackFile() async {
     final existingFile = _fallbackFile;
     if (existingFile != null) return existingFile;
     final current = _fallbackFileFuture;
     if (current != null) return current;
     late final Future<File> next;
-    next = _spoolToTempFile(access);
+    next = _spoolToTempFile();
     _fallbackFileFuture = next;
     try {
       final file = await next;
@@ -266,7 +320,7 @@ class FilePlaybackProxy {
     }
   }
 
-  Future<File> _spoolToTempFile(FileAccess access) async {
+  Future<File> _spoolToTempFile() async {
     late final Directory directory;
     try {
       directory = await getTemporaryDirectory();
@@ -280,7 +334,8 @@ class FilePlaybackProxy {
     );
     final output = file.openWrite();
     try {
-      await output.addStream(await access.open());
+      _log('开始完整落盘: ${path.stableKey}');
+      await output.addStream(await _openFullStream());
       await output.close();
       if (_closed) throw StateError('视频流代理已关闭');
       return file;
@@ -290,6 +345,20 @@ class FilePlaybackProxy {
       } catch (_) {}
       await _deleteQuietly(file);
       rethrow;
+    }
+  }
+
+  Future<Stream<List<int>>> _openFullStream({FileAccess? access}) async {
+    try {
+      // SMB/WebDAV 的下载路径已在文件下载功能中验证可用；优先使用它，
+      // 避免为了获得一个访问句柄再次触发 stat/PROPFIND。
+      return repository.download(path);
+    } on UnsupportedFileOperationException {
+      final resolved = access ?? await _access().timeout(_operationTimeout);
+      return resolved.open();
+    } on UnsupportedError {
+      final resolved = access ?? await _access().timeout(_operationTimeout);
+      return resolved.open();
     }
   }
 
@@ -331,6 +400,11 @@ class FilePlaybackProxy {
     );
   }
 
+  void _log(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[FilePlaybackProxy] $message');
+  }
+
   int _statusCode(Object error) {
     final status = error is FileSourceException ? error.statusCode : null;
     if (status != null && status >= 400 && status <= 599) return status;
@@ -343,6 +417,26 @@ String? _normalizePathExtension(String? value) {
   if (extension == null || extension.isEmpty) return null;
   if (!RegExp(r'^[a-z0-9]+$').hasMatch(extension)) return null;
   return extension;
+}
+
+String? _mimeTypeForExtension(String? extension) {
+  return switch (extension) {
+    'mp4' => 'video/mp4',
+    'm4v' => 'video/x-m4v',
+    'mov' => 'video/quicktime',
+    'mkv' => 'video/x-matroska',
+    'webm' => 'video/webm',
+    'avi' => 'video/x-msvideo',
+    'mpeg' || 'mpg' => 'video/mpeg',
+    'wmv' => 'video/x-ms-wmv',
+    'ogv' => 'video/ogg',
+    'vob' => 'video/dvd',
+    'rm' || 'rmvb' => 'application/vnd.rn-realmedia',
+    'ts' || 'm2ts' => 'video/mp2t',
+    '3gp' => 'video/3gpp',
+    'flv' => 'video/x-flv',
+    _ => null,
+  };
 }
 
 class _FileByteRange {

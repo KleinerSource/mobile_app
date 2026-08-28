@@ -95,6 +95,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
   final Set<String> _selectedKeys = <String>{};
   StreamSubscription<FileOperation>? _operationSubscription;
+  Timer? _operationDismissTimer;
   FileOperation? _operation;
   bool _busy = false;
   bool _selectionMode = false;
@@ -118,13 +119,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       ref.read(sharedPrefsProvider),
     );
     _scrollController.addListener(_closeSwipeOnScroll);
-    _operationSubscription = _tracker.events.listen((operation) {
-      if (mounted) setState(() => _operation = operation);
-    });
+    _operationSubscription = _tracker.events.listen(_handleOperationEvent);
   }
 
   @override
   void dispose() {
+    _operationDismissTimer?.cancel();
     unawaited(_operationSubscription?.cancel());
     _scrollController.removeListener(_closeSwipeOnScroll);
     _scrollController.dispose();
@@ -1424,6 +1424,21 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       return;
     }
     _tracker.cancel(operation.id);
+  }
+
+  void _handleOperationEvent(FileOperation operation) {
+    _operationDismissTimer?.cancel();
+    _operationDismissTimer = null;
+    if (!mounted) return;
+    setState(() => _operation = operation);
+    if (operation.status == FileOperationStatus.running) return;
+
+    final operationId = operation.id;
+    _operationDismissTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted || _operation?.id != operationId) return;
+      setState(() => _operation = null);
+      _operationDismissTimer = null;
+    });
   }
 
   bool _isCanceled(Object error) =>

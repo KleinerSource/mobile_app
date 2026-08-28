@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,6 +63,9 @@ const _directPlaybackDecision = playback_models.PlaybackDecision(
   subtitleTracks: <playback_models.SubtitleTrack>[],
   startSec: 0,
 );
+
+const _directPlaybackOperationTimeout = Duration(seconds: 20);
+const _playerCleanupTimeout = Duration(seconds: 5);
 
 /// 全屏视频播放页。播放源由后端协商，页面只负责编排回退、进度和用户控制。
 class PlayerPage extends ConsumerStatefulWidget {
@@ -513,9 +517,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     // 先撤掉旧媒体监听并停止本地消费，再等待服务端清理旧转码会话。
     // 这样 KSPlayer 切换 HLS 时能立即释放旧源，UI 也不会被服务端清理阻塞。
     _unbindProgress();
-    await _stopPlayer();
+    await _stopPlayer().timeout(
+      _playerCleanupTimeout,
+      onTimeout: () => _playerLog('停止旧播放器超时，继续打开新媒体'),
+    );
     if (!mounted || generation != _loadGeneration) return;
-    await _stopTranscodeSession();
+    await _stopTranscodeSession().timeout(
+      _playerCleanupTimeout,
+      onTimeout: () => _playerLog('清理旧转码会话超时，继续打开新媒体'),
+    );
     if (!mounted || generation != _loadGeneration) return;
 
     try {
@@ -537,17 +547,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         _bindProgress();
         setState(() => _loading = false);
         _restartHideTimer();
-        await _host.configure(
-          preloadBytes: ref.read(playerSettingsProvider).preloadSize.bytes,
-          hardwareAcceleration: _clientHardwareAcceleration,
-        );
+        _playerLog('开始直链播放: $trailerUrl');
+        await _host
+            .configure(
+              preloadBytes: ref.read(playerSettingsProvider).preloadSize.bytes,
+              hardwareAcceleration: _clientHardwareAcceleration,
+            )
+            .timeout(_directPlaybackOperationTimeout);
         if (!mounted || generation != _loadGeneration) return;
 
         await _openDirectWithClientFallback(
           trailerUrl,
           fallbackResume,
           play: shouldPlay,
-        );
+        ).timeout(const Duration(seconds: 45));
+        _playerLog('播放器 open 已返回');
         if (widget.directPlaybackFileName?.trim().isNotEmpty == true) {
           await _waitForFirstFrame();
         }
@@ -714,26 +728,36 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     PlaybackMediaInfo? mediaInfo,
   }) async {
     try {
-      await _host.open(
-        url,
-        startAt: startAt,
-        play: play,
-        headers: headers,
-        formatHint: formatHint,
-        mediaInfo: mediaInfo,
-      );
+      await _host
+          .open(
+            url,
+            startAt: startAt,
+            play: play,
+            headers: headers,
+            formatHint: formatHint,
+            mediaInfo: mediaInfo,
+          )
+          .timeout(_directPlaybackOperationTimeout);
     } catch (_) {
       if (!_clientHardwareAcceleration) rethrow;
-      await _host.configure(hardwareAcceleration: false);
+      _playerLog('硬件解码打开失败或超时，尝试软件解码');
+      try {
+        await _host.stop().timeout(_playerCleanupTimeout);
+      } catch (_) {}
+      await _host
+          .configure(hardwareAcceleration: false)
+          .timeout(_directPlaybackOperationTimeout);
       _clientHardwareAcceleration = false;
-      await _host.open(
-        url,
-        startAt: startAt,
-        play: play,
-        headers: headers,
-        formatHint: formatHint,
-        mediaInfo: mediaInfo,
-      );
+      await _host
+          .open(
+            url,
+            startAt: startAt,
+            play: play,
+            headers: headers,
+            formatHint: formatHint,
+            mediaInfo: mediaInfo,
+          )
+          .timeout(_directPlaybackOperationTimeout);
     }
     // 直连模式也可能是 dbonline 返回的 HLS 清单。记录真实媒体类型，
     // 这样后台恢复时会重新打开清单，而不是对已停止的会话直接 play。
@@ -755,6 +779,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
     throw TimeoutException('视频首帧加载超时');
+  }
+
+  void _playerLog(String message) {
+    if (!kDebugMode) return;
+    debugPrint('[PlayerPage] $message');
   }
 
   bool _isHlsUrl(String url, String? formatHint) {
