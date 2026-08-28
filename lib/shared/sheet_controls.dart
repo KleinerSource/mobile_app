@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../core/platform/app_haptics.dart';
@@ -233,4 +234,262 @@ ButtonStyle sheetSecondaryButtonStyle(BuildContext context) {
     side: BorderSide(color: c.cardBorder),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
   );
+}
+
+const _sheetDragTouchSlop = 10.0;
+const _sheetDragDismissDistance = 120.0;
+const _sheetDragDismissVelocity = 900.0;
+
+enum _SheetScrollState { unknown, atTop, awayFromTop }
+
+class _SheetScrollableSnapshot {
+  _SheetScrollableSnapshot({required this.context, required this.atTop});
+
+  final BuildContext context;
+  bool atTop;
+}
+
+/// 统一协调 BottomSheet 与内部滚动控件的下拉手势。
+///
+/// 原生 BottomSheet 的垂直拖拽识别器会和 ListView/SingleChildScrollView
+/// 争夺同一个手势。这里监听原始指针事件，在无滚动内容或当前滚动控件位于
+/// 顶部时让面板跟手下移；滚动控件处于中部时则完全交给滚动控件处理。
+class SheetDragCoordinator extends StatefulWidget {
+  const SheetDragCoordinator({
+    super.key,
+    required this.child,
+    this.enabled = true,
+  });
+
+  final Widget child;
+  final bool enabled;
+
+  @override
+  State<SheetDragCoordinator> createState() => _SheetDragCoordinatorState();
+}
+
+class _SheetDragCoordinatorState extends State<SheetDragCoordinator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _settleController;
+  final List<_SheetScrollableSnapshot> _scrollables = [];
+
+  int? _pointer;
+  VelocityTracker? _velocityTracker;
+  Offset? _lastPointerPosition;
+  double? _eligibleDragStartY;
+  double _dragOffset = 0;
+  bool _draggingSheet = false;
+  BuildContext? _activeScrollableContext;
+  _SheetScrollState _scrollState = _SheetScrollState.unknown;
+
+  double _settleFrom = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _settleController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 220),
+        )..addListener(() {
+          if (!mounted) return;
+          setState(() {
+            _dragOffset = _settleFrom * (1 - _settleController.value);
+          });
+        });
+  }
+
+  @override
+  void dispose() {
+    _settleController.dispose();
+    super.dispose();
+  }
+
+  bool _isAtTop(ScrollMetrics metrics) {
+    return metrics.extentBefore <= 0.5;
+  }
+
+  bool _containsGlobalPosition(BuildContext context, Offset position) {
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return false;
+    final localPosition = renderObject.globalToLocal(position);
+    return (Offset.zero & renderObject.size).contains(localPosition);
+  }
+
+  _SheetScrollableSnapshot? _snapshotForPosition(Offset position) {
+    for (var index = _scrollables.length - 1; index >= 0; index--) {
+      final snapshot = _scrollables[index];
+      if (_containsGlobalPosition(snapshot.context, position)) return snapshot;
+    }
+    return null;
+  }
+
+  void _setScrollState(_SheetScrollState next) {
+    final previous = _scrollState;
+    if (previous == next) return;
+
+    // 列表从中部被持续下拉到顶部后，下一段向下移动才应该开始拖面板；
+    // 重置基线可以避免面板把前一段列表滚动距离算进去而突然跳动。
+    if (_pointer != null &&
+        previous == _SheetScrollState.awayFromTop &&
+        next == _SheetScrollState.atTop &&
+        !_draggingSheet) {
+      _eligibleDragStartY = _lastPointerPosition?.dy;
+    }
+    _scrollState = next;
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (!widget.enabled || notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+
+    final notificationContext = notification.context;
+    if (notificationContext != null) {
+      final atTop = _isAtTop(notification.metrics);
+      final existingIndex = _scrollables.indexWhere(
+        (snapshot) => identical(snapshot.context, notificationContext),
+      );
+      if (existingIndex == -1) {
+        _scrollables.add(
+          _SheetScrollableSnapshot(context: notificationContext, atTop: atTop),
+        );
+      } else {
+        _scrollables[existingIndex].atTop = atTop;
+      }
+
+      if (_pointer != null) {
+        final isActive = identical(
+          _activeScrollableContext,
+          notificationContext,
+        );
+        final canBecomeActive =
+            _activeScrollableContext == null &&
+            _lastPointerPosition != null &&
+            _containsGlobalPosition(notificationContext, _lastPointerPosition!);
+        if (isActive || canBecomeActive) {
+          _activeScrollableContext = notificationContext;
+          _setScrollState(
+            atTop ? _SheetScrollState.atTop : _SheetScrollState.awayFromTop,
+          );
+        }
+      }
+    }
+    return false;
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    if (!widget.enabled || _pointer != null) return;
+
+    _settleController.stop();
+    final snapshot = _snapshotForPosition(event.position);
+    _pointer = event.pointer;
+    _velocityTracker = VelocityTracker.withKind(event.kind)
+      ..addPosition(event.timeStamp, event.position);
+    _lastPointerPosition = event.position;
+    _eligibleDragStartY = event.position.dy;
+    _draggingSheet = false;
+    _activeScrollableContext = snapshot?.context;
+    _scrollState = snapshot == null
+        ? _SheetScrollState.unknown
+        : (snapshot.atTop
+              ? _SheetScrollState.atTop
+              : _SheetScrollState.awayFromTop);
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (event.pointer != _pointer || _lastPointerPosition == null) return;
+
+    final previousPosition = _lastPointerPosition!;
+    _lastPointerPosition = event.position;
+    _velocityTracker?.addPosition(event.timeStamp, event.position);
+    final deltaY = event.position.dy - previousPosition.dy;
+
+    if (!_draggingSheet) {
+      final startY = _eligibleDragStartY;
+      if (startY == null ||
+          _scrollState == _SheetScrollState.awayFromTop ||
+          event.position.dy - startY <= _sheetDragTouchSlop) {
+        return;
+      }
+
+      _draggingSheet = true;
+      _settleController.stop();
+      _dragOffset = event.position.dy - startY - _sheetDragTouchSlop;
+      setState(() {});
+      return;
+    }
+
+    _dragOffset = (_dragOffset + deltaY).clamp(0.0, double.infinity).toDouble();
+    setState(() {});
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    if (event.pointer != _pointer) return;
+
+    final wasDragging = _draggingSheet;
+    final dragOffset = _dragOffset;
+    _velocityTracker?.addPosition(event.timeStamp, event.position);
+    final velocity = wasDragging
+        ? (_velocityTracker?.getVelocity().pixelsPerSecond.dy ?? 0.0)
+        : 0.0;
+    _resetPointerState();
+    if (!wasDragging) return;
+
+    // 使用指针速度估计识别明显的向下甩动，距离阈值仍是主要关闭条件。
+    final shouldDismiss =
+        dragOffset >= _sheetDragDismissDistance ||
+        velocity >= _sheetDragDismissVelocity;
+    if (shouldDismiss) {
+      Navigator.of(context).pop();
+    } else {
+      _animateBack();
+    }
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    if (event.pointer != _pointer) return;
+    final wasDragging = _draggingSheet;
+    _resetPointerState();
+    if (wasDragging) _animateBack();
+  }
+
+  void _resetPointerState() {
+    _pointer = null;
+    _velocityTracker = null;
+    _lastPointerPosition = null;
+    _eligibleDragStartY = null;
+    _draggingSheet = false;
+    _activeScrollableContext = null;
+    _scrollState = _SheetScrollState.unknown;
+  }
+
+  void _animateBack() {
+    if (!mounted || _dragOffset <= 0) return;
+    _settleFrom = _dragOffset;
+    _settleController
+      ..stop()
+      ..value = 0
+      ..forward();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.child;
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleScrollNotification,
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: _handlePointerDown,
+        onPointerMove: _handlePointerMove,
+        onPointerUp: _handlePointerUp,
+        onPointerCancel: _handlePointerCancel,
+        child: Transform.translate(
+          offset: Offset(0, _dragOffset),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
 }

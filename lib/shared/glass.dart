@@ -168,7 +168,9 @@ Future<T?> showGlassSheet<T>({
     context: context,
     isScrollControlled: isScrollControlled,
     isDismissible: isDismissible,
-    enableDrag: enableDrag,
+    // 面板拖拽由公共 SheetDragCoordinator 处理，避免与内部滚动控件
+    // 争夺手势竞技场；enableDrag 仍保留为公共入口的开关。
+    enableDrag: false,
     useSafeArea: false,
     backgroundColor: Colors.transparent,
     barrierColor: appColors(context).sheetBarrier,
@@ -184,11 +186,14 @@ Future<T?> showGlassSheet<T>({
       final safeSheet = useSafeArea
           ? SafeArea(top: true, bottom: true, child: sheet)
           : sheet;
-      return GlassPanel(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: sheetMaxHeight(ctx)),
-          child: safeSheet,
+      return SheetDragCoordinator(
+        enabled: enableDrag,
+        child: GlassPanel(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: sheetMaxHeight(ctx)),
+            child: safeSheet,
+          ),
         ),
       );
     },
