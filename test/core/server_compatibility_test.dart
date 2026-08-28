@@ -54,6 +54,22 @@ void main() {
     expect(isSupportedServerVersion('1.12.99-dev', '1.13.0'), isFalse);
   });
 
+  test('dbonline 低于 1.14.0 时拒绝并提示实际版本', () {
+    expect(
+      () => requireCompatibleServerVersion({
+        'success': true,
+        'data': {'project_name': 'db_online', 'version': '1.13.9'},
+      }),
+      throwsA(
+        isA<ServerCompatibilityException>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('db_online >= 1.14.0'), contains('当前版本为 1.13.9')),
+        ),
+      ),
+    );
+  });
+
   test('未知项目和格式错误包含实际值及兼容要求', () {
     expect(
       () => requireCompatibleServerVersion({

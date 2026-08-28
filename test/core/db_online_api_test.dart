@@ -113,6 +113,76 @@ void main() {
 
     expect(() => api.searchActors(query: '  '), throwsA(isA<ArgumentError>()));
   });
+
+  test('DBO 后台配置使用 config 接口并支持局部保存和连接测试', () async {
+    final adapter = _DbOnlineConfigAdapter();
+    final api = DbOnlineApi(
+      Dio(BaseOptions(baseUrl: 'http://test/api'))..httpClientAdapter = adapter,
+    );
+
+    final config = await api.getBackendConfig();
+    final saved = await api.updateBackendConfig({
+      'javdb_api': {'timeout': 45},
+    });
+    final tested = await api.testBackendConnection('aria2', {
+      'host': '127.0.0.1',
+      'port': 6800,
+    });
+
+    expect(config['javdb_api'], isA<Map>());
+    expect(saved['subscription'], isA<Map>());
+    expect(tested['message'], '连接正常');
+    expect(adapter.requests, <String>[
+      'GET /api/config',
+      'PUT /api/config',
+      'POST /api/aria2/test',
+    ]);
+    expect(adapter.requestBodies[0], {
+      'javdb_api': {'timeout': 45},
+    });
+    expect(adapter.requestBodies[1], {'host': '127.0.0.1', 'port': 6800});
+  });
+}
+
+class _DbOnlineConfigAdapter implements HttpClientAdapter {
+  final requests = <String>[];
+  final requestBodies = <Map<String, dynamic>>[];
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requests.add('${options.method} ${options.uri.path}');
+    if (options.data is Map) {
+      requestBodies.add(Map<String, dynamic>.from(options.data as Map));
+    }
+    final data = options.method == 'GET'
+        ? {
+            'javdb_api': {'host': 'https://javdb.example'},
+            'subscription': {'enabled': false},
+          }
+        : options.uri.path.endsWith('/test')
+        ? {'success': true, 'message': '连接正常'}
+        : {
+            'javdb_api': {'timeout': 45},
+            'subscription': {'enabled': false},
+          };
+    final response = options.uri.path.endsWith('/test')
+        ? {'success': true, 'message': '连接正常'}
+        : {'success': true, 'data': data};
+    return ResponseBody.fromString(
+      jsonEncode(response),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
 }
 
 class _DbOnlineAdapter implements HttpClientAdapter {

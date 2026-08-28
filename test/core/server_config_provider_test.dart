@@ -209,6 +209,83 @@ void main() {
     expect(container.read(serverSelectionReadyProvider), isFalse);
   });
 
+  test('切换服务器时类型不匹配返回明确的兼容性错误', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverLineProbeCoordinatorProvider.overrideWithValue(
+          ServerLineProbeCoordinator(
+            probe: (line) async => ServerLineProbeResult.success(
+              line,
+              10,
+              versionInfo: const ServerVersionInfo(
+                projectName: 'oh-my-media',
+                version: '2.1.0',
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const current = ServerProfile(
+      id: 'current',
+      name: '当前服务器',
+      projectName: 'oh-my-media',
+      lines: [
+        ServerLine(
+          id: 'current-line',
+          name: '当前线路',
+          baseUrl: 'https://current.example',
+        ),
+      ],
+      activeLineId: 'current-line',
+    );
+    const target = ServerProfile(
+      id: 'target',
+      name: 'DB Online',
+      projectName: 'db_online',
+      lines: [
+        ServerLine(
+          id: 'target-line',
+          name: '目标线路',
+          baseUrl: 'https://target.example',
+        ),
+      ],
+      activeLineId: 'target-line',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          ServerConfig(
+            baseUrl: 'https://current.example',
+            lines: current.lines,
+            servers: [current, target],
+            activeServerId: 'current',
+          ),
+        );
+
+    await expectLater(
+      container.read(serverConfigProvider.notifier).selectServer('target'),
+      throwsA(
+        isA<ServerCompatibilityException>().having(
+          (error) => error.message,
+          'message',
+          allOf(
+            contains('线路项目不匹配'),
+            contains('db_online'),
+            contains('oh-my-media'),
+          ),
+        ),
+      ),
+    );
+
+    expect(container.read(serverConfigProvider)?.activeServerId, 'current');
+  });
+
   test('默认线路被禁用时选择目标服务器的启用线路', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -392,5 +469,226 @@ void main() {
       container.read(serverConfigProvider)?.activeServer?.projectName,
       'oh-my-media',
     );
+  });
+
+  test('活动线路变更未通过版本检查时禁止保存', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    const currentLine = ServerLine(
+      id: 'current-line',
+      name: '当前线路',
+      baseUrl: 'https://current.example',
+    );
+    const nextLine = ServerLine(
+      id: 'next-line',
+      name: '新线路',
+      baseUrl: 'https://next.example',
+    );
+    const server = ServerProfile(
+      id: 'server',
+      name: 'DB Online',
+      projectName: 'db_online',
+      lines: [currentLine],
+      activeLineId: 'current-line',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          const ServerConfig(
+            baseUrl: 'https://current.example',
+            lines: [currentLine],
+            servers: [server],
+            activeServerId: 'server',
+          ),
+        );
+
+    await expectLater(
+      container
+          .read(serverConfigProvider.notifier)
+          .saveServer(
+            server.copyWith(lines: [nextLine], activeLineId: nextLine.id),
+          ),
+      throwsA(
+        isA<ServerCompatibilityException>().having(
+          (error) => error.message,
+          'message',
+          contains('保存前必须通过服务器版本检查'),
+        ),
+      ),
+    );
+
+    expect(
+      container.read(serverConfigProvider)?.activeServer?.activeLine?.baseUrl,
+      currentLine.baseUrl,
+    );
+  });
+
+  test('保存活动线路时拒绝低版本和错误类型的探测结果', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    const currentLine = ServerLine(
+      id: 'current-line',
+      name: '当前线路',
+      baseUrl: 'https://current.example',
+    );
+    const nextLine = ServerLine(
+      id: 'next-line',
+      name: '新线路',
+      baseUrl: 'https://next.example',
+    );
+    const server = ServerProfile(
+      id: 'server',
+      name: 'DB Online',
+      projectName: 'db_online',
+      lines: [currentLine],
+      activeLineId: 'current-line',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          const ServerConfig(
+            baseUrl: 'https://current.example',
+            lines: [currentLine],
+            servers: [server],
+            activeServerId: 'server',
+          ),
+        );
+
+    final notifier = container.read(serverConfigProvider.notifier);
+    await expectLater(
+      notifier.saveServer(
+        server.copyWith(lines: [nextLine], activeLineId: nextLine.id),
+        validatedProbe: const ServerLineProbeResult.success(
+          nextLine,
+          10,
+          versionInfo: ServerVersionInfo(
+            projectName: 'db_online',
+            version: '1.13.9',
+          ),
+        ),
+      ),
+      throwsA(
+        isA<ServerCompatibilityException>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('db_online >= 1.14.0'), contains('1.13.9')),
+        ),
+      ),
+    );
+
+    await expectLater(
+      notifier.saveServer(
+        server.copyWith(lines: [nextLine], activeLineId: nextLine.id),
+        validatedProbe: const ServerLineProbeResult.success(
+          nextLine,
+          10,
+          versionInfo: ServerVersionInfo(
+            projectName: 'oh-my-media',
+            version: '2.1.0',
+          ),
+        ),
+      ),
+      throwsA(
+        isA<ServerCompatibilityException>().having(
+          (error) => error.message,
+          'message',
+          allOf(
+            contains('线路项目不匹配'),
+            contains('db_online'),
+            contains('oh-my-media'),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      container.read(serverConfigProvider)?.activeServer?.activeLine?.baseUrl,
+      currentLine.baseUrl,
+    );
+  });
+
+  test('删除当前服务器时拒绝低版本的备用服务器', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        serverLineProbeCoordinatorProvider.overrideWithValue(
+          ServerLineProbeCoordinator(
+            probe: (line) async => ServerLineProbeResult.success(
+              line,
+              10,
+              versionInfo: const ServerVersionInfo(
+                projectName: 'db_online',
+                version: '1.13.9',
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    const currentLine = ServerLine(
+      id: 'current-line',
+      name: '当前线路',
+      baseUrl: 'https://current.example',
+    );
+    const remainingLine = ServerLine(
+      id: 'remaining-line',
+      name: '备用线路',
+      baseUrl: 'https://remaining.example',
+    );
+    const currentServer = ServerProfile(
+      id: 'current-server',
+      name: '当前服务器',
+      projectName: 'oh-my-media',
+      lines: [currentLine],
+      activeLineId: 'current-line',
+    );
+    const remainingServer = ServerProfile(
+      id: 'remaining-server',
+      name: '备用服务器',
+      projectName: 'db_online',
+      lines: [remainingLine],
+      activeLineId: 'remaining-line',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          const ServerConfig(
+            baseUrl: 'https://current.example',
+            lines: [currentLine],
+            servers: [currentServer, remainingServer],
+            activeServerId: 'current-server',
+          ),
+        );
+
+    await expectLater(
+      container
+          .read(serverConfigProvider.notifier)
+          .deleteServer('current-server'),
+      throwsA(
+        isA<ServerCompatibilityException>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('db_online >= 1.14.0'), contains('1.13.9')),
+        ),
+      ),
+    );
+
+    final config = container.read(serverConfigProvider)!;
+    expect(config.activeServerId, 'current-server');
+    expect(config.servers, hasLength(2));
   });
 }
