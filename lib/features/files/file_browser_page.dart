@@ -622,7 +622,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Widget _entryTile(FileEntry entry, int index) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final playbackProgress = !entry.isDirectory && _isVideoEntry(entry)
         ? _filePlaybackProgress.load(entry.name)
         : null;
@@ -678,7 +679,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                   entry.isDirectory ? Icons.folder_outlined : _fileIcon(entry),
                   color: entry.isDirectory
                       ? colors.primary
-                      : _fileIconColor(entry, colors),
+                      : _fileIconColor(entry, theme.brightness),
                 ),
           title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: entry.isDirectory
@@ -1264,6 +1265,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       await _previewVideo(entry);
     } else if (_isImageEntry(entry)) {
       await _previewImage(entry);
+    } else if (_isSubtitleEntry(entry)) {
+      await _previewText(entry);
     } else if (_isTextEntry(entry)) {
       await _previewText(entry);
     }
@@ -2026,14 +2029,15 @@ IconData _fileIcon(FileEntry entry) {
   };
 }
 
-Color _fileIconColor(FileEntry entry, ColorScheme colors) {
-  return switch (_fileTypeFor(entry)) {
-    _FileType.text => colors.primary,
-    _FileType.video => colors.secondary,
-    _FileType.image => colors.tertiary,
-    _FileType.subtitle => colors.error,
-    _FileType.other => colors.onSurfaceVariant,
+Color _fileIconColor(FileEntry entry, Brightness brightness) {
+  final hue = switch (_fileTypeFor(entry)) {
+    _FileType.text => AppHues.sky,
+    _FileType.video => AppHues.coral,
+    _FileType.image => AppHues.mint,
+    _FileType.subtitle => AppHues.solar,
+    _FileType.other => AppHues.lavender,
   };
+  return AppHues.chipText(hue, brightness);
 }
 
 String _entryMeta(FileEntry entry) {
