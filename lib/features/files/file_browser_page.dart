@@ -527,28 +527,42 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         if (listing.breadcrumbs.isNotEmpty)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var i = 0; i < listing.breadcrumbs.length; i++) ...[
-                    if (i > 0) const Icon(Icons.chevron_right, size: 18),
-                    TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => unawaited(
-                              _popToPath(listing.breadcrumbs[i].value),
-                            ),
-                      child: Text(
-                        i == 0
-                            ? '根目录'
-                            : _pathName(listing.breadcrumbs[i].value),
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: MediaQuery.sizeOf(context).width - 32,
+              ),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < listing.breadcrumbs.length; i++) ...[
+                      if (i > 0) const Icon(Icons.chevron_right, size: 18),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          minimumSize: Size.zero,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 4,
+                          ),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: _busy
+                            ? null
+                            : () => unawaited(
+                                _popToPath(listing.breadcrumbs[i].value),
+                              ),
+                        child: Text(
+                          i == 0
+                              ? '根目录'
+                              : _pathName(listing.breadcrumbs[i].value),
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -1239,6 +1253,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         path: entry.path,
         size: entry.size,
         mimeType: entry.mimeType,
+        pathExtension: _pathExtension(entry.name),
       );
       if (!mounted) return;
       await PlayerPage.openDirect(
@@ -1383,6 +1398,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final dot = name.lastIndexOf('.');
     if (dot <= 0 || dot == name.length - 1) return false;
     return extensions.contains(name.substring(dot + 1).toLowerCase());
+  }
+
+  String? _pathExtension(String name) {
+    final dot = name.lastIndexOf('.');
+    if (dot <= 0 || dot == name.length - 1) return null;
+    return name.substring(dot + 1);
   }
 
   String _decodeTextPreview(FileEntry entry, List<int> bytes) {

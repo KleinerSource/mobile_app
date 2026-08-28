@@ -1081,8 +1081,10 @@ class _ExtraFanartViewer extends StatefulWidget {
 
 enum _LightboxGestureMode { undecided, horizontal, vertical, imagePan, pinch }
 
-class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
+class _ExtraFanartViewerState extends State<_ExtraFanartViewer>
+    with SingleTickerProviderStateMixin {
   late final PageController _controller;
+  late final AnimationController _zoomAnimationController;
   final Map<int, TransformationController> _imageControllers =
       <int, TransformationController>{};
   final Map<int, Future<Uint8List>> _imageBytes = <int, Future<Uint8List>>{};
@@ -1096,8 +1098,11 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
   _LightboxGestureMode _gestureMode = _LightboxGestureMode.undecided;
   Offset _gestureStartFocalPoint = Offset.zero;
   double _lastScaleFactor = 1;
+  Animation<Matrix4>? _zoomAnimation;
+  TransformationController? _zoomAnimationTarget;
 
   static const _dragAnimationDuration = Duration(milliseconds: 220);
+  static const _zoomAnimationDuration = Duration(milliseconds: 260);
 
   bool get _hasTrailer => widget.trailerUrl != null;
 
@@ -1112,10 +1117,15 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
     super.initState();
     _index = widget.initialIndex;
     _controller = PageController(initialPage: widget.initialIndex);
+    _zoomAnimationController = AnimationController(
+      vsync: this,
+      duration: _zoomAnimationDuration,
+    )..addListener(_onZoomAnimationTick);
   }
 
   @override
   void dispose() {
+    _zoomAnimationController.dispose();
     _controller.dispose();
     for (final controller in _imageControllers.values) {
       controller.dispose();
@@ -1162,6 +1172,32 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
 
   bool _isZoomed(int index) => _zoomedIndexes.contains(index);
 
+  void _onZoomAnimationTick() {
+    final animation = _zoomAnimation;
+    final target = _zoomAnimationTarget;
+    if (animation == null || target == null) return;
+    target.value = animation.value;
+  }
+
+  void _stopZoomAnimation() {
+    _zoomAnimationController.stop();
+    _zoomAnimation = null;
+    _zoomAnimationTarget = null;
+  }
+
+  void _animateImageTransform(
+    TransformationController controller,
+    Matrix4 target,
+  ) {
+    _stopZoomAnimation();
+    _zoomAnimationController.reset();
+    _zoomAnimationTarget = controller;
+    _zoomAnimation = Matrix4Tween(begin: controller.value.clone(), end: target)
+        .chain(CurveTween(curve: Curves.easeOutCubic))
+        .animate(_zoomAnimationController);
+    _zoomAnimationController.forward();
+  }
+
   void _resetImageTransform(int index) {
     final controller = _imageControllers[index];
     if (controller == null) return;
@@ -1171,6 +1207,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
 
   void _onGestureStart(ScaleStartDetails details) {
     if (_isClosing) return;
+    _stopZoomAnimation();
     _gestureStartFocalPoint = details.localFocalPoint;
     _lastScaleFactor = 1;
     _gestureMode = _isZoomed(_index)
@@ -1279,16 +1316,23 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
 
   void _translateImage(TransformationController controller, Offset delta) {
     if (delta == Offset.zero) return;
-    controller.value = controller.value.clone()
-      ..translateByDouble(delta.dx, delta.dy, 0, 1);
+    final next = controller.value.clone();
+    final translation = next.getTranslation();
+    next.setTranslationRaw(
+      translation.x + delta.dx,
+      translation.y + delta.dy,
+      translation.z,
+    );
+    controller.value = next;
   }
 
   void _toggleDoubleTapZoom(int index) {
     if (_isClosing || _isTwoFingerGesture || _isTrailerIndex(index)) return;
     final controller = _imageControllerFor(index);
-    if (_isZoomed(index)) {
-      _resetImageTransform(index);
-      if (mounted) setState(() {});
+    final isZoomed =
+        _isZoomed(index) || controller.value.getMaxScaleOnAxis() > 1.01;
+    if (isZoomed) {
+      _animateImageTransform(controller, Matrix4.identity());
       _doubleTapPosition = null;
       return;
     }
@@ -1305,7 +1349,7 @@ class _ExtraFanartViewerState extends State<_ExtraFanartViewer> {
       );
     }
     transform.scaleByDouble(targetScale, targetScale, targetScale, 1);
-    controller.value = transform;
+    _animateImageTransform(controller, transform);
     _doubleTapPosition = null;
   }
 

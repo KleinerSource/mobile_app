@@ -19,10 +19,12 @@ void main() {
       path: FilePath(sourceId: sourceId, value: '影片.mkv'),
       size: bytes.length,
       mimeType: 'video/x-matroska',
+      pathExtension: 'mkv',
     );
     final client = HttpClient();
     try {
       final fullRequest = await client.getUrl(proxy.uri);
+      expect(proxy.uri.path, endsWith('.mkv'));
       final fullResponse = await fullRequest.close();
       final fullBody = await _read(fullResponse);
       expect(fullResponse.statusCode, HttpStatus.ok);

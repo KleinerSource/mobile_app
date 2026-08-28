@@ -14,12 +14,14 @@ class FilePlaybackProxy {
     required this.path,
     this.size,
     this.mimeType,
-  });
+    String? pathExtension,
+  }) : _pathExtension = _normalizePathExtension(pathExtension);
 
   final FileSourceRepository repository;
   final FilePath path;
   final int? size;
   final String? mimeType;
+  final String? _pathExtension;
   final String _token =
       '${DateTime.now().microsecondsSinceEpoch}-${Object().hashCode}';
   final Set<HttpResponse> _responses = <HttpResponse>{};
@@ -31,12 +33,14 @@ class FilePlaybackProxy {
     required FilePath path,
     int? size,
     String? mimeType,
+    String? pathExtension,
   }) async {
     final proxy = FilePlaybackProxy._(
       repository: repository,
       path: path,
       size: size,
       mimeType: mimeType,
+      pathExtension: pathExtension,
     );
     try {
       proxy._server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -57,9 +61,12 @@ class FilePlaybackProxy {
       scheme: 'http',
       host: InternetAddress.loopbackIPv4.host,
       port: server.port,
-      path: '/$_token',
+      path: _requestPath,
     );
   }
+
+  String get _requestPath =>
+      '/$_token${_pathExtension == null ? '' : '.$_pathExtension'}';
 
   Future<void> _serve() async {
     final server = _server;
@@ -79,7 +86,7 @@ class FilePlaybackProxy {
     final response = request.response;
     _responses.add(response);
     try {
-      if (_closed || request.uri.path != '/$_token') {
+      if (_closed || request.uri.path != _requestPath) {
         response.statusCode = HttpStatus.notFound;
         return;
       }
@@ -208,6 +215,13 @@ class FilePlaybackProxy {
     }
     _responses.clear();
   }
+}
+
+String? _normalizePathExtension(String? value) {
+  final extension = value?.trim().toLowerCase().replaceFirst('.', '');
+  if (extension == null || extension.isEmpty) return null;
+  if (!RegExp(r'^[a-z0-9]+$').hasMatch(extension)) return null;
+  return extension;
 }
 
 class _FileByteRange {

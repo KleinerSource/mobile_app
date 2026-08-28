@@ -484,6 +484,13 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     try {
       final trailerUrl = widget.directUrl?.trim();
       if (trailerUrl != null && trailerUrl.isNotEmpty) {
+        // 文件源的回环代理是按需取流的，内核 open 可能会等待远端首段
+        // 数据或容器探测。先展示播放器表面和控件，让播放器自己的 buffering
+        // 状态接管等待过程，避免整个页面一直被“正在加载影片”覆盖。
+        _decision = _directPlaybackDecision;
+        _bindProgress();
+        setState(() => _loading = false);
+        _restartHideTimer();
         await _host.configure(
           preloadBytes: ref.read(playerSettingsProvider).preloadSize.bytes,
           hardwareAcceleration: _clientHardwareAcceleration,
@@ -499,10 +506,6 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           await _stopPlayer();
           return;
         }
-        _decision = _directPlaybackDecision;
-        _bindProgress();
-        setState(() => _loading = false);
-        _restartHideTimer();
         return;
       }
 
