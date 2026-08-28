@@ -71,7 +71,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     required this.title,
     this.directUrl,
     this.engineKind,
-    this.directPlaybackKey,
+    this.directPlaybackFileName,
     this.startPositionSec = 0,
     this.queue = const <PlayerQueueItem>[],
     this.queueIndex = 0,
@@ -84,7 +84,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     required this.title,
     required this.directUrl,
     this.engineKind,
-    this.directPlaybackKey,
+    this.directPlaybackFileName,
   }) : movieId = null,
        startPositionSec = 0,
        queue = const <PlayerQueueItem>[],
@@ -94,7 +94,7 @@ class PlayerPage extends ConsumerStatefulWidget {
   final String title;
   final String? directUrl;
   final PlaybackEngineKind? engineKind;
-  final String? directPlaybackKey;
+  final String? directPlaybackFileName;
   final int startPositionSec;
   final List<PlayerQueueItem> queue;
   final int queueIndex;
@@ -129,7 +129,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     required String title,
     required String directUrl,
     PlaybackEngineKind? engineKind,
-    String? directPlaybackKey,
+    String? directPlaybackFileName,
   }) {
     return Navigator.of(context).push(
       MaterialPageRoute(
@@ -137,7 +137,7 @@ class PlayerPage extends ConsumerStatefulWidget {
           title: title,
           directUrl: directUrl,
           engineKind: engineKind,
-          directPlaybackKey: directPlaybackKey,
+          directPlaybackFileName: directPlaybackFileName,
         ),
       ),
     );
@@ -428,8 +428,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _reportFileProgress() {
-    final stableKey = widget.directPlaybackKey?.trim();
-    if (stableKey == null || stableKey.isEmpty) {
+    final fileName = widget.directPlaybackFileName?.trim();
+    if (fileName == null || fileName.isEmpty) {
       return Future<void>.value();
     }
     final next = _progressReportChain.then<void>((_) async {
@@ -444,7 +444,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _lastPositionSec = positionSec;
       _lastDurationSec = durationSec;
       await _filePlaybackProgress.savePosition(
-        stableKey: stableKey,
+        fileName: fileName,
         positionSec: positionSec,
         durationSec: durationSec,
       );
@@ -522,13 +522,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       final trailerUrl = widget.directUrl?.trim();
       if (trailerUrl != null && trailerUrl.isNotEmpty) {
         if (ref.read(playerSettingsProvider).resumeFromLastPosition) {
-          final stableKey = widget.directPlaybackKey?.trim();
-          if (stableKey != null && stableKey.isNotEmpty) {
-            final savedPosition = _filePlaybackProgress.loadPositionSec(
-              stableKey,
-            );
-            if (savedPosition > 0) {
-              fallbackResume = Duration(seconds: savedPosition);
+          final fileName = widget.directPlaybackFileName?.trim();
+          if (fileName != null && fileName.isNotEmpty) {
+            final savedProgress = _filePlaybackProgress.load(fileName);
+            if (savedProgress != null) {
+              fallbackResume = Duration(seconds: savedProgress.positionSec);
             }
           }
         }

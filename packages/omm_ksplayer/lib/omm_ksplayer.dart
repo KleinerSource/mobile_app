@@ -63,6 +63,8 @@ class OmmKsPlayer {
     Map<String, String>? headers,
     String? formatHint,
     String? videoCodec,
+    int? preloadBytes,
+    bool hardwareAcceleration = true,
   }) => _api.open(
     playerId,
     url,
@@ -71,6 +73,8 @@ class OmmKsPlayer {
     headers,
     formatHint,
     videoCodec,
+    preloadBytes,
+    hardwareAcceleration,
   );
 
   Future<void> play() => _api.play(playerId);

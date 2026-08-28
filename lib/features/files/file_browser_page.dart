@@ -7,12 +7,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/sources/common/source_descriptor.dart';
 import '../../core/sources/common/source_exception.dart';
 import '../../core/sources/common/source_id.dart';
 import '../../core/sources/files/file_entry.dart';
 import '../../core/sources/files/file_operation.dart';
+import '../../core/sources/files/file_playback_progress.dart';
 import '../../core/sources/files/file_source_providers.dart';
 import '../../core/sources/files/file_source_repository.dart';
 import '../../shared/drag_selection.dart';
@@ -84,6 +86,7 @@ class FileBrowserPage extends ConsumerStatefulWidget {
 class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   late String _path = widget.initialPath;
   late final FileOperationTracker _tracker;
+  late final FilePlaybackProgressRepository _filePlaybackProgress;
   final ScrollController _scrollController = ScrollController();
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
   final Set<String> _selectedKeys = <String>{};
@@ -107,6 +110,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   void initState() {
     super.initState();
     _tracker = FileOperationTracker(sourceId: widget.sourceId);
+    _filePlaybackProgress = FilePlaybackProgressRepository(
+      ref.read(sharedPrefsProvider),
+    );
     _scrollController.addListener(_closeSwipeOnScroll);
     _operationSubscription = _tracker.events.listen((operation) {
       if (mounted) setState(() => _operation = operation);
@@ -219,9 +225,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
               CheckedPopupMenuItem<_BrowserMenuAction>(
                 value: _BrowserMenuAction.sortCategory,
                 checked: _sortField == _FileSortField.category,
-                child: Text(
-                  _sortMenuLabel('类别', _FileSortField.category),
-                ),
+                child: Text(_sortMenuLabel('类别', _FileSortField.category)),
               ),
             ],
           );
@@ -615,6 +619,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
 
   Widget _entryTile(FileEntry entry, int index) {
     final colors = Theme.of(context).colorScheme;
+    final playbackProgress = !entry.isDirectory && _isVideoEntry(entry)
+        ? _filePlaybackProgress.load(entry.name)
+        : null;
     return SwipeActionCell(
       group: _openSwipe,
       cellKey: entry.stableKey,
@@ -667,7 +674,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                   entry.isDirectory ? Icons.folder_outlined : _fileIcon(entry),
                 ),
           title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: entry.isDirectory ? null : Text(_entryMeta(entry)),
+          subtitle: entry.isDirectory
+              ? null
+              : _entrySubtitle(entry, playbackProgress),
           trailing: widget.directoryPicker
               ? null
               : PopupMenuButton<String>(
@@ -728,6 +737,16 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         ),
       ),
     );
+  }
+
+  Widget _entrySubtitle(
+    FileEntry entry,
+    FilePlaybackProgress? playbackProgress,
+  ) {
+    final metadata = _entryMeta(entry);
+    if (playbackProgress == null) return Text(metadata);
+    final progress = '已播放 ${playbackProgress.percentage}%';
+    return Text(metadata.isEmpty ? progress : '$progress · $metadata');
   }
 
   List<EntityBatchAction> _batchActions(List<FileEntry> entries) {
@@ -1216,7 +1235,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                 onTap: () =>
                     Navigator.of(context).pop(_FileDetailsAction.preview),
               ),
-            ),
           ],
         ),
       ),
@@ -1261,7 +1279,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         context,
         title: entry.name,
         directUrl: proxy.uri.toString(),
-        directPlaybackKey: entry.path.stableKey,
+        directPlaybackFileName: entry.name,
       );
     } catch (error) {
       if (mounted) {

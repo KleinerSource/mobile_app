@@ -43,6 +43,8 @@ private final class KsPlayerManager: NSObject, OmmKsPlayerHostApi {
     headers: [String: String]?,
     formatHint: String?,
     videoCodec: String?,
+    preloadBytes: Int64?,
+    hardwareAcceleration: Bool,
     completion: @escaping (Result<Void, Error>) -> Void
   ) {
     guard let session = sessions[playerId] else {
@@ -57,6 +59,8 @@ private final class KsPlayerManager: NSObject, OmmKsPlayerHostApi {
         headers: headers,
         formatHint: formatHint,
         videoCodec: videoCodec,
+        preloadBytes: preloadBytes,
+        hardwareAcceleration: hardwareAcceleration,
         completion: completion
       )
     }
@@ -308,6 +312,8 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     headers: [String: String]?,
     formatHint: String?,
     videoCodec: String?,
+    preloadBytes: Int64?,
+    hardwareAcceleration: Bool,
     completion: @escaping (Result<Void, Error>) -> Void
   ) {
     guard let mediaURL = URL(string: url), mediaURL.scheme != nil else {
@@ -336,6 +342,10 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     let options = KSOptions()
     options.startPlayRate = desiredRate
     options.isSeekedAutoPlay = autoplay
+    options.hardwareDecode = hardwareAcceleration
+    let bufferSeconds = forwardBufferDuration(for: preloadBytes)
+    options.preferredForwardBufferDuration = bufferSeconds
+    options.maxBufferDuration = bufferSeconds
     // AVPlayer/HLS 使用 KSPlayer 的秒开门控；KSMEPlayer 直流容器（尤其 MKV）
     // 需要先完成默认前向缓冲，否则可能只渲染首帧而没有启动音视频时钟。
     options.isSecondOpen = !useFfmpegPlayer
@@ -354,6 +364,16 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     layer.set(url: mediaURL, options: options)
     layer.prepareToPlay()
     layerIsStopped = false
+  }
+
+  /// 将播放器设置中的预加载字节档位映射为 KSPlayer 支持的时间缓冲。
+  /// KSPlayer 不提供 libmpv 的字节级 demuxer 缓冲参数，使用保守的 8 MB/s
+  /// 估算，同时限制时间范围，避免启动时等待过久或占用过多内存。
+  private func forwardBufferDuration(for preloadBytes: Int64?) -> TimeInterval {
+    let bytes = max(0, preloadBytes ?? 0)
+    guard bytes > 0 else { return 30 }
+    let seconds = Double(bytes) / (8 * 1024 * 1024)
+    return min(max(seconds, 30), 120)
   }
 
   private func installLayerCallbacks() {

@@ -67,6 +67,8 @@ abstract class OmmKsPlayerHostApi {
     Map<String, String>? headers,
     String? formatHint,
     String? videoCodec,
+    int? preloadBytes,
+    bool hardwareAcceleration,
   );
 
   void play(int playerId);

@@ -22,6 +22,8 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   Duration _subtitleDelay = Duration.zero;
   bool _disposed = false;
   bool _suppressErrorsUntilOpen = false;
+  int _preloadBytes = 250 * 1024 * 1024;
+  bool _hardwareAcceleration = true;
 
   @override
   PlaybackEngineKind get kind => PlaybackEngineKind.ksPlayer;
@@ -186,6 +188,8 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
       headers: request.headers,
       formatHint: request.formatHint,
       videoCodec: request.mediaInfo?.videoCodec,
+      preloadBytes: _preloadBytes,
+      hardwareAcceleration: _hardwareAcceleration,
     );
   }
 
@@ -212,7 +216,14 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   Future<void> configure({
     bool? hardwareAcceleration,
     int? preloadBytes,
-  }) async {}
+  }) async {
+    if (preloadBytes != null && preloadBytes > 0) {
+      _preloadBytes = preloadBytes;
+    }
+    if (hardwareAcceleration != null) {
+      _hardwareAcceleration = hardwareAcceleration;
+    }
+  }
 
   @override
   Future<void> setAudioTrackById(String id) async {

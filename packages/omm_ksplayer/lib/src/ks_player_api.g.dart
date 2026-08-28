@@ -331,6 +331,8 @@ class OmmKsPlayerHostApi {
     Map<String, String>? headers,
     String? formatHint,
     String? videoCodec,
+    int? preloadBytes,
+    bool hardwareAcceleration,
   ) async {
     final pigeonVar_channelName =
         'dev.flutter.pigeon.omm_ksplayer.OmmKsPlayerHostApi.open$pigeonVar_messageChannelSuffix';
@@ -339,17 +341,18 @@ class OmmKsPlayerHostApi {
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
-      <Object?>[
-        playerId,
-        url,
-        startPositionMs,
-        autoplay,
-        headers,
-        formatHint,
-        videoCodec,
-      ],
-    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel
+        .send(<Object?>[
+          playerId,
+          url,
+          startPositionMs,
+          autoplay,
+          headers,
+          formatHint,
+          videoCodec,
+          preloadBytes,
+          hardwareAcceleration,
+        ]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
