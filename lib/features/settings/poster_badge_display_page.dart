@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
-import '../movie_detail/cover_badges.dart';
+import 'package:omm/features/oh_my_media/movie_detail/cover_badges.dart';
 import '../i18n/poster_badge_visibility_provider.dart';
 import 'settings_common.dart';
 

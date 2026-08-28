@@ -18,6 +18,7 @@ import 'server_list_page.dart';
 import 'server_settings_page.dart';
 import 'server_setup_page.dart';
 import 'settings_common.dart';
+import '../files/file_sources_page.dart';
 
 /// 设置主入口 · 服务器、应用与关于入口
 class SettingsPage extends ConsumerWidget {
@@ -77,6 +78,16 @@ class SettingsPage extends ConsumerWidget {
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const AppSettingsPage(),
+                        ),
+                      ),
+                    ),
+                    SettingsTile(
+                      title: '文件列表来源',
+                      subtitle: '配置 SMB / WebDAV 文件管理连接',
+                      leadingIcon: Icons.folder_outlined,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const FileSourcesPage(),
                         ),
                       ),
                     ),

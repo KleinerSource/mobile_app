@@ -2,14 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/movie.dart';
 import '../../core/models/paged_result.dart';
-import '../movies/movie_filter.dart';
-import '../movies/movies_providers.dart';
+import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
+import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 
 /// 首页 Recently Added — 复用 /movies?sort_by=created_at&order=desc
 final recentlyAddedProvider = FutureProvider<PagedResult<MovieListItem>>((
   ref,
 ) async {
-  final repo = ref.watch(moviesRepositoryProvider);
+  final repo = ref.watch(mediaRepositoryProvider);
   return repo.list(
     const MovieFilter(sortBy: 'created_at', sortOrder: 'desc'),
     limit: 12,
@@ -30,7 +30,7 @@ bool isContinueWatchingMovie(MovieListItem movie) {
 final continueWatchingProvider = FutureProvider<List<MovieListItem>>((
   ref,
 ) async {
-  final repo = ref.watch(moviesRepositoryProvider);
+  final repo = ref.watch(mediaRepositoryProvider);
   const pageSize = 50;
   const resultLimit = 5;
   final result = <MovieListItem>[];

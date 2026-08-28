@@ -6,19 +6,19 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
-import '../actor_associations/actor_associations_page.dart';
-import '../actors/actor_management_page.dart';
-import '../audio/audio_management_page.dart';
-import '../configs/avdb_settings_page.dart';
-import '../configs/dbo_settings_page.dart';
-import '../configs/ffmpeg_settings_page.dart';
-import '../configs/video_extensions_page.dart';
-import '../db_online/db_online_backend_settings_page.dart';
-import '../libraries/libraries_page.dart';
-import '../mappings/mapping_rules_page.dart';
-import '../mappings/mappings_repository.dart';
-import '../resources/resource_list_page.dart';
-import '../resources/resources_repository.dart';
+import 'package:omm/features/oh_my_media/actor_associations/actor_associations_page.dart';
+import 'package:omm/features/oh_my_media/actors/actor_management_page.dart';
+import 'package:omm/features/oh_my_media/audio/audio_management_page.dart';
+import 'package:omm/features/oh_my_media/configs/avdb_settings_page.dart';
+import 'package:omm/features/oh_my_media/configs/dbo_settings_page.dart';
+import 'package:omm/features/oh_my_media/configs/ffmpeg_settings_page.dart';
+import 'package:omm/features/oh_my_media/configs/video_extensions_page.dart';
+import 'package:omm/features/db_online/settings/db_online_backend_settings_page.dart';
+import 'package:omm/features/oh_my_media/libraries/libraries_page.dart';
+import 'package:omm/features/oh_my_media/mappings/mapping_rules_page.dart';
+import 'package:omm/features/oh_my_media/mappings/mappings_repository.dart';
+import 'package:omm/features/oh_my_media/resources/resource_list_page.dart';
+import 'package:omm/features/oh_my_media/resources/resources_repository.dart';
 import '../translation/translation_settings_page.dart';
 import '../translation/modal_transcription_settings_page.dart';
 import 'access_control_page.dart';
@@ -62,203 +62,210 @@ class ServerSettingsPage extends ConsumerWidget {
                       ),
                     ],
                   ),
-                if (!dbOnline) SettingsGroup(
-                  title: l.settingsGroupSystem,
-                  items: [
-                    SettingsTile(
-                      title: '访问控制',
-                      subtitle: '登录密码、会话策略与 TOTP',
-                      leadingIcon: Icons.shield_outlined,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const AccessControlPage(),
+                if (!dbOnline)
+                  SettingsGroup(
+                    title: l.settingsGroupSystem,
+                    items: [
+                      SettingsTile(
+                        title: '访问控制',
+                        subtitle: '登录密码、会话策略与 TOTP',
+                        leadingIcon: Icons.shield_outlined,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const AccessControlPage(),
+                          ),
                         ),
                       ),
-                    ),
-                    SettingsTile(
-                      title: l.settingsTranslation,
-                      subtitle: l.settingsTranslationSub,
-                      leadingIcon: Icons.translate_outlined,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const TranslationSettingsPage(),
+                      SettingsTile(
+                        title: l.settingsTranslation,
+                        subtitle: l.settingsTranslationSub,
+                        leadingIcon: Icons.translate_outlined,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const TranslationSettingsPage(),
+                          ),
                         ),
                       ),
-                    ),
-                    SettingsTile(
-                      title: '云端字幕转译',
-                      subtitle: 'Modal GPU 云端转译和任务并行配置',
-                      leadingIcon: Icons.cloud_sync_outlined,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const ModalTranscriptionSettingsPage(),
+                      SettingsTile(
+                        title: '云端字幕转译',
+                        subtitle: 'Modal GPU 云端转译和任务并行配置',
+                        leadingIcon: Icons.cloud_sync_outlined,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const ModalTranscriptionSettingsPage(),
+                          ),
                         ),
                       ),
-                    ),
-                    SettingsTile(
-                      title: '转码',
-                      subtitle: '硬件解码、后端选择和失败回退',
-                      leadingIcon: Icons.memory_outlined,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const FfmpegSettingsPage(),
+                      SettingsTile(
+                        title: '转码',
+                        subtitle: '硬件解码、后端选择和失败回退',
+                        leadingIcon: Icons.memory_outlined,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const FfmpegSettingsPage(),
+                          ),
                         ),
                       ),
-                    ),
-                    SettingsTile(
-                      title: l.settingsExtensions,
-                      subtitle: l.settingsExtensionsSub,
-                      leadingIcon: Icons.movie_filter_outlined,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const VideoExtensionsPage(),
+                      SettingsTile(
+                        title: l.settingsExtensions,
+                        subtitle: l.settingsExtensionsSub,
+                        leadingIcon: Icons.movie_filter_outlined,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const VideoExtensionsPage(),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                if (!dbOnline) SettingsGroup(
-                  title: l.settingsGroupLibrary,
-                  items: [
-                    SettingsTile(
-                      title: l.settingsLibraries,
-                      subtitle: l.settingsLibrariesSub,
-                      leadingIcon: Icons.video_library_outlined,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const LibrariesPage(),
+                    ],
+                  ),
+                if (!dbOnline)
+                  SettingsGroup(
+                    title: l.settingsGroupLibrary,
+                    items: [
+                      SettingsTile(
+                        title: l.settingsLibraries,
+                        subtitle: l.settingsLibrariesSub,
+                        leadingIcon: Icons.video_library_outlined,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const LibrariesPage(),
+                          ),
                         ),
                       ),
-                    ),
-                    SettingsTile(
-                      title: '音频管理',
-                      subtitle: '已提取音频资产与字幕转译进度',
-                      leadingIcon: Icons.graphic_eq_outlined,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const AudioManagementPage(),
+                      SettingsTile(
+                        title: '音频管理',
+                        subtitle: '已提取音频资产与字幕转译进度',
+                        leadingIcon: Icons.graphic_eq_outlined,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const AudioManagementPage(),
+                          ),
                         ),
                       ),
-                    ),
-                    SettingsTile(
-                      title: l.settingsTags,
-                      subtitle: 'Tags',
-                      leadingIcon: Icons.label_outline,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const ResourceListPage(kind: ResourceKind.tag),
+                      SettingsTile(
+                        title: l.settingsTags,
+                        subtitle: 'Tags',
+                        leadingIcon: Icons.label_outline,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const ResourceListPage(kind: ResourceKind.tag),
+                          ),
                         ),
                       ),
-                    ),
-                    SettingsTile(
-                      title: l.settingsGenres,
-                      subtitle: 'Genres',
-                      leadingIcon: Icons.category_outlined,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const ResourceListPage(kind: ResourceKind.genre),
+                      SettingsTile(
+                        title: l.settingsGenres,
+                        subtitle: 'Genres',
+                        leadingIcon: Icons.category_outlined,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ResourceListPage(
+                              kind: ResourceKind.genre,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                    SettingsTile(
-                      title: l.settingsSeries,
-                      subtitle: 'Series',
-                      leadingIcon: Icons.collections_bookmark_outlined,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const ResourceListPage(kind: ResourceKind.series),
+                      SettingsTile(
+                        title: l.settingsSeries,
+                        subtitle: 'Series',
+                        leadingIcon: Icons.collections_bookmark_outlined,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ResourceListPage(
+                              kind: ResourceKind.series,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                    SettingsTile(
-                      title: l.settingsActors,
-                      subtitle: l.settingsActorsSub,
-                      leadingIcon: Icons.people_outline,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ActorManagementPage(),
+                      SettingsTile(
+                        title: l.settingsActors,
+                        subtitle: l.settingsActorsSub,
+                        leadingIcon: Icons.people_outline,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ActorManagementPage(),
+                          ),
                         ),
                       ),
-                    ),
-                    SettingsTile(
-                      title: l.settingsActorAssociations,
-                      subtitle: l.settingsActorAssociationsSub,
-                      leadingIcon: Icons.account_tree_outlined,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ActorAssociationsPage(),
+                      SettingsTile(
+                        title: l.settingsActorAssociations,
+                        subtitle: l.settingsActorAssociationsSub,
+                        leadingIcon: Icons.account_tree_outlined,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ActorAssociationsPage(),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                if (!dbOnline) SettingsGroup(
-                  title: l.settingsGroupMappings,
-                  items: [
-                    SettingsTile(
-                      title: l.settingsMappingTags,
-                      subtitle: l.settingsMappingSub,
-                      leadingIcon: Icons.swap_horiz,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const MappingRulesPage(type: MappingType.tag),
+                    ],
+                  ),
+                if (!dbOnline)
+                  SettingsGroup(
+                    title: l.settingsGroupMappings,
+                    items: [
+                      SettingsTile(
+                        title: l.settingsMappingTags,
+                        subtitle: l.settingsMappingSub,
+                        leadingIcon: Icons.swap_horiz,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const MappingRulesPage(type: MappingType.tag),
+                          ),
                         ),
                       ),
-                    ),
-                    SettingsTile(
-                      title: l.settingsMappingGenres,
-                      subtitle: l.settingsMappingSub,
-                      leadingIcon: Icons.swap_horiz,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const MappingRulesPage(type: MappingType.genre),
+                      SettingsTile(
+                        title: l.settingsMappingGenres,
+                        subtitle: l.settingsMappingSub,
+                        leadingIcon: Icons.swap_horiz,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const MappingRulesPage(type: MappingType.genre),
+                          ),
                         ),
                       ),
-                    ),
-                    SettingsTile(
-                      title: l.settingsMappingSeries,
-                      subtitle: l.settingsMappingSub,
-                      leadingIcon: Icons.swap_horiz,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const MappingRulesPage(type: MappingType.series),
+                      SettingsTile(
+                        title: l.settingsMappingSeries,
+                        subtitle: l.settingsMappingSub,
+                        leadingIcon: Icons.swap_horiz,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const MappingRulesPage(
+                              type: MappingType.series,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                if (!dbOnline) SettingsGroup(
-                  title: l.settingsGroupTools,
-                  items: [
-                    SettingsTile(
-                      title: 'DB Online 数据源',
-                      subtitle: '影片信息、资源和演员关联',
-                      leadingIcon: Icons.api_outlined,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const DboSettingsPage(),
+                    ],
+                  ),
+                if (!dbOnline)
+                  SettingsGroup(
+                    title: l.settingsGroupTools,
+                    items: [
+                      SettingsTile(
+                        title: 'DB Online 数据源',
+                        subtitle: '影片信息、资源和演员关联',
+                        leadingIcon: Icons.api_outlined,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const DboSettingsPage(),
+                          ),
                         ),
                       ),
-                    ),
-                    SettingsTile(
-                      title: 'AVDB 数据源',
-                      subtitle: '演员关联同步',
-                      leadingIcon: Icons.cloud_outlined,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const AvdbSettingsPage(),
+                      SettingsTile(
+                        title: 'AVDB 数据源',
+                        subtitle: '演员关联同步',
+                        leadingIcon: Icons.cloud_outlined,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const AvdbSettingsPage(),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 const SizedBox(height: 80),
               ],
             ),

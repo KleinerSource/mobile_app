@@ -6,8 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/actor.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
-import 'package:omm/features/movies/movies_providers.dart';
-import 'package:omm/features/person_detail/person_detail_page.dart';
+import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'package:omm/features/oh_my_media/person_detail/person_detail_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

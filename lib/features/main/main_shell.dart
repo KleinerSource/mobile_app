@@ -11,19 +11,20 @@ import '../../core/platform/app_theme.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glass_menu.dart';
 import '../../shared/status_bar_scroll_to_top.dart';
-import '../actors/actor_management_page.dart';
-import '../audio/audio_management_page.dart';
-import '../favorites/favorites_page.dart';
+import 'package:omm/features/oh_my_media/actors/actor_management_page.dart';
+import 'package:omm/features/oh_my_media/audio/audio_management_page.dart';
+import 'package:omm/features/oh_my_media/favorites/favorites_page.dart';
 import '../home/home_page.dart';
-import '../db_online/db_online_home_page.dart';
-import '../db_online/db_online_search_page.dart';
-import '../libraries/libraries_page.dart';
-import '../db_online/db_online_library_page.dart';
-import '../movies/movies_page.dart';
-import '../resources/resource_list_page.dart';
-import '../resources/resources_repository.dart';
-import '../search/search_page.dart';
-import '../tasks/task_center_page.dart';
+import 'package:omm/features/db_online/pages/db_online_home_page.dart';
+import 'package:omm/features/db_online/pages/db_online_search_page.dart';
+import 'package:omm/features/oh_my_media/libraries/libraries_page.dart';
+import '../files/file_sources_page.dart';
+import 'package:omm/features/db_online/pages/db_online_library_page.dart';
+import 'package:omm/features/oh_my_media/movies/movies_page.dart';
+import 'package:omm/features/oh_my_media/resources/resource_list_page.dart';
+import 'package:omm/features/oh_my_media/resources/resources_repository.dart';
+import 'package:omm/features/oh_my_media/search/search_page.dart';
+import 'package:omm/features/oh_my_media/tasks/task_center_page.dart';
 import '../settings/settings_page.dart';
 
 /// omm 主框架 · 设计稿 4 Tab 悬浮胶囊
@@ -97,6 +98,15 @@ class _MainShellState extends ConsumerState<MainShell> {
         ),
       ),
       GlassMenuEntry<_YouQuickAction>.action(
+        value: _YouQuickAction.files,
+        builder: (context, selected, onTap) => GlassMenuRow(
+          icon: Icons.folder_outlined,
+          label: '文件列表',
+          selected: selected,
+          onTap: onTap,
+        ),
+      ),
+      GlassMenuEntry<_YouQuickAction>.action(
         value: _YouQuickAction.audios,
         builder: (context, selected, onTap) => GlassMenuRow(
           icon: Icons.graphic_eq_outlined,
@@ -149,6 +159,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     final page = switch (action) {
       _YouQuickAction.tasks => const TaskCenterPage(),
       _YouQuickAction.libraries => const LibrariesPage(),
+      _YouQuickAction.files => const FileSourcesPage(),
       _YouQuickAction.audios => const AudioManagementPage(),
       _YouQuickAction.tags => const ResourceListPage(kind: ResourceKind.tag),
       _YouQuickAction.genres => const ResourceListPage(
@@ -238,7 +249,16 @@ class _MainShellState extends ConsumerState<MainShell> {
   }
 }
 
-enum _YouQuickAction { tasks, libraries, audios, tags, genres, series, actors }
+enum _YouQuickAction {
+  tasks,
+  libraries,
+  files,
+  audios,
+  tags,
+  genres,
+  series,
+  actors,
+}
 
 class _TabSpec {
   const _TabSpec({required this.label, required this.icon});

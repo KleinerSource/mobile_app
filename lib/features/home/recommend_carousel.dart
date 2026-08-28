@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-import '../../core/models/db_online_movie.dart';
+import 'package:omm/features/db_online/models/db_online_movie.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/poster.dart';
-import '../movie_detail/movie_detail_page.dart';
-import '../movies/movie_data_changes.dart';
+import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
+import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
 import '../privacy/privacy_mask.dart';
 
 /// 首页 hero 轮播。

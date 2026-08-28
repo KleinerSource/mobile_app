@@ -6,8 +6,8 @@ import 'package:omm/core/auth/auth_session.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/config/server_line_probe.dart';
-import 'package:omm/core/models/db_online_movie.dart';
-import 'package:omm/features/db_online/db_online_home_providers.dart';
+import 'package:omm/features/db_online/models/db_online_movie.dart';
+import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/home/server_switch_transition.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

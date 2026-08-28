@@ -2,12 +2,11 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/services/actors_api.dart';
 import 'package:omm/core/api/services/audio_api.dart';
 import 'package:omm/core/api/services/configs_extended_api.dart';
 import 'package:omm/core/api/services/genres_api.dart';
-import 'package:omm/core/api/services/libraries_api.dart';
-import 'package:omm/core/api/services/libraries_extended_api.dart';
 import 'package:omm/core/api/services/mappings_api.dart';
 import 'package:omm/core/api/services/movies_api.dart';
 import 'package:omm/core/api/services/movies_extended_api.dart';
@@ -19,7 +18,7 @@ import 'package:omm/core/api/services/translation_api.dart';
 import 'package:omm/core/api/services/system_extended_api.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/models/playback.dart';
-import 'package:omm/features/libraries/libraries_repository.dart';
+import 'package:omm/core/sources/media/omm_media_source_adapter.dart';
 import 'package:omm/features/translation/translation_repository.dart';
 
 void main() {
@@ -183,10 +182,9 @@ void main() {
     for (final incremental in const [true, false]) {
       final adapter = _RouteAdapter();
       final dio = _dio(adapter);
-      final result = await LibrariesRepository(
-        LibrariesApi(dio),
-        LibrariesExtendedApi(dio),
-      ).batchScan(incremental: incremental);
+      final result = await OmmMediaSourceAdapter(
+        ApiClient(dio),
+      ).startBatchScan(incremental: incremental);
 
       expect(adapter.paths.single, '/api/libraries/scan');
       expect(adapter.requestBodies.single, {'incremental': incremental});

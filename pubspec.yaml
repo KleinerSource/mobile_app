@@ -41,6 +41,8 @@ dependencies:
   infinite_scroll_pagination: ^4.1.0
   lpinyin: ^2.0.3
   web_socket_channel: ^3.0.1
+  dart_smb2: ^0.1.2
+  webdav_client: ^1.2.2
 
 dev_dependencies:
   flutter_test:

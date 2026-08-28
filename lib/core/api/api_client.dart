@@ -18,7 +18,7 @@ import 'services/movies_extended_api.dart';
 import 'services/libraries_extended_api.dart';
 import 'services/catalog_extended_api.dart';
 import 'services/configs_extended_api.dart';
-import 'services/db_online_api.dart';
+import 'package:omm/features/db_online/api/db_online_api.dart';
 import 'services/mappings_extended_api.dart';
 import 'services/modal_transcription_api.dart';
 import 'services/series_api.dart';

@@ -15,8 +15,8 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/server_avatar.dart';
 import '../../shared/shake_error_text.dart';
 import '../../shared/totp_input_field.dart';
-import '../libraries/libraries_providers.dart';
-import '../db_online/db_online_home_providers.dart';
+import 'package:omm/features/oh_my_media/libraries/libraries_providers.dart';
+import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'home_providers.dart';
 
 enum ServerSwitchPhase { idle, checking, needsLogin, error }

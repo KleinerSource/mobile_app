@@ -9,7 +9,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/api/dio_factory.dart';
-import '../../core/api/providers.dart';
 import '../../core/api/url_resolver.dart';
 import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
@@ -17,7 +16,11 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/models/playback.dart' as playback_models;
 import '../../core/models/watch_record.dart';
 import '../../core/platform/screen_brightness_channel.dart';
-import '../movies/movies_providers.dart';
+import '../../core/sources/common/source_exception.dart';
+import '../../core/sources/common/source_id.dart';
+import '../../core/sources/media/media_models.dart' as source_models;
+import '../../core/sources/media/media_source_providers.dart';
+import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'engine_playback_route.dart';
 import 'playback_engine.dart';
 import 'player_controls.dart';
@@ -36,7 +39,6 @@ import 'player_session_controller.dart';
 import 'player_session_factory.dart';
 import 'player_status_overlay.dart';
 import 'subtitle_adjustment_sheet.dart';
-import 'subtitle_content_fetcher.dart';
 import 'subtitle_rendering.dart';
 import 'subtitle_settings.dart';
 
@@ -373,11 +375,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     if (_transcodeSessionActive && movieId != null) {
       _transcodeSessionActive = false;
       try {
-        final stopFuture = ref
-            .read(requiredApiClientProvider)
-            .playback
-            .stop(movieId);
-        unawaited(stopFuture);
+        final source = ref.read(ommMediaSourceProvider);
+        if (source != null) {
+          unawaited(source.stopTranscode(_ommRef(movieId)));
+        }
       } catch (_) {}
     }
     // ignore: discarded_futures
@@ -400,7 +401,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
       try {
         await ref
-            .read(moviesRepositoryProvider)
+            .read(mediaRepositoryProvider)
             .upsertWatchRecord(
               movieId,
               positionSec: positionSec,
@@ -509,7 +510,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       if (cfg == null) throw StateError('未配置服务器');
       final movieId = widget.movieId;
       if (movieId == null) throw StateError('播放影片 ID 缺失');
-      final client = ref.read(requiredApiClientProvider);
+      final source = ref.read(ommMediaSourceProvider);
+      if (source == null) throw const SourceException('OMM 播放来源未就绪');
       final token = await ref.read(authSessionRepositoryProvider).accessToken();
       if (!mounted || generation != _loadGeneration) return;
 
@@ -521,8 +523,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
       final decision =
           cachedDecision ??
-          await client.playback.decision(
-            movieId,
+          await source.resolvePlaybackDecision(
+            _ommRef(movieId),
             _clientCaps(
               selectedQuality,
               forceVideoTranscode: forceVideoTranscode,
@@ -589,7 +591,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           widget.startPositionSec <= 0) {
         try {
           savedRecord = await ref
-              .read(moviesRepositoryProvider)
+              .read(mediaRepositoryProvider)
               .watchRecord(movieId);
         } catch (_) {
           // 观看记录是续播增强能力，读取失败不能阻塞首次播放。
@@ -1035,10 +1037,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     playback_models.SubtitleTrack track,
   ) async {
     final url = _protectedUrl(cfg, track.url, token);
-    final content = await fetchSubtitleContent(
-      ref.read(requiredApiClientProvider).dio,
-      url,
-    );
+    final source = ref.read(ommMediaSourceProvider);
+    if (source == null) throw const SourceException('OMM 播放来源未就绪');
+    final content = await source.fetchSubtitleContent(url);
     // mpv 解析本地字幕文件仍可能向错误流写入报错，加载前后设置降级窗口。
     _subtitleLoadGuardUntil = DateTime.now().add(const Duration(seconds: 15));
     await _host.setSubtitleData(
@@ -1248,8 +1249,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     // 先让旧回调失效并异步取消，不能让它阻塞后续的清晰度切换队列。
     _cancelTranscodeMonitoring();
     final movieId = widget.movieId;
-    final stopFuture = shouldStopServerSession && movieId != null
-        ? ref.read(requiredApiClientProvider).playback.stop(movieId)
+    final source = ref.read(ommMediaSourceProvider);
+    final stopFuture =
+        shouldStopServerSession && movieId != null && source != null
+        ? source.stopTranscode(_ommRef(movieId))
         : null;
     if (!shouldStopServerSession) return;
     if (stopFuture == null) return;
@@ -1285,7 +1288,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _cancelTranscodeMonitoring();
     _transcodePollTimer?.cancel();
     final monitoringGeneration = _transcodeMonitoringGeneration;
-    final api = ref.read(requiredApiClientProvider).playback;
+    final source = ref.read(ommMediaSourceProvider);
+    if (source == null) return;
     final streamUri = Uri.tryParse(decision.streamUrl);
     final streamQuery = streamUri?.queryParameters ?? const <String, String>{};
     final sessionQuality = streamQuery['quality']?.trim().isNotEmpty == true
@@ -1296,9 +1300,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       streamQuery['audio_stream_index'] ?? '',
     );
     final subtitleTrackId = streamQuery['subtitle_track_id'];
-    _eventsSub = api
-        .events(
-          movieId,
+    _eventsSub = source
+        .transcodeEvents(
+          _ommRef(movieId),
           quality: sessionQuality,
           mode: mode,
           audioStreamIndex: audioStreamIndex,
@@ -1380,16 +1384,15 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     final movieId = widget.movieId;
     if (movieId == null) return;
     try {
-      final status = await ref
-          .read(requiredApiClientProvider)
-          .playback
-          .status(
-            movieId,
-            quality: quality,
-            mode: mode,
-            audioStreamIndex: audioStreamIndex,
-            subtitleTrackId: subtitleTrackId,
-          );
+      final source = ref.read(ommMediaSourceProvider);
+      if (source == null) return;
+      final status = await source.transcodeStatus(
+        _ommRef(movieId),
+        quality: quality,
+        mode: mode,
+        audioStreamIndex: audioStreamIndex,
+        subtitleTrackId: subtitleTrackId,
+      );
       if (_isCurrentTranscodeMonitoring(monitoringGeneration)) {
         _applyTranscodeStatus(status);
       }
@@ -1428,6 +1431,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     if (value.isEmpty) return null;
     return {'Authorization': 'Bearer $value'};
   }
+
+  source_models.MediaRef _ommRef(int movieId) => source_models.MediaRef(
+    sourceId: const SourceId('omm'),
+    value: '$movieId',
+  );
 
   String _protectedUrl(ServerConfig cfg, String raw, String? token) {
     return resolveProtectedUrl(cfg, raw, token);
