@@ -88,6 +88,51 @@ void _main_1() {
     AppHaptics.setIntensity(HapticIntensity.standard);
     messenger.setMockMethodCallHandler(SystemChannels.platform, null);
   });
+
+  test('各反馈类型随强度档位统一升降', () async {
+    final effects = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'HapticFeedback.vibrate') {
+        effects.add(call.arguments as String? ?? '');
+      }
+      return null;
+    });
+
+    // selection 与 light 共用轻反馈映射，此处用 light 代表并避开节流。
+    AppHaptics.setIntensity(HapticIntensity.low);
+    AppHaptics.light();
+    AppHaptics.medium();
+    AppHaptics.error();
+    AppHaptics.setIntensity(HapticIntensity.standard);
+    AppHaptics.light();
+    AppHaptics.medium();
+    AppHaptics.error();
+    AppHaptics.setIntensity(HapticIntensity.high);
+    AppHaptics.light();
+    AppHaptics.medium();
+    AppHaptics.error();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(effects, [
+      // low：轻=选择点，中=轻击，错误不降级=中击。
+      'HapticFeedbackType.selectionClick',
+      'HapticFeedbackType.lightImpact',
+      'HapticFeedbackType.mediumImpact',
+      // standard：轻=轻击，中=中击，错误=重击。
+      'HapticFeedbackType.lightImpact',
+      'HapticFeedbackType.mediumImpact',
+      'HapticFeedbackType.heavyImpact',
+      // high：轻=中击，中=重击，错误顶格=重击。
+      'HapticFeedbackType.mediumImpact',
+      'HapticFeedbackType.heavyImpact',
+      'HapticFeedbackType.heavyImpact',
+    ]);
+
+    AppHaptics.setIntensity(HapticIntensity.standard);
+    messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+  });
 }
 
 // ==================== 原 test/core/map_with_concurrency_test.dart ====================

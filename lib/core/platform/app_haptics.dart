@@ -51,7 +51,7 @@ abstract final class AppHaptics {
       return;
     }
     _lastSelectionAt = now;
-    _send(_selectionEffect());
+    _send(_lightEffect());
   }
 
   static void light() {
@@ -86,15 +86,7 @@ abstract final class AppHaptics {
     unawaited(effect.catchError((_) {}));
   }
 
-  static Future<void> _selectionEffect() {
-    return switch (_intensity) {
-      HapticIntensity.off => Future<void>.value(),
-      HapticIntensity.low => HapticFeedback.selectionClick(),
-      HapticIntensity.standard => HapticFeedback.lightImpact(),
-      HapticIntensity.high => HapticFeedback.mediumImpact(),
-    };
-  }
-
+  /// 轻反馈（selection/light 共用）的档位映射：选择反馈额外带 35ms 节流。
   static Future<void> _lightEffect() {
     return switch (_intensity) {
       HapticIntensity.off => Future<void>.value(),
