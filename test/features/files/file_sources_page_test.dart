@@ -102,6 +102,48 @@ void main() {
     expect(find.text('选择播放器'), findsNothing);
   });
 
+  testWidgets('大小写 M3U8 文件按视频打开播放器选择器', (tester) async {
+    final prefs = await _prefs();
+    await prefs.setBool('player.debug_mode', true);
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final request = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+          fileDirectoryProvider(request).overrideWith(
+            (ref) async => _listingWithEntry(
+              sourceId,
+              name: '直播.M3U8',
+              mimeType: 'text/plain',
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('直播.M3U8'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择播放器'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.text('选择播放器'), findsNothing);
+  });
+
   testWidgets('非 debug 模式下点击视频不显示播放器选择器', (tester) async {
     final prefs = await _prefs();
     const serverId = 'smb-one';

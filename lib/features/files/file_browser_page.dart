@@ -2057,6 +2057,7 @@ const _videoFileExtensions = <String>{
   'm4v',
   'ts',
   'm2ts',
+  'm3u8',
 };
 
 const _imageFileExtensions = <String>{

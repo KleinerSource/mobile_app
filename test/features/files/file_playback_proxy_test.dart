@@ -47,6 +47,34 @@ void main() {
     }
   });
 
+  test('M3U8 播放代理保留扩展名并返回 HLS MIME', () async {
+    final sourceId = SourceId.of('m3u8-source');
+    final bytes = List<int>.generate(6, (index) => index + 1);
+    final proxy = await FilePlaybackProxy.start(
+      repository: FileSourceRepository(
+        _DownloadOnlyFileSource(sourceId, bytes),
+      ),
+      path: FilePath(sourceId: sourceId, value: '直播.M3U8'),
+      size: bytes.length,
+      pathExtension: 'M3U8',
+    );
+    final client = HttpClient();
+    try {
+      expect(proxy.uri.path, endsWith('.m3u8'));
+      final request = await client.getUrl(proxy.uri);
+      final response = await request.close();
+      expect(response.statusCode, HttpStatus.ok);
+      expect(
+        response.headers.contentType?.mimeType,
+        'application/vnd.apple.mpegurl',
+      );
+      expect(await _read(response), bytes);
+    } finally {
+      await proxy.close();
+      client.close(force: true);
+    }
+  });
+
   test('文件播放器代理把 Range 转发给随机读取来源', () async {
     final sourceId = SourceId.of('range-source');
     final bytes = List<int>.generate(32, (index) => index + 1);

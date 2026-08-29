@@ -457,6 +457,7 @@ String? _mimeTypeForExtension(String? extension) {
     'vob' => 'video/dvd',
     'rm' || 'rmvb' => 'application/vnd.rn-realmedia',
     'ts' || 'm2ts' => 'video/mp2t',
+    'm3u8' => 'application/vnd.apple.mpegurl',
     '3gp' => 'video/3gpp',
     'flv' => 'video/x-flv',
     _ => null,
