@@ -58,7 +58,7 @@ void main() {
     }
   });
 
-  test('HLS 统一选择 KSMEPlayer，直连文件按编码选择内核', () {
+  test('后端 HLS 使用目标编码选择 KSPlayer 内部播放器', () {
     const decision = PlaybackDecision(
       mode: 'transcode',
       streamUrl: 'https://example.com/stream.m3u8?quality=720p',
@@ -101,8 +101,7 @@ void main() {
         null,
         videoCodec: hlsInfo?.videoCodec,
       ),
-      'KSMEPlayer',
-      reason: '网络 HLS（含后端转码）统一走 KSMEPlayer/FFmpeg',
+      'AVPlayer',
     );
   });
 

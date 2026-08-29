@@ -142,9 +142,7 @@ class PlaybackMediaInfo {
     final container = inferPlaybackContainer(url, formatHint);
     if (container == null) return null;
     return switch (container) {
-      // 网络 HLS 与原生侧一致走 KSMEPlayer/FFmpeg：AVFoundation 对这类
-      // AES-128 长片源远距离定位会陷入“持续下载但不再解码”的僵死。
-      'm3u8' || 'hls' || 'mkv' || 'matroska' || 'webm' => 'KSMEPlayer',
+      'mkv' || 'matroska' || 'webm' => 'KSMEPlayer',
       _ => 'AVPlayer',
     };
   }
