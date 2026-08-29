@@ -1303,40 +1303,57 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     try {
       final repository = await _repository();
       final sourceKind = repository.source.descriptor.kind;
-      final selectedEngineKind = filePlaybackEngineKind(
-        sourceKind: sourceKind,
-        isIOS: Platform.isIOS,
-        requested: engineKind,
-      );
-      appLog(
-        '[FileBrowser] 视频来源: kind=${sourceKind.name} '
-        'source=${repository.source.descriptor.id.value}',
-      );
-
-      // WebDAV/OpenList 本质是 HTTP(S) 文件服务，直接把文件 URL 和认证头
-      // 交给播放器，保留播放器自身的 Range/seek 能力，不经过回环代理。
-      if (sourceKind == SourceKind.webDav ||
-          sourceKind == SourceKind.openList) {
+      final httpNative =
+          sourceKind == SourceKind.webDav || sourceKind == SourceKind.openList;
+      var useLoopback = !httpNative;
+      FileAccess? directAccess;
+      if (httpNative) {
         final access = await repository.resolveAccess(entry.path);
         if (!mounted) return;
-        final directUri = access.uri;
-        if (directUri == null) {
+        if (access.uri == null) {
           throw const FileSourceException(
             '服务器未提供 HTTP 直连地址，已停止播放（不会回退到本机代理）',
             code: 'webdav_direct_url_missing',
           );
         }
-        final playbackUrl = directUri.toString();
+        // 网盘直链通常强制校验 User-Agent，而播放内核（尤其 iOS 系统
+        // 内核）无法可靠自定义该请求头；这类资源改走回环代理，由代理
+        // 侧按 fs/get 给出的请求头代为请求。
+        if (access.headers.keys.any(
+          (name) => name.toLowerCase() == 'user-agent',
+        )) {
+          useLoopback = true;
+        } else {
+          directAccess = access;
+        }
+      }
+      final selectedEngineKind = filePlaybackEngineKind(
+        sourceKind: sourceKind,
+        isIOS: Platform.isIOS,
+        requested: engineKind,
+        loopback: useLoopback,
+      );
+      appLog(
+        '[FileBrowser] 视频来源: kind=${sourceKind.name} '
+        'loopback=$useLoopback '
+        'source=${repository.source.descriptor.id.value}',
+      );
+
+      if (directAccess != null) {
+        if (!mounted) return;
+        // WebDAV/OpenList 本质是 HTTP(S) 文件服务，直接把文件 URL 和
+        // 认证头交给播放器，保留播放器自身的 Range/seek 能力。
+        final playbackUrl = directAccess.uri.toString();
         appLog(
           '[FileBrowser] 使用 HTTP 直连播放: '
           'engine=${selectedEngineKind?.value ?? 'default'} '
-          'url=$playbackUrl headers=${access.headers.isNotEmpty}',
+          'url=$playbackUrl headers=${directAccess.headers.isNotEmpty}',
         );
         await PlayerPage.openDirect(
           context,
           title: entry.name,
           directUrl: playbackUrl,
-          directHeaders: access.headers,
+          directHeaders: directAccess.headers,
           directFormatHint: _pathExtension(entry.name),
           engineKind: selectedEngineKind,
           directPlaybackFileName: entry.name,
@@ -1354,8 +1371,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         pathExtension: _pathExtension(entry.name),
       );
       if (!mounted) return;
-      // SMB 没有可供 iOS AVPlayer 使用的 HTTP URL，继续使用回环 HTTP
-      // 代理按需读取；代理本身会透传可用的 Range。
+      // SMB 没有可供 iOS AVPlayer 使用的 HTTP URL；OpenList 的网盘直链
+      // 要求特定 User-Agent。都通过本机回环 HTTP 代理按需读取；代理会
+      // 透传可用的 Range，并代发来源要求的请求头。
       final playbackUrl = proxy.uri.toString();
       appLog(
         '[FileBrowser] 使用流式代理播放: '

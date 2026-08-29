@@ -172,6 +172,38 @@ void main() {
       }
     });
 
+    test('下载与区间请求代发 fs/get 要求的 User-Agent', () async {
+      final fixture = await _OpenListFixture.start();
+      fixture.statOverrides['/media/movie.mkv'] = <String, dynamic>{
+        'name': 'movie.mkv',
+        'is_dir': false,
+        'size': 64,
+        'modified': '2026-01-02T03:04:05Z',
+        'sign': 'sig1',
+        'raw_url': '',
+        'header': {'User-Agent': 'pan-client/1.0'},
+      };
+      final client = OpenListClient(_options(fixture));
+      try {
+        final response = await client.openStream('/media/movie.mkv');
+        expect(response.statusCode, 200);
+        await response.data!.stream.drain<void>();
+        expect(fixture.downloadUserAgents.last, 'pan-client/1.0');
+
+        final ranged = await client.openStream(
+          '/media/movie.mkv',
+          rangeStart: 8,
+          rangeEnd: 16,
+        );
+        expect(ranged.statusCode, HttpStatus.partialContent);
+        await ranged.data!.stream.drain<void>();
+        expect(fixture.downloadUserAgents.last, 'pan-client/1.0');
+      } finally {
+        await client.dispose();
+        await fixture.close();
+      }
+    });
+
     test('对象不存在时抛出可识别的 404 业务错误', () async {
       final fixture = await _OpenListFixture.start();
       final client = OpenListClient(_options(fixture));
@@ -460,6 +492,7 @@ class _OpenListFixture {
   final uploadRequests = <({String path, List<int> bytes})>[];
   final ranges = <String>[];
   final downloadAuthHeaders = <String?>[];
+  final downloadUserAgents = <String?>[];
 
   List<Map<String, dynamic>> directoryEntries = [
     {'name': 'movies', 'is_dir': true, 'size': 0, 'modified': '2026-01-02T03:04:05Z', 'sign': ''},
@@ -565,6 +598,7 @@ class _OpenListFixture {
         downloadAuthHeaders.add(
           request.headers.value(HttpHeaders.authorizationHeader),
         );
+        downloadUserAgents.add(request.headers.value(HttpHeaders.userAgentHeader));
         if (!_authorized(request) &&
             request.uri.queryParameters['sign'] != 'sig1') {
           response.statusCode = HttpStatus.unauthorized;

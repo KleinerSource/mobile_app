@@ -40,6 +40,17 @@ void _main_0() {
     );
   });
 
+  test('iOS 回环代理（网盘直链需自定义 UA）强制使用 libmpv', () {
+    expect(
+      filePlaybackEngineKind(
+        sourceKind: SourceKind.openList,
+        isIOS: true,
+        loopback: true,
+      ),
+      PlaybackEngineKind.libmpv,
+    );
+  });
+
   test('调试模式手动选择优先于文件源默认内核', () {
     expect(
       filePlaybackEngineKind(
