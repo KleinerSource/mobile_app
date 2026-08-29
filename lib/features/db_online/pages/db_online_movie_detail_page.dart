@@ -17,6 +17,10 @@ import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart'
     show showMovieImageLightbox;
 import 'package:omm/features/oh_my_media/movie_detail/cover_badges.dart';
 import 'package:omm/features/player/player_page.dart';
+import 'package:omm/features/player/player_engine_picker.dart';
+import 'package:omm/features/player/player_session_factory.dart';
+import 'package:omm/features/player/player_settings.dart';
+import 'package:omm/features/player/playback_engine.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
@@ -806,6 +810,9 @@ class _EpisodeTile extends ConsumerWidget {
             onTap: fallbackUrl.isEmpty
                 ? null
                 : () => _openPlayer(context, ref, fallbackUrl),
+            onLongPress: fallbackUrl.isEmpty
+                ? null
+                : () => _openWithEnginePicker(context, ref, fallbackUrl),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
               child: Row(
@@ -821,15 +828,22 @@ class _EpisodeTile extends ConsumerWidget {
                   ),
                   if (qualities.length <= 1)
                     IconButton(
-                      tooltip: '播放',
+                      tooltip: '播放 · 长按选择内核',
                       icon: const Icon(Icons.play_circle_fill_rounded),
                       onPressed: fallbackUrl.isEmpty
                           ? null
                           : () => _openPlayer(context, ref, fallbackUrl),
+                      onLongPress: fallbackUrl.isEmpty
+                          ? null
+                          : () => _openWithEnginePicker(
+                              context,
+                              ref,
+                              fallbackUrl,
+                            ),
                     )
                   else
                     PopupMenuButton<DbOnlinePlayQuality>(
-                      tooltip: '选择清晰度',
+                      tooltip: '选择清晰度 · 长按列表选择内核',
                       icon: const Icon(Icons.play_circle_fill_rounded),
                       onSelected: (quality) =>
                           _openPlayer(context, ref, quality.url),
@@ -850,7 +864,12 @@ class _EpisodeTile extends ConsumerWidget {
     );
   }
 
-  void _openPlayer(BuildContext context, WidgetRef ref, String rawUrl) {
+  void _openPlayer(
+    BuildContext context,
+    WidgetRef ref,
+    String rawUrl, {
+    PlaybackEngineKind? engineKind,
+  }) {
     final config = ref.read(serverConfigProvider);
     if (config == null) return;
     final url = resolveServerUrl(config, rawUrl);
@@ -858,6 +877,30 @@ class _EpisodeTile extends ConsumerWidget {
       context,
       title: '$code · ${episode.name}',
       directUrl: url,
+      engineKind: engineKind,
     );
+  }
+
+  /// 长按播放入口：先选内核再进入播放页。用于对比 libmpv 与 KSPlayer
+  /// 在同一在线源上的表现，定位远距离拖拽问题属于内核还是链路。
+  Future<void> _openWithEnginePicker(
+    BuildContext context,
+    WidgetRef ref,
+    String rawUrl,
+  ) async {
+    final engineKinds = availablePlaybackEngineKinds();
+    if (engineKinds.length < 2) {
+      _openPlayer(context, ref, rawUrl);
+      return;
+    }
+    final defaultEngine = ref.read(playerSettingsProvider).iosEngine;
+    final engineKind = await showPlaybackEnginePicker(
+      context,
+      engineKinds: engineKinds,
+      defaultEngineKind: defaultEngine,
+    );
+    if (engineKind != null && context.mounted) {
+      _openPlayer(context, ref, rawUrl, engineKind: engineKind);
+    }
   }
 }

@@ -28,6 +28,9 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   bool _hardwareAcceleration = true;
   Timer? _seekRecoveryTimer;
   int _seekRecoveryGeneration = 0;
+  PlaybackOpenRequest? _lastOpenRequest;
+  Duration? _pendingSeekTarget;
+  int _stallReopenCount = 0;
 
   /// KSAVPlayer 的 seek completion 在目标分片无法加载时可能永远不回调。
   static const _seekReplyTimeout = Duration(seconds: 10);
@@ -193,6 +196,8 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   @override
   Future<void> open(PlaybackOpenRequest request) async {
     _cancelSeekRecovery();
+    _lastOpenRequest = request;
+    _stallReopenCount = 0;
     _suppressErrorsUntilOpen = false;
     _mediaSupportsFramePreview = !mediaIsHls(request.url, request.formatHint);
     _subtitleCues = const [];
@@ -254,9 +259,10 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
     final player = await _ensurePlayer();
     final wasPlaying = _state.value.playing;
     _cancelSeekRecovery();
+    _pendingSeekTarget = position;
     final generation = ++_seekRecoveryGeneration;
     // 目标分片拉取受阻时 KSAVPlayer 可能不回调 seek completion，超时兜底
-    // 避免统一 seek 未来悬挂；卡死场景由恢复观察负责上报。
+    // 避免统一 seek 未来悬挂；卡死场景由恢复观察负责恢复。
     await player
         .seek(position)
         .timeout(_seekReplyTimeout, onTimeout: () {})
@@ -268,8 +274,9 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   }
 
   /// 定位后观察缓冲状态：窗口内补发 play 推动内核恢复解码（与 libmpv
-  /// 引擎定位后 paused-for-cache 的恢复语义一致），超过上限仍缓冲则上报
-  /// 失败，让页面走重试/回退而不是永远转圈。
+  /// 引擎定位后 paused-for-cache 的恢复语义一致）；确认卡死后优先按目标
+  /// 位置重开媒体——重开走“起播+初始定位”这条已验证可用的路径，可绕过
+  /// 内核远距离 seek 的任何内部僵死；重开后仍卡死才上报错误。
   void _startSeekRecovery(OmmKsPlayer player, int generation) {
     final startedAt = DateTime.now();
     appLog('[KsPlayer] 定位恢复观察启动');
@@ -293,16 +300,54 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
           appLog('[KsPlayer] 定位后仍在缓冲，补发 play 恢复解码');
           unawaited(player.play().catchError((_) {}));
         case KsPlayerSeekRecoveryAction.reportStalled:
-          appLog('[KsPlayer] 定位后持续缓冲超时，判定恢复失败');
           _cancelSeekRecovery();
-          _update(
-            (current) => current.copyWith(
-              lifecycle: PlaybackLifecycle.failed,
-              error: '定位后播放长时间未恢复，请重试或切换画质',
-            ),
-          );
+          unawaited(_recoverFromSeekStall(player));
       }
     });
+  }
+
+  Future<void> _recoverFromSeekStall(OmmKsPlayer player) async {
+    if (_disposed) return;
+    final request = _lastOpenRequest;
+    final target = _pendingSeekTarget;
+    if (_stallReopenCount > 0 || request == null || target == null) {
+      appLog('[KsPlayer] 定位恢复失败，上报错误');
+      _update(
+        (current) => current.copyWith(
+          lifecycle: PlaybackLifecycle.failed,
+          error: '定位后播放长时间未恢复，请重试或切换画质',
+        ),
+      );
+      return;
+    }
+    appLog('[KsPlayer] 定位恢复失败，自动按目标位置重开媒体: $target');
+    try {
+      await open(
+        PlaybackOpenRequest(
+          url: request.url,
+          startAt: target,
+          headers: request.headers,
+          play: true,
+          formatHint: request.formatHint,
+          mediaInfo: request.mediaInfo,
+        ),
+      );
+    } catch (error, stackTrace) {
+      appLog('[KsPlayer] 卡死自动重开失败: $error\n$stackTrace');
+      if (_disposed) return;
+      _update(
+        (current) => current.copyWith(
+          lifecycle: PlaybackLifecycle.failed,
+          error: '定位后播放长时间未恢复，请重试或切换画质',
+        ),
+      );
+      return;
+    }
+    if (_disposed || _seekRecoveryTimer != null) return;
+    // 本次 open 会话已用掉自动重开机会；重开后初始定位若仍卡死，直接上报。
+    // （重开期间用户又拖拽会启动新的观察，此时不再叠加。）
+    _stallReopenCount = 1;
+    _startSeekRecovery(player, _seekRecoveryGeneration);
   }
 
   void _cancelSeekRecovery() {
@@ -425,6 +470,8 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   @override
   Future<void> stop() async {
     _cancelSeekRecovery();
+    _lastOpenRequest = null;
+    _pendingSeekTarget = null;
     _suppressErrorsUntilOpen = true;
     // 新建播放页首次加载时还没有原生播放器；stop 不应为了清理不存在的
     // 媒体而触发 Pigeon create/stop 往返，否则 iOS 可能阻塞后续直链 open。
@@ -457,6 +504,8 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
     if (_disposed) return;
     _disposed = true;
     _cancelSeekRecovery();
+    _lastOpenRequest = null;
+    _pendingSeekTarget = null;
     await _eventSubscription?.cancel();
     final player = _player ?? await _playerFuture;
     await player.dispose();
