@@ -1000,8 +1000,8 @@ class _ServerSwitchTransitionOverlayState
     required ServerProfile server,
     required double progress,
   }) {
-    final fadeProgress = Curves.easeInCubic.transform(
-      ((progress - 0.16) / 0.26).clamp(0.0, 1.0),
+    final fadeProgress = Curves.easeOutCubic.transform(
+      ((progress - 0.06) / 0.24).clamp(0.0, 1.0),
     );
     return IgnorePointer(
       child: Center(
@@ -1032,7 +1032,9 @@ class _ServerSwitchTransitionOverlayState
     final radius = lerpDouble(
       ServerSwitchTransitionMetrics.avatarRadius,
       farthestCornerDistance + 2,
-      Curves.easeOutCubic.transform(progress),
+      // [progress] 在 _buildMaterial 中已经使用 easeInCubic，保持单一
+      // 加速曲线，避免再叠加反向曲线后抵消成近似匀速。
+      progress,
     )!;
     return CustomPaint(
       painter: _CircularRevealPainter(
