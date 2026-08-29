@@ -1,19 +1,27 @@
-import 'dart:convert';
+// 合并自以下测试文件（测试内容保持不变，整合以减少每个文件的加载编译开销）。
+//   - test/core/sources_test.dart
+//   - test/core/webdav_file_source_range_test.dart
+//   - test/core/sources/file_playback_progress_test.dart
 
+import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/api_client.dart';
 import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/core/api/providers.dart';
-import 'package:omm/features/db_online/api/db_online_api.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/models/movie.dart';
+import 'package:omm/core/sources/files/file_playback_progress.dart';
 import 'package:omm/core/sources/sources.dart';
+import 'package:omm/features/db_online/api/db_online_api.dart';
+import 'package:omm/features/files/file_playback_proxy.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
+// ==================== 原 test/core/sources_test.dart ====================
+void _main_0() {
   test('SourceId and MediaRef keep source scope in stable keys', () {
     const ommId = SourceId('omm');
     const dboId = SourceId('dbo');
@@ -614,4 +622,311 @@ class _FakeFileSource
 
   @override
   Future<void> dispose() async => disposed = true;
+}
+
+// ==================== 原 test/core/webdav_file_source_range_test.dart ====================
+void _main_1() {
+  test('WebDAV 文件访问暴露可直接播放的 HTTP URL 和认证头', () async {
+    final bytes = List<int>.generate(8, (index) => index);
+    final fixture = await _WebDavFixture.start(bytes);
+    final sourceId = SourceId.of('webdav-direct');
+    final source = await WebDavFileSource.connect(
+      id: sourceId.value,
+      name: '测试 WebDAV',
+      options: WebDavConnectionOptions(
+        uri: fixture.baseUri.replace(path: '/dav/').toString(),
+        port: fixture.server.port,
+        user: 'alice',
+        password: 'secret',
+      ),
+    );
+    try {
+      final access = await source.resolveAccess(
+        FilePath(sourceId: sourceId, value: '/movie.mp4'),
+      );
+      expect(
+        access.uri,
+        fixture.baseUri.replace(path: '/dav/movie.mp4'),
+      );
+      expect(access.size, bytes.length);
+      expect(access.mimeType, 'video/mp4');
+      expect(access.headers['Authorization'], 'Basic YWxpY2U6c2VjcmV0');
+    } finally {
+      await source.dispose();
+      await fixture.close();
+    }
+  });
+
+  test('WebDAV Range 请求透传并校验 206 响应', () async {
+    final bytes = List<int>.generate(32, (index) => index + 1);
+    final fixture = await _WebDavFixture.start(bytes);
+    final sourceId = SourceId.of('webdav-range');
+    final source = await WebDavFileSource.connect(
+      id: sourceId.value,
+      name: '测试 WebDAV',
+      options: WebDavConnectionOptions(
+        uri: fixture.baseUri.toString(),
+        port: fixture.server.port,
+      ),
+    );
+    try {
+      final path = FilePath(sourceId: sourceId, value: '/movie.mp4');
+      final stream = await source.openRange(path, offset: 7, length: 9);
+      expect(
+        await stream.expand((chunk) => chunk).toList(),
+        bytes.sublist(7, 16),
+      );
+      expect(fixture.ranges, ['bytes=7-15']);
+
+      await expectLater(
+        source.openRange(path, offset: bytes.length, length: 1),
+        throwsA(
+          isA<Exception>().having(
+            (error) => error.toString(),
+            'message',
+            contains('区间超出文件范围'),
+          ),
+        ),
+      );
+    } finally {
+      await source.dispose();
+      await fixture.close();
+    }
+  });
+
+  test('WebDAV 忽略 Range 时代理回退到临时文件', () async {
+    final bytes = List<int>.generate(24, (index) => 255 - index);
+    final fixture = await _WebDavFixture.start(bytes, ignoreRange: true);
+    final sourceId = SourceId.of('webdav-fallback');
+    final source = await WebDavFileSource.connect(
+      id: sourceId.value,
+      name: '测试 WebDAV',
+      options: WebDavConnectionOptions(
+        uri: fixture.baseUri.toString(),
+        port: fixture.server.port,
+      ),
+    );
+    final proxy = await FilePlaybackProxy.start(
+      repository: FileSourceRepository(source),
+      path: FilePath(sourceId: sourceId, value: '/movie.mp4'),
+      size: bytes.length,
+      mimeType: 'video/mp4',
+      pathExtension: 'mp4',
+    );
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(proxy.uri);
+      request.headers.set(HttpHeaders.rangeHeader, 'bytes=8-13');
+      final response = await request.close();
+      final body = <int>[];
+      await for (final chunk in response) {
+        body.addAll(chunk);
+      }
+      expect(response.statusCode, HttpStatus.partialContent);
+      expect(response.contentLength, 6);
+      expect(body, bytes.sublist(8, 14));
+      expect(fixture.ranges, ['bytes=8-13']);
+      expect(fixture.fullGets, 1);
+    } finally {
+      await proxy.close();
+      client.close(force: true);
+      await source.dispose();
+      await fixture.close();
+    }
+  });
+}
+
+class _WebDavFixture {
+  _WebDavFixture(this.server, this.bytes, {required this.ignoreRange});
+
+  final HttpServer server;
+  final List<int> bytes;
+  final bool ignoreRange;
+  final ranges = <String>[];
+  var fullGets = 0;
+
+  Uri get baseUri => Uri(
+    scheme: 'http',
+    host: InternetAddress.loopbackIPv4.host,
+    port: server.port,
+    path: '/',
+  );
+
+  static Future<_WebDavFixture> start(
+    List<int> bytes, {
+    bool ignoreRange = false,
+  }) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final fixture = _WebDavFixture(server, bytes, ignoreRange: ignoreRange);
+    server.listen(fixture._handle);
+    return fixture;
+  }
+
+  Future<void> _handle(HttpRequest request) async {
+    final response = request.response;
+    if (request.method == 'OPTIONS') {
+      response.statusCode = HttpStatus.ok;
+      await response.close();
+      return;
+    }
+    if (request.method == 'PROPFIND') {
+      response.statusCode = 207;
+      response.headers.contentType = ContentType('application', 'xml');
+      response.write('''<?xml version="1.0" encoding="utf-8"?>
+<d:multistatus xmlns:d="DAV:">
+  <d:response>
+    <d:href>/movie.mp4</d:href>
+    <d:propstat>
+      <d:prop>
+        <d:resourcetype/>
+        <d:getcontentlength>${bytes.length}</d:getcontentlength>
+        <d:getcontenttype>video/mp4</d:getcontenttype>
+        <d:getetag>"fixture"</d:getetag>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>
+</d:multistatus>''');
+      await response.close();
+      return;
+    }
+    if (request.method == 'GET') {
+      final range = request.headers.value(HttpHeaders.rangeHeader);
+      if (range == null) {
+        fullGets++;
+        response.statusCode = HttpStatus.ok;
+        response.headers.contentLength = bytes.length;
+        response.add(bytes);
+        await response.close();
+        return;
+      }
+      ranges.add(range);
+      if (ignoreRange) {
+        response.statusCode = HttpStatus.ok;
+        response.headers.contentLength = bytes.length;
+        response.add(bytes);
+        await response.close();
+        return;
+      }
+      final match = RegExp(r'^bytes=(\d+)-(\d+)$').firstMatch(range);
+      final start = int.tryParse(match?.group(1) ?? '');
+      final end = int.tryParse(match?.group(2) ?? '');
+      if (start == null ||
+          end == null ||
+          start < 0 ||
+          start >= bytes.length ||
+          end < start) {
+        response.statusCode = HttpStatus.requestedRangeNotSatisfiable;
+        response.headers.set(
+          HttpHeaders.contentRangeHeader,
+          'bytes */${bytes.length}',
+        );
+        await response.close();
+        return;
+      }
+      final boundedEnd = end.clamp(start, bytes.length - 1).toInt();
+      response.statusCode = HttpStatus.partialContent;
+      response.headers.contentLength = boundedEnd - start + 1;
+      response.headers.set(
+        HttpHeaders.contentRangeHeader,
+        'bytes $start-$boundedEnd/${bytes.length}',
+      );
+      response.add(bytes.sublist(start, boundedEnd + 1));
+      await response.close();
+      return;
+    }
+    response.statusCode = HttpStatus.methodNotAllowed;
+    await response.close();
+  }
+
+  Future<void> close() => server.close(force: true);
+}
+
+// ==================== 原 test/core/sources/file_playback_progress_test.dart ====================
+void _main_2() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  test('按文件名保存并读取续播位置，忽略目录和服务器', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = FilePlaybackProgressRepository(prefs);
+
+    await repository.savePosition(
+      fileName: 'aaa.mp4',
+      positionSec: 42,
+      durationSec: 300,
+    );
+
+    final progress = repository.load('aaa.mp4');
+    expect(progress?.positionSec, 42);
+    expect(progress?.durationSec, 300);
+    expect(progress?.percentage, 14);
+    expect(repository.load('different-server/aaa.mp4')?.percentage, 14);
+    expect(repository.load(r'other-directory\aaa.mp4')?.percentage, 14);
+    expect(repository.load('bbb.mp4'), isNull);
+  });
+
+  test('播放到末尾附近会清除续播位置', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = FilePlaybackProgressRepository(prefs);
+
+    await repository.savePosition(
+      fileName: 'aaa.mp4',
+      positionSec: 285,
+      durationSec: 300,
+    );
+
+    expect(repository.load('aaa.mp4'), isNull);
+  });
+
+  test('播放进度小于5%时不保存续播记录，并清除已有记录', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = FilePlaybackProgressRepository(prefs);
+
+    await repository.savePosition(
+      fileName: 'aaa.mp4',
+      positionSec: 42,
+      durationSec: 300,
+    );
+    await repository.savePosition(
+      fileName: 'aaa.mp4',
+      positionSec: 14,
+      durationSec: 300,
+    );
+
+    expect(repository.load('aaa.mp4'), isNull);
+  });
+
+  test('播放进度达到5%时才保存续播记录', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = FilePlaybackProgressRepository(prefs);
+
+    await repository.savePosition(
+      fileName: 'aaa.mp4',
+      positionSec: 15,
+      durationSec: 300,
+    );
+
+    expect(repository.load('aaa.mp4')?.positionSec, 15);
+  });
+
+  test('已有的低于5%续播记录不会被恢复', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = FilePlaybackProgressRepository(prefs);
+    final key =
+        'file.playback.position.${base64Url.encode(utf8.encode('aaa.mp4'))}';
+    await prefs.setString(
+      key,
+      jsonEncode({'position_sec': 14, 'duration_sec': 300}),
+    );
+
+    expect(repository.load('aaa.mp4'), isNull);
+  });
+}
+
+void main() {
+  group('sources', _main_0);
+  group('webdav_file_source_range', _main_1);
+  group('file_playback_progress', _main_2);
 }
