@@ -815,6 +815,12 @@ class _ServerSwitchTransitionOverlayState
               final contentOffset = _entryOrigin == null
                   ? Offset.zero
                   : Offset(0, (1 - handoffProgress) * 10);
+              // 飞行头像到达中心前不显示固定头像；到达后直接交接，避免
+              // 固定头像与交接头像同时存在而产生重影。
+              final centralAvatarOpacity =
+                  _entryOrigin == null || _entryController.value >= 1
+                  ? 1.0
+                  : 0.0;
 
               return Material(
                 color: Colors.transparent,
@@ -837,6 +843,26 @@ class _ServerSwitchTransitionOverlayState
                         color: Colors.transparent,
                       ),
                     ),
+                    if (target != null)
+                      Positioned.fromRect(
+                        rect: ServerSwitchTransitionMetrics.avatarRect(
+                          constraints.biggest,
+                        ),
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: centralAvatarOpacity,
+                            child: _buildAvatar(
+                              colors: appColors(context),
+                              server: target,
+                              size: ServerSwitchTransitionMetrics.avatarSize,
+                              busy:
+                                  transition.phase ==
+                                      ServerSwitchPhase.checking ||
+                                  _loginBusy,
+                            ),
+                          ),
+                        ),
+                      ),
                     IgnorePointer(
                       ignoring: contentOpacity < 1,
                       child: Opacity(
@@ -846,11 +872,6 @@ class _ServerSwitchTransitionOverlayState
                           child: _buildContentViewport(
                             constraints: constraints,
                             content: content,
-                            server: target,
-                            avatarBusy:
-                                transition.phase ==
-                                    ServerSwitchPhase.checking ||
-                                _loginBusy,
                           ),
                         ),
                       ),
@@ -858,8 +879,7 @@ class _ServerSwitchTransitionOverlayState
                     if (!isFinishing &&
                         target != null &&
                         localEntryOrigin != null &&
-                        (_entryController.value < 1 ||
-                            _handoffController.value < 1))
+                        _entryController.value < 1)
                       _buildEntryAvatar(
                         colors: appColors(context),
                         server: target,
@@ -868,7 +888,7 @@ class _ServerSwitchTransitionOverlayState
                           constraints.biggest,
                         ),
                         progress: entryProgress,
-                        opacity: 1 - handoffProgress,
+                        opacity: 1,
                       ),
                   ],
                 ),
@@ -883,18 +903,14 @@ class _ServerSwitchTransitionOverlayState
   Widget _buildContentViewport({
     required BoxConstraints constraints,
     required Widget content,
-    required ServerProfile? server,
-    required bool avatarBusy,
   }) {
     final viewInsets = MediaQuery.viewInsetsOf(context);
-    // 头像是滚动内容的一部分：键盘出现或表单自动滚动时，头像与表单
-    // 必须共享同一个 scroll offset。顶部位置仍与外层飞行头像的中心
-    // 几何完全一致，避免交接时发生位置跳变。
-    final contentTop = math.max(
-      0.0,
-      constraints.biggest.height / 2 -
-          ServerSwitchTransitionMetrics.avatarRadius,
-    );
+    // 头像固定在外层中心，滚动区域只承载鉴权控件。键盘弹出后控件
+    // 可自动上移，但不会带着第二份头像一起移动造成重影。
+    final contentTop =
+        constraints.biggest.height / 2 +
+        ServerSwitchTransitionMetrics.avatarRadius +
+        20;
     return SizedBox.expand(
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
@@ -906,40 +922,22 @@ class _ServerSwitchTransitionOverlayState
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 380),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (server != null) ...[
-                  SizedBox(
-                    width: ServerSwitchTransitionMetrics.avatarSize,
-                    height: ServerSwitchTransitionMetrics.avatarSize,
-                    child: _buildAvatar(
-                      colors: appColors(context),
-                      server: server,
-                      size: ServerSwitchTransitionMetrics.avatarSize,
-                      busy: avatarBusy,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 260),
-                  reverseDuration: const Duration(milliseconds: 180),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) {
-                    final slide = Tween<Offset>(
-                      begin: const Offset(0, 0.025),
-                      end: Offset.zero,
-                    ).animate(animation);
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(position: slide, child: child),
-                    );
-                  },
-                  child: content,
-                ),
-              ],
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              reverseDuration: const Duration(milliseconds: 180),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                final slide = Tween<Offset>(
+                  begin: const Offset(0, 0.025),
+                  end: Offset.zero,
+                ).animate(animation);
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(position: slide, child: child),
+                );
+              },
+              child: content,
             ),
           ),
         ),
