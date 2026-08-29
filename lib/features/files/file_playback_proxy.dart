@@ -11,7 +11,8 @@ import '../../core/sources/files/file_source_repository.dart';
 const _operationTimeout = Duration(seconds: 30);
 const _metadataTimeout = Duration(seconds: 2);
 
-/// 将 SMB/WebDAV 的文件流暴露为播放器可读取的本机 HTTP 地址。
+/// 将不具备可直接访问 URL 的文件流（当前主要是 SMB）暴露为播放器
+/// 可读取的本机 HTTP 地址。WebDAV 播放应直接使用其 HTTP(S) URL。
 ///
 /// 播放器连接后按需消费远程流。支持 Range 的来源会直接读取对应区间；
 /// 不支持随机读取的来源则退回到临时文件，避免播放器为了读取尾部索引
@@ -57,6 +58,7 @@ class FilePlaybackProxy {
       proxy._server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       proxy._log(
         '代理已启动: ${proxy.uri} source=${path.stableKey} '
+        'sourceKind=${repository.source.descriptor.kind.name} '
         'size=$size mime=${mimeType ?? ''} supportsRange=${repository.supportsRange}',
       );
       unawaited(proxy._serve());

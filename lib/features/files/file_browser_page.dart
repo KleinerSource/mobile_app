@@ -1309,32 +1309,40 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       final selectedEngineKind = Platform.isIOS && engineKind == null
           ? PlaybackEngineKind.ksPlayer
           : engineKind;
+      final sourceKind = repository.source.descriptor.kind;
+      appLog(
+        '[FileBrowser] 视频来源: kind=${sourceKind.name} '
+        'source=${repository.source.descriptor.id.value}',
+      );
 
       // WebDAV 本质是 HTTP(S) 文件服务，直接把文件 URL 和认证头交给
       // 播放器，保留播放器自身的 Range/seek 能力，不经过回环代理。
-      if (repository.source.descriptor.kind == SourceKind.webDav) {
+      if (sourceKind == SourceKind.webDav) {
         final access = await repository.resolveAccess(entry.path);
         if (!mounted) return;
         final directUri = access.uri;
-        if (directUri != null) {
-          final playbackUrl = directUri.toString();
-          appLog(
-            '[FileBrowser] 使用 WebDAV HTTP 直连播放: '
-            'engine=${selectedEngineKind?.value ?? 'default'} '
-            'url=$playbackUrl headers=${access.headers.isNotEmpty}',
+        if (directUri == null) {
+          throw const FileSourceException(
+            'WebDAV 未提供 HTTP 直连地址，已停止播放（不会回退到本机代理）',
+            code: 'webdav_direct_url_missing',
           );
-          await PlayerPage.openDirect(
-            context,
-            title: entry.name,
-            directUrl: playbackUrl,
-            directHeaders: access.headers,
-            directFormatHint: _pathExtension(entry.name),
-            engineKind: selectedEngineKind,
-            directPlaybackFileName: entry.name,
-          );
-          return;
         }
-        appLog('[FileBrowser] WebDAV 未提供可用直连 URL，回退文件代理');
+        final playbackUrl = directUri.toString();
+        appLog(
+          '[FileBrowser] 使用 WebDAV HTTP 直连播放: '
+          'engine=${selectedEngineKind?.value ?? 'default'} '
+          'url=$playbackUrl headers=${access.headers.isNotEmpty}',
+        );
+        await PlayerPage.openDirect(
+          context,
+          title: entry.name,
+          directUrl: playbackUrl,
+          directHeaders: access.headers,
+          directFormatHint: _pathExtension(entry.name),
+          engineKind: selectedEngineKind,
+          directPlaybackFileName: entry.name,
+        );
+        return;
       }
 
       proxy = await FilePlaybackProxy.start(
