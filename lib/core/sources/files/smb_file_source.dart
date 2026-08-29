@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import '../../api/server_compatibility.dart';
+import '../../platform/app_log_store.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';
 import '../common/source_id.dart';
@@ -294,6 +295,10 @@ class SmbFileSource
   }) async* {
     final value = _checkPath(path);
     final target = await _target(value);
+    appLog(
+      '[SmbFileSource] 开始完整流: path=${path.stableKey} '
+      'remote=${target.share}/${target.path}',
+    );
     yield* target.pool
         .streamFile(
           target.path,
@@ -321,6 +326,10 @@ class SmbFileSource
     if (length == 0) return const Stream<List<int>>.empty();
     final value = _checkPath(path);
     final target = await _target(value);
+    appLog(
+      '[SmbFileSource] 建立区间流: path=${path.stableKey} '
+      'remote=${target.share}/${target.path} offset=$offset length=$length',
+    );
     return _readRange(
       target.pool,
       target.path,
@@ -356,6 +365,10 @@ class SmbFileSource
       if (chunk.isEmpty) {
         throw const FileSourceException('SMB 区间读取返回空数据');
       }
+      appLog(
+        '[SmbFileSource] 区间读取完成: remote=$path '
+        'offset=$current length=${chunk.length}',
+      );
       current += chunk.length;
       remaining -= chunk.length;
       transferred += chunk.length;
