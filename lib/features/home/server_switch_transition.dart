@@ -486,6 +486,7 @@ class _ServerSwitchTransitionOverlayState
     with SingleTickerProviderStateMixin {
   final _passwordController = TextEditingController();
   final _totpController = TextEditingController();
+  final _authScrollController = ScrollController();
   late final AnimationController _entryController;
   late final AnimationController _handoffController;
   late final AnimationController _finishController;
@@ -496,6 +497,7 @@ class _ServerSwitchTransitionOverlayState
   bool _loginBusy = false;
   bool _totpRequired = false;
   String? _localError;
+  bool _authScrollResetScheduled = false;
 
   static const _avatarFlightDuration = Duration(milliseconds: 460);
   static const _avatarHandoffDuration = Duration(milliseconds: 240);
@@ -525,6 +527,7 @@ class _ServerSwitchTransitionOverlayState
     _finishController.dispose();
     _passwordController.dispose();
     _totpController.dispose();
+    _authScrollController.dispose();
     super.dispose();
   }
 
@@ -815,13 +818,6 @@ class _ServerSwitchTransitionOverlayState
               final contentOffset = _entryOrigin == null
                   ? Offset.zero
                   : Offset(0, (1 - handoffProgress) * 10);
-              // 飞行头像到达中心前不显示固定头像；到达后直接交接，避免
-              // 固定头像与交接头像同时存在而产生重影。
-              final centralAvatarOpacity =
-                  _entryOrigin == null || _entryController.value >= 1
-                  ? 1.0
-                  : 0.0;
-
               return Material(
                 color: Colors.transparent,
                 child: Stack(
@@ -843,36 +839,19 @@ class _ServerSwitchTransitionOverlayState
                         color: Colors.transparent,
                       ),
                     ),
-                    if (target != null)
-                      Positioned.fromRect(
-                        rect: ServerSwitchTransitionMetrics.avatarRect(
-                          constraints.biggest,
-                        ),
-                        child: IgnorePointer(
-                          child: Opacity(
-                            opacity: centralAvatarOpacity,
-                            child: _buildAvatar(
-                              colors: appColors(context),
-                              server: target,
-                              size: ServerSwitchTransitionMetrics.avatarSize,
-                              busy:
-                                  transition.phase ==
-                                      ServerSwitchPhase.checking ||
-                                  _loginBusy,
-                            ),
-                          ),
-                        ),
-                      ),
                     IgnorePointer(
                       ignoring: contentOpacity < 1,
-                      child: Opacity(
-                        opacity: contentOpacity,
-                        child: Transform.translate(
-                          offset: contentOffset,
-                          child: _buildContentViewport(
-                            constraints: constraints,
-                            content: content,
-                          ),
+                      child: Transform.translate(
+                        offset: contentOffset,
+                        child: _buildContentViewport(
+                          constraints: constraints,
+                          content: content,
+                          contentOpacity: contentOpacity,
+                          colors: appColors(context),
+                          server: target,
+                          busy:
+                              transition.phase == ServerSwitchPhase.checking ||
+                              _loginBusy,
                         ),
                       ),
                     ),
@@ -903,46 +882,82 @@ class _ServerSwitchTransitionOverlayState
   Widget _buildContentViewport({
     required BoxConstraints constraints,
     required Widget content,
+    required double contentOpacity,
+    required AppColors colors,
+    required ServerProfile? server,
+    required bool busy,
   }) {
     final viewInsets = MediaQuery.viewInsetsOf(context);
-    // 头像固定在外层中心，滚动区域只承载鉴权控件。键盘弹出后控件
-    // 可自动上移，但不会带着第二份头像一起移动造成重影。
-    final contentTop =
-        constraints.biggest.height / 2 +
-        ServerSwitchTransitionMetrics.avatarRadius +
-        20;
+    if (viewInsets.bottom == 0) _scheduleAuthScrollReset();
+    // 头像和鉴权控件属于同一个滚动组。键盘弹出后整个组自动上移，
+    // 头像与输入框保持相对位置，不再出现头像固定在原处的错位。
+    final avatarTop =
+        constraints.biggest.height / 2 -
+        ServerSwitchTransitionMetrics.avatarRadius;
     return SizedBox.expand(
       child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          24,
-          contentTop,
-          24,
-          viewInsets.bottom + 32,
-        ),
+        controller: _authScrollController,
+        primary: false,
+        padding: EdgeInsets.fromLTRB(24, avatarTop, 24, viewInsets.bottom + 32),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 380),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 260),
-              reverseDuration: const Duration(milliseconds: 180),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) {
-                final slide = Tween<Offset>(
-                  begin: const Offset(0, 0.025),
-                  end: Offset.zero,
-                ).animate(animation);
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(position: slide, child: child),
-                );
-              },
-              child: content,
+            child: Column(
+              children: [
+                if (server != null) ...[
+                  _buildAvatar(
+                    colors: colors,
+                    server: server,
+                    size: ServerSwitchTransitionMetrics.avatarSize,
+                    busy: busy,
+                  ),
+                  const SizedBox(height: 20),
+                ],
+                Opacity(
+                  opacity: contentOpacity,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 260),
+                    reverseDuration: const Duration(milliseconds: 180),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) {
+                      final slide = Tween<Offset>(
+                        begin: const Offset(0, 0.025),
+                        end: Offset.zero,
+                      ).animate(animation);
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(position: slide, child: child),
+                      );
+                    },
+                    child: content,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  void _scheduleAuthScrollReset() {
+    if (_authScrollResetScheduled) return;
+    _authScrollResetScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _authScrollResetScheduled = false;
+      if (!mounted || !_authScrollController.hasClients) return;
+      if (MediaQuery.viewInsetsOf(context).bottom > 0) return;
+      final position = _authScrollController.position;
+      if (position.pixels <= position.minScrollExtent) return;
+      unawaited(
+        _authScrollController.animateTo(
+          position.minScrollExtent,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    });
   }
 
   Widget _buildEntryAvatar({
