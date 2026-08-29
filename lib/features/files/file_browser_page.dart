@@ -162,6 +162,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final headerEyebrow = switch (descriptor?.kind) {
       SourceKind.smb => 'SMB',
       SourceKind.webDav => 'WEBDAV',
+      SourceKind.openList => 'OPENLIST',
       _ => '文件',
     };
     final headerTitle = widget.directoryPicker
@@ -1299,21 +1300,22 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         'source=${repository.source.descriptor.id.value}',
       );
 
-      // WebDAV 本质是 HTTP(S) 文件服务，直接把文件 URL 和认证头交给
-      // 播放器，保留播放器自身的 Range/seek 能力，不经过回环代理。
-      if (sourceKind == SourceKind.webDav) {
+      // WebDAV/OpenList 本质是 HTTP(S) 文件服务，直接把文件 URL 和认证头
+      // 交给播放器，保留播放器自身的 Range/seek 能力，不经过回环代理。
+      if (sourceKind == SourceKind.webDav ||
+          sourceKind == SourceKind.openList) {
         final access = await repository.resolveAccess(entry.path);
         if (!mounted) return;
         final directUri = access.uri;
         if (directUri == null) {
           throw const FileSourceException(
-            'WebDAV 未提供 HTTP 直连地址，已停止播放（不会回退到本机代理）',
+            '服务器未提供 HTTP 直连地址，已停止播放（不会回退到本机代理）',
             code: 'webdav_direct_url_missing',
           );
         }
         final playbackUrl = directUri.toString();
         appLog(
-          '[FileBrowser] 使用 WebDAV HTTP 直连播放: '
+          '[FileBrowser] 使用 HTTP 直连播放: '
           'engine=${selectedEngineKind?.value ?? 'default'} '
           'url=$playbackUrl headers=${access.headers.isNotEmpty}',
         );
@@ -1579,12 +1581,18 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
 
   Future<void> _refresh() async {
     _imagePreviewFutures.clear();
+    // 强制刷新：置位标志让来源（OpenList 的服务端目录缓存）绕过缓存，
+    // 再失效当前目录的 provider。复位不触发重建（provider 内为 ref.read）。
+    final forceRefresh = fileDirectoryForceRefreshProvider(widget.sourceId.value);
+    ref.read(forceRefresh.notifier).state = true;
     final provider = fileDirectoryProvider(_request);
     ref.invalidate(provider);
     try {
       await ref.read(provider.future);
     } catch (_) {
       // 错误由页面上的 AsyncValue 错误态展示，刷新指示器本身应正常收起。
+    } finally {
+      ref.read(forceRefresh.notifier).state = false;
     }
   }
 

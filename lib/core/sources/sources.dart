@@ -10,6 +10,7 @@ export 'files/file_source.dart';
 export 'files/file_source_config.dart';
 export 'files/file_source_providers.dart';
 export 'files/file_source_repository.dart';
+export 'files/openlist_file_source.dart';
 export 'files/smb_file_source.dart';
 export 'files/webdav_file_source.dart';
 export 'media/dbo_media_source_adapter.dart';

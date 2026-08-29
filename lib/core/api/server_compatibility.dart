@@ -9,6 +9,7 @@ const defaultDboPort = 9090;
 const defaultSmbPort = 445;
 const defaultWebDavHttpPort = 80;
 const defaultWebDavHttpsPort = 443;
+const defaultOpenListPort = 5244;
 
 enum ServerProject {
   ohMyMedia(
@@ -30,6 +31,12 @@ enum ServerProject {
   webDav(
     projectName: 'webdav',
     displayName: 'WebDAV',
+    minimumVersion: '',
+    isFileSource: true,
+  ),
+  openList(
+    projectName: 'openlist',
+    displayName: 'OpenList',
     minimumVersion: '',
     isFileSource: true,
   );
@@ -64,6 +71,9 @@ int defaultServerPort(ServerProject project, {String scheme = 'http'}) {
       scheme.toLowerCase() == 'https'
           ? defaultWebDavHttpsPort
           : defaultWebDavHttpPort,
+    // OpenList 默认监听 5244；HTTPS 通常经反向代理落在 443。
+    ServerProject.openList =>
+      scheme.toLowerCase() == 'https' ? defaultWebDavHttpsPort : defaultOpenListPort,
   };
 }
 

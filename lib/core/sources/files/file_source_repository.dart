@@ -16,8 +16,8 @@ class FileSourceRepository {
 
   final FileSource source;
 
-  Future<DirectoryListing> listDirectory(FilePath path) =>
-      _browse().listDirectory(path);
+  Future<DirectoryListing> listDirectory(FilePath path, {bool refresh = false}) =>
+      _browse().listDirectory(path, refresh: refresh);
 
   Future<FileEntry> stat(FilePath path) => _browse().stat(path);
 

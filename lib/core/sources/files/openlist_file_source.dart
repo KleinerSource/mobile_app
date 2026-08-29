@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:dio/dio.dart';
-import 'package:webdav_client/webdav_client.dart' as webdav;
 
 import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';
@@ -12,25 +10,13 @@ import 'file_capabilities.dart';
 import 'file_entry.dart';
 import 'file_operation.dart';
 import 'file_source.dart';
+import 'openlist_api.dart';
 
-class WebDavConnectionOptions {
-  const WebDavConnectionOptions({
-    required this.uri,
-    required this.port,
-    this.user = '',
-    this.password = '',
-    this.timeoutMilliseconds = 30 * 1000,
-  });
-
-  final String uri;
-  final int port;
-  final String user;
-  final String password;
-  final int timeoutMilliseconds;
-}
-
-/// WebDAV file source backed by `webdav_client`.
-class WebDavFileSource
+/// OpenList（AList v3 兼容）文件源。
+///
+/// 路径语义与 WebDAV 一致（以 `/` 开头的绝对路径）；浏览、传输、
+/// 变更和直连访问全部通过 OpenList REST API 完成。
+class OpenListFileSource
     implements
         FileSource,
         FileBrowseCapability,
@@ -39,45 +25,42 @@ class WebDavFileSource
         FileAccessCapability,
         FileRangeAccessCapability,
         SourceLifecycle {
-  WebDavFileSource._(
-    this.client,
-    this._sourceId,
-    this._descriptor,
-    this._connection,
-  );
+  OpenListFileSource._(this.client, this._sourceId, this._descriptor);
 
-  final webdav.Client client;
+  final OpenListClient client;
   final SourceId _sourceId;
   final SourceDescriptor _descriptor;
-  final WebDavConnectionOptions _connection;
 
-  static Future<WebDavFileSource> connect({
+  static Future<OpenListFileSource> connect({
     required String id,
     required String name,
-    required WebDavConnectionOptions options,
+    required OpenListConnectionOptions options,
     String? serverId,
   }) async {
-    final client = webdav.newClient(
-      options.uri,
-      user: options.user,
-      password: options.password,
-    );
-    client.setConnectTimeout(options.timeoutMilliseconds);
-    client.setSendTimeout(options.timeoutMilliseconds);
-    client.setReceiveTimeout(options.timeoutMilliseconds);
-    await client.ping();
+    final root = normalizeWebDavPath(options.path);
+    final client = OpenListClient(options);
+    try {
+      await client.ensureAuthenticated();
+      final rootInfo = await client.get(root);
+      if (!rootInfo.isDir) {
+        throw const FileSourceException('OpenList 根路径必须是目录');
+      }
+    } catch (error) {
+      await client.dispose();
+      if (error is SourceException) rethrow;
+      throw _error('OpenList 连接失败', error);
+    }
     final sourceId = SourceId.of(id);
-    return WebDavFileSource._(
+    return OpenListFileSource._(
       client,
       sourceId,
       SourceDescriptor(
         id: sourceId,
-        kind: SourceKind.webDav,
+        kind: SourceKind.openList,
         name: name,
         serverId: serverId,
         endpoint: options.uri,
       ),
-      options,
     );
   }
 
@@ -102,28 +85,26 @@ class WebDavFileSource
   }) async {
     final value = _checkPath(path);
     try {
-      final files = await client.readDir(value);
+      if (refresh) {
+        client.clearDirectAccessCache();
+      }
+      final entries = await client.listDirectory(value, refresh: refresh);
       return DirectoryListing(
         currentPath: FilePath(sourceId: _sourceId, value: value),
         parentPath: value == '/'
             ? null
-            : FilePath(sourceId: _sourceId, value: _parentWebDavPath(value)),
+            : FilePath(sourceId: _sourceId, value: _parentPath(value)),
         breadcrumbs: buildBreadcrumbs(
           FilePath(sourceId: _sourceId, value: value),
           webDav: true,
         ),
-        entries: files
-            .map(
-              (file) => _entry(
-                joinWebDavPath(value, file.name ?? ''),
-                file.name ?? '',
-                file,
-              ),
-            )
-            .toList(growable: false),
+        entries: [
+          for (final entry in entries)
+            if (_isValidEntryName(entry.name)) _entry(value, entry),
+        ],
       );
     } catch (error) {
-      throw _error('WebDAV 目录读取失败', error);
+      throw _error('OpenList 目录读取失败', error);
     }
   }
 
@@ -131,10 +112,10 @@ class WebDavFileSource
   Future<FileEntry> stat(FilePath path) async {
     final value = _checkPath(path);
     try {
-      final file = await client.readProps(value);
-      return _entry(value, file.name ?? _webDavName(value), file);
+      final file = await client.get(value);
+      return _statEntry(file, value);
     } catch (error) {
-      throw _error('WebDAV 文件信息读取失败', error);
+      throw _error('OpenList 文件信息读取失败', error);
     }
   }
 
@@ -173,35 +154,31 @@ class WebDavFileSource
       );
     }
     try {
-      final response = await client.c.req<ResponseBody>(
-        client,
-        'GET',
+      final response = await _openStreamWithRetry(
         value,
-        optionsHandler: (request) => request.responseType = ResponseType.stream,
-        onReceiveProgress: (received, total) => options.onProgress?.call(
-          FileTransferProgress(
-            transferred: received,
-            total: total > 0 ? total : null,
-          ),
-        ),
         cancelToken: cancelToken,
       );
-      if ((response.statusCode ?? 500) >= 400) {
+      final status = response.statusCode ?? 500;
+      if (status >= 400) {
         await _cancelResponseStream(response.data);
-        throw FileSourceException(
-          'WebDAV 下载失败',
-          statusCode: response.statusCode,
-        );
+        throw FileSourceException('OpenList 下载失败', statusCode: status);
       }
       final body = response.data;
       if (body == null) return;
-      yield* _streamResponseBody(body);
+      final total = int.tryParse(
+        response.headers.value('content-length') ?? '',
+      );
+      yield* _streamResponseBody(
+        body,
+        total: total,
+        onProgress: options.onProgress,
+      );
     } catch (error) {
       if (cancelToken.isCancelled) {
         throw const FileSourceException('下载已取消', code: 'canceled');
       }
       if (error is FileSourceException) rethrow;
-      throw _error('WebDAV 文件下载失败', error);
+      throw _error('OpenList 文件下载失败', error);
     }
   }
 
@@ -213,9 +190,9 @@ class WebDavFileSource
     FileTransferOptions options = const FileTransferOptions(),
   }) async {
     if (offset < 0 || length < 0) {
-      throw ArgumentError('WebDAV 区间读取参数无效');
+      throw ArgumentError('OpenList 区间读取参数无效');
     }
-    if (length == 0) return const Stream<List<int>>.empty();
+    if (length == 0) return Future.value(const Stream<List<int>>.empty());
     final value = _checkPath(path);
     if (options.cancellation?.isCancelled == true) {
       throw const FileSourceException('下载已取消', code: 'canceled');
@@ -231,51 +208,44 @@ class WebDavFileSource
     }
     final end = offset + length - 1;
     try {
-      final response = await client.c.req<ResponseBody>(
-        client,
-        'GET',
+      final response = await _openStreamWithRetry(
         value,
-        optionsHandler: (request) {
-          request.responseType = ResponseType.stream;
-          request.headers?['Range'] = 'bytes=$offset-$end';
-        },
-        onReceiveProgress: (received, total) => options.onProgress?.call(
-          FileTransferProgress(
-            transferred: received,
-            total: total > 0 ? total : length,
-          ),
-        ),
+        rangeStart: offset,
+        rangeEnd: end + 1,
         cancelToken: cancelToken,
       );
       final status = response.statusCode ?? 500;
       if (status == 200) {
-        // Some WebDAV servers ignore Range. Let the playback proxy spool a
-        // complete local copy instead of silently returning the wrong bytes.
+        // 部分网盘忽略 Range。让播放代理回落到完整落地，而不是悄悄
+        // 返回错误的字节区间。
         await _cancelResponseStream(response.data);
-        throw UnsupportedError('WebDAV 服务不支持 Range');
+        throw UnsupportedError('OpenList 服务不支持 Range');
       }
       if (status == 416) {
         await _cancelResponseStream(response.data);
-        throw const FileSourceException('WebDAV 区间超出文件范围', statusCode: 416);
+        throw const FileSourceException(
+          'OpenList 区间超出文件范围',
+          statusCode: 416,
+        );
       }
-      if (status != 206 || status >= 400) {
+      if (status != 206) {
         await _cancelResponseStream(response.data);
-        throw FileSourceException('WebDAV 区间读取失败', statusCode: status);
+        throw FileSourceException('OpenList 区间读取失败', statusCode: status);
       }
       final body = response.data;
       if (body == null) {
-        throw UnsupportedError('WebDAV 区间响应缺少数据');
+        throw UnsupportedError('OpenList 区间响应缺少数据');
       }
       final contentRange = response.headers.value('content-range');
       if (!_matchesRange(contentRange, offset: offset, end: end)) {
         await _cancelResponseStream(body);
-        throw UnsupportedError('WebDAV 未返回可靠的 Content-Range');
+        throw UnsupportedError('OpenList 未返回可靠的 Content-Range');
       }
       final contentLength = response.headers.value('content-length');
       final declaredLength = int.tryParse(contentLength ?? '');
       if (declaredLength != null && declaredLength != length) {
         await _cancelResponseStream(body);
-        throw UnsupportedError('WebDAV Content-Length 与区间不一致');
+        throw UnsupportedError('OpenList Content-Length 与区间不一致');
       }
       return _streamResponseBody(body, expectedLength: length);
     } catch (error) {
@@ -283,13 +253,13 @@ class WebDavFileSource
         throw const FileSourceException('下载已取消', code: 'canceled');
       }
       if (error is UnsupportedError || error is FileSourceException) rethrow;
-      throw _error('WebDAV 区间读取失败', error);
+      throw _error('OpenList 区间读取失败', error);
     }
   }
 
   @override
   Future<void> upload(FileUploadRequest request) async {
-    final path = _checkPath(request.destination);
+    final value = _checkPath(request.destination);
     final options = request.options;
     if (!options.overwrite && await exists(request.destination)) {
       throw const FileSourceException('目标文件已存在', code: 'already_exists');
@@ -306,9 +276,8 @@ class WebDavFileSource
       );
     }
     try {
-      await client.c.wdWriteWithStream(
-        client,
-        path,
+      await client.upload(
+        value,
         request.data,
         request.length,
         onProgress: (received, total) => options.onProgress?.call(
@@ -323,7 +292,7 @@ class WebDavFileSource
       if (cancelToken.isCancelled) {
         throw const FileSourceException('上传已取消', code: 'canceled');
       }
-      throw _error('WebDAV 文件上传失败', error);
+      throw _error('OpenList 文件上传失败', error);
     }
   }
 
@@ -335,7 +304,7 @@ class WebDavFileSource
       await client.mkdir(destination);
       return FilePath(sourceId: _sourceId, value: destination);
     } catch (error) {
-      throw _error('WebDAV 创建目录失败', error);
+      throw _error('OpenList 创建目录失败', error);
     }
   }
 
@@ -345,17 +314,13 @@ class WebDavFileSource
     FileDeleteOptions options = const FileDeleteOptions(),
   }) async {
     final value = _checkPath(path);
+    if (value == '/') {
+      throw const FileSourceException('不能删除 OpenList 根目录');
+    }
     try {
-      final entry = await stat(path);
-      if (entry.isDirectory && options.recursive) {
-        final listing = await listDirectory(path);
-        for (final child in listing.entries) {
-          await delete(child.path, options: options);
-        }
-      }
-      await client.remove(entry.isDirectory ? '$value/' : value);
+      await client.remove(_parentPath(value), [_lastName(value)]);
     } catch (error) {
-      throw _error('WebDAV 删除失败', error);
+      throw _error('OpenList 删除失败', error);
     }
   }
 
@@ -367,14 +332,17 @@ class WebDavFileSource
   }) async {
     final oldPath = _checkPath(source);
     final newPath = _checkPath(destination);
+    if (oldPath == newPath) return;
     try {
       if (!overwrite && await exists(destination)) {
         throw const FileSourceException('目标路径已存在', code: 'already_exists');
       }
-      await client.rename(oldPath, newPath, overwrite);
+      await client.move(_parentPath(oldPath), _parentPath(newPath), [
+        _lastName(oldPath),
+      ]);
     } catch (error) {
       if (error is FileSourceException) rethrow;
-      throw _error('WebDAV 移动失败', error);
+      throw _error('OpenList 移动失败', error);
     }
   }
 
@@ -383,78 +351,118 @@ class WebDavFileSource
     FilePath source,
     String newName, {
     bool overwrite = false,
-  }) {
+  }) async {
     final value = _checkPath(source);
     final normalizedName = normalizeFileName(newName);
-    final parent = _parentWebDavPath(value);
-    return move(
-      source,
-      FilePath(
-        sourceId: _sourceId,
-        value: joinWebDavPath(parent, normalizedName),
-      ),
-      overwrite: overwrite,
-    );
+    try {
+      if (!overwrite &&
+          await exists(
+            FilePath(
+              sourceId: _sourceId,
+              value: joinWebDavPath(_parentPath(value), normalizedName),
+            ),
+          )) {
+        throw const FileSourceException('目标文件已存在', code: 'already_exists');
+      }
+      await client.rename(value, normalizedName);
+    } catch (error) {
+      if (error is FileSourceException) rethrow;
+      throw _error('OpenList 重命名失败', error);
+    }
   }
 
   @override
   Future<FileAccess> resolveAccess(FilePath path) async {
+    final value = _checkPath(path);
     final entry = await stat(path);
     if (!entry.isFile) {
       throw const FileSourceException('目录不能作为文件访问');
     }
+    final access = await client.resolveDirectAccess(value);
     return FileAccess(
-      uri: _directUri(path),
+      uri: access.uri,
       size: entry.size,
       mimeType: entry.mimeType,
-      headers: _directHeaders,
+      headers: access.headers,
       openStream: () => download(path),
     );
   }
 
-  Uri _directUri(FilePath path) {
-    final value = _checkPath(path);
-    final base = Uri.parse(client.uri);
-    final segments = <String>[
-      ...base.pathSegments.where((segment) => segment.isNotEmpty),
-      ...value.split('/').where((segment) => segment.isNotEmpty),
-    ];
-    return base.replace(pathSegments: segments);
-  }
-
-  Map<String, String> get _directHeaders {
-    final user = _connection.user;
-    final password = _connection.password;
-    if (user.isEmpty && password.isEmpty) return const <String, String>{};
-    final token = base64Encode(utf8.encode('$user:$password'));
-    return <String, String>{'Authorization': 'Basic $token'};
-  }
-
   @override
-  Future<void> dispose() async {
-    client.c.close(force: true);
+  Future<void> dispose() => client.dispose();
+
+  /// 云盘直链可能过期；首次失败时清空 fs/get 缓存后重试一次。
+  Future<Response<ResponseBody>> _openStreamWithRetry(
+    String value, {
+    int? rangeStart,
+    int? rangeEnd,
+    CancelToken? cancelToken,
+  }) async {
+    var response = await client.openStream(
+      value,
+      rangeStart: rangeStart,
+      rangeEnd: rangeEnd,
+      cancelToken: cancelToken,
+    );
+    if ((response.statusCode ?? 500) >= 400) {
+      await _cancelResponseStream(response.data);
+      client.clearDirectAccessCache();
+      response = await client.openStream(
+        value,
+        rangeStart: rangeStart,
+        rangeEnd: rangeEnd,
+        cancelToken: cancelToken,
+      );
+    }
+    return response;
   }
 
   String _checkPath(FilePath path) {
     if (path.sourceId != _sourceId) {
-      throw FileSourceException('路径不属于当前 WebDAV 来源：${path.sourceId.value}');
+      throw FileSourceException(
+        '路径不属于当前 OpenList 来源：${path.sourceId.value}',
+      );
     }
     return normalizeWebDavPath(path.value);
   }
 
-  FileEntry _entry(String value, String name, webdav.File file) => FileEntry(
-    path: FilePath(sourceId: _sourceId, value: value),
-    name: name,
-    type: file.isDir == true ? FileEntryType.directory : FileEntryType.file,
-    size: file.size,
-    modifiedAt: file.mTime,
-    createdAt: file.cTime,
-    mimeType: file.mimeType,
-    attributes: {'etag': file.eTag},
+  bool _isValidEntryName(String name) {
+    return name.isNotEmpty && name != '.' && name != '..' && !name.contains('/');
+  }
+
+  FileEntry _entry(String dirPath, OpenListEntry entry) => FileEntry(
+    path: FilePath(sourceId: _sourceId, value: joinWebDavPath(dirPath, entry.name)),
+    name: entry.name,
+    type: entry.isDir ? FileEntryType.directory : FileEntryType.file,
+    size: entry.size,
+    modifiedAt: entry.modified,
+    isHidden: entry.name.startsWith('.'),
+    attributes: entry.sign.isEmpty
+        ? const <String, Object?>{}
+        : <String, Object?>{'etag': entry.sign},
   );
 
-  FileSourceException _error(String message, Object error) {
+  FileEntry _statEntry(OpenListFile file, String value) => FileEntry(
+    path: FilePath(sourceId: _sourceId, value: value),
+    name: file.name.isNotEmpty ? file.name : _lastName(value),
+    type: file.isDir ? FileEntryType.directory : FileEntryType.file,
+    size: file.size,
+    modifiedAt: file.modified,
+    isHidden: _lastName(value).startsWith('.'),
+    attributes: file.sign.isEmpty
+        ? const <String, Object?>{}
+        : <String, Object?>{'etag': file.sign},
+  );
+
+  static FileSourceException _error(String message, Object error) {
     if (error is FileSourceException) return error;
+    if (error is OpenListException) {
+      return FileSourceException(
+        '$message：${error.message}',
+        statusCode: _statusCodeOf(error),
+        cause: error,
+      );
+    }
     if (error is DioException) {
       return FileSourceException(
         message,
@@ -465,20 +473,33 @@ class WebDavFileSource
     return FileSourceException(message, cause: error);
   }
 
+  static int? _statusCodeOf(OpenListException error) {
+    if (error.isUnauthorized) return 401;
+    if (error.isNotFound) return 404;
+    final code = error.code;
+    if (code == null || code == 200) return error.statusCode;
+    return code;
+  }
+
   Stream<List<int>> _streamResponseBody(
     ResponseBody body, {
     int? expectedLength,
+    int? total,
+    FileProgressCallback? onProgress,
   }) async* {
     var received = 0;
     await for (final chunk in body.stream) {
       received += chunk.length;
       if (expectedLength != null && received > expectedLength) {
-        throw const FileSourceException('WebDAV 返回的区间数据过长');
+        throw const FileSourceException('OpenList 返回的区间数据过长');
       }
       yield chunk;
+      onProgress?.call(
+        FileTransferProgress(transferred: received, total: total ?? expectedLength),
+      );
     }
     if (expectedLength != null && received != expectedLength) {
-      throw const FileSourceException('WebDAV 返回的区间数据不完整');
+      throw const FileSourceException('OpenList 返回的区间数据不完整');
     }
   }
 
@@ -487,7 +508,7 @@ class WebDavFileSource
     try {
       await body.stream.listen((_) {}).cancel();
     } catch (_) {
-      // The adapter may already have closed the stream.
+      // 连接可能已经关闭。
     }
   }
 
@@ -502,7 +523,7 @@ class WebDavFileSource
   }
 }
 
-String _parentWebDavPath(String value) {
+String _parentPath(String value) {
   final path = normalizeWebDavPath(value);
   if (path == '/') return '/';
   final withoutTrailing = path.endsWith('/')
@@ -512,7 +533,7 @@ String _parentWebDavPath(String value) {
   return separator <= 0 ? '/' : withoutTrailing.substring(0, separator);
 }
 
-String _webDavName(String value) {
+String _lastName(String value) {
   final path = normalizeWebDavPath(value);
   if (path == '/') return '/';
   final withoutTrailing = path.endsWith('/')

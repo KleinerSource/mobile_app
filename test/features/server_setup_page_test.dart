@@ -69,6 +69,22 @@ void main() {
           ?.hintText,
       '80',
     );
+
+    await _selectProject(tester, 'OpenList');
+    expect(find.text('协议'), findsOneWidget);
+    expect(find.text('主机'), findsOneWidget);
+    expect(find.text('端口'), findsOneWidget);
+    expect(find.text('根路径'), findsOneWidget);
+    expect(find.text('用户名（留空匿名访问）'), findsOneWidget);
+    expect(find.text('密码'), findsOneWidget);
+    expect(
+      tester
+          .widgetList<TextField>(find.byType(TextField))
+          .elementAt(2)
+          .decoration
+          ?.hintText,
+      '5244',
+    );
   });
 
   testWidgets('DB Online 显示 HTTP 字段而不显示文件服务器字段', (tester) async {

@@ -1056,6 +1056,8 @@ void _main_3() {
     expect(defaultServerPort(ServerProject.smb), 445);
     expect(defaultServerPort(ServerProject.webDav), 80);
     expect(defaultServerPort(ServerProject.webDav, scheme: 'https'), 443);
+    expect(defaultServerPort(ServerProject.openList), 5244);
+    expect(defaultServerPort(ServerProject.openList, scheme: 'https'), 443);
   });
 
   test('最低版本满足要求', () {

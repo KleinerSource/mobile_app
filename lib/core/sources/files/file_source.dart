@@ -15,7 +15,9 @@ abstract interface class FileSource {
 }
 
 abstract interface class FileBrowseCapability {
-  Future<DirectoryListing> listDirectory(FilePath path);
+  /// [refresh] 为 true 时要求来源绕过自身缓存重新读取后端存储
+  /// （目前只有 OpenList 的服务端目录缓存需要该语义，其余来源忽略）。
+  Future<DirectoryListing> listDirectory(FilePath path, {bool refresh});
 
   Future<FileEntry> stat(FilePath path);
 

@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../auth/auth_session_repository.dart';
 import '../../api/server_compatibility.dart';
 
-enum FileSourceProtocol { smb, webDav }
+enum FileSourceProtocol { smb, webDav, openList }
 
 /// Non-secret configuration for a file source.
 ///
@@ -58,6 +58,21 @@ class FileSourceConfig {
   }) : protocol = FileSourceProtocol.webDav,
        port = port ?? _defaultWebDavPort(uri ?? '');
 
+  FileSourceConfig.openList({
+    required this.id,
+    required this.name,
+    required this.host,
+    int? port,
+    required this.path,
+    required this.uri,
+    required this.credentialRef,
+    required this.serverId,
+    this.enabled = true,
+    this.timeoutMilliseconds = 30 * 1000,
+    this.smbWorkers = 2,
+  }) : protocol = FileSourceProtocol.openList,
+       port = port ?? _defaultOpenListPort(uri ?? '');
+
   final String id;
   final String name;
   final FileSourceProtocol protocol;
@@ -83,7 +98,8 @@ class FileSourceConfig {
     if (timeoutMilliseconds <= 0 || port < 1 || port > 65535) return false;
     return switch (protocol) {
       FileSourceProtocol.smb => uri == null,
-      FileSourceProtocol.webDav => uri != null && _isWebDavUri(uri!),
+      FileSourceProtocol.webDav => uri != null && _isHttpUri(uri!),
+      FileSourceProtocol.openList => uri != null && _isHttpUri(uri!),
     };
   }
 
@@ -109,12 +125,14 @@ class FileSourceConfig {
         .toLowerCase()) {
       'smb' => FileSourceProtocol.smb,
       'webdav' => FileSourceProtocol.webDav,
+      'openlist' => FileSourceProtocol.openList,
       _ => throw const FormatException('未知文件来源协议'),
     };
     final id = _requiredString(json['id'], 'id');
     final name = _requiredString(json['name'], 'name');
     final host = _requiredString(json['host'], 'host');
-    final uri = protocol == FileSourceProtocol.webDav
+    final uri = protocol == FileSourceProtocol.webDav ||
+            protocol == FileSourceProtocol.openList
         ? _requiredString(json['uri'], 'uri')
         : null;
     final port = _fileSourcePort(protocol, json['port'], uri);
@@ -344,7 +362,15 @@ int _requiredPort(Object? value) {
 int _fileSourcePort(FileSourceProtocol protocol, Object? value, String? uri) {
   if (value != null) return _requiredPort(value);
   if (protocol == FileSourceProtocol.smb) return defaultSmbPort;
+  if (protocol == FileSourceProtocol.openList) {
+    return _defaultOpenListPort(uri ?? '');
+  }
   return _defaultWebDavPort(uri ?? '');
+}
+
+int _defaultOpenListPort(String uri) {
+  final scheme = Uri.tryParse(uri.trim())?.scheme.toLowerCase() ?? 'http';
+  return defaultServerPort(ServerProject.openList, scheme: scheme);
 }
 
 int _defaultWebDavPort(String uri) {
@@ -352,7 +378,7 @@ int _defaultWebDavPort(String uri) {
   return defaultServerPort(ServerProject.webDav, scheme: scheme);
 }
 
-bool _isWebDavUri(String value) {
+bool _isHttpUri(String value) {
   final uri = Uri.tryParse(value.trim());
   return uri != null &&
       (uri.scheme == 'http' || uri.scheme == 'https') &&

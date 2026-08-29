@@ -9,6 +9,8 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/sources/files/file_source_config.dart';
 import '../../core/sources/files/file_source_providers.dart';
+import '../../core/sources/files/openlist_api.dart';
+import '../../core/sources/files/openlist_file_source.dart';
 import '../../core/sources/files/smb_file_source.dart';
 import '../../core/sources/files/webdav_file_source.dart';
 import '../../shared/glass.dart';
@@ -202,9 +204,12 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         editingServer?.id ?? 'server-${DateTime.now().microsecondsSinceEpoch}';
     final sourceId = _fileSourceConfig?.id ?? serverId;
     final reference = _fileSourceConfig?.credentialRef.trim() ?? sourceId;
-    final uri = project == ServerProject.webDav
-        ? _buildWebDavEndpoint(_scheme, host, port, path)
-        : null;
+    final uri = switch (project) {
+      ServerProject.webDav => _buildWebDavEndpoint(_scheme, host, port, path),
+      // OpenList 的路径字段是实例内的根路径，不属于反代前缀，不写入 uri。
+      ServerProject.openList => _buildOpenListEndpoint(_scheme, host, port),
+      _ => null,
+    };
     final endpoint = project == ServerProject.smb
         ? _buildSmbEndpoint(host, port, path)
         : uri!;
@@ -217,27 +222,39 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       _showError('已存在相同连接的${_projectLabel(project)}服务器，不能重复添加');
       return;
     }
-    final config = project == ServerProject.smb
-        ? FileSourceConfig.smb(
-            id: sourceId,
-            name: _nameController.text.trim(),
-            host: host,
-            port: port,
-            path: path,
-            credentialRef: reference,
-            serverId: serverId,
-          )
-        : FileSourceConfig.webDav(
-            id: sourceId,
-            name: _nameController.text.trim(),
-            host: host,
-            port: port,
-            path: path,
-            uri: uri!,
-            credentialRef: reference,
-            serverId: serverId,
-          );
-    if (!config.isValid) {
+    final config = switch (project) {
+      ServerProject.smb => FileSourceConfig.smb(
+        id: sourceId,
+        name: _nameController.text.trim(),
+        host: host,
+        port: port,
+        path: path,
+        credentialRef: reference,
+        serverId: serverId,
+      ),
+      ServerProject.webDav => FileSourceConfig.webDav(
+        id: sourceId,
+        name: _nameController.text.trim(),
+        host: host,
+        port: port,
+        path: path,
+        uri: uri!,
+        credentialRef: reference,
+        serverId: serverId,
+      ),
+      ServerProject.openList => FileSourceConfig.openList(
+        id: sourceId,
+        name: _nameController.text.trim(),
+        host: host,
+        port: port,
+        path: path,
+        uri: uri!,
+        credentialRef: reference,
+        serverId: serverId,
+      ),
+      ServerProject.ohMyMedia || ServerProject.dbOnline => null,
+    };
+    if (config == null || !config.isValid) {
       _showError('请完整填写有效的文件服务器配置');
       return;
     }
@@ -336,6 +353,21 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
           serverId: serverId,
         );
         await source.dispose();
+      case ServerProject.openList:
+        final source = await OpenListFileSource.connect(
+          id: config.id,
+          name: config.name,
+          options: OpenListConnectionOptions(
+            uri: config.uri!,
+            port: config.port,
+            path: config.path,
+            user: credentials.user,
+            password: credentials.password,
+            timeoutMilliseconds: config.timeoutMilliseconds,
+          ),
+          serverId: serverId,
+        );
+        await source.dispose();
       case ServerProject.ohMyMedia:
       case ServerProject.dbOnline:
         throw StateError('当前服务器类型不是文件服务器');
@@ -405,7 +437,8 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
 
   void _fillFileSourceFields(FileSourceConfig? config) {
     if (config == null) return;
-    if (config.protocol == FileSourceProtocol.webDav) {
+    if (config.protocol == FileSourceProtocol.webDav ||
+        config.protocol == FileSourceProtocol.openList) {
       _scheme = Uri.parse(config.uri!).scheme;
     }
     _hostController.text = config.host;
@@ -448,6 +481,8 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     final httpServer =
         project == ServerProject.ohMyMedia || project == ServerProject.dbOnline;
     final webDav = project == ServerProject.webDav;
+    final openList = project == ServerProject.openList;
+    final httpLike = webDav || openList;
     final fileServer = project.isFileSource;
     return Scaffold(
       backgroundColor: c.bg,
@@ -491,7 +526,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        if (httpServer || webDav) ...[
+                        if (httpServer || httpLike) ...[
                           _ProtocolSelector(
                             value: _scheme,
                             enabled: !_busy,
@@ -545,8 +580,13 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                             controller: _pathController,
                             enabled: !_busy,
                             decoration: InputDecoration(
-                              labelText: '路径',
-                              hintText: webDav ? 'dav/media' : '共享名或 /',
+                              labelText: openList ? '根路径' : '路径',
+                              hintText: switch (project) {
+                                ServerProject.smb => '共享名或 /',
+                                ServerProject.webDav => 'dav/media',
+                                ServerProject.openList => '/ 或 /media',
+                                _ => '/',
+                              },
                               prefixIcon: const Icon(Icons.folder_outlined),
                             ),
                           ),
@@ -554,9 +594,11 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                           TextField(
                             controller: _userController,
                             enabled: !_busy,
-                            decoration: const InputDecoration(
-                              labelText: '用户名',
-                              prefixIcon: Icon(Icons.person_outline),
+                            decoration: InputDecoration(
+                              labelText: openList
+                                  ? '用户名（留空匿名访问）'
+                                  : '用户名',
+                              prefixIcon: const Icon(Icons.person_outline),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -732,6 +774,7 @@ String _projectLabel(ServerProject project) {
     ServerProject.dbOnline => 'DB Online',
     ServerProject.smb => 'SMB',
     ServerProject.webDav => 'WebDAV',
+    ServerProject.openList => 'OpenList',
   };
 }
 
@@ -755,6 +798,10 @@ String _buildWebDavEndpoint(String scheme, String host, int port, String path) {
     port: port,
     path: '/$normalizedPath',
   ).toString();
+}
+
+String _buildOpenListEndpoint(String scheme, String host, int port) {
+  return Uri(scheme: scheme, host: host, port: port).toString();
 }
 
 String _buildSmbEndpoint(String host, int port, String path) {

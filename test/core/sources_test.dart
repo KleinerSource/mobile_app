@@ -365,6 +365,48 @@ void _main_0() {
     );
   });
 
+  test('OpenList 文件来源配置序列化往返并按协议默认端口', () {
+    final openList = FileSourceConfig.fromJson(const {
+      'id': 'openlist',
+      'name': 'OpenList',
+      'protocol': 'openlist',
+      'host': 'alist.example',
+      'path': '/',
+      'uri': 'https://alist.example',
+      'credential_ref': 'openlist-account',
+      'server_id': 'server-openlist',
+      'enabled': true,
+      'timeout_ms': 30000,
+      'smb_workers': 2,
+    });
+    final directOpenList = FileSourceConfig.openList(
+      id: 'direct-openlist',
+      name: 'OpenList',
+      host: 'alist.example',
+      path: '/media',
+      uri: 'http://alist.example',
+      credentialRef: 'direct-openlist-account',
+      serverId: 'server-openlist',
+    );
+
+    expect(openList.port, 443);
+    expect(directOpenList.port, 5244);
+    expect(openList.protocol, FileSourceProtocol.openList);
+    expect(FileSourceConfig.fromJson(directOpenList.toJson()), directOpenList);
+    expect(
+      FileSourceConfig.openList(
+        id: 'bad-openlist',
+        name: 'OpenList',
+        host: 'alist.example',
+        path: '/',
+        uri: 'ftp://alist.example',
+        credentialRef: 'bad-account',
+        serverId: 'server-bad',
+      ).isValid,
+      isFalse,
+    );
+  });
+
   test(
     'file source repository ignores every legacy file source shape',
     () async {
@@ -605,8 +647,10 @@ class _FakeFileSource
   bool supports(FileCapability capability) => capabilities.contains(capability);
 
   @override
-  Future<DirectoryListing> listDirectory(FilePath path) async =>
-      const DirectoryListing(
+  Future<DirectoryListing> listDirectory(
+    FilePath path, {
+    bool refresh = false,
+  }) async => const DirectoryListing(
         currentPath: FilePath(sourceId: SourceId('fake-files'), value: ''),
         entries: <FileEntry>[],
       );

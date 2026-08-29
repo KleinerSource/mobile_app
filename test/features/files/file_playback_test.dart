@@ -33,6 +33,13 @@ void _main_0() {
     );
   });
 
+  test('iOS OpenList 默认保留 KSPlayer 直连播放', () {
+    expect(
+      filePlaybackEngineKind(sourceKind: SourceKind.openList, isIOS: true),
+      PlaybackEngineKind.ksPlayer,
+    );
+  });
+
   test('调试模式手动选择优先于文件源默认内核', () {
     expect(
       filePlaybackEngineKind(

@@ -11,7 +11,7 @@ import '../settings/settings_page.dart';
 
 /// 文件管理器 Shell · 文件管理 / 设置两项悬浮导航。
 ///
-/// SMB、WebDAV 以及未来接入的 OpenList/NFS/FTP 等文件来源统一从这里
+/// SMB、WebDAV、OpenList 以及未来接入的 NFS/FTP 等文件来源统一从这里
 /// 进入。目录页面由内部 Navigator 承载，使悬浮导航在所有目录层级保持
 /// 可见。
 class FileManagerShell extends StatefulWidget {

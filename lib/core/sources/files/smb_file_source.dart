@@ -205,7 +205,10 @@ class SmbFileSource
   bool supports(FileCapability capability) => capabilities.contains(capability);
 
   @override
-  Future<DirectoryListing> listDirectory(FilePath path) async {
+  Future<DirectoryListing> listDirectory(
+    FilePath path, {
+    bool refresh = false,
+  }) async {
     final value = _checkPath(path);
     try {
       if (_share == null && value.isEmpty) {

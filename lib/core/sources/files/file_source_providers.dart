@@ -11,6 +11,8 @@ import 'file_source.dart';
 import 'file_source_config.dart';
 import 'file_entry.dart';
 import 'file_source_repository.dart';
+import 'openlist_api.dart';
+import 'openlist_file_source.dart';
 import 'smb_file_source.dart';
 import 'webdav_file_source.dart';
 
@@ -106,10 +108,22 @@ final fileDirectoryProvider = FutureProvider.autoDispose
       final repository = await ref.watch(
         fileSourceRepositoryProvider(request.sourceId.value).future,
       );
+      // 下拉刷新前由页面置位（ref.read 而非 watch，避免标志复位触发重建），
+      // 用于让 OpenList 等带服务端缓存的来源强制绕过缓存。
+      final refresh = ref.read(
+        fileDirectoryForceRefreshProvider(request.sourceId.value),
+      );
       return repository.listDirectory(
         FilePath(sourceId: request.sourceId, value: request.path),
+        refresh: refresh,
       );
     });
+
+/// 目录强制刷新标志（按 sourceId）。页面在下拉刷新前置位，
+/// [fileDirectoryProvider] 重新执行时读取一次。
+final fileDirectoryForceRefreshProvider = StateProvider.family<bool, String>(
+  (_, _) => false,
+);
 
 void _checkFileServerScope(Ref ref, String serverId) {
   final activeServerId = ref.read(serverConfigProvider)?.activeServerId ?? '';
@@ -153,6 +167,19 @@ class FileSourceConnector {
           options: WebDavConnectionOptions(
             uri: config.uri!,
             port: config.port,
+            user: secret.user,
+            password: secret.password,
+            timeoutMilliseconds: config.timeoutMilliseconds,
+          ),
+          serverId: config.serverId,
+        ),
+        FileSourceProtocol.openList => await OpenListFileSource.connect(
+          id: config.id,
+          name: config.name,
+          options: OpenListConnectionOptions(
+            uri: config.uri!,
+            port: config.port,
+            path: config.path,
             user: secret.user,
             password: secret.password,
             timeoutMilliseconds: config.timeoutMilliseconds,
