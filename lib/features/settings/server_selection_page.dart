@@ -137,6 +137,11 @@ class ServerNavigationScope extends InheritedWidget {
 
 class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   final _profileFutures = <String, Future<ServerProfileData?>>{};
+  final _avatarKeys = <String, GlobalKey>{};
+
+  GlobalKey _avatarKeyFor(String serverId) {
+    return _avatarKeys.putIfAbsent(serverId, GlobalKey.new);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -144,6 +149,11 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
       previous,
       next,
     ) {
+      if (next.phase == ServerSwitchPhase.finishing &&
+          previous?.phase != ServerSwitchPhase.finishing &&
+          next.targetServerId != null) {
+        unawaited(_completeSelectionIfReady(next.targetServerId!));
+      }
       if (previous?.isActive == true && !next.isActive) {
         final serverId = previous?.targetServerId;
         if (serverId != null) {
@@ -212,6 +222,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                           transition: transition,
                           profileFor: _profileFor,
                           cachedProfileFor: _cachedProfileFor,
+                          avatarKeyFor: _avatarKeyFor,
                           onSelect: (server) =>
                               unawaited(_selectServer(server)),
                           onAdd: _openCreateServer,
@@ -314,11 +325,22 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
 
   Future<void> _selectServer(ServerProfile server) async {
     if (ref.read(serverSwitchTransitionProvider).isActive) return;
+    final avatarContext = _avatarKeyFor(server.id).currentContext;
+    final renderObject = avatarContext?.findRenderObject();
+    final avatarOrigin = renderObject is RenderBox && renderObject.hasSize
+        ? Rect.fromLTWH(
+            renderObject.localToGlobal(Offset.zero).dx,
+            renderObject.localToGlobal(Offset.zero).dy,
+            renderObject.size.width,
+            renderObject.size.height,
+          )
+        : null;
     await ref
         .read(serverSwitchTransitionProvider.notifier)
         .switchTo(
           server.id,
           allowActiveTarget: true,
+          avatarOrigin: avatarOrigin,
           returnToSelectionOnCancel: true,
         );
     if (!mounted) return;
@@ -328,7 +350,9 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   Future<void> _completeSelectionIfReady(String serverId) async {
     if (!mounted ||
         ref.read(serverSelectionRequestedProvider) == false ||
-        ref.read(serverSwitchTransitionProvider).isActive ||
+        (ref.read(serverSwitchTransitionProvider).isActive &&
+            ref.read(serverSwitchTransitionProvider).phase !=
+                ServerSwitchPhase.finishing) ||
         ref.read(serverSelectionReadyProvider) == false ||
         ref.read(serverConfigProvider)?.activeServerId != serverId) {
       return;
@@ -494,6 +518,7 @@ class _ServerStrip extends StatelessWidget {
     required this.transition,
     required this.profileFor,
     required this.cachedProfileFor,
+    required this.avatarKeyFor,
     required this.onSelect,
     required this.onAdd,
     required this.onLongPress,
@@ -503,6 +528,7 @@ class _ServerStrip extends StatelessWidget {
   final ServerSwitchState transition;
   final Future<ServerProfileData?> Function(ServerProfile server) profileFor;
   final ServerProfileData? Function(ServerProfile server) cachedProfileFor;
+  final GlobalKey Function(String serverId) avatarKeyFor;
   final ValueChanged<ServerProfile> onSelect;
   final VoidCallback onAdd;
   final ValueChanged<ServerProfile> onLongPress;
@@ -534,6 +560,7 @@ class _ServerStrip extends StatelessWidget {
                     server: servers[index],
                     profileFuture: profileFor(servers[index]),
                     cachedProfile: cachedProfileFor(servers[index]),
+                    avatarKey: avatarKeyFor(servers[index].id),
                     busy: transition.targetServerId == servers[index].id,
                     onTap: () => onSelect(servers[index]),
                     onLongPress: () => onLongPress(servers[index]),
@@ -625,6 +652,7 @@ class _ServerAvatarCard extends StatelessWidget {
     required this.server,
     required this.profileFuture,
     required this.cachedProfile,
+    required this.avatarKey,
     required this.busy,
     required this.onTap,
     required this.onLongPress,
@@ -633,6 +661,7 @@ class _ServerAvatarCard extends StatelessWidget {
   final ServerProfile server;
   final Future<ServerProfileData?> profileFuture;
   final ServerProfileData? cachedProfile;
+  final GlobalKey avatarKey;
   final bool busy;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
@@ -670,6 +699,7 @@ class _ServerAvatarCard extends StatelessWidget {
                 child: Column(
                   children: [
                     ServerAvatar(
+                      key: avatarKey,
                       displayName: displayName,
                       avatarUrl: avatarUrl,
                       size: _ServerSelectionMetrics.avatarSize,

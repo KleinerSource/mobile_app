@@ -90,6 +90,11 @@ void main() {
     expect(loginCalls, [(password: 'password', totpCode: '123456')]);
     expect(
       container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.finishing,
+    );
+    transition.finishTransition();
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
       ServerSwitchPhase.idle,
     );
   });
@@ -323,6 +328,11 @@ void main() {
       container.read(serverConfigProvider)?.activeServerId,
       firstServer.id,
     );
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.finishing,
+    );
+    transition.finishTransition();
     expect(
       container.read(serverSwitchTransitionProvider).phase,
       ServerSwitchPhase.idle,

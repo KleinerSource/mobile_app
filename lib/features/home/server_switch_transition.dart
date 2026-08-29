@@ -19,7 +19,7 @@ import 'package:omm/features/oh_my_media/libraries/libraries_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'home_providers.dart';
 
-enum ServerSwitchPhase { idle, checking, needsLogin, error }
+enum ServerSwitchPhase { idle, checking, needsLogin, error, finishing }
 
 @immutable
 class ServerSwitchState {
@@ -28,6 +28,7 @@ class ServerSwitchState {
     this.targetServerId,
     this.previousServerId,
     this.message,
+    this.avatarOrigin,
     this.returnToSelectionOnCancel = false,
   });
 
@@ -36,11 +37,13 @@ class ServerSwitchState {
   const ServerSwitchState.checking({
     required String targetServerId,
     String? previousServerId,
+    Rect? avatarOrigin,
     bool returnToSelectionOnCancel = false,
   }) : this._(
          phase: ServerSwitchPhase.checking,
          targetServerId: targetServerId,
          previousServerId: previousServerId,
+         avatarOrigin: avatarOrigin,
          returnToSelectionOnCancel: returnToSelectionOnCancel,
        );
 
@@ -48,12 +51,14 @@ class ServerSwitchState {
     required String targetServerId,
     String? previousServerId,
     String? message,
+    Rect? avatarOrigin,
     bool returnToSelectionOnCancel = false,
   }) : this._(
          phase: ServerSwitchPhase.needsLogin,
          targetServerId: targetServerId,
          previousServerId: previousServerId,
          message: message,
+         avatarOrigin: avatarOrigin,
          returnToSelectionOnCancel: returnToSelectionOnCancel,
        );
 
@@ -61,12 +66,27 @@ class ServerSwitchState {
     required String targetServerId,
     String? previousServerId,
     required String message,
+    Rect? avatarOrigin,
     bool returnToSelectionOnCancel = false,
   }) : this._(
          phase: ServerSwitchPhase.error,
          targetServerId: targetServerId,
          previousServerId: previousServerId,
          message: message,
+         avatarOrigin: avatarOrigin,
+         returnToSelectionOnCancel: returnToSelectionOnCancel,
+       );
+
+  const ServerSwitchState.finishing({
+    required String targetServerId,
+    String? previousServerId,
+    Rect? avatarOrigin,
+    bool returnToSelectionOnCancel = false,
+  }) : this._(
+         phase: ServerSwitchPhase.finishing,
+         targetServerId: targetServerId,
+         previousServerId: previousServerId,
+         avatarOrigin: avatarOrigin,
          returnToSelectionOnCancel: returnToSelectionOnCancel,
        );
 
@@ -74,6 +94,7 @@ class ServerSwitchState {
   final String? targetServerId;
   final String? previousServerId;
   final String? message;
+  final Rect? avatarOrigin;
   final bool returnToSelectionOnCancel;
 
   bool get isActive => phase != ServerSwitchPhase.idle;
@@ -103,6 +124,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     state = ServerSwitchState.needsLogin(
       targetServerId: targetServerId,
       previousServerId: previousServerId,
+      avatarOrigin: current.avatarOrigin,
       returnToSelectionOnCancel: returnToSelectionOnCancel,
     );
     try {
@@ -119,6 +141,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         targetServerId: targetServerId,
         previousServerId: previousServerId,
         message: auth?.message,
+        avatarOrigin: current.avatarOrigin,
         returnToSelectionOnCancel: returnToSelectionOnCancel,
       );
     } catch (error) {
@@ -128,6 +151,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         targetServerId: targetServerId,
         previousServerId: previousServerId,
         message: exception.message,
+        avatarOrigin: current.avatarOrigin,
         returnToSelectionOnCancel: returnToSelectionOnCancel,
       );
     }
@@ -143,6 +167,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       targetServerId,
       allowActiveTarget: true,
       previousServerIdOverride: previousServerId,
+      avatarOrigin: current.avatarOrigin,
       returnToSelectionOnCancel: returnToSelectionOnCancel,
     );
   }
@@ -151,6 +176,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     final current = state;
     final previousServerId = current.previousServerId;
     if (!current.isActive) return;
+    if (current.phase == ServerSwitchPhase.finishing) return;
     if (current.returnToSelectionOnCancel) {
       // 初始化选择器中的返回只取消本次目标服务器登录，不再尝试恢复
       // 上一台服务器。上一台服务器可能从未登录过，恢复它会把用户带回
@@ -217,6 +243,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
           targetServerId: targetServerId,
           previousServerId: previousServerId,
           message: auth.message,
+          avatarOrigin: state.avatarOrigin,
           returnToSelectionOnCancel: returnToSelectionOnCancel,
         );
         break;
@@ -228,6 +255,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
           message: auth.message?.trim().isNotEmpty == true
               ? auth.message!
               : '服务器连接失败，请重试或返回当前服务器',
+          avatarOrigin: state.avatarOrigin,
           returnToSelectionOnCancel: returnToSelectionOnCancel,
         );
         break;
@@ -237,6 +265,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
           targetServerId: targetServerId,
           previousServerId: previousServerId,
           message: '目标服务器配置无效，请重试或返回当前服务器',
+          avatarOrigin: state.avatarOrigin,
           returnToSelectionOnCancel: returnToSelectionOnCancel,
         );
         break;
@@ -246,25 +275,39 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
 
   Future<void> _completeAuthenticatedSwitch(int operation) async {
     if (!_isCurrent(operation)) return;
+    final current = state;
     final project = ref.read(serverConfigProvider)?.activeServer?.project;
     if (project?.isFileSource == true) {
       state = const ServerSwitchState.idle();
       return;
     }
+    final targetServerId = current.targetServerId;
+    if (targetServerId == null) {
+      state = const ServerSwitchState.idle();
+      return;
+    }
+    void beginFinishing() {
+      if (!_isCurrent(operation)) return;
+      state = ServerSwitchState.finishing(
+        targetServerId: targetServerId,
+        previousServerId: current.previousServerId,
+        avatarOrigin: current.avatarOrigin,
+        returnToSelectionOnCancel: current.returnToSelectionOnCancel,
+      );
+    }
+
     if (project == ServerProject.dbOnline) {
+      beginFinishing();
       final refresh = Future.wait([
         ref.refresh(dbOnlineRecommendProvider.future),
         ref.refresh(dbOnlineLatestUpdatedProvider.future),
         ref.refresh(dbOnlineLatestReleasedProvider.future),
       ]);
-      if (_isCurrent(operation)) {
-        state = const ServerSwitchState.idle();
-      }
       unawaited(refresh);
       return;
     }
-    // 鉴权状态已经确认后立即解除遮罩。首页刷新在后台启动，避免未配置鉴权
-    // 的服务器在清理旧会话或某个首页区块响应较慢时一直停留在检查状态。
+    // 鉴权状态确认后先保留 finishing 遮罩完成头像放大。首页刷新在后台启动，
+    // 避免未配置鉴权的服务器在清理旧会话或某个首页区块响应较慢时一直停留。
     final refresh = refreshHomeProviders(
       refreshRecentlyAdded: () => ref.refresh(recentlyAddedProvider.future),
       refreshContinueWatching: () =>
@@ -273,16 +316,22 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       refreshRecommendCarousel: () =>
           ref.refresh(recommendCarouselProvider.future),
     );
-    if (_isCurrent(operation)) {
+    beginFinishing();
+    unawaited(refresh);
+  }
+
+  /// 登录成功后的内容放大转场结束后，由遮罩层解除切换状态。
+  void finishTransition() {
+    if (state.phase == ServerSwitchPhase.finishing) {
       state = const ServerSwitchState.idle();
     }
-    unawaited(refresh);
   }
 
   Future<void> switchTo(
     String serverId, {
     bool allowActiveTarget = false,
     String? previousServerIdOverride,
+    Rect? avatarOrigin,
     bool returnToSelectionOnCancel = false,
   }) async {
     // 从已登录页面返回选择器时，旧运行态会先被卸载以释放服务器资源；
@@ -301,6 +350,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     state = ServerSwitchState.checking(
       targetServerId: serverId,
       previousServerId: previousServerId,
+      avatarOrigin: avatarOrigin,
       returnToSelectionOnCancel: returnToSelectionOnCancel,
     );
     try {
@@ -333,6 +383,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         message: exception.message.trim().isEmpty
             ? '服务器连接失败，请重试或返回当前服务器'
             : exception.message,
+        avatarOrigin: avatarOrigin,
         returnToSelectionOnCancel: returnToSelectionOnCancel,
       );
     }
@@ -372,15 +423,46 @@ class ServerSwitchTransitionOverlay extends ConsumerStatefulWidget {
 }
 
 class _ServerSwitchTransitionOverlayState
-    extends ConsumerState<ServerSwitchTransitionOverlay> {
+    extends ConsumerState<ServerSwitchTransitionOverlay>
+    with SingleTickerProviderStateMixin {
   final _passwordController = TextEditingController();
   final _totpController = TextEditingController();
+  late final AnimationController _entryController;
+  late final AnimationController _handoffController;
+  late final AnimationController _finishController;
+  String? _entryServerId;
+  Rect? _entryOrigin;
+  String? _finishingServerId;
   bool _loginBusy = false;
   bool _totpRequired = false;
   String? _localError;
 
+  static const _avatarFlightDuration = Duration(milliseconds: 460);
+  static const _avatarHandoffDuration = Duration(milliseconds: 150);
+  static const _avatarFinishDuration = Duration(milliseconds: 520);
+
+  @override
+  void initState() {
+    super.initState();
+    _entryController = AnimationController(
+      vsync: this,
+      duration: _avatarFlightDuration,
+    );
+    _handoffController = AnimationController(
+      vsync: this,
+      duration: _avatarHandoffDuration,
+    );
+    _finishController = AnimationController(
+      vsync: this,
+      duration: _avatarFinishDuration,
+    );
+  }
+
   @override
   void dispose() {
+    _entryController.dispose();
+    _handoffController.dispose();
+    _finishController.dispose();
     _passwordController.dispose();
     _totpController.dispose();
     super.dispose();
@@ -404,7 +486,14 @@ class _ServerSwitchTransitionOverlayState
           title: '服务器配置无效',
           message: '无法找到目标服务器，请返回后重试。',
         ),
+        transition: transition,
       );
+    }
+
+    if (transition.phase == ServerSwitchPhase.finishing) {
+      _ensureFinishing(context, transition);
+    } else {
+      _ensureEntry(context, transition);
     }
 
     // 验证码界面由本地状态驱动：服务端返回 totp_required 时置位，「返回
@@ -426,6 +515,7 @@ class _ServerSwitchTransitionOverlayState
         target,
         transition.message,
       ),
+      ServerSwitchPhase.finishing => const SizedBox.shrink(),
       ServerSwitchPhase.idle => const SizedBox.shrink(),
     };
 
@@ -434,60 +524,283 @@ class _ServerSwitchTransitionOverlayState
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(_cancel());
       },
-      child: _buildMaterial(context, content),
+      child: _buildMaterial(
+        context,
+        transition: transition,
+        target: target,
+        content,
+      ),
     );
   }
 
-  Widget _buildMaterial(BuildContext context, Widget content) {
+  void _ensureEntry(BuildContext context, ServerSwitchState transition) {
+    final targetServerId = transition.targetServerId;
+    if (targetServerId == null || _entryServerId == targetServerId) return;
+
+    _entryServerId = targetServerId;
+    _entryOrigin = transition.avatarOrigin;
+    _entryController.stop();
+    _handoffController.stop();
+    _entryController.value = _entryOrigin == null ? 1 : 0;
+    _handoffController.value = _entryOrigin == null ? 1 : 0;
+    if (_entryOrigin == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _entryServerId != targetServerId) return;
+      if (MediaQuery.maybeOf(context)?.disableAnimations == true) {
+        _entryController.value = 1;
+        _handoffController.value = 1;
+      } else {
+        unawaited(
+          _entryController.forward().then((_) {
+            if (mounted && _entryServerId == targetServerId) {
+              unawaited(_handoffController.forward());
+            }
+          }),
+        );
+      }
+    });
+  }
+
+  void _ensureFinishing(BuildContext context, ServerSwitchState transition) {
+    final targetServerId = transition.targetServerId;
+    if (targetServerId == null || _finishingServerId == targetServerId) return;
+
+    _finishingServerId = targetServerId;
+    _entryController.stop();
+    _handoffController.stop();
+    _entryController.value = 1;
+    _handoffController.value = 1;
+    _finishController.stop();
+    _finishController.value = 0;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _finishingServerId != targetServerId) return;
+      if (MediaQuery.maybeOf(context)?.disableAnimations == true) {
+        _finishController.value = 1;
+        ref.read(serverSwitchTransitionProvider.notifier).finishTransition();
+        return;
+      }
+      unawaited(
+        _finishController.forward().then((_) {
+          if (mounted && _finishingServerId == targetServerId) {
+            ref
+                .read(serverSwitchTransitionProvider.notifier)
+                .finishTransition();
+          }
+        }),
+      );
+    });
+  }
+
+  Widget _buildMaterial(
+    BuildContext context,
+    Widget content, {
+    required ServerSwitchState transition,
+    ServerProfile? target,
+  }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Positioned.fill(
-      child: Material(
-        color: Colors.transparent,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-              child: ColoredBox(
-                color: (isDark ? Colors.black : Colors.white).withValues(
-                  alpha: isDark ? 0.62 : 0.72,
-                ),
-              ),
-            ),
-            const Positioned.fill(
-              child: ModalBarrier(
-                dismissible: false,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final renderObject = context.findRenderObject();
+          final overlayOrigin = renderObject is RenderBox
+              ? renderObject.localToGlobal(Offset.zero)
+              : Offset.zero;
+          final localEntryOrigin = _entryOrigin?.shift(
+            Offset(-overlayOrigin.dx, -overlayOrigin.dy),
+          );
+          final isFinishing = transition.phase == ServerSwitchPhase.finishing;
+
+          return AnimatedBuilder(
+            animation: Listenable.merge([
+              _entryController,
+              _handoffController,
+              _finishController,
+            ]),
+            builder: (context, _) {
+              final entryProgress = _entryOrigin == null
+                  ? 1.0
+                  : Curves.easeOutCubic.transform(_entryController.value);
+              final handoffProgress = Curves.easeOutCubic.transform(
+                _handoffController.value,
+              );
+              final finishProgress = Curves.easeInCubic.transform(
+                _finishController.value,
+              );
+              final overlayProgress = isFinishing
+                  ? 1 - finishProgress
+                  : entryProgress;
+              final baseAlpha = isDark ? 0.62 : 0.72;
+              final contentOpacity = isFinishing
+                  ? 0.0
+                  : _entryOrigin == null
+                  ? 1.0
+                  : handoffProgress;
+
+              return Material(
                 color: Colors.transparent,
-              ),
-            ),
-            SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 380),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 260),
-                      reverseDuration: const Duration(milliseconds: 180),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, animation) {
-                        final slide = Tween<Offset>(
-                          begin: const Offset(0, 0.025),
-                          end: Offset.zero,
-                        ).animate(animation);
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(position: slide, child: child),
-                        );
-                      },
-                      child: content,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    BackdropFilter(
+                      filter: ImageFilter.blur(
+                        sigmaX: 24 * overlayProgress,
+                        sigmaY: 24 * overlayProgress,
+                      ),
+                      child: ColoredBox(
+                        color: (isDark ? Colors.black : Colors.white)
+                            .withValues(alpha: baseAlpha * overlayProgress),
+                      ),
                     ),
-                  ),
+                    const Positioned.fill(
+                      child: ModalBarrier(
+                        dismissible: false,
+                        color: Colors.transparent,
+                      ),
+                    ),
+                    if (!isFinishing)
+                      IgnorePointer(
+                        ignoring: contentOpacity < 1,
+                        child: Opacity(
+                          opacity: contentOpacity,
+                          child: SafeArea(
+                            child: Center(
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.fromLTRB(
+                                  24,
+                                  32,
+                                  24,
+                                  32,
+                                ),
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 380,
+                                  ),
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 260),
+                                    reverseDuration: const Duration(
+                                      milliseconds: 180,
+                                    ),
+                                    switchInCurve: Curves.easeOutCubic,
+                                    switchOutCurve: Curves.easeInCubic,
+                                    transitionBuilder: (child, animation) {
+                                      final slide = Tween<Offset>(
+                                        begin: const Offset(0, 0.025),
+                                        end: Offset.zero,
+                                      ).animate(animation);
+                                      return FadeTransition(
+                                        opacity: animation,
+                                        child: SlideTransition(
+                                          position: slide,
+                                          child: child,
+                                        ),
+                                      );
+                                    },
+                                    child: content,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (!isFinishing &&
+                        target != null &&
+                        localEntryOrigin != null &&
+                        (_entryController.value < 1 ||
+                            _handoffController.value < 1))
+                      _buildEntryAvatar(
+                        colors: appColors(context),
+                        server: target,
+                        origin: localEntryOrigin,
+                        destination: Rect.fromCenter(
+                          center: constraints.biggest.center(Offset.zero),
+                          width: 136,
+                          height: 136,
+                        ),
+                        progress: entryProgress,
+                        opacity: 1 - handoffProgress,
+                      ),
+                    if (isFinishing && target != null)
+                      _buildFinishingAvatar(
+                        colors: appColors(context),
+                        server: target,
+                        viewport: constraints.biggest,
+                        progress: finishProgress,
+                      ),
+                  ],
                 ),
-              ),
-            ),
-          ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildEntryAvatar({
+    required AppColors colors,
+    required ServerProfile server,
+    required Rect origin,
+    required Rect destination,
+    required double progress,
+    required double opacity,
+  }) {
+    final profile = _cachedProfileFor(server);
+    final name = profile?.name.trim().isNotEmpty == true
+        ? profile!.name.trim()
+        : server.name;
+    final rect = Rect.lerp(origin, destination, progress)!;
+    return Positioned.fromRect(
+      rect: rect,
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: opacity,
+          child: ServerAvatar(
+            displayName: name,
+            avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
+            size: rect.width,
+            colors: colors,
+            project: server.project,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFinishingAvatar({
+    required AppColors colors,
+    required ServerProfile server,
+    required Size viewport,
+    required double progress,
+  }) {
+    final profile = _cachedProfileFor(server);
+    final name = profile?.name.trim().isNotEmpty == true
+        ? profile!.name.trim()
+        : server.name;
+    final coverDiameter =
+        (viewport.width > viewport.height ? viewport.width : viewport.height) *
+        1.65;
+    final diameter = lerpDouble(136, coverDiameter, progress)!;
+    final fadeProgress = ((progress - 0.78) / 0.22).clamp(0.0, 1.0);
+    final opacity = 1 - Curves.easeInCubic.transform(fadeProgress);
+    return Positioned.fromRect(
+      rect: Rect.fromCenter(
+        center: viewport.center(Offset.zero),
+        width: diameter,
+        height: diameter,
+      ),
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: opacity,
+          child: ServerAvatar(
+            displayName: name,
+            avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
+            size: diameter,
+            colors: colors,
+            project: server.project,
+          ),
         ),
       ),
     );

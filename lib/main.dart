@@ -143,11 +143,13 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
     final serverSwitch = ref.watch(serverSwitchTransitionProvider);
     final selectionRequested = ref.watch(serverSelectionRequestedProvider);
     final isAuthenticated = auth.valueOrNull?.phase == AuthPhase.authenticated;
+    final isFinishingServerSwitch =
+        serverSwitch.phase == ServerSwitchPhase.finishing;
     final showContent =
         config != null &&
-        !selectionRequested &&
+        (!selectionRequested || isFinishingServerSwitch) &&
         isAuthenticated &&
-        !serverSwitch.isActive;
+        (!serverSwitch.isActive || isFinishingServerSwitch);
     final isFileServer = config?.activeServer?.project?.isFileSource == true;
 
     // 切换服务器会先从声明式栈移除旧首页，再挂载切换遮罩。移除回调可能

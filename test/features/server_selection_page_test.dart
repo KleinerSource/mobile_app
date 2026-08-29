@@ -599,6 +599,12 @@ void main() {
     expect(container.read(serverSelectionRequestedProvider), isFalse);
     expect(
       container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.finishing,
+    );
+    container.read(serverSwitchTransitionProvider.notifier).finishTransition();
+    await tester.pump();
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
       ServerSwitchPhase.idle,
     );
 
