@@ -18,9 +18,12 @@ import 'task_model.dart';
 class TaskCenterNotifier extends Notifier<List<TaskItem>> {
   @override
   List<TaskItem> build() {
+    // onDispose 需先于 ref.watch 注册，避免 watch 到脏依赖时元素在本 build
+    // 内被立即 invalidate，随后注册 onDispose 会抛
+    // "Cannot call onDispose after a provider was dispose"。
+    ref.onDispose(_disposeResources);
     // 服务器切换时重建连接，避免任务状态串到旧线路。
     ref.watch(serverConfigProvider);
-    ref.onDispose(_disposeResources);
     _connectWs();
     unawaited(refresh());
     return const [];

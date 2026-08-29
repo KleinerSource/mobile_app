@@ -18,6 +18,12 @@ import 'omm_media_source_adapter.dart';
 /// adapter is registered.  Watching [requiredApiClientProvider] makes Riverpod
 /// recreate the registry after a server or line switch.
 final mediaSourceRegistryProvider = Provider<MediaSourceRegistry>((ref) {
+  // onDispose 必须先于 ref.watch 注册：watch 到脏依赖（如刚切换服务器后的
+  // apiClient 链）时，Riverpod 会在本次 build 内同步 flush 并立即 invalidate
+  // 本元素，之后再注册 onDispose 会抛
+  // "Cannot call onDispose after a provider was dispose"。
+  final registry = MediaSourceRegistry(const []);
+  ref.onDispose(() => unawaited(registry.dispose()));
   final client = ref.watch(requiredApiClientProvider);
   final project = client.config?.activeServer?.project;
   final MediaSource source;
@@ -32,8 +38,7 @@ final mediaSourceRegistryProvider = Provider<MediaSourceRegistry>((ref) {
   } else {
     throw const SourceException('当前服务器没有可用的媒体来源');
   }
-  final registry = MediaSourceRegistry([source]);
-  ref.onDispose(() => unawaited(registry.dispose()));
+  registry.register(source);
   return registry;
 });
 

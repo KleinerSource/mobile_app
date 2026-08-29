@@ -26,6 +26,13 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
   final _scrollController = ScrollController();
 
+  /// 行几何注册表（serverId → 行 context），拖拽期间按帧读取各行的
+  /// RenderBox 位置，用于估算拖拽落点槽位。
+  final Map<String, BuildContext> _rowContexts = {};
+  String? _draggingServerId;
+  BuildContext? _dragProxyContext;
+  int _lastDragSlot = 0;
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +50,53 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
   /// 列表开始滚动时收起已展开的左滑操作。
   void _closeSwipeOnScroll() {
     if (_openSwipe.value != null) _openSwipe.value = null;
+  }
+
+  void _registerRow(String serverId, BuildContext context) {
+    _rowContexts[serverId] = context;
+  }
+
+  /// 守卫式注销：同名行可能正在 overlay 代理与列表间迁移，只移除自己的注册。
+  void _unregisterRow(String serverId, BuildContext context) {
+    if (_rowContexts[serverId] == context) _rowContexts.remove(serverId);
+  }
+
+  /// 拖拽期间每帧估算落点槽位：拖拽行（overlay 中的代理）中心越过哪台
+  /// 服务器，就落在哪个位置；槽位变化时给一次与左滑阈值一致的轻反馈。
+  void _scheduleReorderSlotTick() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tickReorderSlot());
+  }
+
+  void _tickReorderSlot() {
+    final serverId = _draggingServerId;
+    if (serverId == null || !mounted) return;
+    // 首帧注册的一定是 overlay 中的拖拽代理；代理卸载说明拖拽已被取消
+    // 或落定（取消路径不触发 onReorderEnd，靠 mounted 自愈停止轮询）。
+    final proxyContext = _dragProxyContext ??= _rowContexts[serverId];
+    final proxyBox = proxyContext?.findRenderObject();
+    if (proxyContext == null ||
+        !proxyContext.mounted ||
+        proxyBox is! RenderBox ||
+        !proxyBox.attached) {
+      _draggingServerId = null;
+      _dragProxyContext = null;
+      return;
+    }
+    final proxyCenter =
+        proxyBox.localToGlobal(Offset.zero).dy + proxyBox.size.height / 2;
+    var slot = 0;
+    for (final entry in _rowContexts.entries) {
+      if (entry.key == serverId) continue;
+      final box = entry.value.findRenderObject();
+      if (box is! RenderBox || !box.attached) continue;
+      final center = box.localToGlobal(Offset.zero).dy + box.size.height / 2;
+      if (proxyCenter > center) slot++;
+    }
+    if (slot != _lastDragSlot) {
+      _lastDragSlot = slot;
+      AppHaptics.selection();
+    }
+    _scheduleReorderSlotTick();
   }
 
   @override
@@ -72,6 +126,17 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
                     scrollController: _scrollController,
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
                     proxyDecorator: _dragProxyDecorator,
+                    onReorderStart: (index) {
+                      AppHaptics.light();
+                      _draggingServerId = servers[index].id;
+                      _dragProxyContext = null;
+                      _lastDragSlot = index;
+                      _scheduleReorderSlotTick();
+                    },
+                    onReorderEnd: (_) {
+                      _draggingServerId = null;
+                      _dragProxyContext = null;
+                    },
                     onReorderItem: (oldIndex, newIndex) {
                       AppHaptics.medium();
                       ref
@@ -90,64 +155,69 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
                             : Radius.zero,
                         bottom: isLast ? const Radius.circular(16) : Radius.zero,
                       );
-                      return Container(
+                      return _ReorderRowGeometry(
                         key: ValueKey<String>(server.id),
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: radius,
-                          border: Border(
-                            top: isFirst
-                                ? BorderSide(color: colors.cardBorder)
-                                : BorderSide.none,
-                            bottom: isLast
-                                ? BorderSide(color: colors.cardBorder)
-                                : BorderSide.none,
-                            left: BorderSide(color: colors.cardBorder),
-                            right: BorderSide(color: colors.cardBorder),
+                        serverId: server.id,
+                        onRegister: _registerRow,
+                        onUnregister: _unregisterRow,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: colors.surface,
+                            borderRadius: radius,
+                            border: Border(
+                              top: isFirst
+                                  ? BorderSide(color: colors.cardBorder)
+                                  : BorderSide.none,
+                              bottom: isLast
+                                  ? BorderSide(color: colors.cardBorder)
+                                  : BorderSide.none,
+                              left: BorderSide(color: colors.cardBorder),
+                              right: BorderSide(color: colors.cardBorder),
+                            ),
                           ),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: radius,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (!isFirst)
-                                Divider(height: 1, color: colors.divider),
-                              SwipeActionCell(
-                                group: _openSwipe,
-                                cellKey: server.id,
-                                enabled: true,
-                                actions: _serverSwipeActions(
-                                  colors,
-                                  server,
-                                  servers.length,
-                                ),
-                                child: _ServerListCard(
-                                  server: server,
-                                  active: server.id == config?.activeServerId,
-                                  onTap: () => _openServer(server),
-                                  handle: ReorderableDragStartListener(
-                                    index: index,
-                                    child: GestureDetector(
-                                      // 手柄只用于拖动，吞掉点按避免误触发行点击。
-                                      onTap: () {},
-                                      behavior: HitTestBehavior.opaque,
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 10,
-                                        ),
-                                        child: Icon(
-                                          Icons.drag_indicator,
-                                          color: colors.muted,
-                                          size: 22,
+                          child: ClipRRect(
+                            borderRadius: radius,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (!isFirst)
+                                  Divider(height: 1, color: colors.divider),
+                                SwipeActionCell(
+                                  group: _openSwipe,
+                                  cellKey: server.id,
+                                  enabled: true,
+                                  actions: _serverSwipeActions(
+                                    colors,
+                                    server,
+                                    servers.length,
+                                  ),
+                                  child: _ServerListCard(
+                                    server: server,
+                                    active: server.id == config?.activeServerId,
+                                    onTap: () => _openServer(server),
+                                    handle: ReorderableDragStartListener(
+                                      index: index,
+                                      child: GestureDetector(
+                                        // 手柄只用于拖动，吞掉点按避免误触发行点击。
+                                        onTap: () {},
+                                        behavior: HitTestBehavior.opaque,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 10,
+                                          ),
+                                          child: Icon(
+                                            Icons.drag_indicator,
+                                            color: colors.muted,
+                                            size: 22,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -401,4 +471,42 @@ class _ActiveChip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 向宿主页面注册行 context 的透明包装：拖拽换位反馈按帧读取各行的
+/// RenderBox 位置来估算落点槽位。拖起时行 widget 会被移入 overlay 代理，
+/// 注册随之迁移，落定后由列表原位重新注册。
+class _ReorderRowGeometry extends StatefulWidget {
+  const _ReorderRowGeometry({
+    super.key,
+    required this.serverId,
+    required this.onRegister,
+    required this.onUnregister,
+    required this.child,
+  });
+
+  final String serverId;
+  final void Function(String serverId, BuildContext context) onRegister;
+  final void Function(String serverId, BuildContext context) onUnregister;
+  final Widget child;
+
+  @override
+  State<_ReorderRowGeometry> createState() => _ReorderRowGeometryState();
+}
+
+class _ReorderRowGeometryState extends State<_ReorderRowGeometry> {
+  @override
+  void initState() {
+    super.initState();
+    widget.onRegister(widget.serverId, context);
+  }
+
+  @override
+  void dispose() {
+    widget.onUnregister(widget.serverId, context);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

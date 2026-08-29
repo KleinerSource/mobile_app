@@ -7,6 +7,7 @@ import '../../config/server_config_provider.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_exception.dart';
 import '../common/source_id.dart';
+import '../common/source_lifecycle.dart';
 import 'file_source.dart';
 import 'file_source_config.dart';
 import 'file_entry.dart';
@@ -32,18 +33,37 @@ final fileSourceCredentialsRepositoryProvider =
 final fileSourceRegistryProvider =
     FutureProvider.autoDispose<FileSourceRegistry>((ref) async {
       final activeServerId = ref.watch(serverConfigProvider)?.activeServerId;
+      // 配置必须从仓库直接读取，不能 watch fileSourceConfigsProvider：
+      // 设置页保存后会 invalidate 它，若它在脏状态时被 watch，Riverpod 会在
+      // 本次 build 内同步 flush 并立即 invalidate 本元素，随后调用
+      // ref.onDispose 会抛
+      // "Cannot call onDispose after a provider was dispose"。
+      // 服务器切换由上面的 watch 触发重建；配置变更由设置页显式 invalidate
+      // 本 provider 触发，两条路径都已覆盖。
       final configs = ref
-          .watch(fileSourceConfigsProvider)
+          .read(fileSourceConfigRepositoryProvider)
+          .loadAll()
           .where((config) => config.serverId == activeServerId)
           .toList(growable: false);
       final credentials = ref.watch(fileSourceCredentialsRepositoryProvider);
       final registry = FileSourceRegistry(const []);
-      ref.onDispose(() => unawaited(registry.dispose()));
+      // onDispose 在任何 await 之前注册；buildDiscarded 用于释放重建竞争中
+      // 已完成连接但来不及注册的来源，避免连接泄漏。
+      var buildDiscarded = false;
+      ref.onDispose(() {
+        buildDiscarded = true;
+        unawaited(registry.dispose());
+      });
       try {
         for (final config in configs.where((item) => item.enabled)) {
-          registry.register(
-            await FileSourceConnector(credentials).connect(config),
-          );
+          final source = await FileSourceConnector(credentials).connect(config);
+          if (buildDiscarded) {
+            if (source case final SourceLifecycle lifecycle) {
+              await lifecycle.dispose();
+            }
+            continue;
+          }
+          registry.register(source);
         }
         return registry;
       } catch (_) {
