@@ -1313,6 +1313,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
           directFormatHint: _pathExtension(entry.name),
           engineKind: selectedEngineKind,
           directPlaybackFileName: entry.name,
+          directPreferFfmpegForHls: true,
           useRootNavigator: true,
         );
         return;
@@ -1339,6 +1340,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         directUrl: playbackUrl,
         engineKind: selectedEngineKind,
         directPlaybackFileName: entry.name,
+        directPreferFfmpegForHls: true,
         useRootNavigator: true,
       );
     } catch (error, stackTrace) {

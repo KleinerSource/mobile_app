@@ -231,6 +231,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
         headers: request.headers,
         formatHint: request.formatHint,
         videoCodec: request.mediaInfo?.videoCodec,
+        preferFfmpegForHls: request.preferFfmpegForHls,
         preloadBytes: _preloadBytes,
         hardwareAcceleration: _hardwareAcceleration,
       );
@@ -330,6 +331,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
           play: true,
           formatHint: request.formatHint,
           mediaInfo: request.mediaInfo,
+          preferFfmpegForHls: request.preferFfmpegForHls,
         ),
       );
     } catch (error, stackTrace) {
@@ -524,8 +526,13 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
           request.url,
           request.formatHint,
           videoCodec: initial.videoCodec,
+          preferFfmpegForHls: request.preferFfmpegForHls,
         ) ??
-        PlaybackMediaInfo.inferInternalPlayer('', initial.container);
+        PlaybackMediaInfo.inferInternalPlayer(
+          '',
+          initial.container,
+          preferFfmpegForHls: request.preferFfmpegForHls,
+        );
     return initial.copyWith(internalPlayer: inferredInternalPlayer);
   }
 

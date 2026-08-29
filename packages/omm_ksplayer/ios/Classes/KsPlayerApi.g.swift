@@ -347,7 +347,7 @@ class KsPlayerApiPigeonCodec: FlutterStandardMessageCodec, @unchecked Sendable {
 /// Generated protocol from Pigeon that represents a handler of messages from Flutter.
 protocol OmmKsPlayerHostApi {
   func create(playerId: Int64) throws
-  func open(playerId: Int64, url: String, startPositionMs: Double?, autoplay: Bool, headers: [String: String]?, formatHint: String?, videoCodec: String?, preloadBytes: Int64?, hardwareAcceleration: Bool, completion: @escaping (Result<Void, Error>) -> Void)
+  func open(playerId: Int64, url: String, startPositionMs: Double?, autoplay: Bool, headers: [String: String]?, formatHint: String?, videoCodec: String?, preferFfmpegForHls: Bool?, preloadBytes: Int64?, hardwareAcceleration: Bool, completion: @escaping (Result<Void, Error>) -> Void)
   func play(playerId: Int64) throws
   func pause(playerId: Int64) throws
   func stop(playerId: Int64) throws
@@ -396,9 +396,10 @@ class OmmKsPlayerHostApiSetup {
         let headersArg: [String: String]? = nilOrValue(args[4])
         let formatHintArg: String? = nilOrValue(args[5])
         let videoCodecArg: String? = nilOrValue(args[6])
-        let preloadBytesArg: Int64? = nilOrValue(args[7])
-        let hardwareAccelerationArg = args[8] as! Bool
-        api.open(playerId: playerIdArg, url: urlArg, startPositionMs: startPositionMsArg, autoplay: autoplayArg, headers: headersArg, formatHint: formatHintArg, videoCodec: videoCodecArg, preloadBytes: preloadBytesArg, hardwareAcceleration: hardwareAccelerationArg) { result in
+        let preferFfmpegForHlsArg: Bool? = nilOrValue(args[7])
+        let preloadBytesArg: Int64? = nilOrValue(args[8])
+        let hardwareAccelerationArg = args[9] as! Bool
+        api.open(playerId: playerIdArg, url: urlArg, startPositionMs: startPositionMsArg, autoplay: autoplayArg, headers: headersArg, formatHint: formatHintArg, videoCodec: videoCodecArg, preferFfmpegForHls: preferFfmpegForHlsArg, preloadBytes: preloadBytesArg, hardwareAcceleration: hardwareAccelerationArg) { result in
           switch result {
           case .success:
             reply(wrapResult(nil))

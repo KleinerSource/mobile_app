@@ -63,6 +63,7 @@ class OmmKsPlayer {
     Map<String, String>? headers,
     String? formatHint,
     String? videoCodec,
+    bool preferFfmpegForHls = false,
     int? preloadBytes,
     bool hardwareAcceleration = true,
   }) => _api.open(
@@ -73,6 +74,7 @@ class OmmKsPlayer {
     headers,
     formatHint,
     videoCodec,
+    preferFfmpegForHls,
     preloadBytes,
     hardwareAcceleration,
   );

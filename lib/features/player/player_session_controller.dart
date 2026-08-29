@@ -195,6 +195,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     bool play = true,
     String? formatHint,
     PlaybackMediaInfo? mediaInfo,
+    bool preferFfmpegForHls = false,
   }) async {
     _playbackIntent = play;
     final request = PlaybackOpenRequest(
@@ -204,6 +205,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
       play: play,
       formatHint: formatHint,
       mediaInfo: mediaInfo,
+      preferFfmpegForHls: preferFfmpegForHls,
     );
     await _engine.open(request);
   }

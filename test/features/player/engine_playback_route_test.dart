@@ -101,8 +101,17 @@ void main() {
         null,
         videoCodec: hlsInfo?.videoCodec,
       ),
+      'AVPlayer',
+      reason: 'OMM 转码 HLS 交给 AVPlayer 串流',
+    );
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
+        decision.streamUrl,
+        null,
+        preferFfmpegForHls: true,
+      ),
       'KSMEPlayer',
-      reason: 'HLS 统一交给 KSMEPlayer',
+      reason: '文件源显式要求 FFmpeg 时 HLS 才走 KSMEPlayer',
     );
   });
 

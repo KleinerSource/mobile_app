@@ -43,6 +43,7 @@ private final class KsPlayerManager: NSObject, OmmKsPlayerHostApi {
     headers: [String: String]?,
     formatHint: String?,
     videoCodec: String?,
+    preferFfmpegForHls: Bool?,
     preloadBytes: Int64?,
     hardwareAcceleration: Bool,
     completion: @escaping (Result<Void, Error>) -> Void
@@ -59,6 +60,7 @@ private final class KsPlayerManager: NSObject, OmmKsPlayerHostApi {
         headers: headers,
         formatHint: formatHint,
         videoCodec: videoCodec,
+        preferFfmpegForHls: preferFfmpegForHls,
         preloadBytes: preloadBytes,
         hardwareAcceleration: hardwareAcceleration,
         completion: completion
@@ -312,6 +314,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     headers: [String: String]?,
     formatHint: String?,
     videoCodec: String?,
+    preferFfmpegForHls: Bool?,
     preloadBytes: Int64?,
     hardwareAcceleration: Bool,
     completion: @escaping (Result<Void, Error>) -> Void
@@ -325,7 +328,8 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     let useFfmpegPlayer = prefersFfmpegPlayer(
       url: mediaURL,
       formatHint: formatHint,
-      videoCodec: videoCodec
+      videoCodec: videoCodec,
+      hlsPrefersFfmpeg: preferFfmpegForHls ?? false
     )
     KSOptions.firstPlayerType = useFfmpegPlayer ? KSMEPlayer.self : KSAVPlayer.self
 
@@ -430,18 +434,22 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
   private func prefersFfmpegPlayer(
     url: URL,
     formatHint: String?,
-    videoCodec: String?
+    videoCodec: String?,
+    hlsPrefersFfmpeg: Bool
   ) -> Bool {
-    // M3U8/HLS 统一交给 KSMEPlayer：FFmpeg 对 HLS（含 AES-128 加密流）的
-    // 远距离 seek 更稳，SMB 回环代理地址上的 m3u8 同样适用。
-    if isHlsStream(url: url, formatHint: formatHint) {
-      return true
-    }
+    // SMB 回环代理地址（含其上的 m3u8）始终交给 FFmpeg，需要其 Range/
+    // 流式读取能力。
     let isLoopback = url.host == "127.0.0.1" ||
       url.host == "localhost" ||
       url.host == "::1"
     if isLoopback {
       return true
+    }
+    // 其余 HLS（OMM 转码流、DBO 在线流）默认交给 AVPlayer：KSMEPlayer 无法
+    // 串流播放 OMM 转码会话，也无法对在线 HLS 执行 seek。文件源（WebDAV
+    // 直连）由 Dart 层显式要求 FFmpeg 播放。
+    if isHlsStream(url: url, formatHint: formatHint) {
+      return hlsPrefersFfmpeg
     }
     if let videoCodec, isFfmpegVideoCodec(videoCodec) {
       return true

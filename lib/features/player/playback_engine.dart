@@ -131,15 +131,20 @@ class PlaybackMediaInfo {
     String url,
     String? formatHint, {
     String? videoCodec,
+    bool preferFfmpegForHls = false,
   }) {
-    // HLS 统一交给 KSMEPlayer，与原生 prefersFfmpegPlayer 的决策保持一致。
-    if (_isHlsMedia(url, formatHint)) return 'KSMEPlayer';
+    // SMB 回环代理地址（含 m3u8）始终由 KSMEPlayer 处理，与原生
+    // prefersFfmpegPlayer 的决策顺序保持一致。
     try {
       final host = Uri.parse(url).host.toLowerCase();
       if (host == '127.0.0.1' || host == 'localhost' || host == '::1') {
         return 'KSMEPlayer';
       }
     } catch (_) {}
+    // 其余 HLS 默认 AVPlayer（OMM 转码/在线流），文件源显式要求 FFmpeg。
+    if (_isHlsMedia(url, formatHint)) {
+      return preferFfmpegForHls ? 'KSMEPlayer' : 'AVPlayer';
+    }
     if (_isFfmpegVideoCodec(videoCodec)) return 'KSMEPlayer';
     final container = inferPlaybackContainer(url, formatHint);
     if (container == null) return null;
@@ -363,6 +368,7 @@ class PlaybackOpenRequest {
     this.play = true,
     this.formatHint,
     this.mediaInfo,
+    this.preferFfmpegForHls = false,
   });
 
   final String url;
@@ -374,6 +380,11 @@ class PlaybackOpenRequest {
   /// 仅供需要按容器选择原生播放实现的内核使用。
   final String? formatHint;
   final PlaybackMediaInfo? mediaInfo;
+
+  /// HLS 是否优先使用 KSPlayer 的 FFmpeg 内核（KSMEPlayer）。
+  /// 仅文件源（WebDAV 直连、SMB 回环代理）设为 true；OMM 转码流与
+  /// DBO 在线流保持 false，由 AVPlayer 处理串流与 seek。
+  final bool preferFfmpegForHls;
 }
 
 @immutable

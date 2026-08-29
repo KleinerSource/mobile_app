@@ -67,6 +67,7 @@ abstract class OmmKsPlayerHostApi {
     Map<String, String>? headers,
     String? formatHint,
     String? videoCodec,
+    bool? preferFfmpegForHls,
     int? preloadBytes,
     bool hardwareAcceleration,
   );

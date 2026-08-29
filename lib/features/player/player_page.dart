@@ -78,6 +78,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     this.directFormatHint,
     this.engineKind,
     this.directPlaybackFileName,
+    this.directPreferFfmpegForHls = false,
     this.startPositionSec = 0,
     this.queue = const <PlayerQueueItem>[],
     this.queueIndex = 0,
@@ -93,6 +94,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     this.directFormatHint,
     this.engineKind,
     this.directPlaybackFileName,
+    this.directPreferFfmpegForHls = false,
   }) : movieId = null,
        startPositionSec = 0,
        queue = const <PlayerQueueItem>[],
@@ -105,6 +107,10 @@ class PlayerPage extends ConsumerStatefulWidget {
   final String? directFormatHint;
   final PlaybackEngineKind? engineKind;
   final String? directPlaybackFileName;
+
+  /// 直链 HLS 是否优先使用 KSPlayer 的 FFmpeg 内核。仅文件源
+  /// （WebDAV/SMB）使用；OMM 转码流与 DBO 在线流保持默认 AVPlayer。
+  final bool directPreferFfmpegForHls;
   final int startPositionSec;
   final List<PlayerQueueItem> queue;
   final int queueIndex;
@@ -146,6 +152,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     String? directFormatHint,
     PlaybackEngineKind? engineKind,
     String? directPlaybackFileName,
+    bool directPreferFfmpegForHls = false,
     bool useRootNavigator = false,
   }) {
     appLog(
@@ -161,6 +168,7 @@ class PlayerPage extends ConsumerStatefulWidget {
           directFormatHint: directFormatHint,
           engineKind: engineKind,
           directPlaybackFileName: directPlaybackFileName,
+          directPreferFfmpegForHls: directPreferFfmpegForHls,
         ),
       ),
     );
@@ -623,6 +631,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           play: shouldPlay,
           headers: widget.directHeaders,
           formatHint: widget.directFormatHint,
+          preferFfmpegForHls: widget.directPreferFfmpegForHls,
         ).timeout(const Duration(seconds: 45));
         _playerHasBeenOpened = true;
         _playerLog('播放器 open 已返回');
@@ -792,6 +801,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     Map<String, String>? headers,
     String? formatHint,
     PlaybackMediaInfo? mediaInfo,
+    bool preferFfmpegForHls = false,
   }) async {
     _playerLog(
       '调用播放器 open: engine=${_host.kind.value} '
@@ -806,6 +816,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             headers: headers,
             formatHint: formatHint,
             mediaInfo: mediaInfo,
+            preferFfmpegForHls: preferFfmpegForHls,
           )
           .timeout(_directPlaybackOperationTimeout);
       _playerLog('播放器 open 成功: engine=${_host.kind.value}');
@@ -831,6 +842,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             headers: headers,
             formatHint: formatHint,
             mediaInfo: mediaInfo,
+            preferFfmpegForHls: preferFfmpegForHls,
           )
           .timeout(_directPlaybackOperationTimeout);
       _playerLog('软件解码播放器 open 成功: engine=${_host.kind.value}');

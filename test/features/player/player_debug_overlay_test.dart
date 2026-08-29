@@ -37,13 +37,6 @@ void main() {
     );
     expect(
       PlaybackMediaInfo.inferInternalPlayer(
-        'https://example.com/stream.m3u8',
-        'matroska',
-      ),
-      'KSMEPlayer',
-    );
-    expect(
-      PlaybackMediaInfo.inferInternalPlayer(
         'https://example.com/video.mp4',
         'mp4',
         videoCodec: 'hevc',
@@ -59,20 +52,38 @@ void main() {
     );
     expect(
       PlaybackMediaInfo.inferInternalPlayer(
+        'https://example.com/stream.m3u8',
+        'matroska',
+      ),
+      'AVPlayer',
+      reason: '网络 HLS 默认交给 AVPlayer，容器提示不再干预',
+    );
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
         'https://example.com/live/index.m3u8?token=1',
         null,
         videoCodec: 'h264',
       ),
-      'KSMEPlayer',
-      reason: 'HLS 统一交给 KSMEPlayer',
+      'AVPlayer',
+      reason: 'OMM/DBO 的网络 HLS 默认 AVPlayer',
     );
     expect(
       PlaybackMediaInfo.inferInternalPlayer(
         'https://example.com/v/play',
         'hls',
       ),
+      'AVPlayer',
+      reason: 'hls 容器提示按网络 HLS 处理',
+    );
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
+        'https://example.com/live/index.m3u8?token=1',
+        null,
+        videoCodec: 'h264',
+        preferFfmpegForHls: true,
+      ),
       'KSMEPlayer',
-      reason: 'hls 容器提示按 HLS 处理',
+      reason: '文件源显式要求 FFmpeg 播放 HLS',
     );
     expect(
       PlaybackMediaInfo.inferInternalPlayer(
@@ -80,7 +91,7 @@ void main() {
         null,
       ),
       'KSMEPlayer',
-      reason: '回环代理上的 m3u8 同样是 KSMEPlayer',
+      reason: '回环代理上的 m3u8 始终是 KSMEPlayer',
     );
   });
 
