@@ -108,8 +108,9 @@ final fileDirectoryProvider = FutureProvider.autoDispose
       final repository = await ref.watch(
         fileSourceRepositoryProvider(request.sourceId.value).future,
       );
-      // 下拉刷新前由页面置位（ref.read 而非 watch，避免标志复位触发重建），
-      // 用于让 OpenList 等带服务端缓存的来源强制绕过缓存。
+      // 右上角「强制刷新」触发前置位（ref.read 而非 watch，避免标志复位
+      // 触发重建），用于让 OpenList 等带服务端缓存的来源绕过缓存；
+      // 下拉刷新等普通路径不置位。
       final refresh = ref.read(
         fileDirectoryForceRefreshProvider(request.sourceId.value),
       );

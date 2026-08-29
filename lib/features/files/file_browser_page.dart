@@ -41,6 +41,7 @@ import 'file_playback_engine.dart';
 import 'file_playback_proxy.dart';
 
 enum _BrowserMenuAction {
+  forceRefresh,
   createDirectory,
   upload,
   enterSelection,
@@ -203,7 +204,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
             tooltip: '更多',
             onSelected: (action) =>
                 _handleMenuAction(action, currentDirectoryPath),
-            itemBuilder: (_) => [
+              itemBuilder: (_) => [
+              _menuItem(
+                _BrowserMenuAction.forceRefresh,
+                Icons.refresh,
+                '强制刷新',
+              ),
               _menuItem(
                 _BrowserMenuAction.createDirectory,
                 Icons.create_new_folder_outlined,
@@ -487,6 +493,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     FilePath currentPath,
   ) async {
     switch (action) {
+      case _BrowserMenuAction.forceRefresh:
+        setState(() => _busy = true);
+        try {
+          await _refresh(force: true);
+        } finally {
+          if (mounted) setState(() => _busy = false);
+        }
       case _BrowserMenuAction.createDirectory:
         await _createDirectory(currentPath);
       case _BrowserMenuAction.upload:
@@ -1579,12 +1592,20 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     );
   }
 
-  Future<void> _refresh() async {
+  /// 普通刷新（下拉、重试、写操作后）直接重新列目录；[force] 为 true 时
+  /// （右上角菜单「强制刷新」）额外置位来源级标志，让 OpenList 等带服务端
+  /// 目录缓存的来源绕过缓存重读后端存储。
+  Future<void> _refresh({bool force = false}) async {
     _imagePreviewFutures.clear();
-    // 强制刷新：置位标志让来源（OpenList 的服务端目录缓存）绕过缓存，
-    // 再失效当前目录的 provider。复位不触发重建（provider 内为 ref.read）。
-    final forceRefresh = fileDirectoryForceRefreshProvider(widget.sourceId.value);
-    ref.read(forceRefresh.notifier).state = true;
+    if (force) {
+      ref
+          .read(
+            fileDirectoryForceRefreshProvider(
+              widget.sourceId.value,
+            ).notifier,
+          )
+          .state = true;
+    }
     final provider = fileDirectoryProvider(_request);
     ref.invalidate(provider);
     try {
@@ -1592,7 +1613,15 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     } catch (_) {
       // 错误由页面上的 AsyncValue 错误态展示，刷新指示器本身应正常收起。
     } finally {
-      ref.read(forceRefresh.notifier).state = false;
+      if (force) {
+        ref
+            .read(
+              fileDirectoryForceRefreshProvider(
+                widget.sourceId.value,
+              ).notifier,
+            )
+            .state = false;
+      }
     }
   }
 

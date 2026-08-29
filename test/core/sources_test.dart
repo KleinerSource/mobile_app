@@ -13,6 +13,7 @@ import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/core/api/providers.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/core/config/server_config.dart';
+import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/core/sources/files/file_playback_progress.dart';
 import 'package:omm/core/sources/sources.dart';
@@ -474,6 +475,51 @@ void _main_0() {
     },
   );
 
+  test('目录 provider 把强制刷新标志传递给来源 listDirectory', () async {
+    SharedPreferences.setMockInitialValues({});
+    final source = _RefreshFlagSource();
+    final container = ProviderContainer(
+      overrides: [
+        fileSourceRegistryProvider.overrideWith(
+          (ref) async => FileSourceRegistry([source]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.read(serverConfigProvider.notifier).state = _serverConfig(
+      'force-server',
+      'openlist',
+    );
+
+    const request = FileDirectoryRequest(
+      serverId: 'force-server',
+      sourceId: SourceId('refresh-fake'),
+    );
+    final subscription = container.listen(
+      fileDirectoryProvider(request),
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+
+    await container.read(fileDirectoryProvider(request).future);
+    expect(source.refreshFlags, [false]);
+
+    container.read(
+      fileDirectoryForceRefreshProvider('refresh-fake').notifier,
+    ).state = true;
+    container.invalidate(fileDirectoryProvider(request));
+    await container.read(fileDirectoryProvider(request).future);
+    expect(source.refreshFlags, [false, true]);
+
+    // 页面在刷新完成后复位标志，后续普通失效不再强制。
+    container.read(
+      fileDirectoryForceRefreshProvider('refresh-fake').notifier,
+    ).state = false;
+    container.invalidate(fileDirectoryProvider(request));
+    await container.read(fileDirectoryProvider(request).future);
+    expect(source.refreshFlags, [false, true, false]);
+  });
+
   test(
     'media source provider selects the adapter from the active server project',
     () {
@@ -666,6 +712,41 @@ class _FakeFileSource
 
   @override
   Future<void> dispose() async => disposed = true;
+}
+
+class _RefreshFlagSource implements FileSource, FileBrowseCapability {
+  final refreshFlags = <bool>[];
+
+  @override
+  final descriptor = const SourceDescriptor(
+    id: SourceId('refresh-fake'),
+    kind: SourceKind.openList,
+    name: '刷新记录来源',
+  );
+
+  @override
+  final capabilities = const <FileCapability>{FileCapability.browse};
+
+  @override
+  bool supports(FileCapability capability) => capabilities.contains(capability);
+
+  @override
+  Future<DirectoryListing> listDirectory(
+    FilePath path, {
+    bool refresh = false,
+  }) async {
+    refreshFlags.add(refresh);
+    return DirectoryListing(currentPath: path, entries: const <FileEntry>[]);
+  }
+
+  @override
+  Future<FileEntry> stat(FilePath path) => throw UnimplementedError();
+
+  @override
+  Future<bool> exists(FilePath path) => throw UnimplementedError();
+
+  @override
+  Future<FileEntry> validatePath(FilePath path) => throw UnimplementedError();
 }
 
 // ==================== 原 test/core/webdav_file_source_range_test.dart ====================

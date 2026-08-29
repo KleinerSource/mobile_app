@@ -59,6 +59,52 @@ void main() {
     );
   });
 
+  testWidgets('右上角菜单提供强制刷新并重新加载目录', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    var listingCalls = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceDescriptorsProvider(serverId).overrideWith(
+            (ref) async => [
+              const SourceDescriptor(
+                id: SourceId('source-one'),
+                kind: SourceKind.openList,
+                name: 'OpenList 一号',
+                serverId: serverId,
+                endpoint: 'http://nas-one:5244',
+              ),
+            ],
+          ),
+          fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+          fileDirectoryProvider(
+            FileDirectoryRequest(serverId: serverId, sourceId: sourceId),
+          ).overrideWith((ref) async {
+            listingCalls += 1;
+            return _listing(sourceId);
+          }),
+        ],
+        child: const MaterialApp(home: FileSourcesPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(listingCalls, 1);
+
+    await tester.tap(find.byTooltip('更多'));
+    await tester.pumpAndSettle();
+    expect(find.text('强制刷新'), findsOneWidget);
+
+    await tester.tap(find.text('强制刷新'));
+    await tester.pumpAndSettle();
+
+    expect(listingCalls, 2);
+    expect(find.text('影片.mkv'), findsOneWidget);
+  });
+
   testWidgets('debug 模式下点击视频先显示播放器选择器', (tester) async {
     final prefs = await _prefs();
     await prefs.setBool('player.debug_mode', true);
