@@ -74,6 +74,8 @@ class PlayerPage extends ConsumerStatefulWidget {
     required this.movieId,
     required this.title,
     this.directUrl,
+    this.directHeaders,
+    this.directFormatHint,
     this.engineKind,
     this.directPlaybackFileName,
     this.startPositionSec = 0,
@@ -87,6 +89,8 @@ class PlayerPage extends ConsumerStatefulWidget {
     super.key,
     required this.title,
     required this.directUrl,
+    this.directHeaders,
+    this.directFormatHint,
     this.engineKind,
     this.directPlaybackFileName,
   }) : movieId = null,
@@ -97,6 +101,8 @@ class PlayerPage extends ConsumerStatefulWidget {
   final int? movieId;
   final String title;
   final String? directUrl;
+  final Map<String, String>? directHeaders;
+  final String? directFormatHint;
   final PlaybackEngineKind? engineKind;
   final String? directPlaybackFileName;
   final int startPositionSec;
@@ -108,6 +114,8 @@ class PlayerPage extends ConsumerStatefulWidget {
     required int movieId,
     required String title,
     String? directUrl,
+    Map<String, String>? directHeaders,
+    String? directFormatHint,
     PlaybackEngineKind? engineKind,
     int startPositionSec = 0,
     List<PlayerQueueItem> queue = const <PlayerQueueItem>[],
@@ -119,6 +127,8 @@ class PlayerPage extends ConsumerStatefulWidget {
           movieId: movieId,
           title: title,
           directUrl: directUrl,
+          directHeaders: directHeaders,
+          directFormatHint: directFormatHint,
           engineKind: engineKind,
           startPositionSec: startPositionSec,
           queue: queue,
@@ -132,6 +142,8 @@ class PlayerPage extends ConsumerStatefulWidget {
     BuildContext context, {
     required String title,
     required String directUrl,
+    Map<String, String>? directHeaders,
+    String? directFormatHint,
     PlaybackEngineKind? engineKind,
     String? directPlaybackFileName,
   }) {
@@ -140,6 +152,8 @@ class PlayerPage extends ConsumerStatefulWidget {
         builder: (_) => PlayerPage.direct(
           title: title,
           directUrl: directUrl,
+          directHeaders: directHeaders,
+          directFormatHint: directFormatHint,
           engineKind: engineKind,
           directPlaybackFileName: directPlaybackFileName,
         ),
@@ -560,6 +574,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           trailerUrl,
           fallbackResume,
           play: shouldPlay,
+          headers: widget.directHeaders,
+          formatHint: widget.directFormatHint,
         ).timeout(const Duration(seconds: 45));
         _playerLog('播放器 open 已返回');
         if (widget.directPlaybackFileName?.trim().isNotEmpty == true) {
@@ -727,6 +743,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     String? formatHint,
     PlaybackMediaInfo? mediaInfo,
   }) async {
+    _playerLog(
+      '调用播放器 open: engine=${_host.kind.value} '
+      'url=$url formatHint=${formatHint ?? ''}',
+    );
     try {
       await _host
           .open(
@@ -738,7 +758,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             mediaInfo: mediaInfo,
           )
           .timeout(_directPlaybackOperationTimeout);
-    } catch (_) {
+      _playerLog('播放器 open 成功: engine=${_host.kind.value}');
+    } catch (error, stackTrace) {
+      _playerLog(
+        '播放器 open 失败: engine=${_host.kind.value} '
+        'error=$error\n$stackTrace',
+      );
       if (!_clientHardwareAcceleration) rethrow;
       _playerLog('硬件解码打开失败或超时，尝试软件解码');
       try {
@@ -758,6 +783,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             mediaInfo: mediaInfo,
           )
           .timeout(_directPlaybackOperationTimeout);
+      _playerLog('软件解码播放器 open 成功: engine=${_host.kind.value}');
     }
     // 直连模式也可能是 dbonline 返回的 HLS 清单。记录真实媒体类型，
     // 这样后台恢复时会重新打开清单，而不是对已停止的会话直接 play。

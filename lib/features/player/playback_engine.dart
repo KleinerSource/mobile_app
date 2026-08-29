@@ -133,6 +133,12 @@ class PlaybackMediaInfo {
     String? formatHint, {
     String? videoCodec,
   }) {
+    try {
+      final host = Uri.parse(url).host.toLowerCase();
+      if (host == '127.0.0.1' || host == 'localhost' || host == '::1') {
+        return 'KSMEPlayer';
+      }
+    } catch (_) {}
     if (_isFfmpegVideoCodec(videoCodec)) return 'KSMEPlayer';
     final container = inferPlaybackContainer(url, formatHint);
     if (container == null) return null;

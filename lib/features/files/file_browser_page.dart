@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/config/server_config_provider.dart';
+import '../../core/platform/app_log_store.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/sources/common/source_descriptor.dart';
 import '../../core/sources/common/source_exception.dart';
@@ -1305,6 +1306,37 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     setState(() => _busy = true);
     try {
       final repository = await _repository();
+      final selectedEngineKind = Platform.isIOS && engineKind == null
+          ? PlaybackEngineKind.ksPlayer
+          : engineKind;
+
+      // WebDAV 本质是 HTTP(S) 文件服务，直接把文件 URL 和认证头交给
+      // 播放器，保留播放器自身的 Range/seek 能力，不经过回环代理。
+      if (repository.source.descriptor.kind == SourceKind.webDav) {
+        final access = await repository.resolveAccess(entry.path);
+        if (!mounted) return;
+        final directUri = access.uri;
+        if (directUri != null) {
+          final playbackUrl = directUri.toString();
+          appLog(
+            '[FileBrowser] 使用 WebDAV HTTP 直连播放: '
+            'engine=${selectedEngineKind?.value ?? 'default'} '
+            'url=$playbackUrl headers=${access.headers.isNotEmpty}',
+          );
+          await PlayerPage.openDirect(
+            context,
+            title: entry.name,
+            directUrl: playbackUrl,
+            directHeaders: access.headers,
+            directFormatHint: _pathExtension(entry.name),
+            engineKind: selectedEngineKind,
+            directPlaybackFileName: entry.name,
+          );
+          return;
+        }
+        appLog('[FileBrowser] WebDAV 未提供可用直连 URL，回退文件代理');
+      }
+
       proxy = await FilePlaybackProxy.start(
         repository: repository,
         path: entry.path,
@@ -1313,14 +1345,22 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         pathExtension: _pathExtension(entry.name),
       );
       if (!mounted) return;
+      // SMB 没有可供 iOS AVPlayer 使用的 HTTP URL，继续使用回环 HTTP
+      // 代理按需读取；代理本身会透传可用的 Range。
+      final playbackUrl = proxy.uri.toString();
+      appLog(
+        '[FileBrowser] 使用流式代理播放: '
+        'engine=${selectedEngineKind?.value ?? 'default'} url=$playbackUrl',
+      );
       await PlayerPage.openDirect(
         context,
         title: entry.name,
-        directUrl: proxy.uri.toString(),
-        engineKind: engineKind,
+        directUrl: playbackUrl,
+        engineKind: selectedEngineKind,
         directPlaybackFileName: entry.name,
       );
-    } catch (error) {
+    } catch (error, stackTrace) {
+      appLog('[FileBrowser] 视频预览失败: $error\n$stackTrace');
       if (mounted) {
         _message('视频预览失败：${error is SourceException ? error.message : error}');
       }

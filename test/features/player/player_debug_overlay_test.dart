@@ -50,6 +50,13 @@ void main() {
       ),
       'KSMEPlayer',
     );
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
+        'http://127.0.0.1:56386/proxy.mp4',
+        null,
+      ),
+      'KSMEPlayer',
+    );
   });
 
   test('码率格式化为用户可读单位', () {

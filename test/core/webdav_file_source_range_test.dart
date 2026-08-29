@@ -8,6 +8,37 @@ import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/features/files/file_playback_proxy.dart';
 
 void main() {
+  test('WebDAV 文件访问暴露可直接播放的 HTTP URL 和认证头', () async {
+    final bytes = List<int>.generate(8, (index) => index);
+    final fixture = await _WebDavFixture.start(bytes);
+    final sourceId = SourceId.of('webdav-direct');
+    final source = await WebDavFileSource.connect(
+      id: sourceId.value,
+      name: '测试 WebDAV',
+      options: WebDavConnectionOptions(
+        uri: fixture.baseUri.replace(path: '/dav/').toString(),
+        port: fixture.server.port,
+        user: 'alice',
+        password: 'secret',
+      ),
+    );
+    try {
+      final access = await source.resolveAccess(
+        FilePath(sourceId: sourceId, value: '/movie.mp4'),
+      );
+      expect(
+        access.uri,
+        fixture.baseUri.replace(path: '/dav/movie.mp4'),
+      );
+      expect(access.size, bytes.length);
+      expect(access.mimeType, 'video/mp4');
+      expect(access.headers['Authorization'], 'Basic YWxpY2U6c2VjcmV0');
+    } finally {
+      await source.dispose();
+      await fixture.close();
+    }
+  });
+
   test('WebDAV Range 请求透传并校验 206 响应', () async {
     final bytes = List<int>.generate(32, (index) => index + 1);
     final fixture = await _WebDavFixture.start(bytes);

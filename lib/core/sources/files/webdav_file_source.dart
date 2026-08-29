@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:webdav_client/webdav_client.dart' as webdav;
@@ -38,11 +39,17 @@ class WebDavFileSource
         FileAccessCapability,
         FileRangeAccessCapability,
         SourceLifecycle {
-  WebDavFileSource._(this.client, this._sourceId, this._descriptor);
+  WebDavFileSource._(
+    this.client,
+    this._sourceId,
+    this._descriptor,
+    this._connection,
+  );
 
   final webdav.Client client;
   final SourceId _sourceId;
   final SourceDescriptor _descriptor;
+  final WebDavConnectionOptions _connection;
 
   static Future<WebDavFileSource> connect({
     required String id,
@@ -70,6 +77,7 @@ class WebDavFileSource
         serverId: serverId,
         endpoint: options.uri,
       ),
+      options,
     );
   }
 
@@ -393,10 +401,30 @@ class WebDavFileSource
       throw const FileSourceException('目录不能作为文件访问');
     }
     return FileAccess(
+      uri: _directUri(path),
       size: entry.size,
       mimeType: entry.mimeType,
+      headers: _directHeaders,
       openStream: () => download(path),
     );
+  }
+
+  Uri _directUri(FilePath path) {
+    final value = _checkPath(path);
+    final base = Uri.parse(client.uri);
+    final segments = <String>[
+      ...base.pathSegments.where((segment) => segment.isNotEmpty),
+      ...value.split('/').where((segment) => segment.isNotEmpty),
+    ];
+    return base.replace(pathSegments: segments);
+  }
+
+  Map<String, String> get _directHeaders {
+    final user = _connection.user;
+    final password = _connection.password;
+    if (user.isEmpty && password.isEmpty) return const <String, String>{};
+    final token = base64Encode(utf8.encode('$user:$password'));
+    return <String, String>{'Authorization': 'Basic $token'};
   }
 
   @override

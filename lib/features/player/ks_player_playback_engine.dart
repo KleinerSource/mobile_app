@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:omm_ksplayer/omm_ksplayer.dart';
 
+import '../../core/platform/app_log_store.dart';
 import 'playback_engine.dart';
 
 class KsPlayerPlaybackEngine implements PlaybackEngine {
@@ -44,6 +45,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
       throw StateError('播放器已释放');
     }
     _player = player;
+    appLog('[KsPlayer] 原生播放器已创建: id=${player.playerId}');
     _eventSubscription = player.events.listen(_onEvent);
     return player;
   }
@@ -55,6 +57,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   void _onEvent(KsPlayerEvent event) {
     switch (event.type) {
       case KsPlayerEventType.ready:
+        appLog('[KsPlayer] 收到 ready 事件');
         _update(
           (state) => state.copyWith(
             lifecycle: PlaybackLifecycle.ready,
@@ -103,6 +106,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
           ),
         );
       case KsPlayerEventType.error:
+        appLog('[KsPlayer] 收到 error 事件: ${event.stringValue ?? '未知错误'}');
         // KSPlayer 在已出首帧并开始推进时间后，底层播放器切换时可能迟到回调
         // 一次错误；此时画面仍在正常播放，不能把它变成统一播放失败状态。
         // stop() 到下一次 open() 之间的旧媒体错误同样不能污染新会话。
@@ -117,6 +121,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
           ),
         );
       case KsPlayerEventType.firstFrame:
+        appLog('[KsPlayer] 收到 firstFrame 事件');
         _update((state) => state.copyWith(firstFrameRendered: true));
       case KsPlayerEventType.pictureInPicture:
         final active = event.boolValue ?? false;
@@ -181,16 +186,27 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
       ),
     );
     final player = await _ensurePlayer();
-    await player.open(
-      request.url,
-      startAt: request.startAt,
-      autoplay: request.play,
-      headers: request.headers,
-      formatHint: request.formatHint,
-      videoCodec: request.mediaInfo?.videoCodec,
-      preloadBytes: _preloadBytes,
-      hardwareAcceleration: _hardwareAcceleration,
+    appLog(
+      '[KsPlayer] 调用原生 open: id=${player.playerId} '
+      'url=${request.url} formatHint=${request.formatHint ?? ''} '
+      'hw=$_hardwareAcceleration',
     );
+    try {
+      await player.open(
+        request.url,
+        startAt: request.startAt,
+        autoplay: request.play,
+        headers: request.headers,
+        formatHint: request.formatHint,
+        videoCodec: request.mediaInfo?.videoCodec,
+        preloadBytes: _preloadBytes,
+        hardwareAcceleration: _hardwareAcceleration,
+      );
+      appLog('[KsPlayer] 原生 open 已返回: id=${player.playerId}');
+    } catch (error, stackTrace) {
+      appLog('[KsPlayer] 原生 open 失败: $error\n$stackTrace');
+      rethrow;
+    }
   }
 
   @override

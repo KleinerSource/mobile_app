@@ -55,7 +55,10 @@ class FilePlaybackProxy {
     );
     try {
       proxy._server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-      proxy._log('代理已启动: ${proxy.uri} source=${path.stableKey}');
+      proxy._log(
+        '代理已启动: ${proxy.uri} source=${path.stableKey} '
+        'size=$size mime=${mimeType ?? ''} supportsRange=${repository.supportsRange}',
+      );
       unawaited(proxy._serve());
       return proxy;
     } catch (_) {
