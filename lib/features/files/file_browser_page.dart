@@ -1364,6 +1364,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
           directFormatHint: _pathExtension(entry.name),
           engineKind: selectedEngineKind,
           directPlaybackFileName: entry.name,
+          useRootNavigator: true,
         );
         return;
       }
@@ -1389,6 +1390,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         directUrl: playbackUrl,
         engineKind: selectedEngineKind,
         directPlaybackFileName: entry.name,
+        useRootNavigator: true,
       );
     } catch (error, stackTrace) {
       appLog('[FileBrowser] 视频预览失败: $error\n$stackTrace');
@@ -1421,6 +1423,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         itemCount: entries.length,
         initialIndex: initialIndex < 0 ? 0 : initialIndex,
         loadBytes: (index) => _readFileBytes(entries[index]),
+        useRootNavigator: true,
       );
     } catch (error) {
       if (mounted) _message('图片预览失败：$error');
@@ -1432,7 +1435,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       final bytes = await _readFileBytes(entry);
       if (!mounted) return;
       final text = _decodeTextPreview(entry, bytes);
-      await Navigator.of(context).push<void>(
+      await Navigator.of(context, rootNavigator: true).push<void>(
         MaterialPageRoute<void>(
           allowSnapshotting: false,
           builder: (_) => _FileTextViewerPage(title: entry.name, text: text),

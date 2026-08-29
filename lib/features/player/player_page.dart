@@ -146,12 +146,13 @@ class PlayerPage extends ConsumerStatefulWidget {
     String? directFormatHint,
     PlaybackEngineKind? engineKind,
     String? directPlaybackFileName,
+    bool useRootNavigator = false,
   }) {
     appLog(
       '[PlayerPage] openDirect 入队: engine=${engineKind?.value ?? 'default'} '
       'url=$directUrl',
     );
-    return Navigator.of(context).push(
+    return Navigator.of(context, rootNavigator: useRootNavigator).push(
       MaterialPageRoute(
         builder: (_) => PlayerPage.direct(
           title: title,

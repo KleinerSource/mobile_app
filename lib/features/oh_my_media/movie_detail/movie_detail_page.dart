@@ -1009,11 +1009,13 @@ Future<void> showImageLightbox(
   required int itemCount,
   required Future<Uint8List> Function(int index) loadBytes,
   int initialIndex = 0,
+  bool useRootNavigator = true,
 }) {
   if (itemCount <= 0) return Future<void>.value();
   final safeIndex = initialIndex.clamp(0, itemCount - 1).toInt();
   return showGeneralDialog<void>(
     context: context,
+    useRootNavigator: useRootNavigator,
     barrierDismissible: true,
     barrierLabel: '关闭预览图',
     barrierColor: Colors.transparent,
