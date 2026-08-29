@@ -12,8 +12,9 @@ const _operationTimeout = Duration(seconds: 30);
 const _metadataTimeout = Duration(seconds: 2);
 const _sizeProbeTimeout = Duration(seconds: 5);
 
-/// 将不具备可直接访问 URL 的文件流（当前主要是 SMB）暴露为播放器
-/// 可读取的本机 HTTP 地址。WebDAV 播放应直接使用其 HTTP(S) URL。
+/// 将不具备可直接访问 URL 的文件流（SMB，以及为规避网盘直链跨域、
+/// Cookie、User-Agent 等限制而统一代理的 OpenList）暴露为播放器可读取
+/// 的本机 HTTP 地址。WebDAV 播放应直接使用其 HTTP(S) URL。
 ///
 /// 播放器连接后按需消费远程流。支持 Range 的来源会直接读取对应区间；
 /// 不支持随机读取的来源则退回到临时文件，避免播放器为了读取尾部索引

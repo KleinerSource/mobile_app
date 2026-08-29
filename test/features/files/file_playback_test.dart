@@ -33,20 +33,9 @@ void _main_0() {
     );
   });
 
-  test('iOS OpenList 默认保留 KSPlayer 直连播放', () {
+  test('iOS OpenList 视频走回环代理默认使用 libmpv', () {
     expect(
       filePlaybackEngineKind(sourceKind: SourceKind.openList, isIOS: true),
-      PlaybackEngineKind.ksPlayer,
-    );
-  });
-
-  test('iOS 回环代理（网盘直链需自定义 UA）强制使用 libmpv', () {
-    expect(
-      filePlaybackEngineKind(
-        sourceKind: SourceKind.openList,
-        isIOS: true,
-        loopback: true,
-      ),
       PlaybackEngineKind.libmpv,
     );
   });

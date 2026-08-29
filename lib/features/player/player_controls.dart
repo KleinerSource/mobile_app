@@ -114,6 +114,9 @@ class _PlayerControlsState extends State<PlayerControls> {
   double? _dragValue;
   int? _lastSliderHapticBucket;
   bool _sliderDragging = false;
+  /// 是否已收到按下定位之后的移动：首次 onChanged 是“跳到按下点”，
+  /// 点按跳转与拖动起点无法区分，不作为跨档刻度反馈。
+  bool _sliderDragMoved = false;
   late FramePreviewController _framePreviewController;
 
   @override
@@ -524,6 +527,8 @@ class _PlayerControlsState extends State<PlayerControls> {
     final position = Duration(milliseconds: value.round());
     _sliderDragging = true;
     _lastSliderHapticBucket = (value / _sliderHapticStepMs).floor();
+    _sliderDragMoved = false;
+    // 按下确认一次；松手不震，拖动由跨档刻度反馈。
     if (widget.hapticProgressBar) PlayerHaptics.selection();
     setState(() {
       _dragValue = value;
@@ -536,7 +541,11 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   void _updateSliderDrag(double value) {
     final bucket = (value / _sliderHapticStepMs).floor();
-    if (widget.hapticProgressBar && bucket != _lastSliderHapticBucket) {
+    if (!_sliderDragMoved) {
+      _lastSliderHapticBucket = bucket;
+      _sliderDragMoved = true;
+    } else if (widget.hapticProgressBar &&
+        bucket != _lastSliderHapticBucket) {
       _lastSliderHapticBucket = bucket;
       PlayerHaptics.selection();
     }
@@ -551,7 +560,6 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   void _endSliderDrag(double value) {
-    if (widget.hapticProgressBar) PlayerHaptics.medium();
     final position = Duration(milliseconds: value.round());
     final commitSeek = widget.onSeek;
     _cancelFramePreview();

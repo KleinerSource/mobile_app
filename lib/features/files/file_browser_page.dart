@@ -1303,11 +1303,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     try {
       final repository = await _repository();
       final sourceKind = repository.source.descriptor.kind;
-      final httpNative =
-          sourceKind == SourceKind.webDav || sourceKind == SourceKind.openList;
-      var useLoopback = !httpNative;
+      // WebDAV 是原生 HTTP(S) 文件服务，直接把文件 URL 和认证头交给
+      // 播放器，保留播放器自身的 Range/seek 能力。OpenList 的网盘直链
+      // 存在跨域、Cookie、User-Agent 等播放内核难以满足的限制，视频
+      // 统一走本机回环代理，由应用侧 HTTP 客户端代发全部请求头。
+      final useDirect = sourceKind == SourceKind.webDav;
       FileAccess? directAccess;
-      if (httpNative) {
+      if (useDirect) {
         final access = await repository.resolveAccess(entry.path);
         if (!mounted) return;
         if (access.uri == null) {
@@ -1316,33 +1318,21 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
             code: 'webdav_direct_url_missing',
           );
         }
-        // 网盘直链通常强制校验 User-Agent，而播放内核（尤其 iOS 系统
-        // 内核）无法可靠自定义该请求头；这类资源改走回环代理，由代理
-        // 侧按 fs/get 给出的请求头代为请求。
-        if (access.headers.keys.any(
-          (name) => name.toLowerCase() == 'user-agent',
-        )) {
-          useLoopback = true;
-        } else {
-          directAccess = access;
-        }
+        directAccess = access;
       }
       final selectedEngineKind = filePlaybackEngineKind(
         sourceKind: sourceKind,
         isIOS: Platform.isIOS,
         requested: engineKind,
-        loopback: useLoopback,
       );
       appLog(
         '[FileBrowser] 视频来源: kind=${sourceKind.name} '
-        'loopback=$useLoopback '
+        'direct=$useDirect '
         'source=${repository.source.descriptor.id.value}',
       );
 
       if (directAccess != null) {
         if (!mounted) return;
-        // WebDAV/OpenList 本质是 HTTP(S) 文件服务，直接把文件 URL 和
-        // 认证头交给播放器，保留播放器自身的 Range/seek 能力。
         final playbackUrl = directAccess.uri.toString();
         appLog(
           '[FileBrowser] 使用 HTTP 直连播放: '
@@ -1372,8 +1362,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       );
       if (!mounted) return;
       // SMB 没有可供 iOS AVPlayer 使用的 HTTP URL；OpenList 的网盘直链
-      // 要求特定 User-Agent。都通过本机回环 HTTP 代理按需读取；代理会
-      // 透传可用的 Range，并代发来源要求的请求头。
+      // 有跨域、Cookie、UA 等限制。都通过本机回环 HTTP 代理按需读取；
+      // 代理会透传可用的 Range，并代发来源要求的请求头。
       final playbackUrl = proxy.uri.toString();
       appLog(
         '[FileBrowser] 使用流式代理播放: '

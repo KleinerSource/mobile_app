@@ -229,6 +229,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Timer? _indicatorTimer;
   double _brightness = 0.5;
   double _volume = 0.5;
+  DateTime? _lastVolumeGestureAt;
   Future<void> _brightnessOperations = Future<void>.value();
   bool _brightnessReady = false;
   bool _wasPlayingBeforePause = false;
@@ -1885,6 +1886,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   void _onVolumeDelta(double delta) {
     _volume = (_volume + delta).clamp(0.0, 1.0);
+    _lastVolumeGestureAt = DateTime.now();
     // ignore: discarded_futures
     FlutterVolumeController.setVolume(_volume);
     _showIndicator(PlayerIndicator.volume(_volume), autoHide: false);
@@ -1893,14 +1895,17 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   /// 物理音量键等系统侧改动 · 同步基线并在播放器内显示音量条。
   void _onSystemVolumeChanged(double volume) {
     if (_isLeaving) return;
-    // 手势路径已经自绘指示器，这里只兜底物理按键触发的变化。
-    if (_indicator?.kind == PlayerIndicatorKind.volume) {
-      _volume = volume;
-      return;
-    }
+    // 手势 setVolume 的回声事件值滞后于手势自绘进度，重绘会回跳；只把
+    // “音量条显示中且贴近最近一次手势”的事件当回声跳过，物理按键的
+    // 连续变化必须每次都刷新指示条，否则只显示第一次的值。
+    final gestureEcho =
+        _indicator?.kind == PlayerIndicatorKind.volume &&
+        _lastVolumeGestureAt != null &&
+        DateTime.now().difference(_lastVolumeGestureAt!) <
+            const Duration(milliseconds: 500);
     _volume = volume;
-    _showIndicator(PlayerIndicator.volume(volume), autoHide: false);
-    _hideIndicator();
+    if (gestureEcho) return;
+    _showIndicator(PlayerIndicator.volume(volume));
   }
 
   void _showIndicator(PlayerIndicator indicator, {bool autoHide = true}) {
