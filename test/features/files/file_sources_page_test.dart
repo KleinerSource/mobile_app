@@ -199,6 +199,56 @@ void main() {
     expect(find.text('删除'), findsOneWidget);
   });
 
+  testWidgets('视频播放进度显示在文件操作按钮左侧且不显示百分比文案', (tester) async {
+    final prefs = await _prefs();
+    await prefs.setString(
+      'file.playback.position.${base64Url.encode(utf8.encode('影片.mkv'))}',
+      jsonEncode({'position_sec': 42, 'duration_sec': 300}),
+    );
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final request = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+          fileDirectoryProvider(
+            request,
+          ).overrideWith((ref) async => _listing(sourceId)),
+        ],
+        child: MaterialApp(
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('已播放'), findsNothing);
+    final videoRow = find.ancestor(
+      of: find.text('影片.mkv'),
+      matching: find.byType(ListTile),
+    );
+    final progress = find.descendant(
+      of: videoRow,
+      matching: find.byType(CircularProgressIndicator),
+    );
+    final fileMenu = find.descendant(
+      of: videoRow,
+      matching: find.byTooltip('文件操作'),
+    );
+    expect(progress, findsOneWidget);
+    expect(fileMenu, findsOneWidget);
+    expect(
+      tester.getCenter(progress).dx,
+      lessThan(tester.getCenter(fileMenu).dx),
+    );
+  });
+
   testWidgets('文件普通移动使用目录选择页而不是路径输入', (tester) async {
     final prefs = await _prefs();
     const serverId = 'smb-one';

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:omm_ksplayer/omm_ksplayer.dart';
 
 import '../../core/platform/app_log_store.dart';
+import 'ks_player_seek_recovery.dart';
 import 'playback_engine.dart';
 
 class KsPlayerPlaybackEngine implements PlaybackEngine {
@@ -25,6 +26,12 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   bool _suppressErrorsUntilOpen = false;
   int _preloadBytes = 250 * 1024 * 1024;
   bool _hardwareAcceleration = true;
+  Timer? _seekRecoveryTimer;
+  int _seekRecoveryGeneration = 0;
+
+  /// KSAVPlayer 的 seek completion 在目标分片无法加载时可能永远不回调。
+  static const _seekReplyTimeout = Duration(seconds: 10);
+  static const _seekRecoveryPolicy = KsPlayerSeekRecoveryPolicy();
 
   @override
   PlaybackEngineKind get kind => PlaybackEngineKind.ksPlayer;
@@ -167,6 +174,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
 
   @override
   Future<void> open(PlaybackOpenRequest request) async {
+    _cancelSeekRecovery();
     _suppressErrorsUntilOpen = false;
     _subtitleCues = const [];
     _update(
@@ -213,14 +221,76 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   Future<void> play() async => (await _ensurePlayer()).play();
 
   @override
-  Future<void> pause() async => (await _ensurePlayer()).pause();
+  Future<void> pause() async {
+    // 暂停后不再补发 play，避免与用户意图对抗。
+    _cancelSeekRecovery();
+    await (await _ensurePlayer()).pause();
+  }
 
   @override
   Future<void> playOrPause() => _state.value.playing ? pause() : play();
 
   @override
-  Future<void> seek(Duration position) async =>
-      (await _ensurePlayer()).seek(position);
+  Future<void> seek(Duration position) async {
+    final player = await _ensurePlayer();
+    final wasPlaying = _state.value.playing;
+    _cancelSeekRecovery();
+    final generation = ++_seekRecoveryGeneration;
+    // 目标分片拉取受阻时 KSAVPlayer 可能不回调 seek completion，超时兜底
+    // 避免统一 seek 未来悬挂；卡死场景由恢复观察负责上报。
+    await player
+        .seek(position)
+        .timeout(_seekReplyTimeout, onTimeout: () {})
+        .catchError((_) {});
+    if (!wasPlaying || _disposed || generation != _seekRecoveryGeneration) {
+      return;
+    }
+    _startSeekRecovery(player, generation);
+  }
+
+  /// 定位后观察缓冲状态：窗口内补发 play 推动内核恢复解码（与 libmpv
+  /// 引擎定位后 paused-for-cache 的恢复语义一致），超过上限仍缓冲则上报
+  /// 失败，让页面走重试/回退而不是永远转圈。
+  void _startSeekRecovery(OmmKsPlayer player, int generation) {
+    final startedAt = DateTime.now();
+    appLog('[KsPlayer] 定位恢复观察启动');
+    _seekRecoveryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_disposed || generation != _seekRecoveryGeneration) {
+        timer.cancel();
+        return;
+      }
+      final state = _state.value;
+      final action = _seekRecoveryPolicy.evaluate(
+        elapsed: DateTime.now().difference(startedAt),
+        buffering: state.buffering,
+        lifecycle: state.lifecycle,
+      );
+      switch (action) {
+        case KsPlayerSeekRecoveryAction.stop:
+          _cancelSeekRecovery();
+        case KsPlayerSeekRecoveryAction.wait:
+          break;
+        case KsPlayerSeekRecoveryAction.nudgePlay:
+          appLog('[KsPlayer] 定位后仍在缓冲，补发 play 恢复解码');
+          unawaited(player.play().catchError((_) {}));
+        case KsPlayerSeekRecoveryAction.reportStalled:
+          appLog('[KsPlayer] 定位后持续缓冲超时，判定恢复失败');
+          _cancelSeekRecovery();
+          _update(
+            (current) => current.copyWith(
+              lifecycle: PlaybackLifecycle.failed,
+              error: '定位后播放长时间未恢复，请重试或切换画质',
+            ),
+          );
+      }
+    });
+  }
+
+  void _cancelSeekRecovery() {
+    _seekRecoveryGeneration++;
+    _seekRecoveryTimer?.cancel();
+    _seekRecoveryTimer = null;
+  }
 
   @override
   Future<void> setRate(double rate) async {
@@ -335,6 +405,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
 
   @override
   Future<void> stop() async {
+    _cancelSeekRecovery();
     _suppressErrorsUntilOpen = true;
     // 新建播放页首次加载时还没有原生播放器；stop 不应为了清理不存在的
     // 媒体而触发 Pigeon create/stop 往返，否则 iOS 可能阻塞后续直链 open。
@@ -366,6 +437,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    _cancelSeekRecovery();
     await _eventSubscription?.cancel();
     final player = _player ?? await _playerFuture;
     await player.dispose();

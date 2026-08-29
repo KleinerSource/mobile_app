@@ -5,7 +5,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_log_store.dart';
@@ -717,52 +716,53 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                       : _fileIconColor(entry, theme.brightness),
                 ),
           title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: entry.isDirectory
-              ? null
-              : _entrySubtitle(entry, playbackProgress),
+          subtitle: entry.isDirectory ? null : _entrySubtitle(entry),
           trailing: widget.directoryPicker
               ? null
-              : PopupMenuButton<String>(
-                  tooltip: '文件操作',
-                  enabled: !_busy,
-                  onSelected: (action) => _handleEntryAction(entry, action),
-                  itemBuilder: (_) => [
-                    if (entry.isDirectory || !_canPreview(entry))
-                      const PopupMenuItem(
-                        value: 'detail',
-                        child: _FileMenuItem(
-                          icon: Icons.info_outline,
-                          label: '详情',
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (playbackProgress != null) ...[
+                      _FilePlaybackProgressIndicator(
+                        progress: playbackProgress,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    PopupMenuButton<String>(
+                      tooltip: '文件操作',
+                      enabled: !_busy,
+                      onSelected: (action) => _handleEntryAction(entry, action),
+                      itemBuilder: (_) => [
+                        if (entry.isDirectory || !_canPreview(entry))
+                          const PopupMenuItem(
+                            value: 'detail',
+                            child: _FileMenuItem(
+                              icon: Icons.info_outline,
+                              label: '详情',
+                            ),
+                          ),
+                        const PopupMenuItem(
+                          value: 'rename',
+                          child: _FileMenuItem(
+                            icon: Icons.drive_file_rename_outline,
+                            label: '重命名',
+                          ),
                         ),
-                      ),
-                    if (!entry.isDirectory)
-                      const PopupMenuItem(
-                        value: 'download',
-                        child: _FileMenuItem(
-                          icon: Icons.download_outlined,
-                          label: '下载',
+                        const PopupMenuItem(
+                          value: 'move',
+                          child: _FileMenuItem(
+                            icon: Icons.drive_file_move_outlined,
+                            label: '移动',
+                          ),
                         ),
-                      ),
-                    const PopupMenuItem(
-                      value: 'rename',
-                      child: _FileMenuItem(
-                        icon: Icons.drive_file_rename_outline,
-                        label: '重命名',
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'move',
-                      child: _FileMenuItem(
-                        icon: Icons.drive_file_move_outlined,
-                        label: '移动',
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: _FileMenuItem(
-                        icon: Icons.delete_outline,
-                        label: '删除',
-                      ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: _FileMenuItem(
+                            icon: Icons.delete_outline,
+                            label: '删除',
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -782,14 +782,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     );
   }
 
-  Widget _entrySubtitle(
-    FileEntry entry,
-    FilePlaybackProgress? playbackProgress,
-  ) {
+  Widget _entrySubtitle(FileEntry entry) {
     final metadata = _entryMeta(entry);
-    if (playbackProgress == null) return Text(metadata);
-    final progress = '已播放 ${playbackProgress.percentage}%';
-    return Text(metadata.isEmpty ? progress : '$progress · $metadata');
+    return Text(metadata);
   }
 
   List<EntityBatchAction> _batchActions(List<FileEntry> entries) {
@@ -846,8 +841,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     switch (action) {
       case 'detail':
         await _showDetails(entry);
-      case 'download':
-        await _download(entry);
       case 'rename':
         await _rename(entry);
       case 'move':
@@ -918,58 +911,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         rethrow;
       }
     });
-  }
-
-  Future<void> _download(FileEntry entry) async {
-    final targetDirectory = await getApplicationDocumentsDirectory();
-    final target = File(
-      '${targetDirectory.path}${Platform.pathSeparator}${entry.name}',
-    );
-    final overwrite = await _confirmLocalOverwrite(target);
-    if (overwrite != true) return;
-    await _run('下载失败', () => _downloadWithTracking(entry, target));
-  }
-
-  Future<void> _downloadWithTracking(FileEntry entry, File target) async {
-    final repo = await _repository();
-    final operationId = _tracker.start(
-      FileOperationKind.download,
-      source: entry.path,
-    );
-    final cancellation = _tracker.cancellation(operationId)!;
-    final output = target.openWrite(mode: FileMode.write);
-    var outputClosed = false;
-    try {
-      await for (final chunk in repo.download(
-        entry.path,
-        options: FileTransferOptions(
-          cancellation: cancellation,
-          onProgress: (progress) => _tracker.progress(operationId, progress),
-        ),
-      )) {
-        output.add(chunk);
-      }
-      if (cancellation.isCancelled) {
-        throw const FileSourceException('下载已取消', code: 'canceled');
-      }
-      await output.close();
-      outputClosed = true;
-      _tracker.complete(operationId, FileOperationKind.download);
-      _message('已下载到 ${target.path}');
-    } catch (error) {
-      _tracker.fail(operationId, FileOperationKind.download, error);
-      if (cancellation.isCancelled || _isCanceled(error)) {
-        _message('下载已取消');
-        return;
-      }
-      rethrow;
-    } finally {
-      if (!outputClosed) {
-        try {
-          await output.close();
-        } catch (_) {}
-      }
-    }
   }
 
   Future<void> _rename(FileEntry entry) async {
@@ -1614,28 +1555,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     );
   }
 
-  Future<bool?> _confirmLocalOverwrite(File file) async {
-    if (!await file.exists()) return true;
-    if (!mounted) return null;
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('本地文件已存在'),
-        content: Text('是否覆盖“${file.path}”？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('覆盖'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _refresh() async {
     _imagePreviewFutures.clear();
     final provider = fileDirectoryProvider(_request);
@@ -1972,14 +1891,12 @@ class _FileOperationBanner extends StatelessWidget {
 
 IconData _operationIcon(FileOperationKind kind) => switch (kind) {
   FileOperationKind.upload => Icons.upload_outlined,
-  FileOperationKind.download => Icons.download_outlined,
   _ => Icons.sync,
 };
 
 String _operationTitle(FileOperation operation) {
   final action = switch (operation.kind) {
     FileOperationKind.upload => '上传',
-    FileOperationKind.download => '下载',
     _ => '文件操作',
   };
   return switch (operation.status) {
@@ -2017,6 +1934,31 @@ class _BrowserError extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _FilePlaybackProgressIndicator extends StatelessWidget {
+  const _FilePlaybackProgressIndicator({required this.progress});
+
+  final FilePlaybackProgress progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      label: '播放进度',
+      value: '${progress.percentage}%',
+      child: SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(
+          value: progress.ratio,
+          strokeWidth: 2.5,
+          color: colors.primary,
+          backgroundColor: colors.surfaceContainerHighest,
+        ),
+      ),
+    );
+  }
 }
 
 class _FileMenuItem extends StatelessWidget {

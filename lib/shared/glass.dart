@@ -188,13 +188,19 @@ Future<T?> showGlassSheet<T>({
       final safeSheet = useSafeArea
           ? SafeArea(top: true, bottom: true, child: sheet)
           : sheet;
-      return SheetDragCoordinator(
-        enabled: enableDrag,
-        child: GlassPanel(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: sheetMaxHeight(ctx)),
-            child: safeSheet,
+      final keyboardInset = MediaQuery.viewInsetsOf(ctx).bottom;
+      return AnimatedPadding(
+        padding: EdgeInsets.only(bottom: keyboardInset),
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        child: SheetDragCoordinator(
+          enabled: enableDrag,
+          child: GlassPanel(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: sheetMaxHeight(ctx)),
+              child: safeSheet,
+            ),
           ),
         ),
       );

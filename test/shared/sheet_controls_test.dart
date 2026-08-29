@@ -48,6 +48,38 @@ void main() {
     expect(_sheetTop(tester), closeTo(initialTop, 0.5));
   });
 
+  testWidgets('键盘弹出后，面板底部会避让键盘', (tester) async {
+    await _pumpSheet(
+      tester,
+      const SizedBox(
+        key: ValueKey('keyboard-sheet-content'),
+        height: 140,
+        child: Center(child: Text('输入内容')),
+      ),
+    );
+
+    final view = tester.view;
+    final originalViewInsets = view.viewInsets;
+    final keyboardHeight = 300.0;
+    view.viewInsets = FakeViewPadding(
+      bottom: keyboardHeight * view.devicePixelRatio,
+    );
+
+    try {
+      await tester.pumpAndSettle();
+
+      final screenHeight = view.physicalSize.height / view.devicePixelRatio;
+      final keyboardTop = screenHeight - keyboardHeight;
+      expect(
+        tester.getBottomLeft(find.byType(GlassPanel)).dy,
+        lessThanOrEqualTo(keyboardTop),
+      );
+    } finally {
+      view.viewInsets = originalViewInsets;
+      await tester.pumpAndSettle();
+    }
+  });
+
   testWidgets('滚动列表在顶部时，从内容区下拉会带动面板', (tester) async {
     await _pumpSheet(
       tester,

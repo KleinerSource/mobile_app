@@ -20,12 +20,12 @@ void main() {
     );
 
     final id = tracker.start(
-      FileOperationKind.download,
+      FileOperationKind.upload,
       source: source,
       destination: destination,
     );
     tracker.progress(id, const FileTransferProgress(transferred: 5, total: 10));
-    tracker.complete(id, FileOperationKind.download);
+    tracker.complete(id, FileOperationKind.upload);
     await Future<void>.delayed(Duration.zero);
 
     expect(events.map((event) => event.status), [
@@ -33,7 +33,7 @@ void main() {
       FileOperationStatus.running,
       FileOperationStatus.completed,
     ]);
-    expect(events[1].kind, FileOperationKind.download);
+    expect(events[1].kind, FileOperationKind.upload);
     expect(events[1].source, source);
     expect(events[1].destination, destination);
     expect(events[1].progress?.transferred, 5);

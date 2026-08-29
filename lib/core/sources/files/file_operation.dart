@@ -5,7 +5,6 @@ import 'file_entry.dart';
 enum FileOperationKind {
   createDirectory,
   upload,
-  download,
   delete,
   move,
   rename,
