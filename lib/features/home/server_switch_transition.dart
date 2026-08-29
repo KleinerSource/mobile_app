@@ -847,6 +847,9 @@ class _ServerSwitchTransitionOverlayState
                           constraints: constraints,
                           content: content,
                           contentOpacity: contentOpacity,
+                          showAvatar:
+                              _entryOrigin == null ||
+                              _entryController.value >= 1,
                           colors: appColors(context),
                           server: target,
                           busy:
@@ -883,6 +886,7 @@ class _ServerSwitchTransitionOverlayState
     required BoxConstraints constraints,
     required Widget content,
     required double contentOpacity,
+    required bool showAvatar,
     required AppColors colors,
     required ServerProfile? server,
     required bool busy,
@@ -904,7 +908,7 @@ class _ServerSwitchTransitionOverlayState
             constraints: const BoxConstraints(maxWidth: 380),
             child: Column(
               children: [
-                if (server != null) ...[
+                if (server != null && showAvatar) ...[
                   _buildAvatar(
                     colors: colors,
                     server: server,
