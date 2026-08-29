@@ -1130,6 +1130,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: appColors(context).danger,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('删除'),
           ),
         ],
@@ -1164,6 +1168,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: appColors(context).danger,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('删除'),
           ),
         ],
@@ -1738,6 +1746,7 @@ class _BatchRenameSheetState extends State<_BatchRenameSheet> {
                   onChanged: (_) => setState(() {}),
                 ),
               ),
+              const SizedBox(height: 10),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 22),
                 child: DropdownButtonFormField<bool>(
@@ -1821,7 +1830,10 @@ String _applyBatchRenameName(String name, _BatchRenameDraft draft) {
     _BatchRenameMode.replace =>
       draft.search.isEmpty
           ? name
-          : name.replaceAll(draft.search, draft.replacement),
+          : name.replaceAllMapped(
+              RegExp(RegExp.escape(draft.search), caseSensitive: false),
+              (_) => draft.replacement,
+            ),
     _BatchRenameMode.add =>
       draft.addBefore ? '${draft.addText}$name' : '$name${draft.addText}',
   };

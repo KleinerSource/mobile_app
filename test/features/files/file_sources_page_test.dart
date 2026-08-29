@@ -326,10 +326,23 @@ void main() {
     expect(find.text('预览'), findsOneWidget);
 
     final fields = find.byType(TextField);
-    await tester.enterText(fields.at(0), '影片');
-    await tester.enterText(fields.at(1), '电影');
+    await tester.enterText(fields.at(0), 'MKV');
+    await tester.enterText(fields.at(1), 'MP4');
     await tester.pump();
-    expect(find.text('电影.mkv'), findsOneWidget);
+    expect(find.text('影片.MP4'), findsOneWidget);
+
+    final dropdownFields = find.byWidgetPredicate(
+      (widget) =>
+          widget.runtimeType.toString().contains('DropdownButtonFormField'),
+    );
+    await tester.tap(dropdownFields.first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加文本').last);
+    await tester.pumpAndSettle();
+
+    final addTextField = tester.getRect(find.byType(TextField));
+    final addPositionField = tester.getRect(dropdownFields.last);
+    expect(addPositionField.top - addTextField.bottom, closeTo(10, 0.1));
 
     await tester.tap(find.text('取消').last);
     await tester.pumpAndSettle();

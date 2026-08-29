@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+const filePlaybackMinimumProgressRatio = 0.05;
+
 class FilePlaybackProgress {
   const FilePlaybackProgress({
     required this.positionSec,
@@ -39,10 +41,13 @@ class FilePlaybackProgressRepository {
       final positionSec = _positiveInt(decoded['position_sec']);
       final durationSec = _positiveInt(decoded['duration_sec']);
       if (positionSec == null || durationSec == null) return null;
-      return FilePlaybackProgress(
+      final progress = FilePlaybackProgress(
         positionSec: positionSec,
         durationSec: durationSec,
       );
+      return progress.ratio < filePlaybackMinimumProgressRatio
+          ? null
+          : progress;
     } catch (_) {
       return null;
     }
@@ -54,7 +59,12 @@ class FilePlaybackProgressRepository {
     required int durationSec,
   }) async {
     final key = _storageKey(fileName);
-    if (key == null || positionSec <= 0 || durationSec <= 0) return;
+    if (key == null || durationSec <= 0) return;
+    if (positionSec <= 0 ||
+        positionSec / durationSec < filePlaybackMinimumProgressRatio) {
+      await _prefs.remove(key);
+      return;
+    }
     if (positionSec >= durationSec * 0.95) {
       await _prefs.remove(key);
       return;
