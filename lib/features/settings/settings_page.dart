@@ -10,6 +10,7 @@ import '../../core/platform/app_theme.dart';
 import '../../core/platform/app_version.dart';
 import '../../core/update/update_repository.dart';
 import '../../l10n/generated/app_localizations.dart';
+import '../../shared/floating_tab_bar.dart';
 import '../../shared/glow_background.dart';
 import 'app_settings_page.dart';
 import 'app_update_settings_page.dart';
@@ -21,7 +22,9 @@ import 'settings_common.dart';
 
 /// 设置主入口 · 服务器、应用与关于入口
 class SettingsPage extends ConsumerWidget {
-  const SettingsPage({super.key});
+  const SettingsPage({super.key, this.forFileManager = false});
+
+  final bool forFileManager;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -60,8 +63,9 @@ class SettingsPage extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    if (serverConfig?.activeServer?.project?.isFileSource !=
-                        true)
+                    if (!forFileManager &&
+                        serverConfig?.activeServer?.project?.isFileSource !=
+                            true)
                       SettingsTile(
                         title: l.settingsServerSettings,
                         subtitle: l.settingsServerSettingsSub,
@@ -114,47 +118,52 @@ class SettingsPage extends ConsumerWidget {
                         ).ignore();
                       },
                     ),
-                    SettingsTile(
-                      title: l.settingsLogout,
-                      destructive: true,
-                      leadingIcon: Icons.logout,
-                      onTap: () async {
-                        final confirmed = await showDialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('确认退出登录'),
-                            content: const Text(
-                              '退出后将清理当前会话,下次启动需要重新登录;服务器地址会保留。',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('取消'),
+                    if (!forFileManager)
+                      SettingsTile(
+                        title: l.settingsLogout,
+                        destructive: true,
+                        leadingIcon: Icons.logout,
+                        onTap: () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('确认退出登录'),
+                              content: const Text(
+                                '退出后将清理当前会话,下次启动需要重新登录;服务器地址会保留。',
                               ),
-                              FilledButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: c.danger,
-                                  foregroundColor: Colors.white,
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('取消'),
                                 ),
-                                child: const Text('退出登录'),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirmed != true) return;
-                        if (!context.mounted) return;
-                        await ref
-                            .read(authControllerProvider.notifier)
-                            .logout();
-                        if (context.mounted) {
-                          Navigator.of(context).popUntil((r) => r.isFirst);
-                        }
-                      },
-                    ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: c.danger,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: const Text('退出登录'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed != true) return;
+                          if (!context.mounted) return;
+                          await ref
+                              .read(authControllerProvider.notifier)
+                              .logout();
+                          if (context.mounted) {
+                            Navigator.of(context).popUntil((r) => r.isFirst);
+                          }
+                        },
+                      ),
                   ],
                 ),
-                const SizedBox(height: 80),
+                SizedBox(
+                  height: forFileManager
+                      ? floatingTabBarContentBottomInset(context)
+                      : 80,
+                ),
               ],
             ),
           ),

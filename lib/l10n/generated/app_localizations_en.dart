@@ -24,6 +24,9 @@ class AppL10nEn extends AppL10n {
   String get tabYou => 'You';
 
   @override
+  String get tabFiles => 'Files';
+
+  @override
   String get greetingMorning => 'Good morning';
 
   @override

@@ -163,9 +163,11 @@ Future<T?> showGlassSheet<T>({
   bool isDismissible = true,
   bool enableDrag = true,
   bool useSafeArea = true,
+  bool useRootNavigator = false,
 }) {
   return showModalBottomSheet<T>(
     context: context,
+    useRootNavigator: useRootNavigator,
     isScrollControlled: isScrollControlled,
     isDismissible: isDismissible,
     // 面板拖拽由公共 SheetDragCoordinator 处理，避免与内部滚动控件

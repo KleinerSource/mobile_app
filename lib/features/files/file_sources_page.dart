@@ -5,8 +5,10 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/sources/files/file_source_providers.dart';
 import '../../core/sources/common/source_exception.dart';
+import '../../shared/floating_tab_bar.dart';
 import '../../shared/glow_background.dart';
 import 'file_browser_page.dart';
+import 'file_navigation.dart';
 import '../settings/server_selection_page.dart';
 import '../settings/settings_common.dart';
 
@@ -48,6 +50,7 @@ class FileSourcesPage extends ConsumerWidget {
   }
 
   Future<void> _openServerSelector(BuildContext context) async {
+    if (FileManagerNavigationScope.requestServerSelection(context)) return;
     ServerSelectionPage.requestReturn(context);
   }
 }
@@ -75,7 +78,12 @@ class _FileSourcesShell extends StatelessWidget {
               title: '文件列表',
               showBackButton: false,
             ),
-            body: body,
+            body: Padding(
+              padding: EdgeInsets.only(
+                bottom: floatingTabBarContentBottomInset(context),
+              ),
+              child: body,
+            ),
           ),
         ),
       ),
@@ -115,10 +123,7 @@ class _NoFileServer extends StatelessWidget {
 }
 
 class _MissingFileSource extends StatelessWidget {
-  const _MissingFileSource({
-    required this.onRetry,
-    required this.onConfigure,
-  });
+  const _MissingFileSource({required this.onRetry, required this.onConfigure});
 
   final VoidCallback onRetry;
   final VoidCallback onConfigure;

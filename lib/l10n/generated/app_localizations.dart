@@ -127,6 +127,12 @@ abstract class AppL10n {
   /// **'我的'**
   String get tabYou;
 
+  /// No description provided for @tabFiles.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件管理'**
+  String get tabFiles;
+
   /// No description provided for @greetingMorning.
   ///
   /// In zh, this message translates to:

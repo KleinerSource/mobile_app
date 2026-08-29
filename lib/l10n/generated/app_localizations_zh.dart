@@ -24,6 +24,9 @@ class AppL10nZh extends AppL10n {
   String get tabYou => '我的';
 
   @override
+  String get tabFiles => '文件管理';
+
+  @override
   String get greetingMorning => '早上好';
 
   @override

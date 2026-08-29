@@ -21,6 +21,7 @@ import '../../core/sources/files/file_source_repository.dart';
 import '../../shared/drag_selection.dart';
 import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/edge_swipe_back.dart';
+import '../../shared/floating_tab_bar.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/sheet_controls.dart';
@@ -36,6 +37,7 @@ import '../settings/server_selection_page.dart';
 import '../settings/settings_common.dart';
 import 'file_navigation.dart';
 import 'file_image_preview_settings.dart';
+import 'file_playback_engine.dart';
 import 'file_playback_proxy.dart';
 
 enum _FileSortField { name, date, size, category }
@@ -274,13 +276,22 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                     child: listing.when(
                       data: (value) =>
                           _buildListing(value, imagePreviewEnabled),
-                      loading: () =>
-                          const Center(child: CircularProgressIndicator()),
-                      error: (error, _) => _BrowserError(
-                        message: error is SourceException
-                            ? error.message
-                            : error.toString(),
-                        onRetry: () => unawaited(_refresh()),
+                      loading: () => Padding(
+                        padding: EdgeInsets.only(
+                          bottom: floatingTabBarContentBottomInset(context),
+                        ),
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                      error: (error, _) => Padding(
+                        padding: EdgeInsets.only(
+                          bottom: floatingTabBarContentBottomInset(context),
+                        ),
+                        child: _BrowserError(
+                          message: error is SourceException
+                              ? error.message
+                              : error.toString(),
+                          onRetry: () => unawaited(_refresh()),
+                        ),
                       ),
                     ),
                   ),
@@ -307,6 +318,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _returnToServerSelector() async {
+    if (FileManagerNavigationScope.requestServerSelection(context)) return;
     ServerSelectionPage.requestReturn(context);
   }
 
@@ -604,6 +616,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                   ? ListView(
                       controller: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.only(
+                        bottom: floatingTabBarContentBottomInset(context),
+                      ),
                       children: const [
                         SizedBox(height: 140),
                         Center(child: Text('此目录为空')),
@@ -612,6 +627,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                   : ListView.separated(
                       controller: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.only(
+                        bottom: floatingTabBarContentBottomInset(context),
+                      ),
                       itemCount: entries.length,
                       itemBuilder: (context, index) => _entryTile(
                         entries[index],
@@ -817,6 +835,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       return;
     }
     if (_isAtRoot) {
+      if (FileManagerNavigationScope.requestServerSelection(context)) return;
       ServerSelectionPage.requestReturn(context);
       return;
     }
@@ -1148,6 +1167,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   ) async {
     return showGlassSheet<_BatchRenameDraft>(
       context: context,
+      useRootNavigator: true,
       builder: (_) => _BatchRenameSheet(entries: entries),
     );
   }
@@ -1226,6 +1246,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   Future<void> _showDetails(FileEntry entry) async {
     final action = await showGlassSheet<_FileDetailsAction>(
       context: context,
+      useRootNavigator: true,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1306,10 +1327,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     setState(() => _busy = true);
     try {
       final repository = await _repository();
-      final selectedEngineKind = Platform.isIOS && engineKind == null
-          ? PlaybackEngineKind.ksPlayer
-          : engineKind;
       final sourceKind = repository.source.descriptor.kind;
+      final selectedEngineKind = filePlaybackEngineKind(
+        sourceKind: sourceKind,
+        isIOS: Platform.isIOS,
+        requested: engineKind,
+      );
       appLog(
         '[FileBrowser] 视频来源: kind=${sourceKind.name} '
         'source=${repository.source.descriptor.id.value}',
