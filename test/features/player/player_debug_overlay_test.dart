@@ -57,6 +57,31 @@ void main() {
       ),
       'KSMEPlayer',
     );
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
+        'https://example.com/live/index.m3u8?token=1',
+        null,
+        videoCodec: 'h264',
+      ),
+      'KSMEPlayer',
+      reason: 'HLS 统一交给 KSMEPlayer',
+    );
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
+        'https://example.com/v/play',
+        'hls',
+      ),
+      'KSMEPlayer',
+      reason: 'hls 容器提示按 HLS 处理',
+    );
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
+        'http://127.0.0.1:56386/token.m3u8',
+        null,
+      ),
+      'KSMEPlayer',
+      reason: '回环代理上的 m3u8 同样是 KSMEPlayer',
+    );
   });
 
   test('码率格式化为用户可读单位', () {

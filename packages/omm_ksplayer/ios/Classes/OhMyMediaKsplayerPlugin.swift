@@ -354,8 +354,8 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       options.preferredForwardBufferDuration = bufferSeconds
       options.maxBufferDuration = bufferSeconds
     }
-    // AVPlayer/HLS 使用 KSPlayer 的秒开门控；KSMEPlayer 直流容器（尤其 MKV）
-    // 需要先完成默认前向缓冲，否则可能只渲染首帧而没有启动音视频时钟。
+    // HLS 与 AVPlayer 使用 KSPlayer 的秒开门控；KSMEPlayer 直流容器（尤其
+    // MKV）需要先完成默认前向缓冲，否则可能只渲染首帧而没有启动音视频时钟。
     options.isSecondOpen = isHls || !useFfmpegPlayer
     if let headers, !headers.isEmpty {
       options.appendHeader(headers)
@@ -432,10 +432,10 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     formatHint: String?,
     videoCodec: String?
   ) -> Bool {
-    // M3U8/HLS 统一交给 AVPlayer，包括 SMB 的本机回环代理地址；只有其余
-    // SMB 回环媒体才需要 FFmpeg 的 Range/流式读取能力。
+    // M3U8/HLS 统一交给 KSMEPlayer：FFmpeg 对 HLS（含 AES-128 加密流）的
+    // 远距离 seek 更稳，SMB 回环代理地址上的 m3u8 同样适用。
     if isHlsStream(url: url, formatHint: formatHint) {
-      return false
+      return true
     }
     let isLoopback = url.host == "127.0.0.1" ||
       url.host == "localhost" ||

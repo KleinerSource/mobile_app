@@ -132,6 +132,8 @@ class PlaybackMediaInfo {
     String? formatHint, {
     String? videoCodec,
   }) {
+    // HLS 统一交给 KSMEPlayer，与原生 prefersFfmpegPlayer 的决策保持一致。
+    if (_isHlsMedia(url, formatHint)) return 'KSMEPlayer';
     try {
       final host = Uri.parse(url).host.toLowerCase();
       if (host == '127.0.0.1' || host == 'localhost' || host == '::1') {
@@ -145,6 +147,16 @@ class PlaybackMediaInfo {
       'mkv' || 'matroska' || 'webm' => 'KSMEPlayer',
       _ => 'AVPlayer',
     };
+  }
+
+  static bool _isHlsMedia(String url, String? formatHint) {
+    final hint = formatHint?.trim().toLowerCase() ?? '';
+    if (hint == 'm3u8' || hint == 'hls' || hint.contains('mpegurl')) {
+      return true;
+    }
+    final path = Uri.tryParse(url.trim())?.path.toLowerCase() ??
+        url.trim().toLowerCase();
+    return path.endsWith('.m3u8');
   }
 
   static bool _isFfmpegVideoCodec(String? codec) {

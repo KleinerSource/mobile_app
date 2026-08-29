@@ -101,7 +101,8 @@ void main() {
         null,
         videoCodec: hlsInfo?.videoCodec,
       ),
-      'AVPlayer',
+      'KSMEPlayer',
+      reason: 'HLS 统一交给 KSMEPlayer',
     );
   });
 
