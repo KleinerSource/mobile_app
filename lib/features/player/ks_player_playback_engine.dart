@@ -336,7 +336,10 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   @override
   Future<void> stop() async {
     _suppressErrorsUntilOpen = true;
-    await (await _ensurePlayer()).stop();
+    // 新建播放页首次加载时还没有原生播放器；stop 不应为了清理不存在的
+    // 媒体而触发 Pigeon create/stop 往返，否则 iOS 可能阻塞后续直链 open。
+    final player = _player;
+    if (player != null) await player.stop();
     _update(
       (state) => state.copyWith(
         lifecycle: PlaybackLifecycle.stopped,

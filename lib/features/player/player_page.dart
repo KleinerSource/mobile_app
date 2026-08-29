@@ -147,6 +147,10 @@ class PlayerPage extends ConsumerStatefulWidget {
     PlaybackEngineKind? engineKind,
     String? directPlaybackFileName,
   }) {
+    appLog(
+      '[PlayerPage] openDirect 入队: engine=${engineKind?.value ?? 'default'} '
+      'url=$directUrl',
+    );
     return Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PlayerPage.direct(
@@ -232,12 +236,19 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   bool _isLeaving = false;
   Future<void> _loadQueue = Future<void>.value();
   bool _orientationInitialized = false;
+  // 每个播放页的 Host 都是新建的。首次打开没有旧媒体可清理，尤其是
+  // iOS Pigeon stop 在尚未 attach 原生视图时可能等待较久，不能阻塞直链起播。
+  bool _playerHasBeenOpened = false;
 
   bool get _isDirectPlayback => widget.directUrl?.trim().isNotEmpty == true;
 
   @override
   void initState() {
     super.initState();
+    _playerLog(
+      '播放器页面已创建: direct=${widget.directUrl?.trim().isNotEmpty == true} '
+      'engine=${widget.engineKind?.value ?? 'default'}',
+    );
     final settings = ref.read(playerSettingsProvider);
     _host = createPlayerSession(
       engineKind: widget.engineKind,
@@ -485,6 +496,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _playbackErrorReported = false;
     if (!serverFallback) _serverFallbackAttempted = false;
     final generation = ++_loadGeneration;
+    _playerLog(
+      '排队加载: generation=$generation direct=$_isDirectPlayback '
+      'quality=${quality ?? _quality}',
+    );
 
     final next = _loadQueue.then<void>(
       (_) => _loadInternal(
@@ -497,7 +512,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         decisionOverride: decisionOverride,
       ),
     );
-    _loadQueue = next.catchError((_) {});
+    _loadQueue = next.catchError((error) {
+      // 清理阶段位于 _loadInternal 的业务 try 之外；不能让 Future 链静默
+      // 吞掉异常，否则页面只会停留在“正在加载影片”。
+      _playerLog('加载任务异常: $error');
+    });
     return next;
   }
 
@@ -510,7 +529,17 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     bool? play,
     playback_models.PlaybackDecision? decisionOverride,
   }) async {
-    if (!mounted || _isLeaving || generation != _loadGeneration) return;
+    if (!mounted || _isLeaving || generation != _loadGeneration) {
+      _playerLog(
+        '跳过加载: generation=$generation current=$_loadGeneration '
+        'mounted=$mounted leaving=$_isLeaving',
+      );
+      return;
+    }
+    _playerLog(
+      '开始加载: generation=$generation direct=$_isDirectPlayback '
+      'engine=${_host.kind.value}',
+    );
     final selectedQuality = quality ?? _quality;
     final cachedDecision =
         decisionOverride ?? (quality == null ? _decision : null);
@@ -529,17 +558,30 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       _serverDecodeStatus = null;
     });
     // 先撤掉旧媒体监听并停止本地消费，再等待服务端清理旧转码会话。
-    // 这样 KSPlayer 切换 HLS 时能立即释放旧源，UI 也不会被服务端清理阻塞。
+    // 首次进入播放页时 Host 没有旧媒体，跳过 stop；iOS 原生 stop 在
+    // 尚未打开媒体时可能阻塞 Pigeon 调用，导致直链永远到不了 open。
     _unbindProgress();
-    await _stopPlayer().timeout(
-      _playerCleanupTimeout,
-      onTimeout: () => _playerLog('停止旧播放器超时，继续打开新媒体'),
-    );
+    if (_playerHasBeenOpened) {
+      _playerLog('停止旧播放器: generation=$generation');
+      await _stopPlayer().timeout(
+        _playerCleanupTimeout,
+        onTimeout: () => _playerLog('停止旧播放器超时，继续打开新媒体'),
+      );
+      _playerLog('旧播放器已停止: generation=$generation');
+    } else {
+      _playerLog('首次打开，跳过停止旧播放器');
+    }
     if (!mounted || generation != _loadGeneration) return;
-    await _stopTranscodeSession().timeout(
-      _playerCleanupTimeout,
-      onTimeout: () => _playerLog('清理旧转码会话超时，继续打开新媒体'),
-    );
+    if (_playerHasBeenOpened) {
+      _playerLog('清理旧转码会话: generation=$generation');
+      await _stopTranscodeSession().timeout(
+        _playerCleanupTimeout,
+        onTimeout: () => _playerLog('清理旧转码会话超时，继续打开新媒体'),
+      );
+      _playerLog('旧转码会话已清理: generation=$generation');
+    } else {
+      _playerLog('首次打开，跳过清理旧转码会话');
+    }
     if (!mounted || generation != _loadGeneration) return;
 
     try {
@@ -562,12 +604,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         setState(() => _loading = false);
         _restartHideTimer();
         _playerLog('开始直链播放: $trailerUrl');
+        _playerLog(
+          '配置播放器: preload=${ref.read(playerSettingsProvider).preloadSize.bytes}',
+        );
         await _host
             .configure(
               preloadBytes: ref.read(playerSettingsProvider).preloadSize.bytes,
               hardwareAcceleration: _clientHardwareAcceleration,
             )
             .timeout(_directPlaybackOperationTimeout);
+        _playerLog('播放器配置完成');
         if (!mounted || generation != _loadGeneration) return;
 
         await _openDirectWithClientFallback(
@@ -577,6 +623,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           headers: widget.directHeaders,
           formatHint: widget.directFormatHint,
         ).timeout(const Duration(seconds: 45));
+        _playerHasBeenOpened = true;
         _playerLog('播放器 open 已返回');
         if (widget.directPlaybackFileName?.trim().isNotEmpty == true) {
           await _waitForFirstFrame();
@@ -705,6 +752,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           mediaInfo: playbackMediaInfoForDecision(decision),
         );
       }
+      _playerHasBeenOpened = true;
       if (!mounted || generation != _loadGeneration) {
         await _stopPlayer();
         return;
@@ -724,6 +772,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       await _applyDefaultTracks(cfg, token, decision);
     } catch (error) {
       if (!mounted || generation != _loadGeneration) return;
+      _playerLog('加载失败: generation=$generation error=$error');
       if (_tryServerFallback(resume: fallbackResume, play: shouldPlay)) return;
       _playbackErrorReported = true;
       _loadGeneration++;
