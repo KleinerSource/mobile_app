@@ -29,7 +29,10 @@ class WebDavConnectionOptions {
   final int timeoutMilliseconds;
 }
 
-/// WebDAV file source backed by `webdav_client`.
+/// WebDAV file source backed by `webdav_client`。
+///
+/// [OpenListFileSource] 继承本类复用全部 WebDAV 能力，仅额外叠加
+/// 强制刷新的 REST 通知。
 class WebDavFileSource
     implements
         FileSource,
@@ -39,12 +42,14 @@ class WebDavFileSource
         FileAccessCapability,
         FileRangeAccessCapability,
         SourceLifecycle {
-  WebDavFileSource._(
-    this.client,
-    this._sourceId,
-    this._descriptor,
-    this._connection,
-  );
+  WebDavFileSource({
+    required this.client,
+    required SourceId sourceId,
+    required SourceDescriptor descriptor,
+    required WebDavConnectionOptions connection,
+  }) : _sourceId = sourceId,
+       _descriptor = descriptor,
+       _connection = connection;
 
   final webdav.Client client;
   final SourceId _sourceId;
@@ -67,17 +72,17 @@ class WebDavFileSource
     client.setReceiveTimeout(options.timeoutMilliseconds);
     await client.ping();
     final sourceId = SourceId.of(id);
-    return WebDavFileSource._(
-      client,
-      sourceId,
-      SourceDescriptor(
+    return WebDavFileSource(
+      client: client,
+      sourceId: sourceId,
+      descriptor: SourceDescriptor(
         id: sourceId,
         kind: SourceKind.webDav,
         name: name,
         serverId: serverId,
         endpoint: options.uri,
       ),
-      options,
+      connection: options,
     );
   }
 

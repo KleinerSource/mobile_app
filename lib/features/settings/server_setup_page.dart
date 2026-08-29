@@ -206,8 +206,13 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     final reference = _fileSourceConfig?.credentialRef.trim() ?? sourceId;
     final uri = switch (project) {
       ServerProject.webDav => _buildWebDavEndpoint(_scheme, host, port, path),
-      // OpenList 的路径字段是实例内的根路径，不属于反代前缀，不写入 uri。
-      ServerProject.openList => _buildOpenListEndpoint(_scheme, host, port),
+      // OpenList 文件管理走内置 /dav 前缀，路径字段是实例内的根路径。
+      ServerProject.openList => _buildOpenListEndpoint(
+        _scheme,
+        host,
+        port,
+        path,
+      ),
       _ => null,
     };
     final endpoint = project == ServerProject.smb
@@ -514,6 +519,10 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                           onChanged: (value) => setState(() {
                             _project = value;
                             _error = null;
+                            if (value == ServerProject.openList &&
+                                _pathController.text.trim().isEmpty) {
+                              _pathController.text = '/';
+                            }
                           }),
                         ),
                         const SizedBox(height: 14),
@@ -800,8 +809,25 @@ String _buildWebDavEndpoint(String scheme, String host, int port, String path) {
   ).toString();
 }
 
-String _buildOpenListEndpoint(String scheme, String host, int port) {
-  return Uri(scheme: scheme, host: host, port: port).toString();
+String _buildOpenListEndpoint(
+  String scheme,
+  String host,
+  int port,
+  String path,
+) {
+  // /dav 前缀内置到端点中，用户只填实例内的根路径。
+  final normalizedPath = path
+      .replaceAll('\\', '/')
+      .replaceFirst(RegExp(r'^/+'), '');
+  final suffix = normalizedPath.isEmpty || normalizedPath == '/'
+      ? ''
+      : '/$normalizedPath';
+  return Uri(
+    scheme: scheme,
+    host: host,
+    port: port,
+    path: '/dav$suffix',
+  ).toString();
 }
 
 String _buildSmbEndpoint(String host, int port, String path) {

@@ -85,6 +85,15 @@ void main() {
           ?.hintText,
       '5244',
     );
+    // 根路径自动预填 /，dav 前缀内置在端点里，用户无需输入。
+    expect(
+      tester
+          .widgetList<TextField>(find.byType(TextField))
+          .elementAt(3)
+          .controller
+          ?.text,
+      '/',
+    );
   });
 
   testWidgets('DB Online 显示 HTTP 字段而不显示文件服务器字段', (tester) async {

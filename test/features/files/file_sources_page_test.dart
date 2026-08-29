@@ -80,7 +80,9 @@ void main() {
               ),
             ],
           ),
-          fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+          fileSourceProvider(sourceId.value).overrideWith(
+            (ref) async => _KindFileSource(SourceKind.openList),
+          ),
           fileDirectoryProvider(
             FileDirectoryRequest(serverId: serverId, sourceId: sourceId),
           ).overrideWith((ref) async {
@@ -103,6 +105,45 @@ void main() {
 
     expect(listingCalls, 2);
     expect(find.text('影片.mkv'), findsOneWidget);
+  });
+
+  testWidgets('SMB 来源的菜单不提供强制刷新', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceDescriptorsProvider(serverId).overrideWith(
+            (ref) async => [
+              const SourceDescriptor(
+                id: SourceId('source-one'),
+                kind: SourceKind.smb,
+                name: 'SMB 一号',
+                serverId: serverId,
+                endpoint: 'smb://nas-one/share',
+              ),
+            ],
+          ),
+          fileSourceProvider(sourceId.value).overrideWith(
+            (ref) async => _KindFileSource(SourceKind.smb),
+          ),
+          fileDirectoryProvider(
+            FileDirectoryRequest(serverId: serverId, sourceId: sourceId),
+          ).overrideWith((ref) async => _listing(sourceId)),
+        ],
+        child: const MaterialApp(home: FileSourcesPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('更多'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('强制刷新'), findsNothing);
+    expect(find.text('新建文件夹'), findsOneWidget);
   });
 
   testWidgets('debug 模式下点击视频先显示播放器选择器', (tester) async {
@@ -1113,6 +1154,25 @@ DirectoryListing _listingAt(SourceId sourceId, String path, String name) =>
         ),
       ],
     );
+
+class _KindFileSource implements FileSource {
+  _KindFileSource(this.kind);
+
+  final SourceKind kind;
+
+  @override
+  SourceDescriptor get descriptor => SourceDescriptor(
+    id: const SourceId('source-one'),
+    kind: kind,
+    name: '测试来源',
+  );
+
+  @override
+  Set<FileCapability> get capabilities => const {};
+
+  @override
+  bool supports(FileCapability capability) => false;
+}
 
 class _PreviewFileSource implements FileSource, FileAccessCapability {
   _PreviewFileSource(this.sourceId, this.bytes);

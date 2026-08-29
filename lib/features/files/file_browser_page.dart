@@ -205,11 +205,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
             onSelected: (action) =>
                 _handleMenuAction(action, currentDirectoryPath),
               itemBuilder: (_) => [
-              _menuItem(
-                _BrowserMenuAction.forceRefresh,
-                Icons.refresh,
-                '强制刷新',
-              ),
+              // 强制刷新只对 OpenList 有意义：其服务端有目录缓存需要
+              // 绕过；SMB/WebDAV 每次列目录都是实时读取，无需该入口。
+              if (descriptor?.kind == SourceKind.openList)
+                _menuItem(
+                  _BrowserMenuAction.forceRefresh,
+                  Icons.refresh,
+                  '强制刷新',
+                ),
               _menuItem(
                 _BrowserMenuAction.createDirectory,
                 Icons.create_new_folder_outlined,
@@ -1303,11 +1306,11 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     try {
       final repository = await _repository();
       final sourceKind = repository.source.descriptor.kind;
-      // WebDAV 是原生 HTTP(S) 文件服务，直接把文件 URL 和认证头交给
-      // 播放器，保留播放器自身的 Range/seek 能力。OpenList 的网盘直链
-      // 存在跨域、Cookie、User-Agent 等播放内核难以满足的限制，视频
-      // 统一走本机回环代理，由应用侧 HTTP 客户端代发全部请求头。
-      final useDirect = sourceKind == SourceKind.webDav;
+      // WebDAV 与 OpenList（文件管理同样走 WebDAV）都是原生 HTTP(S)
+      // 文件服务，直接把文件 URL 和认证头交给播放器，保留播放器自身的
+      // Range/seek 能力，不经过回环代理。
+      final useDirect =
+          sourceKind == SourceKind.webDav || sourceKind == SourceKind.openList;
       FileAccess? directAccess;
       if (useDirect) {
         final access = await repository.resolveAccess(entry.path);
@@ -1361,9 +1364,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         pathExtension: _pathExtension(entry.name),
       );
       if (!mounted) return;
-      // SMB 没有可供 iOS AVPlayer 使用的 HTTP URL；OpenList 的网盘直链
-      // 有跨域、Cookie、UA 等限制。都通过本机回环 HTTP 代理按需读取；
-      // 代理会透传可用的 Range，并代发来源要求的请求头。
+      // SMB 没有可供 iOS AVPlayer 使用的 HTTP URL，继续使用回环 HTTP
+      // 代理按需读取；代理本身会透传可用的 Range。
       final playbackUrl = proxy.uri.toString();
       appLog(
         '[FileBrowser] 使用流式代理播放: '
