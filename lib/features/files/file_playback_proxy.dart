@@ -10,6 +10,7 @@ import '../../core/sources/files/file_source_repository.dart';
 
 const _operationTimeout = Duration(seconds: 30);
 const _metadataTimeout = Duration(seconds: 2);
+const _sizeProbeTimeout = Duration(seconds: 5);
 
 /// 将不具备可直接访问 URL 的文件流（当前主要是 SMB）暴露为播放器
 /// 可读取的本机 HTTP 地址。WebDAV 播放应直接使用其 HTTP(S) URL。
@@ -103,6 +104,16 @@ class FilePlaybackProxy {
     final current = _accessFuture;
     if (current != null) return current;
     final next = repository.resolveAccess(path);
+    // 失败的访问结果不缓存：一次 stat/PROPFIND 失败不应永久污染后续
+    // HEAD 元数据请求。
+    unawaited(
+      next.then(
+        (_) {},
+        onError: (_) {
+          if (identical(_accessFuture, next)) _accessFuture = null;
+        },
+      ),
+    );
     _accessFuture = next;
     return next;
   }
@@ -142,12 +153,24 @@ class FilePlaybackProxy {
         return resolved;
       }
 
-      // Range 无法在未知总大小上安全解析。先建立临时文件取得大小，
-      // 之后 HEAD/Range 请求都能返回稳定的 HTTP 元数据。
+      // Range 无法在未知总大小上安全解析。先限时探测远端元数据；
+      // 只有探测拿不到大小才把整个文件落盘换取——直接落盘会让大文件
+      // 在返回首个字节前经历一次完整下载，播放器侧表现为无限加载。
       if (rangeHeader != null && total == null) {
-        _log('Range 请求缺少文件大小，先落盘获取大小');
-        final fallback = await _ensureFallbackFile();
-        total = await fallback.length();
+        try {
+          final resolved = await loadAccess().timeout(_sizeProbeTimeout);
+          total = resolved.size;
+          if (total != null) {
+            _log('Range 请求缺少文件大小，元数据探测成功: size=$total');
+          }
+        } catch (error) {
+          _log('Range 请求文件大小探测失败（$error）');
+        }
+        if (total == null) {
+          _log('远端未提供文件大小，退回临时文件');
+          final fallback = await _ensureFallbackFile();
+          total = await fallback.length();
+        }
       }
       // HEAD 没有文件大小时才需要 stat/PROPFIND；常规视频播放不应被
       // resolveAccess 阻塞，GET 会直接进入 download/openRange。

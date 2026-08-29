@@ -161,7 +161,7 @@ void main() {
     }
   });
 
-  test('文件大小未知时先落盘再响应 Range', () async {
+  test('文件大小未知且元数据探测不到时落盘再响应 Range', () async {
     final sourceId = SourceId.of('unknown-size-source');
     final bytes = List<int>.generate(10, (index) => index + 10);
     final proxy = await FilePlaybackProxy.start(
@@ -177,6 +177,31 @@ void main() {
       expect(response.statusCode, HttpStatus.partialContent);
       expect(response.headers.value('content-range'), 'bytes 4-6/10');
       expect(await _read(response), bytes.sublist(4, 7));
+    } finally {
+      await proxy.close();
+      client.close(force: true);
+    }
+  });
+
+  test('文件大小未知时优先探测元数据，避免整文件落盘', () async {
+    final sourceId = SourceId.of('stat-range-source');
+    final bytes = List<int>.generate(20, (index) => index + 40);
+    final source = _StatOnlyRangeFileSource(sourceId, bytes);
+    final proxy = await FilePlaybackProxy.start(
+      repository: FileSourceRepository(source),
+      path: FilePath(sourceId: sourceId, value: '影片.mp4'),
+      pathExtension: 'mp4',
+    );
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(proxy.uri);
+      request.headers.set('range', 'bytes=3-7');
+      final response = await request.close();
+      expect(response.statusCode, HttpStatus.partialContent);
+      expect(response.headers.value('content-range'), 'bytes 3-7/20');
+      expect(await _read(response), bytes.sublist(3, 8));
+      expect(source.ranges, [(3, 5)]);
+      expect(source.openStreamCalls, 0);
     } finally {
       await proxy.close();
       client.close(force: true);
@@ -321,4 +346,33 @@ class _UnknownSizeFileSource extends _StreamFileSource {
     mimeType: 'video/mp4',
     openStream: () => Stream<List<int>>.value(bytes),
   );
+}
+
+class _StatOnlyRangeFileSource extends _StreamFileSource
+    implements FileRangeAccessCapability {
+  _StatOnlyRangeFileSource(super.sourceId, super.bytes);
+
+  final ranges = <(int, int)>[];
+  var openStreamCalls = 0;
+
+  @override
+  Future<FileAccess> resolveAccess(FilePath path) async => FileAccess(
+    size: bytes.length,
+    mimeType: 'video/mp4',
+    openStream: () {
+      openStreamCalls++;
+      return Stream<List<int>>.value(bytes);
+    },
+  );
+
+  @override
+  Future<Stream<List<int>>> openRange(
+    FilePath path, {
+    required int offset,
+    required int length,
+    FileTransferOptions options = const FileTransferOptions(),
+  }) async {
+    ranges.add((offset, length));
+    return Stream<List<int>>.value(bytes.sublist(offset, offset + length));
+  }
 }

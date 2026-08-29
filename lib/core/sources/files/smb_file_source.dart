@@ -348,34 +348,39 @@ class SmbFileSource
     FileCancellationToken? cancellation,
     FileProgressCallback? onProgress,
   }) async* {
-    const chunkSize = 1024 * 1024;
-    var current = offset;
-    var remaining = length;
-    var transferred = 0;
-    while (remaining > 0) {
-      if (cancellation?.isCancelled == true) {
-        throw const FileSourceException('下载已取消', code: 'canceled');
+    // 持久句柄读取：一次 Create 后逐块 pread，读 handles 的 worker 与
+    // 完整流的 streamFile 一样按 round-robin 分配。逐块重新 open/close
+    // （readFileRange）会让播放器 seek 触发的区间流慢一个数量级。
+    final (handle, _) = await pool.openFileWithSize(path);
+    try {
+      const chunkSize = 4 * 1024 * 1024;
+      var current = offset;
+      var remaining = length;
+      var transferred = 0;
+      while (remaining > 0) {
+        if (cancellation?.isCancelled == true) {
+          throw const FileSourceException('下载已取消', code: 'canceled');
+        }
+        final requested = remaining < chunkSize ? remaining : chunkSize;
+        final chunk = await pool.readFromHandle(
+          handle,
+          offset: current,
+          length: requested,
+        );
+        if (chunk.isEmpty) {
+          throw const FileSourceException('SMB 区间读取返回空数据');
+        }
+        current += chunk.length;
+        remaining -= chunk.length;
+        transferred += chunk.length;
+        onProgress?.call(
+          FileTransferProgress(transferred: transferred, total: length),
+        );
+        yield chunk;
       }
-      final requested = remaining < chunkSize ? remaining : chunkSize;
-      final chunk = await pool.readFileRange(
-        path,
-        offset: current,
-        length: requested,
-      );
-      if (chunk.isEmpty) {
-        throw const FileSourceException('SMB 区间读取返回空数据');
-      }
-      appLog(
-        '[SmbFileSource] 区间读取完成: remote=$path '
-        'offset=$current length=${chunk.length}',
-      );
-      current += chunk.length;
-      remaining -= chunk.length;
-      transferred += chunk.length;
-      onProgress?.call(
-        FileTransferProgress(transferred: transferred, total: length),
-      );
-      yield chunk;
+    } finally {
+      // 消费者取消或响应中断时也要释放句柄，避免占住 worker。
+      await pool.closeHandle(handle);
     }
   }
 
