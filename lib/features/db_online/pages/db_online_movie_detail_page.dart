@@ -873,11 +873,17 @@ class _EpisodeTile extends ConsumerWidget {
     final config = ref.read(serverConfigProvider);
     if (config == null) return;
     final url = resolveServerUrl(config, rawUrl);
+    // 在线 HLS 在 AVPlayer 下无法正常播放，交给 KSMEPlayer 处理；判定与
+    // 原生 isHlsStream 一致（地址路径以 .m3u8 结尾），其 seek 由 plugin
+    // 层绕过 KSPlayer 对 HTTP Range 的误判完成。
+    final isHls =
+        Uri.tryParse(url)?.path.toLowerCase().endsWith('.m3u8') ?? false;
     PlayerPage.openDirect(
       context,
       title: '$code · ${episode.name}',
       directUrl: url,
       engineKind: engineKind,
+      directPreferFfmpegForHls: isHls,
     );
   }
 

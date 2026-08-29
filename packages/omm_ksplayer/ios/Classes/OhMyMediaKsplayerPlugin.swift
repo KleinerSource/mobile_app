@@ -286,6 +286,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
   private var disposed = false
   private var layerIsStopped = true
   private var lastVideoSize = CGSize.zero
+  private var currentMediaIsHls = false
 
   init(playerId: Int64, flutterApi: OmmKsPlayerFlutterApiProtocol) {
     self.playerId = playerId
@@ -348,6 +349,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     options.isSeekedAutoPlay = autoplay
     options.hardwareDecode = hardwareAcceleration
     let isHls = isHlsStream(url: mediaURL, formatHint: formatHint)
+    currentMediaIsHls = isHls
     if isHls {
       // HLS seek 后只需拉取目标切片及少量后续切片即可恢复播放。
       // 复用本地文件的大前向缓存会让 KSPlayer 在定位后等待很久。
@@ -510,9 +512,45 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     }
     pendingStartVerificationMs = 0
     startVerificationGeneration += 1
-    layer.seek(time: max(0, positionMs) / 1000, autoPlay: layer.state.isPlaying) { finished in
+    let time = max(0, positionMs) / 1000
+    let autoPlay = layer.state.isPlaying
+    let respond: (Bool) -> Void = { finished in
       completion(finished ? .success(()) : .failure(KsPlayerPluginError.cancelled))
     }
+    if !seekHlsFfmpegDirectly(time: time, autoPlay: autoPlay, completion: respond) {
+      layer.seek(time: time, autoPlay: autoPlay) { finished in
+        respond(finished)
+      }
+    }
+  }
+
+  /// KSPlayerLayer 以底层 AVIO 的字节 seek（HTTP Range）能力判定 seekable，
+  /// 不支持 Range 的在线 HLS 源（如 DBO）会被整层吞掉 seek。HLS 定位由
+  /// FFmpeg 的 hls demuxer 换分片完成，不依赖字节 seek；因此 FFmpeg 内核
+  /// 的 HLS 直接调用 player.seek 绕过该误判。返回 false 表示不适用，
+  /// 调用方回退 layer.seek 原路径。
+  private func seekHlsFfmpegDirectly(
+    time: TimeInterval,
+    autoPlay: Bool,
+    completion: ((Bool) -> Void)? = nil
+  ) -> Bool {
+    guard currentMediaIsHls else { return false }
+    let currentLayer = layer
+    guard let mePlayer = currentLayer.player as? KSMEPlayer,
+          mePlayer.isReadyToPlay
+    else { return false }
+    mePlayer.seek(time: time) { [weak self] finished in
+      guard let self, !self.disposed, self.layer === currentLayer else {
+        completion?(finished)
+        return
+      }
+      if finished, autoPlay {
+        self.layer.play()
+        self.layerIsStopped = false
+      }
+      completion?(finished)
+    }
+    return true
   }
 
   func setRate(_ rate: Double) throws {
@@ -700,9 +738,11 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     }
     if pendingStartPositionMs > 0 {
       let start = pendingStartPositionMs / 1000
-      // AVPlayer 切换 HLS 时可能不回调 seek completion。媒体已经 ready 后，
-      // 初始 seek 只负责定位，不应继续阻塞 Pigeon open；稍后的定位校验负责兜底。
-      currentLayer.seek(time: start, autoPlay: pendingAutoplay) { _ in }
+      if !seekHlsFfmpegDirectly(time: start, autoPlay: pendingAutoplay) {
+        // AVPlayer 切换 HLS 时可能不回调 seek completion。媒体已经 ready 后，
+        // 初始 seek 只负责定位，不应继续阻塞 Pigeon open；稍后的定位校验负责兜底。
+        currentLayer.seek(time: start, autoPlay: pendingAutoplay) { _ in }
+      }
       finish()
     } else {
       if pendingAutoplay { currentLayer.play() }
