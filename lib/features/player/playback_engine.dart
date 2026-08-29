@@ -47,9 +47,8 @@ class PlaybackEngineCapabilities {
       customBuffering = true,
       playbackRate = true;
 
-  const PlaybackEngineCapabilities.ksPlayer()
+  const PlaybackEngineCapabilities.ksPlayer({this.framePreview = true})
     : pictureInPicture = true,
-      framePreview = true,
       audioTracks = true,
       textSubtitles = true,
       bitmapSubtitles = false,

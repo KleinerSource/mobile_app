@@ -38,7 +38,25 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
 
   @override
   PlaybackEngineCapabilities get capabilities =>
-      const PlaybackEngineCapabilities.ksPlayer();
+      PlaybackEngineCapabilities.ksPlayer(
+        framePreview: _mediaSupportsFramePreview,
+      );
+
+  /// KSPlayer fork 的帧预览会对整个媒体均匀生成 100 帧缩略图。本地文件
+  /// 可按 Range 取帧没有问题；但 HLS 无法按区间取帧，生成缩略图等于在
+  /// 后台下载整部视频，并与定位目标分片抢占连接池，导致长距离拖拽后
+  /// 长时间无法恢复播放。因此网络 HLS 关闭拖拽帧预览。
+  static bool mediaIsHls(String url, String? formatHint) {
+    final hint = formatHint?.trim().toLowerCase() ?? '';
+    if (hint == 'm3u8' || hint == 'hls' || hint.contains('mpegurl')) {
+      return true;
+    }
+    final uri = Uri.tryParse(url.trim());
+    final path = uri?.path.toLowerCase() ?? url.trim().toLowerCase();
+    return path.endsWith('.m3u8');
+  }
+
+  bool _mediaSupportsFramePreview = true;
 
   @override
   ValueListenable<PlaybackViewState> get state => _state;
@@ -176,6 +194,7 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   Future<void> open(PlaybackOpenRequest request) async {
     _cancelSeekRecovery();
     _suppressErrorsUntilOpen = false;
+    _mediaSupportsFramePreview = !mediaIsHls(request.url, request.formatHint);
     _subtitleCues = const [];
     _update(
       (state) => state.copyWith(
