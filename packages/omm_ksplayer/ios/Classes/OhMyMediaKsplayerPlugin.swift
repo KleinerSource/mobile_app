@@ -432,10 +432,11 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     formatHint: String?,
     videoCodec: String?
   ) -> Bool {
-    // SMB 文件通过 Flutter 侧的本机回环 HTTP 代理提供；WebDAV 文件则
-    // 直接使用其 HTTP(S) 地址。回环地址需要 FFmpeg 的 Range/流式读取能力，
-    // 不能交给只适合 AVPlayer 资源模型的 KSAVPlayer；普通 HTTP(S) MP4
-    // （包括 WebDAV）仍保留 AVPlayer。
+    // M3U8/HLS 统一交给 AVPlayer，包括 SMB 的本机回环代理地址；只有其余
+    // SMB 回环媒体才需要 FFmpeg 的 Range/流式读取能力。
+    if isHlsStream(url: url, formatHint: formatHint) {
+      return false
+    }
     let isLoopback = url.host == "127.0.0.1" ||
       url.host == "localhost" ||
       url.host == "::1"
