@@ -747,6 +747,126 @@ void _main_0() {
     expect(config.activeServerId, 'current-server');
     expect(config.servers, hasLength(2));
   });
+
+  test('拖拽重排服务器会更新顺序并持久化', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    const homeLine = ServerLine(
+      id: 'home-line',
+      name: '主线路',
+      baseUrl: 'https://home.example',
+    );
+    const remoteLine = ServerLine(
+      id: 'remote-line',
+      name: '公网线路',
+      baseUrl: 'https://remote.example',
+    );
+    const home = ServerProfile(
+      id: 'home',
+      name: '家庭服务器',
+      projectName: 'oh-my-media',
+      lines: [homeLine],
+      activeLineId: 'home-line',
+    );
+    const remote = ServerProfile(
+      id: 'remote',
+      name: '公网服务器',
+      projectName: 'db_online',
+      lines: [remoteLine],
+      activeLineId: 'remote-line',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          const ServerConfig(
+            baseUrl: 'https://home.example',
+            lines: [homeLine],
+            servers: [home, remote],
+            activeServerId: 'home',
+          ),
+        );
+
+    // 运行态同步更新，拖拽落点当帧生效（newIndex 已按移除后的列表校正）。
+    final pending = container
+        .read(serverConfigProvider.notifier)
+        .reorderServers(0, 1);
+    final config = container.read(serverConfigProvider)!;
+    expect(config.servers.map((server) => server.id), ['remote', 'home']);
+    // 重排只调整顺序，不改变当前服务器与线路。
+    expect(config.activeServerId, 'home');
+    expect(config.baseUrl, 'https://home.example');
+
+    await pending;
+
+    final persisted = container.read(serverConfigRepoProvider).load();
+    expect(persisted?.servers.map((server) => server.id), ['remote', 'home']);
+    expect(persisted?.activeServerId, 'home');
+    expect(persisted?.baseUrl, 'https://home.example');
+    expect(persisted?.servers.first.lines.single.baseUrl, remoteLine.baseUrl);
+  });
+
+  test('原位或越界的重排请求被忽略', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    const homeLine = ServerLine(
+      id: 'home-line',
+      name: '主线路',
+      baseUrl: 'https://home.example',
+    );
+    const remoteLine = ServerLine(
+      id: 'remote-line',
+      name: '公网线路',
+      baseUrl: 'https://remote.example',
+    );
+    const home = ServerProfile(
+      id: 'home',
+      name: '家庭服务器',
+      projectName: 'oh-my-media',
+      lines: [homeLine],
+      activeLineId: 'home-line',
+    );
+    const remote = ServerProfile(
+      id: 'remote',
+      name: '公网服务器',
+      projectName: 'db_online',
+      lines: [remoteLine],
+      activeLineId: 'remote-line',
+    );
+    await container
+        .read(serverConfigProvider.notifier)
+        .save(
+          const ServerConfig(
+            baseUrl: 'https://home.example',
+            lines: [homeLine],
+            servers: [home, remote],
+            activeServerId: 'home',
+          ),
+        );
+
+    final notifier = container.read(serverConfigProvider.notifier);
+    await notifier.reorderServers(1, 1);
+    await notifier.reorderServers(5, 0);
+    await notifier.reorderServers(0, -1);
+
+    expect(
+      container.read(serverConfigProvider)?.servers.map((s) => s.id),
+      ['home', 'remote'],
+    );
+    expect(
+      container.read(serverConfigRepoProvider).load()?.servers.map((s) => s.id),
+      ['home', 'remote'],
+    );
+  });
 }
 
 // ==================== 原 test/core/server_config_repository_test.dart ====================

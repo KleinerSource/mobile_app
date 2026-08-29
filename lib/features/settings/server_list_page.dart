@@ -62,46 +62,122 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
               subtitle: '每台服务器可单独配置线路，启动时选择服务器。',
               trailing: SettingsAddButton(onPressed: () => _showServerEditor()),
             ),
-            // 服务器数量少且有界：合并为设置页式分组卡，行间细分隔线。
-            body: ListView(
-              controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
-              children: [
-                if (servers.isNotEmpty)
-                  Container(
-                    decoration: settingsCardDecoration(context),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < servers.length; i++) ...[
-                            if (i > 0)
-                              Divider(height: 1, color: colors.divider),
-                            SwipeActionCell(
-                              group: _openSwipe,
-                              cellKey: servers[i].id,
-                              enabled: true,
-                              actions: _serverSwipeActions(
-                                colors,
-                                servers[i],
-                                servers.length,
+            // 服务器数量少且有界：设置页式分组卡，行间细分隔线；拖动行尾
+            // 手柄可调整顺序，顺序对所有服务器选择入口生效。
+            body: servers.isEmpty
+                ? ListView(controller: _scrollController)
+                : ReorderableListView.builder(
+                    itemCount: servers.length,
+                    buildDefaultDragHandles: false,
+                    scrollController: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+                    proxyDecorator: _dragProxyDecorator,
+                    onReorderItem: (oldIndex, newIndex) {
+                      AppHaptics.medium();
+                      ref
+                          .read(serverConfigProvider.notifier)
+                          .reorderServers(oldIndex, newIndex);
+                    },
+                    itemBuilder: (context, index) {
+                      final server = servers[index];
+                      final isFirst = index == 0;
+                      final isLast = index == servers.length - 1;
+                      // 分组卡按行拆分：首行圆上角、末行圆下角，行间靠行顶
+                      // 分隔线衔接，拼起来与整卡视觉一致。
+                      final radius = BorderRadius.vertical(
+                        top: isFirst
+                            ? const Radius.circular(16)
+                            : Radius.zero,
+                        bottom: isLast ? const Radius.circular(16) : Radius.zero,
+                      );
+                      return Container(
+                        key: ValueKey<String>(server.id),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: radius,
+                          border: Border(
+                            top: isFirst
+                                ? BorderSide(color: colors.cardBorder)
+                                : BorderSide.none,
+                            bottom: isLast
+                                ? BorderSide(color: colors.cardBorder)
+                                : BorderSide.none,
+                            left: BorderSide(color: colors.cardBorder),
+                            right: BorderSide(color: colors.cardBorder),
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: radius,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!isFirst)
+                                Divider(height: 1, color: colors.divider),
+                              SwipeActionCell(
+                                group: _openSwipe,
+                                cellKey: server.id,
+                                enabled: true,
+                                actions: _serverSwipeActions(
+                                  colors,
+                                  server,
+                                  servers.length,
+                                ),
+                                child: _ServerListCard(
+                                  server: server,
+                                  active: server.id == config?.activeServerId,
+                                  onTap: () => _openServer(server),
+                                  handle: ReorderableDragStartListener(
+                                    index: index,
+                                    child: GestureDetector(
+                                      // 手柄只用于拖动，吞掉点按避免误触发行点击。
+                                      onTap: () {},
+                                      behavior: HitTestBehavior.opaque,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 10,
+                                        ),
+                                        child: Icon(
+                                          Icons.drag_indicator,
+                                          color: colors.muted,
+                                          size: 22,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
-                              child: _ServerListCard(
-                                server: servers[i],
-                                active: servers[i].id == config?.activeServerId,
-                                onTap: () => _openServer(servers[i]),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
-              ],
-            ),
           ),
         ),
       ),
+    );
+  }
+
+  /// 拖拽跟随卡片：按拖拽起落进度浮起投影，与分组卡的圆角保持一致。
+  Widget _dragProxyDecorator(
+    Widget child,
+    int index,
+    Animation<double> animation,
+  ) {
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (context, child) {
+        final elevation = Curves.easeOut.transform(animation.value) * 6;
+        return Material(
+          color: Colors.transparent,
+          shadowColor: Colors.black,
+          elevation: elevation,
+          borderRadius: BorderRadius.circular(16),
+          child: child,
+        );
+      },
     );
   }
 
@@ -220,11 +296,13 @@ class _ServerListCard extends StatelessWidget {
     required this.server,
     required this.active,
     required this.onTap,
+    this.handle,
   });
 
   final ServerProfile server;
   final bool active;
   final VoidCallback onTap;
+  final Widget? handle;
 
   @override
   Widget build(BuildContext context) {
@@ -289,6 +367,7 @@ class _ServerListCard extends StatelessWidget {
                 _ActiveChip(color: colors.accent)
               else
                 Icon(Icons.chevron_right, color: colors.muted),
+              if (handle != null) ...[const SizedBox(width: 8), handle!],
             ],
           ),
         ),

@@ -378,6 +378,38 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     state = repository.load();
   }
 
+  /// 按拖拽结果调整服务器显示顺序，顺序即 servers 数组顺序，对所有服务器
+  /// 入口（列表页、启动选择器、首页切换菜单）生效。
+  /// [newIndex] 遵循 ReorderableListView.onReorderItem 的约定：已按移除
+  /// [oldIndex] 项后的列表校正，可直接作为插入位置使用。
+  Future<void> reorderServers(int oldIndex, int newIndex) {
+    final current = state ?? ref.read(serverConfigRepoProvider).load();
+    if (current == null || current.servers.length < 2) {
+      return Future.value();
+    }
+    if (oldIndex < 0 || oldIndex >= current.servers.length) {
+      return Future.value();
+    }
+    if (newIndex < 0 ||
+        newIndex >= current.servers.length ||
+        newIndex == oldIndex) {
+      return Future.value();
+    }
+    final servers = [...current.servers];
+    servers.insert(newIndex, servers.removeAt(oldIndex));
+    final next = ServerConfig(
+      baseUrl: current.baseUrl,
+      lines: current.lines,
+      servers: servers,
+      activeServerId: current.activeServerId,
+    );
+    // 拖拽落点要求当帧生效，先同步更新运行态，再排队持久化。
+    state = next;
+    return _enqueueConfigWrite(
+      () => ref.read(serverConfigRepoProvider).save(next),
+    );
+  }
+
   void showServerSelection({bool releaseResources = true}) {
     ref.read(serverSelectionReadyProvider.notifier).state = false;
     if (releaseResources) {
