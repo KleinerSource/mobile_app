@@ -13,6 +13,8 @@ import '../../core/update/update_models.dart';
 import '../../core/update/update_repository.dart';
 import '../../core/update/update_service.dart';
 import '../../shared/glow_background.dart';
+import '../player/playback_engine.dart';
+import '../player/player_page.dart';
 import '../player/player_settings.dart';
 import 'app_log_page.dart';
 import 'settings_common.dart';
@@ -30,12 +32,14 @@ class AppUpdateSettingsPage extends ConsumerStatefulWidget {
 class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
   late final TextEditingController _repositoryController;
   late final FocusNode _repositoryFocusNode;
+  late final TextEditingController _m3u8Controller;
   UpdateCheckResult? _result;
   String? _error;
   bool _checking = false;
   bool _downloading = false;
   bool _editingRepository = false;
   double? _downloadProgress;
+  PlaybackEngineSelection _manualEngine = PlaybackEngineSelection.libmpv;
 
   @override
   void initState() {
@@ -43,6 +47,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
     final savedRepository = ref.read(updateRepositoryUrlProvider);
     _repositoryController = TextEditingController(text: savedRepository ?? '');
     _repositoryFocusNode = FocusNode();
+    _m3u8Controller = TextEditingController();
     _editingRepository = savedRepository == null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
@@ -58,6 +63,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
   void dispose() {
     _repositoryController.dispose();
     _repositoryFocusNode.dispose();
+    _m3u8Controller.dispose();
     super.dispose();
   }
 
@@ -215,6 +221,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                     ),
                   ],
                 ),
+                _buildManualPlaybackGroup(context),
                 if (_checking)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
@@ -233,6 +240,135 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildManualPlaybackGroup(BuildContext context) {
+    final supportsKsPlayer = Platform.isIOS;
+    return SettingsGroup(
+      title: '开发接口',
+      items: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+          child: TextField(
+            key: const ValueKey('manual-m3u8-url'),
+            controller: _m3u8Controller,
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.done,
+            decoration: settingsInputDecoration(
+              context,
+              labelText: 'm3u8 地址',
+              hintText: 'https://example.com/video.m3u8',
+              prefixIcon: const Icon(Icons.link_outlined),
+            ),
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (_) => unawaited(_openManualM3u8()),
+          ),
+        ),
+        SettingsTile(
+          key: const ValueKey('manual-player-engine'),
+          title: '播放器内核',
+          subtitle: supportsKsPlayer
+              ? _manualEngine.label
+              : '${_manualEngine.label} · KSPlayer 仅支持 iOS',
+          leadingIcon: Icons.video_settings_outlined,
+          onTap: () => unawaited(_pickManualEngine()),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const ValueKey('manual-m3u8-play'),
+              onPressed: _m3u8Controller.text.trim().isEmpty
+                  ? null
+                  : () => unawaited(_openManualM3u8()),
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('播放 m3u8'),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+          child: Text(
+            '用于开发排查 HLS 播放问题，不会保存地址。KSPlayer 选项仅在 iOS 可用。',
+            style: AppText.meta(context),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickManualEngine() async {
+    final selected = await showDialog<PlaybackEngineSelection>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('选择播放器内核'),
+        contentPadding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final option in PlaybackEngineSelection.values)
+              ListTile(
+                key: ValueKey('manual-engine-${option.name}'),
+                title: Text(option.label),
+                subtitle:
+                    option.engineKind == PlaybackEngineKind.ksPlayer &&
+                        !Platform.isIOS
+                    ? const Text('仅 iOS 可用')
+                    : null,
+                trailing: option == _manualEngine
+                    ? const Icon(Icons.check)
+                    : null,
+                enabled:
+                    option.engineKind != PlaybackEngineKind.ksPlayer ||
+                    Platform.isIOS,
+                onTap:
+                    option.engineKind != PlaybackEngineKind.ksPlayer ||
+                        Platform.isIOS
+                    ? () => Navigator.of(dialogContext).pop(option)
+                    : null,
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+    if (selected == null || selected == _manualEngine || !mounted) return;
+    setState(() => _manualEngine = selected);
+    AppHaptics.selection();
+  }
+
+  Future<void> _openManualM3u8() async {
+    final value = _m3u8Controller.text.trim();
+    final uri = Uri.tryParse(value);
+    if (uri == null ||
+        uri.host.isEmpty ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      setState(() => _error = '请输入有效的 http/https m3u8 地址');
+      return;
+    }
+    if (_manualEngine.engineKind == PlaybackEngineKind.ksPlayer &&
+        !Platform.isIOS) {
+      setState(() => _error = 'KSPlayer 仅支持 iOS，请选择 libmpv');
+      return;
+    }
+    setState(() => _error = null);
+    AppHaptics.selection();
+    await PlayerPage.openDirect(
+      context,
+      title: '开发接口 · m3u8',
+      directUrl: value,
+      directFormatHint: 'm3u8',
+      engineKind: _manualEngine.engineKind,
+      directPreferFfmpegForHls: _manualEngine.preferFfmpegForHls,
     );
   }
 

@@ -13,6 +13,26 @@ enum PlaybackEngineKind {
   final String label;
 }
 
+/// 开发接口可手动指定的播放器组合。
+///
+/// KSPlayer 的两个内部播放器仍复用同一个 Dart 播放引擎，HLS 播放时通过
+/// [preferFfmpegForHls] 选择 KSMEPlayer 或 AVPlayer。
+enum PlaybackEngineSelection {
+  libmpv('libmpv', PlaybackEngineKind.libmpv, false),
+  ksmePlayer('ksplayer(ksmeplayer)', PlaybackEngineKind.ksPlayer, true),
+  avPlayer('ksplayer(avplayer)', PlaybackEngineKind.ksPlayer, false);
+
+  const PlaybackEngineSelection(
+    this.label,
+    this.engineKind,
+    this.preferFfmpegForHls,
+  );
+
+  final String label;
+  final PlaybackEngineKind engineKind;
+  final bool preferFfmpegForHls;
+}
+
 abstract final class PlayerEnginePreference {
   static const storageKey = 'player.ios_engine';
 

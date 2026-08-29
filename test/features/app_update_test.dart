@@ -13,6 +13,7 @@ import 'package:omm/features/settings/app_log_page.dart';
 import 'package:omm/features/settings/app_update_settings_page.dart';
 import 'package:omm/features/settings/app_update_startup_gate.dart';
 import 'package:omm/features/settings/settings_common.dart';
+import 'package:omm/features/player/playback_engine.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -173,6 +174,51 @@ void _main_1() {
     await tester.pumpAndSettle();
 
     expect(find.text('查看播放日志'), findsOneWidget);
+  });
+
+  testWidgets('应用更新页提供 m3u8 开发播放接口和三种内核选项', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: const MaterialApp(home: AppUpdateSettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -1000));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('manual-m3u8-url')), findsOneWidget);
+    expect(find.byKey(const ValueKey('manual-m3u8-play')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('manual-player-engine')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('manual-engine-libmpv')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('manual-engine-ksmePlayer')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('manual-engine-avPlayer')),
+      findsOneWidget,
+    );
+  });
+
+  test('开发播放选项映射到现有播放器内核', () {
+    expect(
+      PlaybackEngineSelection.libmpv.engineKind,
+      PlaybackEngineKind.libmpv,
+    );
+    expect(
+      PlaybackEngineSelection.ksmePlayer.engineKind,
+      PlaybackEngineKind.ksPlayer,
+    );
+    expect(PlaybackEngineSelection.ksmePlayer.preferFfmpegForHls, isTrue);
+    expect(
+      PlaybackEngineSelection.avPlayer.engineKind,
+      PlaybackEngineKind.ksPlayer,
+    );
+    expect(PlaybackEngineSelection.avPlayer.preferFfmpegForHls, isFalse);
   });
 
   testWidgets('播放日志页显示当前运行日志', (tester) async {
