@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -439,7 +440,7 @@ class _ServerSwitchTransitionOverlayState
 
   static const _avatarFlightDuration = Duration(milliseconds: 460);
   static const _avatarHandoffDuration = Duration(milliseconds: 150);
-  static const _avatarFinishDuration = Duration(milliseconds: 520);
+  static const _avatarFinishDuration = Duration(milliseconds: 620);
 
   @override
   void initState() {
@@ -628,13 +629,37 @@ class _ServerSwitchTransitionOverlayState
               final finishProgress = Curves.easeInCubic.transform(
                 _finishController.value,
               );
-              final overlayProgress = isFinishing
-                  ? 1 - finishProgress
-                  : entryProgress;
+              if (isFinishing) {
+                return Material(
+                  color: Colors.transparent,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildRevealMask(
+                        isDark: isDark,
+                        viewport: constraints.biggest,
+                        progress: finishProgress,
+                      ),
+                      const Positioned.fill(
+                        child: ModalBarrier(
+                          dismissible: false,
+                          color: Colors.transparent,
+                        ),
+                      ),
+                      if (target != null)
+                        _buildFinishingAvatar(
+                          colors: appColors(context),
+                          server: target,
+                          progress: finishProgress,
+                        ),
+                    ],
+                  ),
+                );
+              }
+
+              final overlayProgress = entryProgress;
               final baseAlpha = isDark ? 0.62 : 0.72;
-              final contentOpacity = isFinishing
-                  ? 0.0
-                  : _entryOrigin == null
+              final contentOpacity = _entryOrigin == null
                   ? 1.0
                   : handoffProgress;
 
@@ -659,52 +684,51 @@ class _ServerSwitchTransitionOverlayState
                         color: Colors.transparent,
                       ),
                     ),
-                    if (!isFinishing)
-                      IgnorePointer(
-                        ignoring: contentOpacity < 1,
-                        child: Opacity(
-                          opacity: contentOpacity,
-                          child: SafeArea(
-                            child: Center(
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.fromLTRB(
-                                  24,
-                                  32,
-                                  24,
-                                  32,
+                    IgnorePointer(
+                      ignoring: contentOpacity < 1,
+                      child: Opacity(
+                        opacity: contentOpacity,
+                        child: SafeArea(
+                          child: Center(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.fromLTRB(
+                                24,
+                                32,
+                                24,
+                                32,
+                              ),
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 380,
                                 ),
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 380,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 260),
+                                  reverseDuration: const Duration(
+                                    milliseconds: 180,
                                   ),
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 260),
-                                    reverseDuration: const Duration(
-                                      milliseconds: 180,
-                                    ),
-                                    switchInCurve: Curves.easeOutCubic,
-                                    switchOutCurve: Curves.easeInCubic,
-                                    transitionBuilder: (child, animation) {
-                                      final slide = Tween<Offset>(
-                                        begin: const Offset(0, 0.025),
-                                        end: Offset.zero,
-                                      ).animate(animation);
-                                      return FadeTransition(
-                                        opacity: animation,
-                                        child: SlideTransition(
-                                          position: slide,
-                                          child: child,
-                                        ),
-                                      );
-                                    },
-                                    child: content,
-                                  ),
+                                  switchInCurve: Curves.easeOutCubic,
+                                  switchOutCurve: Curves.easeInCubic,
+                                  transitionBuilder: (child, animation) {
+                                    final slide = Tween<Offset>(
+                                      begin: const Offset(0, 0.025),
+                                      end: Offset.zero,
+                                    ).animate(animation);
+                                    return FadeTransition(
+                                      opacity: animation,
+                                      child: SlideTransition(
+                                        position: slide,
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                                  child: content,
                                 ),
                               ),
                             ),
                           ),
                         ),
                       ),
+                    ),
                     if (!isFinishing &&
                         target != null &&
                         localEntryOrigin != null &&
@@ -721,13 +745,6 @@ class _ServerSwitchTransitionOverlayState
                         ),
                         progress: entryProgress,
                         opacity: 1 - handoffProgress,
-                      ),
-                    if (isFinishing && target != null)
-                      _buildFinishingAvatar(
-                        colors: appColors(context),
-                        server: target,
-                        viewport: constraints.biggest,
-                        progress: finishProgress,
                       ),
                   ],
                 ),
@@ -772,37 +789,57 @@ class _ServerSwitchTransitionOverlayState
   Widget _buildFinishingAvatar({
     required AppColors colors,
     required ServerProfile server,
-    required Size viewport,
     required double progress,
   }) {
     final profile = _cachedProfileFor(server);
     final name = profile?.name.trim().isNotEmpty == true
         ? profile!.name.trim()
         : server.name;
-    final coverDiameter =
-        (viewport.width > viewport.height ? viewport.width : viewport.height) *
-        1.65;
-    final diameter = lerpDouble(136, coverDiameter, progress)!;
-    final fadeProgress = ((progress - 0.78) / 0.22).clamp(0.0, 1.0);
-    final opacity = 1 - Curves.easeInCubic.transform(fadeProgress);
-    return Positioned.fromRect(
-      rect: Rect.fromCenter(
-        center: viewport.center(Offset.zero),
-        width: diameter,
-        height: diameter,
-      ),
-      child: IgnorePointer(
+    final fadeProgress = Curves.easeInCubic.transform(
+      ((progress - 0.58) / 0.42).clamp(0.0, 1.0),
+    );
+    return IgnorePointer(
+      child: Center(
         child: Opacity(
-          opacity: opacity,
+          opacity: 1 - fadeProgress,
           child: ServerAvatar(
             displayName: name,
             avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
-            size: diameter,
+            // 圆形揭示范围扩大，头像本身保持固定尺寸，避免整张头像被
+            // 拉伸成全屏图层。
+            size: 136,
             colors: colors,
             project: server.project,
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildRevealMask({
+    required bool isDark,
+    required Size viewport,
+    required double progress,
+  }) {
+    final center = viewport.center(Offset.zero);
+    final farthestCornerDistance = [
+      (Offset.zero - center).distance,
+      (Offset(viewport.width, 0) - center).distance,
+      (Offset(0, viewport.height) - center).distance,
+      (Offset(viewport.width, viewport.height) - center).distance,
+    ].reduce(math.max);
+    final radius = lerpDouble(
+      68,
+      farthestCornerDistance + 2,
+      Curves.easeOutCubic.transform(progress),
+    )!;
+    return CustomPaint(
+      painter: _CircularRevealPainter(
+        color: isDark ? const Color(0xFF101114) : const Color(0xFFF7F8FA),
+        center: center,
+        radius: radius,
+      ),
+      child: const SizedBox.expand(),
     );
   }
 
@@ -1135,6 +1172,34 @@ class _ServerSwitchTransitionOverlayState
 
   ServerProfileData? _cachedProfileFor(ServerProfile server) {
     return ref.read(serverProfileCacheRepoProvider).load(server.id);
+  }
+}
+
+class _CircularRevealPainter extends CustomPainter {
+  const _CircularRevealPainter({
+    required this.color,
+    required this.center,
+    required this.radius,
+  });
+
+  final Color color;
+  final Offset center;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & size)
+      ..addOval(Rect.fromCircle(center: center, radius: radius));
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_CircularRevealPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.center != center ||
+        oldDelegate.radius != radius;
   }
 }
 

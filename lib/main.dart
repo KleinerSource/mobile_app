@@ -107,7 +107,8 @@ class OmmApp extends ConsumerWidget {
 ///
 /// 服务器内容使用 [MaterialPage]，复用 OMM 普通详情页的自适应页面返回手势：
 /// 拖动时上一页会持续绘制在下层，释放时可根据速度完成或取消，取消后还能
-/// 立即反向拖动。目录子页也使用相同的页面路由，因此不会再有两套手势逻辑。
+/// 立即反向拖动。服务器切换层是透明的零时长页面，视觉转场只由头像动画负责。
+/// 目录子页也使用相同的页面路由，因此不会再有两套手势逻辑。
 class _AppNavigator extends ConsumerStatefulWidget {
   const _AppNavigator();
 
@@ -165,18 +166,18 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
         child: ServerSelectionPage(),
       ),
       if (showContent && !isFileServer)
-        const MaterialPage<void>(
+        const _ServerContentPage<void>(
           key: _AppNavigator._mediaKey,
           child: _AuthenticatedMediaHome(),
         ),
       if (showContent && isFileServer)
-        const MaterialPage<void>(
+        const _ServerContentPage<void>(
           key: _AppNavigator._fileKey,
           name: fileManagerRootRouteName,
           child: _AuthenticatedFileHome(),
         ),
       if (serverSwitch.isActive)
-        const MaterialPage<void>(
+        const _NoTransitionPage<void>(
           key: _AppNavigator._switchKey,
           child: _AuthenticatedHomeWithServerSwitch(),
         ),
@@ -283,17 +284,85 @@ class _AppRouteObserver extends NavigatorObserver {
   }
 }
 
-class _AuthenticatedHomeWithServerSwitch extends StatelessWidget {
+class _NoTransitionPage<T> extends Page<T> {
+  const _NoTransitionPage({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Route<T> createRoute(BuildContext context) {
+    return PageRouteBuilder<T>(
+      settings: this,
+      opaque: false,
+      maintainState: true,
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+      pageBuilder: (context, animation, secondaryAnimation) => child,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          child,
+    );
+  }
+}
+
+class _ServerContentPage<T> extends Page<T> {
+  const _ServerContentPage({required this.child, super.key, super.name});
+
+  final Widget child;
+
+  @override
+  Route<T> createRoute(BuildContext context) {
+    return _ServerContentPageRoute<T>(page: this);
+  }
+}
+
+class _ServerContentPageRoute<T> extends PageRoute<T>
+    with MaterialRouteTransitionMixin<T> {
+  _ServerContentPageRoute({required this.page}) : super(settings: page);
+
+  final _ServerContentPage<T> page;
+
+  @override
+  Widget buildContent(BuildContext context) => page.child;
+
+  @override
+  bool get maintainState => true;
+
+  @override
+  Duration get transitionDuration =>
+      _disableTransitions ? Duration.zero : super.transitionDuration;
+
+  @override
+  Duration get reverseTransitionDuration =>
+      _disableTransitions ? Duration.zero : super.reverseTransitionDuration;
+
+  bool get _disableTransitions {
+    final navigatorContext = navigator?.context;
+    if (navigatorContext == null) return false;
+    return ProviderScope.containerOf(
+      navigatorContext,
+      listen: false,
+    ).read(serverSwitchTransitionProvider).isActive;
+  }
+}
+
+class _AuthenticatedHomeWithServerSwitch extends ConsumerWidget {
   const _AuthenticatedHomeWithServerSwitch();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isFinishing = ref.watch(
+      serverSwitchTransitionProvider.select(
+        (state) => state.phase == ServerSwitchPhase.finishing,
+      ),
+    );
     // 切换期间不能挂载媒体管理器 Shell：目标服务器尚未完成鉴权时，DBO 首页
-    // 会立即请求 recommend/latest 等受保护接口并产生 401。
+    // 会立即请求 recommend/latest 等受保护接口并产生 401。进入 finishing 后，
+    // 首页已经挂载在本透明路由下方，圆形揭示层才能把它显示出来。
     return Stack(
       fit: StackFit.expand,
       children: [
-        ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
+        if (!isFinishing)
+          ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
         const ServerSwitchTransitionOverlay(),
       ],
     );

@@ -24,41 +24,41 @@ PlaybackDecision _decision({required bool hls}) => PlaybackDecision(
 
 void main() {
   test('自动档先使用 direct_url(与引擎无关)', () {
-      final route = playbackRouteForQuality(
-        quality: 'auto',
-        decision: _decision(hls: true),
-      );
+    final route = playbackRouteForQuality(
+      quality: 'auto',
+      decision: _decision(hls: true),
+    );
 
-      expect(route.useBackendStream, isFalse);
-      expect(route.useServerRoute, isFalse);
-      expect(route.usesManagedTranscode, isFalse);
+    expect(route.useBackendStream, isFalse);
+    expect(route.useServerRoute, isFalse);
+    expect(route.usesManagedTranscode, isFalse);
   });
 
   test('原生和固定档采用服务端决策地址(与引擎无关)', () {
-      final originalDirect = playbackRouteForQuality(
-        quality: 'original',
-        decision: _decision(hls: false),
-      );
-      final originalTranscode = playbackRouteForQuality(
-        quality: 'original',
-        decision: _decision(hls: true),
-      );
-      final fixed = playbackRouteForQuality(
-        quality: '720p',
-        decision: _decision(hls: true),
-      );
+    final originalDirect = playbackRouteForQuality(
+      quality: 'original',
+      decision: _decision(hls: false),
+    );
+    final originalTranscode = playbackRouteForQuality(
+      quality: 'original',
+      decision: _decision(hls: true),
+    );
+    final fixed = playbackRouteForQuality(
+      quality: '720p',
+      decision: _decision(hls: true),
+    );
 
-      expect(originalDirect.useBackendStream, isTrue);
-      expect(originalDirect.useServerRoute, isFalse);
-      expect(originalDirect.usesManagedTranscode, isFalse);
-      for (final route in [originalTranscode, fixed]) {
-        expect(route.useBackendStream, isTrue);
-        expect(route.useServerRoute, isTrue);
-        expect(route.usesManagedTranscode, isTrue);
-      }
+    expect(originalDirect.useBackendStream, isTrue);
+    expect(originalDirect.useServerRoute, isFalse);
+    expect(originalDirect.usesManagedTranscode, isFalse);
+    for (final route in [originalTranscode, fixed]) {
+      expect(route.useBackendStream, isTrue);
+      expect(route.useServerRoute, isTrue);
+      expect(route.usesManagedTranscode, isTrue);
+    }
   });
 
-  test('后端 HLS 使用目标编码选择 KSPlayer 内部播放器', () {
+  test('HLS 统一选择 KSMEPlayer，直连文件按编码选择内核', () {
     const decision = PlaybackDecision(
       mode: 'transcode',
       streamUrl: 'https://example.com/stream.m3u8?quality=720p',
@@ -101,7 +101,8 @@ void main() {
         null,
         videoCodec: hlsInfo?.videoCodec,
       ),
-      'AVPlayer',
+      'KSMEPlayer',
+      reason: '网络 HLS（含后端转码）统一走 KSMEPlayer/FFmpeg',
     );
   });
 

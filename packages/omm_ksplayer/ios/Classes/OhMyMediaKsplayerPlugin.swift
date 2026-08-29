@@ -442,6 +442,12 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     if isLoopback {
       return true
     }
+    // 网络 HLS 统一交给 KSMEPlayer/FFmpeg：AVFoundation 对这类 AES-128
+    // 长片源在远距离定位时会陷入“持续下载但不再解码”的僵死（同流用
+    // libmpv/FFmpeg 定位完全正常），FFmpeg 路径与 libmpv 引擎行为一致。
+    if isHlsStream(url: url, formatHint: formatHint) {
+      return true
+    }
     if let videoCodec, isFfmpegVideoCodec(videoCodec) {
       return true
     }

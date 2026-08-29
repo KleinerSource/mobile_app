@@ -44,6 +44,14 @@ void main() {
     );
     expect(
       PlaybackMediaInfo.inferInternalPlayer(
+        'http://10.0.0.50:9090/api/video/x/online-play/playlist.m3u8?target=a',
+        null,
+      ),
+      'KSMEPlayer',
+      reason: '网络 HLS 统一走 KSMEPlayer/FFmpeg',
+    );
+    expect(
+      PlaybackMediaInfo.inferInternalPlayer(
         'https://example.com/video.mp4',
         'mp4',
         videoCodec: 'hevc',
