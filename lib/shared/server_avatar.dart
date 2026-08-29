@@ -13,7 +13,19 @@ String serverInitials(String value) {
   return String.fromCharCodes(runes.take(2));
 }
 
-/// 服务器头像: 渐变圆底 + 远程头像(首字母兜底) + 白色描边。
+/// 文件源协议的默认头像图标；媒体服务器等其余类型返回 null,继续用
+/// 首字母兜底。
+IconData? serverProjectIcon(ServerProject? project) {
+  return switch (project) {
+    ServerProject.smb => Icons.lan,
+    ServerProject.webDav => Icons.cloud_outlined,
+    ServerProject.openList => Icons.hub,
+    _ => null,
+  };
+}
+
+/// 服务器头像: 渐变圆底 + 远程头像(文件源用协议图标、其余用首字母
+/// 兜底) + 白色描边。
 ///
 /// 小尺寸(菜单行 ≤40)用细描边与大号首字母;大尺寸(>60)自动加投影、
 /// 更粗的描边并缩小首字母占比。[busy] 时轻微缩放;大尺寸把白色进度环
@@ -47,15 +59,22 @@ class ServerAvatar extends StatelessWidget {
     final fallbackForeground = Theme.of(context).brightness == Brightness.dark
         ? Colors.white
         : colors.surface;
+    final projectIcon = serverProjectIcon(project);
     final fallback = Center(
-      child: Text(
-        serverInitials(displayName),
-        style: TextStyle(
-          color: fallbackForeground,
-          fontSize: size * (isHeroSize ? 0.30 : 0.38),
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+      child: projectIcon == null
+          ? Text(
+              serverInitials(displayName),
+              style: TextStyle(
+                color: fallbackForeground,
+                fontSize: size * (isHeroSize ? 0.30 : 0.38),
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          : Icon(
+              projectIcon,
+              color: fallbackForeground,
+              size: size * (isHeroSize ? 0.42 : 0.52),
+            ),
     );
     final face = DecoratedBox(
       decoration: BoxDecoration(
