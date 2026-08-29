@@ -20,7 +20,31 @@ import 'package:omm/features/oh_my_media/libraries/libraries_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'home_providers.dart';
 
-enum ServerSwitchPhase { idle, checking, needsLogin, error, finishing }
+enum ServerSwitchPhase {
+  idle,
+  checking,
+  needsLogin,
+  error,
+  finishing,
+  returning,
+}
+
+/// 服务器切换转场共用的头像几何。所有阶段都以这套尺寸和屏幕中心为锚点，
+/// 避免飞行头像、鉴权头像和登录完成后的揭示头像出现跳变。
+abstract final class ServerSwitchTransitionMetrics {
+  static const avatarSize = 136.0;
+  static const avatarRadius = avatarSize / 2;
+
+  static Offset center(Size viewport) => viewport.center(Offset.zero);
+
+  static Rect avatarRect(Size viewport) {
+    return Rect.fromCenter(
+      center: center(viewport),
+      width: avatarSize,
+      height: avatarSize,
+    );
+  }
+}
 
 @immutable
 class ServerSwitchState {
@@ -85,6 +109,19 @@ class ServerSwitchState {
     bool returnToSelectionOnCancel = false,
   }) : this._(
          phase: ServerSwitchPhase.finishing,
+         targetServerId: targetServerId,
+         previousServerId: previousServerId,
+         avatarOrigin: avatarOrigin,
+         returnToSelectionOnCancel: returnToSelectionOnCancel,
+       );
+
+  const ServerSwitchState.returning({
+    required String targetServerId,
+    String? previousServerId,
+    Rect? avatarOrigin,
+    bool returnToSelectionOnCancel = false,
+  }) : this._(
+         phase: ServerSwitchPhase.returning,
          targetServerId: targetServerId,
          previousServerId: previousServerId,
          avatarOrigin: avatarOrigin,
@@ -177,7 +214,10 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     final current = state;
     final previousServerId = current.previousServerId;
     if (!current.isActive) return;
-    if (current.phase == ServerSwitchPhase.finishing) return;
+    if (current.phase == ServerSwitchPhase.finishing ||
+        current.phase == ServerSwitchPhase.returning) {
+      return;
+    }
     if (current.returnToSelectionOnCancel) {
       // 初始化选择器中的返回只取消本次目标服务器登录，不再尝试恢复
       // 上一台服务器。上一台服务器可能从未登录过，恢复它会把用户带回
@@ -186,7 +226,18 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       ref
           .read(serverConfigProvider.notifier)
           .showServerSelection(releaseResources: false);
-      state = const ServerSwitchState.idle();
+      // 没有可用的起点时无法做有意义的反向飞行，保留旧的同步行为。
+      // 正常选择器和首页快捷入口都会传入实际头像位置。
+      if (current.avatarOrigin == null) {
+        state = const ServerSwitchState.idle();
+        return;
+      }
+      state = ServerSwitchState.returning(
+        targetServerId: current.targetServerId!,
+        previousServerId: previousServerId,
+        avatarOrigin: current.avatarOrigin,
+        returnToSelectionOnCancel: true,
+      );
       return;
     }
 
@@ -328,6 +379,13 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     }
   }
 
+  /// 鉴权取消后的头像反向飞行结束后，由遮罩层解除切换状态。
+  void finishReturnTransition() {
+    if (state.phase == ServerSwitchPhase.returning) {
+      state = const ServerSwitchState.idle();
+    }
+  }
+
   Future<void> switchTo(
     String serverId, {
     bool allowActiveTarget = false,
@@ -434,12 +492,13 @@ class _ServerSwitchTransitionOverlayState
   String? _entryServerId;
   Rect? _entryOrigin;
   String? _finishingServerId;
+  String? _returningServerId;
   bool _loginBusy = false;
   bool _totpRequired = false;
   String? _localError;
 
   static const _avatarFlightDuration = Duration(milliseconds: 460);
-  static const _avatarHandoffDuration = Duration(milliseconds: 150);
+  static const _avatarHandoffDuration = Duration(milliseconds: 240);
   static const _avatarFinishDuration = Duration(milliseconds: 620);
 
   @override
@@ -493,6 +552,8 @@ class _ServerSwitchTransitionOverlayState
 
     if (transition.phase == ServerSwitchPhase.finishing) {
       _ensureFinishing(context, transition);
+    } else if (transition.phase == ServerSwitchPhase.returning) {
+      _ensureReturning(context, transition);
     } else {
       _ensureEntry(context, transition);
     }
@@ -517,6 +578,7 @@ class _ServerSwitchTransitionOverlayState
         transition.message,
       ),
       ServerSwitchPhase.finishing => const SizedBox.shrink(),
+      ServerSwitchPhase.returning => const SizedBox.shrink(),
       ServerSwitchPhase.idle => const SizedBox.shrink(),
     };
 
@@ -555,6 +617,10 @@ class _ServerSwitchTransitionOverlayState
         unawaited(
           _entryController.forward().then((_) {
             if (mounted && _entryServerId == targetServerId) {
+              if (ref.read(serverSwitchTransitionProvider).phase ==
+                  ServerSwitchPhase.returning) {
+                return;
+              }
               unawaited(_handoffController.forward());
             }
           }),
@@ -588,6 +654,49 @@ class _ServerSwitchTransitionOverlayState
             ref
                 .read(serverSwitchTransitionProvider.notifier)
                 .finishTransition();
+          }
+        }),
+      );
+    });
+  }
+
+  void _ensureReturning(BuildContext context, ServerSwitchState transition) {
+    final targetServerId = transition.targetServerId;
+    if (targetServerId == null || _returningServerId == targetServerId) return;
+
+    _returningServerId = targetServerId;
+    _entryController.stop();
+    _handoffController.stop();
+    _finishController.stop();
+    _handoffController.value = 0;
+
+    if (_entryOrigin == null || _entryController.value <= 0) {
+      _entryController.value = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _returningServerId == targetServerId) {
+          ref
+              .read(serverSwitchTransitionProvider.notifier)
+              .finishReturnTransition();
+        }
+      });
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _returningServerId != targetServerId) return;
+      if (MediaQuery.maybeOf(context)?.disableAnimations == true) {
+        _entryController.value = 0;
+        ref
+            .read(serverSwitchTransitionProvider.notifier)
+            .finishReturnTransition();
+        return;
+      }
+      unawaited(
+        _entryController.reverse().then((_) {
+          if (mounted && _returningServerId == targetServerId) {
+            ref
+                .read(serverSwitchTransitionProvider.notifier)
+                .finishReturnTransition();
           }
         }),
       );
@@ -657,9 +766,56 @@ class _ServerSwitchTransitionOverlayState
                 );
               }
 
+              if (transition.phase == ServerSwitchPhase.returning) {
+                final overlayProgress = entryProgress;
+                return Material(
+                  color: Colors.transparent,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      BackdropFilter(
+                        filter: ImageFilter.blur(
+                          sigmaX: 24 * overlayProgress,
+                          sigmaY: 24 * overlayProgress,
+                        ),
+                        child: ColoredBox(
+                          color: (isDark ? Colors.black : Colors.white)
+                              .withValues(
+                                alpha: (isDark ? 0.62 : 0.72) * overlayProgress,
+                              ),
+                        ),
+                      ),
+                      const Positioned.fill(
+                        child: ModalBarrier(
+                          dismissible: false,
+                          color: Colors.transparent,
+                        ),
+                      ),
+                      if (target != null && localEntryOrigin != null)
+                        _buildEntryAvatar(
+                          colors: appColors(context),
+                          server: target,
+                          origin: localEntryOrigin,
+                          destination: ServerSwitchTransitionMetrics.avatarRect(
+                            constraints.biggest,
+                          ),
+                          progress: entryProgress,
+                          opacity: 1,
+                        ),
+                    ],
+                  ),
+                );
+              }
+
               final overlayProgress = entryProgress;
               final baseAlpha = isDark ? 0.62 : 0.72;
               final contentOpacity = _entryOrigin == null
+                  ? 1.0
+                  : handoffProgress;
+              final contentOffset = _entryOrigin == null
+                  ? Offset.zero
+                  : Offset(0, (1 - handoffProgress) * 10);
+              final centralAvatarOpacity = _entryOrigin == null
                   ? 1.0
                   : handoffProgress;
 
@@ -684,47 +840,35 @@ class _ServerSwitchTransitionOverlayState
                         color: Colors.transparent,
                       ),
                     ),
+                    if (target != null)
+                      Positioned.fromRect(
+                        rect: ServerSwitchTransitionMetrics.avatarRect(
+                          constraints.biggest,
+                        ),
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: centralAvatarOpacity,
+                            child: _buildAvatar(
+                              colors: appColors(context),
+                              server: target,
+                              size: ServerSwitchTransitionMetrics.avatarSize,
+                              busy:
+                                  transition.phase ==
+                                      ServerSwitchPhase.checking ||
+                                  _loginBusy,
+                            ),
+                          ),
+                        ),
+                      ),
                     IgnorePointer(
                       ignoring: contentOpacity < 1,
                       child: Opacity(
                         opacity: contentOpacity,
-                        child: SafeArea(
-                          child: Center(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.fromLTRB(
-                                24,
-                                32,
-                                24,
-                                32,
-                              ),
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 380,
-                                ),
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 260),
-                                  reverseDuration: const Duration(
-                                    milliseconds: 180,
-                                  ),
-                                  switchInCurve: Curves.easeOutCubic,
-                                  switchOutCurve: Curves.easeInCubic,
-                                  transitionBuilder: (child, animation) {
-                                    final slide = Tween<Offset>(
-                                      begin: const Offset(0, 0.025),
-                                      end: Offset.zero,
-                                    ).animate(animation);
-                                    return FadeTransition(
-                                      opacity: animation,
-                                      child: SlideTransition(
-                                        position: slide,
-                                        child: child,
-                                      ),
-                                    );
-                                  },
-                                  child: content,
-                                ),
-                              ),
-                            ),
+                        child: Transform.translate(
+                          offset: contentOffset,
+                          child: _buildContentViewport(
+                            constraints: constraints,
+                            content: content,
                           ),
                         ),
                       ),
@@ -738,10 +882,8 @@ class _ServerSwitchTransitionOverlayState
                         colors: appColors(context),
                         server: target,
                         origin: localEntryOrigin,
-                        destination: Rect.fromCenter(
-                          center: constraints.biggest.center(Offset.zero),
-                          width: 136,
-                          height: 136,
+                        destination: ServerSwitchTransitionMetrics.avatarRect(
+                          constraints.biggest,
                         ),
                         progress: entryProgress,
                         opacity: 1 - handoffProgress,
@@ -752,6 +894,49 @@ class _ServerSwitchTransitionOverlayState
             },
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildContentViewport({
+    required BoxConstraints constraints,
+    required Widget content,
+  }) {
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    final contentTop =
+        constraints.biggest.height / 2 +
+        ServerSwitchTransitionMetrics.avatarRadius +
+        20;
+    return SizedBox.expand(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          contentTop,
+          24,
+          viewInsets.bottom + 32,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              reverseDuration: const Duration(milliseconds: 180),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                final slide = Tween<Offset>(
+                  begin: const Offset(0, 0.025),
+                  end: Offset.zero,
+                ).animate(animation);
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(position: slide, child: child),
+                );
+              },
+              child: content,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -786,30 +971,42 @@ class _ServerSwitchTransitionOverlayState
     );
   }
 
-  Widget _buildFinishingAvatar({
+  Widget _buildAvatar({
     required AppColors colors,
     required ServerProfile server,
-    required double progress,
+    required double size,
+    bool busy = false,
   }) {
     final profile = _cachedProfileFor(server);
     final name = profile?.name.trim().isNotEmpty == true
         ? profile!.name.trim()
         : server.name;
+    return ServerAvatar(
+      displayName: name,
+      avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
+      size: size,
+      busy: busy,
+      colors: colors,
+      project: server.project,
+    );
+  }
+
+  Widget _buildFinishingAvatar({
+    required AppColors colors,
+    required ServerProfile server,
+    required double progress,
+  }) {
     final fadeProgress = Curves.easeInCubic.transform(
-      ((progress - 0.58) / 0.42).clamp(0.0, 1.0),
+      ((progress - 0.16) / 0.26).clamp(0.0, 1.0),
     );
     return IgnorePointer(
       child: Center(
         child: Opacity(
           opacity: 1 - fadeProgress,
-          child: ServerAvatar(
-            displayName: name,
-            avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
-            // 圆形揭示范围扩大，头像本身保持固定尺寸，避免整张头像被
-            // 拉伸成全屏图层。
-            size: 136,
+          child: _buildAvatar(
             colors: colors,
-            project: server.project,
+            server: server,
+            size: ServerSwitchTransitionMetrics.avatarSize,
           ),
         ),
       ),
@@ -821,7 +1018,7 @@ class _ServerSwitchTransitionOverlayState
     required Size viewport,
     required double progress,
   }) {
-    final center = viewport.center(Offset.zero);
+    final center = ServerSwitchTransitionMetrics.center(viewport);
     final farthestCornerDistance = [
       (Offset.zero - center).distance,
       (Offset(viewport.width, 0) - center).distance,
@@ -829,7 +1026,7 @@ class _ServerSwitchTransitionOverlayState
       (Offset(viewport.width, viewport.height) - center).distance,
     ].reduce(math.max);
     final radius = lerpDouble(
-      68,
+      ServerSwitchTransitionMetrics.avatarRadius,
       farthestCornerDistance + 2,
       Curves.easeOutCubic.transform(progress),
     )!;
@@ -856,15 +1053,6 @@ class _ServerSwitchTransitionOverlayState
     return Column(
       key: const ValueKey('server-switch-checking'),
       children: [
-        ServerAvatar(
-          displayName: name,
-          avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
-          size: 112,
-          busy: true,
-          colors: colors,
-          project: server.project,
-        ),
-        const SizedBox(height: 20),
         Text(
           '连接 $name',
           textAlign: TextAlign.center,
@@ -895,24 +1083,14 @@ class _ServerSwitchTransitionOverlayState
     final name = profile?.name.trim().isNotEmpty == true
         ? profile!.name.trim()
         : server.name;
-    final avatar = profile?.avatarUrl ?? server.avatarUrl;
     final error =
         (_localError?.trim().isNotEmpty == true ? _localError : message)
             ?.trim();
-    // 布局与服务器选择页的详情场景保持一致：头像 136、名字 25 号、
-    // 副标题/表单间距同节奏，登录动画结束后的最终位置与选择页统一。
+    // 头像由外层转场统一绘制在屏幕中心，表单从头像下方淡入，避免
+    // 飞行头像交接到另一套纵向布局时发生跳变。
     return Column(
       key: const ValueKey('server-switch-login'),
       children: [
-        ServerAvatar(
-          displayName: name,
-          avatarUrl: avatar,
-          size: 136,
-          busy: _loginBusy,
-          colors: colors,
-          project: server.project,
-        ),
-        const SizedBox(height: 20),
         Text(
           name,
           textAlign: TextAlign.center,
@@ -1010,14 +1188,6 @@ class _ServerSwitchTransitionOverlayState
     return Column(
       key: const ValueKey('server-switch-error'),
       children: [
-        ServerAvatar(
-          displayName: name,
-          avatarUrl: profile?.avatarUrl ?? server.avatarUrl,
-          size: 96,
-          colors: colors,
-          project: server.project,
-        ),
-        const SizedBox(height: 18),
         Text(
           '无法连接 $name',
           textAlign: TextAlign.center,

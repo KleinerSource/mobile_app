@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/server_compatibility.dart';
@@ -161,7 +163,11 @@ void main() {
         );
 
     final transition = container.read(serverSwitchTransitionProvider.notifier);
-    await transition.switchTo(secondServer.id, returnToSelectionOnCancel: true);
+    await transition.switchTo(
+      secondServer.id,
+      avatarOrigin: const Rect.fromLTRB(24, 120, 117, 213),
+      returnToSelectionOnCancel: true,
+    );
     expect(
       container.read(serverSwitchTransitionProvider).phase,
       ServerSwitchPhase.needsLogin,
@@ -173,6 +179,11 @@ void main() {
       container.read(serverConfigProvider)?.activeServerId,
       secondServer.id,
     );
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.returning,
+    );
+    transition.finishReturnTransition();
     expect(
       container.read(serverSwitchTransitionProvider).phase,
       ServerSwitchPhase.idle,

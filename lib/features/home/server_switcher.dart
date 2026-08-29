@@ -48,6 +48,7 @@ class _HomeServerSwitcherMenu extends ConsumerStatefulWidget {
 class _HomeServerSwitcherMenuState
     extends ConsumerState<_HomeServerSwitcherMenu> {
   final _profileFutures = <String, Future<ServerProfileData?>>{};
+  final _avatarKey = GlobalKey();
 
   Future<ServerProfileData?> _loadProfile(ServerProfile server) async {
     final cached = _cachedProfileFor(server);
@@ -81,7 +82,19 @@ class _HomeServerSwitcherMenuState
   }
 
   Future<void> _selectServer(String serverId) async {
-    await ref.read(serverSwitchTransitionProvider.notifier).switchTo(serverId);
+    final avatarContext = _avatarKey.currentContext;
+    final renderObject = avatarContext?.findRenderObject();
+    final avatarOrigin = renderObject is RenderBox && renderObject.hasSize
+        ? Rect.fromLTWH(
+            renderObject.localToGlobal(Offset.zero).dx,
+            renderObject.localToGlobal(Offset.zero).dy,
+            renderObject.size.width,
+            renderObject.size.height,
+          )
+        : null;
+    await ref
+        .read(serverSwitchTransitionProvider.notifier)
+        .switchTo(serverId, avatarOrigin: avatarOrigin);
   }
 
   @override
@@ -121,17 +134,13 @@ class _HomeServerSwitcherMenuState
                 ),
               ),
           ],
-          child: AnimatedScale(
-            scale: transition.isActive ? 0.94 : 1,
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-            child: ServerAvatar(
-              displayName: displayName,
-              avatarUrl: avatarUrl,
-              size: 36,
-              colors: colors,
-              project: widget.activeServer.project,
-            ),
+          child: ServerAvatar(
+            key: _avatarKey,
+            displayName: displayName,
+            avatarUrl: avatarUrl,
+            size: 36,
+            colors: colors,
+            project: widget.activeServer.project,
           ),
         );
       },

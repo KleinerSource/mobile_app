@@ -561,7 +561,9 @@ class _ServerStrip extends StatelessWidget {
                     profileFuture: profileFor(servers[index]),
                     cachedProfile: cachedProfileFor(servers[index]),
                     avatarKey: avatarKeyFor(servers[index].id),
-                    busy: transition.targetServerId == servers[index].id,
+                    busy:
+                        transition.phase == ServerSwitchPhase.checking &&
+                        transition.targetServerId == servers[index].id,
                     onTap: () => onSelect(servers[index]),
                     onLongPress: () => onLongPress(servers[index]),
                   ),
