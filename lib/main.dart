@@ -345,26 +345,17 @@ class _ServerContentPageRoute<T> extends PageRoute<T>
   }
 }
 
-class _AuthenticatedHomeWithServerSwitch extends ConsumerWidget {
+class _AuthenticatedHomeWithServerSwitch extends StatelessWidget {
   const _AuthenticatedHomeWithServerSwitch();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isFinishing = ref.watch(
-      serverSwitchTransitionProvider.select(
-        (state) => state.phase == ServerSwitchPhase.finishing,
-      ),
-    );
+  Widget build(BuildContext context) {
     // 切换期间不能挂载媒体管理器 Shell：目标服务器尚未完成鉴权时，DBO 首页
-    // 会立即请求 recommend/latest 等受保护接口并产生 401。进入 finishing 后，
-    // 首页已经挂载在本透明路由下方，圆形揭示层才能把它显示出来。
-    return Stack(
+    // 会立即请求 recommend/latest 等受保护接口并产生 401。切换层保持透明，
+    // 由下方选择页作为头像飞行阶段的底图，进入 finishing 后再揭示已挂载的首页。
+    return const Stack(
       fit: StackFit.expand,
-      children: [
-        if (!isFinishing)
-          ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
-        const ServerSwitchTransitionOverlay(),
-      ],
+      children: [ServerSwitchTransitionOverlay()],
     );
   }
 }
