@@ -35,11 +35,10 @@ import '../oh_my_media/movie_detail/movie_detail_page.dart'
 import '../settings/server_selection_page.dart';
 import '../settings/settings_common.dart';
 import 'file_navigation.dart';
+import 'file_browser_preferences.dart';
 import 'file_image_preview_settings.dart';
 import 'file_playback_engine.dart';
 import 'file_playback_proxy.dart';
-
-enum _FileSortField { name, date, size, category }
 
 enum _BrowserMenuAction {
   createDirectory,
@@ -103,9 +102,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   FileOperation? _operation;
   bool _busy = false;
   bool _selectionMode = false;
-  bool _showHiddenFiles = false;
-  _FileSortField _sortField = _FileSortField.name;
-  bool _sortAscending = true;
+
+  FileBrowserPreferences get _browserPreferences =>
+      ref.read(fileBrowserPreferencesProvider(widget.serverId));
+
+  bool get _showHiddenFiles => _browserPreferences.showHiddenFiles;
+  FileBrowserSortField get _sortField => _browserPreferences.sortField;
+  bool get _sortAscending => _browserPreferences.sortAscending;
 
   FileDirectoryRequest get _request => FileDirectoryRequest(
     serverId: widget.serverId,
@@ -142,6 +145,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   Widget build(BuildContext context) {
     final listing = ref.watch(fileDirectoryProvider(_request));
     final source = ref.watch(fileSourceProvider(widget.sourceId.value));
+    final browserPreferences = ref.watch(
+      fileBrowserPreferencesProvider(widget.serverId),
+    );
     final imagePreviewEnabled = ref.watch(fileImagePreviewProvider);
     final currentDirectoryPath = listing.hasValue
         ? listing.requireValue.currentPath
@@ -214,28 +220,35 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
               ),
               CheckedPopupMenuItem<_BrowserMenuAction>(
                 value: _BrowserMenuAction.toggleHidden,
-                checked: _showHiddenFiles,
+                checked: browserPreferences.showHiddenFiles,
                 child: const Text('显示隐藏文件'),
               ),
               CheckedPopupMenuItem<_BrowserMenuAction>(
                 value: _BrowserMenuAction.sortName,
-                checked: _sortField == _FileSortField.name,
-                child: Text(_sortMenuLabel('名称', _FileSortField.name)),
+                checked:
+                    browserPreferences.sortField == FileBrowserSortField.name,
+                child: Text(_sortMenuLabel('名称', FileBrowserSortField.name)),
               ),
               CheckedPopupMenuItem<_BrowserMenuAction>(
                 value: _BrowserMenuAction.sortDate,
-                checked: _sortField == _FileSortField.date,
-                child: Text(_sortMenuLabel('日期', _FileSortField.date)),
+                checked:
+                    browserPreferences.sortField == FileBrowserSortField.date,
+                child: Text(_sortMenuLabel('日期', FileBrowserSortField.date)),
               ),
               CheckedPopupMenuItem<_BrowserMenuAction>(
                 value: _BrowserMenuAction.sortSize,
-                checked: _sortField == _FileSortField.size,
-                child: Text(_sortMenuLabel('大小', _FileSortField.size)),
+                checked:
+                    browserPreferences.sortField == FileBrowserSortField.size,
+                child: Text(_sortMenuLabel('大小', FileBrowserSortField.size)),
               ),
               CheckedPopupMenuItem<_BrowserMenuAction>(
                 value: _BrowserMenuAction.sortCategory,
-                checked: _sortField == _FileSortField.category,
-                child: Text(_sortMenuLabel('类别', _FileSortField.category)),
+                checked:
+                    browserPreferences.sortField ==
+                    FileBrowserSortField.category,
+                child: Text(
+                  _sortMenuLabel('类别', FileBrowserSortField.category),
+                ),
               ),
             ],
           );
@@ -481,30 +494,27 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         _enterSelectionMode();
       case _BrowserMenuAction.toggleHidden:
         if (_selectionMode) _exitSelection();
-        if (mounted) setState(() => _showHiddenFiles = !_showHiddenFiles);
+        ref
+            .read(fileBrowserPreferencesProvider(widget.serverId).notifier)
+            .toggleHiddenFiles();
       case _BrowserMenuAction.sortName:
-        _setSort(_FileSortField.name);
+        _setSort(FileBrowserSortField.name);
       case _BrowserMenuAction.sortDate:
-        _setSort(_FileSortField.date);
+        _setSort(FileBrowserSortField.date);
       case _BrowserMenuAction.sortSize:
-        _setSort(_FileSortField.size);
+        _setSort(FileBrowserSortField.size);
       case _BrowserMenuAction.sortCategory:
-        _setSort(_FileSortField.category);
+        _setSort(FileBrowserSortField.category);
     }
   }
 
-  void _setSort(_FileSortField field) {
-    setState(() {
-      if (_sortField == field) {
-        _sortAscending = !_sortAscending;
-      } else {
-        _sortField = field;
-        _sortAscending = true;
-      }
-    });
+  void _setSort(FileBrowserSortField field) {
+    ref
+        .read(fileBrowserPreferencesProvider(widget.serverId).notifier)
+        .setSort(field);
   }
 
-  String _sortMenuLabel(String label, _FileSortField field) {
+  String _sortMenuLabel(String label, FileBrowserSortField field) {
     if (_sortField != field) return '$label排序';
     return '$label排序 ${_sortAscending ? '↑' : '↓'}';
   }
@@ -521,13 +531,15 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
 
     final result = switch (_sortField) {
-      _FileSortField.name => _compareNames(a.name, b.name),
-      _FileSortField.date => _compareDates(
+      FileBrowserSortField.name => _compareNames(a.name, b.name),
+      FileBrowserSortField.date => _compareDates(
         a.modifiedAt ?? a.createdAt,
         b.modifiedAt ?? b.createdAt,
       ),
-      _FileSortField.size => (a.size ?? -1).compareTo(b.size ?? -1),
-      _FileSortField.category => _entryCategory(a).compareTo(_entryCategory(b)),
+      FileBrowserSortField.size => (a.size ?? -1).compareTo(b.size ?? -1),
+      FileBrowserSortField.category => _entryCategory(
+        a,
+      ).compareTo(_entryCategory(b)),
     };
     if (result != 0) return _sortAscending ? result : -result;
     return _compareNames(a.name, b.name);
