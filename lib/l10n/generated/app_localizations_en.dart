@@ -803,6 +803,9 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
+  String get fileOpenAsText => 'Open as text';
+
+  @override
   String get fileTextEdit => 'Edit';
 
   @override

@@ -1567,6 +1567,12 @@ abstract class AppL10n {
   /// **'文本预览失败：{error}'**
   String fileTextPreviewFailed(String error);
 
+  /// No description provided for @fileOpenAsText.
+  ///
+  /// In zh, this message translates to:
+  /// **'以文本方式打开'**
+  String get fileOpenAsText;
+
   /// No description provided for @fileTextEdit.
   ///
   /// In zh, this message translates to:

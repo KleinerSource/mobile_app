@@ -698,6 +698,88 @@ void main() {
     expect(find.text('文件详情'), findsNothing);
   });
 
+  testWidgets('无法识别的小文件可从详情打开文本查看器', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final request = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+    final source = _PreviewFileSource(sourceId, utf8.encode('未知文件内容'));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(
+            sourceId.value,
+          ).overrideWith((ref) async => source),
+          fileDirectoryProvider(request).overrideWith(
+            (ref) async => _listingWithEntry(
+              sourceId,
+              name: '未知文件.bin',
+              size: 5 * 1024 * 1024 - 1,
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('未知文件.bin'));
+    await tester.pumpAndSettle();
+    expect(find.text('以文本方式打开'), findsOneWidget);
+
+    await tester.tap(find.text('以文本方式打开'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SelectableText), findsOneWidget);
+    expect(find.text('未知文件内容'), findsOneWidget);
+  });
+
+  testWidgets('文件大小达到 5 MiB 时不提供以文本方式打开', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final request = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+          fileDirectoryProvider(request).overrideWith(
+            (ref) async => _listingWithEntry(
+              sourceId,
+              name: '未知文件.bin',
+              size: 5 * 1024 * 1024,
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('未知文件.bin'));
+    await tester.pumpAndSettle();
+    expect(find.text('以文本方式打开'), findsNothing);
+  });
+
   testWidgets('可识别文本直接打开文本查看器并格式化 JSON', (tester) async {
     final prefs = await _prefs();
     const serverId = 'smb-one';
@@ -1391,6 +1473,7 @@ DirectoryListing _listingWithEntry(
   SourceId sourceId, {
   required String name,
   String? mimeType,
+  int? size,
 }) => DirectoryListing(
   currentPath: FilePath(sourceId: sourceId, value: ''),
   breadcrumbs: [FilePath(sourceId: sourceId, value: '')],
@@ -1400,6 +1483,7 @@ DirectoryListing _listingWithEntry(
       name: name,
       type: FileEntryType.file,
       mimeType: mimeType,
+      size: size,
     ),
   ],
 );

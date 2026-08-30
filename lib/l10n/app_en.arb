@@ -282,6 +282,7 @@
   "@fileImagePreviewFailed": { "placeholders": { "error": { "type": "String" } } },
   "fileTextPreviewFailed": "Text preview failed: {error}",
   "@fileTextPreviewFailed": { "placeholders": { "error": { "type": "String" } } },
+  "fileOpenAsText": "Open as text",
   "fileTextEdit": "Edit",
   "fileTextSave": "Save",
   "fileTextSaving": "Saving...",

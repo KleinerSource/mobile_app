@@ -49,6 +49,8 @@ import 'file_image_preview_settings.dart';
 import 'file_playback_engine.dart';
 import 'file_playback_proxy.dart';
 
+const _maxFallbackTextBytes = 5 * 1024 * 1024;
+
 enum _BrowserMenuAction {
   forceRefresh,
   createDirectory,
@@ -1447,6 +1449,18 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                 ],
               ),
             ),
+            if (_canOpenAsText(entry))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 18, 22, 8),
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    unawaited(_previewText(entry));
+                  },
+                  icon: const Icon(Icons.text_snippet_outlined),
+                  label: Text(l.fileOpenAsText),
+                ),
+              ),
           ],
         ),
       ),
@@ -1460,6 +1474,11 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     }
     await _showDetails(entry);
   }
+
+  bool _canOpenAsText(FileEntry entry) =>
+      !entry.isDirectory &&
+      entry.size != null &&
+      entry.size! < _maxFallbackTextBytes;
 
   Future<void> _preview(FileEntry entry) async {
     if (_isVideoEntry(entry)) {

@@ -792,6 +792,9 @@ class AppL10nZh extends AppL10n {
   }
 
   @override
+  String get fileOpenAsText => '以文本方式打开';
+
+  @override
   String get fileTextEdit => '编辑';
 
   @override

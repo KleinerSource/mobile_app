@@ -282,6 +282,7 @@
   "@fileImagePreviewFailed": { "placeholders": { "error": { "type": "String" } } },
   "fileTextPreviewFailed": "文本预览失败：{error}",
   "@fileTextPreviewFailed": { "placeholders": { "error": { "type": "String" } } },
+  "fileOpenAsText": "以文本方式打开",
   "fileTextEdit": "编辑",
   "fileTextSave": "保存",
   "fileTextSaving": "保存中...",
