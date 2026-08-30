@@ -448,7 +448,7 @@ String fileIconPlaceholderAssetFor(FileEntry entry) {
 
 /// 关闭图片预览时使用的类型图标；未知类型使用统一未知图标。
 String? fileIconAssetWhenPreviewDisabledFor(FileEntry entry) {
-  if (entry.isDirectory) return null;
+  if (entry.isDirectory) return _folderPlaceholderAsset;
   return switch (fileTypeIconFor(entry)) {
     FileTypeIcon.video => _videoFileIconAsset,
     FileTypeIcon.text => _textFileIconAsset,

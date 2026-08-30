@@ -54,6 +54,12 @@ void main() {
 
   test('maps compact mode video, text, and image icons', () {
     expect(
+      fileIconAssetWhenPreviewDisabledFor(
+        entry('Movies', type: FileEntryType.directory),
+      ),
+      'assets/file_icons/folder_placeholder.png',
+    );
+    expect(
       fileIconAssetWhenPreviewDisabledFor(entry('clip.mp4')),
       'assets/file_icons/video_file_icon.png',
     );

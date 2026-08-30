@@ -18,9 +18,11 @@ String serverInitials(String value) {
 /// 首字母兜底。
 String? serverProjectAvatarAsset(ServerProject? project) {
   return switch (project) {
+    ServerProject.ohMyMedia => 'assets/branding/oh_my_media_logo.png',
     ServerProject.smb => 'assets/server_avatars/green_folder.png',
     ServerProject.webDav => 'assets/server_avatars/red_folder.png',
     ServerProject.openList => 'assets/server_avatars/logo.svg',
+    ServerProject.dbOnline => 'assets/server_avatars/dbo_default.jpg',
     _ => null,
   };
 }

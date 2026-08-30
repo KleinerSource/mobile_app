@@ -61,7 +61,5 @@ flutter:
   assets:
     - assets/legal/THIRD_PARTY_NOTICES.md
     - assets/branding/oh_my_media_logo.png
-    - assets/server_avatars/green_folder.png
-    - assets/server_avatars/red_folder.png
-    - assets/server_avatars/logo.svg
+    - assets/server_avatars/
     - assets/file_icons/

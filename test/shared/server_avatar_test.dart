@@ -58,8 +58,30 @@ void main() {
     }
   });
 
-  testWidgets('媒体服务器等其余类型仍用首字母兜底', (tester) async {
+  testWidgets('DBO 服务器无头像时使用默认图片头像', (tester) async {
+    await tester.pumpWidget(_wrap(project: ServerProject.dbOnline));
+    final image = tester.widget<Image>(find.byType(Image));
+    expect(
+      (image.image as AssetImage).assetName,
+      'assets/server_avatars/dbo_default.jpg',
+    );
+    expect(find.text('DBO'), findsOneWidget);
+    expect(find.text('NA'), findsNothing);
+  });
+
+  testWidgets('OMM 服务器无头像时使用项目图标', (tester) async {
     await tester.pumpWidget(_wrap(project: ServerProject.ohMyMedia));
+    final image = tester.widget<Image>(find.byType(Image));
+    expect(
+      (image.image as AssetImage).assetName,
+      'assets/branding/oh_my_media_logo.png',
+    );
+    expect(find.text('OMM'), findsOneWidget);
+    expect(find.text('NA'), findsNothing);
+  });
+
+  testWidgets('未识别服务器类型仍用首字母兜底', (tester) async {
+    await tester.pumpWidget(_wrap(project: null));
     expect(find.byType(Icon), findsNothing);
     expect(find.text('NA'), findsOneWidget);
   });
