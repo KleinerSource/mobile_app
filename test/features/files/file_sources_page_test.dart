@@ -461,6 +461,7 @@ void main() {
     await tester.tap(find.text('根目录'));
     await tester.pumpAndSettle();
     expect(find.text('目录 A'), findsOneWidget);
+    expect(find.text('子目录'), findsNothing);
   });
 
   testWidgets('移动文件起始位置默认在设置中提供切换入口', (tester) async {

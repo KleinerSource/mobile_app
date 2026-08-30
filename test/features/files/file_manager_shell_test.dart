@@ -10,6 +10,7 @@ import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/files/file_entry.dart';
 import 'package:omm/core/sources/files/file_source_providers.dart';
 import 'package:omm/features/files/file_browser_page.dart';
+import 'package:omm/features/files/file_entry_icons.dart';
 import 'package:omm/features/files/file_favorites.dart';
 import 'package:omm/features/files/file_favorites_page.dart';
 import 'package:omm/features/files/file_manager_shell.dart';
@@ -30,18 +31,21 @@ void main() {
     expect(tabBar.tabs.map((tab) => tab.label), ['文件管理', '收藏', '设置']);
     expect(find.text('文件管理'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.tap(find.byIcon(Icons.settings_rounded));
     await tester.pumpAndSettle();
     expect(find.text('设置'), findsNWidgets(2));
   });
 
   testWidgets('收藏 Tab 展示独立收藏列表并可取消收藏', (tester) async {
-    await _pumpShell(tester, favorites: [
-      _favorite('目录 A/收藏目录', directory: true),
-      _favorite('目录 A/目录 B/深层文件.txt'),
-    ]);
+    await _pumpShell(
+      tester,
+      favorites: [
+        _favorite('目录 A/收藏目录', directory: true),
+        _favorite('目录 A/目录 B/深层文件.txt'),
+      ],
+    );
 
-    await tester.tap(find.byIcon(Icons.star_outline_rounded));
+    await tester.tap(find.byIcon(Icons.star_rounded).last);
     await tester.pumpAndSettle();
 
     final page = find.byType(FileFavoritesPage);
@@ -68,7 +72,9 @@ void main() {
       findsNothing,
     );
 
-    await tester.tap(find.descendant(of: page, matching: find.byTooltip('取消收藏')));
+    await tester.tap(
+      find.descendant(of: page, matching: find.byTooltip('取消收藏')),
+    );
     await tester.pumpAndSettle();
     expect(
       find.descendant(of: page, matching: find.textContaining('还没有收藏')),
@@ -79,35 +85,36 @@ void main() {
   testWidgets('点击收藏目录切回文件 Tab 并逐级打开目录', (tester) async {
     await _pumpShell(tester, favorites: [_favorite('目录 A', directory: true)]);
 
-    await tester.tap(find.byIcon(Icons.star_outline_rounded));
+    await tester.tap(find.byIcon(Icons.star_rounded).last);
     await tester.pumpAndSettle();
     await tester.tap(
-      find.descendant(
-        of: find.byType(FileFavoritesPage),
-        matching: find.text('目录 A'),
-      ).first,
+      find
+          .descendant(
+            of: find.byType(FileFavoritesPage),
+            matching: find.text('目录 A'),
+          )
+          .first,
     );
     await tester.pumpAndSettle();
 
     expect(find.text('目录 B'), findsOneWidget);
     expect(find.text('根目录文件.txt'), findsNothing);
     // 被覆盖的下层根页面在导航栈中仍然保留。
-    expect(
-      find.byType(FileBrowserPage, skipOffstage: false),
-      findsNWidgets(2),
-    );
+    expect(find.byType(FileBrowserPage, skipOffstage: false), findsNWidgets(2));
   });
 
   testWidgets('点击收藏文件回到文件 Tab 并自动打开', (tester) async {
     await _pumpShell(tester, favorites: [_favorite('未知文件.bin')]);
 
-    await tester.tap(find.byIcon(Icons.star_outline_rounded));
+    await tester.tap(find.byIcon(Icons.star_rounded).last);
     await tester.pumpAndSettle();
     await tester.tap(
-      find.descendant(
-        of: find.byType(FileFavoritesPage),
-        matching: find.text('未知文件.bin'),
-      ).first,
+      find
+          .descendant(
+            of: find.byType(FileFavoritesPage),
+            matching: find.text('未知文件.bin'),
+          )
+          .first,
     );
     await tester.pumpAndSettle();
 
@@ -122,8 +129,28 @@ void main() {
 
     final browser = find.byType(FileBrowserPage);
     expect(
-      find.descendant(of: browser, matching: find.byIcon(Icons.star)),
+      find.descendant(of: browser, matching: find.byIcon(Icons.star_rounded)),
       findsOneWidget,
+    );
+    final favoriteBadge = find.descendant(
+      of: browser,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is FileEntryIconBadge && widget.isFavorite,
+      ),
+    );
+    expect(favoriteBadge, findsOneWidget);
+    final favoriteStar = find.descendant(
+      of: favoriteBadge,
+      matching: find.byIcon(Icons.star_rounded),
+    );
+    expect(favoriteStar, findsOneWidget);
+    expect(
+      tester.getTopLeft(favoriteStar).dx,
+      lessThan(tester.getTopLeft(favoriteBadge).dx + 16),
+    );
+    expect(
+      tester.getTopLeft(favoriteStar).dy,
+      lessThan(tester.getTopLeft(favoriteBadge).dy + 16),
     );
     expect(
       find.descendant(of: browser, matching: find.text('全部文件')),
@@ -131,11 +158,11 @@ void main() {
     );
   });
 
-  testWidgets('目录选择器根目录仍提供收藏目录快速选定', (tester) async {
+  testWidgets('目录选择器从底部导航进入收藏并手动提交子目录', (tester) async {
     final prefs = await _prefs();
-    await FileFavoritesRepository(prefs).save('file-server', [
-      _favorite('目录 A/目标目录', directory: true),
-    ]);
+    await FileFavoritesRepository(
+      prefs,
+    ).save('file-server', [_favorite('目录 A/目标目录', directory: true)]);
     const serverId = 'file-server';
     const sourceId = SourceId('file-source');
     FilePath? picked;
@@ -148,6 +175,20 @@ void main() {
           fileDirectoryProvider(
             const FileDirectoryRequest(serverId: serverId, sourceId: sourceId),
           ).overrideWith((ref) async => _rootListing(sourceId)),
+          fileDirectoryProvider(
+            const FileDirectoryRequest(
+              serverId: serverId,
+              sourceId: sourceId,
+              path: '目录 A/目标目录',
+            ),
+          ).overrideWith((ref) async => _favoriteTargetListing(sourceId)),
+          fileDirectoryProvider(
+            const FileDirectoryRequest(
+              serverId: serverId,
+              sourceId: sourceId,
+              path: '目录 A/目标目录/子目录',
+            ),
+          ).overrideWith((ref) async => _favoriteTargetChildListing(sourceId)),
         ],
         child: MaterialApp(
           locale: const Locale('zh'),
@@ -160,10 +201,10 @@ void main() {
                   onPressed: () async {
                     picked = await Navigator.of(context).push<FilePath>(
                       MaterialPageRoute<FilePath>(
-                        builder: (_) => const FileBrowserPage(
+                        builder: (_) => const FileMoveDestinationPage(
                           serverId: serverId,
                           sourceId: sourceId,
-                          directoryPicker: true,
+                          initialPath: '',
                         ),
                       ),
                     );
@@ -180,12 +221,25 @@ void main() {
 
     await tester.tap(find.text('打开选择器'));
     await tester.pumpAndSettle();
-    expect(find.text('收藏的目录'), findsOneWidget);
+    expect(find.text('收藏的目录'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.star_rounded).last);
+    await tester.pumpAndSettle();
     expect(find.text('目标目录'), findsOneWidget);
 
     await tester.tap(find.text('目标目录'));
     await tester.pumpAndSettle();
-    expect(picked?.value, '目录 A/目标目录');
+    expect(find.text('子目录'), findsOneWidget);
+    expect(picked, isNull);
+
+    await tester.tap(find.text('子目录'));
+    await tester.pumpAndSettle();
+    expect(find.text('此目录为空'), findsOneWidget);
+    expect(picked, isNull);
+
+    await tester.tap(find.byTooltip('选择此目录'));
+    await tester.pumpAndSettle();
+    expect(picked?.value, '目录 A/目标目录/子目录');
   });
 
   testWidgets('进入多级目录后悬浮导航仍然显示', (tester) async {
@@ -222,11 +276,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('目录 B'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.tap(find.byIcon(Icons.settings_rounded));
     await tester.pumpAndSettle();
     expect(find.text('服务器列表'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.folder_outlined).last);
+    await tester.tap(find.byIcon(Icons.folder_rounded).last);
     await tester.pumpAndSettle();
     expect(find.text('目录 B'), findsOneWidget);
     expect(find.text('根目录文件.txt'), findsNothing);
@@ -235,7 +289,7 @@ void main() {
   testWidgets('文件管理器设置页隐藏服务器设置和退出登录', (tester) async {
     await _pumpShell(tester);
 
-    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.tap(find.byIcon(Icons.settings_rounded));
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsPage), findsOneWidget);
@@ -409,3 +463,31 @@ DirectoryListing _levelTwoListing(SourceId sourceId) => DirectoryListing(
     ),
   ],
 );
+
+DirectoryListing _favoriteTargetListing(SourceId sourceId) => DirectoryListing(
+  currentPath: FilePath(sourceId: sourceId, value: '目录 A/目标目录'),
+  breadcrumbs: [
+    FilePath(sourceId: sourceId, value: ''),
+    FilePath(sourceId: sourceId, value: '目录 A'),
+    FilePath(sourceId: sourceId, value: '目录 A/目标目录'),
+  ],
+  entries: [
+    FileEntry(
+      path: FilePath(sourceId: sourceId, value: '目录 A/目标目录/子目录'),
+      name: '子目录',
+      type: FileEntryType.directory,
+    ),
+  ],
+);
+
+DirectoryListing _favoriteTargetChildListing(SourceId sourceId) =>
+    DirectoryListing(
+      currentPath: FilePath(sourceId: sourceId, value: '目录 A/目标目录/子目录'),
+      breadcrumbs: [
+        FilePath(sourceId: sourceId, value: ''),
+        FilePath(sourceId: sourceId, value: '目录 A'),
+        FilePath(sourceId: sourceId, value: '目录 A/目标目录'),
+        FilePath(sourceId: sourceId, value: '目录 A/目标目录/子目录'),
+      ],
+      entries: const [],
+    );

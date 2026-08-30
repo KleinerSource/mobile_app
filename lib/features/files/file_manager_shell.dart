@@ -54,9 +54,7 @@ class _FileManagerShellState extends ConsumerState<FileManagerShell> {
       webDav: favorite.path.startsWith('/'),
     );
     // 首个面包屑是根目录（由文件 Tab 根页面承载），文件还需去掉自身。
-    final chain = <FilePath>[
-      for (var i = 1; i < crumbs.length; i++) crumbs[i],
-    ];
+    final chain = <FilePath>[for (var i = 1; i < crumbs.length; i++) crumbs[i]];
     if (!favorite.isDirectory && chain.isNotEmpty) {
       chain.removeLast();
     }
@@ -125,15 +123,15 @@ class _FileManagerShellState extends ConsumerState<FileManagerShell> {
           tabs: [
             FloatingTabSpec<void>(
               label: l.tabFiles,
-              icon: Icons.folder_outlined,
+              icon: Icons.folder_rounded,
             ),
             FloatingTabSpec<void>(
               label: l.fileFavoritesSection,
-              icon: Icons.star_outline_rounded,
+              icon: Icons.star_rounded,
             ),
             FloatingTabSpec<void>(
               label: l.settingsTitle,
-              icon: Icons.settings_outlined,
+              icon: Icons.settings_rounded,
             ),
           ],
           active: _index,

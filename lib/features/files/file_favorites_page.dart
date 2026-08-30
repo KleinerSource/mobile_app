@@ -17,9 +17,16 @@ import 'file_favorites.dart';
 /// Shell 在文件 Tab 中打开：目录逐级进入，文件定位到所在目录并自动打开；
 /// 条目右侧的星标按钮可快速取消收藏。
 class FileFavoritesPage extends ConsumerStatefulWidget {
-  const FileFavoritesPage({super.key, required this.onOpenFavorite});
+  const FileFavoritesPage({
+    super.key,
+    required this.onOpenFavorite,
+    this.directoriesOnly = false,
+    this.sourceId,
+  });
 
   final ValueChanged<FileFavorite> onOpenFavorite;
+  final bool directoriesOnly;
+  final String? sourceId;
 
   @override
   ConsumerState<FileFavoritesPage> createState() => _FileFavoritesPageState();
@@ -44,7 +51,13 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
     final favorites = serverId == null
         ? const <FileFavorite>[]
         : ref.watch(fileFavoritesProvider(serverId));
-    final visible = _sorted(favorites);
+    final visible = _sorted(favorites)
+        .where(
+          (favorite) =>
+              (!widget.directoriesOnly || favorite.isDirectory) &&
+              (widget.sourceId == null || favorite.sourceId == widget.sourceId),
+        )
+        .toList(growable: false);
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -103,9 +116,7 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
   List<FileFavorite> _sorted(List<FileFavorite> favorites) {
     return [...favorites]..sort((a, b) {
       if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
-      final byAddedAt = b.addedAtMilliseconds.compareTo(
-        a.addedAtMilliseconds,
-      );
+      final byAddedAt = b.addedAtMilliseconds.compareTo(a.addedAtMilliseconds);
       if (byAddedAt != 0) return byAddedAt;
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
@@ -113,7 +124,6 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
 
   Widget _favoriteTile(FileFavorite favorite, String serverId) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     final l = AppL10n.of(context);
     final entry = favorite.toEntry(SourceId(favorite.sourceId));
     final location = favorite.path.replaceFirst(RegExp(r'^/+'), '');
@@ -123,30 +133,34 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
         : l.fileRootDirectory;
     final starColor = AppHues.chipText(AppHues.solar, theme.brightness);
     return ListTile(
-      leading: Icon(
-        favorite.isDirectory ? Icons.folder_outlined : fileIconFor(entry),
-        color: favorite.isDirectory
-            ? colors.primary
-            : fileIconColorFor(entry, theme.brightness),
-      ),
-      title: Text(
-        favorite.name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
+      leading: FileEntryIconBadge(entry: entry, isFavorite: true),
+      title: Text(favorite.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         locationLabel,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: IconButton(
-        tooltip: l.fileUnfavorite,
-        onPressed: () {
-          ref
-              .read(fileFavoritesProvider(serverId).notifier)
-              .remove(favorite.stableKey);
-        },
-        icon: Icon(Icons.star, color: starColor),
+      trailing: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: starColor.withValues(
+            alpha: theme.brightness == Brightness.dark ? 0.18 : 0.10,
+          ),
+          shape: BoxShape.circle,
+          border: Border.all(color: starColor.withValues(alpha: 0.18)),
+        ),
+        child: IconButton(
+          tooltip: l.fileUnfavorite,
+          padding: EdgeInsets.zero,
+          onPressed: () {
+            ref
+                .read(fileFavoritesProvider(serverId).notifier)
+                .remove(favorite.stableKey);
+          },
+          icon: Icon(Icons.star_rounded, color: starColor, size: 20),
+        ),
       ),
       onTap: () => widget.onOpenFavorite(favorite),
     );

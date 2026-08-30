@@ -96,26 +96,116 @@ String? fileExtensionFor(String name) {
   return name.substring(dot + 1).toLowerCase();
 }
 
+/// 文件条目的现代化图标徽章。
+///
+/// 用统一的圆角色块承载文件类型图标，收藏状态以左上角浮动星标表示。
+/// [child] 用于在同一徽章中承载图片缩略图。
+class FileEntryIconBadge extends StatelessWidget {
+  const FileEntryIconBadge({
+    super.key,
+    required this.entry,
+    this.child,
+    this.isFavorite = false,
+    this.width = 44,
+    this.height = 44,
+  });
+
+  final FileEntry entry;
+  final Widget? child;
+  final bool isFavorite;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = appColors(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final iconColor = fileIconColorFor(entry, theme.brightness);
+    final radius = width >= 60 ? 12.0 : 14.0;
+    final badge = DecoratedBox(
+      decoration: BoxDecoration(
+        color: iconColor.withValues(alpha: isDark ? 0.20 : 0.10),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: iconColor.withValues(alpha: isDark ? 0.34 : 0.18),
+        ),
+      ),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child:
+            child ??
+            Center(
+              child: Icon(
+                entry.isDirectory ? Icons.folder_rounded : fileIconFor(entry),
+                color: iconColor,
+                size: width >= 60 ? 24 : 22,
+              ),
+            ),
+      ),
+    );
+
+    if (!isFavorite) return badge;
+
+    final starColor = AppHues.chipText(AppHues.solar, theme.brightness);
+    final starSurface = isDark ? const Color(0xFF2C293A) : Colors.white;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        badge,
+        Positioned(
+          left: -5,
+          top: -5,
+          child: Container(
+            width: 21,
+            height: 21,
+            decoration: BoxDecoration(
+              color: starSurface,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: c.bg.withValues(alpha: isDark ? 0.9 : 0.75),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.34 : 0.14),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            alignment: Alignment.center,
+            child: Icon(Icons.star_rounded, color: starColor, size: 13),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 IconData fileIconFor(FileEntry entry) {
   return switch (fileTypeIconFor(entry)) {
-    FileTypeIcon.text => Icons.description_outlined,
-    FileTypeIcon.video => Icons.movie_outlined,
-    FileTypeIcon.image => Icons.image_outlined,
-    FileTypeIcon.subtitle => Icons.closed_caption_outlined,
+    FileTypeIcon.text => Icons.article_rounded,
+    FileTypeIcon.video => Icons.movie_rounded,
+    FileTypeIcon.image => Icons.photo_rounded,
+    FileTypeIcon.subtitle => Icons.subtitles_rounded,
     FileTypeIcon.other =>
       (entry.mimeType?.trim().toLowerCase().startsWith('audio/') ?? false)
-          ? Icons.music_note_outlined
-          : Icons.insert_drive_file_outlined,
+          ? Icons.audio_file_rounded
+          : Icons.insert_drive_file_rounded,
   };
 }
 
 Color fileIconColorFor(FileEntry entry, Brightness brightness) {
-  final hue = switch (fileTypeIconFor(entry)) {
-    FileTypeIcon.text => AppHues.sky,
-    FileTypeIcon.video => AppHues.coral,
-    FileTypeIcon.image => AppHues.mint,
-    FileTypeIcon.subtitle => AppHues.solar,
-    FileTypeIcon.other => AppHues.lavender,
-  };
+  final hue = entry.isDirectory
+      ? AppHues.sky
+      : switch (fileTypeIconFor(entry)) {
+          FileTypeIcon.text => AppHues.sky,
+          FileTypeIcon.video => AppHues.coral,
+          FileTypeIcon.image => AppHues.mint,
+          FileTypeIcon.subtitle => AppHues.solar,
+          FileTypeIcon.other => AppHues.lavender,
+        };
   return AppHues.chipText(hue, brightness);
 }
