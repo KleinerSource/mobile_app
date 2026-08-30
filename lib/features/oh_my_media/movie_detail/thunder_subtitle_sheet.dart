@@ -134,32 +134,73 @@ class _ThunderSubtitleSheetState extends ConsumerState<ThunderSubtitleSheet> {
     setState(() => _downloadingIndex = index);
     final messenger =
         widget.hostMessenger ?? ScaffoldMessenger.maybeOf(context);
+    var shouldOverwrite = overwrite;
     try {
-      await ref
-          .read(mediaRepositoryProvider)
-          .downloadSubtitle(
-            widget.movieId,
-            url: item.url,
-            ext: item.ext ?? 'srt',
-            overwrite: overwrite,
+      while (true) {
+        try {
+          await ref
+              .read(mediaRepositoryProvider)
+              .downloadSubtitle(
+                widget.movieId,
+                url: item.url,
+                ext: item.ext ?? 'srt',
+                overwrite: shouldOverwrite,
+              );
+          // ignore: unused_result
+          ref.refresh(movieDetailProvider(widget.movieId));
+          if (mounted) Navigator.of(context).pop();
+          messenger?.showSnackBar(
+            SnackBar(
+              content: Text('已下载 ${item.name}'),
+              duration: const Duration(seconds: 1),
+            ),
           );
-      // ignore: unused_result
-      ref.refresh(movieDetailProvider(widget.movieId));
-      if (mounted) Navigator.of(context).pop();
-      messenger?.showSnackBar(
-        SnackBar(
-          content: Text('已下载 ${item.name}'),
-          duration: const Duration(seconds: 1),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      messenger?.showSnackBar(
-        SnackBar(content: Text('下载失败: ${toApiException(e).message}')),
-      );
+          return;
+        } catch (e) {
+          if (!shouldOverwrite && _isSubtitleAlreadyExistsError(e) && mounted) {
+            final confirmed = await _confirmOverwrite();
+            if (confirmed == true && mounted) {
+              shouldOverwrite = true;
+              continue;
+            }
+            return;
+          }
+          if (!mounted) return;
+          messenger?.showSnackBar(
+            SnackBar(content: Text('下载失败: ${toApiException(e).message}')),
+          );
+          return;
+        }
+      }
     } finally {
       if (mounted) setState(() => _downloadingIndex = null);
     }
+  }
+
+  Future<bool?> _confirmOverwrite() {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('字幕已存在'),
+        content: const Text('同名字幕文件已存在，是否覆盖？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('覆盖'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _isSubtitleAlreadyExistsError(Object error) {
+    final message = toApiException(error).message;
+    return message.contains('已存在') ||
+        RegExp(r'SUBTITLE_EXISTS', caseSensitive: false).hasMatch(message);
   }
 
   int? _resolveDurationMs(SubtitleSearchItem item) {
