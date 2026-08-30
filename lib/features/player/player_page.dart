@@ -1706,12 +1706,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   void _restartHideTimer() {
     _hideTimer?.cancel();
+    if (_isAudioPlayback) return;
     _hideTimer = Timer(const Duration(seconds: 3), () {
       if (mounted) setState(() => _controlsVisible = false);
     });
   }
 
   void _toggleControls() {
+    if (_isAudioPlayback) return;
     if (_controlsVisible) {
       _hideTimer?.cancel();
       setState(() => _controlsVisible = false);

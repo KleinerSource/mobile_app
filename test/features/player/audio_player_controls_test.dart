@@ -95,8 +95,9 @@ void main() {
     expect(find.byIcon(Icons.forward_10), findsOneWidget);
     expect(find.byIcon(Icons.skip_next), findsOneWidget);
     expect(find.byIcon(Icons.repeat), findsOneWidget);
-    expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsOneWidget);
+    expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
+    expect(find.byIcon(Icons.more_horiz), findsNothing);
     expect(find.text('正在播放.mp3'), findsOneWidget);
     expect(find.byIcon(Icons.phone_android), findsNothing);
     expect(find.byIcon(Icons.high_quality_outlined), findsNothing);

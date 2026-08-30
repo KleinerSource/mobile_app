@@ -13,8 +13,6 @@ import 'player_session_controller.dart';
 
 enum _SubtitleMenuAction { openSettings }
 
-enum _AudioMenuAction { shuffle, repeat }
-
 /// 播放器控制层 · 顶部页面操作 + 底部媒体信息、进度和主播放控制。
 ///
 /// 控制层只覆盖顶部和底部，中央区域始终留给手势层。
@@ -225,59 +223,15 @@ class _PlayerControlsState extends State<PlayerControls> {
           child: Row(
             children: [
               _topActionButton(
-                icon: Icons.keyboard_arrow_down_rounded,
+                icon: Icons.close,
                 tooltip: '退出播放',
                 onPressed: widget.onExit,
               ),
-              const Spacer(),
-              _audioMoreButton(context),
             ],
           ),
         ),
         Positioned(right: 24, bottom: 18, left: 24, child: _audioBottomBar()),
       ],
-    );
-  }
-
-  Widget _audioMoreButton(BuildContext context) {
-    final foreground = _foreground(context);
-    return PopupMenuButton<_AudioMenuAction>(
-      tooltip: '更多播放选项',
-      enableFeedback: false,
-      padding: EdgeInsets.zero,
-      onSelected: (action) {
-        PlayerHaptics.selection();
-        switch (action) {
-          case _AudioMenuAction.shuffle:
-            widget.onShuffleToggle?.call();
-          case _AudioMenuAction.repeat:
-            widget.onRepeatToggle?.call();
-        }
-        widget.onInteraction();
-      },
-      itemBuilder: (context) => [
-        if (widget.showShuffleButton && widget.onShuffleToggle != null)
-          PopupMenuItem<_AudioMenuAction>(
-            value: _AudioMenuAction.shuffle,
-            child: Text(widget.shuffleEnabled ? '关闭随机播放' : '开启随机播放'),
-          ),
-        if (widget.showRepeatButton && widget.onRepeatToggle != null)
-          PopupMenuItem<_AudioMenuAction>(
-            value: _AudioMenuAction.repeat,
-            child: Text(switch (widget.repeatMode) {
-              PlaybackRepeatMode.off => '循环：关闭',
-              PlaybackRepeatMode.one => '循环：单曲',
-              PlaybackRepeatMode.all => '循环：列表',
-            }),
-          ),
-      ],
-      child: SizedBox(
-        width: 46,
-        height: 46,
-        child: Center(
-          child: Icon(Icons.more_horiz, color: foreground, size: 28),
-        ),
-      ),
     );
   }
 
