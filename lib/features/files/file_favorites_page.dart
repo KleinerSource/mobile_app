@@ -201,8 +201,8 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
     );
   }
 
-  /// 拖拽代理浮起：行本身透明，浮起时补实底并加投影，浮起曲线与圆角
-  /// 与服务器列表的拖拽卡片保持一致。
+  /// 拖拽代理浮起：行平时透明，浮起时替换成与服务器列表行一致的分组
+  /// 卡外观（surface 底 + cardBorder 边框 + 16 圆角 + 同款投影曲线）。
   Widget _dragProxyDecorator(
     Widget child,
     int index,
@@ -219,7 +219,13 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
           shadowColor: Colors.black,
           elevation: elevation,
           borderRadius: BorderRadius.circular(16),
-          child: child,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.cardBorder),
+            ),
+            child: child,
+          ),
         );
       },
     );
