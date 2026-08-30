@@ -14,6 +14,7 @@ import '../i18n/theme_provider.dart';
 import '../privacy/privacy_providers.dart';
 import '../security/security_settings_page.dart';
 import '../files/file_image_preview_settings.dart';
+import '../files/file_move_start_settings.dart';
 import 'badge_position_page.dart';
 import 'cache_management_page.dart';
 import 'haptic_settings.dart';
@@ -48,8 +49,8 @@ class AppSettingsPage extends ConsumerWidget {
                     const _PrivacyShieldTile(),
                     const _ShakePrivacyTile(),
                     SettingsTile(
-                      title: '安全设置',
-                      subtitle: '面容/指纹、进入密码、手势密码',
+                      title: l.settingsSecurity,
+                      subtitle: l.settingsSecuritySub,
                       leadingIcon: Icons.lock_outline,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
@@ -60,7 +61,7 @@ class AppSettingsPage extends ConsumerWidget {
                   ],
                 ),
                 SettingsGroup(
-                  title: '通用',
+                  title: l.settingsGroupGeneral,
                   items: [
                     const _LanguageTile(),
                     const _ThemeTile(),
@@ -76,8 +77,8 @@ class AppSettingsPage extends ConsumerWidget {
                       ),
                     ),
                     SettingsTile(
-                      title: '海报角标显示',
-                      subtitle: '编码 / HDR / STRM / 字幕 / 破解 / HD',
+                      title: l.settingsPosterBadges,
+                      subtitle: l.settingsPosterBadgesSub,
                       leadingIcon: Icons.local_offer_outlined,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
@@ -87,16 +88,16 @@ class AppSettingsPage extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SettingsGroup(
-                  title: '文件管理器',
-                  items: [_FileImagePreviewTile()],
+                SettingsGroup(
+                  title: l.settingsGroupFileManager,
+                  items: const [_FileImagePreviewTile(), _FileMoveStartTile()],
                 ),
                 SettingsGroup(
-                  title: '播放器',
+                  title: l.settingsGroupPlayer,
                   items: [
                     SettingsTile(
-                      title: '播放器设置',
-                      subtitle: '播放进度 / 屏幕方向 / OSD / 播放按钮 / 手势反馈',
+                      title: l.settingsPlayerSettings,
+                      subtitle: l.settingsPlayerSettingsSub,
                       leadingIcon: Icons.play_circle_outline,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
@@ -105,8 +106,8 @@ class AppSettingsPage extends ConsumerWidget {
                       ),
                     ),
                     SettingsTile(
-                      title: '字幕设置',
-                      subtitle: '记忆选择 / 字体 / 颜色 / 描边 / 阴影',
+                      title: l.settingsSubtitleSettings,
+                      subtitle: l.settingsSubtitleSettingsSub,
                       leadingIcon: Icons.subtitles_outlined,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
@@ -115,8 +116,8 @@ class AppSettingsPage extends ConsumerWidget {
                       ),
                     ),
                     SettingsTile(
-                      title: '缓存管理',
-                      subtitle: '磁盘缓存额度 / 缓存分类 / 一键清理',
+                      title: l.settingsCacheManagement,
+                      subtitle: l.settingsCacheManagementSub,
                       leadingIcon: Icons.cleaning_services_outlined,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
@@ -336,8 +337,8 @@ class _HapticIntensityTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final current = ref.watch(hapticIntensityProvider);
     return SettingsTile(
-      title: '震动反馈强度',
-      subtitle: '当前：${current.label}',
+      title: AppL10n.of(context).settingsHapticIntensity,
+      subtitle: AppL10n.of(context).settingsHapticCurrent(current.label),
       leadingIcon: Icons.vibration,
       trailing: SizedBox(
         width: 178,
@@ -361,9 +362,10 @@ class _FileImagePreviewTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final enabled = ref.watch(fileImagePreviewProvider);
+    final l = AppL10n.of(context);
     return SettingsTile(
-      title: '图片预览',
-      subtitle: '在文件列表中显示图片缩略图',
+      title: l.settingsImagePreview,
+      subtitle: l.settingsImagePreviewSub,
       leadingIcon: Icons.image_outlined,
       trailing: SettingsSwitch(
         value: enabled,
@@ -371,6 +373,95 @@ class _FileImagePreviewTile extends ConsumerWidget {
             ref.read(fileImagePreviewProvider.notifier).setEnabled(value),
       ),
     );
+  }
+}
+
+class _FileMoveStartTile extends ConsumerWidget {
+  const _FileMoveStartTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final location = ref.watch(fileMoveStartProvider);
+    final l = AppL10n.of(context);
+    return SettingsTile(
+      title: l.settingsMoveStartLocation,
+      subtitle: _labelOf(location, l),
+      leadingIcon: Icons.drive_file_move_outlined,
+      onTap: () => _showSheet(context, ref, location),
+    );
+  }
+
+  String _labelOf(FileMoveStartLocation location, AppL10n l) {
+    return switch (location) {
+      FileMoveStartLocation.root => l.settingsMoveStartCurrentRoot,
+      FileMoveStartLocation.current => l.settingsMoveStartCurrentHere,
+    };
+  }
+
+  Future<void> _showSheet(
+    BuildContext context,
+    WidgetRef ref,
+    FileMoveStartLocation current,
+  ) async {
+    final c = appColors(context);
+    final l = AppL10n.of(context);
+    final picked = await showGlassSheet<FileMoveStartLocation>(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SheetHeader(
+                icon: Icons.drive_file_move_outlined,
+                title: l.settingsMoveStartLocation,
+                padding: const EdgeInsets.fromLTRB(22, 4, 22, 14),
+              ),
+              for (final location in FileMoveStartLocation.values)
+                ListTile(
+                  leading: Icon(
+                    location == FileMoveStartLocation.root
+                        ? Icons.home_outlined
+                        : Icons.folder_open_outlined,
+                    color: c.muted,
+                    size: 20,
+                  ),
+                  title: Text(
+                    _locationLabel(location, l),
+                    style: AppText.body(
+                      ctx,
+                    ).copyWith(color: c.text, fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(_locationSubtitle(location, l)),
+                  trailing: location == current
+                      ? Icon(Icons.check, color: c.accent)
+                      : null,
+                  onTap: () => Navigator.pop(ctx, location),
+                ),
+              const SizedBox(height: 6),
+            ],
+          ),
+        );
+      },
+    );
+    if (picked != null && picked != current) {
+      AppHaptics.selection();
+      await ref.read(fileMoveStartProvider.notifier).setLocation(picked);
+    }
+  }
+
+  static String _locationLabel(FileMoveStartLocation location, AppL10n l) {
+    return switch (location) {
+      FileMoveStartLocation.root => l.fileRootDirectory,
+      FileMoveStartLocation.current => l.settingsMoveStartHere,
+    };
+  }
+
+  static String _locationSubtitle(FileMoveStartLocation location, AppL10n l) {
+    return switch (location) {
+      FileMoveStartLocation.root => l.settingsMoveStartRootSub,
+      FileMoveStartLocation.current => l.settingsMoveStartHereSub,
+    };
   }
 }
 

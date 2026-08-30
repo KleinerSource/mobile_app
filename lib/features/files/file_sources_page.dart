@@ -5,6 +5,7 @@ import '../../core/config/server_config_provider.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/sources/files/file_source_providers.dart';
 import '../../core/sources/common/source_exception.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/floating_tab_bar.dart';
 import '../../shared/glow_background.dart';
 import 'file_browser_page.dart';
@@ -73,9 +74,9 @@ class _FileSourcesShell extends StatelessWidget {
         child: SafeArea(
           bottom: false,
           child: SettingsFixedHeaderLayout(
-            header: const SettingsSubPageHeader(
-              eyebrow: '文件',
-              title: '文件列表',
+            header: SettingsSubPageHeader(
+              eyebrow: AppL10n.of(context).fileEyebrow,
+              title: AppL10n.of(context).fileListTitle,
               showBackButton: false,
             ),
             body: Padding(
@@ -98,6 +99,7 @@ class _NoFileServer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return _FileSourcesShell(
       body: Center(
         child: Padding(
@@ -107,12 +109,12 @@ class _NoFileServer extends StatelessWidget {
             children: [
               const Icon(Icons.folder_off_outlined, size: 48),
               const SizedBox(height: 12),
-              const Text('当前服务器不是文件服务器'),
+              Text(l.fileNotFileServer),
               const SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: onSelectServer,
                 icon: const Icon(Icons.swap_horiz),
-                label: const Text('选择文件服务器'),
+                label: Text(l.fileChooseFileServer),
               ),
             ],
           ),
@@ -130,6 +132,7 @@ class _MissingFileSource extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return _FileSourcesShell(
       body: Center(
         child: Padding(
@@ -139,15 +142,18 @@ class _MissingFileSource extends StatelessWidget {
             children: [
               const Icon(Icons.folder_off_outlined, size: 48),
               const SizedBox(height: 12),
-              const Text('当前服务器没有可用的文件来源'),
+              Text(l.fileNoAvailableSource),
               const SizedBox(height: 16),
               Wrap(
                 spacing: 8,
                 children: [
-                  OutlinedButton(onPressed: onRetry, child: const Text('重试')),
+                  OutlinedButton(
+                    onPressed: onRetry,
+                    child: Text(l.fileRetry),
+                  ),
                   FilledButton(
                     onPressed: onConfigure,
-                    child: const Text('返回服务器选择'),
+                    child: Text(l.fileBackToServers),
                   ),
                 ],
               ),
@@ -172,6 +178,7 @@ class _FileError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     return _FileSourcesShell(
       body: Center(
         child: Padding(
@@ -184,10 +191,13 @@ class _FileError extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 children: [
-                  OutlinedButton(onPressed: onRetry, child: const Text('重试')),
+                  OutlinedButton(
+                    onPressed: onRetry,
+                    child: Text(l.fileRetry),
+                  ),
                   FilledButton(
                     onPressed: onConfigure,
-                    child: const Text('管理服务器'),
+                    child: Text(l.fileManageServers),
                   ),
                 ],
               ),

@@ -11,7 +11,9 @@ import 'package:omm/core/sources/files/file_capabilities.dart';
 import 'package:omm/core/sources/files/file_source.dart';
 import 'package:omm/core/sources/files/file_source_providers.dart';
 import 'package:omm/features/files/file_browser_page.dart';
+import 'package:omm/features/files/file_move_start_settings.dart';
 import 'package:omm/features/files/file_sources_page.dart';
+import 'package:omm/features/settings/app_settings_page.dart';
 import 'package:omm/features/settings/server_selection_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -43,7 +45,12 @@ void main() {
             FileDirectoryRequest(serverId: serverId, sourceId: sourceId),
           ).overrideWith((ref) async => listing),
         ],
-        child: const MaterialApp(home: FileSourcesPage()),
+        child: const MaterialApp(
+          locale: Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: FileSourcesPage(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -90,7 +97,12 @@ void main() {
             return _listing(sourceId);
           }),
         ],
-        child: const MaterialApp(home: FileSourcesPage()),
+        child: const MaterialApp(
+          locale: Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: FileSourcesPage(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -134,7 +146,12 @@ void main() {
             FileDirectoryRequest(serverId: serverId, sourceId: sourceId),
           ).overrideWith((ref) async => _listing(sourceId)),
         ],
-        child: const MaterialApp(home: FileSourcesPage()),
+        child: const MaterialApp(
+          locale: Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: FileSourcesPage(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -280,6 +297,9 @@ void main() {
           ).overrideWith((ref) async => _listingWithHidden(sourceId)),
         ],
         child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
           home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
         ),
       ),
@@ -351,6 +371,9 @@ void main() {
           ).overrideWith((ref) async => _listing(sourceId)),
         ],
         child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
           home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
         ),
       ),
@@ -397,6 +420,9 @@ void main() {
           ).overrideWith((ref) async => _listingWithHidden(sourceId)),
         ],
         child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
           home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
         ),
       ),
@@ -415,6 +441,65 @@ void main() {
     await tester.tap(find.byTooltip('取消选择'));
     await tester.pumpAndSettle();
     expect(find.text('文件列表'), findsOneWidget);
+  });
+
+  testWidgets('移动文件默认从根目录开始选择目标', (tester) async {
+    await _pumpMoveStartFixture(tester);
+    expect(find.text('选择目标目录'), findsOneWidget);
+    expect(find.text('目录 A'), findsOneWidget);
+    expect(find.text('子目录'), findsNothing);
+  });
+
+  testWidgets('设置当前目录后移动文件从所在目录开始选择目标', (tester) async {
+    await _pumpMoveStartFixture(
+      tester,
+      startLocation: FileMoveStartLocation.current,
+    );
+    expect(find.text('选择目标目录'), findsOneWidget);
+    expect(find.text('子目录'), findsOneWidget);
+    // 面包屑可以一路点回根目录。
+    await tester.tap(find.text('根目录'));
+    await tester.pumpAndSettle();
+    expect(find.text('目录 A'), findsOneWidget);
+  });
+
+  testWidgets('移动文件起始位置默认在设置中提供切换入口', (tester) async {
+    final prefs = await _prefs();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          locale: Locale('zh'),
+          home: AppSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final tile = find.text('移动文件起始位置');
+    // 设置项在文件管理器分组里，位于首屏之外，需要滚动到可见。
+    await tester.scrollUntilVisible(tile, 200);
+    await tester.pumpAndSettle();
+    expect(tile, findsOneWidget);
+    expect(find.text('当前：根目录'), findsOneWidget);
+
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('当前所在目录'));
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(fileMoveStartProvider),
+      FileMoveStartLocation.current,
+    );
+    expect(prefs.getString('file.move_start_location'), 'current');
   });
 
   testWidgets('文件批量重命名复用统一工具栏并提供替换预览', (tester) async {
@@ -436,6 +521,9 @@ void main() {
           ).overrideWith((ref) async => _listing(sourceId)),
         ],
         child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
           home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
         ),
       ),
@@ -497,6 +585,9 @@ void main() {
           ).overrideWith((ref) async => _listingWithUnknown(sourceId)),
         ],
         child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
           home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
         ),
       ),
@@ -540,6 +631,9 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
           home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
         ),
       ),
@@ -646,6 +740,9 @@ void main() {
           ).overrideWith((ref) async => _listingWithImages(sourceId)),
         ],
         child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
           home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
         ),
       ),
@@ -752,7 +849,12 @@ void main() {
             FileDirectoryRequest(serverId: serverId, sourceId: sourceId),
           ).overrideWith((ref) async => _listing(sourceId)),
         ],
-        child: const MaterialApp(home: FileSourcesPage()),
+        child: const MaterialApp(
+          locale: Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: FileSourcesPage(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -791,6 +893,9 @@ void main() {
           ).overrideWith((ref) async => _listingAt(sourceId, '目录 A', '子目录内容')),
         ],
         child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
           home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
         ),
       ),
@@ -834,6 +939,9 @@ void main() {
           ).overrideWith((ref) async => _webDavListingAt(sourceId)),
         ],
         child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
           home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
         ),
       ),
@@ -895,6 +1003,9 @@ void main() {
           ).overrideWith((ref) async => _listingAt(sourceId, '目录 A', '子目录内容')),
         ],
         child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
           home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
         ),
       ),
@@ -959,6 +1070,9 @@ Future<void> _testNestedEdgeBack(
         ).overrideWith((ref) async => _listingAt(sourceId, '子目录', '子目录内容')),
       ],
       child: MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
         home: FileBrowserPage(
           serverId: serverId,
           sourceId: sourceId,
@@ -1011,6 +1125,85 @@ Map<String, dynamic> _server(String id, String name, String baseUrl) => {
   'active_line_id': '$id-line',
   'project_name': baseUrl.startsWith('smb') ? 'smb' : 'webdav',
 };
+
+/// 移动文件起始位置测试夹具：从根目录进入「目录 A」，再在该目录页发起
+/// 移动，返回时目录选择器已打开。
+Future<void> _pumpMoveStartFixture(
+  WidgetTester tester, {
+  FileMoveStartLocation? startLocation,
+}) async {
+  final prefs = await _prefs();
+  if (startLocation != null) {
+    await prefs.setString('file.move_start_location', startLocation.name);
+  }
+  const serverId = 'smb-one';
+  const sourceId = SourceId('source-one');
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+        fileDirectoryProvider(
+          const FileDirectoryRequest(serverId: serverId, sourceId: sourceId),
+        ).overrideWith(
+          (ref) async => const DirectoryListing(
+            currentPath: FilePath(sourceId: sourceId, value: ''),
+            breadcrumbs: [FilePath(sourceId: sourceId, value: '')],
+            entries: [
+              FileEntry(
+                path: FilePath(sourceId: sourceId, value: '目录 A'),
+                name: '目录 A',
+                type: FileEntryType.directory,
+              ),
+            ],
+          ),
+        ),
+        fileDirectoryProvider(
+          const FileDirectoryRequest(
+            serverId: serverId,
+            sourceId: sourceId,
+            path: '目录 A',
+          ),
+        ).overrideWith(
+          (ref) async => const DirectoryListing(
+            currentPath: FilePath(sourceId: sourceId, value: '目录 A'),
+            breadcrumbs: [
+              FilePath(sourceId: sourceId, value: ''),
+              FilePath(sourceId: sourceId, value: '目录 A'),
+            ],
+            entries: [
+              FileEntry(
+                path: FilePath(sourceId: sourceId, value: '目录 A/子目录'),
+                name: '子目录',
+                type: FileEntryType.directory,
+              ),
+              FileEntry(
+                path: FilePath(sourceId: sourceId, value: '目录 A/影片.mkv'),
+                name: '影片.mkv',
+                type: FileEntryType.file,
+              ),
+            ],
+          ),
+        ),
+      ],
+      child: const MaterialApp(
+        locale: Locale('zh'),
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  await tester.tap(find.text('目录 A'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byTooltip('文件操作').last);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('移动'));
+  await tester.pumpAndSettle();
+}
 
 DirectoryListing _listing(SourceId sourceId) => DirectoryListing(
   currentPath: FilePath(sourceId: sourceId, value: ''),

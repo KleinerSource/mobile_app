@@ -495,4 +495,438 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get privacyMode => 'PRIVACY MODE';
+
+  @override
+  String get fileEyebrow => 'Files';
+
+  @override
+  String get fileListTitle => 'Files';
+
+  @override
+  String get fileSelectTargetDirectory => 'Choose destination folder';
+
+  @override
+  String get fileSelectThisDirectory => 'Select this folder';
+
+  @override
+  String get fileBatchActions => 'Batch actions';
+
+  @override
+  String get fileMoreActions => 'More';
+
+  @override
+  String get fileForceRefresh => 'Force refresh';
+
+  @override
+  String get fileCreateDirectory => 'New folder';
+
+  @override
+  String get fileUpload => 'Upload file';
+
+  @override
+  String get fileSelect => 'Select';
+
+  @override
+  String get fileShowHidden => 'Show hidden files';
+
+  @override
+  String get fileSortName => 'Name';
+
+  @override
+  String get fileSortDate => 'Date';
+
+  @override
+  String get fileSortSize => 'Size';
+
+  @override
+  String get fileSortCategory => 'Type';
+
+  @override
+  String fileSortBy(String label) {
+    return 'Sort by $label';
+  }
+
+  @override
+  String fileSortByAsc(String label) {
+    return 'Sort by $label ↑';
+  }
+
+  @override
+  String fileSortByDesc(String label) {
+    return 'Sort by $label ↓';
+  }
+
+  @override
+  String get fileExitSelection => 'Exit selection';
+
+  @override
+  String get fileCancelPicker => 'Cancel';
+
+  @override
+  String get fileBackToParent => 'Go up one level';
+
+  @override
+  String get fileBackToServers => 'Back to server selection';
+
+  @override
+  String get fileRootDirectory => 'Root';
+
+  @override
+  String get fileEmptyDirectory => 'This folder is empty';
+
+  @override
+  String get fileFavoritesSection => 'Favorites';
+
+  @override
+  String get fileFavoritesEmpty =>
+      'No favorite files or folders yet. Use the file menu to save frequent items';
+
+  @override
+  String get fileFavoriteDirectoriesSection => 'Favorite folders';
+
+  @override
+  String get fileAllFilesSection => 'All files';
+
+  @override
+  String get fileUnfavorite => 'Remove from favorites';
+
+  @override
+  String get fileFavorite => 'Favorite';
+
+  @override
+  String fileFavoriteAdded(String name) {
+    return 'Added \"$name\" to favorites';
+  }
+
+  @override
+  String fileFavoriteRemoved(String name) {
+    return 'Removed \"$name\" from favorites';
+  }
+
+  @override
+  String get fileEntryActions => 'File actions';
+
+  @override
+  String get fileDetails => 'Details';
+
+  @override
+  String get fileRename => 'Rename';
+
+  @override
+  String get fileMove => 'Move';
+
+  @override
+  String get fileSelectAll => 'Select all';
+
+  @override
+  String get fileClearSelection => 'Clear';
+
+  @override
+  String get fileDeleteSelected => 'Delete selected';
+
+  @override
+  String get fileFolderNameLabel => 'Folder name';
+
+  @override
+  String get fileCreateDirectoryFailed => 'Failed to create folder';
+
+  @override
+  String get fileLocalPathLabel => 'Local file path';
+
+  @override
+  String get fileLocalFileMissing => 'Local file does not exist';
+
+  @override
+  String get fileUploadFailed => 'Upload failed';
+
+  @override
+  String get fileUploadDone => 'Upload complete';
+
+  @override
+  String get fileUploadCanceled => 'Upload canceled';
+
+  @override
+  String get fileNewNameLabel => 'New name';
+
+  @override
+  String get fileRenameFailed => 'Failed to rename';
+
+  @override
+  String get fileMoveFailed => 'Failed to move';
+
+  @override
+  String get fileInvalidMoveTarget =>
+      'A folder cannot be moved into itself or one of its subfolders';
+
+  @override
+  String get fileBatchMoveFailed => 'Batch move failed';
+
+  @override
+  String get fileTargetExists => 'Target already exists';
+
+  @override
+  String fileBatchOverwritePrompt(int count, String action) {
+    return '$count target(s) already exist. Overwrite and continue with $action?';
+  }
+
+  @override
+  String fileOverwritePrompt(String path) {
+    return 'Overwrite \"$path\"?';
+  }
+
+  @override
+  String get fileOverwrite => 'Overwrite';
+
+  @override
+  String get fileBatchRenameFailed => 'Batch rename failed';
+
+  @override
+  String get fileNoRenameChanges => 'No applicable name changes';
+
+  @override
+  String get fileRenameDuplicatePreview =>
+      'The preview contains duplicate names. Adjust the rename rules.';
+
+  @override
+  String get fileRenameCollision =>
+      'Cannot batch rename to an existing name of another selected item';
+
+  @override
+  String get fileBatchRenameTitle => 'Batch rename';
+
+  @override
+  String get fileBatchRenameSubtitle => 'Pick a rule and preview the result';
+
+  @override
+  String get fileRenameMode => 'Rename mode';
+
+  @override
+  String get fileRenameModeReplace => 'Replace text';
+
+  @override
+  String get fileRenameModeAdd => 'Add text';
+
+  @override
+  String get fileRenameSearchLabel => 'Find';
+
+  @override
+  String get fileRenameReplaceLabel => 'Replace with';
+
+  @override
+  String get fileRenameAddTextLabel => 'Text to add';
+
+  @override
+  String get fileRenameAddPosition => 'Position';
+
+  @override
+  String get fileRenameAddBefore => 'Before the name';
+
+  @override
+  String get fileRenameAddAfter => 'After the name';
+
+  @override
+  String get filePreviewSection => 'Preview';
+
+  @override
+  String get fileApply => 'Apply';
+
+  @override
+  String get fileDeleteConfirmTitle => 'Delete?';
+
+  @override
+  String fileDeleteConfirmBody(String name) {
+    return 'This will delete \"$name\" from the remote file source. This cannot be undone.';
+  }
+
+  @override
+  String get fileDeleteFailed => 'Delete failed';
+
+  @override
+  String get fileBatchDeleteConfirmTitle => 'Delete selected?';
+
+  @override
+  String fileBatchDeleteConfirmBody(int n) {
+    return 'This will delete the $n selected item(s) from the remote file source. This cannot be undone.';
+  }
+
+  @override
+  String get fileBatchDeleteFailed => 'Batch delete failed';
+
+  @override
+  String get fileDirectoryDetails => 'Folder details';
+
+  @override
+  String get fileFileDetails => 'File details';
+
+  @override
+  String filePathLabel(String path) {
+    return 'Path: $path';
+  }
+
+  @override
+  String fileSizeLabel(String size) {
+    return 'Size: $size';
+  }
+
+  @override
+  String fileTypeLabel(String type) {
+    return 'Type: $type';
+  }
+
+  @override
+  String fileModifiedAtLabel(String time) {
+    return 'Modified: $time';
+  }
+
+  @override
+  String get fileWebDavDirectUrlMissing =>
+      'The server did not provide a direct HTTP URL. Playback stopped (no fallback to the local proxy).';
+
+  @override
+  String fileVideoPreviewFailed(String error) {
+    return 'Video preview failed: $error';
+  }
+
+  @override
+  String fileImagePreviewFailed(String error) {
+    return 'Image preview failed: $error';
+  }
+
+  @override
+  String fileTextPreviewFailed(String error) {
+    return 'Text preview failed: $error';
+  }
+
+  @override
+  String get fileRetry => 'Retry';
+
+  @override
+  String get fileUploadAction => 'Upload';
+
+  @override
+  String get fileFileOperation => 'File operation';
+
+  @override
+  String fileOperationRunning(String action) {
+    return '$action in progress';
+  }
+
+  @override
+  String fileOperationCompleted(String action) {
+    return '$action complete';
+  }
+
+  @override
+  String fileOperationCanceled(String action) {
+    return '$action canceled';
+  }
+
+  @override
+  String fileOperationFailed(String action) {
+    return '$action failed';
+  }
+
+  @override
+  String fileOperationPending(String action) {
+    return '$action pending';
+  }
+
+  @override
+  String get filePlaybackProgress => 'Playback progress';
+
+  @override
+  String get fileNotFileServer => 'The current server is not a file server';
+
+  @override
+  String get fileChooseFileServer => 'Choose a file server';
+
+  @override
+  String get fileNoAvailableSource => 'No available file source on this server';
+
+  @override
+  String get fileManageServers => 'Manage servers';
+
+  @override
+  String get settingsGroupGeneral => 'General';
+
+  @override
+  String get settingsGroupFileManager => 'File manager';
+
+  @override
+  String get settingsGroupPlayer => 'Player';
+
+  @override
+  String get settingsSecurity => 'Security';
+
+  @override
+  String get settingsSecuritySub =>
+      'Face ID / fingerprint, app lock, gesture password';
+
+  @override
+  String get settingsPosterBadges => 'Poster badge display';
+
+  @override
+  String get settingsPosterBadgesSub =>
+      'Codec / HDR / STRM / Subtitles / Crack / HD';
+
+  @override
+  String get settingsPlayerSettings => 'Player settings';
+
+  @override
+  String get settingsPlayerSettingsSub =>
+      'Progress / orientation / OSD / buttons / haptics';
+
+  @override
+  String get settingsSubtitleSettings => 'Subtitle settings';
+
+  @override
+  String get settingsSubtitleSettingsSub =>
+      'Memory / font / color / outline / shadow';
+
+  @override
+  String get settingsCacheManagement => 'Cache management';
+
+  @override
+  String get settingsCacheManagementSub =>
+      'Disk cache limit / categories / cleanup';
+
+  @override
+  String get settingsHapticIntensity => 'Haptic intensity';
+
+  @override
+  String settingsHapticCurrent(String label) {
+    return 'Current: $label';
+  }
+
+  @override
+  String get settingsImagePreview => 'Image thumbnails';
+
+  @override
+  String get settingsImagePreviewSub =>
+      'Show image thumbnails in the file list';
+
+  @override
+  String get settingsMoveStartLocation => 'Move start location';
+
+  @override
+  String get settingsMoveStartCurrentRoot => 'Current: Root';
+
+  @override
+  String get settingsMoveStartCurrentHere => 'Current: Current folder';
+
+  @override
+  String get settingsMoveStartHere => 'Current folder';
+
+  @override
+  String get settingsMoveStartRootSub =>
+      'Always pick a move destination starting from the root folder';
+
+  @override
+  String get settingsMoveStartHereSub =>
+      'Pick a move destination starting from the folder you are in';
+
+  @override
+  String fileSelectedItems(int n) {
+    return '$n selected';
+  }
 }

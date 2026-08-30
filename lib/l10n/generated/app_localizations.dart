@@ -1032,6 +1032,756 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'隐私模式'**
   String get privacyMode;
+
+  /// No description provided for @fileEyebrow.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件'**
+  String get fileEyebrow;
+
+  /// No description provided for @fileListTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件列表'**
+  String get fileListTitle;
+
+  /// No description provided for @fileSelectTargetDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择目标目录'**
+  String get fileSelectTargetDirectory;
+
+  /// No description provided for @fileSelectThisDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择此目录'**
+  String get fileSelectThisDirectory;
+
+  /// No description provided for @fileBatchActions.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量操作'**
+  String get fileBatchActions;
+
+  /// No description provided for @fileMoreActions.
+  ///
+  /// In zh, this message translates to:
+  /// **'更多'**
+  String get fileMoreActions;
+
+  /// No description provided for @fileForceRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'强制刷新'**
+  String get fileForceRefresh;
+
+  /// No description provided for @fileCreateDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建文件夹'**
+  String get fileCreateDirectory;
+
+  /// No description provided for @fileUpload.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传文件'**
+  String get fileUpload;
+
+  /// No description provided for @fileSelect.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择'**
+  String get fileSelect;
+
+  /// No description provided for @fileShowHidden.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示隐藏文件'**
+  String get fileShowHidden;
+
+  /// No description provided for @fileSortName.
+  ///
+  /// In zh, this message translates to:
+  /// **'名称'**
+  String get fileSortName;
+
+  /// No description provided for @fileSortDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'日期'**
+  String get fileSortDate;
+
+  /// No description provided for @fileSortSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'大小'**
+  String get fileSortSize;
+
+  /// No description provided for @fileSortCategory.
+  ///
+  /// In zh, this message translates to:
+  /// **'类别'**
+  String get fileSortCategory;
+
+  /// No description provided for @fileSortBy.
+  ///
+  /// In zh, this message translates to:
+  /// **'{label}排序'**
+  String fileSortBy(String label);
+
+  /// No description provided for @fileSortByAsc.
+  ///
+  /// In zh, this message translates to:
+  /// **'{label}排序 ↑'**
+  String fileSortByAsc(String label);
+
+  /// No description provided for @fileSortByDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'{label}排序 ↓'**
+  String fileSortByDesc(String label);
+
+  /// No description provided for @fileExitSelection.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出选择'**
+  String get fileExitSelection;
+
+  /// No description provided for @fileCancelPicker.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消选择'**
+  String get fileCancelPicker;
+
+  /// No description provided for @fileBackToParent.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回上一级'**
+  String get fileBackToParent;
+
+  /// No description provided for @fileBackToServers.
+  ///
+  /// In zh, this message translates to:
+  /// **'返回服务器选择'**
+  String get fileBackToServers;
+
+  /// No description provided for @fileRootDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'根目录'**
+  String get fileRootDirectory;
+
+  /// No description provided for @fileEmptyDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'此目录为空'**
+  String get fileEmptyDirectory;
+
+  /// No description provided for @fileFavoritesSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏'**
+  String get fileFavoritesSection;
+
+  /// No description provided for @fileFavoritesEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有收藏的文件或目录，可在文件列表的菜单中收藏常用内容'**
+  String get fileFavoritesEmpty;
+
+  /// No description provided for @fileFavoriteDirectoriesSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏的目录'**
+  String get fileFavoriteDirectoriesSection;
+
+  /// No description provided for @fileAllFilesSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部文件'**
+  String get fileAllFilesSection;
+
+  /// No description provided for @fileUnfavorite.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消收藏'**
+  String get fileUnfavorite;
+
+  /// No description provided for @fileFavorite.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏'**
+  String get fileFavorite;
+
+  /// No description provided for @fileFavoriteAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已收藏“{name}”'**
+  String fileFavoriteAdded(String name);
+
+  /// No description provided for @fileFavoriteRemoved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消收藏“{name}”'**
+  String fileFavoriteRemoved(String name);
+
+  /// No description provided for @fileEntryActions.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件操作'**
+  String get fileEntryActions;
+
+  /// No description provided for @fileDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'详情'**
+  String get fileDetails;
+
+  /// No description provided for @fileRename.
+  ///
+  /// In zh, this message translates to:
+  /// **'重命名'**
+  String get fileRename;
+
+  /// No description provided for @fileMove.
+  ///
+  /// In zh, this message translates to:
+  /// **'移动'**
+  String get fileMove;
+
+  /// No description provided for @fileSelectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选'**
+  String get fileSelectAll;
+
+  /// No description provided for @fileClearSelection.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空'**
+  String get fileClearSelection;
+
+  /// No description provided for @fileDeleteSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除所选'**
+  String get fileDeleteSelected;
+
+  /// No description provided for @fileFolderNameLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件夹名称'**
+  String get fileFolderNameLabel;
+
+  /// No description provided for @fileCreateDirectoryFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建目录失败'**
+  String get fileCreateDirectoryFailed;
+
+  /// No description provided for @fileLocalPathLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地文件路径'**
+  String get fileLocalPathLabel;
+
+  /// No description provided for @fileLocalFileMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地文件不存在'**
+  String get fileLocalFileMissing;
+
+  /// No description provided for @fileUploadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传失败'**
+  String get fileUploadFailed;
+
+  /// No description provided for @fileUploadDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传完成'**
+  String get fileUploadDone;
+
+  /// No description provided for @fileUploadCanceled.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传已取消'**
+  String get fileUploadCanceled;
+
+  /// No description provided for @fileNewNameLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'新名称'**
+  String get fileNewNameLabel;
+
+  /// No description provided for @fileRenameFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'重命名失败'**
+  String get fileRenameFailed;
+
+  /// No description provided for @fileMoveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'移动失败'**
+  String get fileMoveFailed;
+
+  /// No description provided for @fileInvalidMoveTarget.
+  ///
+  /// In zh, this message translates to:
+  /// **'不能将目录移动到自身或其子目录'**
+  String get fileInvalidMoveTarget;
+
+  /// No description provided for @fileBatchMoveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量移动失败'**
+  String get fileBatchMoveFailed;
+
+  /// No description provided for @fileTargetExists.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标已存在'**
+  String get fileTargetExists;
+
+  /// No description provided for @fileBatchOverwritePrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个目标已存在，是否覆盖后继续{action}？'**
+  String fileBatchOverwritePrompt(int count, String action);
+
+  /// No description provided for @fileOverwritePrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'是否覆盖“{path}”？'**
+  String fileOverwritePrompt(String path);
+
+  /// No description provided for @fileOverwrite.
+  ///
+  /// In zh, this message translates to:
+  /// **'覆盖'**
+  String get fileOverwrite;
+
+  /// No description provided for @fileBatchRenameFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量重命名失败'**
+  String get fileBatchRenameFailed;
+
+  /// No description provided for @fileNoRenameChanges.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有可应用的名称变化'**
+  String get fileNoRenameChanges;
+
+  /// No description provided for @fileRenameDuplicatePreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览结果包含重复名称，请调整重命名规则'**
+  String get fileRenameDuplicatePreview;
+
+  /// No description provided for @fileRenameCollision.
+  ///
+  /// In zh, this message translates to:
+  /// **'不能批量重命名为其他已选项的现有名称'**
+  String get fileRenameCollision;
+
+  /// No description provided for @fileBatchRenameTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量重命名'**
+  String get fileBatchRenameTitle;
+
+  /// No description provided for @fileBatchRenameSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择规则并查看实时预览'**
+  String get fileBatchRenameSubtitle;
+
+  /// No description provided for @fileRenameMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'重命名模式'**
+  String get fileRenameMode;
+
+  /// No description provided for @fileRenameModeReplace.
+  ///
+  /// In zh, this message translates to:
+  /// **'替换文本'**
+  String get fileRenameModeReplace;
+
+  /// No description provided for @fileRenameModeAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加文本'**
+  String get fileRenameModeAdd;
+
+  /// No description provided for @fileRenameSearchLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'查询'**
+  String get fileRenameSearchLabel;
+
+  /// No description provided for @fileRenameReplaceLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'替换为'**
+  String get fileRenameReplaceLabel;
+
+  /// No description provided for @fileRenameAddTextLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加文本'**
+  String get fileRenameAddTextLabel;
+
+  /// No description provided for @fileRenameAddPosition.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加位置'**
+  String get fileRenameAddPosition;
+
+  /// No description provided for @fileRenameAddBefore.
+  ///
+  /// In zh, this message translates to:
+  /// **'在名字之前'**
+  String get fileRenameAddBefore;
+
+  /// No description provided for @fileRenameAddAfter.
+  ///
+  /// In zh, this message translates to:
+  /// **'在名字之后'**
+  String get fileRenameAddAfter;
+
+  /// No description provided for @filePreviewSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览'**
+  String get filePreviewSection;
+
+  /// No description provided for @fileApply.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用'**
+  String get fileApply;
+
+  /// No description provided for @fileDeleteConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认删除？'**
+  String get fileDeleteConfirmTitle;
+
+  /// No description provided for @fileDeleteConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'将从远程文件来源删除“{name}”，此操作不可撤销。'**
+  String fileDeleteConfirmBody(String name);
+
+  /// No description provided for @fileDeleteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除失败'**
+  String get fileDeleteFailed;
+
+  /// No description provided for @fileBatchDeleteConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认批量删除？'**
+  String get fileBatchDeleteConfirmTitle;
+
+  /// No description provided for @fileBatchDeleteConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'将从远程文件来源删除已选择的 {n} 项，此操作不可撤销。'**
+  String fileBatchDeleteConfirmBody(int n);
+
+  /// No description provided for @fileBatchDeleteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量删除失败'**
+  String get fileBatchDeleteFailed;
+
+  /// No description provided for @fileDirectoryDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'目录详情'**
+  String get fileDirectoryDetails;
+
+  /// No description provided for @fileFileDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件详情'**
+  String get fileFileDetails;
+
+  /// No description provided for @filePathLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'路径：{path}'**
+  String filePathLabel(String path);
+
+  /// No description provided for @fileSizeLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'大小：{size}'**
+  String fileSizeLabel(String size);
+
+  /// No description provided for @fileTypeLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'类型：{type}'**
+  String fileTypeLabel(String type);
+
+  /// No description provided for @fileModifiedAtLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'修改时间：{time}'**
+  String fileModifiedAtLabel(String time);
+
+  /// No description provided for @fileWebDavDirectUrlMissing.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器未提供 HTTP 直连地址，已停止播放（不会回退到本机代理）'**
+  String get fileWebDavDirectUrlMissing;
+
+  /// No description provided for @fileVideoPreviewFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'视频预览失败：{error}'**
+  String fileVideoPreviewFailed(String error);
+
+  /// No description provided for @fileImagePreviewFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片预览失败：{error}'**
+  String fileImagePreviewFailed(String error);
+
+  /// No description provided for @fileTextPreviewFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'文本预览失败：{error}'**
+  String fileTextPreviewFailed(String error);
+
+  /// No description provided for @fileRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试'**
+  String get fileRetry;
+
+  /// No description provided for @fileUploadAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'上传'**
+  String get fileUploadAction;
+
+  /// No description provided for @fileFileOperation.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件操作'**
+  String get fileFileOperation;
+
+  /// No description provided for @fileOperationRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'{action}进行中'**
+  String fileOperationRunning(String action);
+
+  /// No description provided for @fileOperationCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'{action}完成'**
+  String fileOperationCompleted(String action);
+
+  /// No description provided for @fileOperationCanceled.
+  ///
+  /// In zh, this message translates to:
+  /// **'{action}已取消'**
+  String fileOperationCanceled(String action);
+
+  /// No description provided for @fileOperationFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'{action}失败'**
+  String fileOperationFailed(String action);
+
+  /// No description provided for @fileOperationPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'{action}等待中'**
+  String fileOperationPending(String action);
+
+  /// No description provided for @filePlaybackProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放进度'**
+  String get filePlaybackProgress;
+
+  /// No description provided for @fileNotFileServer.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前服务器不是文件服务器'**
+  String get fileNotFileServer;
+
+  /// No description provided for @fileChooseFileServer.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择文件服务器'**
+  String get fileChooseFileServer;
+
+  /// No description provided for @fileNoAvailableSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前服务器没有可用的文件来源'**
+  String get fileNoAvailableSource;
+
+  /// No description provided for @fileManageServers.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理服务器'**
+  String get fileManageServers;
+
+  /// No description provided for @settingsGroupGeneral.
+  ///
+  /// In zh, this message translates to:
+  /// **'通用'**
+  String get settingsGroupGeneral;
+
+  /// No description provided for @settingsGroupFileManager.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件管理器'**
+  String get settingsGroupFileManager;
+
+  /// No description provided for @settingsGroupPlayer.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放器'**
+  String get settingsGroupPlayer;
+
+  /// No description provided for @settingsSecurity.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全设置'**
+  String get settingsSecurity;
+
+  /// No description provided for @settingsSecuritySub.
+  ///
+  /// In zh, this message translates to:
+  /// **'面容/指纹、进入密码、手势密码'**
+  String get settingsSecuritySub;
+
+  /// No description provided for @settingsPosterBadges.
+  ///
+  /// In zh, this message translates to:
+  /// **'海报角标显示'**
+  String get settingsPosterBadges;
+
+  /// No description provided for @settingsPosterBadgesSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'编码 / HDR / STRM / 字幕 / 破解 / HD'**
+  String get settingsPosterBadgesSub;
+
+  /// No description provided for @settingsPlayerSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放器设置'**
+  String get settingsPlayerSettings;
+
+  /// No description provided for @settingsPlayerSettingsSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放进度 / 屏幕方向 / OSD / 播放按钮 / 手势反馈'**
+  String get settingsPlayerSettingsSub;
+
+  /// No description provided for @settingsSubtitleSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'字幕设置'**
+  String get settingsSubtitleSettings;
+
+  /// No description provided for @settingsSubtitleSettingsSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'记忆选择 / 字体 / 颜色 / 描边 / 阴影'**
+  String get settingsSubtitleSettingsSub;
+
+  /// No description provided for @settingsCacheManagement.
+  ///
+  /// In zh, this message translates to:
+  /// **'缓存管理'**
+  String get settingsCacheManagement;
+
+  /// No description provided for @settingsCacheManagementSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'磁盘缓存额度 / 缓存分类 / 一键清理'**
+  String get settingsCacheManagementSub;
+
+  /// No description provided for @settingsHapticIntensity.
+  ///
+  /// In zh, this message translates to:
+  /// **'震动反馈强度'**
+  String get settingsHapticIntensity;
+
+  /// No description provided for @settingsHapticCurrent.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前：{label}'**
+  String settingsHapticCurrent(String label);
+
+  /// No description provided for @settingsImagePreview.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片预览'**
+  String get settingsImagePreview;
+
+  /// No description provided for @settingsImagePreviewSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'在文件列表中显示图片缩略图'**
+  String get settingsImagePreviewSub;
+
+  /// No description provided for @settingsMoveStartLocation.
+  ///
+  /// In zh, this message translates to:
+  /// **'移动文件起始位置'**
+  String get settingsMoveStartLocation;
+
+  /// No description provided for @settingsMoveStartCurrentRoot.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前：根目录'**
+  String get settingsMoveStartCurrentRoot;
+
+  /// No description provided for @settingsMoveStartCurrentHere.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前：所在目录'**
+  String get settingsMoveStartCurrentHere;
+
+  /// No description provided for @settingsMoveStartHere.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前所在目录'**
+  String get settingsMoveStartHere;
+
+  /// No description provided for @settingsMoveStartRootSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'移动文件时每次从根目录开始选择目标'**
+  String get settingsMoveStartRootSub;
+
+  /// No description provided for @settingsMoveStartHereSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'移动文件时从当前所在目录开始选择目标'**
+  String get settingsMoveStartHereSub;
+
+  /// No description provided for @fileSelectedItems.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {n} 项'**
+  String fileSelectedItems(int n);
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

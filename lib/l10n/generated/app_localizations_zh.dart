@@ -489,4 +489,425 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get privacyMode => '隐私模式';
+
+  @override
+  String get fileEyebrow => '文件';
+
+  @override
+  String get fileListTitle => '文件列表';
+
+  @override
+  String get fileSelectTargetDirectory => '选择目标目录';
+
+  @override
+  String get fileSelectThisDirectory => '选择此目录';
+
+  @override
+  String get fileBatchActions => '批量操作';
+
+  @override
+  String get fileMoreActions => '更多';
+
+  @override
+  String get fileForceRefresh => '强制刷新';
+
+  @override
+  String get fileCreateDirectory => '新建文件夹';
+
+  @override
+  String get fileUpload => '上传文件';
+
+  @override
+  String get fileSelect => '选择';
+
+  @override
+  String get fileShowHidden => '显示隐藏文件';
+
+  @override
+  String get fileSortName => '名称';
+
+  @override
+  String get fileSortDate => '日期';
+
+  @override
+  String get fileSortSize => '大小';
+
+  @override
+  String get fileSortCategory => '类别';
+
+  @override
+  String fileSortBy(String label) {
+    return '$label排序';
+  }
+
+  @override
+  String fileSortByAsc(String label) {
+    return '$label排序 ↑';
+  }
+
+  @override
+  String fileSortByDesc(String label) {
+    return '$label排序 ↓';
+  }
+
+  @override
+  String get fileExitSelection => '退出选择';
+
+  @override
+  String get fileCancelPicker => '取消选择';
+
+  @override
+  String get fileBackToParent => '返回上一级';
+
+  @override
+  String get fileBackToServers => '返回服务器选择';
+
+  @override
+  String get fileRootDirectory => '根目录';
+
+  @override
+  String get fileEmptyDirectory => '此目录为空';
+
+  @override
+  String get fileFavoritesSection => '收藏';
+
+  @override
+  String get fileFavoritesEmpty => '还没有收藏的文件或目录，可在文件列表的菜单中收藏常用内容';
+
+  @override
+  String get fileFavoriteDirectoriesSection => '收藏的目录';
+
+  @override
+  String get fileAllFilesSection => '全部文件';
+
+  @override
+  String get fileUnfavorite => '取消收藏';
+
+  @override
+  String get fileFavorite => '收藏';
+
+  @override
+  String fileFavoriteAdded(String name) {
+    return '已收藏“$name”';
+  }
+
+  @override
+  String fileFavoriteRemoved(String name) {
+    return '已取消收藏“$name”';
+  }
+
+  @override
+  String get fileEntryActions => '文件操作';
+
+  @override
+  String get fileDetails => '详情';
+
+  @override
+  String get fileRename => '重命名';
+
+  @override
+  String get fileMove => '移动';
+
+  @override
+  String get fileSelectAll => '全选';
+
+  @override
+  String get fileClearSelection => '清空';
+
+  @override
+  String get fileDeleteSelected => '删除所选';
+
+  @override
+  String get fileFolderNameLabel => '文件夹名称';
+
+  @override
+  String get fileCreateDirectoryFailed => '创建目录失败';
+
+  @override
+  String get fileLocalPathLabel => '本地文件路径';
+
+  @override
+  String get fileLocalFileMissing => '本地文件不存在';
+
+  @override
+  String get fileUploadFailed => '上传失败';
+
+  @override
+  String get fileUploadDone => '上传完成';
+
+  @override
+  String get fileUploadCanceled => '上传已取消';
+
+  @override
+  String get fileNewNameLabel => '新名称';
+
+  @override
+  String get fileRenameFailed => '重命名失败';
+
+  @override
+  String get fileMoveFailed => '移动失败';
+
+  @override
+  String get fileInvalidMoveTarget => '不能将目录移动到自身或其子目录';
+
+  @override
+  String get fileBatchMoveFailed => '批量移动失败';
+
+  @override
+  String get fileTargetExists => '目标已存在';
+
+  @override
+  String fileBatchOverwritePrompt(int count, String action) {
+    return '$count 个目标已存在，是否覆盖后继续$action？';
+  }
+
+  @override
+  String fileOverwritePrompt(String path) {
+    return '是否覆盖“$path”？';
+  }
+
+  @override
+  String get fileOverwrite => '覆盖';
+
+  @override
+  String get fileBatchRenameFailed => '批量重命名失败';
+
+  @override
+  String get fileNoRenameChanges => '没有可应用的名称变化';
+
+  @override
+  String get fileRenameDuplicatePreview => '预览结果包含重复名称，请调整重命名规则';
+
+  @override
+  String get fileRenameCollision => '不能批量重命名为其他已选项的现有名称';
+
+  @override
+  String get fileBatchRenameTitle => '批量重命名';
+
+  @override
+  String get fileBatchRenameSubtitle => '选择规则并查看实时预览';
+
+  @override
+  String get fileRenameMode => '重命名模式';
+
+  @override
+  String get fileRenameModeReplace => '替换文本';
+
+  @override
+  String get fileRenameModeAdd => '添加文本';
+
+  @override
+  String get fileRenameSearchLabel => '查询';
+
+  @override
+  String get fileRenameReplaceLabel => '替换为';
+
+  @override
+  String get fileRenameAddTextLabel => '添加文本';
+
+  @override
+  String get fileRenameAddPosition => '添加位置';
+
+  @override
+  String get fileRenameAddBefore => '在名字之前';
+
+  @override
+  String get fileRenameAddAfter => '在名字之后';
+
+  @override
+  String get filePreviewSection => '预览';
+
+  @override
+  String get fileApply => '应用';
+
+  @override
+  String get fileDeleteConfirmTitle => '确认删除？';
+
+  @override
+  String fileDeleteConfirmBody(String name) {
+    return '将从远程文件来源删除“$name”，此操作不可撤销。';
+  }
+
+  @override
+  String get fileDeleteFailed => '删除失败';
+
+  @override
+  String get fileBatchDeleteConfirmTitle => '确认批量删除？';
+
+  @override
+  String fileBatchDeleteConfirmBody(int n) {
+    return '将从远程文件来源删除已选择的 $n 项，此操作不可撤销。';
+  }
+
+  @override
+  String get fileBatchDeleteFailed => '批量删除失败';
+
+  @override
+  String get fileDirectoryDetails => '目录详情';
+
+  @override
+  String get fileFileDetails => '文件详情';
+
+  @override
+  String filePathLabel(String path) {
+    return '路径：$path';
+  }
+
+  @override
+  String fileSizeLabel(String size) {
+    return '大小：$size';
+  }
+
+  @override
+  String fileTypeLabel(String type) {
+    return '类型：$type';
+  }
+
+  @override
+  String fileModifiedAtLabel(String time) {
+    return '修改时间：$time';
+  }
+
+  @override
+  String get fileWebDavDirectUrlMissing => '服务器未提供 HTTP 直连地址，已停止播放（不会回退到本机代理）';
+
+  @override
+  String fileVideoPreviewFailed(String error) {
+    return '视频预览失败：$error';
+  }
+
+  @override
+  String fileImagePreviewFailed(String error) {
+    return '图片预览失败：$error';
+  }
+
+  @override
+  String fileTextPreviewFailed(String error) {
+    return '文本预览失败：$error';
+  }
+
+  @override
+  String get fileRetry => '重试';
+
+  @override
+  String get fileUploadAction => '上传';
+
+  @override
+  String get fileFileOperation => '文件操作';
+
+  @override
+  String fileOperationRunning(String action) {
+    return '$action进行中';
+  }
+
+  @override
+  String fileOperationCompleted(String action) {
+    return '$action完成';
+  }
+
+  @override
+  String fileOperationCanceled(String action) {
+    return '$action已取消';
+  }
+
+  @override
+  String fileOperationFailed(String action) {
+    return '$action失败';
+  }
+
+  @override
+  String fileOperationPending(String action) {
+    return '$action等待中';
+  }
+
+  @override
+  String get filePlaybackProgress => '播放进度';
+
+  @override
+  String get fileNotFileServer => '当前服务器不是文件服务器';
+
+  @override
+  String get fileChooseFileServer => '选择文件服务器';
+
+  @override
+  String get fileNoAvailableSource => '当前服务器没有可用的文件来源';
+
+  @override
+  String get fileManageServers => '管理服务器';
+
+  @override
+  String get settingsGroupGeneral => '通用';
+
+  @override
+  String get settingsGroupFileManager => '文件管理器';
+
+  @override
+  String get settingsGroupPlayer => '播放器';
+
+  @override
+  String get settingsSecurity => '安全设置';
+
+  @override
+  String get settingsSecuritySub => '面容/指纹、进入密码、手势密码';
+
+  @override
+  String get settingsPosterBadges => '海报角标显示';
+
+  @override
+  String get settingsPosterBadgesSub => '编码 / HDR / STRM / 字幕 / 破解 / HD';
+
+  @override
+  String get settingsPlayerSettings => '播放器设置';
+
+  @override
+  String get settingsPlayerSettingsSub => '播放进度 / 屏幕方向 / OSD / 播放按钮 / 手势反馈';
+
+  @override
+  String get settingsSubtitleSettings => '字幕设置';
+
+  @override
+  String get settingsSubtitleSettingsSub => '记忆选择 / 字体 / 颜色 / 描边 / 阴影';
+
+  @override
+  String get settingsCacheManagement => '缓存管理';
+
+  @override
+  String get settingsCacheManagementSub => '磁盘缓存额度 / 缓存分类 / 一键清理';
+
+  @override
+  String get settingsHapticIntensity => '震动反馈强度';
+
+  @override
+  String settingsHapticCurrent(String label) {
+    return '当前：$label';
+  }
+
+  @override
+  String get settingsImagePreview => '图片预览';
+
+  @override
+  String get settingsImagePreviewSub => '在文件列表中显示图片缩略图';
+
+  @override
+  String get settingsMoveStartLocation => '移动文件起始位置';
+
+  @override
+  String get settingsMoveStartCurrentRoot => '当前：根目录';
+
+  @override
+  String get settingsMoveStartCurrentHere => '当前：所在目录';
+
+  @override
+  String get settingsMoveStartHere => '当前所在目录';
+
+  @override
+  String get settingsMoveStartRootSub => '移动文件时每次从根目录开始选择目标';
+
+  @override
+  String get settingsMoveStartHereSub => '移动文件时从当前所在目录开始选择目标';
+
+  @override
+  String fileSelectedItems(int n) {
+    return '已选 $n 项';
+  }
 }

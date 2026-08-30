@@ -17,6 +17,7 @@ import '../../core/sources/files/file_operation.dart';
 import '../../core/sources/files/file_playback_progress.dart';
 import '../../core/sources/files/file_source_providers.dart';
 import '../../core/sources/files/file_source_repository.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/drag_selection.dart';
 import '../../shared/entity_batch_toolbar.dart';
 import '../../shared/edge_swipe_back.dart';
@@ -36,7 +37,9 @@ import '../settings/server_selection_page.dart';
 import '../settings/settings_common.dart';
 import 'file_navigation.dart';
 import 'file_browser_preferences.dart';
+import 'file_entry_icons.dart';
 import 'file_favorites.dart';
+import 'file_move_start_settings.dart';
 import 'file_image_preview_settings.dart';
 import 'file_playback_engine.dart';
 import 'file_playback_proxy.dart';
@@ -78,12 +81,18 @@ class FileBrowserPage extends ConsumerStatefulWidget {
     required this.sourceId,
     this.initialPath = '',
     this.directoryPicker = false,
+    this.autoOpenFile,
   });
 
   final String serverId;
   final SourceId sourceId;
   final String initialPath;
+
+  /// 目录选择器模式：只选目录，用于移动文件等场景。
   final bool directoryPicker;
+
+  /// 首次目录加载完成后自动打开的文件（从收藏列表跳转打开时使用）。
+  final FileEntry? autoOpenFile;
 
   @override
   ConsumerState<FileBrowserPage> createState() => _FileBrowserPageState();
@@ -102,6 +111,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   FileOperation? _operation;
   bool _busy = false;
   bool _selectionMode = false;
+  FileEntry? _pendingAutoOpen;
+
+  AppL10n get _l10n => AppL10n.of(context);
 
   FileBrowserPreferences get _browserPreferences =>
       ref.read(fileBrowserPreferencesProvider(widget.serverId));
@@ -121,6 +133,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   @override
   void initState() {
     super.initState();
+    _pendingAutoOpen = widget.autoOpenFile;
     _tracker = FileOperationTracker(sourceId: widget.sourceId);
     _filePlaybackProgress = FilePlaybackProgressRepository(
       ref.read(sharedPrefsProvider),
@@ -159,21 +172,22 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final batchActions = _batchActions(visibleEntries);
 
     // 与偏好设置一致的固定头部：眉标题(协议) + 主标题 + 返回/右侧操作。
+    final l = _l10n;
     final descriptor = source.asData?.value?.descriptor;
     final headerEyebrow = switch (descriptor?.kind) {
       SourceKind.smb => 'SMB',
       SourceKind.webDav => 'WEBDAV',
       SourceKind.openList => 'OPENLIST',
-      _ => '文件',
+      _ => l.fileEyebrow,
     };
     final headerTitle = widget.directoryPicker
-        ? '选择目标目录'
+        ? l.fileSelectTargetDirectory
         : _selectionMode
-        ? '已选 ${_selectedKeys.length} 项'
-        : (descriptor?.name ?? '文件列表');
+        ? l.fileSelectedItems(_selectedKeys.length)
+        : (descriptor?.name ?? l.fileListTitle);
     final headerTrailing = widget.directoryPicker
         ? IconButton(
-            tooltip: '选择此目录',
+            tooltip: l.fileSelectThisDirectory,
             onPressed: _busy
                 ? null
                 : () => Navigator.of(context).pop(currentDirectoryPath),
@@ -181,7 +195,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
           )
         : _selectionMode
         ? PopupMenuButton<int>(
-            tooltip: '批量操作',
+            tooltip: l.fileBatchActions,
             onSelected: (index) => batchActions[index].onTap?.call(),
             itemBuilder: (_) => [
               for (var i = 0; i < batchActions.length; i++)
@@ -201,7 +215,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
           )
         : PopupMenuButton<_BrowserMenuAction>(
             enabled: !_busy,
-            tooltip: '更多',
+            tooltip: l.fileMoreActions,
             onSelected: (action) =>
                 _handleMenuAction(action, currentDirectoryPath),
               itemBuilder: (_) => [
@@ -211,45 +225,45 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                 _menuItem(
                   _BrowserMenuAction.forceRefresh,
                   Icons.refresh,
-                  '强制刷新',
+                  l.fileForceRefresh,
                 ),
               _menuItem(
                 _BrowserMenuAction.createDirectory,
                 Icons.create_new_folder_outlined,
-                '新建文件夹',
+                l.fileCreateDirectory,
               ),
               _menuItem(
                 _BrowserMenuAction.upload,
                 Icons.upload_file_outlined,
-                '上传文件',
+                l.fileUpload,
               ),
               _menuItem(
                 _BrowserMenuAction.enterSelection,
                 Icons.checklist_outlined,
-                '选择',
+                l.fileSelect,
               ),
               CheckedPopupMenuItem<_BrowserMenuAction>(
                 value: _BrowserMenuAction.toggleHidden,
                 checked: browserPreferences.showHiddenFiles,
-                child: const Text('显示隐藏文件'),
+                child: Text(l.fileShowHidden),
               ),
               CheckedPopupMenuItem<_BrowserMenuAction>(
                 value: _BrowserMenuAction.sortName,
                 checked:
                     browserPreferences.sortField == FileBrowserSortField.name,
-                child: Text(_sortMenuLabel('名称', FileBrowserSortField.name)),
+                child: Text(_sortMenuLabel(l.fileSortName, FileBrowserSortField.name)),
               ),
               CheckedPopupMenuItem<_BrowserMenuAction>(
                 value: _BrowserMenuAction.sortDate,
                 checked:
                     browserPreferences.sortField == FileBrowserSortField.date,
-                child: Text(_sortMenuLabel('日期', FileBrowserSortField.date)),
+                child: Text(_sortMenuLabel(l.fileSortDate, FileBrowserSortField.date)),
               ),
               CheckedPopupMenuItem<_BrowserMenuAction>(
                 value: _BrowserMenuAction.sortSize,
                 checked:
                     browserPreferences.sortField == FileBrowserSortField.size,
-                child: Text(_sortMenuLabel('大小', FileBrowserSortField.size)),
+                child: Text(_sortMenuLabel(l.fileSortSize, FileBrowserSortField.size)),
               ),
               CheckedPopupMenuItem<_BrowserMenuAction>(
                 value: _BrowserMenuAction.sortCategory,
@@ -257,7 +271,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                     browserPreferences.sortField ==
                     FileBrowserSortField.category,
                 child: Text(
-                  _sortMenuLabel('类别', FileBrowserSortField.category),
+                  _sortMenuLabel(l.fileSortCategory, FileBrowserSortField.category),
                 ),
               ),
             ],
@@ -281,10 +295,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                 titleMaxLines: 1,
                 backIcon: _selectionMode ? Icons.close : Icons.arrow_back,
                 backTooltip: _selectionMode
-                    ? '退出选择'
+                    ? l.fileExitSelection
                     : widget.directoryPicker
-                    ? (_isAtRoot ? '取消选择' : '返回上一级')
-                    : (_isAtRoot ? '返回服务器选择' : '返回上一级'),
+                    ? (_isAtRoot ? l.fileCancelPicker : l.fileBackToParent)
+                    : (_isAtRoot ? l.fileBackToServers : l.fileBackToParent),
                 onBackPressed: _selectionMode
                     ? _exitSelection
                     : widget.directoryPicker
@@ -410,22 +424,41 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     }
   }
 
+  /// 面包屑跳转。目标层级可能不在当前导航栈中（目录选择器从当前目录
+  /// 开始时，点起始目录之上的层级；或独立嵌入的深层页面），popUntil
+  /// 一路弹到栈底兜底（isFirst / 文件管理根 / 选择器栈底），避免把
+  /// 导航栈弹空。
   Future<void> _popToPath(String path) async {
     _openSwipe.value = null;
     if (path == _path) return;
     final navigator = Navigator.of(context);
+    final currentRoute = ModalRoute.of(context);
+    final rootRouteName = _routeName('');
     if (isRootFilePath(path)) {
-      final rootRouteName = _routeName('');
+      if (widget.directoryPicker) {
+        // 选择器从当前目录开始时，选择器首页本身就叫根路由名，需排除
+        // 当前页，「根目录」才能退出选择器回到浏览根页。
+        navigator.popUntil(
+          (route) =>
+              (route.settings.name == rootRouteName &&
+                  !identical(route, currentRoute)) ||
+              route.isFirst,
+        );
+        return;
+      }
       navigator.popUntil(
-        (route) => widget.directoryPicker
-            ? route.settings.name == rootRouteName
-            : route.settings.name == fileManagerRootRouteName ||
-                  (!ServerNavigationScope.of(context) && route.isFirst),
+        (route) =>
+            route.settings.name == fileManagerRootRouteName || route.isFirst,
       );
       return;
     }
     final target = _routeName(path);
-    navigator.popUntil((route) => route.settings.name == target);
+    navigator.popUntil(
+      (route) =>
+          route.settings.name == target ||
+          route.settings.name == fileManagerRootRouteName ||
+          route.isFirst,
+    );
   }
 
   void _startSelectionSweep(String key, bool selected) {
@@ -532,8 +565,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   String _sortMenuLabel(String label, FileBrowserSortField field) {
-    if (_sortField != field) return '$label排序';
-    return '$label排序 ${_sortAscending ? '↑' : '↓'}';
+    final l = _l10n;
+    if (_sortField != field) return l.fileSortBy(label);
+    return _sortAscending ? l.fileSortByAsc(label) : l.fileSortByDesc(label);
   }
 
   List<FileEntry> _visibleEntries(DirectoryListing listing) {
@@ -587,6 +621,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     bool imagePreviewEnabled,
     List<FileFavorite> favorites,
   ) {
+    _scheduleAutoOpenOnce(listing);
     final entries = _visibleEntries(listing);
     final favoriteKeys = favorites
         .map((favorite) => favorite.stableKey)
@@ -629,7 +664,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                               ),
                         child: Text(
                           i == 0
-                              ? '根目录'
+                              ? _l10n.fileRootDirectory
                               : _pathName(listing.breadcrumbs[i].value),
                         ),
                       ),
@@ -658,9 +693,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                       padding: EdgeInsets.only(
                         bottom: floatingTabBarContentBottomInset(context),
                       ),
-                      children: const [
-                        SizedBox(height: 140),
-                        Center(child: Text('此目录为空')),
+                      children: [
+                        const SizedBox(height: 140),
+                        Center(child: Text(_l10n.fileEmptyDirectory)),
                       ],
                     )
                   : ListView.separated(
@@ -694,15 +729,15 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     );
   }
 
-  /// 根目录顶部的收藏分区。浏览模式展示目录与文件；目录选择器（移动文件
-  /// 等场景）只展示目录，点击即直接选定该目录。
+  /// 目录选择器（移动文件等场景）根目录顶部的收藏目录分区，点击即直接
+  /// 选定为目标目录。浏览模式的收藏已移至独立的收藏列表页（底部导航
+  /// 「收藏」Tab）。
   List<Widget> _favoriteTiles(List<FileFavorite> favorites) {
-    if (!_isAtRoot || favorites.isEmpty) return const <Widget>[];
+    if (!widget.directoryPicker || !_isAtRoot) return const <Widget>[];
     final visible = <FileFavorite>[
       for (final favorite in favorites)
-        if (!widget.directoryPicker || favorite.isDirectory) favorite,
+        if (favorite.isDirectory) favorite,
     ]..sort((a, b) {
-      if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
       final byAddedAt = b.addedAtMilliseconds.compareTo(
         a.addedAtMilliseconds,
       );
@@ -711,16 +746,18 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     });
     if (visible.isEmpty) return const <Widget>[];
 
-    final theme = Theme.of(context);
-    final starColor = AppHues.chipText(AppHues.solar, theme.brightness);
+    final starColor = AppHues.chipText(
+      AppHues.solar,
+      Theme.of(context).brightness,
+    );
     return <Widget>[
       _listSectionHeader(
         icon: Icons.star,
         iconColor: starColor,
-        label: widget.directoryPicker ? '收藏的目录' : '收藏',
+        label: _l10n.fileFavoriteDirectoriesSection,
       ),
-      for (final favorite in visible) _favoriteTile(favorite, starColor),
-      _listSectionHeader(label: '全部文件'),
+      for (final favorite in visible) _favoriteTile(favorite),
+      _listSectionHeader(label: _l10n.fileAllFilesSection),
     ];
   }
 
@@ -749,17 +786,16 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     );
   }
 
-  Widget _favoriteTile(FileFavorite favorite, Color starColor) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final entry = favorite.toEntry(widget.sourceId);
+  Widget _favoriteTile(FileFavorite favorite) {
     final location = favorite.path.replaceFirst(RegExp(r'^/+'), '');
+    // 根级收藏没有上级位置可展示，副标题退回「根目录」避免与名称重复。
+    final locationLabel = location.contains('/')
+        ? location
+        : _l10n.fileRootDirectory;
     return ListTile(
       leading: Icon(
-        favorite.isDirectory ? Icons.folder_outlined : _fileIcon(entry),
-        color: favorite.isDirectory
-            ? colors.primary
-            : _fileIconColor(entry, theme.brightness),
+        Icons.folder_outlined,
+        color: Theme.of(context).colorScheme.primary,
       ),
       title: Text(
         favorite.name,
@@ -767,74 +803,77 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        location.isEmpty ? '根目录' : location,
+        locationLabel,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      trailing: widget.directoryPicker
-          ? const Icon(Icons.check_circle_outline)
-          : IconButton(
-              tooltip: '取消收藏',
-              onPressed: _busy ? null : () => _removeFavorite(favorite),
-              icon: Icon(Icons.star, color: starColor),
-            ),
+      trailing: const Icon(Icons.check_circle_outline),
       onTap: (_busy || _selectionMode)
           ? null
-          : () => unawaited(_openFavorite(favorite)),
+          : () => Navigator.of(context).pop(
+              FilePath(sourceId: widget.sourceId, value: favorite.path),
+            ),
     );
   }
 
   void _toggleFavorite(FileEntry entry) {
+    final l = _l10n;
     final added = ref
         .read(fileFavoritesProvider(widget.serverId).notifier)
         .toggle(entry);
-    _message(added ? '已收藏“${entry.name}”' : '已取消收藏“${entry.name}”');
-  }
-
-  void _removeFavorite(FileFavorite favorite) {
-    ref
-        .read(fileFavoritesProvider(widget.serverId).notifier)
-        .remove(favorite.stableKey);
-  }
-
-  Future<void> _openFavorite(FileFavorite favorite) async {
-    _openSwipe.value = null;
-    if (widget.directoryPicker) {
-      // 移动文件等目录选择场景：点击收藏目录即直接选定为目标目录。
-      Navigator.of(context).pop(
-        FilePath(sourceId: widget.sourceId, value: favorite.path),
-      );
-      return;
-    }
-    if (favorite.isDirectory) {
-      _openPathChain(favorite.path);
-      return;
-    }
-    await _openFile(favorite.toEntry(widget.sourceId));
-  }
-
-  /// 逐级压入收藏路径的各级目录路由，使返回栈与面包屑跳转、逐级返回
-  /// 的行为保持一致。
-  void _openPathChain(String path) {
-    final breadcrumbs = buildBreadcrumbs(
-      FilePath(sourceId: widget.sourceId, value: path),
-      webDav: path.startsWith('/'),
+    _message(
+      added
+          ? l.fileFavoriteAdded(entry.name)
+          : l.fileFavoriteRemoved(entry.name),
     );
-    final navigator = Navigator.of(context);
-    for (final crumb in breadcrumbs) {
-      if (isRootFilePath(crumb.value)) continue;
-      navigator.push<FilePath>(
-        MaterialPageRoute<FilePath>(
-          settings: RouteSettings(name: _routeName(crumb.value)),
-          allowSnapshotting: false,
-          builder: (_) => FileBrowserPage(
-            serverId: widget.serverId,
-            sourceId: widget.sourceId,
-            initialPath: crumb.value,
-          ),
-        ),
-      );
+  }
+
+  /// 从收藏列表跳转打开文件：所在目录首次加载完成后自动触发一次打开。
+  /// 按收藏键优先匹配列表条目，路径键对不上时退回按名称匹配。
+  void _scheduleAutoOpenOnce(DirectoryListing listing) {
+    final pending = _pendingAutoOpen;
+    if (pending == null) return;
+    FileEntry? match;
+    for (final entry in listing.entries) {
+      if (entry.stableKey == pending.stableKey) {
+        match = entry;
+        break;
+      }
     }
+    if (match == null) {
+      for (final entry in listing.entries) {
+        if (entry.name == pending.name) {
+          match = entry;
+          break;
+        }
+      }
+    }
+    // 目录还没加载出目标时保留待打开状态，等下一次加载再试。
+    if (match == null) return;
+    _pendingAutoOpen = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _busy || _selectionMode) return;
+      unawaited(_openFile(match!));
+    });
+  }
+
+  /// 已收藏条目的图标右下角叠加小星标，长列表中无需展开菜单即可识别。
+  Widget _withFavoriteStar(Widget icon) {
+    final starColor = AppHues.chipText(
+      AppHues.solar,
+      Theme.of(context).brightness,
+    );
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        icon,
+        Positioned(
+          right: -4,
+          bottom: -4,
+          child: Icon(Icons.star, size: 13, color: starColor),
+        ),
+      ],
+    );
   }
 
   Widget _entryTile(
@@ -845,11 +884,60 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   ) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final l = _l10n;
     final isFavorite = favoriteKeys.contains(entry.stableKey);
     final meta = _entryMeta(entry);
     final playbackProgress = !entry.isDirectory && _isVideoEntry(entry)
         ? _filePlaybackProgress.load(entry.name)
         : null;
+    final Widget leading;
+    if (_selectionMode) {
+      leading = SizedBox(
+        width: 40,
+        child: Center(
+          child: Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _selectedKeys.contains(entry.stableKey)
+                  ? colors.primary
+                  : Colors.transparent,
+              border: Border.all(
+                color: _selectedKeys.contains(entry.stableKey)
+                    ? colors.primary
+                    : colors.outline,
+                width: 1.5,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: _selectedKeys.contains(entry.stableKey)
+                ? const Icon(
+                    Icons.check,
+                    color: Colors.white,
+                    size: 14,
+                  )
+                : null,
+          ),
+        ),
+      );
+    } else {
+      final icon = imagePreviewEnabled &&
+              !entry.isDirectory &&
+              _isImageEntry(entry)
+          ? _FileImageThumbnail(
+              bytes: _imagePreviewFuture(entry),
+              fallbackIcon: fileIconFor(entry),
+              fallbackColor: fileIconColorFor(entry, theme.brightness),
+            )
+          : Icon(
+              entry.isDirectory ? Icons.folder_outlined : fileIconFor(entry),
+              color: entry.isDirectory
+                  ? colors.primary
+                  : fileIconColorFor(entry, theme.brightness),
+            );
+      leading = isFavorite ? _withFavoriteStar(icon) : icon;
+    }
     return SwipeActionCell(
       group: _openSwipe,
       cellKey: entry.stableKey,
@@ -857,7 +945,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       actions: [
         SwipeActionData(
           icon: Icons.delete_outline,
-          label: '删除',
+          label: l.delete,
           color: colors.error,
           onPressed: () => _delete(entry),
         ),
@@ -868,50 +956,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         selectionIndex: index,
         selectionHandleAlignment: Alignment.centerLeft,
         child: ListTile(
-          leading: _selectionMode
-              ? SizedBox(
-                  width: 40,
-                  child: Center(
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _selectedKeys.contains(entry.stableKey)
-                            ? colors.primary
-                            : Colors.transparent,
-                        border: Border.all(
-                          color: _selectedKeys.contains(entry.stableKey)
-                              ? colors.primary
-                              : colors.outline,
-                          width: 1.5,
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: _selectedKeys.contains(entry.stableKey)
-                          ? const Icon(
-                              Icons.check,
-                              color: Colors.white,
-                              size: 14,
-                            )
-                          : null,
-                    ),
-                  ),
-                )
-              : imagePreviewEnabled &&
-                    !entry.isDirectory &&
-                    _isImageEntry(entry)
-              ? _FileImageThumbnail(
-                  bytes: _imagePreviewFuture(entry),
-                  fallbackIcon: _fileIcon(entry),
-                  fallbackColor: _fileIconColor(entry, theme.brightness),
-                )
-              : Icon(
-                  entry.isDirectory ? Icons.folder_outlined : _fileIcon(entry),
-                  color: entry.isDirectory
-                      ? colors.primary
-                      : _fileIconColor(entry, theme.brightness),
-                ),
+          leading: leading,
           title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: meta.isEmpty
               ? null
@@ -928,7 +973,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                       const SizedBox(width: 4),
                     ],
                     PopupMenuButton<String>(
-                      tooltip: '文件操作',
+                      tooltip: l.fileEntryActions,
                       enabled: !_busy,
                       onSelected: (action) => _handleEntryAction(entry, action),
                       itemBuilder: (_) => [
@@ -936,35 +981,37 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                           value: 'favorite',
                           child: _FileMenuItem(
                             icon: isFavorite ? Icons.star : Icons.star_border,
-                            label: isFavorite ? '取消收藏' : '收藏',
+                            label: isFavorite
+                                ? l.fileUnfavorite
+                                : l.fileFavorite,
                           ),
                         ),
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'detail',
                           child: _FileMenuItem(
                             icon: Icons.info_outline,
-                            label: '详情',
+                            label: l.fileDetails,
                           ),
                         ),
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'rename',
                           child: _FileMenuItem(
                             icon: Icons.drive_file_rename_outline,
-                            label: '重命名',
+                            label: l.fileRename,
                           ),
                         ),
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'move',
                           child: _FileMenuItem(
                             icon: Icons.drive_file_move_outlined,
-                            label: '移动',
+                            label: l.fileMove,
                           ),
                         ),
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'delete',
                           child: _FileMenuItem(
                             icon: Icons.delete_outline,
-                            label: '删除',
+                            label: l.delete,
                           ),
                         ),
                       ],
@@ -988,32 +1035,33 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   List<EntityBatchAction> _batchActions(List<FileEntry> entries) {
+    final l = _l10n;
     final error = Theme.of(context).colorScheme.error;
     return [
       EntityBatchAction(
         icon: Icons.select_all,
-        label: '全选',
+        label: l.fileSelectAll,
         onTap: entries.isEmpty ? null : () => _selectAllVisible(entries),
       ),
       EntityBatchAction(
         icon: Icons.remove_done,
-        label: '清空',
+        label: l.fileClearSelection,
         onTap: _selectedKeys.isEmpty ? null : _clearSelection,
       ),
       EntityBatchAction(
         icon: Icons.drive_file_move_outlined,
-        label: '移动',
+        label: l.fileMove,
         onTap: _selectedKeys.isEmpty ? null : () => _moveSelected(entries),
       ),
       EntityBatchAction(
         icon: Icons.drive_file_rename_outline,
-        label: '重命名',
+        label: l.fileRename,
         onTap: _selectedKeys.isEmpty ? null : () => _renameSelected(entries),
       ),
       EntityBatchAction(
         icon: Icons.delete_outline,
-        label: '删除',
-        tooltip: '删除所选',
+        label: l.delete,
+        tooltip: l.fileDeleteSelected,
         color: error,
         onTap: _selectedKeys.isEmpty ? null : () => _deleteSelected(entries),
       ),
@@ -1053,9 +1101,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _createDirectory(FilePath parent) async {
-    final name = await _askText('新建文件夹', '文件夹名称');
+    final l = _l10n;
+    final name = await _askText(l.fileCreateDirectory, l.fileFolderNameLabel);
     if (name == null || name.trim().isEmpty) return;
-    await _run('创建目录失败', () async {
+    await _run(l.fileCreateDirectoryFailed, () async {
       final repo = await _repository();
       await repo.createDirectory(parent, name.trim());
       await _refresh();
@@ -1063,11 +1112,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _upload(FilePath parent) async {
-    final localPath = await _askText('上传文件', '本地文件路径');
+    final l = _l10n;
+    final localPath = await _askText(l.fileUpload, l.fileLocalPathLabel);
     if (localPath == null || localPath.trim().isEmpty) return;
     final file = File(localPath.trim());
     if (!await file.exists()) {
-      _message('本地文件不存在');
+      _message(l.fileLocalFileMissing);
       return;
     }
     final name = _pathName(file.path);
@@ -1077,7 +1127,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     );
     final overwrite = await _confirmOverwrite(destination);
     if (overwrite != true) return;
-    await _run('上传失败', () async {
+    await _run(l.fileUploadFailed, () async {
       final repo = await _repository();
       final operationId = _tracker.start(
         FileOperationKind.upload,
@@ -1099,15 +1149,18 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
           ),
         );
         if (cancellation.isCancelled) {
-          throw const FileSourceException('上传已取消', code: 'canceled');
+          throw FileSourceException(
+            l.fileUploadCanceled,
+            code: 'canceled',
+          );
         }
         _tracker.complete(operationId, FileOperationKind.upload);
-        _message('上传完成');
+        _message(l.fileUploadDone);
         await _refresh();
       } catch (error) {
         _tracker.fail(operationId, FileOperationKind.upload, error);
         if (cancellation.isCancelled || _isCanceled(error)) {
-          _message('上传已取消');
+          _message(l.fileUploadCanceled);
           return;
         }
         rethrow;
@@ -1116,7 +1169,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _rename(FileEntry entry) async {
-    final name = await _askText('重命名', '新名称', initial: entry.name);
+    final l = _l10n;
+    final name = await _askText(
+      l.fileRename,
+      l.fileNewNameLabel,
+      initial: entry.name,
+    );
     if (name == null || name.trim().isEmpty || name.trim() == entry.name) {
       return;
     }
@@ -1125,7 +1183,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       value: _join(_parent(entry.path.value), name.trim()),
     );
     if (await _confirmOverwrite(destination) != true) return;
-    await _run('重命名失败', () async {
+    await _run(l.fileRenameFailed, () async {
       await (await _repository()).rename(
         entry.path,
         name.trim(),
@@ -1136,6 +1194,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _move(FileEntry entry) async {
+    final l = _l10n;
     final directory = await _pickDirectory();
     if (directory == null) return;
     if (_isInvalidMoveTarget(entry, directory)) return;
@@ -1145,7 +1204,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     );
     if (destination == entry.path) return;
     if (await _confirmOverwrite(destination) != true) return;
-    await _run('移动失败', () async {
+    await _run(l.fileMoveFailed, () async {
       await (await _repository()).move(
         entry.path,
         destination,
@@ -1156,6 +1215,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<FilePath?> _pickDirectory() {
+    // 「移动文件起始位置」设置：默认从根目录选择；选择「当前目录」时
+    // 从移动操作发起的目录开始，省去逐层下钻。栈底路由名保持为根形式，
+    // 作为选择器的固定回退目标。
+    final startLocation = ref.read(fileMoveStartProvider);
+    final startPath = startLocation == FileMoveStartLocation.current
+        ? _path
+        : '';
     return Navigator.of(context).push<FilePath>(
       MaterialPageRoute<FilePath>(
         settings: RouteSettings(name: _routeName('')),
@@ -1163,6 +1229,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         builder: (_) => FileBrowserPage(
           serverId: widget.serverId,
           sourceId: widget.sourceId,
+          initialPath: startPath,
           directoryPicker: true,
         ),
       ),
@@ -1175,7 +1242,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final targetPath = directory.value.replaceAll(RegExp(r'/+$'), '');
     if (targetPath == sourcePath ||
         (sourcePath.isNotEmpty && targetPath.startsWith('$sourcePath/'))) {
-      _message('不能将目录移动到自身或其子目录');
+      _message(_l10n.fileInvalidMoveTarget);
       return true;
     }
     return false;
@@ -1207,14 +1274,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         .toList(growable: false);
     if (moves.isEmpty) return;
 
-    await _run('批量移动失败', () async {
+    await _run(_l10n.fileBatchMoveFailed, () async {
       final repo = await _repository();
       var conflictCount = 0;
       for (final move in moves) {
         if (await repo.exists(move.destination)) conflictCount++;
       }
       if (conflictCount > 0 &&
-          await _confirmBatchOverwrite(conflictCount, '移动') != true) {
+          await _confirmBatchOverwrite(conflictCount, _l10n.fileMove) != true) {
         return;
       }
       for (final move in moves) {
@@ -1226,19 +1293,20 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<bool?> _confirmBatchOverwrite(int count, String action) {
+    final l = _l10n;
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('目标已存在'),
-        content: Text('$count 个目标已存在，是否覆盖后继续$action？'),
+        title: Text(l.fileTargetExists),
+        content: Text(l.fileBatchOverwritePrompt(count, action)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('覆盖'),
+            child: Text(l.fileOverwrite),
           ),
         ],
       ),
@@ -1246,6 +1314,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _renameSelected(List<FileEntry> entries) async {
+    final l = _l10n;
     final selected = entries
         .where((entry) => _selectedKeys.contains(entry.stableKey))
         .toList(growable: false);
@@ -1261,7 +1330,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         .where((item) => item.name.isNotEmpty && item.name != item.entry.name)
         .toList(growable: false);
     if (planned.isEmpty) {
-      _message('没有可应用的名称变化');
+      _message(l.fileNoRenameChanges);
       return;
     }
 
@@ -1270,16 +1339,16 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     for (final item in planned) {
       final path = _join(_parent(item.entry.path.value), item.name);
       if (!plannedPaths.add(path)) {
-        _message('预览结果包含重复名称，请调整重命名规则');
+        _message(l.fileRenameDuplicatePreview);
         return;
       }
       if (path != item.entry.path.value && selectedPaths.contains(path)) {
-        _message('不能批量重命名为其他已选项的现有名称');
+        _message(l.fileRenameCollision);
         return;
       }
     }
 
-    await _run('批量重命名失败', () async {
+    await _run(l.fileBatchRenameFailed, () async {
       final repo = await _repository();
       var conflictCount = 0;
       for (final item in planned) {
@@ -1294,7 +1363,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         }
       }
       if (conflictCount > 0 &&
-          await _confirmBatchOverwrite(conflictCount, '重命名') != true) {
+          await _confirmBatchOverwrite(conflictCount, l.fileRename) != true) {
         return;
       }
       for (final item in planned) {
@@ -1320,15 +1389,16 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _delete(FileEntry entry) async {
+    final l = _l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认删除？'),
-        content: Text('将从远程文件来源删除“${entry.name}”，此操作不可撤销。'),
+        title: Text(l.fileDeleteConfirmTitle),
+        content: Text(l.fileDeleteConfirmBody(entry.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -1336,13 +1406,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
               backgroundColor: appColors(context).danger,
               foregroundColor: Colors.white,
             ),
-            child: const Text('删除'),
+            child: Text(l.delete),
           ),
         ],
       ),
     );
     if (confirmed != true) return;
-    await _run('删除失败', () async {
+    await _run(l.fileDeleteFailed, () async {
       await (await _repository()).delete(
         entry.path,
         options: FileDeleteOptions(recursive: entry.isDirectory),
@@ -1353,6 +1423,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _deleteSelected(List<FileEntry> entries) async {
+    final l = _l10n;
     final selected = entries
         .where((entry) => _selectedKeys.contains(entry.stableKey))
         .toList(growable: false);
@@ -1361,12 +1432,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认批量删除？'),
-        content: Text('将从远程文件来源删除已选择的 ${selected.length} 项，此操作不可撤销。'),
+        title: Text(l.fileBatchDeleteConfirmTitle),
+        content: Text(l.fileBatchDeleteConfirmBody(selected.length)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -1374,14 +1445,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
               backgroundColor: appColors(context).danger,
               foregroundColor: Colors.white,
             ),
-            child: const Text('删除'),
+            child: Text(l.delete),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
 
-    await _run('批量删除失败', () async {
+    await _run(l.fileBatchDeleteFailed, () async {
       final repo = await _repository();
       for (final entry in selected) {
         await repo.delete(
@@ -1395,6 +1466,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _showDetails(FileEntry entry) async {
+    final l = _l10n;
     await showGlassSheet<void>(
       context: context,
       useRootNavigator: true,
@@ -1406,21 +1478,26 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
             SheetHeader(
               icon: entry.isDirectory
                   ? Icons.folder_outlined
-                  : _fileIcon(entry),
+                  : fileIconFor(entry),
               title: entry.name,
-              subtitle: entry.isDirectory ? '目录详情' : '文件详情',
+              subtitle: entry.isDirectory
+                  ? l.fileDirectoryDetails
+                  : l.fileFileDetails,
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('路径：${entry.path.value}'),
+                  Text(l.filePathLabel(entry.path.value)),
                   if (entry.size != null)
-                    Text('大小：${_formatBytes(entry.size!)}'),
-                  if (entry.mimeType != null) Text('类型：${entry.mimeType}'),
+                    Text(l.fileSizeLabel(_formatBytes(entry.size!))),
+                  if (entry.mimeType != null)
+                    Text(l.fileTypeLabel(entry.mimeType!)),
                   if (entry.modifiedAt != null)
-                    Text('修改时间：${_formatDateTime(entry.modifiedAt!)}'),
+                    Text(l.fileModifiedAtLabel(
+                      _formatDateTime(entry.modifiedAt!),
+                    )),
                 ],
               ),
             ),
@@ -1451,6 +1528,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _previewVideo(FileEntry entry) async {
+    final l = _l10n;
     PlaybackEngineKind? engineKind;
     final playerSettings = ref.read(playerSettingsProvider);
     if (playerSettings.debugMode) {
@@ -1478,8 +1556,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         final access = await repository.resolveAccess(entry.path);
         if (!mounted) return;
         if (access.uri == null) {
-          throw const FileSourceException(
-            '服务器未提供 HTTP 直连地址，已停止播放（不会回退到本机代理）',
+          throw FileSourceException(
+            l.fileWebDavDirectUrlMissing,
             code: 'webdav_direct_url_missing',
           );
         }
@@ -1545,7 +1623,11 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     } catch (error, stackTrace) {
       appLog('[FileBrowser] 视频预览失败: $error\n$stackTrace');
       if (mounted) {
-        _message('视频预览失败：${error is SourceException ? error.message : error}');
+        _message(
+          _l10n.fileVideoPreviewFailed(
+            error is SourceException ? error.message : error.toString(),
+          ),
+        );
       }
     } finally {
       try {
@@ -1576,7 +1658,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         useRootNavigator: true,
       );
     } catch (error) {
-      if (mounted) _message('图片预览失败：$error');
+      if (mounted) _message(_l10n.fileImagePreviewFailed(error.toString()));
     }
   }
 
@@ -1592,7 +1674,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         ),
       );
     } catch (error) {
-      if (mounted) _message('文本预览失败：$error');
+      if (mounted) _message(_l10n.fileTextPreviewFailed(error.toString()));
     }
   }
 
@@ -1619,14 +1701,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       _isSubtitleEntry(entry) ||
       _isTextEntry(entry);
 
-  bool _isVideoEntry(FileEntry entry) => _fileTypeFor(entry) == _FileType.video;
+  bool _isVideoEntry(FileEntry entry) => fileTypeIconFor(entry) == FileTypeIcon.video;
 
-  bool _isImageEntry(FileEntry entry) => _fileTypeFor(entry) == _FileType.image;
+  bool _isImageEntry(FileEntry entry) => fileTypeIconFor(entry) == FileTypeIcon.image;
 
   bool _isSubtitleEntry(FileEntry entry) =>
-      _fileTypeFor(entry) == _FileType.subtitle;
+      fileTypeIconFor(entry) == FileTypeIcon.subtitle;
 
-  bool _isTextEntry(FileEntry entry) => _fileTypeFor(entry) == _FileType.text;
+  bool _isTextEntry(FileEntry entry) => fileTypeIconFor(entry) == FileTypeIcon.text;
 
   String? _pathExtension(String name) {
     final dot = name.lastIndexOf('.');
@@ -1638,7 +1720,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final text = utf8.decode(bytes, allowMalformed: true);
     final mime = entry.mimeType?.toLowerCase() ?? '';
     final isJson =
-        mime == 'application/json' || _fileExtensionFor(entry.name) == 'json';
+        mime == 'application/json' || fileExtensionFor(entry.name) == 'json';
     if (!isJson) return text;
     try {
       return const JsonEncoder.withIndent('  ').convert(jsonDecode(text));
@@ -1697,6 +1779,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     String label, {
     String? initial,
   }) async {
+    final l = _l10n;
     final controller = TextEditingController(text: initial);
     final value = await showDialog<String>(
       context: context,
@@ -1710,11 +1793,11 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('确定'),
+            child: Text(l.confirm),
           ),
         ],
       ),
@@ -1724,6 +1807,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<bool?> _confirmOverwrite(FilePath path) async {
+    final l = _l10n;
     try {
       final exists = await (await _repository()).exists(path);
       if (!exists) return true;
@@ -1734,16 +1818,16 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('目标已存在'),
-        content: Text('是否覆盖“${path.value}”？'),
+        title: Text(l.fileTargetExists),
+        content: Text(l.fileOverwritePrompt(path.value)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('覆盖'),
+            child: Text(l.fileOverwrite),
           ),
         ],
       ),
@@ -1791,8 +1875,11 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     }
   }
 
-  String _routeName(String path) =>
-      'file-browser:${widget.serverId}:${widget.sourceId.value}:$path';
+  String _routeName(String path) => fileBrowserRouteName(
+    serverId: widget.serverId,
+    sourceId: widget.sourceId.value,
+    path: path,
+  );
 }
 
 class _FileImageThumbnail extends StatelessWidget {
@@ -1875,6 +1962,7 @@ class _BatchRenameSheetState extends State<_BatchRenameSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppL10n.of(context);
     final draft = _BatchRenameDraft(
       mode: _mode,
       search: _searchController.text,
@@ -1901,24 +1989,27 @@ class _BatchRenameSheetState extends State<_BatchRenameSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SheetHeader(
+            SheetHeader(
               icon: Icons.drive_file_rename_outline,
-              title: '批量重命名',
-              subtitle: '选择规则并查看实时预览',
+              title: l.fileBatchRenameTitle,
+              subtitle: l.fileBatchRenameSubtitle,
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
               child: DropdownButtonFormField<_BatchRenameMode>(
                 initialValue: _mode,
-                decoration: sheetInputDecoration(context, labelText: '重命名模式'),
-                items: const [
+                decoration: sheetInputDecoration(
+                  context,
+                  labelText: l.fileRenameMode,
+                ),
+                items: [
                   DropdownMenuItem(
                     value: _BatchRenameMode.replace,
-                    child: Text('替换文本'),
+                    child: Text(l.fileRenameModeReplace),
                   ),
                   DropdownMenuItem(
                     value: _BatchRenameMode.add,
-                    child: Text('添加文本'),
+                    child: Text(l.fileRenameModeAdd),
                   ),
                 ],
                 onChanged: (value) {
@@ -1933,7 +2024,10 @@ class _BatchRenameSheetState extends State<_BatchRenameSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 22),
                 child: TextField(
                   controller: _searchController,
-                  decoration: sheetInputDecoration(context, labelText: '查询'),
+                  decoration: sheetInputDecoration(
+                    context,
+                    labelText: l.fileRenameSearchLabel,
+                  ),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
@@ -1942,7 +2036,10 @@ class _BatchRenameSheetState extends State<_BatchRenameSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 22),
                 child: TextField(
                   controller: _replacementController,
-                  decoration: sheetInputDecoration(context, labelText: '替换为'),
+                  decoration: sheetInputDecoration(
+                    context,
+                    labelText: l.fileRenameReplaceLabel,
+                  ),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
@@ -1951,7 +2048,10 @@ class _BatchRenameSheetState extends State<_BatchRenameSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 22),
                 child: TextField(
                   controller: _addController,
-                  decoration: sheetInputDecoration(context, labelText: '添加文本'),
+                  decoration: sheetInputDecoration(
+                    context,
+                    labelText: l.fileRenameAddTextLabel,
+                  ),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
@@ -1960,10 +2060,19 @@ class _BatchRenameSheetState extends State<_BatchRenameSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 22),
                 child: DropdownButtonFormField<bool>(
                   initialValue: _addBefore,
-                  decoration: sheetInputDecoration(context, labelText: '添加位置'),
-                  items: const [
-                    DropdownMenuItem(value: true, child: Text('在名字之前')),
-                    DropdownMenuItem(value: false, child: Text('在名字之后')),
+                  decoration: sheetInputDecoration(
+                    context,
+                    labelText: l.fileRenameAddPosition,
+                  ),
+                  items: [
+                    DropdownMenuItem(
+                      value: true,
+                      child: Text(l.fileRenameAddBefore),
+                    ),
+                    DropdownMenuItem(
+                      value: false,
+                      child: Text(l.fileRenameAddAfter),
+                    ),
                   ],
                   onChanged: (value) {
                     if (value == null) return;
@@ -1974,7 +2083,10 @@ class _BatchRenameSheetState extends State<_BatchRenameSheet> {
             ],
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 4, 22, 0),
-              child: Text('预览', style: Theme.of(context).textTheme.titleMedium),
+              child: Text(
+                l.filePreviewSection,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 220),
@@ -2011,7 +2123,7 @@ class _BatchRenameSheetState extends State<_BatchRenameSheet> {
                     child: OutlinedButton(
                       onPressed: () => Navigator.of(context).pop(),
                       style: sheetSecondaryButtonStyle(context),
-                      child: const Text('取消'),
+                      child: Text(AppL10n.of(context).cancel),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -2021,7 +2133,7 @@ class _BatchRenameSheetState extends State<_BatchRenameSheet> {
                           ? () => Navigator.of(context).pop(draft)
                           : null,
                       style: sheetPrimaryButtonStyle(context),
-                      child: const Text('应用'),
+                      child: Text(AppL10n.of(context).fileApply),
                     ),
                   ),
                 ],
@@ -2075,14 +2187,14 @@ class _FileOperationBanner extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      _operationTitle(operation),
+                      _operationTitle(operation, AppL10n.of(context)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (isRunning)
                     IconButton(
-                      tooltip: '取消',
+                      tooltip: AppL10n.of(context).cancel,
                       onPressed: onCancel,
                       icon: const Icon(Icons.close),
                     ),
@@ -2115,17 +2227,17 @@ IconData _operationIcon(FileOperationKind kind) => switch (kind) {
   _ => Icons.sync,
 };
 
-String _operationTitle(FileOperation operation) {
+String _operationTitle(FileOperation operation, AppL10n l) {
   final action = switch (operation.kind) {
-    FileOperationKind.upload => '上传',
-    _ => '文件操作',
+    FileOperationKind.upload => l.fileUploadAction,
+    _ => l.fileFileOperation,
   };
   return switch (operation.status) {
-    FileOperationStatus.running => '$action进行中',
-    FileOperationStatus.completed => '$action完成',
-    FileOperationStatus.canceled => '$action已取消',
-    FileOperationStatus.failed => '$action失败',
-    FileOperationStatus.pending => '$action等待中',
+    FileOperationStatus.running => l.fileOperationRunning(action),
+    FileOperationStatus.completed => l.fileOperationCompleted(action),
+    FileOperationStatus.canceled => l.fileOperationCanceled(action),
+    FileOperationStatus.failed => l.fileOperationFailed(action),
+    FileOperationStatus.pending => l.fileOperationPending(action),
   };
 }
 
@@ -2150,7 +2262,10 @@ class _BrowserError extends StatelessWidget {
         children: [
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 12),
-          FilledButton(onPressed: onRetry, child: const Text('重试')),
+          FilledButton(
+            onPressed: onRetry,
+            child: Text(AppL10n.of(context).fileRetry),
+          ),
         ],
       ),
     ),
@@ -2166,7 +2281,7 @@ class _FilePlaybackProgressIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Semantics(
-      label: '播放进度',
+      label: AppL10n.of(context).filePlaybackProgress,
       value: '${progress.percentage}%',
       child: SizedBox(
         width: 24,
@@ -2212,7 +2327,7 @@ class _FileTextViewerPage extends StatelessWidget {
         child: SafeArea(
           child: SettingsFixedHeaderLayout(
             header: SettingsSubPageHeader(
-              eyebrow: '文件',
+              eyebrow: AppL10n.of(context).fileEyebrow,
               title: title,
               titleMaxLines: 1,
             ),
@@ -2253,122 +2368,6 @@ String _join(String parent, String child) {
   final right = child.replaceAll(RegExp(r'^/+'), '');
   if (left.isEmpty) return right;
   return '$left/$right';
-}
-
-enum _FileType { text, video, image, subtitle, other }
-
-const _videoFileExtensions = <String>{
-  'mp4',
-  'mkv',
-  'webm',
-  'mov',
-  'avi',
-  'm4v',
-  'ts',
-  'm2ts',
-  'm3u8',
-};
-
-const _imageFileExtensions = <String>{
-  'jpg',
-  'jpeg',
-  'png',
-  'gif',
-  'webp',
-  'bmp',
-  'heic',
-  'heif',
-};
-
-const _subtitleFileExtensions = <String>{
-  'srt',
-  'vtt',
-  'ass',
-  'ssa',
-  'sub',
-  'idx',
-  'sup',
-  'smi',
-  'sami',
-  'ttml',
-};
-
-const _textFileExtensions = <String>{
-  'txt',
-  'json',
-  'csv',
-  'xml',
-  'html',
-  'htm',
-  'css',
-  'js',
-  'ts',
-  'yaml',
-  'yml',
-  'md',
-  'log',
-};
-
-_FileType _fileTypeFor(FileEntry entry) {
-  final mime = entry.mimeType?.trim().toLowerCase() ?? '';
-  final extension = _fileExtensionFor(entry.name);
-
-  if (_isSubtitleMimeType(mime) ||
-      _subtitleFileExtensions.contains(extension)) {
-    return _FileType.subtitle;
-  }
-  if (mime.startsWith('video/') || _videoFileExtensions.contains(extension)) {
-    return _FileType.video;
-  }
-  if (mime.startsWith('image/') || _imageFileExtensions.contains(extension)) {
-    return _FileType.image;
-  }
-  if (mime.startsWith('text/') ||
-      mime == 'application/json' ||
-      mime == 'application/xml' ||
-      mime == 'application/javascript' ||
-      _textFileExtensions.contains(extension)) {
-    return _FileType.text;
-  }
-  return _FileType.other;
-}
-
-bool _isSubtitleMimeType(String mime) =>
-    mime == 'text/vtt' ||
-    mime == 'application/x-subrip' ||
-    mime == 'application/ttml+xml' ||
-    mime == 'application/ass' ||
-    mime == 'application/x-ass' ||
-    mime == 'text/x-ssa';
-
-String? _fileExtensionFor(String name) {
-  final dot = name.lastIndexOf('.');
-  if (dot <= 0 || dot == name.length - 1) return null;
-  return name.substring(dot + 1).toLowerCase();
-}
-
-IconData _fileIcon(FileEntry entry) {
-  return switch (_fileTypeFor(entry)) {
-    _FileType.text => Icons.description_outlined,
-    _FileType.video => Icons.movie_outlined,
-    _FileType.image => Icons.image_outlined,
-    _FileType.subtitle => Icons.closed_caption_outlined,
-    _FileType.other =>
-      (entry.mimeType?.trim().toLowerCase().startsWith('audio/') ?? false)
-          ? Icons.music_note_outlined
-          : Icons.insert_drive_file_outlined,
-  };
-}
-
-Color _fileIconColor(FileEntry entry, Brightness brightness) {
-  final hue = switch (_fileTypeFor(entry)) {
-    _FileType.text => AppHues.sky,
-    _FileType.video => AppHues.coral,
-    _FileType.image => AppHues.mint,
-    _FileType.subtitle => AppHues.solar,
-    _FileType.other => AppHues.lavender,
-  };
-  return AppHues.chipText(hue, brightness);
 }
 
 /// 列表行副标题：目录显示修改时间；文件显示「大小 · 修改时间」，时间缺失
