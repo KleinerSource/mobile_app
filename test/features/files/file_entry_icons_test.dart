@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omm/core/sources/common/source_id.dart';
@@ -44,6 +45,7 @@ void main() {
       fileIconPlaceholderAssetFor(entry('captions.srt')),
       'assets/file_icons/document_placeholder.png',
     );
+    expect(fileTypeIconFor(entry('captions.srt')), FileTypeIcon.text);
     expect(
       fileIconPlaceholderAssetFor(entry('mystery.bin')),
       'assets/file_icons/unknown_placeholder.png',
@@ -60,10 +62,17 @@ void main() {
       'assets/file_icons/text_file_icon.png',
     );
     expect(
+      fileIconAssetWhenPreviewDisabledFor(entry('captions.srt')),
+      'assets/file_icons/text_file_icon.png',
+    );
+    expect(
       fileIconAssetWhenPreviewDisabledFor(entry('photo.jpg')),
       'assets/file_icons/image_file_icon.png',
     );
-    expect(fileIconAssetWhenPreviewDisabledFor(entry('mystery.bin')), isNull);
+    expect(
+      fileIconAssetWhenPreviewDisabledFor(entry('mystery.bin')),
+      'assets/file_icons/unknown_placeholder.png',
+    );
   });
 
   test('recognizes common archive, office, and audio file types', () {
@@ -138,6 +147,33 @@ void main() {
     expect(
       fileIconAssetWhenPreviewDisabledFor(entry('settings.json')),
       'assets/file_icons/code_file_icon.png',
+    );
+  });
+
+  testWidgets('does not add an outer shell around file icons', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: FileEntryIconBadge(entry: entry('settings.json'))),
+    );
+
+    expect(
+      find.descendant(
+        of: find.byType(FileEntryIconBadge),
+        matching: find.byType(DecoratedBox),
+      ),
+      findsNothing,
+    );
+  });
+
+  test('classifies nfo files as unknown even with a text MIME type', () {
+    final nfo = entry('movie.nfo', mimeType: 'text/plain');
+    expect(fileTypeIconFor(nfo), FileTypeIcon.other);
+    expect(
+      fileIconPlaceholderAssetFor(nfo),
+      'assets/file_icons/unknown_placeholder.png',
+    );
+    expect(
+      fileIconAssetWhenPreviewDisabledFor(nfo),
+      'assets/file_icons/unknown_placeholder.png',
     );
   });
 }

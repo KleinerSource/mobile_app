@@ -8,7 +8,6 @@ enum FileTypeIcon {
   text,
   video,
   image,
-  subtitle,
   archive,
   pdf,
   presentation,
@@ -267,9 +266,10 @@ FileTypeIcon fileTypeIconFor(FileEntry entry) {
   final mime = entry.mimeType?.trim().toLowerCase() ?? '';
   final extension = fileExtensionFor(entry.name);
 
+  if (extension == 'nfo') return FileTypeIcon.other;
   if (_isSubtitleMimeType(mime) ||
       _subtitleFileExtensions.contains(extension)) {
-    return FileTypeIcon.subtitle;
+    return FileTypeIcon.text;
   }
   if (mime.startsWith('video/') || _videoFileExtensions.contains(extension)) {
     return FileTypeIcon.video;
@@ -323,10 +323,10 @@ String? fileExtensionFor(String name) {
   return name.substring(dot + 1).toLowerCase();
 }
 
-/// 文件条目的现代化图标徽章。
+/// 文件条目的图标容器。
 ///
-/// 用统一的圆角色块承载文件类型图标，收藏状态以左上角浮动星标表示。
-/// [child] 用于在同一徽章中承载图片缩略图。
+/// 仅提供统一尺寸约束和收藏状态浮标，不额外叠加背景、边框或圆角外壳。
+/// [child] 用于承载文件图标或图片缩略图。
 class FileEntryIconBadge extends StatelessWidget {
   const FileEntryIconBadge({
     super.key,
@@ -349,28 +349,18 @@ class FileEntryIconBadge extends StatelessWidget {
     final c = appColors(context);
     final isDark = theme.brightness == Brightness.dark;
     final iconColor = fileIconColorFor(entry, theme.brightness);
-    final radius = width >= 60 ? 12.0 : 14.0;
-    final badge = DecoratedBox(
-      decoration: BoxDecoration(
-        color: iconColor.withValues(alpha: isDark ? 0.20 : 0.10),
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(
-          color: iconColor.withValues(alpha: isDark ? 0.34 : 0.18),
-        ),
-      ),
-      child: SizedBox(
-        width: width,
-        height: height,
-        child:
-            child ??
-            Center(
-              child: Icon(
-                entry.isDirectory ? Icons.folder_rounded : fileIconFor(entry),
-                color: iconColor,
-                size: width >= 60 ? 24 : 22,
-              ),
+    final badge = SizedBox(
+      width: width,
+      height: height,
+      child:
+          child ??
+          Center(
+            child: Icon(
+              entry.isDirectory ? Icons.folder_rounded : fileIconFor(entry),
+              color: iconColor,
+              size: width >= 60 ? 24 : 22,
             ),
-      ),
+          ),
     );
 
     if (!isFavorite) return badge;
@@ -445,7 +435,6 @@ String fileIconPlaceholderAssetFor(FileEntry entry) {
     FileTypeIcon.video => _videoPlaceholderAsset,
     FileTypeIcon.image => _imagePlaceholderAsset,
     FileTypeIcon.text ||
-    FileTypeIcon.subtitle ||
     FileTypeIcon.archive ||
     FileTypeIcon.pdf ||
     FileTypeIcon.presentation ||
@@ -457,7 +446,7 @@ String fileIconPlaceholderAssetFor(FileEntry entry) {
   };
 }
 
-/// 关闭图片预览时，视频、文本和图片使用的类型图标。
+/// 关闭图片预览时使用的类型图标；未知类型使用统一未知图标。
 String? fileIconAssetWhenPreviewDisabledFor(FileEntry entry) {
   if (entry.isDirectory) return null;
   return switch (fileTypeIconFor(entry)) {
@@ -471,7 +460,7 @@ String? fileIconAssetWhenPreviewDisabledFor(FileEntry entry) {
     FileTypeIcon.document => _documentFileIconAsset,
     FileTypeIcon.audio => _audioFileIconAsset,
     FileTypeIcon.code => _codeFileIconAsset,
-    FileTypeIcon.subtitle || FileTypeIcon.other => null,
+    FileTypeIcon.other => _unknownPlaceholderAsset,
   };
 }
 
@@ -480,7 +469,6 @@ IconData fileIconFor(FileEntry entry) {
     FileTypeIcon.text => Icons.article_rounded,
     FileTypeIcon.video => Icons.movie_rounded,
     FileTypeIcon.image => Icons.photo_rounded,
-    FileTypeIcon.subtitle => Icons.subtitles_rounded,
     FileTypeIcon.archive => Icons.archive_rounded,
     FileTypeIcon.pdf => Icons.picture_as_pdf_rounded,
     FileTypeIcon.presentation => Icons.slideshow_rounded,
@@ -502,7 +490,6 @@ Color fileIconColorFor(FileEntry entry, Brightness brightness) {
           FileTypeIcon.text => AppHues.sky,
           FileTypeIcon.video => AppHues.coral,
           FileTypeIcon.image => AppHues.mint,
-          FileTypeIcon.subtitle => AppHues.solar,
           FileTypeIcon.archive => AppHues.lavender,
           FileTypeIcon.pdf => AppHues.coral,
           FileTypeIcon.presentation => AppHues.coral,

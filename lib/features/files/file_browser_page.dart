@@ -1465,8 +1465,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       await _previewVideo(entry);
     } else if (_isImageEntry(entry)) {
       await _previewImage(entry);
-    } else if (_isSubtitleEntry(entry)) {
-      await _previewText(entry);
     } else if (_isTextEntry(entry)) {
       await _previewText(entry);
     }
@@ -1641,19 +1639,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   bool _canPreview(FileEntry entry) =>
-      _isVideoEntry(entry) ||
-      _isImageEntry(entry) ||
-      _isSubtitleEntry(entry) ||
-      _isTextEntry(entry);
+      _isVideoEntry(entry) || _isImageEntry(entry) || _isTextEntry(entry);
 
   bool _isVideoEntry(FileEntry entry) =>
       fileTypeIconFor(entry) == FileTypeIcon.video;
 
   bool _isImageEntry(FileEntry entry) =>
       fileTypeIconFor(entry) == FileTypeIcon.image;
-
-  bool _isSubtitleEntry(FileEntry entry) =>
-      fileTypeIconFor(entry) == FileTypeIcon.subtitle;
 
   bool _isTextEntry(FileEntry entry) =>
       fileTypeIconFor(entry) == FileTypeIcon.text ||
