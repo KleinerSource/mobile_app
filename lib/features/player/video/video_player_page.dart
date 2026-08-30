@@ -202,7 +202,8 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
 
   late final PlayerSessionController _host;
   late final FilePlaybackProgressRepository _filePlaybackProgress;
-  final PlayerDeviceStatsReader _deviceStatsReader = PlayerDeviceStatsReader();
+  final PlayerDeviceStatsReader _deviceStatsReader =
+      const PlayerDeviceStatsReader();
 
   bool _loading = true;
   String? _error;
