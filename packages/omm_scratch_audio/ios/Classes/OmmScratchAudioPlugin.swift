@@ -15,7 +15,7 @@ public final class OmmScratchAudioPlugin: NSObject, FlutterPlugin {
     channel.setMethodCallHandler(instance.handle)
   }
 
-  private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+  public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     let arguments = call.arguments as? [String: Any]
     switch call.method {
     case "prepare":
