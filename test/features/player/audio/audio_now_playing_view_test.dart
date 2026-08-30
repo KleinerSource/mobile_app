@@ -114,6 +114,44 @@ void main() {
     }
   });
 
+  testWidgets('甩碟释放后唱片从当前相位继续惯性旋转', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      seekDelay: const Duration(milliseconds: 300),
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        playing: true,
+        position: Duration(seconds: 30),
+        duration: Duration(minutes: 1),
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final rotation = tester.widget<RotationTransition>(
+        find.byKey(const ValueKey<String>('audio-vinyl-rotation')),
+      );
+      final center = tester.getCenter(record);
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+      await gesture.moveTo(
+        center + const Offset(120, 0),
+        timeStamp: const Duration(milliseconds: 80),
+      );
+      await gesture.up();
+      await tester.pump();
+      final afterRelease = rotation.turns.value;
+
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(rotation.turns.value, greaterThan(afterRelease));
+      await tester.pump(const Duration(milliseconds: 300));
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
   testWidgets('旋拧 seek 会合并快速更新并限制在歌曲边界内', (tester) async {
     final engine = FakePlaybackEngine(
       PlaybackEngineKind.audio,

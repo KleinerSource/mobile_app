@@ -38,6 +38,9 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   static const _seekSecondsPerRevolution = 15.0;
   static const _gestureThreshold = 10.0;
   static const _innerGestureRadiusFactor = 0.16;
+  static const _scratchMomentumFriction = 4.8;
+  static const _scratchMomentumCutoff = 0.03;
+  static const _maxScratchMomentum = 6.0;
 
   late final AnimationController _rotationController =
       AnimationController.unbounded(vsync: this, value: 0);
@@ -46,6 +49,9 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     value: 0,
   )..addListener(_handleSpeedChanged);
   late final Ticker _rotationTicker = createTicker(_advanceRotation);
+  late final Ticker _scratchMomentumTicker = createTicker(
+    _advanceScratchMomentum,
+  );
   late final AnimationController _tonearmController = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 320),
@@ -57,6 +63,10 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   bool _disableAnimations = false;
   Offset? _scratchStartPoint;
   Offset? _scratchCenter;
+  Offset? _lastScratchLocalPosition;
+  Offset? _previousScratchSamplePoint;
+  Duration? _previousScratchSampleTime;
+  Duration? _lastScratchSampleTime;
   double? _lastScratchAngle;
   Duration? _scratchPosition;
   Future<void>? _scratchPauseFuture;
@@ -67,6 +77,8 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   bool _scratchFinishing = false;
   bool? _scratchWasPlaying;
   int _scratchGeneration = 0;
+  double _scratchMomentumVelocity = 0;
+  Duration? _lastMomentumTick;
 
   @override
   void initState() {
@@ -93,17 +105,20 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   }
 
   void _syncRotation() {
-    if (_scratchActive || _scratchFinishing) {
-      _syncTonearm(true);
-      return;
-    }
-
     if (_disableAnimations) {
+      _stopScratchMomentum();
       _speedTarget = 0;
       _speedController.stop();
       _speedController.value = 0;
       _stopRotationTicker();
-      _syncTonearm(false);
+      _syncTonearm(_scratchActive || _scratchFinishing);
+      return;
+    }
+
+    if (_scratchActive ||
+        _scratchFinishing ||
+        _scratchMomentumTicker.isActive) {
+      _syncTonearm(true);
       return;
     }
 
@@ -165,13 +180,32 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     _rotationController.value += elapsedFraction * _speedController.value;
   }
 
+  void _advanceScratchMomentum(Duration elapsed) {
+    final previous = _lastMomentumTick;
+    _lastMomentumTick = elapsed;
+    if (previous == null) return;
+
+    final elapsedSeconds = (elapsed - previous).inMicroseconds / 1000000;
+    if (elapsedSeconds <= 0) return;
+    _rotationController.value += _scratchMomentumVelocity * elapsedSeconds;
+    _scratchMomentumVelocity *= math.exp(
+      -_scratchMomentumFriction * elapsedSeconds,
+    );
+    if (_scratchMomentumVelocity.abs() < _scratchMomentumCutoff) {
+      _stopScratchMomentum();
+      _syncRotation();
+    }
+  }
+
   @override
   void dispose() {
     _scratchGeneration++;
     _scratchSeekTimer?.cancel();
+    _stopScratchMomentum();
     widget.controller.removeListener(_syncRotation);
     _stopRotationTicker();
     _rotationTicker.dispose();
+    _scratchMomentumTicker.dispose();
     _speedController.dispose();
     _tonearmController.dispose();
     _rotationController.dispose();
@@ -402,6 +436,9 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
           onPointerDown: enabled
               ? (event) => _onScratchPointerDown(event, size)
               : null,
+          onPointerMove: enabled
+              ? (event) => _onScratchPointerMove(event, size)
+              : null,
           onPointerUp: enabled ? (_) => _clearScratchCandidate() : null,
           onPointerCancel: enabled ? (_) => _clearScratchCandidate() : null,
           child: GestureDetector(
@@ -413,7 +450,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
             onPanUpdate: enabled
                 ? (details) => _onScratchUpdate(details, size)
                 : null,
-            onPanEnd: enabled ? (_) => _finishScratch() : null,
+            onPanEnd: enabled ? (details) => _finishScratch(details) : null,
             onPanCancel: enabled ? _finishScratch : null,
             child: RotationTransition(
               key: const ValueKey<String>('audio-vinyl-rotation'),
@@ -459,6 +496,19 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
       return;
     }
     _prepareScratchCandidate(event.position, event.localPosition, size);
+    _lastScratchSampleTime = event.timeStamp;
+  }
+
+  void _onScratchPointerMove(PointerMoveEvent event, double size) {
+    if (_scratchStartPoint == null) return;
+    final localPosition = _recordLocalPosition(
+      event.position,
+      event.localPosition,
+    );
+    _previousScratchSamplePoint = _lastScratchLocalPosition;
+    _previousScratchSampleTime = _lastScratchSampleTime;
+    _lastScratchLocalPosition = localPosition;
+    _lastScratchSampleTime = event.timeStamp;
   }
 
   void _prepareScratchCandidate(
@@ -474,6 +524,10 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     final vector = localPosition - center;
     _scratchStartPoint = localPosition;
     _scratchCenter = center;
+    _lastScratchLocalPosition = localPosition;
+    _previousScratchSamplePoint = null;
+    _previousScratchSampleTime = null;
+    _lastScratchSampleTime = null;
     _lastScratchAngle = vector.distance >= size * _innerGestureRadiusFactor
         ? math.atan2(vector.dy, vector.dx)
         : null;
@@ -507,6 +561,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
       globalPosition,
       fallbackLocalPosition,
     );
+    _lastScratchLocalPosition = localPosition;
     if ((localPosition - start).distance < _gestureThreshold) return;
 
     final vector = localPosition - center;
@@ -546,11 +601,16 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     if (_scratchActive || _scratchFinishing) return;
     _scratchStartPoint = null;
     _scratchCenter = null;
+    _lastScratchLocalPosition = null;
+    _previousScratchSamplePoint = null;
+    _previousScratchSampleTime = null;
+    _lastScratchSampleTime = null;
     _lastScratchAngle = null;
     _scratchPosition = null;
   }
 
   void _beginScratch() {
+    _stopScratchMomentum();
     _scratchActive = true;
     _scratchWasPlaying = widget.controller.playbackIntent;
     _scratchPosition = _clampPosition(widget.controller.position);
@@ -603,9 +663,14 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     }
   }
 
-  void _finishScratch() {
+  void _finishScratch([DragEndDetails? details]) {
+    final momentumVelocity = _scratchReleaseVelocity(details);
     _scratchStartPoint = null;
     _scratchCenter = null;
+    _lastScratchLocalPosition = null;
+    _previousScratchSamplePoint = null;
+    _previousScratchSampleTime = null;
+    _lastScratchSampleTime = null;
     _lastScratchAngle = null;
     if (!_scratchActive) return;
 
@@ -617,7 +682,76 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     final seekFuture = _scratchSeekFuture;
     _scratchActive = false;
     _scratchFinishing = true;
+    _startScratchMomentum(momentumVelocity);
     unawaited(_completeScratch(wasPlaying, generation, seekFuture));
+  }
+
+  double _scratchReleaseVelocity(DragEndDetails? details) {
+    final center = _scratchCenter;
+    final point = _lastScratchLocalPosition;
+    if (center == null || point == null) return 0;
+
+    final radius = point - center;
+    final radiusSquared = radius.distanceSquared;
+    if (radiusSquared < 1) return 0;
+
+    final pixelsPerSecond = details?.velocity.pixelsPerSecond;
+    if (pixelsPerSecond != null &&
+        pixelsPerSecond.dx.isFinite &&
+        pixelsPerSecond.dy.isFinite) {
+      final angularVelocity =
+          (radius.dx * pixelsPerSecond.dy - radius.dy * pixelsPerSecond.dx) /
+          radiusSquared;
+      if (angularVelocity.isFinite && angularVelocity.abs() >= 0.0001) {
+        return (angularVelocity / (math.pi * 2)).clamp(
+          -_maxScratchMomentum,
+          _maxScratchMomentum,
+        );
+      }
+    }
+
+    final previousPoint = _previousScratchSamplePoint;
+    final previousTime = _previousScratchSampleTime;
+    final currentTime = _lastScratchSampleTime;
+    if (previousPoint == null ||
+        previousTime == null ||
+        currentTime == null ||
+        currentTime <= previousTime) {
+      return 0;
+    }
+    final previousVector = previousPoint - center;
+    final currentVector = point - center;
+    if (previousVector.distanceSquared < 1 ||
+        currentVector.distanceSquared < 1) {
+      return 0;
+    }
+    var angleDelta =
+        math.atan2(currentVector.dy, currentVector.dx) -
+        math.atan2(previousVector.dy, previousVector.dx);
+    if (angleDelta > math.pi) angleDelta -= math.pi * 2;
+    if (angleDelta < -math.pi) angleDelta += math.pi * 2;
+    final elapsedSeconds =
+        (currentTime - previousTime).inMicroseconds / 1000000;
+    final velocity = angleDelta / (math.pi * 2) / elapsedSeconds;
+    return velocity.isFinite
+        ? velocity.clamp(-_maxScratchMomentum, _maxScratchMomentum)
+        : 0;
+  }
+
+  void _startScratchMomentum(double velocity) {
+    _stopScratchMomentum();
+    if (_disableAnimations || velocity.abs() < _scratchMomentumCutoff) {
+      return;
+    }
+    _scratchMomentumVelocity = velocity;
+    _lastMomentumTick = null;
+    _scratchMomentumTicker.start();
+  }
+
+  void _stopScratchMomentum() {
+    if (_scratchMomentumTicker.isActive) _scratchMomentumTicker.stop();
+    _lastMomentumTick = null;
+    _scratchMomentumVelocity = 0;
   }
 
   Future<void> _completeScratch(

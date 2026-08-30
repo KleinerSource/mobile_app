@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/sources/files/file_playback_progress.dart';
 import '../../../core/config/server_config_provider.dart';
@@ -283,17 +284,35 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(_exitPlayer());
       },
-      child: Scaffold(
-        backgroundColor: appColors(context).bg,
-        body: SafeArea(
-          child: ValueListenableBuilder<PlaybackViewState>(
-            valueListenable: _host,
-            builder: (_, state, __) => _body(state),
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle(
+          statusBarColor: colors.bg,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+          systemNavigationBarColor: colors.bg,
+          systemNavigationBarIconBrightness: isDark
+              ? Brightness.light
+              : Brightness.dark,
+          systemNavigationBarDividerColor: colors.bg,
+          systemNavigationBarContrastEnforced: false,
+        ),
+        child: ColoredBox(
+          color: colors.bg,
+          child: Scaffold(
+            backgroundColor: colors.bg,
+            body: SafeArea(
+              child: ValueListenableBuilder<PlaybackViewState>(
+                valueListenable: _host,
+                builder: (_, state, __) => _body(state),
+              ),
+            ),
           ),
         ),
       ),
