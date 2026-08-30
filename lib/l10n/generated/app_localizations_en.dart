@@ -803,6 +803,36 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
+  String get fileTextEdit => 'Edit';
+
+  @override
+  String get fileTextSave => 'Save';
+
+  @override
+  String get fileTextSaving => 'Saving...';
+
+  @override
+  String get fileTextSaveSuccess => 'Saved';
+
+  @override
+  String fileTextSaveFailed(String error) {
+    return 'Save failed: $error';
+  }
+
+  @override
+  String get fileTextUnsavedTitle => 'Unsaved changes';
+
+  @override
+  String get fileTextUnsavedMessage =>
+      'You have unsaved changes. Save before leaving?';
+
+  @override
+  String get fileTextDiscard => 'Discard changes';
+
+  @override
+  String get fileTextSaveAndLeave => 'Save and leave';
+
+  @override
   String get fileRetry => 'Retry';
 
   @override

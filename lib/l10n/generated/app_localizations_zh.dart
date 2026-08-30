@@ -792,6 +792,35 @@ class AppL10nZh extends AppL10n {
   }
 
   @override
+  String get fileTextEdit => '编辑';
+
+  @override
+  String get fileTextSave => '保存';
+
+  @override
+  String get fileTextSaving => '保存中...';
+
+  @override
+  String get fileTextSaveSuccess => '保存成功';
+
+  @override
+  String fileTextSaveFailed(String error) {
+    return '保存失败：$error';
+  }
+
+  @override
+  String get fileTextUnsavedTitle => '未保存修改';
+
+  @override
+  String get fileTextUnsavedMessage => '有未保存的修改，是否保存后离开？';
+
+  @override
+  String get fileTextDiscard => '放弃修改';
+
+  @override
+  String get fileTextSaveAndLeave => '保存并离开';
+
+  @override
   String get fileRetry => '重试';
 
   @override

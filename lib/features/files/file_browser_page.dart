@@ -13,6 +13,7 @@ import '../../core/platform/app_theme.dart';
 import '../../core/sources/common/source_descriptor.dart';
 import '../../core/sources/common/source_exception.dart';
 import '../../core/sources/common/source_id.dart';
+import '../../core/sources/files/file_capabilities.dart';
 import '../../core/sources/files/file_entry.dart';
 import '../../core/sources/files/file_operation.dart';
 import '../../core/sources/files/file_playback_progress.dart';
@@ -1708,13 +1709,28 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
 
   Future<void> _previewText(FileEntry entry) async {
     try {
-      final bytes = await _readFileBytes(entry);
+      final repository = await _repository();
+      final bytes = await _readFileBytes(entry, repository: repository);
       if (!mounted) return;
       final text = _decodeTextPreview(entry, bytes);
+      final onSave = repository.source.supports(FileCapability.transfer)
+          ? (String value) async {
+              final encoded = utf8.encode(value);
+              await repository.upload(
+                FileUploadRequest(
+                  destination: entry.path,
+                  data: Stream<List<int>>.value(encoded),
+                  length: encoded.length,
+                  options: const FileTransferOptions(overwrite: true),
+                ),
+              );
+            }
+          : null;
       await Navigator.of(context, rootNavigator: true).push<void>(
         MaterialPageRoute<void>(
           allowSnapshotting: false,
-          builder: (_) => FileTextViewerPage(title: entry.name, text: text),
+          builder: (_) =>
+              FileTextViewerPage(title: entry.name, text: text, onSave: onSave),
         ),
       );
     } catch (error) {
@@ -1722,8 +1738,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     }
   }
 
-  Future<Uint8List> _readFileBytes(FileEntry entry) async {
-    final access = await (await _repository()).resolveAccess(entry.path);
+  Future<Uint8List> _readFileBytes(
+    FileEntry entry, {
+    FileSourceRepository? repository,
+  }) async {
+    final access = await (repository ?? await _repository()).resolveAccess(
+      entry.path,
+    );
     final stream = await access.open();
     final bytes = BytesBuilder(copy: false);
     await for (final chunk in stream) {

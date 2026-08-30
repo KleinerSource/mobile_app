@@ -10,6 +10,7 @@ import 'package:omm/core/sources/common/source_descriptor.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/files/file_entry.dart';
 import 'package:omm/core/sources/files/file_capabilities.dart';
+import 'package:omm/core/sources/files/file_operation.dart';
 import 'package:omm/core/sources/files/file_source.dart';
 import 'package:omm/core/sources/files/file_source_providers.dart';
 import 'package:omm/features/files/file_browser_page.dart';
@@ -737,7 +738,58 @@ void main() {
 
     expect(find.text('数据.json'), findsOneWidget);
     expect(find.byType(SelectableText), findsOneWidget);
+    expect(find.text('编辑'), findsNothing);
     expect(find.byType(BottomSheet), findsNothing);
+  });
+
+  testWidgets('支持传输的文本来源可编辑并用 UTF-8 覆盖原文件', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final request = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+    final source = _PreviewFileSource(
+      sourceId,
+      utf8.encode('原始内容'),
+      canUpload: true,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(
+            sourceId.value,
+          ).overrideWith((ref) async => source),
+          fileDirectoryProvider(request).overrideWith(
+            (ref) async => _listingWithEntry(sourceId, name: '数据.txt'),
+          ),
+        ],
+        child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('数据.txt'));
+    await tester.pumpAndSettle();
+    expect(find.text('编辑'), findsOneWidget);
+
+    await tester.tap(find.text('编辑'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '修改后的内容');
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(source.uploadedPath?.stableKey, 'source-one:数据.txt');
+    expect(source.uploadedBytes, utf8.encode('修改后的内容'));
+    expect(source.uploadedOverwrite, isTrue);
   });
 
   testWidgets('可识别图片直接打开图片查看器', (tester) async {
@@ -1459,18 +1511,26 @@ class _KindFileSource implements FileSource {
   bool supports(FileCapability capability) => false;
 }
 
-class _PreviewFileSource implements FileSource, FileAccessCapability {
-  _PreviewFileSource(this.sourceId, this.bytes);
+class _PreviewFileSource
+    implements FileSource, FileAccessCapability, FileTransferCapability {
+  _PreviewFileSource(this.sourceId, this.bytes, {this.canUpload = false});
 
   final SourceId sourceId;
   final List<int> bytes;
+  final bool canUpload;
+  FilePath? uploadedPath;
+  List<int>? uploadedBytes;
+  bool? uploadedOverwrite;
 
   @override
   SourceDescriptor get descriptor =>
       SourceDescriptor(id: sourceId, kind: SourceKind.smb, name: '测试文件来源');
 
   @override
-  Set<FileCapability> get capabilities => const {FileCapability.access};
+  Set<FileCapability> get capabilities => {
+    FileCapability.access,
+    if (canUpload) FileCapability.transfer,
+  };
 
   @override
   bool supports(FileCapability capability) => capabilities.contains(capability);
@@ -1478,4 +1538,21 @@ class _PreviewFileSource implements FileSource, FileAccessCapability {
   @override
   Future<FileAccess> resolveAccess(FilePath path) async =>
       FileAccess(openStream: () => Stream<List<int>>.value(bytes));
+
+  @override
+  Stream<List<int>> download(
+    FilePath path, {
+    FileTransferOptions options = const FileTransferOptions(),
+  }) => Stream<List<int>>.value(bytes);
+
+  @override
+  Future<void> upload(FileUploadRequest request) async {
+    final data = <int>[];
+    await for (final chunk in request.data) {
+      data.addAll(chunk);
+    }
+    uploadedPath = request.destination;
+    uploadedBytes = data;
+    uploadedOverwrite = request.options.overwrite;
+  }
 }

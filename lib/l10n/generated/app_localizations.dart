@@ -1567,6 +1567,60 @@ abstract class AppL10n {
   /// **'文本预览失败：{error}'**
   String fileTextPreviewFailed(String error);
 
+  /// No description provided for @fileTextEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑'**
+  String get fileTextEdit;
+
+  /// No description provided for @fileTextSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get fileTextSave;
+
+  /// No description provided for @fileTextSaving.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存中...'**
+  String get fileTextSaving;
+
+  /// No description provided for @fileTextSaveSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存成功'**
+  String get fileTextSaveSuccess;
+
+  /// No description provided for @fileTextSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败：{error}'**
+  String fileTextSaveFailed(String error);
+
+  /// No description provided for @fileTextUnsavedTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'未保存修改'**
+  String get fileTextUnsavedTitle;
+
+  /// No description provided for @fileTextUnsavedMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'有未保存的修改，是否保存后离开？'**
+  String get fileTextUnsavedMessage;
+
+  /// No description provided for @fileTextDiscard.
+  ///
+  /// In zh, this message translates to:
+  /// **'放弃修改'**
+  String get fileTextDiscard;
+
+  /// No description provided for @fileTextSaveAndLeave.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存并离开'**
+  String get fileTextSaveAndLeave;
+
   /// No description provided for @fileRetry.
   ///
   /// In zh, this message translates to:
