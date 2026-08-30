@@ -325,6 +325,8 @@
   "settingsSubtitleSettingsSub": "记忆选择 / 字体 / 颜色 / 描边 / 阴影",
   "settingsCacheManagement": "缓存管理",
   "settingsCacheManagementSub": "磁盘缓存额度 / 缓存分类 / 一键清理",
+  "settingsPerformanceMonitor": "性能监视器",
+  "settingsPerformanceMonitorSub": "显示 FPS、应用 CPU 和 RAM 使用量",
   "settingsHapticIntensity": "震动反馈强度",
   "settingsHapticCurrent": "当前：{label}",
   "@settingsHapticCurrent": { "placeholders": { "label": { "type": "String" } } },

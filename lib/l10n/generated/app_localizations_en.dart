@@ -929,6 +929,13 @@ class AppL10nEn extends AppL10n {
       'Disk cache limit / categories / cleanup';
 
   @override
+  String get settingsPerformanceMonitor => 'Performance monitor';
+
+  @override
+  String get settingsPerformanceMonitorSub =>
+      'Show FPS, app CPU, and RAM usage';
+
+  @override
   String get settingsHapticIntensity => 'Haptic intensity';
 
   @override

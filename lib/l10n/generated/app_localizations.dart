@@ -1783,6 +1783,18 @@ abstract class AppL10n {
   /// **'磁盘缓存额度 / 缓存分类 / 一键清理'**
   String get settingsCacheManagementSub;
 
+  /// No description provided for @settingsPerformanceMonitor.
+  ///
+  /// In zh, this message translates to:
+  /// **'性能监视器'**
+  String get settingsPerformanceMonitor;
+
+  /// No description provided for @settingsPerformanceMonitorSub.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示 FPS、应用 CPU 和 RAM 使用量'**
+  String get settingsPerformanceMonitorSub;
+
   /// No description provided for @settingsHapticIntensity.
   ///
   /// In zh, this message translates to:

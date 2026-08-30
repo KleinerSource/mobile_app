@@ -12,6 +12,7 @@ import '../../core/update/update_coordinator.dart';
 import '../../core/update/update_models.dart';
 import '../../core/update/update_repository.dart';
 import '../../core/update/update_service.dart';
+import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../player/common/playback_engine.dart';
 import '../player/video/video_player_page.dart';
@@ -72,6 +73,11 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
     final colors = appColors(context);
     final savedRepository = ref.watch(updateRepositoryUrlProvider);
     final includeDevelopment = ref.watch(includeDevelopmentUpdatesProvider);
+    final playerSettings = ref.watch(playerSettingsProvider);
+    AppL10n? l;
+    try {
+      l = AppL10n.of(context);
+    } catch (_) {}
     final currentRepository = _repositoryController.text.trim();
     final hasSavedRepository =
         savedRepository != null && savedRepository.trim().isNotEmpty;
@@ -199,7 +205,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                       subtitle: '在播放画面显示内核、编码、码率、帧率等信息',
                       leadingIcon: Icons.bug_report_outlined,
                       trailing: SettingsSwitch(
-                        value: ref.watch(playerSettingsProvider).debugMode,
+                        value: playerSettings.debugMode,
                         onChanged: (value) => unawaited(
                           ref
                               .read(playerSettingsProvider.notifier)
@@ -209,6 +215,29 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
                                     .copyWith(debugMode: value),
                               ),
                         ),
+                      ),
+                    ),
+                    SettingsTile(
+                      title: l?.settingsPerformanceMonitor ?? '性能监视器',
+                      subtitle:
+                          l?.settingsPerformanceMonitorSub ??
+                          '显示 FPS、应用 CPU 和 RAM 使用量',
+                      leadingIcon: Icons.speed_outlined,
+                      trailing: SettingsSwitch(
+                        value: playerSettings.performanceMonitorEnabled,
+                        onChanged: playerSettings.debugMode
+                            ? (value) => unawaited(
+                                ref
+                                    .read(playerSettingsProvider.notifier)
+                                    .update(
+                                      ref
+                                          .read(playerSettingsProvider)
+                                          .copyWith(
+                                            performanceMonitorEnabled: value,
+                                          ),
+                                    ),
+                              )
+                            : null,
                       ),
                     ),
                     SettingsTile(

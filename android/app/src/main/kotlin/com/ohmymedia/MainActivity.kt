@@ -1,5 +1,6 @@
 package com.ohmymedia
 
+import android.app.ActivityManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -9,6 +10,7 @@ import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
+import android.os.Process
 import android.os.SystemClock
 import android.net.TrafficStats
 import android.provider.Settings
@@ -35,6 +37,7 @@ class MainActivity : AudioServiceFragmentActivity() {
     private var previousTxBytes: Long? = null
     private var previousNetworkAtMs: Long? = null
     private var previousCpu: CpuSnapshot? = null
+    private var previousProcessCpuTicks: Long? = null
     private var deviceLockSink: EventChannel.EventSink? = null
     private var deviceLockReceiverRegistered = false
 
@@ -195,6 +198,8 @@ class MainActivity : AudioServiceFragmentActivity() {
 
     private fun readStats(): Map<String, Any?> {
         val now = SystemClock.elapsedRealtime()
+        val currentCpu = readCpuSnapshot()
+        val previousCpuSnapshot = previousCpu
         val network = readNetworkBytes()
         val elapsed = previousNetworkAtMs?.let { now - it }
         val download = if (network != null && elapsed != null && elapsed > 0) {
@@ -214,7 +219,12 @@ class MainActivity : AudioServiceFragmentActivity() {
         }
 
         return mapOf(
-            "cpu_percent" to readCpuUsage(),
+            "cpu_percent" to readCpuUsage(currentCpu, previousCpuSnapshot),
+            "process_cpu_percent" to readProcessCpuUsage(
+                currentCpu,
+                previousCpuSnapshot,
+            ),
+            "ram_used_mb" to readProcessMemoryMegabytes(),
             "battery_percent" to readBatteryPercent(),
             "download_bps" to download,
             "upload_bps" to upload,
@@ -288,9 +298,11 @@ class MainActivity : AudioServiceFragmentActivity() {
         return Pair(rx.coerceAtLeast(0), tx.coerceAtLeast(0))
     }
 
-    private fun readCpuUsage(): Double? {
-        val current = readCpuSnapshot() ?: return null
-        val previous = previousCpu
+    private fun readCpuUsage(
+        current: CpuSnapshot?,
+        previous: CpuSnapshot?,
+    ): Double? {
+        if (current == null) return null
         previousCpu = current
         if (previous == null) return null
         val totalDelta = current.total - previous.total
@@ -298,6 +310,47 @@ class MainActivity : AudioServiceFragmentActivity() {
         if (totalDelta <= 0) return null
         return ((totalDelta - idleDelta).toDouble() / totalDelta * 100)
             .coerceIn(0.0, 100.0)
+    }
+
+    private fun readProcessCpuUsage(
+        current: CpuSnapshot?,
+        previous: CpuSnapshot?,
+    ): Double? {
+        val processTicks = readProcessCpuTicks() ?: return null
+        val previousProcessTicks = previousProcessCpuTicks
+        previousProcessCpuTicks = processTicks
+        if (current == null || previous == null || previousProcessTicks == null) {
+            return null
+        }
+        val totalDelta = current.total - previous.total
+        val processDelta = processTicks - previousProcessTicks
+        if (totalDelta <= 0 || processDelta < 0) return null
+        return (processDelta.toDouble() / totalDelta * 100).coerceIn(0.0, 100.0)
+    }
+
+    private fun readProcessCpuTicks(): Long? {
+        return try {
+            val line = File("/proc/self/stat").readText()
+            val commandEnd = line.lastIndexOf(')')
+            if (commandEnd < 0) return null
+            val fields = line.substring(commandEnd + 2).trim().split(Regex("\\s+"))
+            val user = fields.getOrNull(11)?.toLongOrNull() ?: return null
+            val system = fields.getOrNull(12)?.toLongOrNull() ?: return null
+            user + system
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun readProcessMemoryMegabytes(): Int? {
+        val activityManager = getSystemService(ActivityManager::class.java)
+            ?: return null
+        val memoryInfo = activityManager
+            .getProcessMemoryInfo(intArrayOf(Process.myPid()))
+            .firstOrNull()
+            ?: return null
+        if (memoryInfo.totalPss < 0) return null
+        return Math.round(memoryInfo.totalPss / 1024.0).toInt()
     }
 
     private fun readCpuSnapshot(): CpuSnapshot? {

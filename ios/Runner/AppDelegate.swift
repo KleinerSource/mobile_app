@@ -130,6 +130,8 @@ private final class PlayerStatsReader {
   private var previousNetwork: (rx: UInt64, tx: UInt64)?
   private var previousNetworkAt: TimeInterval?
   private var previousCpu: (total: UInt64, idle: UInt64)?
+  private var previousProcessCpuTime: TimeInterval?
+  private var previousProcessCpuAt: TimeInterval?
 
   init() {
     pathMonitor.pathUpdateHandler = { [weak self] path in
@@ -166,6 +168,10 @@ private final class PlayerStatsReader {
 
     var result: [String: Any] = [:]
     if let cpu = readCpuUsage() { result["cpu_percent"] = cpu }
+    if let processCpu = readProcessCpuUsage() {
+      result["process_cpu_percent"] = processCpu
+    }
+    if let ram = readProcessMemoryMegabytes() { result["ram_used_mb"] = ram }
     if let battery = readBatteryPercent() { result["battery_percent"] = battery }
     if let download = download { result["download_bps"] = download }
     if let upload = upload { result["upload_bps"] = upload }
@@ -262,6 +268,55 @@ private final class PlayerStatsReader {
     guard totalDelta > 0 else { return nil }
     return (Double(totalDelta - min(idleDelta, totalDelta)) / Double(totalDelta) * 100)
       .clamped(to: 0...100)
+  }
+
+  private func readProcessCpuUsage() -> Double? {
+    guard let info = readTaskBasicInfo() else { return nil }
+    let current = cpuTime(from: info)
+    let now = ProcessInfo.processInfo.systemUptime
+    let previousCpu = previousProcessCpuTime
+    let previousAt = previousProcessCpuAt
+    previousProcessCpuTime = current
+    previousProcessCpuAt = now
+    guard let previousCpu = previousCpu,
+          let previousAt = previousAt else { return nil }
+    let elapsed = now - previousAt
+    let cpuDelta = current - previousCpu
+    guard elapsed > 0, cpuDelta >= 0 else { return nil }
+    let processorCount = Double(max(ProcessInfo.processInfo.activeProcessorCount, 1))
+    return (cpuDelta / elapsed / processorCount * 100).clamped(to: 0...100)
+  }
+
+  private func readProcessMemoryMegabytes() -> Int? {
+    guard let info = readTaskBasicInfo() else { return nil }
+    return Int((Double(info.resident_size) / 1_048_576).rounded())
+  }
+
+  private func readTaskBasicInfo() -> mach_task_basic_info? {
+    var info = mach_task_basic_info()
+    var count = mach_msg_type_number_t(
+      MemoryLayout<mach_task_basic_info_data_t>.stride / MemoryLayout<integer_t>.stride
+    )
+    let result = withUnsafeMutablePointer(to: &info) { pointer in
+      pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+        task_info(
+          mach_task_self_,
+          task_flavor_t(MACH_TASK_BASIC_INFO),
+          $0,
+          &count
+        )
+      }
+    }
+    guard result == KERN_SUCCESS else { return nil }
+    return info
+  }
+
+  private func cpuTime(from info: mach_task_basic_info) -> TimeInterval {
+    let user = Double(info.user_time.seconds)
+      + Double(info.user_time.microseconds) / 1_000_000
+    let system = Double(info.system_time.seconds)
+      + Double(info.system_time.microseconds) / 1_000_000
+    return user + system
   }
 
   private func readNetworkBytes() -> (rx: UInt64, tx: UInt64)? {

@@ -325,6 +325,8 @@
   "settingsSubtitleSettingsSub": "Memory / font / color / outline / shadow",
   "settingsCacheManagement": "Cache management",
   "settingsCacheManagementSub": "Disk cache limit / categories / cleanup",
+  "settingsPerformanceMonitor": "Performance monitor",
+  "settingsPerformanceMonitorSub": "Show FPS, app CPU, and RAM usage",
   "settingsHapticIntensity": "Haptic intensity",
   "settingsHapticCurrent": "Current: {label}",
   "@settingsHapticCurrent": { "placeholders": { "label": { "type": "String" } } },

@@ -10,6 +10,7 @@ import 'core/auth/auth_session.dart';
 import 'core/config/server_config_provider.dart';
 import 'core/platform/app_haptics.dart';
 import 'core/platform/app_theme.dart';
+import 'core/platform/performance_monitor_overlay.dart';
 import 'features/i18n/locale_providers.dart';
 import 'features/i18n/theme_provider.dart';
 import 'features/home/server_switch_transition.dart';
@@ -18,6 +19,7 @@ import 'features/privacy/privacy_shield.dart';
 import 'features/security/security_gate.dart';
 import 'features/security/security_providers.dart';
 import 'features/files/file_manager_shell.dart';
+import 'features/player/common/player_settings.dart';
 import 'features/player/audio/file_audio_metadata_session.dart';
 import 'features/files/file_navigation.dart';
 import 'features/player/audio/audio_playback_service.dart';
@@ -82,6 +84,9 @@ class OmmApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final appLocale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final playerSettings = ref.watch(playerSettingsProvider);
+    final showPerformanceMonitor =
+        playerSettings.debugMode && playerSettings.performanceMonitorEnabled;
 
     return MaterialApp(
       title: 'Oh My Media',
@@ -96,7 +101,15 @@ class OmmApp extends ConsumerWidget {
       builder: (context, child) {
         return TopSnackBarMessenger(
           navigatorKey: _rootNavigatorKey,
-          child: PrivacyShield(child: child ?? const SizedBox.shrink()),
+          child: PrivacyShield(
+            child: Stack(
+              children: [
+                child ?? const SizedBox.shrink(),
+                if (showPerformanceMonitor)
+                  const Positioned.fill(child: PerformanceMonitorOverlay()),
+              ],
+            ),
+          ),
         );
       },
       home: SecurityGate(

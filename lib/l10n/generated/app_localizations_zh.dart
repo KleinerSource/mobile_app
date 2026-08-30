@@ -912,6 +912,12 @@ class AppL10nZh extends AppL10n {
   String get settingsCacheManagementSub => '磁盘缓存额度 / 缓存分类 / 一键清理';
 
   @override
+  String get settingsPerformanceMonitor => '性能监视器';
+
+  @override
+  String get settingsPerformanceMonitorSub => '显示 FPS、应用 CPU 和 RAM 使用量';
+
+  @override
   String get settingsHapticIntensity => '震动反馈强度';
 
   @override

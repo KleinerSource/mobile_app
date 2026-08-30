@@ -77,6 +77,7 @@ class PlayerSettings {
     this.preloadSize = PlayerPreloadSize.mb250,
     this.iosEngine = PlaybackEngineKind.libmpv,
     this.debugMode = false,
+    this.performanceMonitorEnabled = false,
     this.doubleTapCenter = true,
     this.doubleTapEdges = true,
     this.hapticLongPress = true,
@@ -101,6 +102,7 @@ class PlayerSettings {
   final PlayerPreloadSize preloadSize;
   final PlaybackEngineKind iosEngine;
   final bool debugMode;
+  final bool performanceMonitorEnabled;
   final bool doubleTapCenter;
   final bool doubleTapEdges;
   final bool hapticLongPress;
@@ -125,6 +127,7 @@ class PlayerSettings {
     PlayerPreloadSize? preloadSize,
     PlaybackEngineKind? iosEngine,
     bool? debugMode,
+    bool? performanceMonitorEnabled,
     bool? doubleTapCenter,
     bool? doubleTapEdges,
     bool? hapticLongPress,
@@ -150,6 +153,8 @@ class PlayerSettings {
       preloadSize: preloadSize ?? this.preloadSize,
       iosEngine: iosEngine ?? this.iosEngine,
       debugMode: debugMode ?? this.debugMode,
+      performanceMonitorEnabled:
+          performanceMonitorEnabled ?? this.performanceMonitorEnabled,
       doubleTapCenter: doubleTapCenter ?? this.doubleTapCenter,
       doubleTapEdges: doubleTapEdges ?? this.doubleTapEdges,
       hapticLongPress: hapticLongPress ?? this.hapticLongPress,
@@ -180,6 +185,8 @@ class PlayerSettingsRepository {
   static const _entryOrientationKey = 'player.entry_orientation';
   static const _preloadSizeKey = 'player.preload_size';
   static const _debugModeKey = 'player.debug_mode';
+  static const _performanceMonitorEnabledKey =
+      'player.performance_monitor_enabled';
   static const _doubleTapCenterKey = 'player.double_tap_center';
   static const _doubleTapEdgesKey = 'player.double_tap_edges';
   static const _hapticLongPressKey = 'player.haptic_long_press';
@@ -215,6 +222,8 @@ class PlayerSettingsRepository {
         _prefs.getString(PlayerEnginePreference.storageKey),
       ),
       debugMode: _prefs.getBool(_debugModeKey) ?? false,
+      performanceMonitorEnabled:
+          _prefs.getBool(_performanceMonitorEnabledKey) ?? false,
       doubleTapCenter: _prefs.getBool(_doubleTapCenterKey) ?? true,
       doubleTapEdges: _prefs.getBool(_doubleTapEdgesKey) ?? true,
       hapticLongPress: _prefs.getBool(_hapticLongPressKey) ?? true,
@@ -245,6 +254,10 @@ class PlayerSettingsRepository {
         settings.iosEngine.value,
       ),
       _prefs.setBool(_debugModeKey, settings.debugMode),
+      _prefs.setBool(
+        _performanceMonitorEnabledKey,
+        settings.performanceMonitorEnabled,
+      ),
       _prefs.setBool(_doubleTapCenterKey, settings.doubleTapCenter),
       _prefs.setBool(_doubleTapEdgesKey, settings.doubleTapEdges),
       _prefs.setBool(_hapticLongPressKey, settings.hapticLongPress),

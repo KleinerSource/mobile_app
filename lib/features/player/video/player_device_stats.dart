@@ -35,6 +35,8 @@ enum PlayerNetworkType {
 class PlayerDeviceStats {
   const PlayerDeviceStats({
     this.cpuPercent,
+    this.processCpuPercent,
+    this.ramUsedMegabytes,
     this.batteryPercent,
     this.downloadBytesPerSecond,
     this.uploadBytesPerSecond,
@@ -42,6 +44,8 @@ class PlayerDeviceStats {
   });
 
   final double? cpuPercent;
+  final double? processCpuPercent;
+  final int? ramUsedMegabytes;
   final int? batteryPercent;
   final int? downloadBytesPerSecond;
   final int? uploadBytesPerSecond;
@@ -50,6 +54,8 @@ class PlayerDeviceStats {
   factory PlayerDeviceStats.fromMap(Map<Object?, Object?> map) {
     return PlayerDeviceStats(
       cpuPercent: _asDouble(map['cpu_percent']),
+      processCpuPercent: _asDouble(map['process_cpu_percent']),
+      ramUsedMegabytes: _asInt(map['ram_used_mb']),
       batteryPercent: _asInt(map['battery_percent']),
       downloadBytesPerSecond: _asInt(map['download_bps']),
       uploadBytesPerSecond: _asInt(map['upload_bps']),
@@ -69,6 +75,8 @@ class PlayerDeviceStats {
 }
 
 class PlayerDeviceStatsReader {
+  const PlayerDeviceStatsReader();
+
   static const _channel = MethodChannel('omm/player_stats');
 
   Future<PlayerDeviceStats> read() async {
