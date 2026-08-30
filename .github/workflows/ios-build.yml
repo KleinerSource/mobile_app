@@ -99,11 +99,9 @@ jobs:
         timeout-minutes: 5
         run: flutter pub get
 
-      # media_kit_libs_ios_video 仅 CocoaPods (无 SPM)，Flutter 3.44 自动回退生成
-      # fallback Podfile。该 Podfile 在 pub get 阶段才生成，bootstrap 的 sed 对它无效，
-      # 这里补修部署目标，再显式 pod install 兜底。
-      # Plan B: 若 SPM/Pods 混合在 CI 报错，在 bootstrap 后加
-      #   `flutter config --no-enable-swift-package-manager` 强制纯 CocoaPods。
+      # 项目在 pubspec.yaml 中显式关闭 Swift Package Manager，统一使用 CocoaPods。
+      # media_kit_libs_ios_video 仅 CocoaPods (无 SPM)，fallback Podfile 在 pub get 阶段
+      # 才生成，bootstrap 的 sed 对它无效，这里补修部署目标，再显式 pod install 兜底。
       - name: 修正 fallback Podfile 部署目标
         timeout-minutes: 2
         run: |

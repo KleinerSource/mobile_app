@@ -62,6 +62,8 @@ dev_dependencies:
   retrofit_generator: ^10.2.3
 
 flutter:
+  config:
+    enable-swift-package-manager: false
   uses-material-design: true
   generate: true
   assets:
