@@ -25,6 +25,7 @@ class _PerformanceMonitorOverlayState extends State<PerformanceMonitorOverlay>
   final Stopwatch _fpsWindow = Stopwatch()..start();
   int _frameCount = 0;
   double? _fps;
+  bool _hasSampledFps = false;
   bool _sampleInFlight = false;
 
   @override
@@ -73,6 +74,7 @@ class _PerformanceMonitorOverlayState extends State<PerformanceMonitorOverlay>
     _fpsWindow.stop();
     _frameCount = 0;
     _fps = null;
+    _hasSampledFps = false;
   }
 
   void _onTimings(List<FrameTiming> timings) {
@@ -89,7 +91,10 @@ class _PerformanceMonitorOverlayState extends State<PerformanceMonitorOverlay>
       ..reset()
       ..start();
     _frameCount = 0;
-    final fps = elapsedMs <= 0 ? null : frameCount * 1000 / elapsedMs;
+    final fps = !_hasSampledFps || elapsedMs <= 0
+        ? null
+        : frameCount * 1000 / elapsedMs;
+    _hasSampledFps = true;
 
     try {
       final stats =
