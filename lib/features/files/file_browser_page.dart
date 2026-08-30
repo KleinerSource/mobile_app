@@ -46,6 +46,7 @@ import 'file_favorites.dart';
 import 'file_favorites_page.dart';
 import 'file_move_start_settings.dart';
 import 'file_image_preview_settings.dart';
+import 'file_audio_metadata_session.dart';
 import 'file_playback_engine.dart';
 import 'file_playback_proxy.dart';
 
@@ -1529,6 +1530,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     }
 
     final playbackProxies = <FilePlaybackProxy>[];
+    FileAudioMetadataSession? audioMetadataSession;
+    Future<void> disposeQueueResources() async {
+      await audioMetadataSession?.dispose();
+      await _closePlaybackProxies(playbackProxies);
+    }
+
     var queueOwnershipTransferred = false;
     setState(() => _busy = true);
     try {
@@ -1551,6 +1558,12 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       );
 
       final listing = ref.read(fileDirectoryProvider(_request)).valueOrNull;
+      if (itemType == PlayerQueueItemType.audio) {
+        audioMetadataSession = FileAudioMetadataSession(
+          repository: repository,
+          directoryEntries: listing?.entries ?? <FileEntry>[entry],
+        );
+      }
       final mediaEntries =
           (listing == null
                   ? <FileEntry>[entry]
@@ -1600,7 +1613,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         directPreferFfmpegForHls: current.directPreferFfmpegForHls,
         queue: queue,
         queueIndex: queueIndex,
-        onQueueDispose: () => _closePlaybackProxies(playbackProxies),
+        audioMetadataLoader: audioMetadataSession?.load,
+        onQueueDispose: disposeQueueResources,
         useRootNavigator: true,
       );
       queueOwnershipTransferred = true;
@@ -1615,7 +1629,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       }
     } finally {
       if (!queueOwnershipTransferred) {
-        await _closePlaybackProxies(playbackProxies);
+        await disposeQueueResources();
       }
       if (mounted) setState(() => _busy = false);
     }

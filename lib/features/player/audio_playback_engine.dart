@@ -4,6 +4,7 @@ import 'package:audio_service/audio_service.dart' as audio_service;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'audio_metadata.dart';
 import 'audio_playback_service.dart';
 import 'playback_engine.dart';
 import 'player_queue.dart';
@@ -12,7 +13,7 @@ import 'player_queue.dart';
 ///
 /// [dispose] 只解除 UI isolate 的监听，不会停止 AudioHandler，因此退出
 /// 全屏页面后音频仍可继续在后台播放。
-class AudioPlaybackEngine implements PlaybackEngine {
+class AudioPlaybackEngine implements PlaybackEngine, AudioMetadataSink {
   AudioPlaybackEngine({required audio_service.AudioHandler handler})
     : _handler = handler,
       _state = ValueNotifier(
@@ -180,6 +181,20 @@ class AudioPlaybackEngine implements PlaybackEngine {
   Future<void> stopPictureInPicture() async {}
 
   @override
+  Future<void> updateCurrentMetadata(AudioTrackMetadata metadata) async {
+    final current = _currentItem;
+    if (current == null) return;
+    await _handler.customAction(audioUpdateMetadataAction, <String, dynamic>{
+      'mediaId': current.id,
+      'artworkUri': metadata.artworkPath == null
+          ? ''
+          : Uri.file(metadata.artworkPath!).toString(),
+      'artist': metadata.artist ?? '',
+      'album': metadata.album ?? '',
+    });
+  }
+
+  @override
   Future<void> stop() => _handler.stop();
 
   @override
@@ -235,13 +250,23 @@ class AudioPlaybackEngine implements PlaybackEngine {
 
   void _handleMediaItem(audio_service.MediaItem? item) {
     if (_disposed) return;
+    final previous = _currentItem;
     _currentItem = item;
     final current = _state.value;
+    final itemChanged = previous?.id != item?.id;
     _state.value = current.copyWith(
       currentTitle: item?.title,
+      artworkPath: _artworkPath(item?.artUri),
+      clearArtworkPath: item?.artUri == null,
       clearMediaInfo: false,
-      duration: item?.duration ?? current.duration,
+      duration:
+          item?.duration ?? (itemChanged ? Duration.zero : current.duration),
     );
+  }
+
+  String? _artworkPath(Uri? uri) {
+    if (uri == null || uri.scheme != 'file') return null;
+    return uri.toFilePath();
   }
 
   void _handlePlaybackState(audio_service.PlaybackState? playback) {

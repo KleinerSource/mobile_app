@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omm/features/player/audio_playback_engine.dart';
 import 'package:omm/features/player/audio_playback_service.dart';
+import 'package:omm/features/player/audio_metadata.dart';
 import 'package:omm/features/player/playback_engine.dart';
 import 'package:omm/features/player/player_queue.dart';
 
@@ -88,6 +89,32 @@ void main() {
     expect(state.queueIndex, 2);
     expect(state.shuffleEnabled, isTrue);
     expect(state.repeatMode, PlaybackRepeatMode.one);
+
+    await engine.dispose();
+  });
+
+  test('当前曲目元数据更新只传递本地封面 URI和非敏感字段', () async {
+    final handler = _FakeAudioHandler();
+    final engine = AudioPlaybackEngine(handler: handler);
+    handler.mediaItem.add(
+      const audio_service.MediaItem(id: 'file:audio', title: '歌曲.mp3'),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    await engine.updateCurrentMetadata(
+      const AudioTrackMetadata(
+        artworkPath: 'C:/Temp/cover.jpg',
+        artist: '歌手',
+        album: '专辑',
+      ),
+    );
+
+    expect(handler.customActionName, audioUpdateMetadataAction);
+    expect(handler.customActionExtras?['mediaId'], 'file:audio');
+    expect(handler.customActionExtras?['artworkUri'], startsWith('file:'));
+    expect(handler.customActionExtras?['artworkUri'], isNot(contains('token')));
+    expect(handler.customActionExtras?['artist'], '歌手');
+    expect(handler.customActionExtras?['album'], '专辑');
 
     await engine.dispose();
   });

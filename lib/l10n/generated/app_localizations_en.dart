@@ -982,4 +982,13 @@ class AppL10nEn extends AppL10n {
 
   @override
   String get playerRepeatAll => 'Repeat: All';
+
+  @override
+  String get playerLyricsTitle => 'Lyrics';
+
+  @override
+  String get playerLyricsUnavailable => 'No lyrics';
+
+  @override
+  String get playerClose => 'Close';
 }

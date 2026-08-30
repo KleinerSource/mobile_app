@@ -342,5 +342,8 @@
   "playerShuffleOff": "Turn off shuffle",
   "playerRepeatOff": "Repeat: Off",
   "playerRepeatOne": "Repeat: One",
-  "playerRepeatAll": "Repeat: All"
+  "playerRepeatAll": "Repeat: All",
+  "playerLyricsTitle": "Lyrics",
+  "playerLyricsUnavailable": "No lyrics",
+  "playerClose": "Close"
 }

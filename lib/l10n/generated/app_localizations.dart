@@ -1878,6 +1878,24 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'循环：列表'**
   String get playerRepeatAll;
+
+  /// No description provided for @playerLyricsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌词'**
+  String get playerLyricsTitle;
+
+  /// No description provided for @playerLyricsUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无歌词'**
+  String get playerLyricsUnavailable;
+
+  /// No description provided for @playerClose.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get playerClose;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

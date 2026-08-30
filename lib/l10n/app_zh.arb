@@ -342,5 +342,8 @@
   "playerShuffleOff": "关闭随机播放",
   "playerRepeatOff": "循环：关闭",
   "playerRepeatOne": "循环：单曲",
-  "playerRepeatAll": "循环：列表"
+  "playerRepeatAll": "循环：列表",
+  "playerLyricsTitle": "歌词",
+  "playerLyricsUnavailable": "暂无歌词",
+  "playerClose": "关闭"
 }

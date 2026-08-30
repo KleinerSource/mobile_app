@@ -184,7 +184,8 @@ class PlaybackMediaInfo {
     if (hint == 'm3u8' || hint == 'hls' || hint.contains('mpegurl')) {
       return true;
     }
-    final path = Uri.tryParse(url.trim())?.path.toLowerCase() ??
+    final path =
+        Uri.tryParse(url.trim())?.path.toLowerCase() ??
         url.trim().toLowerCase();
     return path.endsWith('.m3u8');
   }
@@ -309,6 +310,7 @@ class PlaybackViewState {
     this.firstFrameRendered = false,
     this.inPictureInPicture = false,
     this.currentTitle,
+    this.artworkPath,
     this.queueIndex,
     this.shuffleEnabled = false,
     this.repeatMode = PlaybackRepeatMode.off,
@@ -332,6 +334,7 @@ class PlaybackViewState {
   final bool firstFrameRendered;
   final bool inPictureInPicture;
   final String? currentTitle;
+  final String? artworkPath;
   final int? queueIndex;
   final bool shuffleEnabled;
   final PlaybackRepeatMode repeatMode;
@@ -364,6 +367,8 @@ class PlaybackViewState {
     bool? firstFrameRendered,
     bool? inPictureInPicture,
     String? currentTitle,
+    String? artworkPath,
+    bool clearArtworkPath = false,
     int? queueIndex,
     bool? shuffleEnabled,
     PlaybackRepeatMode? repeatMode,
@@ -392,6 +397,7 @@ class PlaybackViewState {
       firstFrameRendered: firstFrameRendered ?? this.firstFrameRendered,
       inPictureInPicture: inPictureInPicture ?? this.inPictureInPicture,
       currentTitle: currentTitle ?? this.currentTitle,
+      artworkPath: clearArtworkPath ? null : artworkPath ?? this.artworkPath,
       queueIndex: queueIndex ?? this.queueIndex,
       shuffleEnabled: shuffleEnabled ?? this.shuffleEnabled,
       repeatMode: repeatMode ?? this.repeatMode,

@@ -24,6 +24,8 @@ import '../../core/sources/media/media_models.dart' as source_models;
 import '../../core/sources/media/media_source_providers.dart';
 import '../../l10n/generated/app_localizations.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'audio_metadata.dart';
+import 'audio_now_playing_view.dart';
 import 'engine_playback_route.dart';
 import 'playback_engine.dart';
 import 'player_controls.dart';
@@ -41,6 +43,7 @@ import 'player_settings.dart';
 import 'player_session_controller.dart';
 import 'player_session_factory.dart';
 import 'player_status_overlay.dart';
+import 'lrc_parser.dart';
 import 'subtitle_adjustment_sheet.dart';
 import 'subtitle_rendering.dart';
 import 'subtitle_settings.dart';
@@ -84,6 +87,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     this.startPositionSec = 0,
     this.queue = const <PlayerQueueItem>[],
     this.queueIndex = 0,
+    this.audioMetadataLoader,
     this.onQueueDispose,
   });
 
@@ -102,6 +106,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     this.startPositionSec = 0,
     this.queue = const <PlayerQueueItem>[],
     this.queueIndex = 0,
+    this.audioMetadataLoader,
     this.onQueueDispose,
   }) : movieId = null;
 
@@ -121,6 +126,9 @@ class PlayerPage extends ConsumerStatefulWidget {
   final List<PlayerQueueItem> queue;
   final int queueIndex;
 
+  /// 文件管理器提供的按曲目异步元数据读取器；视频和普通直链不使用。
+  final AudioTrackMetadataLoader? audioMetadataLoader;
+
   /// 由队列创建者持有的资源清理回调，例如文件播放代理。
   /// 切换队列项时会传递给 replacement 页面，最终退出时才执行。
   final Future<void> Function()? onQueueDispose;
@@ -137,6 +145,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     int startPositionSec = 0,
     List<PlayerQueueItem> queue = const <PlayerQueueItem>[],
     int queueIndex = 0,
+    AudioTrackMetadataLoader? audioMetadataLoader,
     Future<void> Function()? onQueueDispose,
   }) {
     return Navigator.of(context).push(
@@ -152,6 +161,7 @@ class PlayerPage extends ConsumerStatefulWidget {
           startPositionSec: startPositionSec,
           queue: queue,
           queueIndex: queueIndex,
+          audioMetadataLoader: audioMetadataLoader,
           onQueueDispose: onQueueDispose,
         ),
       ),
@@ -171,6 +181,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     int startPositionSec = 0,
     List<PlayerQueueItem> queue = const <PlayerQueueItem>[],
     int queueIndex = 0,
+    AudioTrackMetadataLoader? audioMetadataLoader,
     Future<void> Function()? onQueueDispose,
     bool useRootNavigator = false,
   }) {
@@ -192,6 +203,7 @@ class PlayerPage extends ConsumerStatefulWidget {
           startPositionSec: startPositionSec,
           queue: queue,
           queueIndex: queueIndex,
+          audioMetadataLoader: audioMetadataLoader,
           onQueueDispose: onQueueDispose,
         ),
       ),
@@ -275,6 +287,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   // 每个播放页的 Host 都是新建的。首次打开没有旧媒体可清理，尤其是
   // iOS Pigeon stop 在尚未 attach 原生视图时可能等待较久，不能阻塞直链起播。
   bool _playerHasBeenOpened = false;
+  LrcDocument? _audioLyrics;
+  String? _audioArtworkPath;
+  int? _audioLyricsIndex;
+  int _audioMetadataGeneration = 0;
+  final Map<String, AudioTrackMetadata> _audioMetadataCache =
+      <String, AudioTrackMetadata>{};
 
   bool get _isDirectPlayback => widget.directUrl?.trim().isNotEmpty == true;
 
@@ -293,6 +311,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       iosEnginePreference: settings.iosEngine,
       isAudio: _isAudioPlayback,
     );
+    _host.addListener(_onAudioPlaybackStateChanged);
     _filePlaybackProgress = FilePlaybackProgressRepository(
       ref.read(sharedPrefsProvider),
     );
@@ -436,6 +455,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       unawaited(_host.stopPictureInPicture());
     }
     _unbindProgress();
+    _host.removeListener(_onAudioPlaybackStateChanged);
     _cancelTranscodeMonitoring();
     _deviceStatsTimer?.cancel();
     _progressReportTimer?.cancel();
@@ -677,6 +697,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           // 资源生命周期交给 AudioPlaybackService 的 stop/replace/error
           // 事件；销毁全屏页时不能再执行队列清理。
           _queueOwnershipTransferred = true;
+          unawaited(
+            _loadAudioMetadata(_host.value.queueIndex ?? widget.queueIndex),
+          );
           return;
         }
         _bindProgress();
@@ -1750,6 +1773,41 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     unawaited(_host.setShuffleMode(!_host.value.shuffleEnabled));
   }
 
+  void _onAudioPlaybackStateChanged() {
+    if (!_isAudioPlayback || _isLeaving) return;
+    final index = _host.value.queueIndex ?? widget.queueIndex;
+    if (_audioLyricsIndex == index) return;
+    unawaited(_loadAudioMetadata(index));
+  }
+
+  Future<void> _loadAudioMetadata(int index) async {
+    if (!_isAudioPlayback || _isLeaving) return;
+    final loader = widget.audioMetadataLoader;
+    if (loader == null || index < 0 || index >= widget.queue.length) return;
+    final item = widget.queue[index];
+    final key = item.safeMediaId;
+    final generation = ++_audioMetadataGeneration;
+    _audioLyricsIndex = index;
+    if (mounted) {
+      setState(() {
+        _audioLyrics = null;
+        _audioArtworkPath = null;
+      });
+    }
+
+    try {
+      final metadata = _audioMetadataCache[key] ?? await loader(item);
+      if (_isLeaving || generation != _audioMetadataGeneration) return;
+      _audioMetadataCache[key] = metadata;
+      _audioLyrics = metadata.lyrics;
+      _audioArtworkPath = metadata.artworkPath;
+      await _host.updateAudioMetadata(metadata);
+      if (mounted && !_isLeaving) setState(() {});
+    } catch (error, stackTrace) {
+      _playerLog('音频元数据读取失败: ${item.title} $error\n$stackTrace');
+    }
+  }
+
   void _toggleRepeat() {
     if (_isLeaving || !_isAudioPlayback) return;
     final next = switch (_host.value.repeatMode) {
@@ -1933,6 +1991,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                       startPositionSec: item.startPositionSec,
                       queue: widget.queue,
                       queueIndex: index,
+                      audioMetadataLoader: widget.audioMetadataLoader,
                       onQueueDispose: widget.onQueueDispose,
                     )
                   : PlayerPage(
@@ -1942,6 +2001,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                       startPositionSec: item.startPositionSec,
                       queue: widget.queue,
                       queueIndex: index,
+                      audioMetadataLoader: widget.audioMetadataLoader,
                       onQueueDispose: widget.onQueueDispose,
                     ),
             ),
@@ -2177,6 +2237,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
             onAxisDragEnd: _hideIndicator,
           ),
         ),
+        if (_isAudioPlayback)
+          Positioned.fill(
+            child: AudioNowPlayingView(
+              controller: _host,
+              artworkPath: _audioArtworkPath ?? playbackState.artworkPath,
+              lyrics: _audioLyrics,
+            ),
+          ),
         Positioned.fill(child: PlayerOverlayIndicators(indicator: _indicator)),
         if (!_isAudioPlayback)
           Positioned(

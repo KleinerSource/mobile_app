@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
@@ -16,6 +18,7 @@ import 'features/privacy/privacy_shield.dart';
 import 'features/security/security_gate.dart';
 import 'features/security/security_providers.dart';
 import 'features/files/file_manager_shell.dart';
+import 'features/files/file_audio_metadata_session.dart';
 import 'features/files/file_navigation.dart';
 import 'features/player/audio_playback_service.dart';
 import 'features/settings/app_update_startup_gate.dart';
@@ -28,6 +31,7 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
+  unawaited(FileAudioMetadataSession.cleanupStaleCache());
   await AudioPlaybackService.initialize();
   runApp(const _AppBootstrap());
 }

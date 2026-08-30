@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/models/playback.dart' as playback_models;
+import 'audio_metadata.dart';
 import 'engine_playback_route.dart';
 import 'playback_engine.dart';
 import 'player_queue.dart';
@@ -271,6 +272,12 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   }
 
   Future<void> setRate(double rate) => _engine.setRate(rate);
+
+  Future<void> updateAudioMetadata(AudioTrackMetadata metadata) async {
+    if (_engine is AudioMetadataSink) {
+      await (_engine as AudioMetadataSink).updateCurrentMetadata(metadata);
+    }
+  }
 
   Future<void> setAudioTrackById(String id) async {
     await _engine.setAudioTrackById(id);

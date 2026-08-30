@@ -7,6 +7,7 @@ import 'package:just_audio/just_audio.dart' as just_audio;
 
 /// 后台音频服务的自定义动作名。
 const audioOpenQueueAction = 'omm.openAudioQueue';
+const audioUpdateMetadataAction = 'omm.updateAudioMetadata';
 
 /// 运行在主 isolate 的 SMB 代理资源注册表。
 ///
@@ -18,11 +19,13 @@ class AudioPlaybackResourceRegistry {
   static final AudioPlaybackResourceRegistry instance =
       AudioPlaybackResourceRegistry._();
 
-  final Map<String, Future<void> Function()> _resources =
-      <String, Future<void> Function()>{};
+  final Map<String, List<Future<void> Function()>> _resources =
+      <String, List<Future<void> Function()>>{};
 
   void register(String queueKey, Future<void> Function() dispose) {
-    _resources[queueKey] = dispose;
+    _resources
+        .putIfAbsent(queueKey, () => <Future<void> Function()>[])
+        .add(dispose);
   }
 
   void handleEvent(Object? event) {
@@ -31,8 +34,11 @@ class AudioPlaybackResourceRegistry {
     if (type != 'queue_resources') return;
     final queueKey = event['queueKey']?.toString();
     if (queueKey == null || queueKey.isEmpty) return;
-    final dispose = _resources.remove(queueKey);
-    if (dispose != null) unawaited(dispose());
+    final disposers = _resources.remove(queueKey);
+    if (disposers == null) return;
+    for (final dispose in disposers) {
+      unawaited(dispose());
+    }
   }
 }
 
@@ -128,8 +134,36 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
 
   @override
   Future<dynamic> customAction(String name, [Map<String, dynamic>? extras]) {
-    if (name != audioOpenQueueAction) return super.customAction(name, extras);
-    return _enqueue(() => _replaceQueue(extras ?? const <String, dynamic>{}));
+    final payload = extras ?? const <String, dynamic>{};
+    if (name == audioOpenQueueAction) {
+      return _enqueue(() => _replaceQueue(payload));
+    }
+    if (name == audioUpdateMetadataAction) {
+      return _enqueue(() => _updateCurrentMetadata(payload));
+    }
+    return super.customAction(name, extras);
+  }
+
+  Future<void> _updateCurrentMetadata(Map<String, dynamic> payload) async {
+    final index = _player.currentIndex;
+    if (index == null || index < 0 || index >= _items.length) return;
+    final expectedId = payload['mediaId']?.toString().trim();
+    final current = _items[index];
+    if (expectedId == null || expectedId.isEmpty || current.id != expectedId) {
+      return;
+    }
+    final rawArtwork = payload['artworkUri']?.toString().trim() ?? '';
+    final artwork = rawArtwork.isEmpty ? null : Uri.tryParse(rawArtwork);
+    final artist = payload['artist']?.toString().trim();
+    final album = payload['album']?.toString().trim();
+    final updated = current.copyWith(
+      artUri: artwork,
+      artist: artist == null || artist.isEmpty ? current.artist : artist,
+      album: album == null || album.isEmpty ? current.album : album,
+    );
+    _items[index] = updated;
+    queue.add(List<audio_service.MediaItem>.unmodifiable(_items));
+    mediaItem.add(updated);
   }
 
   Future<void> _replaceQueue(Map<String, dynamic> extras) async {
@@ -355,8 +389,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   }
 
   Future<void> _handlePlayerError(just_audio.PlayerException error) async {
-    _errorMessage = error.message ?? '音频播放失败';
-    _publishState();
+    final errorMessage = error.message ?? '音频播放失败';
     final failedIndex = error.index ?? _player.currentIndex;
     if (failedIndex != null) _failedIndices.add(failedIndex);
     if (_player.hasNext && !_failedIndices.contains(_player.nextIndex)) {
@@ -369,6 +402,8 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
         return;
       } catch (_) {}
     }
+    _errorMessage = errorMessage;
+    _publishState();
     await stop();
   }
 

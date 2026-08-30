@@ -962,4 +962,13 @@ class AppL10nZh extends AppL10n {
 
   @override
   String get playerRepeatAll => '循环：列表';
+
+  @override
+  String get playerLyricsTitle => '歌词';
+
+  @override
+  String get playerLyricsUnavailable => '暂无歌词';
+
+  @override
+  String get playerClose => '关闭';
 }

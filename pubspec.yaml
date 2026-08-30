@@ -47,6 +47,7 @@ dependencies:
   audio_service: ^0.18.19
   just_audio: ^0.10.6
   audio_session: ^0.2.4
+  audio_metadata_reader: ^1.7.1
 
 dev_dependencies:
   flutter_test:
