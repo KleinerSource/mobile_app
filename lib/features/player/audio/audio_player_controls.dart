@@ -70,6 +70,7 @@ class AudioPlayerControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Stack(
+      fit: StackFit.expand,
       children: [
         Positioned(
           top: 8,
@@ -81,22 +82,26 @@ class AudioPlayerControls extends StatelessWidget {
             onPressed: onExit,
           ),
         ),
-        Positioned(
-          right: 24,
-          bottom: 18,
-          left: 24,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _title(context),
-              const SizedBox(height: 20),
-              _progress(),
-              const SizedBox(height: 28),
-              _primaryControls(),
-              const SizedBox(height: 20),
-              _secondaryControls(),
-            ],
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _title(context),
+                  const SizedBox(height: 20),
+                  _progress(),
+                  const SizedBox(height: 28),
+                  _primaryControls(),
+                  const SizedBox(height: 20),
+                  _secondaryControls(),
+                ],
+              ),
+            ),
           ),
         ),
       ],

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
@@ -93,37 +95,59 @@ class _AudioLyricsSheetState extends State<_AudioLyricsSheet> {
   static const double _listTopPadding = 24.0;
 
   final ScrollController _scrollController = ScrollController();
+  StreamSubscription<Duration>? _positionSubscription;
   int _lastIndex = -1;
+  int? _pendingIndex;
+  bool _scrollScheduled = false;
   bool _initialPositioned = false;
 
   @override
   void initState() {
     super.initState();
-    widget.controller.addListener(_onPlaybackChanged);
-    _scheduleScroll();
+    _positionSubscription = widget.controller.positionStream.listen(
+      _onPlaybackChanged,
+    );
+    _scheduleScroll(widget.controller.position);
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_onPlaybackChanged);
+    final subscription = _positionSubscription;
+    _positionSubscription = null;
+    if (subscription != null) unawaited(subscription.cancel());
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _onPlaybackChanged() {
+  void _onPlaybackChanged(Duration position) {
     if (!mounted) return;
-    final index = widget.lyrics.indexAt(widget.controller.value.position);
-    if (index == _lastIndex) return;
+    final index = widget.lyrics.indexAt(position);
+    if (index == _lastIndex || index == _pendingIndex) return;
+    _pendingIndex = index;
     setState(() {});
-    _scheduleScroll();
+    _scheduleScroll(position);
   }
 
-  void _scheduleScroll() {
+  void _scheduleScroll(Duration position) {
+    _pendingIndex = widget.lyrics.indexAt(position);
+    if (_scrollScheduled) return;
+    _scrollScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollScheduled = false;
       if (!mounted) return;
-      final index = widget.lyrics.indexAt(widget.controller.value.position);
+      final index =
+          _pendingIndex ?? widget.lyrics.indexAt(widget.controller.position);
+      _pendingIndex = null;
+      if (!_scrollController.hasClients ||
+          !_scrollController.position.hasContentDimensions) {
+        _scheduleScroll(widget.controller.position);
+        return;
+      }
+      if (index < 0) {
+        _lastIndex = index;
+        return;
+      }
       _lastIndex = index;
-      if (index < 0 || !_scrollController.hasClients) return;
       final position = _scrollController.position;
       // 行高固定为 _rowExtent，可直接推导当前行中心，把该中心滚到视口中央。
       final target =
@@ -131,7 +155,7 @@ class _AudioLyricsSheetState extends State<_AudioLyricsSheet> {
           index * _rowExtent +
           _rowExtent / 2 -
           position.viewportDimension / 2;
-      final clamped = target.clamp(0.0, position.maxScrollExtent);
+      final clamped = target.clamp(0.0, position.maxScrollExtent).toDouble();
       if (!_initialPositioned) {
         // 首次打开直接落位，之后的行切换才做连续滚动。
         _initialPositioned = true;
@@ -179,29 +203,27 @@ class _AudioLyricsSheetState extends State<_AudioLyricsSheet> {
             child: ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 72),
+              itemExtent: _rowExtent,
               itemCount: widget.lyrics.cues.length,
               itemBuilder: (context, index) {
                 final active = index == currentIndex;
                 // 固定行高保证滚动定位精确，且高亮字号变化不再抖动布局。
-                return SizedBox(
-                  height: _rowExtent,
-                  child: Center(
-                    child: AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 180),
-                      style: TextStyle(
-                        color: active
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: active ? 21 : 17,
-                        height: 1.35,
-                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                      ),
-                      child: Text(
-                        widget.lyrics.cues[index].text,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                return Center(
+                  child: AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 180),
+                    style: TextStyle(
+                      color: active
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: active ? 21 : 17,
+                      height: 1.35,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                    child: Text(
+                      widget.lyrics.cues[index].text,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 );

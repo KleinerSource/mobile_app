@@ -1,11 +1,12 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import 'audio_lyrics_view.dart';
 import 'lrc_parser.dart';
-import '../common/playback_engine.dart';
 import '../common/player_session_controller.dart';
 
 class AudioNowPlayingView extends StatefulWidget {
@@ -25,13 +26,19 @@ class AudioNowPlayingView extends StatefulWidget {
 }
 
 class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const _rotationPeriod = Duration(seconds: 8);
+  static const _spinTransitionDuration = Duration(milliseconds: 900);
 
-  late final AnimationController _rotationController = AnimationController(
+  late final AnimationController _rotationController =
+      AnimationController.unbounded(vsync: this, value: 0);
+  late final AnimationController _speedController = AnimationController(
     vsync: this,
-    duration: _rotationPeriod,
-  );
+    value: 0,
+  )..addListener(_handleSpeedChanged);
+  late final Ticker _rotationTicker = createTicker(_advanceRotation);
+  Duration? _lastTick;
+  double? _speedTarget;
   bool _disableAnimations = false;
 
   @override
@@ -59,21 +66,59 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   }
 
   void _syncRotation() {
-    final shouldRotate = !_disableAnimations && widget.controller.playing;
-    if (!shouldRotate) {
-      if (_rotationController.isAnimating) {
-        _rotationController.stop(canceled: false);
-      }
+    if (_disableAnimations) {
+      _speedTarget = 0;
+      _speedController.stop();
+      _speedController.value = 0;
+      _stopRotationTicker();
       return;
     }
-    if (!_rotationController.isAnimating) {
-      _rotationController.repeat(period: _rotationPeriod);
+
+    final target = widget.controller.playing ? 1.0 : 0.0;
+    if (_speedTarget == target) return;
+    _speedTarget = target;
+    if (target > 0) _startRotationTicker();
+    unawaited(
+      _speedController.animateTo(
+        target,
+        duration: _spinTransitionDuration,
+        curve: target > 0 ? Curves.easeInCubic : Curves.easeOutCubic,
+      ),
+    );
+  }
+
+  void _handleSpeedChanged() {
+    if (_speedController.value <= 0 && _speedTarget == 0) {
+      _stopRotationTicker();
     }
+  }
+
+  void _startRotationTicker() {
+    if (_rotationTicker.isActive) return;
+    _lastTick = null;
+    _rotationTicker.start();
+  }
+
+  void _stopRotationTicker() {
+    if (_rotationTicker.isActive) _rotationTicker.stop();
+    _lastTick = null;
+  }
+
+  void _advanceRotation(Duration elapsed) {
+    final previous = _lastTick;
+    _lastTick = elapsed;
+    if (previous == null) return;
+    final elapsedFraction =
+        (elapsed - previous).inMicroseconds / _rotationPeriod.inMicroseconds;
+    _rotationController.value += elapsedFraction * _speedController.value;
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_syncRotation);
+    _stopRotationTicker();
+    _rotationTicker.dispose();
+    _speedController.dispose();
     _rotationController.dispose();
     super.dispose();
   }
@@ -137,26 +182,18 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   }
 
   Widget _artwork(double size) {
-    return ValueListenableBuilder<PlaybackViewState>(
-      valueListenable: widget.controller,
-      builder: (context, state, _) => AnimatedScale(
-        scale: state.playing ? 1.0 : 0.92,
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeOutCubic,
-        child: RotationTransition(
-          key: const ValueKey<String>('audio-vinyl-rotation'),
-          turns: _rotationController,
-          child: _VinylRecord(
-            artworkPath: widget.artworkPath,
-            size: size,
-            labelTransitionDuration: _disableAnimations
-                ? const Duration(milliseconds: 90)
-                : const Duration(milliseconds: 240),
-            labelTransitionReverseDuration: _disableAnimations
-                ? const Duration(milliseconds: 60)
-                : const Duration(milliseconds: 160),
-          ),
-        ),
+    return RotationTransition(
+      key: const ValueKey<String>('audio-vinyl-rotation'),
+      turns: _rotationController,
+      child: _VinylRecord(
+        artworkPath: widget.artworkPath,
+        size: size,
+        labelTransitionDuration: _disableAnimations
+            ? const Duration(milliseconds: 90)
+            : const Duration(milliseconds: 240),
+        labelTransitionReverseDuration: _disableAnimations
+            ? const Duration(milliseconds: 60)
+            : const Duration(milliseconds: 160),
       ),
     );
   }

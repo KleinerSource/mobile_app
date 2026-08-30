@@ -33,39 +33,54 @@ void main() {
     }
   });
 
-  testWidgets('播放时唱片旋转，暂停后保持角度并从原角度继续', (tester) async {
+  testWidgets('唱片尺寸固定，播放缓慢启动和暂停缓慢停止', (tester) async {
     final engine = FakePlaybackEngine(
       PlaybackEngineKind.audio,
       initialState: const PlaybackViewState(
         engineKind: PlaybackEngineKind.audio,
         lifecycle: PlaybackLifecycle.ready,
-        playing: true,
+        playing: false,
       ),
     );
     final controller = PlayerSessionController(engine: engine);
     try {
       await tester.pumpWidget(_app(controller));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final recordSize = tester.getSize(record);
       final rotation = tester.widget<RotationTransition>(
         find.byKey(const ValueKey<String>('audio-vinyl-rotation')),
       );
 
-      final beforePlay = rotation.turns.value;
-      await tester.pump(const Duration(milliseconds: 500));
-      final afterPlay = rotation.turns.value;
-      expect(_forwardDelta(beforePlay, afterPlay), closeTo(0.0625, 0.025));
+      await controller.play();
+      await tester.pump(const Duration(milliseconds: 120));
+      final earlyStart = rotation.turns.value;
+      await tester.pump(const Duration(milliseconds: 780));
+      await tester.pump(const Duration(milliseconds: 16));
+      final fullStart = rotation.turns.value;
+      expect(fullStart, greaterThan(earlyStart));
+      expect(tester.getSize(record), recordSize);
 
       await controller.pause();
       await tester.pump();
-      final paused = rotation.turns.value;
-      await tester.pump(const Duration(seconds: 1));
-      expect(rotation.turns.value, closeTo(paused, 0.0001));
+      final earlyStop = rotation.turns.value;
+      await tester.pump(const Duration(milliseconds: 450));
+      await tester.pump(const Duration(milliseconds: 16));
+      final lateStop = rotation.turns.value;
+      expect(lateStop, greaterThan(earlyStop));
+      await tester.pump(const Duration(milliseconds: 600));
+      final stopped = rotation.turns.value;
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(rotation.turns.value, closeTo(stopped, 0.0001));
+      expect(tester.getSize(record), recordSize);
 
       await controller.play();
       await tester.pump();
       final beforeResume = rotation.turns.value;
       await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 16));
       final afterResume = rotation.turns.value;
-      expect(_forwardDelta(beforeResume, afterResume), closeTo(0.0625, 0.025));
+      expect(afterResume, greaterThan(beforeResume));
+      expect(tester.getSize(record), recordSize);
     } finally {
       await _dispose(tester, controller);
     }

@@ -25,6 +25,12 @@ void main() {
       cues: [
         LrcCue(position: Duration.zero, text: '第一句'),
         LrcCue(position: Duration(seconds: 5), text: '第二句'),
+        LrcCue(position: Duration(seconds: 10), text: '第三句'),
+        LrcCue(position: Duration(seconds: 15), text: '第四句'),
+        LrcCue(position: Duration(seconds: 20), text: '第五句'),
+        LrcCue(position: Duration(seconds: 25), text: '第六句'),
+        LrcCue(position: Duration(seconds: 30), text: '第七句'),
+        LrcCue(position: Duration(seconds: 35), text: '第八句'),
       ],
     );
 
@@ -48,6 +54,20 @@ void main() {
     expect(find.byType(GlassPanel), findsOneWidget);
     expect(find.text('第一句'), findsNWidgets(2));
     expect(find.text('第二句'), findsOneWidget);
+
+    final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+    final initialScrollOffset = scrollable.position.pixels;
+    engine.notifier.value = engine.notifier.value.copyWith(
+      position: const Duration(seconds: 26),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(scrollable.position.pixels, greaterThan(initialScrollOffset));
+    expect(
+      find.descendant(of: find.byType(ListView), matching: find.text('第六句')),
+      findsOneWidget,
+    );
 
     await tester.pumpWidget(const SizedBox.shrink());
     await controller.dispose();

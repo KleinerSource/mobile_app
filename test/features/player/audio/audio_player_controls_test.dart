@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omm/features/player/audio/audio_player_controls.dart';
+import 'package:omm/features/player/audio/audio_now_playing_view.dart';
+import 'package:omm/features/player/audio/lrc_parser.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:omm/features/player/common/player_session_controller.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 import '../common/fake_playback_engine.dart';
 
@@ -178,4 +181,100 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await session.dispose();
   });
+
+  testWidgets('底部控制行在状态和歌词内容变化时保持底部锚定', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        duration: Duration(minutes: 2),
+        currentTitle: '短标题',
+      ),
+    );
+    final session = PlayerSessionController(engine: engine);
+
+    await tester.pumpWidget(_controlsApp(session));
+    final withoutLyrics = tester.getBottomRight(find.byIcon(Icons.repeat)).dy;
+
+    engine.notifier.value = engine.notifier.value.copyWith(
+      currentTitle: '一个很长很长的音频标题，用来确认标题换行不会推动底部控制行的位置变化和底部锚点',
+      lifecycle: PlaybackLifecycle.opening,
+    );
+    await tester.pumpWidget(_controlsApp(session));
+    final loadingWithLongTitle = tester
+        .getBottomRight(find.byIcon(Icons.repeat))
+        .dy;
+
+    await tester.pumpWidget(_controlsApp(session, withLyrics: true));
+    final withLyrics = tester.getBottomRight(find.byIcon(Icons.repeat)).dy;
+
+    expect(loadingWithLongTitle, closeTo(withoutLyrics, 0.001));
+    expect(withLyrics, closeTo(withoutLyrics, 0.001));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await session.dispose();
+  });
+}
+
+Widget _controlsApp(
+  PlayerSessionController session, {
+  bool withLyrics = false,
+}) {
+  const lyrics = LrcDocument(
+    cues: [LrcCue(position: Duration.zero, text: '当前歌词')],
+  );
+  return MaterialApp(
+    localizationsDelegates: AppL10n.localizationsDelegates,
+    supportedLocales: AppL10n.supportedLocales,
+    home: Scaffold(
+      body: SizedBox.expand(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: AudioNowPlayingView(
+                controller: session,
+                artworkPath: null,
+                lyrics: withLyrics ? lyrics : null,
+              ),
+            ),
+            Positioned.fill(child: _testControls(session)),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+AudioPlayerControls _testControls(PlayerSessionController session) {
+  return AudioPlayerControls(
+    controller: session,
+    hapticProgressBar: false,
+    showPlayPauseButton: true,
+    isLoading: session.value.lifecycle == PlaybackLifecycle.opening,
+    showSeekButtons: true,
+    showSpeedButton: true,
+    showMediaSwitchButton: true,
+    showShuffleButton: true,
+    shuffleEnabled: false,
+    shuffleOnTooltip: '开启随机播放',
+    shuffleOffTooltip: '关闭随机播放',
+    onShuffleToggle: () {},
+    showRepeatButton: true,
+    repeatMode: PlaybackRepeatMode.off,
+    repeatOffTooltip: '循环：关闭',
+    repeatOneTooltip: '循环：单曲',
+    repeatAllTooltip: '循环：全部',
+    onRepeatToggle: () {},
+    playbackRate: 1,
+    onPreviousMedia: () {},
+    onNextMedia: () {},
+    onTogglePlay: () {},
+    onSeekBackward: () {},
+    onSeekForward: () {},
+    onRateChanged: (_) {},
+    onSeek: session.seek,
+    onInteraction: () {},
+    onExit: () {},
+  );
 }
