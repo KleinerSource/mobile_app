@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/core/sources/common/source_descriptor.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/files/file_entry.dart';
@@ -64,6 +65,57 @@ void main() {
       tester.widget<FileBrowserPage>(find.byType(FileBrowserPage)).serverId,
       serverId,
     );
+  });
+
+  testWidgets('文件条目按日期、大小顺序显示并使用元信息配色', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final listing = DirectoryListing(
+      currentPath: FilePath(sourceId: sourceId, value: ''),
+      breadcrumbs: [FilePath(sourceId: sourceId, value: '')],
+      entries: [
+        FileEntry(
+          path: FilePath(sourceId: sourceId, value: '影片.mkv'),
+          name: '影片.mkv',
+          type: FileEntryType.file,
+          size: 1024,
+          modifiedAt: DateTime(2025, 1, 2, 3, 4),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(sourceId.value).overrideWith((ref) async => null),
+          fileDirectoryProvider(
+            FileDirectoryRequest(serverId: serverId, sourceId: sourceId),
+          ).overrideWith((ref) async => listing),
+        ],
+        child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final metaFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is RichText &&
+          widget.text.toPlainText() == '2025-01-02 03:04 · 1.0 KB',
+    );
+    expect(metaFinder, findsOneWidget);
+    final richText = tester.widget<RichText>(metaFinder).text as TextSpan;
+    final meta = richText.children!.single as TextSpan;
+    expect(meta.children, hasLength(3));
+    expect((meta.children![0] as TextSpan).text, '2025-01-02 03:04');
+    expect((meta.children![2] as TextSpan).text, '1.0 KB');
+    expect((meta.children![0] as TextSpan).style?.color, AppColors.light.muted);
   });
 
   testWidgets('右上角菜单提供强制刷新并重新加载目录', (tester) async {

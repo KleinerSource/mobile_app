@@ -242,6 +242,18 @@ void main() {
     expect(picked?.value, '目录 A/目标目录/子目录');
   });
 
+  testWidgets('移动选择器不会与文件管理器底部导航重叠', (tester) async {
+    await _pumpShell(tester);
+
+    await tester.tap(find.byTooltip('文件操作').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('移动'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择目标目录'), findsOneWidget);
+    expect(find.byType(FloatingTabBar<void>), findsOneWidget);
+  });
+
   testWidgets('进入多级目录后悬浮导航仍然显示', (tester) async {
     await _pumpShell(tester);
 

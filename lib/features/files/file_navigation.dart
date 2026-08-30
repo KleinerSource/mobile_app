@@ -24,10 +24,12 @@ class FileManagerNavigationScope extends InheritedWidget {
   const FileManagerNavigationScope({
     super.key,
     required this.onRequestServerSelection,
+    this.moveTargetTab,
     required super.child,
   });
 
   final VoidCallback onRequestServerSelection;
+  final ValueNotifier<int?>? moveTargetTab;
 
   static bool requestServerSelection(BuildContext context) {
     final scope = context
@@ -37,7 +39,14 @@ class FileManagerNavigationScope extends InheritedWidget {
     return true;
   }
 
+  static ValueNotifier<int?>? moveTargetTabOf(BuildContext context) {
+    final scope = context
+        .findAncestorWidgetOfExactType<FileManagerNavigationScope>();
+    return scope?.moveTargetTab;
+  }
+
   @override
   bool updateShouldNotify(FileManagerNavigationScope oldWidget) =>
-      onRequestServerSelection != oldWidget.onRequestServerSelection;
+      onRequestServerSelection != oldWidget.onRequestServerSelection ||
+      moveTargetTab != oldWidget.moveTargetTab;
 }

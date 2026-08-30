@@ -30,7 +30,14 @@ class FileManagerShell extends ConsumerStatefulWidget {
 
 class _FileManagerShellState extends ConsumerState<FileManagerShell> {
   final _fileNavigatorKey = GlobalKey<NavigatorState>();
+  final _moveTargetTab = ValueNotifier<int?>(null);
   var _index = 0;
+
+  @override
+  void dispose() {
+    _moveTargetTab.dispose();
+    super.dispose();
+  }
 
   void _selectTab(int index) {
     if (index == _index) return;
@@ -108,6 +115,7 @@ class _FileManagerShellState extends ConsumerState<FileManagerShell> {
 
     return FileManagerNavigationScope(
       onRequestServerSelection: _returnToServerSelector,
+      moveTargetTab: _moveTargetTab,
       child: Scaffold(
         extendBody: true,
         backgroundColor: c.bg,
@@ -119,23 +127,48 @@ class _FileManagerShellState extends ConsumerState<FileManagerShell> {
             const SettingsPage(forFileManager: true),
           ],
         ),
-        bottomNavigationBar: FloatingTabBar<void>(
-          tabs: [
-            FloatingTabSpec<void>(
-              label: l.tabFiles,
-              icon: Icons.folder_rounded,
-            ),
-            FloatingTabSpec<void>(
-              label: l.fileFavoritesSection,
-              icon: Icons.star_rounded,
-            ),
-            FloatingTabSpec<void>(
-              label: l.settingsTitle,
-              icon: Icons.settings_rounded,
-            ),
-          ],
-          active: _index,
-          onTap: _selectTab,
+        bottomNavigationBar: ValueListenableBuilder<int?>(
+          valueListenable: _moveTargetTab,
+          builder: (context, moveTab, _) {
+            final isMoveTargetPicker = moveTab != null;
+            final tabs = isMoveTargetPicker
+                ? [
+                    FloatingTabSpec<void>(
+                      label: l.tabFiles,
+                      icon: Icons.folder_rounded,
+                    ),
+                    FloatingTabSpec<void>(
+                      label: l.fileFavoritesSection,
+                      icon: Icons.star_rounded,
+                    ),
+                  ]
+                : [
+                    FloatingTabSpec<void>(
+                      label: l.tabFiles,
+                      icon: Icons.folder_rounded,
+                    ),
+                    FloatingTabSpec<void>(
+                      label: l.fileFavoritesSection,
+                      icon: Icons.star_rounded,
+                    ),
+                    FloatingTabSpec<void>(
+                      label: l.settingsTitle,
+                      icon: Icons.settings_rounded,
+                    ),
+                  ];
+            return FloatingTabBar<void>(
+              tabs: tabs,
+              active: isMoveTargetPicker ? moveTab : _index,
+              onTap: (index) {
+                if (!isMoveTargetPicker) {
+                  _selectTab(index);
+                  return;
+                }
+                if (index != moveTab) AppHaptics.selection();
+                _moveTargetTab.value = index;
+              },
+            );
+          },
         ),
       ),
     );

@@ -817,7 +817,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final colors = theme.colorScheme;
     final l = _l10n;
     final isFavorite = favoriteKeys.contains(entry.stableKey);
-    final meta = _entryMeta(entry);
+    final meta = _entryMetaSpan(entry, context);
     final playbackProgress = !entry.isDirectory && _isVideoEntry(entry)
         ? _filePlaybackProgress.load(entry.name)
         : null;
@@ -885,9 +885,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         child: ListTile(
           leading: leading,
           title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: meta.isEmpty
+          subtitle: meta == null
               ? null
-              : Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis),
+              : Text.rich(meta, maxLines: 1, overflow: TextOverflow.ellipsis),
           trailing: widget.directoryPicker
               ? null
               : Row(
@@ -1142,7 +1142,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     });
   }
 
-  Future<FilePath?> _pickDirectory() {
+  Future<FilePath?> _pickDirectory() async {
     // 「移动文件起始位置」设置：默认从根目录选择；选择「当前目录」时
     // 从移动操作发起的目录开始，省去逐层下钻。栈底路由名保持为根形式，
     // 作为选择器的固定回退目标。
@@ -1150,17 +1150,28 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final startPath = startLocation == FileMoveStartLocation.current
         ? _path
         : '';
-    return Navigator.of(context).push<FilePath>(
-      MaterialPageRoute<FilePath>(
-        settings: RouteSettings(name: _routeName('')),
-        allowSnapshotting: false,
-        builder: (_) => FileMoveDestinationPage(
-          serverId: widget.serverId,
-          sourceId: widget.sourceId,
-          initialPath: startPath,
+    final moveTargetTab = FileManagerNavigationScope.moveTargetTabOf(context);
+    if (moveTargetTab != null) moveTargetTab.value = 0;
+    try {
+      return await Navigator.of(context).push<FilePath>(
+        MaterialPageRoute<FilePath>(
+          settings: RouteSettings(name: _routeName('')),
+          allowSnapshotting: false,
+          builder: (_) => FileMoveDestinationPage(
+            serverId: widget.serverId,
+            sourceId: widget.sourceId,
+            initialPath: startPath,
+          ),
         ),
-      ),
-    );
+      );
+    } finally {
+      if (mounted) {
+        final moveTargetTab = FileManagerNavigationScope.moveTargetTabOf(
+          context,
+        );
+        if (moveTargetTab != null) moveTargetTab.value = null;
+      }
+    }
   }
 
   bool _isInvalidMoveTarget(FileEntry entry, FilePath directory) {
@@ -2304,12 +2315,18 @@ class FileMoveDestinationPage extends StatefulWidget {
 
 class _FileMoveDestinationPageState extends State<FileMoveDestinationPage> {
   final _fileNavigatorKey = GlobalKey<NavigatorState>();
-  var _index = 0;
+  final _localTab = ValueNotifier<int?>(0);
+
+  @override
+  void dispose() {
+    _localTab.dispose();
+    super.dispose();
+  }
 
   void _selectTab(int index) {
-    if (index == _index) return;
+    if (index == _localTab.value) return;
     AppHaptics.selection();
-    setState(() => _index = index);
+    _localTab.value = index;
   }
 
   void _cancelPicker() {
@@ -2324,7 +2341,12 @@ class _FileMoveDestinationPageState extends State<FileMoveDestinationPage> {
     if (favorite.sourceId != widget.sourceId.value) return;
     final navigator = _fileNavigatorKey.currentState;
     if (navigator == null) return;
-    setState(() => _index = 0);
+    final sharedTab = FileManagerNavigationScope.moveTargetTabOf(context);
+    if (sharedTab != null) {
+      sharedTab.value = 0;
+    } else {
+      _localTab.value = 0;
+    }
     navigator.push<void>(
       MaterialPageRoute<void>(
         settings: RouteSettings(
@@ -2349,8 +2371,27 @@ class _FileMoveDestinationPageState extends State<FileMoveDestinationPage> {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
+    final sharedTab = FileManagerNavigationScope.moveTargetTabOf(context);
+    final tab = sharedTab ?? _localTab;
+    return ValueListenableBuilder<int?>(
+      valueListenable: tab,
+      builder: (context, selectedTab, _) => _buildPage(
+        context,
+        l,
+        selectedTab ?? 0,
+        showBottomNavigation: sharedTab == null,
+      ),
+    );
+  }
+
+  Widget _buildPage(
+    BuildContext context,
+    AppL10n l,
+    int index, {
+    required bool showBottomNavigation,
+  }) {
     final fileNavigator = NavigatorPopHandler<void>(
-      enabled: _index == 0,
+      enabled: index == 0,
       onPopWithResult: (_) {
         _fileNavigatorKey.currentState?.maybePop();
       },
@@ -2386,7 +2427,7 @@ class _FileMoveDestinationPageState extends State<FileMoveDestinationPage> {
       extendBody: true,
       backgroundColor: appColors(context).bg,
       body: IndexedStack(
-        index: _index,
+        index: index,
         children: [
           fileNavigator,
           FileFavoritesPage(
@@ -2396,17 +2437,22 @@ class _FileMoveDestinationPageState extends State<FileMoveDestinationPage> {
           ),
         ],
       ),
-      bottomNavigationBar: FloatingTabBar<void>(
-        tabs: [
-          FloatingTabSpec<void>(label: l.tabFiles, icon: Icons.folder_rounded),
-          FloatingTabSpec<void>(
-            label: l.fileFavoritesSection,
-            icon: Icons.star_rounded,
-          ),
-        ],
-        active: _index,
-        onTap: _selectTab,
-      ),
+      bottomNavigationBar: showBottomNavigation
+          ? FloatingTabBar<void>(
+              tabs: [
+                FloatingTabSpec<void>(
+                  label: l.tabFiles,
+                  icon: Icons.folder_rounded,
+                ),
+                FloatingTabSpec<void>(
+                  label: l.fileFavoritesSection,
+                  icon: Icons.star_rounded,
+                ),
+              ],
+              active: index,
+              onTap: _selectTab,
+            )
+          : null,
     );
   }
 }
@@ -2430,21 +2476,39 @@ String _join(String parent, String child) {
   return '$left/$right';
 }
 
-/// 列表行副标题：目录显示修改时间；文件显示「大小 · 修改时间」，时间缺失
-/// 时退回 MIME 类型，两者都没有则留空（不占行高）。
-String _entryMeta(FileEntry entry) {
+/// 列表行副标题：目录显示修改时间；文件显示「修改时间 · 大小」，时间缺失
+/// 时退回 MIME 类型，两者都没有则留空（不占行高）。元信息使用弱化色，
+/// 与文件名的主色区分开。
+InlineSpan? _entryMetaSpan(FileEntry entry, BuildContext context) {
   final time = entry.modifiedAt ?? entry.createdAt;
+  final colors = appColors(context);
+  final metaStyle = AppText.meta(context);
+  final separatorStyle = metaStyle.copyWith(
+    color: colors.muted2,
+    fontWeight: FontWeight.w500,
+  );
   if (entry.isDirectory) {
-    return time == null ? '' : _formatDateTime(time);
+    return time == null
+        ? null
+        : TextSpan(text: _formatDateTime(time), style: metaStyle);
   }
-  final parts = <String>[];
-  if (entry.size != null) parts.add(_formatBytes(entry.size!));
+
+  final spans = <InlineSpan>[];
   if (time != null) {
-    parts.add(_formatDateTime(time));
-  } else if (entry.mimeType != null) {
-    parts.add(entry.mimeType!);
+    spans.add(TextSpan(text: _formatDateTime(time), style: metaStyle));
   }
-  return parts.join(' · ');
+  if (entry.size != null) {
+    if (spans.isNotEmpty) {
+      spans.add(TextSpan(text: ' · ', style: separatorStyle));
+    }
+    spans.add(TextSpan(text: _formatBytes(entry.size!), style: metaStyle));
+  } else if (time == null && entry.mimeType != null) {
+    if (spans.isNotEmpty) {
+      spans.add(TextSpan(text: ' · ', style: separatorStyle));
+    }
+    spans.add(TextSpan(text: entry.mimeType!, style: metaStyle));
+  }
+  return spans.isEmpty ? null : TextSpan(children: spans);
 }
 
 String _formatDateTime(DateTime time) {
