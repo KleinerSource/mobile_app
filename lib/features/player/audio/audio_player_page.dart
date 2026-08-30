@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/sources/files/file_playback_progress.dart';
 import '../../../core/config/server_config_provider.dart';
+import '../../../core/platform/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../common/playback_engine.dart';
 import '../common/player_overlay_indicators.dart';
@@ -60,11 +61,10 @@ class AudioPlayerPage extends ConsumerStatefulWidget {
     Future<void> Function()? onQueueDispose,
     bool useRootNavigator = false,
   }) {
+    // 与子页面（含视频播放器）保持一致的标准页面转场。
     return Navigator.of(context, rootNavigator: useRootNavigator).push(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 320),
-        reverseTransitionDuration: const Duration(milliseconds: 220),
-        pageBuilder: (_, __, ___) => AudioPlayerPage.direct(
+      MaterialPageRoute<void>(
+        builder: (_) => AudioPlayerPage.direct(
           title: title,
           directUrl: directUrl,
           directHeaders: directHeaders,
@@ -76,26 +76,6 @@ class AudioPlayerPage extends ConsumerStatefulWidget {
           audioMetadataLoader: audioMetadataLoader,
           onQueueDispose: onQueueDispose,
         ),
-        transitionsBuilder: (context, animation, _, child) {
-          if (MediaQuery.maybeOf(context)?.disableAnimations == true) {
-            return child;
-          }
-          final curved = CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-            reverseCurve: Curves.easeInCubic,
-          );
-          return FadeTransition(
-            opacity: curved,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.035),
-                end: Offset.zero,
-              ).animate(curved),
-              child: child,
-            ),
-          );
-        },
       ),
     );
   }
@@ -309,7 +289,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
         if (!didPop) unawaited(_exitPlayer());
       },
       child: Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        backgroundColor: appColors(context).bg,
         body: SafeArea(
           child: ValueListenableBuilder<PlaybackViewState>(
             valueListenable: _host,

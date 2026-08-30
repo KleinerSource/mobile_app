@@ -164,7 +164,13 @@ class PlaybackPlayPauseButton extends StatelessWidget {
             switchOutCurve: Curves.easeInCubic,
             transitionBuilder: (child, animation) => FadeTransition(
               opacity: animation,
-              child: ScaleTransition(scale: animation, child: child),
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.2),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: ScaleTransition(scale: animation, child: child),
+              ),
             ),
             child: loading
                 ? SizedBox(

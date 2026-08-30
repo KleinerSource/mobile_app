@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
+import '../../../shared/glass.dart';
 import 'lrc_parser.dart';
 import '../common/playback_engine.dart';
 import '../common/player_session_controller.dart';
@@ -32,7 +33,19 @@ class AudioLyricsView extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 40, maxHeight: 72),
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
+              duration: const Duration(milliseconds: 260),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.35),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              ),
               child: Text(
                 cue?.text ?? l10n.playerLyricsUnavailable,
                 key: ValueKey<String>(cue?.text ?? 'empty'),
@@ -57,10 +70,8 @@ class AudioLyricsView extends StatelessWidget {
     BuildContext context,
     LrcDocument document,
   ) async {
-    await showModalBottomSheet<void>(
+    await showGlassSheet<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
       builder: (_) =>
           _AudioLyricsSheet(controller: controller, lyrics: document),
     );
@@ -78,8 +89,12 @@ class _AudioLyricsSheet extends StatefulWidget {
 }
 
 class _AudioLyricsSheetState extends State<_AudioLyricsSheet> {
+  static const double _rowExtent = 58.0;
+  static const double _listTopPadding = 24.0;
+
   final ScrollController _scrollController = ScrollController();
   int _lastIndex = -1;
+  bool _initialPositioned = false;
 
   @override
   void initState() {
@@ -109,14 +124,24 @@ class _AudioLyricsSheetState extends State<_AudioLyricsSheet> {
       final index = widget.lyrics.indexAt(widget.controller.value.position);
       _lastIndex = index;
       if (index < 0 || !_scrollController.hasClients) return;
-      final target = (index * 58.0 - 120).clamp(
-        0.0,
-        _scrollController.position.maxScrollExtent,
-      );
+      final position = _scrollController.position;
+      // 行高固定为 _rowExtent，可直接推导当前行中心，把该中心滚到视口中央。
+      final target =
+          _listTopPadding +
+          index * _rowExtent +
+          _rowExtent / 2 -
+          position.viewportDimension / 2;
+      final clamped = target.clamp(0.0, position.maxScrollExtent);
+      if (!_initialPositioned) {
+        // 首次打开直接落位，之后的行切换才做连续滚动。
+        _initialPositioned = true;
+        _scrollController.jumpTo(clamped);
+        return;
+      }
       _scrollController.animateTo(
-        target,
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOut,
+        clamped,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
       );
     });
   }
@@ -127,39 +152,40 @@ class _AudioLyricsSheetState extends State<_AudioLyricsSheet> {
       widget.controller.value.position,
     );
     final l10n = AppL10n.of(context);
-    return SafeArea(
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.78,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Row(
-                children: [
-                  Text(
-                    l10n.playerLyricsTitle,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.78,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            child: Row(
+              children: [
+                Text(
+                  l10n.playerLyricsTitle,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: l10n.playerClose,
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: l10n.playerClose,
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
             ),
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 72),
-                itemCount: widget.lyrics.cues.length,
-                itemBuilder: (context, index) {
-                  final active = index == currentIndex;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 72),
+              itemCount: widget.lyrics.cues.length,
+              itemBuilder: (context, index) {
+                final active = index == currentIndex;
+                // 固定行高保证滚动定位精确，且高亮字号变化不再抖动布局。
+                return SizedBox(
+                  height: _rowExtent,
+                  child: Center(
                     child: AnimatedDefaultTextStyle(
                       duration: const Duration(milliseconds: 180),
                       style: TextStyle(
@@ -173,14 +199,16 @@ class _AudioLyricsSheetState extends State<_AudioLyricsSheet> {
                       child: Text(
                         widget.lyrics.cues[index].text,
                         textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:audio_service/audio_service.dart' as audio_service;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/platform/app_theme.dart';
 import 'audio_metadata.dart';
 import 'audio_playback_service.dart';
 import '../common/playback_engine.dart';
@@ -212,8 +213,7 @@ class AudioPlaybackEngine implements PlaybackEngine, AudioMetadataSink {
   @override
   Widget buildSurface({BoxFit fit = BoxFit.contain}) {
     return Builder(
-      builder: (context) =>
-          ColoredBox(color: Theme.of(context).colorScheme.surface),
+      builder: (context) => ColoredBox(color: appColors(context).bg),
     );
   }
 

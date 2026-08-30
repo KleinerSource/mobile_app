@@ -5,6 +5,7 @@ import 'package:omm/features/player/audio/lrc_parser.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:omm/features/player/common/player_session_controller.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/glass.dart';
 
 import '../common/fake_playback_engine.dart';
 
@@ -43,6 +44,8 @@ void main() {
     await tester.tap(find.text('第一句'));
     await tester.pumpAndSettle();
     expect(find.text('歌词'), findsOneWidget);
+    expect(find.byType(GlassSheetHandle), findsOneWidget);
+    expect(find.byType(GlassPanel), findsOneWidget);
     expect(find.text('第一句'), findsNWidgets(2));
     expect(find.text('第二句'), findsOneWidget);
 
