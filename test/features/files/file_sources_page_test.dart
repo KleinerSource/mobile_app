@@ -496,7 +496,7 @@ void main() {
 
     await tester.tap(find.byTooltip('取消选择'));
     await tester.pumpAndSettle();
-    expect(find.text('文件列表'), findsOneWidget);
+    expect(find.text('SMB 一号'), findsOneWidget);
   });
 
   testWidgets('移动文件默认从根目录开始选择目标', (tester) async {

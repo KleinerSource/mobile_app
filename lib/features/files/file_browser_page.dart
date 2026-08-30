@@ -30,6 +30,7 @@ import '../../shared/swipe_actions.dart';
 import '../player/playback_engine.dart';
 import '../player/player_engine_picker.dart';
 import '../player/player_page.dart';
+import '../player/player_queue.dart';
 import '../player/player_session_factory.dart';
 import '../player/player_settings.dart';
 import '../oh_my_media/movie_detail/movie_detail_page.dart'
@@ -181,20 +182,22 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         : const <FileEntry>[];
     final batchActions = _batchActions(visibleEntries);
 
-    // 与偏好设置一致的固定头部：眉标题(协议) + 主标题 + 返回/右侧操作。
+    // 文件浏览页使用紧凑导航栏，把垂直空间留给文件列表。
     final l = _l10n;
     final descriptor = source.asData?.value?.descriptor;
-    final headerEyebrow = switch (descriptor?.kind) {
-      SourceKind.smb => 'SMB',
-      SourceKind.webDav => 'WEBDAV',
-      SourceKind.openList => 'OPENLIST',
-      _ => l.fileEyebrow,
-    };
+    final config = ref.watch(serverConfigProvider);
+    String? serverName;
+    for (final server in config?.servers ?? const []) {
+      if (server.id == widget.serverId) {
+        serverName = server.name;
+        break;
+      }
+    }
     final headerTitle = widget.directoryPicker
         ? l.fileSelectTargetDirectory
         : _selectionMode
         ? l.fileSelectedItems(_selectedKeys.length)
-        : (descriptor?.name ?? l.fileListTitle);
+        : (serverName ?? descriptor?.name ?? l.fileListTitle);
     final headerTrailing = widget.directoryPicker
         ? IconButton(
             tooltip: l.fileSelectThisDirectory,
@@ -308,10 +311,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
             bottom: false,
             child: SettingsFixedHeaderLayout(
               scrollController: _scrollController,
-              header: SettingsSubPageHeader(
-                eyebrow: headerEyebrow,
+              header: _FileBrowserTopBar(
                 title: headerTitle,
-                titleMaxLines: 1,
                 backIcon: _selectionMode ? Icons.close : Icons.arrow_back,
                 backTooltip: _selectionMode
                     ? l.fileExitSelection
@@ -1469,7 +1470,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _previewVideo(FileEntry entry) async {
-    final l = _l10n;
     PlaybackEngineKind? engineKind;
     final playerSettings = ref.read(playerSettingsProvider);
     if (playerSettings.debugMode) {
@@ -1482,7 +1482,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       if (!mounted || engineKind == null) return;
     }
 
-    FilePlaybackProxy? proxy;
+    final playbackProxies = <FilePlaybackProxy>[];
+    var queueOwnershipTransferred = false;
     setState(() => _busy = true);
     try {
       final repository = await _repository();
@@ -1492,18 +1493,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       // Range/seek 能力，不经过回环代理。
       final useDirect =
           sourceKind == SourceKind.webDav || sourceKind == SourceKind.openList;
-      FileAccess? directAccess;
-      if (useDirect) {
-        final access = await repository.resolveAccess(entry.path);
-        if (!mounted) return;
-        if (access.uri == null) {
-          throw FileSourceException(
-            l.fileWebDavDirectUrlMissing,
-            code: 'webdav_direct_url_missing',
-          );
-        }
-        directAccess = access;
-      }
       final selectedEngineKind = filePlaybackEngineKind(
         sourceKind: sourceKind,
         isIOS: Platform.isIOS,
@@ -1515,52 +1504,52 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         'source=${repository.source.descriptor.id.value}',
       );
 
-      if (directAccess != null) {
-        if (!mounted) return;
-        final playbackUrl = directAccess.uri.toString();
-        appLog(
-          '[FileBrowser] 使用 HTTP 直连播放: '
-          'engine=${selectedEngineKind?.value ?? 'default'} '
-          'url=$playbackUrl headers=${directAccess.headers.isNotEmpty}',
-        );
-        await PlayerPage.openDirect(
-          context,
-          title: entry.name,
-          directUrl: playbackUrl,
-          directHeaders: directAccess.headers,
-          directFormatHint: _pathExtension(entry.name),
-          engineKind: selectedEngineKind,
-          directPlaybackFileName: entry.name,
-          directPreferFfmpegForHls: true,
-          useRootNavigator: true,
-        );
-        return;
+      final listing = ref.read(fileDirectoryProvider(_request)).valueOrNull;
+      final videoEntries =
+          (listing == null
+                  ? <FileEntry>[entry]
+                  : _visibleEntries(listing)
+                        .where((item) => item.isFile && _isVideoEntry(item))
+                        .toList())
+              .toList();
+      if (!videoEntries.any((item) => item.stableKey == entry.stableKey)) {
+        videoEntries.insert(0, entry);
       }
-
-      proxy = await FilePlaybackProxy.start(
+      final queue = await _buildPlaybackQueue(
         repository: repository,
-        path: entry.path,
-        size: entry.size,
-        mimeType: entry.mimeType,
-        pathExtension: _pathExtension(entry.name),
+        entries: videoEntries,
+        current: entry,
+        useDirect: useDirect,
+        proxies: playbackProxies,
       );
       if (!mounted) return;
-      // SMB 没有可供 iOS AVPlayer 使用的 HTTP URL，继续使用回环 HTTP
-      // 代理按需读取；代理本身会透传可用的 Range。
-      final playbackUrl = proxy.uri.toString();
+      final queueIndex = queue.indexWhere(
+        (item) => item.directPlaybackFileName == entry.name,
+      );
+      if (queueIndex < 0) {
+        throw StateError('当前视频未加入播放队列');
+      }
+      final current = queue[queueIndex];
       appLog(
-        '[FileBrowser] 使用流式代理播放: '
-        'engine=${selectedEngineKind?.value ?? 'default'} url=$playbackUrl',
+        '[FileBrowser] 使用文件队列播放: '
+        'engine=${selectedEngineKind?.value ?? 'default'} '
+        'count=${queue.length} direct=$useDirect',
       );
       await PlayerPage.openDirect(
         context,
-        title: entry.name,
-        directUrl: playbackUrl,
+        title: current.title,
+        directUrl: current.directUrl!,
+        directHeaders: current.directHeaders,
+        directFormatHint: current.directFormatHint,
         engineKind: selectedEngineKind,
-        directPlaybackFileName: entry.name,
-        directPreferFfmpegForHls: true,
+        directPlaybackFileName: current.directPlaybackFileName,
+        directPreferFfmpegForHls: current.directPreferFfmpegForHls,
+        queue: queue,
+        queueIndex: queueIndex,
+        onQueueDispose: () => _closePlaybackProxies(playbackProxies),
         useRootNavigator: true,
       );
+      queueOwnershipTransferred = true;
     } catch (error, stackTrace) {
       appLog('[FileBrowser] 视频预览失败: $error\n$stackTrace');
       if (mounted) {
@@ -1571,10 +1560,85 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         );
       }
     } finally {
-      try {
-        await proxy?.close();
-      } catch (_) {}
+      if (!queueOwnershipTransferred) {
+        await _closePlaybackProxies(playbackProxies);
+      }
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<List<PlayerQueueItem>> _buildPlaybackQueue({
+    required FileSourceRepository repository,
+    required List<FileEntry> entries,
+    required FileEntry current,
+    required bool useDirect,
+    required List<FilePlaybackProxy> proxies,
+  }) async {
+    final queue = <PlayerQueueItem>[];
+    try {
+      for (final entry in entries) {
+        try {
+          final formatHint = _pathExtension(entry.name);
+          if (useDirect) {
+            final access = await repository.resolveAccess(entry.path);
+            final uri = access.uri;
+            if (uri == null) {
+              throw FileSourceException(
+                _l10n.fileWebDavDirectUrlMissing,
+                code: 'webdav_direct_url_missing',
+              );
+            }
+            queue.add(
+              PlayerQueueItem(
+                title: entry.name,
+                directUrl: uri.toString(),
+                directHeaders: access.headers,
+                directFormatHint: formatHint,
+                directPlaybackFileName: entry.name,
+                directPreferFfmpegForHls: true,
+              ),
+            );
+          } else {
+            // SMB 没有可供播放器直接访问的 URL，为队列中的每个视频预留
+            // 一个按需读取代理；代理资源由播放器页在整个队列结束后释放。
+            final proxy = await FilePlaybackProxy.start(
+              repository: repository,
+              path: entry.path,
+              size: entry.size,
+              mimeType: entry.mimeType,
+              pathExtension: formatHint,
+            );
+            proxies.add(proxy);
+            queue.add(
+              PlayerQueueItem(
+                title: entry.name,
+                directUrl: proxy.uri.toString(),
+                directFormatHint: formatHint,
+                directPlaybackFileName: entry.name,
+                directPreferFfmpegForHls: true,
+              ),
+            );
+          }
+        } catch (error, stackTrace) {
+          if (entry.stableKey == current.stableKey) rethrow;
+          appLog(
+            '[FileBrowser] 跳过无法加入队列的视频: ${entry.name} '
+            '$error\n$stackTrace',
+          );
+        }
+      }
+      return queue;
+    } catch (_) {
+      await _closePlaybackProxies(proxies);
+      rethrow;
+    }
+  }
+
+  Future<void> _closePlaybackProxies(List<FilePlaybackProxy> proxies) async {
+    for (final proxy in proxies) {
+      try {
+        await proxy.close();
+      } catch (_) {}
     }
   }
 
@@ -2178,6 +2242,53 @@ String _progressText(FileTransferProgress progress) {
   final total = progress.total;
   if (total == null) return _formatBytes(progress.transferred);
   return '${_formatBytes(progress.transferred)} / ${_formatBytes(total)}';
+}
+
+/// 文件浏览页顶部的紧凑导航栏：返回、当前服务器名称、更多操作。
+class _FileBrowserTopBar extends StatelessWidget {
+  const _FileBrowserTopBar({
+    required this.title,
+    required this.backIcon,
+    required this.backTooltip,
+    required this.onBackPressed,
+    required this.trailing,
+  });
+
+  final String title;
+  final IconData backIcon;
+  final String backTooltip;
+  final VoidCallback onBackPressed;
+  final Widget trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: kToolbarHeight,
+      child: AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.transparent,
+        centerTitle: true,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          tooltip: backTooltip,
+          onPressed: onBackPressed,
+          icon: Icon(backIcon),
+        ),
+        title: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppText.cardTitle(
+            context,
+          ).copyWith(fontSize: 16, fontWeight: FontWeight.w800),
+        ),
+        actions: [trailing],
+      ),
+    );
+  }
 }
 
 class _BrowserError extends StatelessWidget {

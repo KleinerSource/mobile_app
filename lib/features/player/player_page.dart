@@ -82,6 +82,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     this.startPositionSec = 0,
     this.queue = const <PlayerQueueItem>[],
     this.queueIndex = 0,
+    this.onQueueDispose,
   });
 
   /// 打开外部/第三方直连媒体。该模式不需要 OMM 的整数影片 ID，
@@ -95,10 +96,11 @@ class PlayerPage extends ConsumerStatefulWidget {
     this.engineKind,
     this.directPlaybackFileName,
     this.directPreferFfmpegForHls = false,
-  }) : movieId = null,
-       startPositionSec = 0,
-       queue = const <PlayerQueueItem>[],
-       queueIndex = 0;
+    this.startPositionSec = 0,
+    this.queue = const <PlayerQueueItem>[],
+    this.queueIndex = 0,
+    this.onQueueDispose,
+  }) : movieId = null;
 
   final int? movieId;
   final String title;
@@ -115,6 +117,10 @@ class PlayerPage extends ConsumerStatefulWidget {
   final List<PlayerQueueItem> queue;
   final int queueIndex;
 
+  /// 由队列创建者持有的资源清理回调，例如文件播放代理。
+  /// 切换队列项时会传递给 replacement 页面，最终退出时才执行。
+  final Future<void> Function()? onQueueDispose;
+
   static Future<void> open(
     BuildContext context, {
     required int movieId,
@@ -126,6 +132,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     int startPositionSec = 0,
     List<PlayerQueueItem> queue = const <PlayerQueueItem>[],
     int queueIndex = 0,
+    Future<void> Function()? onQueueDispose,
   }) {
     return Navigator.of(context).push(
       MaterialPageRoute(
@@ -139,6 +146,7 @@ class PlayerPage extends ConsumerStatefulWidget {
           startPositionSec: startPositionSec,
           queue: queue,
           queueIndex: queueIndex,
+          onQueueDispose: onQueueDispose,
         ),
       ),
     );
@@ -153,6 +161,10 @@ class PlayerPage extends ConsumerStatefulWidget {
     PlaybackEngineKind? engineKind,
     String? directPlaybackFileName,
     bool directPreferFfmpegForHls = false,
+    int startPositionSec = 0,
+    List<PlayerQueueItem> queue = const <PlayerQueueItem>[],
+    int queueIndex = 0,
+    Future<void> Function()? onQueueDispose,
     bool useRootNavigator = false,
   }) {
     appLog(
@@ -169,6 +181,10 @@ class PlayerPage extends ConsumerStatefulWidget {
           engineKind: engineKind,
           directPlaybackFileName: directPlaybackFileName,
           directPreferFfmpegForHls: directPreferFfmpegForHls,
+          startPositionSec: startPositionSec,
+          queue: queue,
+          queueIndex: queueIndex,
+          onQueueDispose: onQueueDispose,
         ),
       ),
     );
@@ -244,6 +260,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   double _playbackRate = 1.0;
   bool _pictureInPictureRequesting = false;
   bool _isLeaving = false;
+  bool _queueOwnershipTransferred = false;
+  bool _queueResourcesDisposed = false;
   Future<void> _loadQueue = Future<void>.value();
   bool _orientationInitialized = false;
   // 每个播放页的 Host 都是新建的。首次打开没有旧媒体可清理，尤其是
@@ -433,6 +451,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     // ignore: discarded_futures
     WakelockPlus.disable();
     unawaited(_disposePlayer());
+    unawaited(_disposeQueueResources());
     super.dispose();
   }
 
@@ -1815,6 +1834,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   Future<void> _switchMedia(int index) async {
     if (_isLeaving || index < 0 || index >= widget.queue.length) return;
     final item = widget.queue[index];
+    final directUrl = item.directUrl?.trim();
+    if ((directUrl == null || directUrl.isEmpty) && item.movieId == null) {
+      return;
+    }
     _isLeaving = true;
     _loadGeneration++;
     _hideTimer?.cancel();
@@ -1826,18 +1849,40 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
       await _stopTranscodeSession();
     } finally {
       if (mounted) {
-        await Navigator.of(context).pushReplacement<void, void>(
-          MaterialPageRoute(
-            builder: (_) => PlayerPage(
-              movieId: item.movieId,
-              title: item.title,
-              engineKind: widget.engineKind,
-              startPositionSec: item.startPositionSec,
-              queue: widget.queue,
-              queueIndex: index,
+        _queueOwnershipTransferred = true;
+        try {
+          await Navigator.of(context).pushReplacement<void, void>(
+            MaterialPageRoute(
+              builder: (_) => directUrl != null && directUrl.isNotEmpty
+                  ? PlayerPage.direct(
+                      title: item.title,
+                      directUrl: directUrl,
+                      directHeaders: item.directHeaders,
+                      directFormatHint: item.directFormatHint,
+                      engineKind: widget.engineKind,
+                      directPlaybackFileName: item.directPlaybackFileName,
+                      directPreferFfmpegForHls: item.directPreferFfmpegForHls,
+                      startPositionSec: item.startPositionSec,
+                      queue: widget.queue,
+                      queueIndex: index,
+                      onQueueDispose: widget.onQueueDispose,
+                    )
+                  : PlayerPage(
+                      movieId: item.movieId!,
+                      title: item.title,
+                      engineKind: widget.engineKind,
+                      startPositionSec: item.startPositionSec,
+                      queue: widget.queue,
+                      queueIndex: index,
+                      onQueueDispose: widget.onQueueDispose,
+                    ),
             ),
-          ),
-        );
+          );
+        } catch (_) {
+          _queueOwnershipTransferred = false;
+          await _disposeQueueResources();
+          rethrow;
+        }
       }
     }
   }
@@ -1937,6 +1982,18 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     try {
       await _host.dispose();
     } catch (_) {}
+  }
+
+  Future<void> _disposeQueueResources() async {
+    if (_queueResourcesDisposed || _queueOwnershipTransferred) return;
+    _queueResourcesDisposed = true;
+    final disposeQueue = widget.onQueueDispose;
+    if (disposeQueue == null) return;
+    try {
+      await disposeQueue();
+    } catch (error) {
+      _playerLog('队列资源清理失败: $error');
+    }
   }
 
   Future<void> _exitPlayer() async {
