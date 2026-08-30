@@ -2481,11 +2481,10 @@ String _join(String parent, String child) {
 InlineSpan? _entryMetaSpan(FileEntry entry, BuildContext context) {
   final time = entry.modifiedAt ?? entry.createdAt;
   final colors = appColors(context);
-  final metaStyle = AppText.meta(context);
-  final separatorStyle = metaStyle.copyWith(
-    color: colors.muted2,
-    fontWeight: FontWeight.w500,
-  );
+  final metaStyle = AppText.meta(
+    context,
+  ).copyWith(fontWeight: FontWeight.normal);
+  final separatorStyle = metaStyle.copyWith(color: colors.muted2);
   if (entry.isDirectory) {
     return time == null
         ? null

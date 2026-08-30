@@ -116,6 +116,10 @@ void main() {
     expect((meta.children![0] as TextSpan).text, '2025-01-02 03:04');
     expect((meta.children![2] as TextSpan).text, '1.0 KB');
     expect((meta.children![0] as TextSpan).style?.color, AppColors.light.muted);
+    expect(
+      (meta.children![0] as TextSpan).style?.fontWeight,
+      FontWeight.normal,
+    );
   });
 
   testWidgets('右上角菜单提供强制刷新并重新加载目录', (tester) async {
