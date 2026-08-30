@@ -49,6 +49,8 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     _subscriptions.add(
       _player.playbackEventStream.listen((_) => _publishState()),
     );
+    // playbackEventStream 不会持续发出播放位置；位置流负责驱动进度条和计时器。
+    _subscriptions.add(_player.positionStream.listen((_) => _publishState()));
     _subscriptions.add(_player.errorStream.listen(_handlePlayerError));
     _subscriptions.add(
       _player.currentIndexStream.listen((_) => _publishState()),
