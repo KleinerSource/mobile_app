@@ -9,6 +9,7 @@ import 'package:omm/core/config/server_config_repository.dart';
 import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/features/settings/server_list_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/server_avatar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -19,7 +20,11 @@ void main() {
           'id': 'home',
           'name': '家庭服务器',
           'lines': [
-            {'id': 'home-line', 'name': '主线路', 'base_url': 'https://home.example'},
+            {
+              'id': 'home-line',
+              'name': '主线路',
+              'base_url': 'https://home.example',
+            },
           ],
           'active_line_id': 'home-line',
           'project_name': 'oh-my-media',
@@ -28,7 +33,11 @@ void main() {
           'id': 'remote',
           'name': '公网服务器',
           'lines': [
-            {'id': 'remote-line', 'name': '主线路', 'base_url': 'https://remote.example'},
+            {
+              'id': 'remote-line',
+              'name': '主线路',
+              'base_url': 'https://remote.example',
+            },
           ],
           'active_line_id': 'remote-line',
           'project_name': 'oh-my-media',
@@ -37,6 +46,16 @@ void main() {
       'server.active_server_id': 'home',
     });
     AppHaptics.setIntensity(HapticIntensity.standard);
+  });
+
+  testWidgets('服务器列表使用头像而非服务器图标', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(_app(prefs));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ServerAvatar), findsNWidgets(2));
+    expect(find.byIcon(Icons.dns_outlined), findsNothing);
   });
 
   testWidgets('拖拽排序全程有触觉反馈且顺序持久化', (tester) async {
@@ -68,9 +87,7 @@ void main() {
     await tester.pump();
     // 拖起 + 跨过一台服务器，至少两次轻反馈。
     expect(
-      haptics
-          .where((type) => type == 'HapticFeedbackType.lightImpact')
-          .length,
+      haptics.where((type) => type == 'HapticFeedbackType.lightImpact').length,
       greaterThanOrEqualTo(2),
     );
 

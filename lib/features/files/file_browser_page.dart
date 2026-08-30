@@ -851,17 +851,24 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     } else {
       final hasImagePreview =
           imagePreviewEnabled && !entry.isDirectory && _isImageEntry(entry);
+      final previewFrame = imagePreviewEnabled;
+      final compactIconAsset = previewFrame
+          ? null
+          : fileIconAssetWhenPreviewDisabledFor(entry);
       leading = FileEntryIconBadge(
         entry: entry,
         isFavorite: isFavorite,
-        width: hasImagePreview ? 64 : 44,
-        height: hasImagePreview ? 42 : 44,
+        width: previewFrame ? fileEntryPreviewIconWidth : 44,
+        height: previewFrame ? fileEntryPreviewIconHeight : 44,
         child: hasImagePreview
             ? _FileImageThumbnail(
                 bytes: _imagePreviewFuture(entry),
-                fallbackIcon: fileIconFor(entry),
-                fallbackColor: fileIconColorFor(entry, theme.brightness),
+                entry: entry,
               )
+            : previewFrame
+            ? FileEntryIconPlaceholder(entry: entry)
+            : compactIconAsset != null
+            ? FileEntryIconAsset(assetPath: compactIconAsset)
             : null,
       );
     }
@@ -1826,18 +1833,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
 }
 
 class _FileImageThumbnail extends StatelessWidget {
-  const _FileImageThumbnail({
-    required this.bytes,
-    required this.fallbackIcon,
-    required this.fallbackColor,
-  });
+  const _FileImageThumbnail({required this.bytes, required this.entry});
 
-  static const _width = 64.0;
-  static const _height = 36.0;
+  static const _width = fileEntryPreviewIconWidth;
+  static const _height = fileEntryPreviewIconHeight;
 
   final Future<Uint8List> bytes;
-  final IconData fallbackIcon;
-  final Color fallbackColor;
+  final FileEntry entry;
 
   @override
   Widget build(BuildContext context) {
@@ -1867,15 +1869,12 @@ class _FileImageThumbnail extends StatelessWidget {
     return SizedBox(
       width: _width,
       height: _height,
-      child: ClipRRect(borderRadius: BorderRadius.circular(6), child: child),
+      child: ClipRRect(borderRadius: BorderRadius.circular(12), child: child),
     );
   }
 
   Widget _fallback() {
-    return ColoredBox(
-      color: fallbackColor.withValues(alpha: 0.12),
-      child: Center(child: Icon(fallbackIcon, color: fallbackColor, size: 22)),
-    );
+    return FileEntryIconPlaceholder(entry: entry);
   }
 }
 

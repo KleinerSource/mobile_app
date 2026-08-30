@@ -9,6 +9,7 @@ import '../../core/platform/app_theme.dart';
 import '../../core/sources/files/file_source_config.dart';
 import '../../core/sources/files/file_source_providers.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/server_avatar.dart';
 import '../../shared/swipe_actions.dart';
 import 'server_lines_page.dart';
 import 'server_setup_page.dart';
@@ -391,15 +392,12 @@ class _ServerListCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
-              Container(
-                width: 32,
-                height: 32,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: colors.accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(Icons.dns_outlined, color: colors.accent, size: 18),
+              ServerAvatar(
+                displayName: server.name,
+                avatarUrl: server.avatarUrl,
+                size: 42,
+                colors: colors,
+                project: server.project,
               ),
               const SizedBox(width: 12),
               Expanded(

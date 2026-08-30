@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/api/server_compatibility.dart';
 import '../core/platform/app_theme.dart';
@@ -13,18 +14,18 @@ String serverInitials(String value) {
   return String.fromCharCodes(runes.take(2));
 }
 
-/// 文件源协议的默认头像图标；媒体服务器等其余类型返回 null,继续用
+/// 文件源协议的默认头像素材；媒体服务器等其余类型返回 null,继续用
 /// 首字母兜底。
-IconData? serverProjectIcon(ServerProject? project) {
+String? serverProjectAvatarAsset(ServerProject? project) {
   return switch (project) {
-    ServerProject.smb => Icons.lan,
-    ServerProject.webDav => Icons.cloud_outlined,
-    ServerProject.openList => Icons.hub,
+    ServerProject.smb => 'assets/server_avatars/green_folder.png',
+    ServerProject.webDav => 'assets/server_avatars/red_folder.png',
+    ServerProject.openList => 'assets/server_avatars/logo.svg',
     _ => null,
   };
 }
 
-/// 服务器头像: 渐变圆底 + 远程头像(文件源用协议图标、其余用首字母
+/// 服务器头像: 渐变圆底 + 远程头像(文件源用默认素材、其余用首字母
 /// 兜底) + 白色描边。
 ///
 /// 小尺寸(菜单行 ≤40)用细描边与大号首字母;大尺寸(>60)自动加投影、
@@ -59,22 +60,16 @@ class ServerAvatar extends StatelessWidget {
     final fallbackForeground = Theme.of(context).brightness == Brightness.dark
         ? Colors.white
         : colors.surface;
-    final projectIcon = serverProjectIcon(project);
+    final projectAvatarAsset = serverProjectAvatarAsset(project);
     final fallback = Center(
-      child: projectIcon == null
-          ? Text(
-              serverInitials(displayName),
-              style: TextStyle(
-                color: fallbackForeground,
-                fontSize: size * (isHeroSize ? 0.30 : 0.38),
-                fontWeight: FontWeight.w700,
-              ),
-            )
-          : Icon(
-              projectIcon,
-              color: fallbackForeground,
-              size: size * (isHeroSize ? 0.42 : 0.52),
-            ),
+      child: Text(
+        serverInitials(displayName),
+        style: TextStyle(
+          color: fallbackForeground,
+          fontSize: size * (isHeroSize ? 0.30 : 0.38),
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
     final face = DecoratedBox(
       decoration: BoxDecoration(
@@ -101,7 +96,20 @@ class ServerAvatar extends StatelessWidget {
         padding: EdgeInsets.all(borderWidth),
         child: ClipOval(
           child: avatarUrl == null || avatarUrl!.isEmpty
-              ? fallback
+              ? projectAvatarAsset == null
+                    ? fallback
+                    : projectAvatarAsset.endsWith('.svg')
+                    ? SvgPicture.asset(
+                        projectAvatarAsset,
+                        fit: BoxFit.contain,
+                        placeholderBuilder: (_) => fallback,
+                        errorBuilder: (_, __, ___) => fallback,
+                      )
+                    : Image.asset(
+                        projectAvatarAsset,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => fallback,
+                      )
               : CachedNetworkImage(
                   imageUrl: avatarUrl!,
                   fit: BoxFit.cover,

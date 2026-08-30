@@ -4,7 +4,19 @@ import '../../core/platform/app_theme.dart';
 import '../../core/sources/files/file_entry.dart';
 
 /// 文件类型图标与配色工具。文件浏览页与收藏列表页共用。
-enum FileTypeIcon { text, video, image, subtitle, other }
+enum FileTypeIcon {
+  text,
+  video,
+  image,
+  subtitle,
+  archive,
+  pdf,
+  presentation,
+  spreadsheet,
+  document,
+  audio,
+  other,
+}
 
 const _videoFileExtensions = <String>{
   'mp4',
@@ -58,6 +70,147 @@ const _textFileExtensions = <String>{
   'log',
 };
 
+const _archiveFileExtensions = <String>{
+  'zip',
+  'rar',
+  '7z',
+  'cab',
+  'tar',
+  'gz',
+  'gzip',
+  'bz2',
+  'bzip2',
+  'xz',
+  'tgz',
+  'tbz',
+  'tbz2',
+  'z',
+  'lzh',
+  'arj',
+  'ace',
+  'jar',
+};
+
+const _pdfFileExtensions = <String>{'pdf'};
+
+const _presentationFileExtensions = <String>{
+  'ppt',
+  'pptx',
+  'pptm',
+  'pps',
+  'ppsx',
+  'ppsm',
+  'pot',
+  'potx',
+  'potm',
+  'odp',
+};
+
+const _spreadsheetFileExtensions = <String>{
+  'xls',
+  'xlsx',
+  'xlsm',
+  'xlsb',
+  'xlt',
+  'xltx',
+  'xltm',
+  'ods',
+};
+
+const _documentFileExtensions = <String>{
+  'doc',
+  'docx',
+  'docm',
+  'dot',
+  'dotx',
+  'dotm',
+  'odt',
+  'rtf',
+};
+
+const _audioFileExtensions = <String>{
+  'mp3',
+  'm4a',
+  'aac',
+  'flac',
+  'wav',
+  'ogg',
+  'oga',
+  'opus',
+  'wma',
+  'aif',
+  'aiff',
+  'ape',
+  'alac',
+  'amr',
+  'mid',
+  'midi',
+};
+
+const _archiveMimeTypes = <String>{
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/vnd.rar',
+  'application/x-rar-compressed',
+  'application/x-7z-compressed',
+  'application/vnd.ms-cab-compressed',
+  'application/x-cab',
+  'application/x-tar',
+  'application/gzip',
+  'application/x-gzip',
+  'application/x-bzip2',
+  'application/x-xz',
+  'application/java-archive',
+  'application/vnd.android.package-archive',
+};
+
+const _presentationMimeTypes = <String>{
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
+  'application/vnd.ms-powerpoint.presentation.macroenabled.12',
+  'application/vnd.ms-powerpoint.slideshow.macroenabled.12',
+  'application/vnd.oasis.opendocument.presentation',
+};
+
+const _spreadsheetMimeTypes = <String>{
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel.sheet.macroenabled.12',
+  'application/vnd.ms-excel.sheet.binary.macroenabled.12',
+  'application/vnd.oasis.opendocument.spreadsheet',
+};
+
+const _documentMimeTypes = <String>{
+  'application/msword',
+  'application/vnd.ms-word',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.template',
+  'application/vnd.ms-word.document.macroenabled.12',
+  'application/vnd.oasis.opendocument.text',
+  'application/rtf',
+  'text/rtf',
+};
+
+const _folderPlaceholderAsset = 'assets/file_icons/folder_placeholder.png';
+const _documentPlaceholderAsset = 'assets/file_icons/document_placeholder.png';
+const _videoPlaceholderAsset = 'assets/file_icons/video_placeholder.png';
+const _imagePlaceholderAsset = 'assets/file_icons/image_placeholder.png';
+const _unknownPlaceholderAsset = 'assets/file_icons/unknown_placeholder.png';
+const _videoFileIconAsset = 'assets/file_icons/video_file_icon.png';
+const _textFileIconAsset = 'assets/file_icons/text_file_icon.png';
+const _imageFileIconAsset = 'assets/file_icons/image_file_icon.png';
+const _archiveFileIconAsset = 'assets/file_icons/archive_file_icon.png';
+const _pdfFileIconAsset = 'assets/file_icons/pdf_file_icon.png';
+const _presentationFileIconAsset =
+    'assets/file_icons/presentation_file_icon.png';
+const _spreadsheetFileIconAsset = 'assets/file_icons/spreadsheet_file_icon.png';
+const _documentFileIconAsset = 'assets/file_icons/document_file_icon.png';
+const _audioFileIconAsset = 'assets/file_icons/audio_file_icon.png';
+
+const fileEntryPreviewIconWidth = 64.0;
+const fileEntryPreviewIconHeight = 36.0;
+
 FileTypeIcon fileTypeIconFor(FileEntry entry) {
   final mime = entry.mimeType?.trim().toLowerCase() ?? '';
   final extension = fileExtensionFor(entry.name);
@@ -71,6 +224,28 @@ FileTypeIcon fileTypeIconFor(FileEntry entry) {
   }
   if (mime.startsWith('image/') || _imageFileExtensions.contains(extension)) {
     return FileTypeIcon.image;
+  }
+  if (_archiveMimeTypes.contains(mime) ||
+      _archiveFileExtensions.contains(extension)) {
+    return FileTypeIcon.archive;
+  }
+  if (mime == 'application/pdf' || _pdfFileExtensions.contains(extension)) {
+    return FileTypeIcon.pdf;
+  }
+  if (_presentationMimeTypes.contains(mime) ||
+      _presentationFileExtensions.contains(extension)) {
+    return FileTypeIcon.presentation;
+  }
+  if (_spreadsheetMimeTypes.contains(mime) ||
+      _spreadsheetFileExtensions.contains(extension)) {
+    return FileTypeIcon.spreadsheet;
+  }
+  if (_documentMimeTypes.contains(mime) ||
+      _documentFileExtensions.contains(extension)) {
+    return FileTypeIcon.document;
+  }
+  if (mime.startsWith('audio/') || _audioFileExtensions.contains(extension)) {
+    return FileTypeIcon.audio;
   }
   if (mime.startsWith('text/') ||
       mime == 'application/json' ||
@@ -184,12 +359,80 @@ class FileEntryIconBadge extends StatelessWidget {
   }
 }
 
+class FileEntryIconAsset extends StatelessWidget {
+  const FileEntryIconAsset({super.key, required this.assetPath});
+
+  final String assetPath;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      assetPath,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.medium,
+      excludeFromSemantics: true,
+    );
+  }
+}
+
+/// 图片预览模式下使用的文件类型占位图。
+class FileEntryIconPlaceholder extends StatelessWidget {
+  const FileEntryIconPlaceholder({super.key, required this.entry});
+
+  final FileEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return FileEntryIconAsset(assetPath: fileIconPlaceholderAssetFor(entry));
+  }
+}
+
+String fileIconPlaceholderAssetFor(FileEntry entry) {
+  if (entry.isDirectory) return _folderPlaceholderAsset;
+  return switch (fileTypeIconFor(entry)) {
+    FileTypeIcon.video => _videoPlaceholderAsset,
+    FileTypeIcon.image => _imagePlaceholderAsset,
+    FileTypeIcon.text ||
+    FileTypeIcon.subtitle ||
+    FileTypeIcon.archive ||
+    FileTypeIcon.pdf ||
+    FileTypeIcon.presentation ||
+    FileTypeIcon.spreadsheet ||
+    FileTypeIcon.document ||
+    FileTypeIcon.audio => _documentPlaceholderAsset,
+    FileTypeIcon.other => _unknownPlaceholderAsset,
+  };
+}
+
+/// 关闭图片预览时，视频、文本和图片使用的类型图标。
+String? fileIconAssetWhenPreviewDisabledFor(FileEntry entry) {
+  if (entry.isDirectory) return null;
+  return switch (fileTypeIconFor(entry)) {
+    FileTypeIcon.video => _videoFileIconAsset,
+    FileTypeIcon.text => _textFileIconAsset,
+    FileTypeIcon.image => _imageFileIconAsset,
+    FileTypeIcon.archive => _archiveFileIconAsset,
+    FileTypeIcon.pdf => _pdfFileIconAsset,
+    FileTypeIcon.presentation => _presentationFileIconAsset,
+    FileTypeIcon.spreadsheet => _spreadsheetFileIconAsset,
+    FileTypeIcon.document => _documentFileIconAsset,
+    FileTypeIcon.audio => _audioFileIconAsset,
+    FileTypeIcon.subtitle || FileTypeIcon.other => null,
+  };
+}
+
 IconData fileIconFor(FileEntry entry) {
   return switch (fileTypeIconFor(entry)) {
     FileTypeIcon.text => Icons.article_rounded,
     FileTypeIcon.video => Icons.movie_rounded,
     FileTypeIcon.image => Icons.photo_rounded,
     FileTypeIcon.subtitle => Icons.subtitles_rounded,
+    FileTypeIcon.archive => Icons.archive_rounded,
+    FileTypeIcon.pdf => Icons.picture_as_pdf_rounded,
+    FileTypeIcon.presentation => Icons.slideshow_rounded,
+    FileTypeIcon.spreadsheet => Icons.table_chart_rounded,
+    FileTypeIcon.document => Icons.description_rounded,
+    FileTypeIcon.audio => Icons.audio_file_rounded,
     FileTypeIcon.other =>
       (entry.mimeType?.trim().toLowerCase().startsWith('audio/') ?? false)
           ? Icons.audio_file_rounded
@@ -205,6 +448,12 @@ Color fileIconColorFor(FileEntry entry, Brightness brightness) {
           FileTypeIcon.video => AppHues.coral,
           FileTypeIcon.image => AppHues.mint,
           FileTypeIcon.subtitle => AppHues.solar,
+          FileTypeIcon.archive => AppHues.lavender,
+          FileTypeIcon.pdf => AppHues.coral,
+          FileTypeIcon.presentation => AppHues.coral,
+          FileTypeIcon.spreadsheet => AppHues.mint,
+          FileTypeIcon.document => AppHues.sky,
+          FileTypeIcon.audio => AppHues.solar,
           FileTypeIcon.other => AppHues.lavender,
         };
   return AppHues.chipText(hue, brightness);
