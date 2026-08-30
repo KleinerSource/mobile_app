@@ -48,6 +48,16 @@ void main() {
     }
   });
 
+  testWidgets('SMB 和 WebDAV 文件夹头像内容缩小 20%', (tester) async {
+    for (final project in [ServerProject.smb, ServerProject.webDav]) {
+      await tester.pumpWidget(_wrap(project: project));
+      final contentSize = tester.getSize(find.byType(ClipOval));
+      final imageSize = tester.getSize(find.byType(Image));
+      expect(imageSize.width, closeTo(contentSize.width * 0.8, 0.1));
+      expect(imageSize.height, closeTo(contentSize.height * 0.8, 0.1));
+    }
+  });
+
   testWidgets('媒体服务器等其余类型仍用首字母兜底', (tester) async {
     await tester.pumpWidget(_wrap(project: ServerProject.ohMyMedia));
     expect(find.byType(Icon), findsNothing);

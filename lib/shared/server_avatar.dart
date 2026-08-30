@@ -61,6 +61,10 @@ class ServerAvatar extends StatelessWidget {
         ? Colors.white
         : colors.surface;
     final projectAvatarAsset = serverProjectAvatarAsset(project);
+    final folderAvatarInset =
+        project == ServerProject.smb || project == ServerProject.webDav
+        ? (size - borderWidth * 2) * 0.1
+        : 0.0;
     final fallback = Center(
       child: Text(
         serverInitials(displayName),
@@ -71,6 +75,23 @@ class ServerAvatar extends StatelessWidget {
         ),
       ),
     );
+    final defaultAvatar = projectAvatarAsset == null
+        ? fallback
+        : projectAvatarAsset.endsWith('.svg')
+        ? SvgPicture.asset(
+            projectAvatarAsset,
+            fit: BoxFit.contain,
+            placeholderBuilder: (_) => fallback,
+            errorBuilder: (_, __, ___) => fallback,
+          )
+        : Padding(
+            padding: EdgeInsets.all(folderAvatarInset),
+            child: Image.asset(
+              projectAvatarAsset,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => fallback,
+            ),
+          );
     final face = DecoratedBox(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -96,20 +117,7 @@ class ServerAvatar extends StatelessWidget {
         padding: EdgeInsets.all(borderWidth),
         child: ClipOval(
           child: avatarUrl == null || avatarUrl!.isEmpty
-              ? projectAvatarAsset == null
-                    ? fallback
-                    : projectAvatarAsset.endsWith('.svg')
-                    ? SvgPicture.asset(
-                        projectAvatarAsset,
-                        fit: BoxFit.contain,
-                        placeholderBuilder: (_) => fallback,
-                        errorBuilder: (_, __, ___) => fallback,
-                      )
-                    : Image.asset(
-                        projectAvatarAsset,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => fallback,
-                      )
+              ? defaultAvatar
               : CachedNetworkImage(
                   imageUrl: avatarUrl!,
                   fit: BoxFit.cover,
