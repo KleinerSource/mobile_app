@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:audio_service/audio_service.dart' as audio_service;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:omm_scratch_audio/omm_scratch_audio.dart';
 
 import '../../../core/platform/app_theme.dart';
+import '../../../core/platform/app_log_store.dart';
 import 'audio_metadata.dart';
 import 'audio_playback_service.dart';
 import '../common/playback_engine.dart';
@@ -14,7 +17,8 @@ import '../common/player_queue.dart';
 ///
 /// [dispose] 只解除 UI isolate 的监听，不会停止 AudioHandler，因此退出
 /// 全屏页面后音频仍可继续在后台播放。
-class AudioPlaybackEngine implements PlaybackEngine, AudioMetadataSink {
+class AudioPlaybackEngine
+    implements PlaybackEngine, AudioMetadataSink, ScratchPlaybackEngine {
   AudioPlaybackEngine({required audio_service.AudioHandler handler})
     : _handler = handler,
       _state = ValueNotifier(
@@ -32,6 +36,15 @@ class AudioPlaybackEngine implements PlaybackEngine, AudioMetadataSink {
       <StreamSubscription<Object?>>[];
   audio_service.MediaItem? _currentItem;
   bool _disposed = false;
+  String? _scratchSource;
+  Map<String, String>? _scratchHeaders;
+  Future<bool>? _scratchPrepareFuture;
+  int _scratchSourceGeneration = 0;
+  int _scratchStartGeneration = 0;
+  bool _scratchActive = false;
+  bool _scratchMainPlaybackPaused = false;
+  bool _scratchResumePlayback = false;
+  double _pendingScratchRate = 0;
 
   @override
   PlaybackEngineKind get kind => PlaybackEngineKind.audio;
@@ -72,6 +85,10 @@ class AudioPlaybackEngine implements PlaybackEngine, AudioMetadataSink {
         : items;
     var index = request.queueIndex;
     if (index < 0 || index >= queue.length) index = 0;
+    _setScratchSource(
+      queue[index].directUrl ?? request.url,
+      queue[index].directHeaders ?? request.headers,
+    );
     final queueKey = playerQueueKey(queue);
     final dispose = request.onQueueDispose;
     if (dispose != null) {
@@ -85,6 +102,7 @@ class AudioPlaybackEngine implements PlaybackEngine, AudioMetadataSink {
         'play': request.play,
         'queueKey': queueKey,
       });
+      _warmScratchAudio();
     } catch (_) {
       AudioPlaybackResourceRegistry.instance.handleEvent(<String, dynamic>{
         'type': 'queue_resources',
@@ -130,6 +148,164 @@ class AudioPlaybackEngine implements PlaybackEngine, AudioMetadataSink {
 
   @override
   Future<void> setRate(double rate) => _handler.setSpeed(rate);
+
+  @override
+  Future<bool> startScratch(
+    Duration position, {
+    required bool resumePlayback,
+  }) async {
+    if (!OmmScratchAudio.isSupported) return false;
+    final source = _scratchSource;
+    if (source == null || source.isEmpty) return false;
+    final sourceGeneration = _scratchSourceGeneration;
+    final startGeneration = ++_scratchStartGeneration;
+    _scratchResumePlayback = resumePlayback;
+    try {
+      // 先切断 just_audio 的输出，再等待 PCM 准备。否则远程音频准备期间
+      // 主播放器仍在发声，手指已经按住唱片却听到另一套未受控的声音。
+      _scratchMainPlaybackPaused = true;
+      await _handler.pause();
+      final prepare = _scratchPrepareFuture ??= _prepareScratchAudio(
+        source: source,
+        headers: _scratchHeaders,
+      );
+      var timedOut = false;
+      final ready = await prepare.timeout(
+        // 当前 native MVP 需要先把音轨解码为 PCM。180ms 对远程直链和较大
+        // 音频几乎必然过短，会让每次手势都静默退回 seek；给同一个准备任务
+        // 足够时间，才能确保真正切入 Scratch 输出通道。
+        const Duration(seconds: 30),
+        onTimeout: () {
+          timedOut = true;
+          return false;
+        },
+      );
+      if (startGeneration != _scratchStartGeneration) return false;
+      if (!ready || sourceGeneration != _scratchSourceGeneration) {
+        if (!ready && !timedOut && identical(_scratchPrepareFuture, prepare)) {
+          _scratchPrepareFuture = null;
+        }
+        if (timedOut) {
+          appLog('[AudioScratch] PCM 准备超过 30 秒，已回退普通播放');
+        }
+        if (resumePlayback) {
+          // audio_service 的 play Future 可能持续到曲目结束，不能在这里 await。
+          unawaited(_handler.play().catchError((_) {}));
+        }
+        _scratchMainPlaybackPaused = false;
+        return false;
+      }
+      await OmmScratchAudio.setRate(_pendingScratchRate);
+      await OmmScratchAudio.start(position: position, autoplay: true);
+      if (startGeneration != _scratchStartGeneration) {
+        await OmmScratchAudio.stop();
+        return false;
+      }
+      _scratchActive = true;
+      _scratchMainPlaybackPaused = false;
+      return true;
+    } catch (error) {
+      _scratchActive = false;
+      _scratchMainPlaybackPaused = false;
+      appLog('[AudioScratch] native Scratch 启动失败: $error');
+      if (resumePlayback) {
+        unawaited(_handler.play().catchError((_) {}));
+      }
+      return false;
+    }
+  }
+
+  @override
+  Future<void> setScratchRate(double rate) async {
+    if (!rate.isFinite) return;
+    _pendingScratchRate = rate.clamp(-8.0, 8.0).toDouble();
+    if (!_scratchActive || !OmmScratchAudio.isSupported) return;
+    try {
+      await OmmScratchAudio.setRate(_pendingScratchRate);
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> cancelScratchStart() async {
+    _scratchStartGeneration++;
+    final shouldResume =
+        _scratchResumePlayback &&
+        (_scratchMainPlaybackPaused || _scratchActive);
+    if (_scratchActive) {
+      try {
+        await OmmScratchAudio.stop();
+      } catch (_) {}
+      _scratchActive = false;
+    }
+    _scratchMainPlaybackPaused = false;
+    if (shouldResume) {
+      // audio_service 的 play Future 可能持续到曲目结束，不能在这里 await。
+      unawaited(_handler.play().catchError((_) {}));
+    }
+  }
+
+  @override
+  Future<Duration?> finishScratch({required bool resumePlayback}) async {
+    _scratchStartGeneration++;
+    if (!_scratchActive) {
+      final shouldResume = resumePlayback && _scratchMainPlaybackPaused;
+      _scratchMainPlaybackPaused = false;
+      if (shouldResume) {
+        unawaited(_handler.play().catchError((_) {}));
+      }
+      return null;
+    }
+    try {
+      final state = await OmmScratchAudio.state();
+      await OmmScratchAudio.stop();
+      _scratchActive = false;
+      _scratchMainPlaybackPaused = false;
+      if (!state.ready) return null;
+      await _handler.seek(state.position);
+      if (resumePlayback) {
+        unawaited(_handler.play().catchError((_) {}));
+      } else {
+        await _handler.pause();
+      }
+      return state.position;
+    } catch (_) {
+      _scratchActive = false;
+      _scratchMainPlaybackPaused = false;
+      if (resumePlayback) {
+        unawaited(_handler.play().catchError((_) {}));
+      }
+      return null;
+    }
+  }
+
+  void _warmScratchAudio() {
+    if (!OmmScratchAudio.isSupported || _scratchSource == null) return;
+    if (_scratchPrepareFuture != null) return;
+    final source = _scratchSource!;
+    final future = _prepareScratchAudio(
+      source: source,
+      headers: _scratchHeaders,
+    );
+    _scratchPrepareFuture = future;
+    unawaited(future);
+  }
+
+  Future<bool> _prepareScratchAudio({
+    required String source,
+    Map<String, String>? headers,
+  }) async {
+    if (source.isEmpty) return false;
+    try {
+      final state = await OmmScratchAudio.prepare(
+        source: source,
+        headers: headers,
+      );
+      return state.ready;
+    } catch (error) {
+      appLog('[AudioScratch] PCM 准备失败: $error');
+      return false;
+    }
+  }
 
   @override
   Future<void> configure({
@@ -223,6 +399,13 @@ class AudioPlaybackEngine implements PlaybackEngine, AudioMetadataSink {
     _currentItem = item;
     final current = _state.value;
     final itemChanged = previous?.id != item?.id;
+    if (itemChanged) {
+      final source = item?.extras?['audioUrl']?.toString().trim();
+      if (item != null && source != null && source.isNotEmpty) {
+        _setScratchSource(source, _scratchHeadersFor(item));
+        _warmScratchAudio();
+      }
+    }
     _state.value = current.copyWith(
       currentTitle: item?.title,
       artworkPath: _artworkPath(item?.artUri),
@@ -236,6 +419,41 @@ class AudioPlaybackEngine implements PlaybackEngine, AudioMetadataSink {
   String? _artworkPath(Uri? uri) {
     if (uri == null || uri.scheme != 'file') return null;
     return uri.toFilePath();
+  }
+
+  Map<String, String>? _scratchHeadersFor(audio_service.MediaItem item) {
+    final raw = item.extras?['headersJson']?.toString();
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      return decoded.map(
+        (key, value) => MapEntry(key.toString(), value.toString()),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _setScratchSource(String source, Map<String, String>? headers) {
+    if (_scratchSource == source && _sameHeaders(_scratchHeaders, headers)) {
+      return;
+    }
+    _scratchSource = source;
+    _scratchHeaders = headers;
+    _scratchPrepareFuture = null;
+    _scratchSourceGeneration++;
+  }
+
+  bool _sameHeaders(Map<String, String>? left, Map<String, String>? right) {
+    if (identical(left, right)) return true;
+    if (left == null || right == null || left.length != right.length) {
+      return false;
+    }
+    for (final entry in left.entries) {
+      if (right[entry.key] != entry.value) return false;
+    }
+    return true;
   }
 
   void _handlePlaybackState(audio_service.PlaybackState? playback) {
@@ -288,6 +506,9 @@ class AudioPlaybackEngine implements PlaybackEngine, AudioMetadataSink {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    if (_scratchActive) {
+      await finishScratch(resumePlayback: _scratchResumePlayback);
+    }
     for (final subscription in _subscriptions) {
       await subscription.cancel();
     }

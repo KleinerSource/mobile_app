@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -212,5 +214,47 @@ class FakePlaybackEngine implements PlaybackEngine {
   Future<void> dispose() async {
     commands.add('dispose');
     notifier.dispose();
+  }
+}
+
+class FakeScratchPlaybackEngine extends FakePlaybackEngine
+    implements ScratchPlaybackEngine {
+  FakeScratchPlaybackEngine({super.initialState})
+    : super(PlaybackEngineKind.audio);
+
+  final List<double> scratchRates = <double>[];
+  Duration? scratchPosition;
+  Completer<bool>? scratchStartGate;
+  bool _scratchResumePlayback = false;
+
+  @override
+  Future<bool> startScratch(
+    Duration position, {
+    required bool resumePlayback,
+  }) async {
+    commands.add('scratch-start');
+    scratchPosition = position;
+    _scratchResumePlayback = resumePlayback;
+    final gate = scratchStartGate;
+    if (gate != null) return gate.future;
+    return true;
+  }
+
+  @override
+  Future<void> setScratchRate(double rate) async {
+    commands.add('scratch-rate');
+    scratchRates.add(rate);
+  }
+
+  @override
+  Future<void> cancelScratchStart() async {
+    commands.add('scratch-cancel');
+    if (_scratchResumePlayback) await play();
+  }
+
+  @override
+  Future<Duration?> finishScratch({required bool resumePlayback}) async {
+    commands.add('scratch-finish:$resumePlayback');
+    return scratchPosition;
   }
 }

@@ -499,3 +499,16 @@ abstract interface class PlaybackEngine {
 
   Widget buildSurface({BoxFit fit = BoxFit.contain});
 }
+
+/// 可选的实时 PCM 搓碟能力。
+///
+/// 普通播放引擎无需实现；支持该接口的音频引擎必须让正负速率作用于同一条
+/// 当前音轨，并在结束时返回 native 音频游标的真实位置。
+abstract interface class ScratchPlaybackEngine {
+  Future<bool> startScratch(Duration position, {required bool resumePlayback});
+  Future<void> setScratchRate(double rate);
+
+  /// 取消尚未完成的 native 准备，不影响已经开始的 Scratch。
+  Future<void> cancelScratchStart();
+  Future<Duration?> finishScratch({required bool resumePlayback});
+}

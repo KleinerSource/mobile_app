@@ -48,6 +48,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   Duration get duration => value.duration;
   bool get playing => value.playing;
   bool get playbackIntent => _playbackIntent;
+  bool get supportsScratch => _engine is ScratchPlaybackEngine;
   bool get mainMediaLoaded => value.mainMediaLoaded;
   bool get usesBackendSubtitleSelection =>
       _engine.kind == PlaybackEngineKind.ksPlayer;
@@ -277,6 +278,32 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   }
 
   Future<void> setRate(double rate) => _engine.setRate(rate);
+
+  Future<bool> startScratch(Duration position, {required bool resumePlayback}) {
+    final Object engine = _engine;
+    if (engine is! ScratchPlaybackEngine) return Future<bool>.value(false);
+    return engine.startScratch(position, resumePlayback: resumePlayback);
+  }
+
+  Future<void> setScratchRate(double rate) {
+    final Object engine = _engine;
+    if (engine is! ScratchPlaybackEngine) return Future<void>.value();
+    return engine.setScratchRate(rate);
+  }
+
+  Future<void> cancelScratchStart() {
+    final Object engine = _engine;
+    if (engine is! ScratchPlaybackEngine) return Future<void>.value();
+    return engine.cancelScratchStart();
+  }
+
+  Future<Duration?> finishScratch({required bool resumePlayback}) {
+    final Object engine = _engine;
+    if (engine is! ScratchPlaybackEngine) {
+      return Future<Duration?>.value();
+    }
+    return engine.finishScratch(resumePlayback: resumePlayback);
+  }
 
   Future<void> setAudioTrackById(String id) async {
     await _engine.setAudioTrackById(id);

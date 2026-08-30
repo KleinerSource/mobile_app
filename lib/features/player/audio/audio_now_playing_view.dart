@@ -65,6 +65,11 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   bool _scratchFinishing = false;
   bool? _scratchWasPlaying;
   int _scratchGeneration = 0;
+  bool _nativeScratchRequested = false;
+  bool _nativeScratchActive = false;
+  bool _scratchStartCancelled = false;
+  double _scratchAudioRate = 0;
+  Future<void>? _scratchAudioStartFuture;
 
   @override
   void initState() {
@@ -97,7 +102,17 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
       return;
     }
 
-    if (_scratchActive || _scratchFinishing) {
+    if (_scratchActive) {
+      _stopRotationTicker();
+      _syncTonearm(true);
+      return;
+    }
+    if (_scratchFinishing && _nativeScratchActive) {
+      _syncTonearm(true);
+      _startRotationTicker();
+      return;
+    }
+    if (_scratchFinishing) {
       _stopRotationTicker();
       _syncTonearm(true);
       return;
@@ -145,6 +160,13 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     final previous = _lastTick;
     _lastTick = elapsed;
     if (previous == null) return;
+    if (_scratchFinishing && _nativeScratchActive) {
+      final elapsedSeconds =
+          (elapsed - previous).inMicroseconds / Duration.microsecondsPerSecond;
+      _rotationController.value +=
+          elapsedSeconds / _rotationPeriod.inSeconds * _scratchAudioRate;
+      return;
+    }
     if (!widget.controller.playing) return;
     final elapsedFraction =
         (elapsed - previous).inMicroseconds / _rotationPeriod.inMicroseconds;
@@ -547,7 +569,23 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
       current + Duration(microseconds: deltaMicros),
     );
     _scratchPosition = target;
-    _enqueueScratchSeek(target);
+    final elapsedSeconds = _scratchSampleElapsedSeconds();
+    final scratchRate = elapsedSeconds > 0
+        ? (turns * _seekSecondsPerRevolution / elapsedSeconds).clamp(-8.0, 8.0)
+        : 0.0;
+    _scratchAudioRate = scratchRate;
+    if (_nativeScratchRequested) {
+      unawaited(widget.controller.setScratchRate(scratchRate));
+    } else {
+      _enqueueScratchSeek(target);
+    }
+  }
+
+  double _scratchSampleElapsedSeconds() {
+    final previous = _previousScratchSampleTime;
+    final current = _lastScratchSampleTime;
+    if (previous == null || current == null || current <= previous) return 0;
+    return (current - previous).inMicroseconds / Duration.microsecondsPerSecond;
   }
 
   void _clearScratchCandidate() {
@@ -568,12 +606,20 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     _scratchPosition = _clampPosition(widget.controller.position);
     _pendingScratchSeek = null;
     _scratchGeneration++;
+    _nativeScratchRequested = widget.controller.supportsScratch;
+    _nativeScratchActive = false;
+    _scratchStartCancelled = false;
+    _scratchAudioRate = 0;
     _stopRotationTicker();
     _syncTonearm(true);
     AppHaptics.light();
-    // 单通道直接控制当前音轨：播放中保持主通道发声，暂停时临时播放，
-    // 释放后再恢复搓碟前的播放意图。
-    if (_scratchWasPlaying != true) unawaited(_startScratchAudioPreview());
+    if (_nativeScratchRequested) {
+      final future = _startNativeScratch(_scratchGeneration, _scratchPosition!);
+      _scratchAudioStartFuture = future;
+      unawaited(future);
+    } else if (_scratchWasPlaying != true) {
+      unawaited(_startScratchAudioPreview());
+    }
   }
 
   void _enqueueScratchSeek(Duration target) {
@@ -624,7 +670,15 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
 
     _scratchSeekTimer?.cancel();
     _scratchSeekTimer = null;
-    _startScratchSeekDrain();
+    final cancelNativeStart = _nativeScratchRequested && !_nativeScratchActive;
+    if (cancelNativeStart) {
+      // 原生 PCM 可能仍在下载/解码。释放手势时取消这次切入，不能让收尾
+      // 等待它完成，否则主播放器会在手指离开后长时间保持静音。
+      _scratchStartCancelled = true;
+      unawaited(widget.controller.cancelScratchStart());
+    } else {
+      _startScratchSeekDrain();
+    }
     final wasPlaying = _scratchWasPlaying == true;
     final generation = _scratchGeneration;
     final seekFuture = _scratchSeekFuture;
@@ -695,11 +749,21 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   ) async {
     try {
       if (seekFuture != null) await seekFuture;
-      await _playScratchBackspin(momentumVelocity: momentumVelocity);
-      if (!mounted || generation != _scratchGeneration) return;
-      if (wasPlaying) {
-        _requestScratchPlaybackResume(generation);
+      final startWasCancelled = _scratchStartCancelled;
+      if (!startWasCancelled) {
+        final startFuture = _scratchAudioStartFuture;
+        if (startFuture != null) await startFuture;
+      }
+      final usedNativeScratch = _nativeScratchActive;
+      if (usedNativeScratch) {
+        await _releaseNativeScratch(momentumVelocity);
       } else {
+        await _playScratchBackspin(momentumVelocity: momentumVelocity);
+      }
+      if (!mounted || generation != _scratchGeneration) return;
+      if (!usedNativeScratch && wasPlaying && !startWasCancelled) {
+        _requestScratchPlaybackResume(generation);
+      } else if (!usedNativeScratch && !startWasCancelled) {
         await widget.controller.pause();
       }
     } catch (_) {
@@ -709,6 +773,10 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
         _scratchFinishing = false;
         _scratchWasPlaying = null;
         _scratchPosition = null;
+        _scratchAudioStartFuture = null;
+        _nativeScratchRequested = false;
+        _nativeScratchActive = false;
+        _scratchStartCancelled = false;
         _syncRotation();
       }
     }
@@ -724,6 +792,74 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     } catch (_) {
       // 预览播放失败时仍保留原本的暂停意图。
     }
+  }
+
+  Future<void> _startNativeScratch(int generation, Duration position) async {
+    try {
+      final started = await widget.controller.startScratch(
+        position,
+        resumePlayback: _scratchWasPlaying == true,
+      );
+      if (!started) {
+        _nativeScratchRequested = false;
+        if (_scratchStartCancelled) return;
+        if (mounted && generation == _scratchGeneration) {
+          final target = _scratchPosition;
+          if (target != null && _scratchActive) {
+            _enqueueScratchSeek(target);
+          } else if (target != null && _scratchFinishing) {
+            await widget.controller.seek(target, waitForPlaybackResume: false);
+          }
+          if (_scratchWasPlaying != true && _scratchActive) {
+            unawaited(_startScratchAudioPreview());
+          }
+        }
+        return;
+      }
+      if (_scratchStartCancelled ||
+          !mounted ||
+          generation != _scratchGeneration) {
+        await widget.controller.finishScratch(
+          resumePlayback: _scratchWasPlaying == true,
+        );
+        return;
+      }
+      _nativeScratchActive = true;
+      await widget.controller.setScratchRate(_scratchAudioRate);
+      _syncRotation();
+    } catch (_) {
+      _nativeScratchRequested = false;
+    }
+  }
+
+  Future<void> _releaseNativeScratch(double momentumVelocity) async {
+    final normalRate = _normalPlaybackRate();
+    final hasMomentum =
+        momentumVelocity.isFinite && momentumVelocity.abs() >= 0.05;
+    final releaseRate = hasMomentum
+        ? (momentumVelocity * _seekSecondsPerRevolution).clamp(-8.0, 8.0)
+        : normalRate;
+    _scratchAudioRate = releaseRate;
+    _syncRotation();
+    await widget.controller.setScratchRate(releaseRate);
+    if (hasMomentum) {
+      const steps = 24;
+      for (var step = 1; step <= steps; step++) {
+        await Future<void>.delayed(const Duration(milliseconds: 16));
+        if (!mounted) return;
+        final progress = step / steps;
+        _scratchAudioRate = releaseRate + (normalRate - releaseRate) * progress;
+        await widget.controller.setScratchRate(_scratchAudioRate);
+      }
+    }
+    final wasPlaying = _scratchWasPlaying == true;
+    await widget.controller.finishScratch(resumePlayback: wasPlaying);
+    _nativeScratchActive = false;
+  }
+
+  double _normalPlaybackRate() {
+    final rate = widget.controller.value.rate;
+    return rate.isFinite && rate > 0 ? rate : 1.0;
   }
 
   Future<void> _playScratchBackspin({required double momentumVelocity}) async {

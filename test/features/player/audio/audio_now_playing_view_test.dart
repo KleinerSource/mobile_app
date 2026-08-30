@@ -120,6 +120,78 @@ void main() {
     }
   });
 
+  testWidgets('原生搓碟路径直接发送正反速率且不连续 seek', (tester) async {
+    final engine = FakeScratchPlaybackEngine(
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        playing: true,
+        position: Duration(seconds: 30),
+        duration: Duration(minutes: 1),
+        rate: 1,
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final center = tester.getCenter(record);
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+
+      await gesture.moveTo(
+        center + const Offset(120, 0),
+        timeStamp: const Duration(milliseconds: 80),
+      );
+      await tester.pump();
+      await gesture.moveTo(
+        center + const Offset(0, -120),
+        timeStamp: const Duration(milliseconds: 160),
+      );
+      await tester.pump();
+      await gesture.up(timeStamp: const Duration(milliseconds: 240));
+      for (var frame = 0; frame < 30; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+
+      expect(engine.commands, contains('scratch-start'));
+      expect(engine.scratchRates.any((rate) => rate > 0), isTrue);
+      expect(engine.scratchRates.any((rate) => rate < 0), isTrue);
+      expect(engine.commands, contains('scratch-finish:true'));
+      expect(engine.commands, isNot(contains('seek')));
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
+  testWidgets('原生准备未完成时释放唱片会立即取消并恢复主播放', (tester) async {
+    final engine = FakeScratchPlaybackEngine(
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        playing: true,
+        duration: Duration(minutes: 1),
+      ),
+    )..scratchStartGate = Completer<bool>();
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final center = tester.getCenter(record);
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+      await gesture.moveTo(center + const Offset(120, 0));
+      await gesture.up();
+      await tester.pump();
+
+      expect(engine.commands, contains('scratch-cancel'));
+      expect(engine.commands, contains('play'));
+
+      engine.scratchStartGate!.complete(false);
+      await tester.pump();
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
   testWidgets('甩碟释放后唱片不额外惯性旋转，恢复后跟随主音轨', (tester) async {
     final engine = FakePlaybackEngine(
       PlaybackEngineKind.audio,

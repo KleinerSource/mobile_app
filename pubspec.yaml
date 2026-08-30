@@ -1,7 +1,7 @@
 name: omm
 description: omm 移动端 (iOS + Android)
 publish_to: 'none'
-version: 0.64.0+556
+version: 0.63.9+555
 environment:
   sdk: '>=3.8.0 <4.0.0'
 
@@ -48,6 +48,8 @@ dependencies:
   just_audio: ^0.10.6
   audio_session: ^0.2.4
   audio_metadata_reader: ^1.7.1
+  omm_scratch_audio:
+    path: packages/omm_scratch_audio
 
 dev_dependencies:
   flutter_test:
