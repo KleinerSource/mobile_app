@@ -9,6 +9,7 @@ class FakePlaybackEngine implements PlaybackEngine {
     this.failOnOpen = false,
     this.pauseOnSeek = false,
     this.seekDelay = Duration.zero,
+    this.playCompletion,
     PlaybackViewState? initialState,
   }) : notifier = ValueNotifier(
          initialState ?? PlaybackViewState(engineKind: kind),
@@ -19,6 +20,7 @@ class FakePlaybackEngine implements PlaybackEngine {
   final bool failOnOpen;
   final bool pauseOnSeek;
   final Duration seekDelay;
+  final Future<void>? playCompletion;
   final ValueNotifier<PlaybackViewState> notifier;
   final List<String> commands = [];
   final List<Duration> seekPositions = [];
@@ -69,6 +71,8 @@ class FakePlaybackEngine implements PlaybackEngine {
   Future<void> play() async {
     commands.add('play');
     _update((state) => state.copyWith(playing: true));
+    final completion = playCompletion;
+    if (completion != null) await completion;
   }
 
   @override

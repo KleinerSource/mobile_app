@@ -32,33 +32,22 @@ class AudioNowPlayingView extends StatefulWidget {
 class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     with TickerProviderStateMixin {
   static const _rotationPeriod = Duration(seconds: 8);
-  static const _spinTransitionDuration = Duration(milliseconds: 900);
   // 歌词只在自己的槽位内变化，不能通过改变父级高度推动唱盘。
   static const double _lyricsSlotHeight = 108;
   static const _seekSecondsPerRevolution = 15.0;
   static const _gestureThreshold = 10.0;
   static const _innerGestureRadiusFactor = 0.16;
-  static const _scratchMomentumFriction = 4.8;
-  static const _scratchMomentumCutoff = 0.03;
   static const _maxScratchMomentum = 6.0;
 
   late final AnimationController _rotationController =
       AnimationController.unbounded(vsync: this, value: 0);
-  late final AnimationController _speedController = AnimationController(
-    vsync: this,
-    value: 0,
-  )..addListener(_handleSpeedChanged);
   late final Ticker _rotationTicker = createTicker(_advanceRotation);
-  late final Ticker _scratchMomentumTicker = createTicker(
-    _advanceScratchMomentum,
-  );
   late final AnimationController _tonearmController = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 320),
     value: 0,
   );
   Duration? _lastTick;
-  double? _speedTarget;
   double? _tonearmTarget;
   bool _disableAnimations = false;
   Offset? _scratchStartPoint;
@@ -69,7 +58,6 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   Duration? _lastScratchSampleTime;
   double? _lastScratchAngle;
   Duration? _scratchPosition;
-  Future<void>? _scratchPauseFuture;
   Future<void>? _scratchSeekFuture;
   Timer? _scratchSeekTimer;
   Duration? _pendingScratchSeek;
@@ -77,8 +65,6 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   bool _scratchFinishing = false;
   bool? _scratchWasPlaying;
   int _scratchGeneration = 0;
-  double _scratchMomentumVelocity = 0;
-  Duration? _lastMomentumTick;
 
   @override
   void initState() {
@@ -106,38 +92,22 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
 
   void _syncRotation() {
     if (_disableAnimations) {
-      _stopScratchMomentum();
-      _speedTarget = 0;
-      _speedController.stop();
-      _speedController.value = 0;
       _stopRotationTicker();
       _syncTonearm(_scratchActive || _scratchFinishing);
       return;
     }
 
-    if (_scratchActive ||
-        _scratchFinishing ||
-        _scratchMomentumTicker.isActive) {
+    if (_scratchActive || _scratchFinishing) {
+      _stopRotationTicker();
       _syncTonearm(true);
       return;
     }
 
-    final target = widget.controller.playing ? 1.0 : 0.0;
-    _syncTonearm(target > 0);
-    if (_speedTarget == target) return;
-    _speedTarget = target;
-    if (target > 0) _startRotationTicker();
-    unawaited(
-      _speedController.animateTo(
-        target,
-        duration: _spinTransitionDuration,
-        curve: target > 0 ? Curves.easeInCubic : Curves.easeOutCubic,
-      ),
-    );
-  }
-
-  void _handleSpeedChanged() {
-    if (_speedController.value <= 0 && _speedTarget == 0) {
+    final playing = widget.controller.playing;
+    _syncTonearm(playing);
+    if (playing) {
+      _startRotationTicker();
+    } else {
       _stopRotationTicker();
     }
   }
@@ -175,38 +145,21 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     final previous = _lastTick;
     _lastTick = elapsed;
     if (previous == null) return;
+    if (!widget.controller.playing) return;
     final elapsedFraction =
         (elapsed - previous).inMicroseconds / _rotationPeriod.inMicroseconds;
-    _rotationController.value += elapsedFraction * _speedController.value;
-  }
-
-  void _advanceScratchMomentum(Duration elapsed) {
-    final previous = _lastMomentumTick;
-    _lastMomentumTick = elapsed;
-    if (previous == null) return;
-
-    final elapsedSeconds = (elapsed - previous).inMicroseconds / 1000000;
-    if (elapsedSeconds <= 0) return;
-    _rotationController.value += _scratchMomentumVelocity * elapsedSeconds;
-    _scratchMomentumVelocity *= math.exp(
-      -_scratchMomentumFriction * elapsedSeconds,
-    );
-    if (_scratchMomentumVelocity.abs() < _scratchMomentumCutoff) {
-      _stopScratchMomentum();
-      _syncRotation();
-    }
+    final rate = widget.controller.value.rate;
+    final playbackRate = rate.isFinite && rate > 0 ? rate : 1.0;
+    _rotationController.value += elapsedFraction * playbackRate;
   }
 
   @override
   void dispose() {
     _scratchGeneration++;
     _scratchSeekTimer?.cancel();
-    _stopScratchMomentum();
     widget.controller.removeListener(_syncRotation);
     _stopRotationTicker();
     _rotationTicker.dispose();
-    _scratchMomentumTicker.dispose();
-    _speedController.dispose();
     _tonearmController.dispose();
     _rotationController.dispose();
     super.dispose();
@@ -610,21 +563,17 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   }
 
   void _beginScratch() {
-    _stopScratchMomentum();
     _scratchActive = true;
     _scratchWasPlaying = widget.controller.playbackIntent;
     _scratchPosition = _clampPosition(widget.controller.position);
     _pendingScratchSeek = null;
     _scratchGeneration++;
-    _speedController.stop();
-    _speedController.value = 0;
-    _speedTarget = 0;
     _stopRotationTicker();
     _syncTonearm(true);
     AppHaptics.light();
-    _scratchPauseFuture = _scratchWasPlaying == true
-        ? widget.controller.pause()
-        : Future<void>.value();
+    // 单通道直接控制当前音轨：播放中保持主通道发声，暂停时临时播放，
+    // 释放后再恢复搓碟前的播放意图。
+    if (_scratchWasPlaying != true) unawaited(_startScratchAudioPreview());
   }
 
   void _enqueueScratchSeek(Duration target) {
@@ -654,12 +603,11 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   }
 
   Future<void> _drainScratchSeeks(int generation) async {
-    await _scratchPauseFuture;
     while (mounted && generation == _scratchGeneration) {
       final target = _pendingScratchSeek;
       _pendingScratchSeek = null;
       if (target == null) return;
-      await widget.controller.seek(target);
+      await widget.controller.seek(target, waitForPlaybackResume: false);
     }
   }
 
@@ -682,8 +630,9 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     final seekFuture = _scratchSeekFuture;
     _scratchActive = false;
     _scratchFinishing = true;
-    _startScratchMomentum(momentumVelocity);
-    unawaited(_completeScratch(wasPlaying, generation, seekFuture));
+    unawaited(
+      _completeScratch(wasPlaying, generation, seekFuture, momentumVelocity),
+    );
   }
 
   double _scratchReleaseVelocity(DragEndDetails? details) {
@@ -738,31 +687,21 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
         : 0;
   }
 
-  void _startScratchMomentum(double velocity) {
-    _stopScratchMomentum();
-    if (_disableAnimations || velocity.abs() < _scratchMomentumCutoff) {
-      return;
-    }
-    _scratchMomentumVelocity = velocity;
-    _lastMomentumTick = null;
-    _scratchMomentumTicker.start();
-  }
-
-  void _stopScratchMomentum() {
-    if (_scratchMomentumTicker.isActive) _scratchMomentumTicker.stop();
-    _lastMomentumTick = null;
-    _scratchMomentumVelocity = 0;
-  }
-
   Future<void> _completeScratch(
     bool wasPlaying,
     int generation,
     Future<void>? seekFuture,
+    double momentumVelocity,
   ) async {
     try {
       if (seekFuture != null) await seekFuture;
+      await _playScratchBackspin(momentumVelocity: momentumVelocity);
       if (!mounted || generation != _scratchGeneration) return;
-      if (wasPlaying) await widget.controller.play();
+      if (wasPlaying) {
+        _requestScratchPlaybackResume(generation);
+      } else {
+        await widget.controller.pause();
+      }
     } catch (_) {
       // Seek/播放失败时仍需释放刮碟状态，页面的统一播放错误链路负责提示。
     } finally {
@@ -770,7 +709,52 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
         _scratchFinishing = false;
         _scratchWasPlaying = null;
         _scratchPosition = null;
-        _speedTarget = null;
+        _syncRotation();
+      }
+    }
+  }
+
+  void _requestScratchPlaybackResume(int generation) {
+    unawaited(_resumePlaybackAfterScratch(generation));
+  }
+
+  Future<void> _startScratchAudioPreview() async {
+    try {
+      await widget.controller.play();
+    } catch (_) {
+      // 预览播放失败时仍保留原本的暂停意图。
+    }
+  }
+
+  Future<void> _playScratchBackspin({required double momentumVelocity}) async {
+    // 只有明显甩动才进入 Backspin；普通释放应立即交还播放状态，避免
+    // 一次轻微的拖动结束也改变主音轨的最终位置。
+    if (!momentumVelocity.isFinite || momentumVelocity.abs() < 4.0) return;
+    final start = _scratchPosition;
+    if (start == null || !mounted) return;
+
+    final reverseDirection = momentumVelocity >= 0 ? -1 : 1;
+    final turns = momentumVelocity.abs().clamp(1.0, _maxScratchMomentum);
+    final offsetMicros = (reverseDirection * turns * 180000).round();
+    final target = _clampPosition(start + Duration(microseconds: offsetMicros));
+    try {
+      // 单通道 Backspin 使用一次反向回定位，随后由当前播放意图继续播放，
+      // 避免用额外延迟任务制造第二条音频时钟。
+      await widget.controller.seek(target, waitForPlaybackResume: false);
+    } catch (_) {
+      // Backspin 是增强反馈，失败时仍需恢复主播放器状态。
+    }
+  }
+
+  Future<void> _resumePlaybackAfterScratch(int generation) async {
+    try {
+      // 音频服务的 play() Future 可能直到当前曲目结束才完成；这里只发起
+      // 播放请求，不能让唱片的状态收尾等待整个曲目播放完毕。
+      await widget.controller.play();
+    } catch (_) {
+      // 播放失败时清除待恢复标记，避免唱片在暂停状态继续旋转。
+    } finally {
+      if (mounted && generation == _scratchGeneration) {
         _syncRotation();
       }
     }

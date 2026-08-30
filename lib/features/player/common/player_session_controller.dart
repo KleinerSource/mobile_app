@@ -258,12 +258,21 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   /// 定位期间部分内核会先进入 buffering，并清掉底层的播放状态。
   ///
   /// 会话层保存的是用户的播放意图，因此定位完成后必须显式恢复播放；
-  /// 暂停状态的定位仍保持暂停，不改变用户操作语义。
-  Future<void> seek(Duration position) async {
+  /// 暂停状态的定位仍保持暂停，不改变用户操作语义。交互式搓碟可将
+  /// [waitForPlaybackResume] 设为 false，避免等待整首曲目结束的播放 Future。
+  Future<void> seek(
+    Duration position, {
+    bool waitForPlaybackResume = true,
+  }) async {
     final shouldPlay = _playbackIntent;
     await _engine.seek(position);
     if (shouldPlay && !_disposed) {
-      await _engine.play();
+      final playFuture = _engine.play();
+      if (waitForPlaybackResume) {
+        await playFuture;
+      } else {
+        unawaited(playFuture.catchError((_) {}));
+      }
     }
   }
 
