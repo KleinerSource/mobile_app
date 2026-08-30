@@ -141,25 +141,54 @@ class PlaybackPlayPauseButton extends StatelessWidget {
     required this.controller,
     required this.onPressed,
     this.size = 48,
+    this.loading = false,
   });
 
   final PlayerSessionController controller;
   final VoidCallback onPressed;
   final double size;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<PlaybackViewState>(
       valueListenable: controller,
-      builder: (context, state, _) => IconButton(
-        enableFeedback: false,
-        iconSize: size,
-        icon: Icon(state.playing ? Icons.pause : Icons.play_arrow),
-        onPressed: () {
-          PlayerHaptics.light();
-          onPressed();
-        },
-      ),
+      builder: (context, state, _) {
+        final scheme = Theme.of(context).colorScheme;
+        return IconButton(
+          enableFeedback: false,
+          iconSize: size,
+          icon: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(scale: animation, child: child),
+            ),
+            child: loading
+                ? SizedBox(
+                    key: const ValueKey('loading'),
+                    width: size * 0.5,
+                    height: size * 0.5,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: scheme.primary,
+                    ),
+                  )
+                : Icon(
+                    state.playing ? Icons.pause : Icons.play_arrow,
+                    key: ValueKey(state.playing ? 'pause' : 'play'),
+                  ),
+          ),
+          onPressed: loading
+              ? null
+              : () {
+                  PlayerHaptics.light();
+                  onPressed();
+                },
+        );
+      },
     );
   }
 }

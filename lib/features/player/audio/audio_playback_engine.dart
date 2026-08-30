@@ -211,52 +211,9 @@ class AudioPlaybackEngine implements PlaybackEngine, AudioMetadataSink {
 
   @override
   Widget buildSurface({BoxFit fit = BoxFit.contain}) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final scheme = Theme.of(context).colorScheme;
-        final background = scheme.surface;
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        final cardColor = Color.alphaBlend(
-          (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
-          background,
-        );
-        final iconColor = scheme.onSurface.withValues(alpha: 0.08);
-        final cardSize = (constraints.maxWidth - 48)
-            .clamp(0.0, 420.0)
-            .toDouble();
-        return ColoredBox(
-          color: background,
-          child: Align(
-            alignment: const Alignment(0, -0.1),
-            child: SizedBox(
-              width: cardSize,
-              height: cardSize,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: isDark ? 0.18 : 0.1,
-                      ),
-                      blurRadius: 24,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.music_note_rounded,
-                    color: iconColor,
-                    size: cardSize * 0.34,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+    return Builder(
+      builder: (context) =>
+          ColoredBox(color: Theme.of(context).colorScheme.surface),
     );
   }
 

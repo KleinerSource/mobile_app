@@ -115,4 +115,67 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await session.dispose();
   });
+
+  testWidgets('音频加载时只将播放按钮显示为加载状态', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.opening,
+      ),
+    );
+    final session = PlayerSessionController(engine: engine);
+    var toggled = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AudioPlayerControls(
+            controller: session,
+            hapticProgressBar: false,
+            showPlayPauseButton: true,
+            isLoading: true,
+            showSeekButtons: false,
+            showSpeedButton: false,
+            showMediaSwitchButton: false,
+            showShuffleButton: false,
+            shuffleEnabled: false,
+            shuffleOnTooltip: '开启随机播放',
+            shuffleOffTooltip: '关闭随机播放',
+            onShuffleToggle: null,
+            showRepeatButton: false,
+            repeatMode: PlaybackRepeatMode.off,
+            repeatOffTooltip: '循环：关闭',
+            repeatOneTooltip: '循环：单曲',
+            repeatAllTooltip: '循环：全部',
+            onRepeatToggle: null,
+            playbackRate: 1,
+            onPreviousMedia: null,
+            onNextMedia: null,
+            onTogglePlay: () => toggled = true,
+            onSeekBackward: () {},
+            onSeekForward: () {},
+            onRateChanged: (_) {},
+            onSeek: session.seek,
+            onInteraction: () {},
+            onExit: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byIcon(Icons.play_arrow), findsNothing);
+    expect(find.byIcon(Icons.pause), findsNothing);
+
+    final spinnerButton = find.ancestor(
+      of: find.byType(CircularProgressIndicator),
+      matching: find.byType(IconButton),
+    );
+    await tester.tap(spinnerButton);
+    expect(toggled, isFalse);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await session.dispose();
+  });
 }

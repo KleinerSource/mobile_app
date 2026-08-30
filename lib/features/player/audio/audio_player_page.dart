@@ -61,8 +61,10 @@ class AudioPlayerPage extends ConsumerStatefulWidget {
     bool useRootNavigator = false,
   }) {
     return Navigator.of(context, rootNavigator: useRootNavigator).push(
-      MaterialPageRoute(
-        builder: (_) => AudioPlayerPage.direct(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 320),
+        reverseTransitionDuration: const Duration(milliseconds: 220),
+        pageBuilder: (_, __, ___) => AudioPlayerPage.direct(
           title: title,
           directUrl: directUrl,
           directHeaders: directHeaders,
@@ -74,6 +76,26 @@ class AudioPlayerPage extends ConsumerStatefulWidget {
           audioMetadataLoader: audioMetadataLoader,
           onQueueDispose: onQueueDispose,
         ),
+        transitionsBuilder: (context, animation, _, child) {
+          if (MediaQuery.maybeOf(context)?.disableAnimations == true) {
+            return child;
+          }
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.035),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          );
+        },
       ),
     );
   }
@@ -92,6 +114,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
   bool _loading = true;
   String? _error;
   bool _leaving = false;
+  Future<void>? _stopFuture;
   int? _metadataIndex;
   String? _artworkPath;
   LrcDocument? _lyrics;
@@ -234,14 +257,14 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
     unawaited(_host.setRepeatMode(next));
   }
 
-  Future<void> _saveProgress() async {
+  Future<void> _saveProgress({Duration? position, Duration? duration}) async {
     final fileName = widget.directPlaybackFileName?.trim();
     if (fileName == null || fileName.isEmpty) return;
     if (!ref.read(playerSettingsProvider).resumeFromLastPosition) return;
-    final position = _host.position.inSeconds;
-    final duration = _host.duration.inSeconds;
-    _lastPositionSec = position > 0 ? position : _lastPositionSec;
-    _lastDurationSec = duration > 0 ? duration : _lastDurationSec;
+    final positionSec = (position ?? _host.position).inSeconds;
+    final durationSec = (duration ?? _host.duration).inSeconds;
+    _lastPositionSec = positionSec > 0 ? positionSec : _lastPositionSec;
+    _lastDurationSec = durationSec > 0 ? durationSec : _lastDurationSec;
     await _filePlaybackProgress.savePosition(
       fileName: fileName,
       positionSec: _lastPositionSec,
@@ -249,10 +272,22 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
     );
   }
 
+  Future<void> _stopPlayback() {
+    return _stopFuture ??= _host.stop().catchError((_) {});
+  }
+
+  Future<void> _disposePlayback() async {
+    await _stopPlayback();
+    await _host.dispose();
+  }
+
   Future<void> _exitPlayer() async {
     if (_leaving) return;
     _leaving = true;
-    await _saveProgress();
+    final position = _host.position;
+    final duration = _host.duration;
+    await _stopPlayback();
+    await _saveProgress(position: position, duration: duration);
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -261,8 +296,8 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
     _leaving = true;
     _host.removeListener(_onPlaybackStateChanged);
     unawaited(_metadataCoordinator?.dispose());
-    // AudioPlaybackEngine.dispose 只解除页面监听，后台 AudioHandler 继续播放。
-    unawaited(_host.dispose());
+    // 页面被系统返回或外部路由移除时，也必须停止独立于页面生命周期的后台音频。
+    unawaited(_disposePlayback());
     super.dispose();
   }
 
@@ -288,9 +323,6 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
   Widget _body(PlaybackViewState state) {
     final settings = ref.watch(playerSettingsProvider);
     final l10n = AppL10n.of(context);
-    if (_loading) {
-      return _AudioLoadingView(onExit: () => unawaited(_exitPlayer()));
-    }
     if (_error != null) {
       return _AudioErrorView(
         message: _error!,
@@ -320,6 +352,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
             controller: _host,
             hapticProgressBar: settings.hapticProgressBar,
             showPlayPauseButton: settings.showPlayPauseButton,
+            isLoading: _loading,
             showSeekButtons: true,
             showSpeedButton: true,
             showMediaSwitchButton: true,
@@ -344,30 +377,6 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
             onSeek: _host.seek,
             onInteraction: () {},
             onExit: () => unawaited(_exitPlayer()),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AudioLoadingView extends StatelessWidget {
-  const _AudioLoadingView({required this.onExit});
-
-  final VoidCallback onExit;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        const Center(child: CircularProgressIndicator()),
-        Positioned(
-          top: 8,
-          left: 20,
-          child: IconButton(
-            tooltip: '退出播放',
-            onPressed: onExit,
-            icon: const Icon(Icons.close),
           ),
         ),
       ],

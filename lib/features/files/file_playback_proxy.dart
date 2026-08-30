@@ -17,14 +17,16 @@ const _sizeProbeTimeout = Duration(seconds: 5);
 /// HTTP(S) URL。
 ///
 /// 播放器连接后按需消费远程流。支持 Range 的来源会直接读取对应区间；
-/// 不支持随机读取的来源则退回到临时文件，避免播放器为了读取尾部索引
-/// 而从远端文件开头重复扫描。
+/// 视频在不支持随机读取时退回到临时文件，避免播放器为了读取尾部索引
+/// 而从远端文件开头重复扫描。音频则始终优先保持流式传输，让播放器
+/// 在收到首段数据后即可开始解码。
 class FilePlaybackProxy {
   FilePlaybackProxy._({
     required this.repository,
     required this.path,
     this.size,
     this.mimeType,
+    this.streaming = false,
     String? pathExtension,
   }) : _pathExtension = _normalizePathExtension(pathExtension);
 
@@ -32,6 +34,7 @@ class FilePlaybackProxy {
   final FilePath path;
   final int? size;
   final String? mimeType;
+  final bool streaming;
   final String? _pathExtension;
   final String _token =
       '${DateTime.now().microsecondsSinceEpoch}-${Object().hashCode}';
@@ -48,12 +51,14 @@ class FilePlaybackProxy {
     int? size,
     String? mimeType,
     String? pathExtension,
+    bool streaming = false,
   }) async {
     final proxy = FilePlaybackProxy._(
       repository: repository,
       path: path,
       size: size,
       mimeType: mimeType,
+      streaming: streaming,
       pathExtension: pathExtension,
     );
     try {
@@ -167,10 +172,12 @@ class FilePlaybackProxy {
         } catch (error) {
           _log('Range 请求文件大小探测失败（$error）');
         }
-        if (total == null) {
+        if (total == null && !streaming) {
           _log('远端未提供文件大小，退回临时文件');
           final fallback = await _ensureFallbackFile();
           total = await fallback.length();
+        } else if (total == null) {
+          _log('远端未提供文件大小，音频 Range 请求改用完整流');
         }
       }
       // HEAD 没有文件大小时才需要 stat/PROPFIND；常规视频播放不应被
@@ -187,9 +194,16 @@ class FilePlaybackProxy {
       }
       var range = _parseRange(rangeHeader, total);
       if (range?.invalid == true) {
-        response.statusCode = HttpStatus.requestedRangeNotSatisfiable;
-        response.headers.set('content-range', 'bytes */${total ?? '*'}');
-        return;
+        if (streaming && total == null && _isByteRangeHeader(rangeHeader)) {
+          // 音频流没有总大小时无法安全计算 Range；让播放器从流开头开始
+          // 解码，避免为了补齐 Content-Range 而先完整缓存文件。
+          _log('音频 Range 无法解析，改用未知长度的完整流');
+          range = null;
+        } else {
+          response.statusCode = HttpStatus.requestedRangeNotSatisfiable;
+          response.headers.set('content-range', 'bytes */${total ?? '*'}');
+          return;
+        }
       }
 
       Stream<List<int>>? stream;
@@ -208,17 +222,26 @@ class FilePlaybackProxy {
             if (error is! UnsupportedError && error is! TimeoutException) {
               rethrow;
             }
-            _log('远端区间读取不可用（$error），退回临时文件');
-            final fallbackFile = await _ensureFallbackFile();
-            total ??= await fallbackFile.length();
-            range = _parseRange(rangeHeader, total);
-            if (range?.invalid == true || range == null) {
-              throw const FileSourceException(
-                '文件区间无效',
-                statusCode: HttpStatus.requestedRangeNotSatisfiable,
+            if (streaming) {
+              _log('远端区间读取不可用（$error），改用完整流并按需跳过前缀');
+              stream = _streamRange(
+                await _openFullStream(access: access),
+                offset: range.start,
+                length: range.length,
               );
+            } else {
+              _log('远端区间读取不可用（$error），退回临时文件');
+              final fallbackFile = await _ensureFallbackFile();
+              total ??= await fallbackFile.length();
+              range = _parseRange(rangeHeader, total);
+              if (range?.invalid == true || range == null) {
+                throw const FileSourceException(
+                  '文件区间无效',
+                  statusCode: HttpStatus.requestedRangeNotSatisfiable,
+                );
+              }
+              stream = fallbackFile.openRead(range.start, range.end + 1);
             }
-            stream = fallbackFile.openRead(range.start, range.end + 1);
           }
         } else {
           _log('开始远端完整流读取');
@@ -389,6 +412,33 @@ class FilePlaybackProxy {
     }
   }
 
+  Stream<List<int>> _streamRange(
+    Stream<List<int>> source, {
+    required int offset,
+    required int length,
+  }) async* {
+    var bytesToSkip = offset;
+    var bytesRemaining = length;
+    await for (final chunk in source) {
+      if (bytesRemaining == 0) break;
+      if (bytesToSkip >= chunk.length) {
+        bytesToSkip -= chunk.length;
+        continue;
+      }
+      final start = bytesToSkip;
+      bytesToSkip = 0;
+      final available = chunk.length - start;
+      final count = available < bytesRemaining ? available : bytesRemaining;
+      yield start == 0 && count == chunk.length
+          ? chunk
+          : chunk.sublist(start, start + count);
+      bytesRemaining -= count;
+    }
+    if (bytesRemaining != 0) {
+      throw const FileSourceException('完整流不足以满足文件区间');
+    }
+  }
+
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
@@ -435,6 +485,9 @@ class FilePlaybackProxy {
     if (status != null && status >= 400 && status <= 599) return status;
     return HttpStatus.badGateway;
   }
+
+  bool _isByteRangeHeader(String? value) =>
+      value?.trim().toLowerCase().startsWith('bytes=') == true;
 }
 
 String? _normalizePathExtension(String? value) {

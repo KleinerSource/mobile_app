@@ -2,6 +2,7 @@
 //   - test/features/files/file_playback_engine_test.dart
 //   - test/features/files/file_playback_proxy_test.dart
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
@@ -155,6 +156,65 @@ void _main_1() {
       expect(rangeResponse.contentLength, 6);
       expect(rangeResponse.headers.contentType?.mimeType, 'audio/flac');
       expect(await _read(rangeResponse), bytes.sublist(4, 10));
+    } finally {
+      await proxy.close();
+      client.close(force: true);
+    }
+  });
+
+  test('音频 Range 不可用时直接转发流，不等待完整缓存', () async {
+    final sourceId = SourceId.of('streaming-audio-source');
+    final bytes = List<int>.generate(12, (index) => index + 50);
+    final source = _DelayedDownloadFileSource(sourceId);
+    final proxy = await FilePlaybackProxy.start(
+      repository: FileSourceRepository(source),
+      path: FilePath(sourceId: sourceId, value: '在线播放.mp3'),
+      size: bytes.length,
+      mimeType: 'audio/mpeg',
+      pathExtension: 'mp3',
+      streaming: true,
+    );
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(proxy.uri);
+      request.headers.set('range', 'bytes=0-');
+      final responseFuture = request.close();
+      source.controller.add(bytes.sublist(0, 4));
+      final response = await responseFuture.timeout(const Duration(seconds: 1));
+      expect(response.statusCode, HttpStatus.partialContent);
+      expect(response.contentLength, bytes.length);
+      expect(source.downloadCalls, 1);
+
+      source.controller.add(bytes.sublist(4));
+      await source.controller.close();
+      expect(await _read(response), bytes);
+    } finally {
+      await source.controller.close();
+      await proxy.close();
+      client.close(force: true);
+    }
+  });
+
+  test('音频大小未知时 Range 请求也直接使用完整流', () async {
+    final sourceId = SourceId.of('unknown-streaming-audio-source');
+    final bytes = List<int>.generate(8, (index) => index + 70);
+    final source = _DownloadOnlyFileSource(sourceId, bytes);
+    final proxy = await FilePlaybackProxy.start(
+      repository: FileSourceRepository(source),
+      path: FilePath(sourceId: sourceId, value: '未知长度.mp3'),
+      mimeType: 'audio/mpeg',
+      pathExtension: 'mp3',
+      streaming: true,
+    );
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(proxy.uri);
+      request.headers.set('range', 'bytes=0-');
+      final response = await request.close();
+      expect(response.statusCode, HttpStatus.ok);
+      expect(await _read(response), bytes);
+      expect(source.downloadCalls, 1);
+      expect(source.resolveAccessCalls, 1);
     } finally {
       await proxy.close();
       client.close(force: true);
@@ -431,6 +491,36 @@ class _DownloadOnlyFileSource
     resolveAccessCalls++;
     return Future<FileAccess>.error(StateError('不应调用 stat'));
   }
+}
+
+class _DelayedDownloadFileSource implements FileSource, FileTransferCapability {
+  _DelayedDownloadFileSource(this.sourceId);
+
+  final SourceId sourceId;
+  final StreamController<List<int>> controller = StreamController<List<int>>();
+  var downloadCalls = 0;
+
+  @override
+  SourceDescriptor get descriptor =>
+      SourceDescriptor(id: sourceId, kind: SourceKind.smb, name: '延迟下载来源');
+
+  @override
+  Set<FileCapability> get capabilities => const {FileCapability.transfer};
+
+  @override
+  bool supports(FileCapability capability) => capabilities.contains(capability);
+
+  @override
+  Stream<List<int>> download(
+    FilePath path, {
+    FileTransferOptions options = const FileTransferOptions(),
+  }) {
+    downloadCalls++;
+    return controller.stream;
+  }
+
+  @override
+  Future<void> upload(FileUploadRequest request) async {}
 }
 
 class _FailingFileSource implements FileSource, FileAccessCapability {

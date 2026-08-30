@@ -1693,6 +1693,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
               size: entry.size,
               mimeType: entry.mimeType,
               pathExtension: formatHint,
+              streaming: itemType == PlayerQueueItemType.audio,
             );
             proxies.add(proxy);
             queue.add(

@@ -11,6 +11,7 @@ class AudioPlayerControls extends StatelessWidget {
     required this.controller,
     required this.hapticProgressBar,
     required this.showPlayPauseButton,
+    this.isLoading = false,
     required this.showSeekButtons,
     required this.showSpeedButton,
     required this.showMediaSwitchButton,
@@ -40,6 +41,7 @@ class AudioPlayerControls extends StatelessWidget {
   final PlayerSessionController controller;
   final bool hapticProgressBar;
   final bool showPlayPauseButton;
+  final bool isLoading;
   final bool showSeekButtons;
   final bool showSpeedButton;
   final bool showMediaSwitchButton;
@@ -161,6 +163,7 @@ class AudioPlayerControls extends StatelessWidget {
         PlaybackPlayPauseButton(
           controller: controller,
           size: 48,
+          loading: isLoading,
           onPressed: () {
             onTogglePlay();
             onInteraction();

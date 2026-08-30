@@ -201,6 +201,9 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     try {
       await _player.setAudioSources(
         sources,
+        // 只建立播放队列，不在打开页面时预加载媒体；play() 会让
+        // just_audio 按需建立当前音频的网络流并边缓冲边播放。
+        preload: false,
         initialIndex: initialIndex,
         initialPosition: Duration(
           milliseconds: positionMs.clamp(0, 1 << 31).toInt(),
