@@ -13,9 +13,9 @@ import '../../core/update/update_models.dart';
 import '../../core/update/update_repository.dart';
 import '../../core/update/update_service.dart';
 import '../../shared/glow_background.dart';
-import '../player/playback_engine.dart';
-import '../player/player_page.dart';
-import '../player/player_settings.dart';
+import '../player/common/playback_engine.dart';
+import '../player/video/video_player_page.dart';
+import '../player/common/player_settings.dart';
 import 'app_log_page.dart';
 import 'settings_common.dart';
 
@@ -362,7 +362,7 @@ class _AppUpdateSettingsPageState extends ConsumerState<AppUpdateSettingsPage> {
     }
     setState(() => _error = null);
     AppHaptics.selection();
-    await PlayerPage.openDirect(
+    await VideoPlayerPage.openDirect(
       context,
       title: '开发接口 · m3u8',
       directUrl: value,

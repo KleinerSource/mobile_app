@@ -19,7 +19,7 @@ import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
 import 'package:omm/features/oh_my_media/movies/movies_page.dart';
 import 'package:omm/features/oh_my_media/movies/movie_filter.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
-import '../player/player_page.dart';
+import '../player/video/video_player_page.dart';
 import '../privacy/privacy_mask.dart';
 import 'hero_backdrop.dart';
 import 'home_movie_section.dart';
@@ -452,7 +452,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                                         MovieDataChanges.snapshot(
                                           movieId: movie.id,
                                         );
-                                    await PlayerPage.open(
+                                    await VideoPlayerPage.open(
                                       context,
                                       movieId: movie.id,
                                       title: movie.title,

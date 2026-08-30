@@ -11,8 +11,8 @@ import '../../shared/glass.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/sheet_controls.dart';
-import '../player/player_settings.dart';
-import '../player/playback_engine.dart';
+import '../player/common/player_settings.dart';
+import '../player/common/playback_engine.dart';
 import 'settings_common.dart';
 
 class PlayerSettingsPage extends ConsumerWidget {

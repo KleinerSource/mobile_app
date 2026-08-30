@@ -13,7 +13,7 @@ import 'package:omm/features/settings/app_log_page.dart';
 import 'package:omm/features/settings/app_update_settings_page.dart';
 import 'package:omm/features/settings/app_update_startup_gate.dart';
 import 'package:omm/features/settings/settings_common.dart';
-import 'package:omm/features/player/playback_engine.dart';
+import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

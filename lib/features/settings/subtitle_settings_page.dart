@@ -8,8 +8,8 @@ import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/sheet_controls.dart';
-import '../player/subtitle_rendering.dart';
-import '../player/subtitle_settings.dart';
+import '../player/video/subtitle_rendering.dart';
+import '../player/video/subtitle_settings.dart';
 import 'settings_common.dart';
 
 class SubtitleSettingsPage extends ConsumerWidget {

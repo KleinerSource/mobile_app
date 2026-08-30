@@ -22,13 +22,13 @@ import 'package:omm/features/oh_my_media/favorites/favorites_providers.dart';
 import 'package:omm/features/oh_my_media/lists/add_to_list_sheet.dart';
 import 'package:omm/features/oh_my_media/movies/movie_data_changes.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
-import 'package:omm/features/player/player_page.dart';
-import 'package:omm/features/player/playback_engine.dart';
-import 'package:omm/features/player/player_engine_picker.dart';
-import 'package:omm/features/player/player_queue.dart';
-import 'package:omm/features/player/player_session_controller.dart';
-import 'package:omm/features/player/player_session_factory.dart';
-import 'package:omm/features/player/player_settings.dart';
+import 'package:omm/features/player/video/video_player_page.dart';
+import 'package:omm/features/player/common/playback_engine.dart';
+import 'package:omm/features/player/video/player_engine_picker.dart';
+import 'package:omm/features/player/common/player_queue.dart';
+import 'package:omm/features/player/common/player_session_controller.dart';
+import 'package:omm/features/player/video/video_player_session_factory.dart';
+import 'package:omm/features/player/common/player_settings.dart';
 import 'package:omm/features/oh_my_media/resources/resource_movies_page.dart';
 import 'package:omm/features/oh_my_media/person_detail/person_detail_page.dart';
 import 'dbo_diff_sheet.dart';
@@ -489,7 +489,7 @@ class _ActionRow extends ConsumerWidget {
       final changesBeforePlayback = MovieDataChanges.snapshot(
         movieId: movie.id,
       );
-      await PlayerPage.open(
+      await VideoPlayerPage.open(
         context,
         movieId: movie.id,
         title: movie.title,
@@ -907,7 +907,7 @@ class _ExtraFanartSectionState extends ConsumerState<_ExtraFanartSection> {
     final url = widget.trailerUrl;
     if (url == null) return;
     unawaited(
-      PlayerPage.open(
+      VideoPlayerPage.open(
         context,
         movieId: widget.movieId,
         title: '${widget.movieTitle} · 预告片',
@@ -1630,7 +1630,9 @@ class _TrailerViewerState extends State<_TrailerViewer> {
   @override
   void initState() {
     super.initState();
-    _player = createPlayerSession(engineKind: PlaybackEngineKind.libmpv);
+    _player = createVideoPlayerSession(
+      engineKind: PlaybackEngineKind.libmpv,
+    );
   }
 
   @override

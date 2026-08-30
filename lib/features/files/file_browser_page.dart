@@ -28,17 +28,18 @@ import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/sheet_controls.dart';
 import '../../shared/swipe_actions.dart';
-import '../player/playback_engine.dart';
-import '../player/player_engine_picker.dart';
-import '../player/player_page.dart';
-import '../player/player_queue.dart';
-import '../player/player_session_factory.dart';
-import '../player/player_settings.dart';
+import '../player/common/playback_engine.dart';
+import '../player/audio/audio_player_page.dart';
+import '../player/video/player_engine_picker.dart';
+import '../player/video/video_player_page.dart';
+import '../player/common/player_queue.dart';
+import '../player/video/video_player_session_factory.dart';
+import '../player/common/player_settings.dart';
 import '../oh_my_media/movie_detail/movie_detail_page.dart'
     show showImageLightbox;
 import '../settings/server_selection_page.dart';
 import '../settings/settings_common.dart';
-import 'file_text_viewer_page.dart';
+import '../text_editor/text_editor_page.dart';
 import 'file_navigation.dart';
 import 'file_browser_preferences.dart';
 import 'file_entry_icons.dart';
@@ -46,7 +47,7 @@ import 'file_favorites.dart';
 import 'file_favorites_page.dart';
 import 'file_move_start_settings.dart';
 import 'file_image_preview_settings.dart';
-import 'file_audio_metadata_session.dart';
+import '../player/audio/file_audio_metadata_session.dart';
 import 'file_playback_engine.dart';
 import 'file_playback_proxy.dart';
 
@@ -1601,22 +1602,36 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         'engine=${selectedEngineKind?.value ?? 'default'} '
         'count=${queue.length} direct=$useDirect',
       );
-      await PlayerPage.openDirect(
-        context,
-        title: current.title,
-        mediaType: itemType,
-        directUrl: current.directUrl!,
-        directHeaders: current.directHeaders,
-        directFormatHint: current.directFormatHint,
-        engineKind: selectedEngineKind,
-        directPlaybackFileName: current.directPlaybackFileName,
-        directPreferFfmpegForHls: current.directPreferFfmpegForHls,
-        queue: queue,
-        queueIndex: queueIndex,
-        audioMetadataLoader: audioMetadataSession?.load,
-        onQueueDispose: disposeQueueResources,
-        useRootNavigator: true,
-      );
+      if (itemType == PlayerQueueItemType.audio) {
+        await AudioPlayerPage.openDirect(
+          context,
+          title: current.title,
+          directUrl: current.directUrl!,
+          directHeaders: current.directHeaders,
+          directFormatHint: current.directFormatHint,
+          directPlaybackFileName: current.directPlaybackFileName,
+          queue: queue,
+          queueIndex: queueIndex,
+          audioMetadataLoader: audioMetadataSession?.load,
+          onQueueDispose: disposeQueueResources,
+          useRootNavigator: true,
+        );
+      } else {
+        await VideoPlayerPage.openDirect(
+          context,
+          title: current.title,
+          directUrl: current.directUrl!,
+          directHeaders: current.directHeaders,
+          directFormatHint: current.directFormatHint,
+          engineKind: selectedEngineKind,
+          directPlaybackFileName: current.directPlaybackFileName,
+          directPreferFfmpegForHls: current.directPreferFfmpegForHls,
+          queue: queue,
+          queueIndex: queueIndex,
+          onQueueDispose: disposeQueueResources,
+          useRootNavigator: true,
+        );
+      }
       queueOwnershipTransferred = true;
     } catch (error, stackTrace) {
       appLog('[FileBrowser] $logLabel预览失败: $error\n$stackTrace');
@@ -1763,7 +1778,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         MaterialPageRoute<void>(
           allowSnapshotting: false,
           builder: (_) =>
-              FileTextViewerPage(title: entry.name, text: text, onSave: onSave),
+              TextEditorPage(title: entry.name, text: text, onSave: onSave),
         ),
       );
     } catch (error) {

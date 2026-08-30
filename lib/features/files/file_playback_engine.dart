@@ -1,5 +1,5 @@
 import '../../core/sources/common/source_descriptor.dart';
-import '../player/playback_engine.dart';
+import '../player/common/playback_engine.dart';
 
 /// 选择文件源的默认播放内核。
 ///

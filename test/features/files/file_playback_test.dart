@@ -15,7 +15,7 @@ import 'package:omm/core/sources/files/file_source.dart';
 import 'package:omm/core/sources/files/file_source_repository.dart';
 import 'package:omm/features/files/file_playback_engine.dart';
 import 'package:omm/features/files/file_playback_proxy.dart';
-import 'package:omm/features/player/playback_engine.dart';
+import 'package:omm/features/player/common/playback_engine.dart';
 
 // ==================== 原 test/features/files/file_playback_engine_test.dart ====================
 void _main_0() {

@@ -16,11 +16,11 @@ import 'package:omm/features/i18n/poster_badge_visibility_provider.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart'
     show showMovieImageLightbox;
 import 'package:omm/features/oh_my_media/movie_detail/cover_badges.dart';
-import 'package:omm/features/player/player_page.dart';
-import 'package:omm/features/player/player_engine_picker.dart';
-import 'package:omm/features/player/player_session_factory.dart';
-import 'package:omm/features/player/player_settings.dart';
-import 'package:omm/features/player/playback_engine.dart';
+import 'package:omm/features/player/video/video_player_page.dart';
+import 'package:omm/features/player/video/player_engine_picker.dart';
+import 'package:omm/features/player/video/video_player_session_factory.dart';
+import 'package:omm/features/player/common/player_settings.dart';
+import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:omm/features/settings/settings_common.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
@@ -878,7 +878,7 @@ class _EpisodeTile extends ConsumerWidget {
     // 层绕过 KSPlayer 对 HTTP Range 的误判完成。
     final isHls =
         Uri.tryParse(url)?.path.toLowerCase().endsWith('.m3u8') ?? false;
-    PlayerPage.openDirect(
+    VideoPlayerPage.openDirect(
       context,
       title: '$code · ${episode.name}',
       directUrl: url,
