@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omm/features/player/audio/audio_now_playing_view.dart';
+import 'package:omm/features/player/audio/lrc_parser.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:omm/features/player/common/player_session_controller.dart';
+import 'package:omm/l10n/generated/app_localizations.dart';
 
 import '../common/fake_playback_engine.dart';
 
@@ -29,6 +32,240 @@ void main() {
       expect(find.byType(ClipOval), findsNWidgets(2));
       expect(find.byType(ClipRRect), findsNothing);
     } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
+  testWidgets('点按唱片切换播放状态', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        playing: true,
+        duration: Duration(minutes: 2),
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+
+      await tester.tap(record);
+      await tester.pump();
+      expect(engine.commands, contains('pause'));
+
+      await tester.tap(record);
+      await tester.pump();
+      expect(engine.commands, contains('play'));
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
+  testWidgets('顺逆时针旋拧唱片定位并恢复拖动前的播放状态', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        playing: true,
+        position: Duration(seconds: 30),
+        duration: Duration(minutes: 1),
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final center = tester.getCenter(record);
+
+      final clockwise = await tester.startGesture(
+        center + const Offset(0, -120),
+      );
+      await clockwise.moveTo(center + const Offset(120, 0));
+      await clockwise.up();
+      await tester.pump();
+
+      expect(engine.commands, contains('pause'));
+      expect(engine.commands, contains('seek'));
+      expect(engine.commands, contains('play'));
+      expect(
+        engine.seekPositions.last,
+        greaterThan(const Duration(seconds: 30)),
+      );
+
+      final seekCount = engine.seekPositions.length;
+      final counterClockwise = await tester.startGesture(
+        center + const Offset(120, 0),
+      );
+      await counterClockwise.moveTo(center + const Offset(0, -120));
+      await counterClockwise.up();
+      await tester.pump();
+
+      expect(engine.seekPositions.length, greaterThan(seekCount));
+      expect(
+        engine.seekPositions.last,
+        lessThan(engine.seekPositions[seekCount - 1]),
+      );
+      expect(engine.commands.last, 'play');
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
+  testWidgets('旋拧 seek 会合并快速更新并限制在歌曲边界内', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      seekDelay: const Duration(milliseconds: 80),
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        position: Duration(seconds: 59),
+        duration: Duration(minutes: 1),
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final center = tester.getCenter(record);
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+      await gesture.moveTo(center + const Offset(120, 0));
+      await gesture.moveTo(center + const Offset(0, 120));
+      await gesture.moveTo(center + const Offset(-120, 0));
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 240));
+
+      expect(engine.seekPositions, hasLength(1));
+      expect(engine.seekPositions.single, const Duration(minutes: 1));
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
+  testWidgets('暂停状态旋拧后保持暂停，加载或无时长时不发送唱片命令', (tester) async {
+    final pausedEngine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        position: Duration(seconds: 30),
+        duration: Duration(minutes: 1),
+      ),
+    );
+    final pausedController = PlayerSessionController(engine: pausedEngine);
+    try {
+      await tester.pumpWidget(_app(pausedController));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final center = tester.getCenter(record);
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+      await gesture.moveTo(center + const Offset(120, 0));
+      await gesture.up();
+      await tester.pump();
+
+      expect(pausedEngine.commands, isNot(contains('pause')));
+      expect(pausedEngine.commands, isNot(contains('play')));
+      expect(pausedEngine.commands, contains('seek'));
+    } finally {
+      await _dispose(tester, pausedController);
+    }
+
+    final loadingEngine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.opening,
+      ),
+    );
+    final loadingController = PlayerSessionController(engine: loadingEngine);
+    try {
+      await tester.pumpWidget(_app(loadingController));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      await tester.tap(record);
+      final center = tester.getCenter(record);
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+      await gesture.moveTo(center + const Offset(120, 0));
+      await gesture.up();
+      await tester.pump();
+
+      expect(loadingEngine.commands, isEmpty);
+    } finally {
+      await _dispose(tester, loadingController);
+    }
+
+    final unknownDurationEngine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+      ),
+    );
+    final unknownDurationController = PlayerSessionController(
+      engine: unknownDurationEngine,
+    );
+    try {
+      await tester.pumpWidget(_app(unknownDurationController));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      await tester.tap(record);
+      final center = tester.getCenter(record);
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+      await gesture.moveTo(center + const Offset(120, 0));
+      await gesture.up();
+      await tester.pump();
+
+      expect(unknownDurationEngine.commands, isEmpty);
+    } finally {
+      await _dispose(tester, unknownDurationController);
+    }
+  });
+
+  testWidgets('取消唱片手势不发送控制命令', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        duration: Duration(minutes: 1),
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final center = tester.getCenter(record);
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+      await gesture.cancel();
+      await tester.pump();
+
+      expect(engine.commands, isEmpty);
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
+  testWidgets('唱片提供 DJ 操作的无障碍语义', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        duration: Duration(minutes: 1),
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(_app(controller));
+      final node = tester.getSemantics(
+        find.byKey(const ValueKey<String>('audio-dj-record-semantics')),
+      );
+
+      expect(node.label, 'DJ 唱盘');
+      expect(node.hint, '点按播放或暂停，旋拧唱片定位');
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    } finally {
+      semantics.dispose();
       await _dispose(tester, controller);
     }
   });
@@ -134,6 +371,30 @@ void main() {
     }
   });
 
+  testWidgets('歌词槽位状态切换不会移动唱片', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        duration: Duration(minutes: 2),
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final withoutLyrics = tester.getCenter(record);
+
+      await tester.pumpWidget(_app(controller, withLyrics: true));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(tester.getCenter(record), withoutLyrics);
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
   testWidgets('关闭动效时唱片不旋转但封面切换仍能快速完成', (tester) async {
     final engine = FakePlaybackEngine(
       PlaybackEngineKind.audio,
@@ -174,8 +435,12 @@ Widget _app(
   PlayerSessionController controller, {
   String? artworkPath,
   bool disableAnimations = false,
+  bool withLyrics = false,
 }) {
   return MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: AppL10n.localizationsDelegates,
+    supportedLocales: AppL10n.supportedLocales,
     home: Scaffold(
       body: MediaQuery(
         data: MediaQueryData(
@@ -185,7 +450,11 @@ Widget _app(
         child: AudioNowPlayingView(
           controller: controller,
           artworkPath: artworkPath,
-          lyrics: null,
+          lyrics: withLyrics
+              ? const LrcDocument(
+                  cues: [LrcCue(position: Duration.zero, text: '当前歌词')],
+                )
+              : null,
         ),
       ),
     ),

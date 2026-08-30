@@ -1903,6 +1903,42 @@ abstract class AppL10n {
   /// **'暂无歌词'**
   String get playerLyricsUnavailable;
 
+  /// No description provided for @playerDjDeck.
+  ///
+  /// In zh, this message translates to:
+  /// **'DJ 唱盘'**
+  String get playerDjDeck;
+
+  /// No description provided for @playerDjDeckA.
+  ///
+  /// In zh, this message translates to:
+  /// **'DECK A'**
+  String get playerDjDeckA;
+
+  /// No description provided for @playerDjPlaying.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放中'**
+  String get playerDjPlaying;
+
+  /// No description provided for @playerDjPaused.
+  ///
+  /// In zh, this message translates to:
+  /// **'已暂停'**
+  String get playerDjPaused;
+
+  /// No description provided for @playerDjGestureHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'点按播放或暂停，旋拧唱片定位'**
+  String get playerDjGestureHint;
+
+  /// No description provided for @playerDjPitch.
+  ///
+  /// In zh, this message translates to:
+  /// **'速度'**
+  String get playerDjPitch;
+
   /// No description provided for @playerClose.
   ///
   /// In zh, this message translates to:

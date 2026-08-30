@@ -997,5 +997,24 @@ class AppL10nEn extends AppL10n {
   String get playerLyricsUnavailable => 'No lyrics';
 
   @override
+  String get playerDjDeck => 'DJ deck';
+
+  @override
+  String get playerDjDeckA => 'DECK A';
+
+  @override
+  String get playerDjPlaying => 'Playing';
+
+  @override
+  String get playerDjPaused => 'Paused';
+
+  @override
+  String get playerDjGestureHint =>
+      'Tap to play or pause, rotate the record to seek';
+
+  @override
+  String get playerDjPitch => 'Pitch';
+
+  @override
   String get playerClose => 'Close';
 }

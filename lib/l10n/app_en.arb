@@ -347,5 +347,11 @@
   "playerRepeatAll": "Repeat: All",
   "playerLyricsTitle": "Lyrics",
   "playerLyricsUnavailable": "No lyrics",
+  "playerDjDeck": "DJ deck",
+  "playerDjDeckA": "DECK A",
+  "playerDjPlaying": "Playing",
+  "playerDjPaused": "Paused",
+  "playerDjGestureHint": "Tap to play or pause, rotate the record to seek",
+  "playerDjPitch": "Pitch",
   "playerClose": "Close"
 }

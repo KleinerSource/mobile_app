@@ -976,5 +976,23 @@ class AppL10nZh extends AppL10n {
   String get playerLyricsUnavailable => '暂无歌词';
 
   @override
+  String get playerDjDeck => 'DJ 唱盘';
+
+  @override
+  String get playerDjDeckA => 'DECK A';
+
+  @override
+  String get playerDjPlaying => '播放中';
+
+  @override
+  String get playerDjPaused => '已暂停';
+
+  @override
+  String get playerDjGestureHint => '点按播放或暂停，旋拧唱片定位';
+
+  @override
+  String get playerDjPitch => '速度';
+
+  @override
   String get playerClose => '关闭';
 }

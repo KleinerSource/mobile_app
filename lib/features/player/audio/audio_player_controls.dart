@@ -6,6 +6,10 @@ import '../common/player_session_controller.dart';
 
 /// 音频播放器控制层。音频布局独立于视频控制层，不包含画质、字幕或画面预览。
 class AudioPlayerControls extends StatelessWidget {
+  static const double _controlSlotSize = 48;
+  static const double _titleSlotHeight = 48;
+  static const double _progressSlotHeight = 66;
+
   const AudioPlayerControls({
     super.key,
     required this.controller,
@@ -88,17 +92,27 @@ class AudioPlayerControls extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
             child: SizedBox(
               width: double.infinity,
+              height:
+                  _titleSlotHeight +
+                  20 +
+                  _progressSlotHeight +
+                  28 +
+                  _controlSlotSize +
+                  20 +
+                  _controlSlotSize,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _title(context),
+                  SizedBox(height: _titleSlotHeight, child: _title(context)),
                   const SizedBox(height: 20),
-                  _progress(),
+                  SizedBox(height: _progressSlotHeight, child: _progress()),
                   const SizedBox(height: 28),
-                  _primaryControls(),
+                  SizedBox(height: _controlSlotSize, child: _primaryControls()),
                   const SizedBox(height: 20),
-                  _secondaryControls(),
+                  SizedBox(
+                    height: _controlSlotSize,
+                    child: _secondaryControls(),
+                  ),
                 ],
               ),
             ),
@@ -149,86 +163,118 @@ class AudioPlayerControls extends StatelessWidget {
   }
 
   Widget _primaryControls() {
-    final actions = <Widget>[
-      if (showSeekButtons)
-        PlaybackActionButton(
-          icon: Icons.replay_10,
-          tooltip: '快退 10 秒',
-          onPressed: onSeekBackward,
-          onInteraction: onInteraction,
-        ),
-      if (showMediaSwitchButton)
-        PlaybackActionButton(
-          icon: Icons.skip_previous,
-          tooltip: '上一曲',
-          onPressed: onPreviousMedia,
-          onInteraction: onInteraction,
-        ),
-      if (showPlayPauseButton)
-        PlaybackPlayPauseButton(
-          controller: controller,
-          size: 48,
-          loading: isLoading,
-          onPressed: () {
-            onTogglePlay();
-            onInteraction();
-          },
-        ),
-      if (showMediaSwitchButton)
-        PlaybackActionButton(
-          icon: Icons.skip_next,
-          tooltip: '下一曲',
-          onPressed: onNextMedia,
-          onInteraction: onInteraction,
-        ),
-      if (showSeekButtons)
-        PlaybackActionButton(
-          icon: Icons.forward_10,
-          tooltip: '快进 10 秒',
-          onPressed: onSeekForward,
-          onInteraction: onInteraction,
-        ),
-    ];
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: actions,
+      children: [
+        _controlSlot(
+          showSeekButtons
+              ? PlaybackActionButton(
+                  icon: Icons.replay_10,
+                  tooltip: '快退 10 秒',
+                  onPressed: onSeekBackward,
+                  onInteraction: onInteraction,
+                )
+              : null,
+        ),
+        _controlSlot(
+          showMediaSwitchButton
+              ? PlaybackActionButton(
+                  icon: Icons.skip_previous,
+                  tooltip: '上一曲',
+                  onPressed: onPreviousMedia,
+                  onInteraction: onInteraction,
+                )
+              : null,
+        ),
+        _controlSlot(
+          showPlayPauseButton
+              ? PlaybackPlayPauseButton(
+                  controller: controller,
+                  size: _controlSlotSize,
+                  loading: isLoading,
+                  onPressed: () {
+                    onTogglePlay();
+                    onInteraction();
+                  },
+                )
+              : null,
+        ),
+        _controlSlot(
+          showMediaSwitchButton
+              ? PlaybackActionButton(
+                  icon: Icons.skip_next,
+                  tooltip: '下一曲',
+                  onPressed: onNextMedia,
+                  onInteraction: onInteraction,
+                )
+              : null,
+        ),
+        _controlSlot(
+          showSeekButtons
+              ? PlaybackActionButton(
+                  icon: Icons.forward_10,
+                  tooltip: '快进 10 秒',
+                  onPressed: onSeekForward,
+                  onInteraction: onInteraction,
+                )
+              : null,
+        ),
+      ],
     );
   }
 
   Widget _secondaryControls() {
-    final actions = <Widget>[
-      if (showSpeedButton)
-        PlaybackSpeedButton(
-          playbackRate: playbackRate,
-          onRateChanged: onRateChanged,
-          onInteraction: onInteraction,
-        ),
-      if (showShuffleButton)
-        PlaybackActionButton(
-          icon: Icons.shuffle,
-          tooltip: shuffleEnabled ? shuffleOffTooltip : shuffleOnTooltip,
-          onPressed: onShuffleToggle,
-          active: shuffleEnabled,
-          onInteraction: onInteraction,
-        ),
-      if (showRepeatButton)
-        PlaybackActionButton(
-          icon: repeatMode == PlaybackRepeatMode.one
-              ? Icons.repeat_one
-              : Icons.repeat,
-          tooltip: switch (repeatMode) {
-            PlaybackRepeatMode.off => repeatOffTooltip,
-            PlaybackRepeatMode.one => repeatOneTooltip,
-            PlaybackRepeatMode.all => repeatAllTooltip,
-          },
-          onPressed: onRepeatToggle,
-          active: repeatMode != PlaybackRepeatMode.off,
-          onInteraction: onInteraction,
-        ),
-    ];
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: actions,
+      children: [
+        _controlSlot(
+          showSpeedButton
+              ? PlaybackSpeedButton(
+                  playbackRate: playbackRate,
+                  onRateChanged: onRateChanged,
+                  onInteraction: onInteraction,
+                )
+              : null,
+        ),
+        _controlSlot(
+          showShuffleButton
+              ? PlaybackActionButton(
+                  icon: Icons.shuffle,
+                  tooltip: shuffleEnabled
+                      ? shuffleOffTooltip
+                      : shuffleOnTooltip,
+                  onPressed: onShuffleToggle,
+                  active: shuffleEnabled,
+                  onInteraction: onInteraction,
+                )
+              : null,
+        ),
+        _controlSlot(
+          showRepeatButton
+              ? PlaybackActionButton(
+                  icon: repeatMode == PlaybackRepeatMode.one
+                      ? Icons.repeat_one
+                      : Icons.repeat,
+                  tooltip: switch (repeatMode) {
+                    PlaybackRepeatMode.off => repeatOffTooltip,
+                    PlaybackRepeatMode.one => repeatOneTooltip,
+                    PlaybackRepeatMode.all => repeatAllTooltip,
+                  },
+                  onPressed: onRepeatToggle,
+                  active: repeatMode != PlaybackRepeatMode.off,
+                  onInteraction: onInteraction,
+                )
+              : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _controlSlot(Widget? child) {
+    return SizedBox(
+      width: _controlSlotSize,
+      height: _controlSlotSize,
+      child: child,
     );
   }
 }

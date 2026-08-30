@@ -347,5 +347,11 @@
   "playerRepeatAll": "循环：列表",
   "playerLyricsTitle": "歌词",
   "playerLyricsUnavailable": "暂无歌词",
+  "playerDjDeck": "DJ 唱盘",
+  "playerDjDeckA": "DECK A",
+  "playerDjPlaying": "播放中",
+  "playerDjPaused": "已暂停",
+  "playerDjGestureHint": "点按播放或暂停，旋拧唱片定位",
+  "playerDjPitch": "速度",
   "playerClose": "关闭"
 }

@@ -215,6 +215,45 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await session.dispose();
   });
+
+  testWidgets('状态切换不会移动唱片和各控制槽位', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        duration: Duration(minutes: 2),
+        currentTitle: '短标题',
+      ),
+    );
+    final session = PlayerSessionController(engine: engine);
+
+    await tester.pumpWidget(_controlsApp(session));
+    final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+    final repeat = find.byIcon(Icons.repeat);
+    final play = find.byIcon(Icons.play_arrow);
+    final recordCenter = tester.getCenter(record);
+    final repeatCenter = tester.getCenter(repeat);
+    final playCenter = tester.getCenter(play);
+
+    engine.notifier.value = engine.notifier.value.copyWith(
+      currentTitle: '一个很长很长的音频标题，用来确认标题换行不会推动播放器位置',
+      lifecycle: PlaybackLifecycle.opening,
+      playing: true,
+    );
+    await tester.pumpWidget(_controlsApp(session));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(tester.getCenter(record), recordCenter);
+    expect(tester.getCenter(repeat), repeatCenter);
+    expect(
+      tester.getCenter(find.byType(CircularProgressIndicator)),
+      playCenter,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await session.dispose();
+  });
 }
 
 Widget _controlsApp(
