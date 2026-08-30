@@ -2,9 +2,11 @@ import 'dart:convert';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/platform/app_haptics.dart';
 import 'package:omm/core/platform/app_version.dart';
 import 'package:omm/core/sources/common/source_descriptor.dart';
 import 'package:omm/core/sources/common/source_id.dart';
@@ -84,6 +86,18 @@ void main() {
   });
 
   testWidgets('收藏列表长按拖拽调整顺序并持久化手动顺序', (tester) async {
+    final haptics = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'HapticFeedback.vibrate') {
+          haptics.add(call.arguments as String? ?? '');
+        }
+        return null;
+      },
+    );
+    AppHaptics.setIntensity(HapticIntensity.standard);
+
     await _pumpShell(
       tester,
       favorites: [
@@ -111,6 +125,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(topOf('a.txt') > topOf('b.txt'), isTrue);
+
+    // 触感与服务器列表拖拽一致：拖起轻反馈、跨行换槽轻反馈、落定中反馈。
+    expect(haptics, contains('HapticFeedbackType.lightImpact'));
+    expect(haptics, contains('HapticFeedbackType.mediumImpact'));
 
     // 手动顺序与重排后的数组顺序均已持久化。
     final prefs = await SharedPreferences.getInstance();

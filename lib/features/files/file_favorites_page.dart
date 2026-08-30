@@ -8,6 +8,7 @@ import '../../core/sources/common/source_id.dart';
 import '../../l10n/generated/app_localizations.dart';
 import '../../shared/floating_tab_bar.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/reorder_slot_feedback.dart';
 import '../settings/settings_common.dart';
 import 'file_entry_icons.dart';
 import 'file_favorites.dart';
@@ -37,9 +38,13 @@ class FileFavoritesPage extends ConsumerStatefulWidget {
 class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
   final ScrollController _scrollController = ScrollController();
 
+  /// 拖拽跨行换位时的槽位触感，与服务器列表一致。
+  final _slotFeedback = ReorderSlotFeedback();
+
   @override
   void dispose() {
     _scrollController.dispose();
+    _slotFeedback.endDrag();
     super.dispose();
   }
 
@@ -147,7 +152,11 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
       // 移动端默认手势为整行长按拖拽，条目无需显示拖拽把手。
       buildDefaultDragHandles: true,
       proxyDecorator: _dragProxyDecorator,
-      onReorderStart: (_) => AppHaptics.light(),
+      onReorderStart: (index) {
+        AppHaptics.light();
+        _slotFeedback.startDrag(visible[index].stableKey, index);
+      },
+      onReorderEnd: (_) => _slotFeedback.endDrag(),
       onReorderItem: (oldIndex, newIndex) {
         AppHaptics.medium();
         // onReorderItem 的 newIndex 已按移除旧项校正，可直接插入。
@@ -158,8 +167,11 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
             .read(fileFavoritesProvider(serverId).notifier)
             .reorder(ordered);
       },
-      itemBuilder: (context, index) => KeyedSubtree(
+      itemBuilder: (context, index) => ReorderableRowGeometry(
         key: ValueKey<String>(visible[index].stableKey),
+        rowId: visible[index].stableKey,
+        onRegister: _slotFeedback.registerRow,
+        onUnregister: _slotFeedback.unregisterRow,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -189,7 +201,8 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
     );
   }
 
-  /// 拖拽代理浮起：行本身透明，浮起时补实底并加投影，与列表背景分层。
+  /// 拖拽代理浮起：行本身透明，浮起时补实底并加投影，浮起曲线与圆角
+  /// 与服务器列表的拖拽卡片保持一致。
   Widget _dragProxyDecorator(
     Widget child,
     int index,
@@ -205,7 +218,7 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
           color: colors.surface,
           shadowColor: Colors.black,
           elevation: elevation,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           child: child,
         );
       },

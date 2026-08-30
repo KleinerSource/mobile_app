@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,9 +76,10 @@ void main() {
     await tester.pumpWidget(_app(prefs));
     await tester.pumpAndSettle();
 
-    // 从“家庭服务器”行尾手柄拖动，跨过公网服务器后落定。
-    final handle = tester.getCenter(find.byIcon(Icons.drag_indicator).first);
-    final gesture = await tester.startGesture(handle);
+    // 长按“家庭服务器”整行拖动，跨过公网服务器后落定。
+    final row = tester.getCenter(find.text('家庭服务器'));
+    final gesture = await tester.startGesture(row);
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
     await gesture.moveBy(const Offset(0, 24));
     await tester.pump();
     // 拖起确认。
@@ -117,8 +119,10 @@ void main() {
     await tester.pumpWidget(_app(prefs));
     await tester.pumpAndSettle();
 
-    final handle = tester.getCenter(find.byIcon(Icons.drag_indicator).first);
-    final gesture = await tester.startGesture(handle);
+    // 长按原行拖动后放回原位。
+    final row = tester.getCenter(find.text('家庭服务器'));
+    final gesture = await tester.startGesture(row);
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
     await gesture.moveBy(const Offset(0, 24));
     await tester.pump();
     await gesture.moveBy(const Offset(0, -24));
