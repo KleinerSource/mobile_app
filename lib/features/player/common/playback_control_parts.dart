@@ -156,30 +156,45 @@ class PlaybackPlayPauseButton extends StatelessWidget {
       builder: (context, state, _) {
         final scheme = Theme.of(context).colorScheme;
         return IconButton(
+          padding: EdgeInsets.zero,
+          constraints: BoxConstraints.tightFor(width: size, height: size),
+          alignment: Alignment.center,
           enableFeedback: false,
           iconSize: size,
           icon: AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
+            layoutBuilder: (currentChild, previousChildren) => SizedBox(
+              width: size,
+              height: size,
+              child: Stack(
+                fit: StackFit.expand,
+                alignment: Alignment.center,
+                children: [
+                  ...previousChildren,
+                  if (currentChild != null) currentChild,
+                ],
+              ),
+            ),
             transitionBuilder: (child, animation) => FadeTransition(
               opacity: animation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.2),
-                  end: Offset.zero,
-                ).animate(animation),
-                child: ScaleTransition(scale: animation, child: child),
-              ),
+              child: ScaleTransition(scale: animation, child: child),
             ),
             child: loading
                 ? SizedBox(
                     key: const ValueKey('loading'),
-                    width: size * 0.5,
-                    height: size * 0.5,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.4,
-                      color: scheme.primary,
+                    width: size,
+                    height: size,
+                    child: Center(
+                      child: SizedBox(
+                        width: size * 0.5,
+                        height: size * 0.5,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: scheme.primary,
+                        ),
+                      ),
                     ),
                   )
                 : Icon(

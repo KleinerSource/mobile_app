@@ -254,6 +254,49 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await session.dispose();
   });
+
+  testWidgets('播放暂停和加载状态共享同一按钮中心且不会滑动', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        playing: false,
+        duration: Duration(minutes: 2),
+      ),
+    );
+    final session = PlayerSessionController(engine: engine);
+
+    await tester.pumpWidget(_controlsApp(session));
+    final button = find.byKey(
+      const ValueKey<String>('audio-play-pause-button'),
+    );
+    final buttonCenter = tester.getCenter(button);
+    final playCenter = tester.getCenter(find.byIcon(Icons.play_arrow));
+
+    engine.notifier.value = engine.notifier.value.copyWith(playing: true);
+    await tester.pump(const Duration(milliseconds: 90));
+    final pauseCenter = tester.getCenter(find.byIcon(Icons.pause));
+    expect(pauseCenter, buttonCenter);
+    expect(pauseCenter, playCenter);
+
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(tester.getCenter(find.byIcon(Icons.pause)), buttonCenter);
+
+    engine.notifier.value = engine.notifier.value.copyWith(
+      lifecycle: PlaybackLifecycle.opening,
+      playing: false,
+    );
+    await tester.pumpWidget(_controlsApp(session));
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(
+      tester.getCenter(find.byType(CircularProgressIndicator)),
+      buttonCenter,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await session.dispose();
+  });
 }
 
 Widget _controlsApp(

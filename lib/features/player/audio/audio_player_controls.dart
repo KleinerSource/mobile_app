@@ -189,6 +189,7 @@ class AudioPlayerControls extends StatelessWidget {
         _controlSlot(
           showPlayPauseButton
               ? PlaybackPlayPauseButton(
+                  key: const ValueKey<String>('audio-play-pause-button'),
                   controller: controller,
                   size: _controlSlotSize,
                   loading: isLoading,
