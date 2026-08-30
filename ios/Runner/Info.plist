@@ -34,6 +34,8 @@
 	<string>Oh-My-Media 使用面容识别验证进入应用。</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 		<key>NSAllowsArbitraryLoadsInMedia</key>

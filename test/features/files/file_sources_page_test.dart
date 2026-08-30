@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -65,6 +66,40 @@ void main() {
       tester.widget<FileBrowserPage>(find.byType(FileBrowserPage)).serverId,
       serverId,
     );
+  });
+
+  testWidgets('文件来源加载时服务器名称位于顶部居中导航栏', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final loading = Completer<List<SourceDescriptor>>();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceDescriptorsProvider(
+            serverId,
+          ).overrideWith((ref) => loading.future),
+        ],
+        child: const MaterialApp(
+          locale: Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: FileSourcesPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final title = find.text('SMB 一号');
+    expect(
+      find.ancestor(of: title, matching: find.byType(AppBar)),
+      findsOneWidget,
+    );
+    expect(tester.getCenter(title).dy, lessThan(100));
+
+    loading.complete(const []);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('文件条目按日期、大小顺序显示并使用元信息配色', (tester) async {

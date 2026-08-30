@@ -777,6 +777,11 @@ class AppL10nZh extends AppL10n {
   }
 
   @override
+  String fileAudioPreviewFailed(String error) {
+    return '音频预览失败：$error';
+  }
+
+  @override
   String fileImagePreviewFailed(String error) {
     return '图片预览失败：$error';
   }
@@ -910,4 +915,19 @@ class AppL10nZh extends AppL10n {
   String fileSelectedItems(int n) {
     return '已选 $n 项';
   }
+
+  @override
+  String get playerShuffleOn => '开启随机播放';
+
+  @override
+  String get playerShuffleOff => '关闭随机播放';
+
+  @override
+  String get playerRepeatOff => '循环：关闭';
+
+  @override
+  String get playerRepeatOne => '循环：单曲';
+
+  @override
+  String get playerRepeatAll => '循环：列表';
 }

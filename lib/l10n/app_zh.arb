@@ -276,6 +276,8 @@
   "fileWebDavDirectUrlMissing": "服务器未提供 HTTP 直连地址，已停止播放（不会回退到本机代理）",
   "fileVideoPreviewFailed": "视频预览失败：{error}",
   "@fileVideoPreviewFailed": { "placeholders": { "error": { "type": "String" } } },
+  "fileAudioPreviewFailed": "音频预览失败：{error}",
+  "@fileAudioPreviewFailed": { "placeholders": { "error": { "type": "String" } } },
   "fileImagePreviewFailed": "图片预览失败：{error}",
   "@fileImagePreviewFailed": { "placeholders": { "error": { "type": "String" } } },
   "fileTextPreviewFailed": "文本预览失败：{error}",
@@ -324,5 +326,10 @@
   "settingsMoveStartRootSub": "移动文件时每次从根目录开始选择目标",
   "settingsMoveStartHereSub": "移动文件时从当前所在目录开始选择目标",
   "fileSelectedItems": "已选 {n} 项",
-  "@fileSelectedItems": { "placeholders": { "n": { "type": "int" } } }
+  "@fileSelectedItems": { "placeholders": { "n": { "type": "int" } } },
+  "playerShuffleOn": "开启随机播放",
+  "playerShuffleOff": "关闭随机播放",
+  "playerRepeatOff": "循环：关闭",
+  "playerRepeatOne": "循环：单曲",
+  "playerRepeatAll": "循环：列表"
 }

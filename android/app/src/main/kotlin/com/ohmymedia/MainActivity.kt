@@ -15,13 +15,13 @@ import android.provider.Settings
 import android.telephony.TelephonyManager
 import android.view.WindowManager
 import androidx.core.content.FileProvider
-import io.flutter.embedding.android.FlutterFragmentActivity
+import com.ryanheise.audioservice.AudioServiceFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
-class MainActivity : FlutterFragmentActivity() {
+class MainActivity : AudioServiceFragmentActivity() {
     companion object {
         private const val STATS_CHANNEL = "omm/player_stats"
         private const val UPDATE_CHANNEL = "omm/app_update"

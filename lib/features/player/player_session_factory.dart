@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'audio_playback_engine.dart';
+import 'audio_playback_service.dart';
 import 'ks_player_playback_engine.dart';
 import 'playback_engine.dart';
 import 'player_controller_host.dart';
@@ -8,7 +10,13 @@ import 'player_session_controller.dart';
 PlayerSessionController createPlayerSession({
   PlaybackEngineKind? engineKind,
   PlaybackEngineKind iosEnginePreference = PlaybackEngineKind.libmpv,
+  bool isAudio = false,
 }) {
+  if (isAudio) {
+    return PlayerSessionController(
+      engine: AudioPlaybackEngine(handler: AudioPlaybackService.handler),
+    );
+  }
   final selectedEngine = resolvePlaybackEngineKind(
     engineKind: engineKind,
     iosEnginePreference: iosEnginePreference,
@@ -17,6 +25,9 @@ PlayerSessionController createPlayerSession({
     engine: switch (selectedEngine) {
       PlaybackEngineKind.libmpv => MediaKitPlaybackEngine(),
       PlaybackEngineKind.ksPlayer => KsPlayerPlaybackEngine(),
+      PlaybackEngineKind.audio => AudioPlaybackEngine(
+        handler: AudioPlaybackService.handler,
+      ),
     },
   );
 }

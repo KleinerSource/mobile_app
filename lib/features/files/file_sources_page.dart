@@ -39,8 +39,9 @@ class FileSourcesPage extends ConsumerWidget {
                   ref.invalidate(fileSourceDescriptorsProvider(serverId)),
               onConfigure: () => _openServerSelector(context),
             ),
-      loading: () => const _FileSourcesShell(
-        body: Center(child: CircularProgressIndicator()),
+      loading: () => _FileSourcesShell(
+        title: server?.name,
+        body: const Center(child: CircularProgressIndicator()),
       ),
       error: (error, _) => _FileError(
         message: error is SourceException ? error.message : error.toString(),
@@ -56,14 +57,15 @@ class FileSourcesPage extends ConsumerWidget {
   }
 }
 
-/// 与偏好设置一致的页面骨架 · GlowBackground + 固定「文件列表」头部。
+/// 与偏好设置一致的页面骨架 · GlowBackground + 紧凑居中头部。
 ///
 /// 本页位于文件服务器流程根（声明式页面栈），头部不提供返回按钮，
 /// 返回服务器选择的入口由 body 内的兜底按钮承担。
 class _FileSourcesShell extends StatelessWidget {
-  const _FileSourcesShell({required this.body});
+  const _FileSourcesShell({required this.body, this.title});
 
   final Widget body;
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
@@ -74,10 +76,23 @@ class _FileSourcesShell extends StatelessWidget {
         child: SafeArea(
           bottom: false,
           child: SettingsFixedHeaderLayout(
-            header: SettingsSubPageHeader(
-              eyebrow: AppL10n.of(context).fileEyebrow,
-              title: AppL10n.of(context).fileListTitle,
-              showBackButton: false,
+            header: SizedBox(
+              height: kToolbarHeight,
+              child: AppBar(
+                automaticallyImplyLeading: false,
+                backgroundColor: Colors.transparent,
+                centerTitle: true,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                shadowColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                title: Text(
+                  title ?? AppL10n.of(context).fileListTitle,
+                  style: AppText.cardTitle(
+                    context,
+                  ).copyWith(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+              ),
             ),
             body: Padding(
               padding: EdgeInsets.only(

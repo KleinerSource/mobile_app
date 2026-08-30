@@ -11,7 +11,10 @@ import 'fake_playback_engine.dart';
 
 void main() {
   testWidgets('libmpv 与 KSPlayer 渲染同一套控制栏和菜单', (tester) async {
-    for (final kind in PlaybackEngineKind.values) {
+    for (final kind in const [
+      PlaybackEngineKind.libmpv,
+      PlaybackEngineKind.ksPlayer,
+    ]) {
       final engine = FakePlaybackEngine(
         kind,
         initialState: PlaybackViewState(

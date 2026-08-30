@@ -90,7 +90,23 @@ void main() {
     expect(fileTypeIconFor(entry('slides.pptx')), FileTypeIcon.presentation);
     expect(fileTypeIconFor(entry('budget.xlsm')), FileTypeIcon.spreadsheet);
     expect(fileTypeIconFor(entry('report.docx')), FileTypeIcon.document);
-    expect(fileTypeIconFor(entry('song.mp3')), FileTypeIcon.audio);
+    for (final extension in const [
+      'mp3',
+      'm4a',
+      'aac',
+      'flac',
+      'wav',
+      'ogg',
+      'opus',
+      'wma',
+      'aiff',
+      'ape',
+      'alac',
+      'amr',
+      'midi',
+    ]) {
+      expect(fileTypeIconFor(entry('song.$extension')), FileTypeIcon.audio);
+    }
     expect(
       fileTypeIconFor(entry('unknown', mimeType: 'application/pdf')),
       FileTypeIcon.pdf,

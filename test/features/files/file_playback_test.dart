@@ -123,6 +123,44 @@ void _main_1() {
     }
   });
 
+  test('音频播放代理支持 MIME、HEAD、完整读取和 Range 读取', () async {
+    final sourceId = SourceId.of('audio-source');
+    final bytes = List<int>.generate(24, (index) => index + 10);
+    final proxy = await FilePlaybackProxy.start(
+      repository: FileSourceRepository(_RangeStreamFileSource(sourceId, bytes)),
+      path: FilePath(sourceId: sourceId, value: '音乐.FLAC'),
+      size: bytes.length,
+      mimeType: 'audio/flac',
+      pathExtension: 'flac',
+    );
+    final client = HttpClient();
+    try {
+      final headRequest = await client.openUrl('HEAD', proxy.uri);
+      final headResponse = await headRequest.close();
+      expect(headResponse.statusCode, HttpStatus.ok);
+      expect(headResponse.contentLength, bytes.length);
+      expect(headResponse.headers.contentType?.mimeType, 'audio/flac');
+      expect(headResponse.headers.value('accept-ranges'), 'bytes');
+      expect(await _read(headResponse), isEmpty);
+
+      final fullRequest = await client.getUrl(proxy.uri);
+      final fullResponse = await fullRequest.close();
+      expect(fullResponse.statusCode, HttpStatus.ok);
+      expect(await _read(fullResponse), bytes);
+
+      final rangeRequest = await client.getUrl(proxy.uri);
+      rangeRequest.headers.set('range', 'bytes=4-9');
+      final rangeResponse = await rangeRequest.close();
+      expect(rangeResponse.statusCode, HttpStatus.partialContent);
+      expect(rangeResponse.contentLength, 6);
+      expect(rangeResponse.headers.contentType?.mimeType, 'audio/flac');
+      expect(await _read(rangeResponse), bytes.sublist(4, 10));
+    } finally {
+      await proxy.close();
+      client.close(force: true);
+    }
+  });
+
   test('文件播放器代理把 Range 转发给随机读取来源', () async {
     final sourceId = SourceId.of('range-source');
     final bytes = List<int>.generate(32, (index) => index + 1);
@@ -368,8 +406,10 @@ class _DownloadOnlyFileSource
       SourceDescriptor(id: sourceId, kind: SourceKind.smb, name: '仅下载来源');
 
   @override
-  Set<FileCapability> get capabilities =>
-      const {FileCapability.transfer, FileCapability.access};
+  Set<FileCapability> get capabilities => const {
+    FileCapability.transfer,
+    FileCapability.access,
+  };
 
   @override
   bool supports(FileCapability capability) => capabilities.contains(capability);

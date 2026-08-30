@@ -3,9 +3,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'player_queue.dart';
+
 enum PlaybackEngineKind {
   libmpv('libmpv', 'libmpv'),
-  ksPlayer('ksplayer', 'KSPlayer');
+  ksPlayer('ksplayer', 'KSPlayer'),
+  audio('audio', 'Audio');
 
   const PlaybackEngineKind(this.value, this.label);
 
@@ -45,6 +48,8 @@ abstract final class PlayerEnginePreference {
 }
 
 enum PlaybackLifecycle { idle, opening, ready, completed, stopped, failed }
+
+enum PlaybackRepeatMode { off, one, all }
 
 @immutable
 class PlaybackEngineCapabilities {
@@ -303,6 +308,10 @@ class PlaybackViewState {
     this.selectedSubtitleTrackId,
     this.firstFrameRendered = false,
     this.inPictureInPicture = false,
+    this.currentTitle,
+    this.queueIndex,
+    this.shuffleEnabled = false,
+    this.repeatMode = PlaybackRepeatMode.off,
     this.error,
   });
 
@@ -322,6 +331,10 @@ class PlaybackViewState {
   final String? selectedSubtitleTrackId;
   final bool firstFrameRendered;
   final bool inPictureInPicture;
+  final String? currentTitle;
+  final int? queueIndex;
+  final bool shuffleEnabled;
+  final PlaybackRepeatMode repeatMode;
   final String? error;
 
   bool get mainMediaLoaded =>
@@ -350,6 +363,10 @@ class PlaybackViewState {
     bool clearSelectedSubtitleTrackId = false,
     bool? firstFrameRendered,
     bool? inPictureInPicture,
+    String? currentTitle,
+    int? queueIndex,
+    bool? shuffleEnabled,
+    PlaybackRepeatMode? repeatMode,
     String? error,
     bool clearError = false,
   }) {
@@ -374,6 +391,10 @@ class PlaybackViewState {
           : selectedSubtitleTrackId ?? this.selectedSubtitleTrackId,
       firstFrameRendered: firstFrameRendered ?? this.firstFrameRendered,
       inPictureInPicture: inPictureInPicture ?? this.inPictureInPicture,
+      currentTitle: currentTitle ?? this.currentTitle,
+      queueIndex: queueIndex ?? this.queueIndex,
+      shuffleEnabled: shuffleEnabled ?? this.shuffleEnabled,
+      repeatMode: repeatMode ?? this.repeatMode,
       error: clearError ? null : error ?? this.error,
     );
   }
@@ -389,6 +410,10 @@ class PlaybackOpenRequest {
     this.formatHint,
     this.mediaInfo,
     this.preferFfmpegForHls = false,
+    this.isAudio = false,
+    this.queue = const <PlayerQueueItem>[],
+    this.queueIndex = 0,
+    this.onQueueDispose,
   });
 
   final String url;
@@ -405,6 +430,10 @@ class PlaybackOpenRequest {
   /// 仅文件源（WebDAV 直连、SMB 回环代理）设为 true；OMM 转码流与
   /// DBO 在线流保持 false，由 AVPlayer 处理串流与 seek。
   final bool preferFfmpegForHls;
+  final bool isAudio;
+  final List<PlayerQueueItem> queue;
+  final int queueIndex;
+  final Future<void> Function()? onQueueDispose;
 }
 
 @immutable
@@ -433,6 +462,10 @@ abstract interface class PlaybackEngine {
   Future<void> play();
   Future<void> pause();
   Future<void> playOrPause();
+  Future<void> skipToPrevious();
+  Future<void> skipToNext();
+  Future<void> setShuffleMode(bool enabled);
+  Future<void> setRepeatMode(PlaybackRepeatMode mode);
   Future<void> seek(Duration position);
   Future<void> setRate(double rate);
   Future<void> configure({bool? hardwareAcceleration, int? preloadBytes});

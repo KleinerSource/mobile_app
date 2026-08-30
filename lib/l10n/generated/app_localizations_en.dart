@@ -788,6 +788,11 @@ class AppL10nEn extends AppL10n {
   }
 
   @override
+  String fileAudioPreviewFailed(String error) {
+    return 'Audio preview failed: $error';
+  }
+
+  @override
   String fileImagePreviewFailed(String error) {
     return 'Image preview failed: $error';
   }
@@ -929,4 +934,19 @@ class AppL10nEn extends AppL10n {
   String fileSelectedItems(int n) {
     return '$n selected';
   }
+
+  @override
+  String get playerShuffleOn => 'Turn on shuffle';
+
+  @override
+  String get playerShuffleOff => 'Turn off shuffle';
+
+  @override
+  String get playerRepeatOff => 'Repeat: Off';
+
+  @override
+  String get playerRepeatOne => 'Repeat: One';
+
+  @override
+  String get playerRepeatAll => 'Repeat: All';
 }

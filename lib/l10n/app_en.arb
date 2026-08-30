@@ -276,6 +276,8 @@
   "fileWebDavDirectUrlMissing": "The server did not provide a direct HTTP URL. Playback stopped (no fallback to the local proxy).",
   "fileVideoPreviewFailed": "Video preview failed: {error}",
   "@fileVideoPreviewFailed": { "placeholders": { "error": { "type": "String" } } },
+  "fileAudioPreviewFailed": "Audio preview failed: {error}",
+  "@fileAudioPreviewFailed": { "placeholders": { "error": { "type": "String" } } },
   "fileImagePreviewFailed": "Image preview failed: {error}",
   "@fileImagePreviewFailed": { "placeholders": { "error": { "type": "String" } } },
   "fileTextPreviewFailed": "Text preview failed: {error}",
@@ -324,5 +326,10 @@
   "settingsMoveStartRootSub": "Always pick a move destination starting from the root folder",
   "settingsMoveStartHereSub": "Pick a move destination starting from the folder you are in",
   "fileSelectedItems": "{n} selected",
-  "@fileSelectedItems": { "placeholders": { "n": { "type": "int" } } }
+  "@fileSelectedItems": { "placeholders": { "n": { "type": "int" } } },
+  "playerShuffleOn": "Turn on shuffle",
+  "playerShuffleOff": "Turn off shuffle",
+  "playerRepeatOff": "Repeat: Off",
+  "playerRepeatOne": "Repeat: One",
+  "playerRepeatAll": "Repeat: All"
 }

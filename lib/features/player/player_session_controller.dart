@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/playback.dart' as playback_models;
 import 'engine_playback_route.dart';
 import 'playback_engine.dart';
+import 'player_queue.dart';
 
 /// 播放页面与具体内核之间唯一的会话边界。
 ///
@@ -47,6 +48,7 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   Duration get duration => value.duration;
   bool get playing => value.playing;
   bool get playbackIntent => _playbackIntent;
+  bool get isAudio => _engine.kind == PlaybackEngineKind.audio;
   bool get mainMediaLoaded => value.mainMediaLoaded;
   bool get usesBackendSubtitleSelection =>
       _engine.kind == PlaybackEngineKind.ksPlayer;
@@ -92,6 +94,12 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
           userAgent: 'omm/$os',
           audioStreamIndex: audioStreamIndex,
           subtitleTrackId: subtitleTrackId,
+        );
+      case PlaybackEngineKind.audio:
+        return playback_models.PlaybackClientCaps.mediaKit(
+          qualityPreset: quality,
+          forceVideoTranscode: false,
+          userAgent: 'omm/$os',
         );
     }
   }
@@ -196,6 +204,10 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     String? formatHint,
     PlaybackMediaInfo? mediaInfo,
     bool preferFfmpegForHls = false,
+    bool isAudio = false,
+    List<PlayerQueueItem> queue = const <PlayerQueueItem>[],
+    int queueIndex = 0,
+    Future<void> Function()? onQueueDispose,
   }) async {
     _playbackIntent = play;
     final request = PlaybackOpenRequest(
@@ -206,6 +218,10 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
       formatHint: formatHint,
       mediaInfo: mediaInfo,
       preferFfmpegForHls: preferFfmpegForHls,
+      isAudio: isAudio,
+      queue: queue,
+      queueIndex: queueIndex,
+      onQueueDispose: onQueueDispose,
     );
     await _engine.open(request);
   }
@@ -232,6 +248,15 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   }
 
   Future<void> playOrPause() => _playbackIntent ? pause() : play();
+
+  Future<void> skipToPrevious() => _engine.skipToPrevious();
+
+  Future<void> skipToNext() => _engine.skipToNext();
+
+  Future<void> setShuffleMode(bool enabled) => _engine.setShuffleMode(enabled);
+
+  Future<void> setRepeatMode(PlaybackRepeatMode mode) =>
+      _engine.setRepeatMode(mode);
 
   /// 定位期间部分内核会先进入 buffering，并清掉底层的播放状态。
   ///

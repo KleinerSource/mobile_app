@@ -37,6 +37,7 @@ import '../oh_my_media/movie_detail/movie_detail_page.dart'
     show showImageLightbox;
 import '../settings/server_selection_page.dart';
 import '../settings/settings_common.dart';
+import 'file_text_viewer_page.dart';
 import 'file_navigation.dart';
 import 'file_browser_preferences.dart';
 import 'file_entry_icons.dart';
@@ -1462,6 +1463,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   Future<void> _preview(FileEntry entry) async {
     if (_isVideoEntry(entry)) {
       await _previewVideo(entry);
+    } else if (_isAudioEntry(entry)) {
+      await _previewAudio(entry);
     } else if (_isImageEntry(entry)) {
       await _previewImage(entry);
     } else if (_isTextEntry(entry)) {
@@ -1470,9 +1473,32 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _previewVideo(FileEntry entry) async {
+    await _previewMedia(
+      entry,
+      itemType: PlayerQueueItemType.video,
+      logLabel: '视频',
+      failureMessage: _l10n.fileVideoPreviewFailed,
+    );
+  }
+
+  Future<void> _previewAudio(FileEntry entry) async {
+    await _previewMedia(
+      entry,
+      itemType: PlayerQueueItemType.audio,
+      logLabel: '音频',
+      failureMessage: _l10n.fileAudioPreviewFailed,
+    );
+  }
+
+  Future<void> _previewMedia(
+    FileEntry entry, {
+    required PlayerQueueItemType itemType,
+    required String logLabel,
+    required String Function(String) failureMessage,
+  }) async {
     PlaybackEngineKind? engineKind;
     final playerSettings = ref.read(playerSettingsProvider);
-    if (playerSettings.debugMode) {
+    if (itemType == PlayerQueueItemType.video && playerSettings.debugMode) {
       final engineKinds = availablePlaybackEngineKinds();
       engineKind = await showPlaybackEnginePicker(
         context,
@@ -1505,39 +1531,47 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       );
 
       final listing = ref.read(fileDirectoryProvider(_request)).valueOrNull;
-      final videoEntries =
+      final mediaEntries =
           (listing == null
                   ? <FileEntry>[entry]
                   : _visibleEntries(listing)
-                        .where((item) => item.isFile && _isVideoEntry(item))
+                        .where(
+                          (item) =>
+                              item.isFile &&
+                              (itemType == PlayerQueueItemType.audio
+                                  ? _isAudioEntry(item)
+                                  : _isVideoEntry(item)),
+                        )
                         .toList())
               .toList();
-      if (!videoEntries.any((item) => item.stableKey == entry.stableKey)) {
-        videoEntries.insert(0, entry);
+      if (!mediaEntries.any((item) => item.stableKey == entry.stableKey)) {
+        mediaEntries.insert(0, entry);
       }
       final queue = await _buildPlaybackQueue(
         repository: repository,
-        entries: videoEntries,
+        entries: mediaEntries,
         current: entry,
+        itemType: itemType,
         useDirect: useDirect,
         proxies: playbackProxies,
       );
       if (!mounted) return;
       final queueIndex = queue.indexWhere(
-        (item) => item.directPlaybackFileName == entry.name,
+        (item) => item.mediaId == entry.stableKey,
       );
       if (queueIndex < 0) {
-        throw StateError('当前视频未加入播放队列');
+        throw StateError('当前$logLabel未加入播放队列');
       }
       final current = queue[queueIndex];
       appLog(
-        '[FileBrowser] 使用文件队列播放: '
+        '[FileBrowser] 使用文件队列播放: type=$logLabel '
         'engine=${selectedEngineKind?.value ?? 'default'} '
         'count=${queue.length} direct=$useDirect',
       );
       await PlayerPage.openDirect(
         context,
         title: current.title,
+        mediaType: itemType,
         directUrl: current.directUrl!,
         directHeaders: current.directHeaders,
         directFormatHint: current.directFormatHint,
@@ -1551,10 +1585,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       );
       queueOwnershipTransferred = true;
     } catch (error, stackTrace) {
-      appLog('[FileBrowser] 视频预览失败: $error\n$stackTrace');
+      appLog('[FileBrowser] $logLabel预览失败: $error\n$stackTrace');
       if (mounted) {
         _message(
-          _l10n.fileVideoPreviewFailed(
+          failureMessage(
             error is SourceException ? error.message : error.toString(),
           ),
         );
@@ -1571,6 +1605,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     required FileSourceRepository repository,
     required List<FileEntry> entries,
     required FileEntry current,
+    required PlayerQueueItemType itemType,
     required bool useDirect,
     required List<FilePlaybackProxy> proxies,
   }) async {
@@ -1591,6 +1626,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
             queue.add(
               PlayerQueueItem(
                 title: entry.name,
+                type: itemType,
+                mediaId: entry.stableKey,
                 directUrl: uri.toString(),
                 directHeaders: access.headers,
                 directFormatHint: formatHint,
@@ -1599,7 +1636,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
               ),
             );
           } else {
-            // SMB 没有可供播放器直接访问的 URL，为队列中的每个视频预留
+            // SMB 没有可供播放器直接访问的 URL，为队列中的每个文件预留
             // 一个按需读取代理；代理资源由播放器页在整个队列结束后释放。
             final proxy = await FilePlaybackProxy.start(
               repository: repository,
@@ -1612,6 +1649,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
             queue.add(
               PlayerQueueItem(
                 title: entry.name,
+                type: itemType,
+                mediaId: entry.stableKey,
                 directUrl: proxy.uri.toString(),
                 directFormatHint: formatHint,
                 directPlaybackFileName: entry.name,
@@ -1675,7 +1714,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       await Navigator.of(context, rootNavigator: true).push<void>(
         MaterialPageRoute<void>(
           allowSnapshotting: false,
-          builder: (_) => _FileTextViewerPage(title: entry.name, text: text),
+          builder: (_) => FileTextViewerPage(title: entry.name, text: text),
         ),
       );
     } catch (error) {
@@ -1701,10 +1740,16 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   bool _canPreview(FileEntry entry) =>
-      _isVideoEntry(entry) || _isImageEntry(entry) || _isTextEntry(entry);
+      _isVideoEntry(entry) ||
+      _isAudioEntry(entry) ||
+      _isImageEntry(entry) ||
+      _isTextEntry(entry);
 
   bool _isVideoEntry(FileEntry entry) =>
       fileTypeIconFor(entry) == FileTypeIcon.video;
+
+  bool _isAudioEntry(FileEntry entry) =>
+      fileTypeIconFor(entry) == FileTypeIcon.audio;
 
   bool _isImageEntry(FileEntry entry) =>
       fileTypeIconFor(entry) == FileTypeIcon.image;
@@ -2352,45 +2397,6 @@ class _FileMenuItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [Icon(icon, size: 20), const SizedBox(width: 12), Text(label)],
-    );
-  }
-}
-
-class _FileTextViewerPage extends StatelessWidget {
-  const _FileTextViewerPage({required this.title, required this.text});
-
-  final String title;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Scaffold(
-      backgroundColor: c.bg,
-      body: GlowBackground(
-        child: SafeArea(
-          child: SettingsFixedHeaderLayout(
-            header: SettingsSubPageHeader(
-              eyebrow: AppL10n.of(context).fileEyebrow,
-              title: title,
-              titleMaxLines: 1,
-            ),
-            body: Scrollbar(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(22, 18, 22, 32),
-                child: SelectableText(
-                  text,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 13,
-                    height: 1.45,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

@@ -66,10 +66,23 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
           bottom: false,
           child: SettingsFixedHeaderLayout(
             scrollController: _scrollController,
-            header: SettingsSubPageHeader(
-              eyebrow: l.fileEyebrow,
-              title: l.fileFavoritesSection,
-              showBackButton: false,
+            header: SizedBox(
+              height: kToolbarHeight,
+              child: AppBar(
+                automaticallyImplyLeading: false,
+                backgroundColor: Colors.transparent,
+                centerTitle: true,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                shadowColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                title: Text(
+                  l.fileFavoritesSection,
+                  style: AppText.cardTitle(
+                    context,
+                  ).copyWith(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+              ),
             ),
             body: visible.isEmpty
                 ? Center(

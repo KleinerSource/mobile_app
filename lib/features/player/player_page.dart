@@ -22,6 +22,7 @@ import '../../core/sources/common/source_id.dart';
 import '../../core/sources/files/file_playback_progress.dart';
 import '../../core/sources/media/media_models.dart' as source_models;
 import '../../core/sources/media/media_source_providers.dart';
+import '../../l10n/generated/app_localizations.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import 'engine_playback_route.dart';
 import 'playback_engine.dart';
@@ -73,6 +74,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     super.key,
     required this.movieId,
     required this.title,
+    this.mediaType = PlayerQueueItemType.video,
     this.directUrl,
     this.directHeaders,
     this.directFormatHint,
@@ -91,6 +93,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     super.key,
     required this.title,
     required this.directUrl,
+    this.mediaType = PlayerQueueItemType.video,
     this.directHeaders,
     this.directFormatHint,
     this.engineKind,
@@ -104,6 +107,7 @@ class PlayerPage extends ConsumerStatefulWidget {
 
   final int? movieId;
   final String title;
+  final PlayerQueueItemType mediaType;
   final String? directUrl;
   final Map<String, String>? directHeaders;
   final String? directFormatHint;
@@ -125,6 +129,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     BuildContext context, {
     required int movieId,
     required String title,
+    PlayerQueueItemType mediaType = PlayerQueueItemType.video,
     String? directUrl,
     Map<String, String>? directHeaders,
     String? directFormatHint,
@@ -139,6 +144,7 @@ class PlayerPage extends ConsumerStatefulWidget {
         builder: (_) => PlayerPage(
           movieId: movieId,
           title: title,
+          mediaType: mediaType,
           directUrl: directUrl,
           directHeaders: directHeaders,
           directFormatHint: directFormatHint,
@@ -156,6 +162,7 @@ class PlayerPage extends ConsumerStatefulWidget {
     BuildContext context, {
     required String title,
     required String directUrl,
+    PlayerQueueItemType mediaType = PlayerQueueItemType.video,
     Map<String, String>? directHeaders,
     String? directFormatHint,
     PlaybackEngineKind? engineKind,
@@ -175,6 +182,7 @@ class PlayerPage extends ConsumerStatefulWidget {
       MaterialPageRoute(
         builder: (_) => PlayerPage.direct(
           title: title,
+          mediaType: mediaType,
           directUrl: directUrl,
           directHeaders: directHeaders,
           directFormatHint: directFormatHint,
@@ -270,6 +278,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
 
   bool get _isDirectPlayback => widget.directUrl?.trim().isNotEmpty == true;
 
+  bool get _isAudioPlayback => widget.mediaType == PlayerQueueItemType.audio;
+
   @override
   void initState() {
     super.initState();
@@ -281,6 +291,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _host = createPlayerSession(
       engineKind: widget.engineKind,
       iosEnginePreference: settings.iosEngine,
+      isAudio: _isAudioPlayback,
     );
     _filePlaybackProgress = FilePlaybackProgressRepository(
       ref.read(sharedPrefsProvider),
@@ -384,6 +395,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_isLeaving) return;
+    // 音频由 AudioService 持有，页面进入后台或锁屏时保持播放；页面只
+    // 负责全屏视频的暂停与转码会话收尾。
+    if (_isAudioPlayback) return;
     if ((state == AppLifecycleState.inactive ||
             state == AppLifecycleState.paused) &&
         !_pictureInPictureRequesting &&
@@ -486,7 +500,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _reportFileProgress() {
-    final fileName = widget.directPlaybackFileName?.trim();
+    final fileName =
+        (_isAudioPlayback
+                ? _host.value.currentTitle
+                : widget.directPlaybackFileName)
+            ?.trim();
     if (fileName == null || fileName.isEmpty) {
       return Future<void>.value();
     }
@@ -629,6 +647,38 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         // 数据或容器探测。先展示播放器表面和控件，让播放器自己的 buffering
         // 状态接管等待过程，避免整个页面一直被“正在加载影片”覆盖。
         _decision = _directPlaybackDecision;
+        if (_isAudioPlayback) {
+          _bindProgress();
+          setState(() => _loading = false);
+          _restartHideTimer();
+          await _host
+              .configure(
+                preloadBytes: ref
+                    .read(playerSettingsProvider)
+                    .preloadSize
+                    .bytes,
+              )
+              .timeout(_directPlaybackOperationTimeout);
+          if (!mounted || generation != _loadGeneration) return;
+          await _host
+              .open(
+                trailerUrl,
+                startAt: fallbackResume,
+                headers: widget.directHeaders,
+                play: shouldPlay,
+                formatHint: widget.directFormatHint,
+                isAudio: true,
+                queue: widget.queue,
+                queueIndex: widget.queueIndex,
+                onQueueDispose: widget.onQueueDispose,
+              )
+              .timeout(const Duration(seconds: 45));
+          _playerHasBeenOpened = true;
+          // 资源生命周期交给 AudioPlaybackService 的 stop/replace/error
+          // 事件；销毁全屏页时不能再执行队列清理。
+          _queueOwnershipTransferred = true;
+          return;
+        }
         _bindProgress();
         setState(() => _loading = false);
         _restartHideTimer();
@@ -1693,6 +1743,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _showIndicator(PlayerIndicator.speed(rate));
   }
 
+  void _toggleShuffle() {
+    if (_isLeaving || !_isAudioPlayback) return;
+    unawaited(_host.setShuffleMode(!_host.value.shuffleEnabled));
+  }
+
+  void _toggleRepeat() {
+    if (_isLeaving || !_isAudioPlayback) return;
+    final next = switch (_host.value.repeatMode) {
+      PlaybackRepeatMode.off => PlaybackRepeatMode.one,
+      PlaybackRepeatMode.one => PlaybackRepeatMode.all,
+      PlaybackRepeatMode.all => PlaybackRepeatMode.off,
+    };
+    unawaited(_host.setRepeatMode(next));
+  }
+
   void _setPlaybackRate(double rate) {
     _rateChangeGraceTimer?.cancel();
     _rateChangeGraceTimer = Timer(const Duration(milliseconds: 1200), () {
@@ -1856,6 +1921,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
               builder: (_) => directUrl != null && directUrl.isNotEmpty
                   ? PlayerPage.direct(
                       title: item.title,
+                      mediaType: item.type,
                       directUrl: directUrl,
                       directHeaders: item.directHeaders,
                       directFormatHint: item.directFormatHint,
@@ -1978,7 +2044,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Future<void> _disposePlayer() async {
-    await _stopPlayer();
+    // AudioService 的 handler 生命周期独立于全屏页；这里只解除页面侧
+    // 监听，不能因为页面销毁而停止后台音频。
+    if (!_isAudioPlayback) await _stopPlayer();
     try {
       await _host.dispose();
     } catch (_) {}
@@ -2004,8 +2072,10 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
     _onRateBoostEnd();
     // 先完成进度上报,让返回页面能准确判断是否需要刷新继续观看区块。
     await _reportProgress();
-    unawaited(_stopPlayer());
-    unawaited(_stopTranscodeSession(waitForServer: false));
+    if (!_isAudioPlayback) {
+      unawaited(_stopPlayer());
+      unawaited(_stopTranscodeSession(waitForServer: false));
+    }
     if (mounted) {
       Navigator.of(context).pop();
     }
@@ -2028,8 +2098,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
   }
 
   Widget _body() {
+    return ValueListenableBuilder<PlaybackViewState>(
+      valueListenable: _host,
+      builder: (_, playbackState, __) => _bodyForState(playbackState),
+    );
+  }
+
+  Widget _bodyForState(PlaybackViewState playbackState) {
     final settings = ref.watch(playerSettingsProvider);
     final subtitleSettings = ref.watch(subtitleSettingsProvider);
+    final l10n = AppL10n.of(context);
     final capabilities = _host.capabilities;
     if (_loading) {
       return Stack(
@@ -2101,7 +2179,11 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           left: 20,
           right: 20,
           child: PlayerStatusOverlay(
-            title: widget.title,
+            title: _isAudioPlayback
+                ? (playbackState.currentTitle?.trim().isNotEmpty == true
+                      ? playbackState.currentTitle!
+                      : widget.title)
+                : widget.title,
             stats: _deviceStats,
             showSystemTime: settings.showSystemTime,
             showNetworkSpeed: settings.showNetworkSpeed,
@@ -2128,7 +2210,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 previewSourceHeaders: _pictureInPictureHeaders,
                 quality: _quality,
                 qualityOptions: decision.qualityOptions,
-                showQualityButton: !_isDirectPlayback,
+                showQualityButton: !_isDirectPlayback && !_isAudioPlayback,
                 onQualityChanged: _onQualityChanged,
                 subtitleTracks: capabilities.textSubtitles
                     ? decision.subtitleTracks
@@ -2145,19 +2227,39 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                 decodeStatuses: _decodeStatuses,
                 hapticProgressBar: settings.hapticProgressBar,
                 showPlayPauseButton: settings.showPlayPauseButton,
-                showSeekButtons: settings.showSeekButtons,
+                showSeekButtons: _isAudioPlayback || settings.showSeekButtons,
                 showSpeedButton:
-                    settings.showSpeedButton && capabilities.playbackRate,
+                    _isAudioPlayback ||
+                    (settings.showSpeedButton && capabilities.playbackRate),
                 showPipButton:
-                    settings.showPipButton && capabilities.pictureInPicture,
-                showOrientationButton: settings.showOrientationButton,
-                showMediaSwitchButton: settings.showMediaSwitchButton,
+                    !_isAudioPlayback &&
+                    settings.showPipButton &&
+                    capabilities.pictureInPicture,
+                showOrientationButton:
+                    !_isAudioPlayback && settings.showOrientationButton,
+                showMediaSwitchButton:
+                    _isAudioPlayback || settings.showMediaSwitchButton,
+                showShuffleButton: _isAudioPlayback,
+                shuffleEnabled: playbackState.shuffleEnabled,
+                shuffleOnTooltip: l10n.playerShuffleOn,
+                shuffleOffTooltip: l10n.playerShuffleOff,
+                onShuffleToggle: _isAudioPlayback ? _toggleShuffle : null,
+                showRepeatButton: _isAudioPlayback,
+                repeatMode: playbackState.repeatMode,
+                repeatOffTooltip: l10n.playerRepeatOff,
+                repeatOneTooltip: l10n.playerRepeatOne,
+                repeatAllTooltip: l10n.playerRepeatAll,
+                onRepeatToggle: _isAudioPlayback ? _toggleRepeat : null,
                 playbackRate: _playbackRate,
                 onPictureInPicture: () => unawaited(_enterPictureInPicture()),
-                onPreviousMedia: widget.queueIndex > 0
+                onPreviousMedia: _isAudioPlayback
+                    ? () => unawaited(_host.skipToPrevious())
+                    : widget.queueIndex > 0
                     ? () => unawaited(_switchMedia(widget.queueIndex - 1))
                     : null,
-                onNextMedia: widget.queueIndex < widget.queue.length - 1
+                onNextMedia: _isAudioPlayback
+                    ? () => unawaited(_host.skipToNext())
+                    : widget.queueIndex < widget.queue.length - 1
                     ? () => unawaited(_switchMedia(widget.queueIndex + 1))
                     : null,
                 isLandscape: _isLandscape,

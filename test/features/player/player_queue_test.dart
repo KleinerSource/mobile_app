@@ -48,4 +48,30 @@ void main() {
     expect(page.queueIndex, 1);
     expect(page.directUrl, 'https://example.test/two.mp4');
   });
+
+  test('音频队列按安全媒体 ID 传递运行时地址', () {
+    const item = PlayerQueueItem(
+      title: '夜曲.flac',
+      type: PlayerQueueItemType.audio,
+      mediaId: 'smb:/music/夜曲.flac',
+      directUrl: 'https://example.test/music.flac?token=secret-token',
+      directHeaders: {'Authorization': 'Bearer secret-token'},
+      directFormatHint: 'flac',
+    );
+
+    expect(item.safeMediaId, startsWith('file:'));
+    expect(item.safeMediaId, isNot(contains('secret-token')));
+    expect(item.toAudioPayload()['mediaId'], item.safeMediaId);
+    expect(item.toAudioPayload()['url'], contains('secret-token'));
+  });
+
+  test('音频队列项保留音频类型', () {
+    const item = PlayerQueueItem(
+      title: '录音.m4a',
+      type: PlayerQueueItemType.audio,
+    );
+
+    expect(item.type, PlayerQueueItemType.audio);
+    expect(item.movieId, isNull);
+  });
 }

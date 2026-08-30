@@ -17,6 +17,7 @@ import 'features/security/security_gate.dart';
 import 'features/security/security_providers.dart';
 import 'features/files/file_manager_shell.dart';
 import 'features/files/file_navigation.dart';
+import 'features/player/audio_playback_service.dart';
 import 'features/settings/app_update_startup_gate.dart';
 import 'features/settings/server_selection_page.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -27,6 +28,7 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
+  await AudioPlaybackService.initialize();
   runApp(const _AppBootstrap());
 }
 

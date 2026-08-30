@@ -40,6 +40,17 @@ class PlayerControls extends StatefulWidget {
     required this.showPipButton,
     required this.showOrientationButton,
     required this.showMediaSwitchButton,
+    this.showShuffleButton = false,
+    this.shuffleEnabled = false,
+    this.shuffleOnTooltip = '开启随机播放',
+    this.shuffleOffTooltip = '关闭随机播放',
+    this.onShuffleToggle,
+    this.showRepeatButton = false,
+    this.repeatMode = PlaybackRepeatMode.off,
+    this.repeatOffTooltip = '循环：关闭',
+    this.repeatOneTooltip = '循环：单曲',
+    this.repeatAllTooltip = '循环：列表',
+    this.onRepeatToggle,
     required this.playbackRate,
     required this.onPictureInPicture,
     required this.onPreviousMedia,
@@ -76,6 +87,17 @@ class PlayerControls extends StatefulWidget {
   final bool showPipButton;
   final bool showOrientationButton;
   final bool showMediaSwitchButton;
+  final bool showShuffleButton;
+  final bool shuffleEnabled;
+  final String shuffleOnTooltip;
+  final String shuffleOffTooltip;
+  final VoidCallback? onShuffleToggle;
+  final bool showRepeatButton;
+  final PlaybackRepeatMode repeatMode;
+  final String repeatOffTooltip;
+  final String repeatOneTooltip;
+  final String repeatAllTooltip;
+  final VoidCallback? onRepeatToggle;
   final double playbackRate;
   final VoidCallback onPictureInPicture;
   final VoidCallback? onPreviousMedia;
@@ -114,6 +136,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   double? _dragValue;
   int? _lastSliderHapticBucket;
   bool _sliderDragging = false;
+
   /// 是否已收到按下定位之后的移动：首次 onChanged 是“跳到按下点”，
   /// 点按跳转与拖动起点无法区分，不作为跨档刻度反馈。
   bool _sliderDragMoved = false;
@@ -292,6 +315,15 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   Widget _actionBar() {
     final actions = <Widget>[
+      if (widget.showShuffleButton)
+        _actionButton(
+          icon: Icons.shuffle,
+          tooltip: widget.shuffleEnabled
+              ? widget.shuffleOffTooltip
+              : widget.shuffleOnTooltip,
+          onPressed: widget.onShuffleToggle,
+          active: widget.shuffleEnabled,
+        ),
       if (widget.showMediaSwitchButton)
         _actionButton(
           icon: Icons.skip_previous,
@@ -317,6 +349,19 @@ class _PlayerControlsState extends State<PlayerControls> {
           tooltip: '下一部',
           onPressed: widget.onNextMedia,
         ),
+      if (widget.showRepeatButton)
+        _actionButton(
+          icon: widget.repeatMode == PlaybackRepeatMode.one
+              ? Icons.repeat_one
+              : Icons.repeat,
+          tooltip: switch (widget.repeatMode) {
+            PlaybackRepeatMode.off => widget.repeatOffTooltip,
+            PlaybackRepeatMode.one => widget.repeatOneTooltip,
+            PlaybackRepeatMode.all => widget.repeatAllTooltip,
+          },
+          onPressed: widget.onRepeatToggle,
+          active: widget.repeatMode != PlaybackRepeatMode.off,
+        ),
     ];
     if (actions.isEmpty) return const SizedBox(height: 56);
     return Align(
@@ -333,6 +378,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     required IconData icon,
     required String tooltip,
     required VoidCallback? onPressed,
+    bool active = false,
   }) {
     final action = onPressed;
     return IconButton(
@@ -343,7 +389,11 @@ class _PlayerControlsState extends State<PlayerControls> {
       constraints: const BoxConstraints.tightFor(width: 48, height: 48),
       icon: Icon(
         icon,
-        color: action == null ? Colors.white30 : Colors.white,
+        color: action == null
+            ? Colors.white30
+            : active
+            ? const Color(0xFF8ED8FF)
+            : Colors.white,
         size: 27,
       ),
       onPressed: action == null
@@ -544,8 +594,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     if (!_sliderDragMoved) {
       _lastSliderHapticBucket = bucket;
       _sliderDragMoved = true;
-    } else if (widget.hapticProgressBar &&
-        bucket != _lastSliderHapticBucket) {
+    } else if (widget.hapticProgressBar && bucket != _lastSliderHapticBucket) {
       _lastSliderHapticBucket = bucket;
       PlayerHaptics.selection();
     }

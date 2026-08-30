@@ -253,6 +253,18 @@ class KsPlayerPlaybackEngine implements PlaybackEngine {
   }
 
   @override
+  Future<void> skipToPrevious() async {}
+
+  @override
+  Future<void> skipToNext() async {}
+
+  @override
+  Future<void> setShuffleMode(bool enabled) async {}
+
+  @override
+  Future<void> setRepeatMode(PlaybackRepeatMode mode) async {}
+
+  @override
   Future<void> playOrPause() => _state.value.playing ? pause() : play();
 
   @override

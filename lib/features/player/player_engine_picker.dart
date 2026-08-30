@@ -62,6 +62,7 @@ Future<PlaybackEngineKind?> showPlaybackEnginePicker(
                         PlaybackEngineKind.libmpv =>
                           Icons.video_library_outlined,
                         PlaybackEngineKind.ksPlayer => Icons.movie_outlined,
+                        PlaybackEngineKind.audio => Icons.audiotrack_outlined,
                       },
                       color: engineKind == defaultEngineKind
                           ? c.accent

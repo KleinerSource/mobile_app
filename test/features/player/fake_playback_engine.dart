@@ -26,6 +26,14 @@ class FakePlaybackEngine implements PlaybackEngine {
   PlaybackEngineCapabilities get capabilities => switch (kind) {
     PlaybackEngineKind.ksPlayer => const PlaybackEngineCapabilities.ksPlayer(),
     PlaybackEngineKind.libmpv => const PlaybackEngineCapabilities.libmpv(),
+    PlaybackEngineKind.audio => const PlaybackEngineCapabilities(
+      pictureInPicture: false,
+      framePreview: false,
+      audioTracks: false,
+      textSubtitles: false,
+      bitmapSubtitles: false,
+      customBuffering: false,
+    ),
   };
 
   @override
@@ -68,6 +76,20 @@ class FakePlaybackEngine implements PlaybackEngine {
 
   @override
   Future<void> playOrPause() => notifier.value.playing ? pause() : play();
+
+  @override
+  Future<void> skipToPrevious() async => commands.add('previous');
+
+  @override
+  Future<void> skipToNext() async => commands.add('next');
+
+  @override
+  Future<void> setShuffleMode(bool enabled) async =>
+      commands.add('shuffle:$enabled');
+
+  @override
+  Future<void> setRepeatMode(PlaybackRepeatMode mode) async =>
+      commands.add('repeat:${mode.name}');
 
   @override
   Future<void> seek(Duration position) async {

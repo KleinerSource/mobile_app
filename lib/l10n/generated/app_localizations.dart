@@ -1549,6 +1549,12 @@ abstract class AppL10n {
   /// **'视频预览失败：{error}'**
   String fileVideoPreviewFailed(String error);
 
+  /// No description provided for @fileAudioPreviewFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'音频预览失败：{error}'**
+  String fileAudioPreviewFailed(String error);
+
   /// No description provided for @fileImagePreviewFailed.
   ///
   /// In zh, this message translates to:
@@ -1782,6 +1788,36 @@ abstract class AppL10n {
   /// In zh, this message translates to:
   /// **'已选 {n} 项'**
   String fileSelectedItems(int n);
+
+  /// No description provided for @playerShuffleOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启随机播放'**
+  String get playerShuffleOn;
+
+  /// No description provided for @playerShuffleOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭随机播放'**
+  String get playerShuffleOff;
+
+  /// No description provided for @playerRepeatOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'循环：关闭'**
+  String get playerRepeatOff;
+
+  /// No description provided for @playerRepeatOne.
+  ///
+  /// In zh, this message translates to:
+  /// **'循环：单曲'**
+  String get playerRepeatOne;
+
+  /// No description provided for @playerRepeatAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'循环：列表'**
+  String get playerRepeatAll;
 }
 
 class _AppL10nDelegate extends LocalizationsDelegate<AppL10n> {

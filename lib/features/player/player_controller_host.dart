@@ -779,6 +779,18 @@ class MediaKitPlaybackEngine implements PlaybackEngine {
     await player.pause();
   }
 
+  @override
+  Future<void> skipToPrevious() async {}
+
+  @override
+  Future<void> skipToNext() async {}
+
+  @override
+  Future<void> setShuffleMode(bool enabled) async {}
+
+  @override
+  Future<void> setRepeatMode(PlaybackRepeatMode mode) async {}
+
   /// 停止当前媒体但保留播放器实例, 用于退出播放页前的停播。
   @override
   Future<void> stop() async {
