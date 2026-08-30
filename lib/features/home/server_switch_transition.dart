@@ -639,8 +639,6 @@ class _ServerSwitchTransitionOverlayState
     _finishingServerId = targetServerId;
     _entryController.stop();
     _handoffController.stop();
-    _entryController.value = 1;
-    _handoffController.value = 1;
     _finishController.stop();
     _finishController.value = 0;
 
@@ -648,19 +646,37 @@ class _ServerSwitchTransitionOverlayState
       if (!mounted || _finishingServerId != targetServerId) return;
       if (MediaQuery.maybeOf(context)?.disableAnimations == true) {
         _finishController.value = 1;
+        _entryController.value = 1;
+        _handoffController.value = 1;
         ref.read(serverSwitchTransitionProvider.notifier).finishTransition();
         return;
       }
-      unawaited(
-        _finishController.forward().then((_) {
-          if (mounted && _finishingServerId == targetServerId) {
-            ref
-                .read(serverSwitchTransitionProvider.notifier)
-                .finishTransition();
-          }
-        }),
-      );
+      if (_entryController.value < 1) {
+        unawaited(
+          _entryController.forward().then((_) {
+            if (mounted && _finishingServerId == targetServerId) {
+              _handoffController.value = 1;
+              _startFinishAnimation(targetServerId);
+            }
+          }),
+        );
+      } else {
+        _entryController.value = 1;
+        _handoffController.value = 1;
+        _startFinishAnimation(targetServerId);
+      }
     });
+  }
+
+  void _startFinishAnimation(String targetServerId) {
+    if (!mounted || _finishingServerId != targetServerId) return;
+    unawaited(
+      _finishController.forward().then((_) {
+        if (mounted && _finishingServerId == targetServerId) {
+          ref.read(serverSwitchTransitionProvider.notifier).finishTransition();
+        }
+      }),
+    );
   }
 
   void _ensureReturning(BuildContext context, ServerSwitchState transition) {
@@ -758,7 +774,20 @@ class _ServerSwitchTransitionOverlayState
                           color: Colors.transparent,
                         ),
                       ),
-                      if (target != null)
+                      if (target != null &&
+                          localEntryOrigin != null &&
+                          _entryController.value < 1)
+                        _buildEntryAvatar(
+                          colors: appColors(context),
+                          server: target,
+                          origin: localEntryOrigin,
+                          destination: ServerSwitchTransitionMetrics.avatarRect(
+                            constraints.biggest,
+                          ),
+                          progress: entryProgress,
+                          opacity: 1,
+                        )
+                      else if (target != null)
                         _buildFinishingAvatar(
                           colors: appColors(context),
                           server: target,
@@ -815,9 +844,6 @@ class _ServerSwitchTransitionOverlayState
               final contentOpacity = _entryOrigin == null
                   ? 1.0
                   : handoffProgress;
-              final contentOffset = _entryOrigin == null
-                  ? Offset.zero
-                  : Offset(0, (1 - handoffProgress) * 10);
               return Material(
                 color: Colors.transparent,
                 child: Stack(
@@ -841,21 +867,17 @@ class _ServerSwitchTransitionOverlayState
                     ),
                     IgnorePointer(
                       ignoring: contentOpacity < 1,
-                      child: Transform.translate(
-                        offset: contentOffset,
-                        child: _buildContentViewport(
-                          constraints: constraints,
-                          content: content,
-                          contentOpacity: contentOpacity,
-                          showAvatar:
-                              _entryOrigin == null ||
-                              _entryController.value >= 1,
-                          colors: appColors(context),
-                          server: target,
-                          busy:
-                              transition.phase == ServerSwitchPhase.checking ||
-                              _loginBusy,
-                        ),
+                      child: _buildContentViewport(
+                        constraints: constraints,
+                        content: content,
+                        contentOpacity: contentOpacity,
+                        showAvatar:
+                            _entryOrigin == null || _entryController.value >= 1,
+                        colors: appColors(context),
+                        server: target,
+                        busy:
+                            transition.phase == ServerSwitchPhase.checking ||
+                            _loginBusy,
                       ),
                     ),
                     if (!isFinishing &&
