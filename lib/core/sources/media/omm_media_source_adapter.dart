@@ -53,7 +53,7 @@ class OmmMediaSourceAdapter
   SourceDescriptor get descriptor => SourceDescriptor(
     id: _sourceId,
     kind: SourceKind.omm,
-    name: 'Oh-My-Media',
+    name: 'Oh My Media',
     serverId: client.config?.activeServerId,
     endpoint: client.config?.baseUrl,
   );

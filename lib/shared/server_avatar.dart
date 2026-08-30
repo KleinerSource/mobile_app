@@ -203,7 +203,7 @@ class _ServerProjectBadge extends StatelessWidget {
       ServerProject.ohMyMedia => (
         'OMM',
         const Color(0xFF7C4DFF),
-        'Oh-My-Media',
+        'Oh My Media',
       ),
       ServerProject.dbOnline => ('DBO', const Color(0xFF0E7490), 'dbonline'),
       ServerProject.smb => ('SMB', const Color(0xFF2E7D32), 'SMB'),

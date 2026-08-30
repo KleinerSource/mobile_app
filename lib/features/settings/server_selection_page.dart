@@ -429,13 +429,13 @@ class _BrandHeader extends StatelessWidget {
               'assets/branding/oh_my_media_logo.png',
               fit: BoxFit.cover,
               filterQuality: FilterQuality.high,
-              semanticLabel: 'Oh-My-Media',
+              semanticLabel: 'Oh My Media',
             ),
           ),
         ),
         const SizedBox(height: 16),
         Text(
-          'Oh-My-Media',
+          'Oh My Media',
           style: AppText.cardTitle(
             context,
           ).copyWith(fontSize: 18, letterSpacing: 0.3),

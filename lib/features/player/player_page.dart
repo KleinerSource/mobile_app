@@ -1472,8 +1472,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           : null;
       final result = await SharePlus.instance.share(
         ShareParams(
-          subject: 'Oh-My-Media 播放错误',
-          text: 'Oh-My-Media 播放错误日志',
+          subject: 'Oh My Media 播放错误',
+          text: 'Oh My Media 播放错误日志',
           sharePositionOrigin: sharePositionOrigin,
           files: [
             XFile.fromData(

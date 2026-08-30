@@ -214,7 +214,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('连接到媒体服务器'), findsOneWidget);
-    expect(find.text('Oh-My-Media'), findsOneWidget);
+    expect(find.text('Oh My Media'), findsOneWidget);
     expect(find.byType(TextField), findsNWidgets(3));
     expect(
       tester

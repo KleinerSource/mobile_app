@@ -53,7 +53,7 @@ class _SecuritySettingsContent extends ConsumerWidget {
       header: const SettingsSubPageHeader(
         eyebrow: '应用设置',
         title: '安全设置',
-        subtitle: '配置进入 Oh-My-Media 时使用的本地验证方式',
+        subtitle: '配置进入 Oh My Media 时使用的本地验证方式',
       ),
       body: ListView(
         primary: true,

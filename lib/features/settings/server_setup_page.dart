@@ -779,7 +779,7 @@ class _ProtocolSelector extends StatelessWidget {
 
 String _projectLabel(ServerProject project) {
   return switch (project) {
-    ServerProject.ohMyMedia => 'Oh-My-Media',
+    ServerProject.ohMyMedia => 'Oh My Media',
     ServerProject.dbOnline => 'DB Online',
     ServerProject.smb => 'SMB',
     ServerProject.webDav => 'WebDAV',

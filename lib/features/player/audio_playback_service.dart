@@ -202,7 +202,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     return audio_service.MediaItem(
       id: safeId.isEmpty ? 'item:${title.hashCode.abs()}' : safeId,
       title: title.isEmpty ? '未知音频' : title,
-      artist: 'Oh-My-Media',
+      artist: 'Oh My Media',
       album: '文件管理器',
       playable: true,
       extras: <String, dynamic>{

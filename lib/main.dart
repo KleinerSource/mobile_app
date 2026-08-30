@@ -80,7 +80,7 @@ class OmmApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp(
-      title: 'Oh-My-Media',
+      title: 'Oh My Media',
       debugShowCheckedModeBanner: false,
       navigatorKey: _rootNavigatorKey,
       theme: buildAppTheme(Brightness.light),

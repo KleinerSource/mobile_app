@@ -114,7 +114,7 @@ class DbOnlinePerson {
 }
 
 /// 详情接口中的关联/推荐影片。番号和 ID 均保持字符串，避免复用
-/// Oh-My-Media 的整数影片模型。
+/// Oh My Media 的整数影片模型。
 @immutable
 class DbOnlineRecommendedMovie {
   const DbOnlineRecommendedMovie({

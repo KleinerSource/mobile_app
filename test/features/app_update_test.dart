@@ -116,7 +116,7 @@ void _main_1() {
             sharedPrefsProvider.overrideWithValue(prefs),
             appPackageInfoProvider.overrideWith(
               (_) async => PackageInfo(
-                appName: 'Oh-My-Media',
+                appName: 'Oh My Media',
                 packageName: 'com.ohmymedia.omm',
                 version: '0.38.22',
                 buildNumber: '409',

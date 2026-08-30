@@ -195,7 +195,7 @@ class DbOnlineApi {
   }
 
   /// 按番号获取影片详情。dbonline 使用字符串番号作为稳定标识，不能
-  /// 转换为 Oh-My-Media 的整数影片 ID。每次请求都会强制携带 refresh=true。
+  /// 转换为 Oh My Media 的整数影片 ID。每次请求都会强制携带 refresh=true。
   Future<DbOnlineMovieDetail> detail(
     String code, {
     bool refresh = false,

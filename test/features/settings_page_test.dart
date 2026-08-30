@@ -81,7 +81,7 @@ Widget _app(SharedPreferences prefs) {
       sharedPrefsProvider.overrideWithValue(prefs),
       appPackageInfoProvider.overrideWith(
         (_) async => PackageInfo(
-          appName: 'Oh-My-Media',
+          appName: 'Oh My Media',
           packageName: 'com.ohmymedia.omm',
           version: '0.0.0',
           buildNumber: '0',

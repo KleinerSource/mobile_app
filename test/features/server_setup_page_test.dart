@@ -21,11 +21,11 @@ void main() {
     expect(find.text('请输入服务器名称'), findsOneWidget);
   });
 
-  testWidgets('创建服务器默认选择 Oh-My-Media 并显示 HTTP 字段', (tester) async {
+  testWidgets('创建服务器默认选择 Oh My Media 并显示 HTTP 字段', (tester) async {
     final prefs = await _prefs();
     await _pumpSetup(tester, prefs);
 
-    expect(find.text('Oh-My-Media'), findsOneWidget);
+    expect(find.text('Oh My Media'), findsOneWidget);
     expect(find.text('协议'), findsOneWidget);
     expect(find.text('主机'), findsOneWidget);
     expect(find.text('端口'), findsOneWidget);

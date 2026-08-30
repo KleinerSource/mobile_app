@@ -169,7 +169,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       if (session?.isUsable == true) {
         return AuthState(phase: AuthPhase.authenticated, status: status);
       }
-      // Oh-My-Media 会话必须同时具备 access/refresh 两个令牌；旧版或
+      // Oh My Media 会话必须同时具备 access/refresh 两个令牌；旧版或
       // 异常迁移留下的 token-only 会话不能绕过登录页。
       await ref.read(authSessionRepositoryProvider).clear();
       return AuthState(phase: AuthPhase.needsLogin, status: status);
