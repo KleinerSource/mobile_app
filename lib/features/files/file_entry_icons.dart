@@ -331,14 +331,14 @@ class FileEntryIconBadge extends StatelessWidget {
   const FileEntryIconBadge({
     super.key,
     required this.entry,
-    this.child,
+    required this.child,
     this.isFavorite = false,
     this.width = 44,
     this.height = 44,
   });
 
   final FileEntry entry;
-  final Widget? child;
+  final Widget child;
   final bool isFavorite;
   final double width;
   final double height;
@@ -348,20 +348,7 @@ class FileEntryIconBadge extends StatelessWidget {
     final theme = Theme.of(context);
     final c = appColors(context);
     final isDark = theme.brightness == Brightness.dark;
-    final iconColor = fileIconColorFor(entry, theme.brightness);
-    final badge = SizedBox(
-      width: width,
-      height: height,
-      child:
-          child ??
-          Center(
-            child: Icon(
-              entry.isDirectory ? Icons.folder_rounded : fileIconFor(entry),
-              color: iconColor,
-              size: width >= 60 ? 24 : 22,
-            ),
-          ),
-    );
+    final badge = SizedBox(width: width, height: height, child: child);
 
     if (!isFavorite) return badge;
 
@@ -447,7 +434,7 @@ String fileIconPlaceholderAssetFor(FileEntry entry) {
 }
 
 /// 关闭图片预览时使用的类型图标；未知类型使用统一未知图标。
-String? fileIconAssetWhenPreviewDisabledFor(FileEntry entry) {
+String fileIconAssetWhenPreviewDisabledFor(FileEntry entry) {
   if (entry.isDirectory) return _folderPlaceholderAsset;
   return switch (fileTypeIconFor(entry)) {
     FileTypeIcon.video => _videoFileIconAsset,
@@ -462,42 +449,4 @@ String? fileIconAssetWhenPreviewDisabledFor(FileEntry entry) {
     FileTypeIcon.code => _codeFileIconAsset,
     FileTypeIcon.other => _unknownPlaceholderAsset,
   };
-}
-
-IconData fileIconFor(FileEntry entry) {
-  return switch (fileTypeIconFor(entry)) {
-    FileTypeIcon.text => Icons.article_rounded,
-    FileTypeIcon.video => Icons.movie_rounded,
-    FileTypeIcon.image => Icons.photo_rounded,
-    FileTypeIcon.archive => Icons.archive_rounded,
-    FileTypeIcon.pdf => Icons.picture_as_pdf_rounded,
-    FileTypeIcon.presentation => Icons.slideshow_rounded,
-    FileTypeIcon.spreadsheet => Icons.table_chart_rounded,
-    FileTypeIcon.document => Icons.description_rounded,
-    FileTypeIcon.audio => Icons.audio_file_rounded,
-    FileTypeIcon.code => Icons.code_rounded,
-    FileTypeIcon.other =>
-      (entry.mimeType?.trim().toLowerCase().startsWith('audio/') ?? false)
-          ? Icons.audio_file_rounded
-          : Icons.insert_drive_file_rounded,
-  };
-}
-
-Color fileIconColorFor(FileEntry entry, Brightness brightness) {
-  final hue = entry.isDirectory
-      ? AppHues.sky
-      : switch (fileTypeIconFor(entry)) {
-          FileTypeIcon.text => AppHues.sky,
-          FileTypeIcon.video => AppHues.coral,
-          FileTypeIcon.image => AppHues.mint,
-          FileTypeIcon.archive => AppHues.lavender,
-          FileTypeIcon.pdf => AppHues.coral,
-          FileTypeIcon.presentation => AppHues.coral,
-          FileTypeIcon.spreadsheet => AppHues.mint,
-          FileTypeIcon.document => AppHues.sky,
-          FileTypeIcon.audio => AppHues.solar,
-          FileTypeIcon.code => AppHues.lavender,
-          FileTypeIcon.other => AppHues.lavender,
-        };
-  return AppHues.chipText(hue, brightness);
 }

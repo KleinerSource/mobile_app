@@ -158,7 +158,12 @@ void main() {
 
   testWidgets('does not add an outer shell around file icons', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(home: FileEntryIconBadge(entry: entry('settings.json'))),
+      MaterialApp(
+        home: FileEntryIconBadge(
+          entry: entry('settings.json'),
+          child: const SizedBox(),
+        ),
+      ),
     );
 
     expect(

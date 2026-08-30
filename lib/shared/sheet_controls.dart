@@ -27,15 +27,17 @@ double sheetMaxHeight(BuildContext context) {
 class SheetHeader extends StatelessWidget {
   const SheetHeader({
     super.key,
-    required this.icon,
+    this.icon,
+    this.iconWidget,
     required this.title,
     this.subtitle,
     this.trailing,
     this.leading,
     this.padding = const EdgeInsets.fromLTRB(22, 6, 22, 12),
-  });
+  }) : assert(icon != null || iconWidget != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? iconWidget;
   final String title;
   final String? subtitle;
   final Widget? trailing;
@@ -58,7 +60,7 @@ class SheetHeader extends StatelessWidget {
               color: c.accent.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: c.accent, size: 20),
+            child: iconWidget ?? Icon(icon!, color: c.accent, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(

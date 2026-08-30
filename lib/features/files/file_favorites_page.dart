@@ -134,7 +134,13 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
     final starColor = AppHues.chipText(AppHues.solar, theme.brightness);
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
-      leading: FileEntryIconBadge(entry: entry, isFavorite: true),
+      leading: FileEntryIconBadge(
+        entry: entry,
+        isFavorite: true,
+        child: FileEntryIconAsset(
+          assetPath: fileIconAssetWhenPreviewDisabledFor(entry),
+        ),
+      ),
       title: Text(favorite.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         locationLabel,

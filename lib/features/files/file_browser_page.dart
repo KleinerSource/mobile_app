@@ -852,9 +852,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       final hasImagePreview =
           imagePreviewEnabled && !entry.isDirectory && _isImageEntry(entry);
       final previewFrame = imagePreviewEnabled;
-      final compactIconAsset = previewFrame
-          ? null
-          : fileIconAssetWhenPreviewDisabledFor(entry);
       leading = FileEntryIconBadge(
         entry: entry,
         isFavorite: isFavorite,
@@ -867,9 +864,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
               )
             : previewFrame
             ? FileEntryIconPlaceholder(entry: entry)
-            : compactIconAsset != null
-            ? FileEntryIconAsset(assetPath: compactIconAsset)
-            : null,
+            : FileEntryIconAsset(
+                assetPath: fileIconAssetWhenPreviewDisabledFor(entry),
+              ),
       );
     }
     return SwipeActionCell(
@@ -1421,9 +1418,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SheetHeader(
-              icon: entry.isDirectory
-                  ? Icons.folder_rounded
-                  : fileIconFor(entry),
+              icon: null,
+              iconWidget: FileEntryIconAsset(
+                assetPath: fileIconAssetWhenPreviewDisabledFor(entry),
+              ),
               title: entry.name,
               subtitle: entry.isDirectory
                   ? l.fileDirectoryDetails
