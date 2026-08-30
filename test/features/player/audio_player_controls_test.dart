@@ -45,7 +45,9 @@ void main() {
               onOpenSubtitleSettings: () {},
               audioTracks: const [],
               onAudioChanged: (_) {},
-              decodeStatuses: const <PlayerDecodeStatus>[],
+              decodeStatuses: const <PlayerDecodeStatus>[
+                PlayerDecodeStatus.local(hardware: true),
+              ],
               hapticProgressBar: false,
               showPlayPauseButton: true,
               showSeekButtons: true,
@@ -53,6 +55,7 @@ void main() {
               showPipButton: false,
               showOrientationButton: false,
               showMediaSwitchButton: true,
+              isAudioMode: true,
               showShuffleButton: true,
               shuffleEnabled: false,
               onShuffleToggle: () => unawaited(
@@ -92,6 +95,10 @@ void main() {
     expect(find.byIcon(Icons.forward_10), findsOneWidget);
     expect(find.byIcon(Icons.skip_next), findsOneWidget);
     expect(find.byIcon(Icons.repeat), findsOneWidget);
+    expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+    expect(find.text('正在播放.mp3'), findsOneWidget);
+    expect(find.byIcon(Icons.phone_android), findsNothing);
     expect(find.byIcon(Icons.high_quality_outlined), findsNothing);
     expect(find.byIcon(Icons.subtitles_outlined), findsNothing);
     expect(find.byIcon(Icons.picture_in_picture_alt), findsNothing);

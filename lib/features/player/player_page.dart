@@ -2089,7 +2089,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
         if (!didPop) unawaited(_exitPlayer());
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: _isAudioPlayback
+            ? Theme.of(context).colorScheme.surface
+            : Colors.black,
         body: SafeArea(
           child: Stack(children: [Positioned.fill(child: _body())]),
         ),
@@ -2174,24 +2176,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
           ),
         ),
         Positioned.fill(child: PlayerOverlayIndicators(indicator: _indicator)),
-        Positioned(
-          top: 8,
-          left: 20,
-          right: 20,
-          child: PlayerStatusOverlay(
-            title: _isAudioPlayback
-                ? (playbackState.currentTitle?.trim().isNotEmpty == true
-                      ? playbackState.currentTitle!
-                      : widget.title)
-                : widget.title,
-            stats: _deviceStats,
-            showSystemTime: settings.showSystemTime,
-            showNetworkSpeed: settings.showNetworkSpeed,
-            showCpuUsage: settings.showCpuUsage,
-            showBattery: settings.showBattery,
+        if (!_isAudioPlayback)
+          Positioned(
+            top: 8,
+            left: 20,
+            right: 20,
+            child: PlayerStatusOverlay(
+              title: widget.title,
+              stats: _deviceStats,
+              showSystemTime: settings.showSystemTime,
+              showNetworkSpeed: settings.showNetworkSpeed,
+              showCpuUsage: settings.showCpuUsage,
+              showBattery: settings.showBattery,
+            ),
           ),
-        ),
-        if (settings.debugMode)
+        if (settings.debugMode && !_isAudioPlayback)
           Positioned(
             top: 42,
             left: 20,
@@ -2224,7 +2223,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                     ? decision.audioTracks
                     : const [],
                 onAudioChanged: (track) => unawaited(_applyAudioTrack(track)),
-                decodeStatuses: _decodeStatuses,
+                decodeStatuses: _isAudioPlayback ? const [] : _decodeStatuses,
                 hapticProgressBar: settings.hapticProgressBar,
                 showPlayPauseButton: settings.showPlayPauseButton,
                 showSeekButtons: _isAudioPlayback || settings.showSeekButtons,
@@ -2239,6 +2238,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage>
                     !_isAudioPlayback && settings.showOrientationButton,
                 showMediaSwitchButton:
                     _isAudioPlayback || settings.showMediaSwitchButton,
+                isAudioMode: _isAudioPlayback,
                 showShuffleButton: _isAudioPlayback,
                 shuffleEnabled: playbackState.shuffleEnabled,
                 shuffleOnTooltip: l10n.playerShuffleOn,

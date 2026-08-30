@@ -184,46 +184,47 @@ class AudioPlaybackEngine implements PlaybackEngine {
 
   @override
   Widget buildSurface({BoxFit fit = BoxFit.contain}) {
-    return ValueListenableBuilder<PlaybackViewState>(
-      valueListenable: _state,
-      builder: (context, state, _) {
-        final title = state.currentTitle?.trim();
-        final text = title == null || title.isEmpty ? '音乐播放' : title;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scheme = Theme.of(context).colorScheme;
+        final background = scheme.surface;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final cardColor = Color.alphaBlend(
+          (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
+          background,
+        );
+        final iconColor = scheme.onSurface.withValues(alpha: 0.08);
+        final cardSize = (constraints.maxWidth - 48)
+            .clamp(0.0, 420.0)
+            .toDouble();
         return ColoredBox(
-          color: Colors.black,
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Padding(
-                      padding: EdgeInsets.all(28),
-                      child: Icon(
-                        Icons.music_note_rounded,
-                        color: Colors.white,
-                        size: 72,
+          color: background,
+          child: Align(
+            alignment: const Alignment(0, -0.1),
+            child: SizedBox(
+              width: cardSize,
+              height: cardSize,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: isDark ? 0.18 : 0.1,
                       ),
+                      blurRadius: 24,
+                      offset: const Offset(0, 10),
                     ),
+                  ],
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.music_note_rounded,
+                    color: iconColor,
+                    size: cardSize * 0.34,
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    text,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

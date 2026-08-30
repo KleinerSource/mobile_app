@@ -13,6 +13,8 @@ import 'player_session_controller.dart';
 
 enum _SubtitleMenuAction { openSettings }
 
+enum _AudioMenuAction { shuffle, repeat }
+
 /// 播放器控制层 · 顶部页面操作 + 底部媒体信息、进度和主播放控制。
 ///
 /// 控制层只覆盖顶部和底部，中央区域始终留给手势层。
@@ -40,6 +42,7 @@ class PlayerControls extends StatefulWidget {
     required this.showPipButton,
     required this.showOrientationButton,
     required this.showMediaSwitchButton,
+    this.isAudioMode = false,
     this.showShuffleButton = false,
     this.shuffleEnabled = false,
     this.shuffleOnTooltip = '开启随机播放',
@@ -87,6 +90,7 @@ class PlayerControls extends StatefulWidget {
   final bool showPipButton;
   final bool showOrientationButton;
   final bool showMediaSwitchButton;
+  final bool isAudioMode;
   final bool showShuffleButton;
   final bool shuffleEnabled;
   final String shuffleOnTooltip;
@@ -187,6 +191,8 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isAudioMode) return _audioLayout(context);
+
     return Stack(
       children: [
         const Positioned.fill(
@@ -207,6 +213,202 @@ class _PlayerControlsState extends State<PlayerControls> {
         Positioned(right: 0, bottom: 0, left: 0, child: _bottomBar()),
       ],
     );
+  }
+
+  Widget _audioLayout(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          top: 8,
+          left: 20,
+          right: 20,
+          child: Row(
+            children: [
+              _topActionButton(
+                icon: Icons.keyboard_arrow_down_rounded,
+                tooltip: '退出播放',
+                onPressed: widget.onExit,
+              ),
+              const Spacer(),
+              _audioMoreButton(context),
+            ],
+          ),
+        ),
+        Positioned(right: 24, bottom: 18, left: 24, child: _audioBottomBar()),
+      ],
+    );
+  }
+
+  Widget _audioMoreButton(BuildContext context) {
+    final foreground = _foreground(context);
+    return PopupMenuButton<_AudioMenuAction>(
+      tooltip: '更多播放选项',
+      enableFeedback: false,
+      padding: EdgeInsets.zero,
+      onSelected: (action) {
+        PlayerHaptics.selection();
+        switch (action) {
+          case _AudioMenuAction.shuffle:
+            widget.onShuffleToggle?.call();
+          case _AudioMenuAction.repeat:
+            widget.onRepeatToggle?.call();
+        }
+        widget.onInteraction();
+      },
+      itemBuilder: (context) => [
+        if (widget.showShuffleButton && widget.onShuffleToggle != null)
+          PopupMenuItem<_AudioMenuAction>(
+            value: _AudioMenuAction.shuffle,
+            child: Text(widget.shuffleEnabled ? '关闭随机播放' : '开启随机播放'),
+          ),
+        if (widget.showRepeatButton && widget.onRepeatToggle != null)
+          PopupMenuItem<_AudioMenuAction>(
+            value: _AudioMenuAction.repeat,
+            child: Text(switch (widget.repeatMode) {
+              PlaybackRepeatMode.off => '循环：关闭',
+              PlaybackRepeatMode.one => '循环：单曲',
+              PlaybackRepeatMode.all => '循环：列表',
+            }),
+          ),
+      ],
+      child: SizedBox(
+        width: 46,
+        height: 46,
+        child: Center(
+          child: Icon(Icons.more_horiz, color: foreground, size: 28),
+        ),
+      ),
+    );
+  }
+
+  Widget _audioBottomBar() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _audioTitle(),
+        const SizedBox(height: 20),
+        _audioProgress(),
+        const SizedBox(height: 28),
+        _audioPrimaryControls(),
+        const SizedBox(height: 20),
+        _audioSecondaryControls(),
+      ],
+    );
+  }
+
+  Widget _audioTitle() {
+    return ValueListenableBuilder<PlaybackViewState>(
+      valueListenable: widget.controller,
+      builder: (context, state, _) {
+        final title = state.currentTitle?.trim();
+        return Text(
+          title == null || title.isEmpty ? '音乐播放' : title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: _foreground(context),
+            fontSize: 20,
+            height: 1.2,
+            fontWeight: FontWeight.w700,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _audioProgress() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _progressSlider(),
+        const SizedBox(height: 2),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [_positionText(), _durationText()],
+        ),
+      ],
+    );
+  }
+
+  Widget _audioPrimaryControls() {
+    final actions = <Widget>[
+      if (widget.showSeekButtons)
+        _actionButton(
+          icon: Icons.replay_10,
+          tooltip: '快退 10 秒',
+          onPressed: widget.onSeekBackward,
+        ),
+      if (widget.showMediaSwitchButton)
+        _actionButton(
+          icon: Icons.skip_previous,
+          tooltip: '上一曲',
+          onPressed: widget.onPreviousMedia,
+        ),
+      if (widget.showPlayPauseButton) _playPauseButton(),
+      if (widget.showMediaSwitchButton)
+        _actionButton(
+          icon: Icons.skip_next,
+          tooltip: '下一曲',
+          onPressed: widget.onNextMedia,
+        ),
+      if (widget.showSeekButtons)
+        _actionButton(
+          icon: Icons.forward_10,
+          tooltip: '快进 10 秒',
+          onPressed: widget.onSeekForward,
+        ),
+    ];
+    if (actions.isEmpty) return const SizedBox.shrink();
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: actions,
+    );
+  }
+
+  Widget _audioSecondaryControls() {
+    final actions = <Widget>[
+      if (widget.showSpeedButton) _speedButton(),
+      if (widget.showShuffleButton)
+        _actionButton(
+          icon: Icons.shuffle,
+          tooltip: widget.shuffleEnabled
+              ? widget.shuffleOffTooltip
+              : widget.shuffleOnTooltip,
+          onPressed: widget.onShuffleToggle,
+          active: widget.shuffleEnabled,
+        ),
+      if (widget.showRepeatButton)
+        _actionButton(
+          icon: widget.repeatMode == PlaybackRepeatMode.one
+              ? Icons.repeat_one
+              : Icons.repeat,
+          tooltip: switch (widget.repeatMode) {
+            PlaybackRepeatMode.off => widget.repeatOffTooltip,
+            PlaybackRepeatMode.one => widget.repeatOneTooltip,
+            PlaybackRepeatMode.all => widget.repeatAllTooltip,
+          },
+          onPressed: widget.onRepeatToggle,
+          active: widget.repeatMode != PlaybackRepeatMode.off,
+        ),
+    ];
+    if (actions.isEmpty) return const SizedBox.shrink();
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: actions,
+    );
+  }
+
+  Color _foreground(BuildContext context) {
+    return widget.isAudioMode
+        ? Theme.of(context).colorScheme.onSurface
+        : Colors.white;
+  }
+
+  Color _mutedForeground(BuildContext context) {
+    return _foreground(
+      context,
+    ).withValues(alpha: widget.isAudioMode ? 0.42 : 0.3);
   }
 
   Widget _topBar() {
@@ -255,7 +457,7 @@ class _PlayerControlsState extends State<PlayerControls> {
       padding: EdgeInsets.zero,
       visualDensity: VisualDensity.standard,
       constraints: const BoxConstraints.tightFor(width: 46, height: 46),
-      icon: Icon(icon, color: Colors.white, size: 25),
+      icon: Icon(icon, color: _foreground(context), size: 25),
       onPressed: () {
         PlayerHaptics.light();
         onPressed();
@@ -390,10 +592,12 @@ class _PlayerControlsState extends State<PlayerControls> {
       icon: Icon(
         icon,
         color: action == null
-            ? Colors.white30
+            ? _mutedForeground(context)
             : active
-            ? const Color(0xFF8ED8FF)
-            : Colors.white,
+            ? widget.isAudioMode
+                  ? Theme.of(context).colorScheme.primary
+                  : const Color(0xFF8ED8FF)
+            : _foreground(context),
         size: 27,
       ),
       onPressed: action == null
@@ -425,10 +629,12 @@ class _PlayerControlsState extends State<PlayerControls> {
             child: Text('${rate.toStringAsFixed(rate % 1 == 0 ? 1 : 2)}x'),
           ),
       ],
-      child: const SizedBox(
+      child: SizedBox(
         width: 46,
         height: 46,
-        child: Center(child: Icon(Icons.speed, color: Colors.white, size: 25)),
+        child: Center(
+          child: Icon(Icons.speed, color: _foreground(context), size: 25),
+        ),
       ),
     );
   }
@@ -445,8 +651,8 @@ class _PlayerControlsState extends State<PlayerControls> {
           constraints: const BoxConstraints.tightFor(width: 56, height: 56),
           icon: Icon(
             playing ? Icons.pause : Icons.play_arrow,
-            color: Colors.white,
-            size: 36,
+            color: _foreground(context),
+            size: widget.isAudioMode ? 48 : 36,
           ),
           onPressed: () {
             PlayerHaptics.light();
@@ -475,11 +681,11 @@ class _PlayerControlsState extends State<PlayerControls> {
   Widget _timeLabel(String text) {
     return Text(
       text,
-      style: const TextStyle(
-        color: Colors.white,
+      style: TextStyle(
+        color: _foreground(context),
         fontSize: 12,
         fontWeight: FontWeight.w600,
-        fontFeatures: [FontFeature.tabularFigures()],
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
   }
@@ -514,18 +720,24 @@ class _PlayerControlsState extends State<PlayerControls> {
               children: [
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
-                    trackHeight: 3,
+                    trackHeight: widget.isAudioMode ? 4 : 3,
                     thumbShape: const RoundSliderThumbShape(
                       enabledThumbRadius: 5,
                     ),
                     overlayShape: const RoundSliderOverlayShape(
                       overlayRadius: 14,
                     ),
-                    activeTrackColor: Colors.white,
-                    secondaryActiveTrackColor: Colors.white60,
-                    inactiveTrackColor: Colors.white30,
-                    thumbColor: Colors.white,
-                    overlayColor: Colors.white24,
+                    activeTrackColor: _foreground(context),
+                    secondaryActiveTrackColor: widget.isAudioMode
+                        ? _foreground(context).withValues(alpha: 0.28)
+                        : Colors.white60,
+                    inactiveTrackColor: widget.isAudioMode
+                        ? _foreground(context).withValues(alpha: 0.2)
+                        : Colors.white30,
+                    thumbColor: _foreground(context),
+                    overlayColor: widget.isAudioMode
+                        ? _foreground(context).withValues(alpha: 0.12)
+                        : Colors.white24,
                   ),
                   child: Slider(
                     min: 0,
