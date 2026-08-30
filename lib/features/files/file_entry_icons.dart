@@ -15,6 +15,7 @@ enum FileTypeIcon {
   spreadsheet,
   document,
   audio,
+  code,
   other,
 }
 
@@ -25,7 +26,6 @@ const _videoFileExtensions = <String>{
   'mov',
   'avi',
   'm4v',
-  'ts',
   'm2ts',
   'm3u8',
 };
@@ -54,20 +54,56 @@ const _subtitleFileExtensions = <String>{
   'ttml',
 };
 
-const _textFileExtensions = <String>{
-  'txt',
+const _textFileExtensions = <String>{'txt', 'csv', 'md', 'log'};
+
+const _codeFileExtensions = <String>{
   'json',
-  'csv',
+  'yaml',
+  'yml',
+  'toml',
+  'ini',
+  'conf',
+  'config',
+  'env',
+  'properties',
   'xml',
   'html',
   'htm',
   'css',
+  'scss',
+  'sass',
+  'less',
   'js',
+  'jsx',
   'ts',
-  'yaml',
-  'yml',
-  'md',
-  'log',
+  'tsx',
+  'dart',
+  'java',
+  'kt',
+  'kts',
+  'swift',
+  'py',
+  'rb',
+  'go',
+  'rs',
+  'c',
+  'h',
+  'cc',
+  'cpp',
+  'cxx',
+  'hpp',
+  'cs',
+  'php',
+  'sh',
+  'bash',
+  'zsh',
+  'fish',
+  'ps1',
+  'bat',
+  'cmd',
+  'sql',
+  'vue',
+  'svelte',
 };
 
 const _archiveFileExtensions = <String>{
@@ -192,6 +228,21 @@ const _documentMimeTypes = <String>{
   'text/rtf',
 };
 
+const _codeMimeTypes = <String>{
+  'application/json',
+  'application/ld+json',
+  'application/javascript',
+  'application/x-javascript',
+  'text/javascript',
+  'application/yaml',
+  'application/x-yaml',
+  'text/yaml',
+  'text/x-yaml',
+  'application/toml',
+  'text/x-toml',
+  'application/xml',
+};
+
 const _folderPlaceholderAsset = 'assets/file_icons/folder_placeholder.png';
 const _documentPlaceholderAsset = 'assets/file_icons/document_placeholder.png';
 const _videoPlaceholderAsset = 'assets/file_icons/video_placeholder.png';
@@ -207,6 +258,7 @@ const _presentationFileIconAsset =
 const _spreadsheetFileIconAsset = 'assets/file_icons/spreadsheet_file_icon.png';
 const _documentFileIconAsset = 'assets/file_icons/document_file_icon.png';
 const _audioFileIconAsset = 'assets/file_icons/audio_file_icon.png';
+const _codeFileIconAsset = 'assets/file_icons/code_file_icon.png';
 
 const fileEntryPreviewIconWidth = 64.0;
 const fileEntryPreviewIconHeight = 36.0;
@@ -247,11 +299,11 @@ FileTypeIcon fileTypeIconFor(FileEntry entry) {
   if (mime.startsWith('audio/') || _audioFileExtensions.contains(extension)) {
     return FileTypeIcon.audio;
   }
-  if (mime.startsWith('text/') ||
-      mime == 'application/json' ||
-      mime == 'application/xml' ||
-      mime == 'application/javascript' ||
-      _textFileExtensions.contains(extension)) {
+  if (_codeMimeTypes.contains(mime) ||
+      _codeFileExtensions.contains(extension)) {
+    return FileTypeIcon.code;
+  }
+  if (mime.startsWith('text/') || _textFileExtensions.contains(extension)) {
     return FileTypeIcon.text;
   }
   return FileTypeIcon.other;
@@ -399,7 +451,8 @@ String fileIconPlaceholderAssetFor(FileEntry entry) {
     FileTypeIcon.presentation ||
     FileTypeIcon.spreadsheet ||
     FileTypeIcon.document ||
-    FileTypeIcon.audio => _documentPlaceholderAsset,
+    FileTypeIcon.audio ||
+    FileTypeIcon.code => _documentPlaceholderAsset,
     FileTypeIcon.other => _unknownPlaceholderAsset,
   };
 }
@@ -417,6 +470,7 @@ String? fileIconAssetWhenPreviewDisabledFor(FileEntry entry) {
     FileTypeIcon.spreadsheet => _spreadsheetFileIconAsset,
     FileTypeIcon.document => _documentFileIconAsset,
     FileTypeIcon.audio => _audioFileIconAsset,
+    FileTypeIcon.code => _codeFileIconAsset,
     FileTypeIcon.subtitle || FileTypeIcon.other => null,
   };
 }
@@ -433,6 +487,7 @@ IconData fileIconFor(FileEntry entry) {
     FileTypeIcon.spreadsheet => Icons.table_chart_rounded,
     FileTypeIcon.document => Icons.description_rounded,
     FileTypeIcon.audio => Icons.audio_file_rounded,
+    FileTypeIcon.code => Icons.code_rounded,
     FileTypeIcon.other =>
       (entry.mimeType?.trim().toLowerCase().startsWith('audio/') ?? false)
           ? Icons.audio_file_rounded
@@ -454,6 +509,7 @@ Color fileIconColorFor(FileEntry entry, Brightness brightness) {
           FileTypeIcon.spreadsheet => AppHues.mint,
           FileTypeIcon.document => AppHues.sky,
           FileTypeIcon.audio => AppHues.solar,
+          FileTypeIcon.code => AppHues.lavender,
           FileTypeIcon.other => AppHues.lavender,
         };
   return AppHues.chipText(hue, brightness);

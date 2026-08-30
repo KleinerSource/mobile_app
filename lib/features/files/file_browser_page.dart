@@ -1656,7 +1656,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       fileTypeIconFor(entry) == FileTypeIcon.subtitle;
 
   bool _isTextEntry(FileEntry entry) =>
-      fileTypeIconFor(entry) == FileTypeIcon.text;
+      fileTypeIconFor(entry) == FileTypeIcon.text ||
+      fileTypeIconFor(entry) == FileTypeIcon.code;
 
   String? _pathExtension(String name) {
     final dot = name.lastIndexOf('.');

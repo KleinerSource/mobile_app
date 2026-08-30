@@ -118,4 +118,26 @@ void main() {
       'assets/file_icons/audio_file_icon.png',
     );
   });
+
+  test('recognizes common code file types', () {
+    expect(fileTypeIconFor(entry('settings.json')), FileTypeIcon.code);
+    expect(fileTypeIconFor(entry('config.yaml')), FileTypeIcon.code);
+    expect(fileTypeIconFor(entry('config.toml')), FileTypeIcon.code);
+    expect(fileTypeIconFor(entry('main.ts')), FileTypeIcon.code);
+    expect(
+      fileTypeIconFor(entry('unknown', mimeType: 'application/json')),
+      FileTypeIcon.code,
+    );
+    expect(
+      fileIconPlaceholderAssetFor(entry('settings.json')),
+      'assets/file_icons/document_placeholder.png',
+    );
+  });
+
+  test('maps compact mode code files to the supplied icon', () {
+    expect(
+      fileIconAssetWhenPreviewDisabledFor(entry('settings.json')),
+      'assets/file_icons/code_file_icon.png',
+    );
+  });
 }
