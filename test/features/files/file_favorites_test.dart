@@ -128,6 +128,84 @@ void main() {
     expect(container.read(fileFavoritesProvider('server-one')), hasLength(1));
   });
 
+  test('手动顺序标记按服务器持久化且默认关闭', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = FileFavoritesRepository(prefs);
+
+    expect(repository.loadManualOrder('server-one'), isFalse);
+
+    await repository.saveManualOrder('server-one', true);
+    expect(repository.loadManualOrder('server-one'), isTrue);
+    expect(repository.loadManualOrder('server-two'), isFalse);
+    expect(FileFavoritesRepository(prefs).loadManualOrder('server-one'), isTrue);
+  });
+
+  test('reorder 应用拖拽后的顺序并进入手动排序模式', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(fileFavoritesProvider('server-one').notifier);
+    notifier.toggle(_entry('/c.mkv'));
+    notifier.toggle(_entry('/a.mkv'));
+    notifier.toggle(_entry('/b.mkv'));
+
+    final current = container.read(fileFavoritesProvider('server-one'));
+    notifier.reorder(current.reversed.toList());
+
+    final state = container.read(fileFavoritesProvider('server-one'));
+    expect(
+      state.map((favorite) => favorite.path).toList(),
+      ['/b.mkv', '/a.mkv', '/c.mkv'],
+    );
+    expect(container.read(fileFavoritesManualOrderProvider('server-one')), isTrue);
+
+    // 长度不一致的列表视为异常输入，直接忽略。
+    notifier.reorder(current.take(1).toList());
+    expect(container.read(fileFavoritesProvider('server-one')), hasLength(3));
+
+    await container.read(fileFavoritesRepositoryProvider).flush();
+    final saved = FileFavoritesRepository(prefs).load('server-one');
+    expect(
+      saved.map((favorite) => favorite.path).toList(),
+      ['/b.mkv', '/a.mkv', '/c.mkv'],
+    );
+    expect(FileFavoritesRepository(prefs).loadManualOrder('server-one'), isTrue);
+  });
+
+  test('手动排序模式下新增收藏置顶，默认模式追加尾部', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(fileFavoritesProvider('server-one').notifier);
+    notifier.toggle(_entry('/first.mkv'));
+    notifier.toggle(_entry('/second.mkv'));
+    expect(
+      container
+          .read(fileFavoritesProvider('server-one'))
+          .map((favorite) => favorite.path)
+          .last,
+      '/second.mkv',
+    );
+
+    container
+        .read(fileFavoritesManualOrderProvider('server-one').notifier)
+        .enable();
+    notifier.toggle(_entry('/third.mkv'));
+    expect(
+      container
+          .read(fileFavoritesProvider('server-one'))
+          .map((favorite) => favorite.path)
+          .first,
+      '/third.mkv',
+    );
+  });
+
   test('toEntry 还原目录/文件类型与路径键一致', () {
     const sourceId = SourceId('src-one');
     final favorite = FileFavorite.fromEntry(_entry('/a/b', directory: true));

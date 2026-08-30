@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/server_config_provider.dart';
+import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../core/sources/common/source_id.dart';
 import '../../l10n/generated/app_localizations.dart';
@@ -15,7 +16,8 @@ import 'file_favorites.dart';
 ///
 /// 展示当前文件服务器收藏的文件与目录（按服务器分别存储）。点击条目由
 /// Shell 在文件 Tab 中打开：目录逐级进入，文件定位到所在目录并自动打开；
-/// 条目右侧的星标按钮可快速取消收藏。
+/// 条目右侧的星标按钮可快速取消收藏。长按条目可拖拽调整顺序，顺序按
+/// 服务器持久化，拖拽过一次后列表即固定为手动顺序（新收藏置顶）。
 class FileFavoritesPage extends ConsumerStatefulWidget {
   const FileFavoritesPage({
     super.key,
@@ -51,13 +53,18 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
     final favorites = serverId == null
         ? const <FileFavorite>[]
         : ref.watch(fileFavoritesProvider(serverId));
-    final visible = _sorted(favorites)
+    final manualOrder = serverId != null &&
+        ref.watch(fileFavoritesManualOrderProvider(serverId));
+    final visible = _sorted(favorites, manualOrder: manualOrder)
         .where(
           (favorite) =>
               (!widget.directoriesOnly || favorite.isDirectory) &&
               (widget.sourceId == null || favorite.sourceId == widget.sourceId),
         )
         .toList(growable: false);
+    // 拖拽重排只对完整收藏列表开放；目录选择器（directoriesOnly）或按
+    // 来源过滤的子集视图里，可见下标与存储数组不再一一对应。
+    final reorderable = !widget.directoriesOnly && widget.sourceId == null;
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -84,7 +91,7 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
                 ),
               ),
             ),
-            body: visible.isEmpty
+            body: visible.isEmpty || serverId == null
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(32),
@@ -105,34 +112,104 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
                       ),
                     ),
                   )
-                : ListView.separated(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.only(
-                      bottom: floatingTabBarContentBottomInset(context),
-                    ),
-                    itemCount: visible.length,
-                    itemBuilder: (context, index) =>
-                        _favoriteTile(visible[index], serverId!),
-                    separatorBuilder: (_, __) => Divider(
-                      height: 1,
-                      color: Theme.of(context).dividerColor,
-                    ),
-                  ),
+                : reorderable
+                ? _reorderableList(visible, serverId)
+                : _staticList(visible, serverId),
           ),
         ),
       ),
     );
   }
 
-  /// 目录在前，其余按收藏时间倒序，同时间按名称排序。
-  List<FileFavorite> _sorted(List<FileFavorite> favorites) {
+  /// 手动排序模式下顺序完全由存储数组决定；否则目录在前、其余按收藏
+  /// 时间倒序，同时间按名称排序。
+  List<FileFavorite> _sorted(
+    List<FileFavorite> favorites, {
+    required bool manualOrder,
+  }) {
+    if (manualOrder) return favorites;
     return [...favorites]..sort((a, b) {
       if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
       final byAddedAt = b.addedAtMilliseconds.compareTo(a.addedAtMilliseconds);
       if (byAddedAt != 0) return byAddedAt;
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
+  }
+
+  Widget _reorderableList(List<FileFavorite> visible, String serverId) {
+    return ReorderableListView.builder(
+      scrollController: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.only(
+        bottom: floatingTabBarContentBottomInset(context),
+      ),
+      itemCount: visible.length,
+      // 移动端默认手势为整行长按拖拽，条目无需显示拖拽把手。
+      buildDefaultDragHandles: true,
+      proxyDecorator: _dragProxyDecorator,
+      onReorderStart: (_) => AppHaptics.light(),
+      onReorderItem: (oldIndex, newIndex) {
+        AppHaptics.medium();
+        // onReorderItem 的 newIndex 已按移除旧项校正，可直接插入。
+        final ordered = [...visible];
+        final moved = ordered.removeAt(oldIndex);
+        ordered.insert(newIndex, moved);
+        ref
+            .read(fileFavoritesProvider(serverId).notifier)
+            .reorder(ordered);
+      },
+      itemBuilder: (context, index) => KeyedSubtree(
+        key: ValueKey<String>(visible[index].stableKey),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (index > 0)
+              Divider(height: 1, color: Theme.of(context).dividerColor),
+            _favoriteTile(visible[index], serverId),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _staticList(List<FileFavorite> visible, String serverId) {
+    return ListView.separated(
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.only(
+        bottom: floatingTabBarContentBottomInset(context),
+      ),
+      itemCount: visible.length,
+      itemBuilder: (context, index) =>
+          _favoriteTile(visible[index], serverId),
+      separatorBuilder: (_, __) => Divider(
+        height: 1,
+        color: Theme.of(context).dividerColor,
+      ),
+    );
+  }
+
+  /// 拖拽代理浮起：行本身透明，浮起时补实底并加投影，与列表背景分层。
+  Widget _dragProxyDecorator(
+    Widget child,
+    int index,
+    Animation<double> animation,
+  ) {
+    final colors = appColors(context);
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (context, child) {
+        final elevation = Curves.easeOut.transform(animation.value) * 6;
+        return Material(
+          color: colors.surface,
+          shadowColor: Colors.black,
+          elevation: elevation,
+          borderRadius: BorderRadius.circular(12),
+          child: child,
+        );
+      },
+    );
   }
 
   Widget _favoriteTile(FileFavorite favorite, String serverId) {

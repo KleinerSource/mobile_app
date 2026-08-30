@@ -87,6 +87,7 @@ class FileFavoritesRepository {
   FileFavoritesRepository(this._prefs);
 
   static const _storageKeyPrefix = 'file_browser.favorites.v1.';
+  static const _manualOrderKeyPrefix = 'file_browser.favorites.manual.v1.';
 
   final SharedPreferences _prefs;
   Future<void> _writeQueue = Future<void>.value();
@@ -106,29 +107,49 @@ class FileFavoritesRepository {
     }
   }
 
+  /// 存储数组本身有序：手动拖拽后的顺序就是保存顺序。
   Future<void> save(String serverId, List<FileFavorite> favorites) {
-    final result = _writeQueue.then((_) async {
+    return _enqueue(() async {
       await _prefs.setString(
         _key(serverId),
         jsonEncode([for (final favorite in favorites) favorite.toJson()]),
       );
     });
-    _writeQueue = result.then<void>((_) {}, onError: (_, __) {});
-    return result;
+  }
+
+  /// 是否已进入手动排序模式（用户拖拽过收藏后启用）。
+  bool loadManualOrder(String serverId) =>
+      _prefs.getBool(_manualOrderKeyPrefix + _encodedId(serverId)) ?? false;
+
+  Future<void> saveManualOrder(String serverId, bool value) {
+    return _enqueue(
+      () async => _prefs.setBool(
+        _manualOrderKeyPrefix + _encodedId(serverId),
+        value,
+      ),
+    );
   }
 
   /// 等待已经排队的收藏写入完成。
   Future<void> flush() => _writeQueue;
 
-  String _key(String serverId) {
+  /// 收藏写入按调用顺序串行落盘，避免并发覆写互相吞掉。
+  Future<void> _enqueue(Future<void> Function() write) {
+    final result = _writeQueue.then((_) => write());
+    _writeQueue = result.then<void>((_) {}, onError: (_, __) {});
+    return result;
+  }
+
+  String _key(String serverId) => '$_storageKeyPrefix${_encodedId(serverId)}';
+
+  String _encodedId(String serverId) {
     final normalized = serverId.trim();
     if (normalized.isEmpty) {
       throw ArgumentError.value(serverId, 'serverId', '服务器 ID 不能为空');
     }
-    final encoded = base64Url
+    return base64Url
         .encode(utf8.encode(normalized))
         .replaceAll('=', '');
-    return '$_storageKeyPrefix$encoded';
   }
 }
 
@@ -136,6 +157,31 @@ final fileFavoritesRepositoryProvider =
     Provider<FileFavoritesRepository>(
       (ref) => FileFavoritesRepository(ref.watch(sharedPrefsProvider)),
     );
+
+/// 手动排序模式：用户在收藏列表拖拽过一次后启用，此后列表顺序完全由
+/// 存储数组顺序决定（新增收藏置顶），不再按「目录在前 + 时间倒序」自动排。
+class FileFavoritesManualOrderNotifier extends FamilyNotifier<bool, String> {
+  late FileFavoritesRepository _repository;
+
+  @override
+  bool build(String serverId) {
+    _repository = ref.read(fileFavoritesRepositoryProvider);
+    return _repository.loadManualOrder(serverId);
+  }
+
+  void enable() {
+    if (state) return;
+    state = true;
+    unawaited(_repository.saveManualOrder(arg, true));
+  }
+}
+
+final fileFavoritesManualOrderProvider =
+    NotifierProvider.family<
+      FileFavoritesManualOrderNotifier,
+      bool,
+      String
+    >(FileFavoritesManualOrderNotifier.new);
 
 class FileFavoritesNotifier extends FamilyNotifier<List<FileFavorite>, String> {
   late FileFavoritesRepository _repository;
@@ -157,7 +203,14 @@ class FileFavoritesNotifier extends FamilyNotifier<List<FileFavorite>, String> {
     );
     final added = index < 0;
     if (added) {
-      next.add(FileFavorite.fromEntry(entry));
+      // 手动排序模式下新收藏置顶，保证收藏后立即可见；默认模式仍追加
+      // 到尾部，由列表按时间倒序展示。
+      final fresh = FileFavorite.fromEntry(entry);
+      if (ref.read(fileFavoritesManualOrderProvider(arg))) {
+        next.insert(0, fresh);
+      } else {
+        next.add(fresh);
+      }
     } else {
       next.removeAt(index);
     }
@@ -171,6 +224,17 @@ class FileFavoritesNotifier extends FamilyNotifier<List<FileFavorite>, String> {
       for (final favorite in state)
         if (favorite.stableKey != stableKey) favorite,
     ]);
+  }
+
+  /// 应用拖拽后的完整顺序，并从此进入手动排序模式。
+  void reorder(List<FileFavorite> ordered) {
+    if (ordered.length != state.length) return;
+    enableManualOrder();
+    _update([...ordered]);
+  }
+
+  void enableManualOrder() {
+    ref.read(fileFavoritesManualOrderProvider(arg).notifier).enable();
   }
 
   void _update(List<FileFavorite> next) {

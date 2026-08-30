@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -79,6 +80,50 @@ void main() {
     expect(
       find.descendant(of: page, matching: find.textContaining('还没有收藏')),
       findsOneWidget,
+    );
+  });
+
+  testWidgets('收藏列表长按拖拽调整顺序并持久化手动顺序', (tester) async {
+    await _pumpShell(
+      tester,
+      favorites: [
+        _favorite('a.txt'),
+        _favorite('b.txt'),
+        _favorite('c.txt'),
+      ],
+    );
+
+    await tester.tap(find.byIcon(Icons.star_rounded).last);
+    await tester.pumpAndSettle();
+
+    // 同一收藏时间下默认按名称排序：a、b、c。
+    double topOf(String name) => tester.getTopLeft(find.text(name)).dy;
+    expect(topOf('a.txt') < topOf('b.txt'), isTrue);
+
+    // 长按第一项后向下拖两行，a.txt 移到末尾。
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('a.txt')),
+    );
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+    await gesture.moveBy(const Offset(0, 150));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(topOf('a.txt') > topOf('b.txt'), isTrue);
+
+    // 手动顺序与重排后的数组顺序均已持久化。
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      FileFavoritesRepository(prefs).loadManualOrder('file-server'),
+      isTrue,
+    );
+    expect(
+      FileFavoritesRepository(prefs)
+          .load('file-server')
+          .map((favorite) => favorite.path)
+          .toList(),
+      ['b.txt', 'c.txt', 'a.txt'],
     );
   });
 
