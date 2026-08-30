@@ -162,8 +162,8 @@ void _main_1() {
     }
   });
 
-  test('音频 Range 不可用时直接转发流，不等待完整缓存', () async {
-    final sourceId = SourceId.of('streaming-audio-source');
+  test('音频播放代理在完整缓存后才响应播放器', () async {
+    final sourceId = SourceId.of('cached-audio-source');
     final bytes = List<int>.generate(12, (index) => index + 50);
     final source = _DelayedDownloadFileSource(sourceId);
     final proxy = await FilePlaybackProxy.start(
@@ -172,21 +172,28 @@ void _main_1() {
       size: bytes.length,
       mimeType: 'audio/mpeg',
       pathExtension: 'mp3',
-      streaming: true,
+      cacheBeforePlayback: true,
     );
     final client = HttpClient();
     try {
       final request = await client.getUrl(proxy.uri);
       request.headers.set('range', 'bytes=0-');
       final responseFuture = request.close();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(source.downloadCalls, 1);
+      final headersReady = await Future.any<bool>([
+        responseFuture.then((_) => true),
+        Future<void>.delayed(
+          const Duration(milliseconds: 100),
+        ).then((_) => false),
+      ]);
+      expect(headersReady, isFalse);
       source.controller.add(bytes.sublist(0, 4));
+      source.controller.add(bytes.sublist(4));
+      await source.controller.close();
       final response = await responseFuture.timeout(const Duration(seconds: 1));
       expect(response.statusCode, HttpStatus.partialContent);
       expect(response.contentLength, bytes.length);
-      expect(source.downloadCalls, 1);
-
-      source.controller.add(bytes.sublist(4));
-      await source.controller.close();
       expect(await _read(response), bytes);
     } finally {
       await source.controller.close();
@@ -195,8 +202,8 @@ void _main_1() {
     }
   });
 
-  test('音频大小未知时 Range 请求也直接使用完整流', () async {
-    final sourceId = SourceId.of('unknown-streaming-audio-source');
+  test('音频大小未知时也先完整缓存再响应 Range', () async {
+    final sourceId = SourceId.of('unknown-cached-audio-source');
     final bytes = List<int>.generate(8, (index) => index + 70);
     final source = _DownloadOnlyFileSource(sourceId, bytes);
     final proxy = await FilePlaybackProxy.start(
@@ -204,17 +211,17 @@ void _main_1() {
       path: FilePath(sourceId: sourceId, value: '未知长度.mp3'),
       mimeType: 'audio/mpeg',
       pathExtension: 'mp3',
-      streaming: true,
+      cacheBeforePlayback: true,
     );
     final client = HttpClient();
     try {
       final request = await client.getUrl(proxy.uri);
       request.headers.set('range', 'bytes=0-');
       final response = await request.close();
-      expect(response.statusCode, HttpStatus.ok);
+      expect(response.statusCode, HttpStatus.partialContent);
       expect(await _read(response), bytes);
       expect(source.downloadCalls, 1);
-      expect(source.resolveAccessCalls, 1);
+      expect(source.resolveAccessCalls, 0);
     } finally {
       await proxy.close();
       client.close(force: true);

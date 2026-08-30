@@ -1542,11 +1542,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     try {
       final repository = await _repository();
       final sourceKind = repository.source.descriptor.kind;
-      // WebDAV 与 OpenList（文件管理同样走 WebDAV）都是原生 HTTP(S)
-      // 文件服务，直接把文件 URL 和认证头交给播放器，保留播放器自身的
-      // Range/seek 能力，不经过回环代理。
+      // 视频使用原生 HTTP(S) 地址，保留播放器自身的 Range/seek 能力。
+      // 音频统一经过回环代理并完整缓存后再交给播放器，避免边下载边播放
+      // 时出现解码、歌词加载和关闭资源竞争。
       final useDirect =
-          sourceKind == SourceKind.webDav || sourceKind == SourceKind.openList;
+          itemType != PlayerQueueItemType.audio &&
+          (sourceKind == SourceKind.webDav ||
+              sourceKind == SourceKind.openList);
       final selectedEngineKind = filePlaybackEngineKind(
         sourceKind: sourceKind,
         isIOS: Platform.isIOS,
@@ -1560,9 +1562,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
 
       final listing = ref.read(fileDirectoryProvider(_request)).valueOrNull;
       if (itemType == PlayerQueueItemType.audio) {
+        final directoryPath = FilePath(sourceId: widget.sourceId, value: _path);
         audioMetadataSession = FileAudioMetadataSession(
           repository: repository,
           directoryEntries: listing?.entries ?? <FileEntry>[entry],
+          directoryEntriesLoader: listing == null
+              ? () async =>
+                    (await repository.listDirectory(directoryPath)).entries
+              : null,
         );
       }
       final mediaEntries =
@@ -1685,15 +1692,16 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
               ),
             );
           } else {
-            // SMB 没有可供播放器直接访问的 URL，为队列中的每个文件预留
-            // 一个按需读取代理；代理资源由播放器页在整个队列结束后释放。
+            // 没有可供播放器直接访问的 URL，或音频需要先完整缓存时，
+            // 为队列中的每个文件预留回环代理；资源由播放器页在整个队列
+            // 结束后释放。
             final proxy = await FilePlaybackProxy.start(
               repository: repository,
               path: entry.path,
               size: entry.size,
               mimeType: entry.mimeType,
               pathExtension: formatHint,
-              streaming: itemType == PlayerQueueItemType.audio,
+              cacheBeforePlayback: itemType == PlayerQueueItemType.audio,
             );
             proxies.add(proxy);
             queue.add(

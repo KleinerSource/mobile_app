@@ -82,6 +82,36 @@ void main() {
     expect(metadata.artworkPath, isNull);
     await session.dispose();
   });
+
+  test('初始目录列表不完整时会补拉同目录歌词', () async {
+    final sourceId = SourceId.of('metadata-directory-loader-source');
+    final source = _MemoryFileSource(
+      sourceId,
+      files: {'music/song.LRC': utf8.encode('[00:01.00]补拉歌词')},
+    );
+    final audio = _entry(sourceId, 'music/song.mp3');
+    var loadCount = 0;
+    final session = FileAudioMetadataSession(
+      repository: FileSourceRepository(source),
+      directoryEntries: [audio],
+      directoryEntriesLoader: () async {
+        loadCount++;
+        return [audio, _entry(sourceId, 'music/song.LRC')];
+      },
+    );
+
+    final metadata = await session.load(
+      PlayerQueueItem(
+        title: audio.name,
+        type: PlayerQueueItemType.audio,
+        mediaId: audio.stableKey,
+      ),
+    );
+
+    expect(loadCount, 1);
+    expect(metadata.lyrics?.cues.single.text, '补拉歌词');
+    await session.dispose();
+  });
 }
 
 FileEntry _entry(SourceId sourceId, String path) {

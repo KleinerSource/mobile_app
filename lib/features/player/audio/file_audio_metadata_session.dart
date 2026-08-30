@@ -19,11 +19,15 @@ class FileAudioMetadataSession {
   FileAudioMetadataSession({
     required FileSourceRepository repository,
     required Iterable<FileEntry> directoryEntries,
+    Future<Iterable<FileEntry>> Function()? directoryEntriesLoader,
   }) : _repository = repository,
-       _directoryEntries = List<FileEntry>.unmodifiable(directoryEntries);
+       _directoryEntries = List<FileEntry>.unmodifiable(directoryEntries),
+       _directoryEntriesLoader = directoryEntriesLoader;
 
   final FileSourceRepository _repository;
-  final List<FileEntry> _directoryEntries;
+  List<FileEntry> _directoryEntries;
+  final Future<Iterable<FileEntry>> Function()? _directoryEntriesLoader;
+  Future<Iterable<FileEntry>>? _directoryEntriesFuture;
   final Map<String, Future<AudioTrackMetadata>> _cache = {};
   final Set<File> _ownedFiles = <File>{};
   bool _disposed = false;
@@ -69,8 +73,10 @@ class FileAudioMetadataSession {
   }
 
   Future<AudioTrackMetadata> _loadItem(PlayerQueueItem item) async {
-    final entry = _findEntry(item);
+    var entry = _findEntry(item);
     if (entry == null) return const AudioTrackMetadata();
+    await _ensureDirectoryEntries();
+    entry = _findEntry(item) ?? entry;
 
     String? artworkPath;
     String? artworkMimeType;
@@ -136,6 +142,33 @@ class FileAudioMetadataSession {
       album: album,
       lyrics: lyrics,
     );
+  }
+
+  Future<void> _ensureDirectoryEntries() async {
+    final loader = _directoryEntriesLoader;
+    if (loader == null) return;
+    final current = _directoryEntriesFuture;
+    if (current != null) {
+      await current;
+      return;
+    }
+
+    late final Future<Iterable<FileEntry>> next;
+    next = loader();
+    _directoryEntriesFuture = next;
+    try {
+      final loaded = await next;
+      final merged = <String, FileEntry>{
+        for (final entry in _directoryEntries) entry.stableKey: entry,
+        for (final entry in loaded) entry.stableKey: entry,
+      };
+      _directoryEntries = List<FileEntry>.unmodifiable(merged.values);
+    } catch (_) {
+      if (identical(_directoryEntriesFuture, next)) {
+        _directoryEntriesFuture = null;
+      }
+      rethrow;
+    }
   }
 
   FileEntry? _findEntry(PlayerQueueItem item) {
