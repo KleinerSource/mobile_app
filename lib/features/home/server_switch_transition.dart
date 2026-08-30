@@ -767,6 +767,7 @@ class _ServerSwitchTransitionOverlayState
                         isDark: isDark,
                         viewport: constraints.biggest,
                         progress: finishProgress,
+                        revealStarted: _entryController.value >= 1,
                       ),
                       const Positioned.fill(
                         child: ModalBarrier(
@@ -1062,7 +1063,11 @@ class _ServerSwitchTransitionOverlayState
     required bool isDark,
     required Size viewport,
     required double progress,
+    required bool revealStarted,
   }) {
+    final color = isDark ? const Color(0xFF101114) : const Color(0xFFF7F8FA);
+    if (!revealStarted) return ColoredBox(color: color);
+
     final center = ServerSwitchTransitionMetrics.center(viewport);
     final farthestCornerDistance = [
       (Offset.zero - center).distance,
@@ -1079,7 +1084,7 @@ class _ServerSwitchTransitionOverlayState
     )!;
     return CustomPaint(
       painter: _CircularRevealPainter(
-        color: isDark ? const Color(0xFF101114) : const Color(0xFFF7F8FA),
+        color: color,
         center: center,
         radius: radius,
       ),
