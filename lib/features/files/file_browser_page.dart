@@ -36,6 +36,7 @@ import '../settings/server_selection_page.dart';
 import '../settings/settings_common.dart';
 import 'file_navigation.dart';
 import 'file_browser_preferences.dart';
+import 'file_favorites.dart';
 import 'file_image_preview_settings.dart';
 import 'file_playback_engine.dart';
 import 'file_playback_proxy.dart';
@@ -53,8 +54,6 @@ enum _BrowserMenuAction {
 }
 
 enum _BatchRenameMode { replace, add }
-
-enum _FileDetailsAction { preview }
 
 class _BatchRenameDraft {
   const _BatchRenameDraft({
@@ -150,6 +149,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       fileBrowserPreferencesProvider(widget.serverId),
     );
     final imagePreviewEnabled = ref.watch(fileImagePreviewProvider);
+    final favorites = ref.watch(fileFavoritesProvider(widget.serverId));
     final currentDirectoryPath = listing.hasValue
         ? listing.requireValue.currentPath
         : FilePath(sourceId: widget.sourceId, value: _path);
@@ -297,7 +297,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                   Expanded(
                     child: listing.when(
                       data: (value) =>
-                          _buildListing(value, imagePreviewEnabled),
+                          _buildListing(value, imagePreviewEnabled, favorites),
                       loading: () => Padding(
                         padding: EdgeInsets.only(
                           bottom: floatingTabBarContentBottomInset(context),
@@ -582,13 +582,24 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   bool _isHiddenEntry(FileEntry entry) =>
       entry.isHidden || entry.name.startsWith('.');
 
-  Widget _buildListing(DirectoryListing listing, bool imagePreviewEnabled) {
+  Widget _buildListing(
+    DirectoryListing listing,
+    bool imagePreviewEnabled,
+    List<FileFavorite> favorites,
+  ) {
     final entries = _visibleEntries(listing);
+    final favoriteKeys = favorites
+        .map((favorite) => favorite.stableKey)
+        .toSet();
+    final favoriteTiles = _favoriteTiles(favorites);
     return Column(
       children: [
         if (listing.breadcrumbs.isNotEmpty)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
+            // reverse 让初始位置落在内容末尾：路径过长时默认展示最新的
+            // 最深层级，无需用户手动滑动。
+            reverse: true,
             padding: const EdgeInsets.fromLTRB(22, 2, 22, 2),
             child: ConstrainedBox(
               constraints: BoxConstraints(
@@ -640,7 +651,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
               onSelectionEnd: _finishSelectionSweep,
               selectionMode: _selectionMode,
               enabled: !_busy,
-              child: entries.isEmpty
+              child: entries.isEmpty && favoriteTiles.isEmpty
                   ? ListView(
                       controller: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),
@@ -658,12 +669,19 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                       padding: EdgeInsets.only(
                         bottom: floatingTabBarContentBottomInset(context),
                       ),
-                      itemCount: entries.length,
-                      itemBuilder: (context, index) => _entryTile(
-                        entries[index],
-                        index,
-                        imagePreviewEnabled,
-                      ),
+                      itemCount: favoriteTiles.length + entries.length,
+                      itemBuilder: (context, index) {
+                        if (index < favoriteTiles.length) {
+                          return favoriteTiles[index];
+                        }
+                        final entryIndex = index - favoriteTiles.length;
+                        return _entryTile(
+                          entries[entryIndex],
+                          entryIndex,
+                          imagePreviewEnabled,
+                          favoriteKeys,
+                        );
+                      },
                       separatorBuilder: (_, __) => Divider(
                         height: 1,
                         color: Theme.of(context).dividerColor,
@@ -676,9 +694,159 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     );
   }
 
-  Widget _entryTile(FileEntry entry, int index, bool imagePreviewEnabled) {
+  /// 根目录顶部的收藏分区。浏览模式展示目录与文件；目录选择器（移动文件
+  /// 等场景）只展示目录，点击即直接选定该目录。
+  List<Widget> _favoriteTiles(List<FileFavorite> favorites) {
+    if (!_isAtRoot || favorites.isEmpty) return const <Widget>[];
+    final visible = <FileFavorite>[
+      for (final favorite in favorites)
+        if (!widget.directoryPicker || favorite.isDirectory) favorite,
+    ]..sort((a, b) {
+      if (a.isDirectory != b.isDirectory) return a.isDirectory ? -1 : 1;
+      final byAddedAt = b.addedAtMilliseconds.compareTo(
+        a.addedAtMilliseconds,
+      );
+      if (byAddedAt != 0) return byAddedAt;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    if (visible.isEmpty) return const <Widget>[];
+
+    final theme = Theme.of(context);
+    final starColor = AppHues.chipText(AppHues.solar, theme.brightness);
+    return <Widget>[
+      _listSectionHeader(
+        icon: Icons.star,
+        iconColor: starColor,
+        label: widget.directoryPicker ? '收藏的目录' : '收藏',
+      ),
+      for (final favorite in visible) _favoriteTile(favorite, starColor),
+      _listSectionHeader(label: '全部文件'),
+    ];
+  }
+
+  Widget _listSectionHeader({IconData? icon, Color? iconColor, required String label}) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 10, 22, 2),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 16, color: iconColor ?? theme.hintColor),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _favoriteTile(FileFavorite favorite, Color starColor) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final entry = favorite.toEntry(widget.sourceId);
+    final location = favorite.path.replaceFirst(RegExp(r'^/+'), '');
+    return ListTile(
+      leading: Icon(
+        favorite.isDirectory ? Icons.folder_outlined : _fileIcon(entry),
+        color: favorite.isDirectory
+            ? colors.primary
+            : _fileIconColor(entry, theme.brightness),
+      ),
+      title: Text(
+        favorite.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        location.isEmpty ? '根目录' : location,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: widget.directoryPicker
+          ? const Icon(Icons.check_circle_outline)
+          : IconButton(
+              tooltip: '取消收藏',
+              onPressed: _busy ? null : () => _removeFavorite(favorite),
+              icon: Icon(Icons.star, color: starColor),
+            ),
+      onTap: (_busy || _selectionMode)
+          ? null
+          : () => unawaited(_openFavorite(favorite)),
+    );
+  }
+
+  void _toggleFavorite(FileEntry entry) {
+    final added = ref
+        .read(fileFavoritesProvider(widget.serverId).notifier)
+        .toggle(entry);
+    _message(added ? '已收藏“${entry.name}”' : '已取消收藏“${entry.name}”');
+  }
+
+  void _removeFavorite(FileFavorite favorite) {
+    ref
+        .read(fileFavoritesProvider(widget.serverId).notifier)
+        .remove(favorite.stableKey);
+  }
+
+  Future<void> _openFavorite(FileFavorite favorite) async {
+    _openSwipe.value = null;
+    if (widget.directoryPicker) {
+      // 移动文件等目录选择场景：点击收藏目录即直接选定为目标目录。
+      Navigator.of(context).pop(
+        FilePath(sourceId: widget.sourceId, value: favorite.path),
+      );
+      return;
+    }
+    if (favorite.isDirectory) {
+      _openPathChain(favorite.path);
+      return;
+    }
+    await _openFile(favorite.toEntry(widget.sourceId));
+  }
+
+  /// 逐级压入收藏路径的各级目录路由，使返回栈与面包屑跳转、逐级返回
+  /// 的行为保持一致。
+  void _openPathChain(String path) {
+    final breadcrumbs = buildBreadcrumbs(
+      FilePath(sourceId: widget.sourceId, value: path),
+      webDav: path.startsWith('/'),
+    );
+    final navigator = Navigator.of(context);
+    for (final crumb in breadcrumbs) {
+      if (isRootFilePath(crumb.value)) continue;
+      navigator.push<FilePath>(
+        MaterialPageRoute<FilePath>(
+          settings: RouteSettings(name: _routeName(crumb.value)),
+          allowSnapshotting: false,
+          builder: (_) => FileBrowserPage(
+            serverId: widget.serverId,
+            sourceId: widget.sourceId,
+            initialPath: crumb.value,
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _entryTile(
+    FileEntry entry,
+    int index,
+    bool imagePreviewEnabled,
+    Set<String> favoriteKeys,
+  ) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isFavorite = favoriteKeys.contains(entry.stableKey);
+    final meta = _entryMeta(entry);
     final playbackProgress = !entry.isDirectory && _isVideoEntry(entry)
         ? _filePlaybackProgress.load(entry.name)
         : null;
@@ -745,7 +913,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                       : _fileIconColor(entry, theme.brightness),
                 ),
           title: Text(entry.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: entry.isDirectory ? null : _entrySubtitle(entry),
+          subtitle: meta.isEmpty
+              ? null
+              : Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis),
           trailing: widget.directoryPicker
               ? null
               : Row(
@@ -762,14 +932,20 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                       enabled: !_busy,
                       onSelected: (action) => _handleEntryAction(entry, action),
                       itemBuilder: (_) => [
-                        if (entry.isDirectory || !_canPreview(entry))
-                          const PopupMenuItem(
-                            value: 'detail',
-                            child: _FileMenuItem(
-                              icon: Icons.info_outline,
-                              label: '详情',
-                            ),
+                        PopupMenuItem(
+                          value: 'favorite',
+                          child: _FileMenuItem(
+                            icon: isFavorite ? Icons.star : Icons.star_border,
+                            label: isFavorite ? '取消收藏' : '收藏',
                           ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'detail',
+                          child: _FileMenuItem(
+                            icon: Icons.info_outline,
+                            label: '详情',
+                          ),
+                        ),
                         const PopupMenuItem(
                           value: 'rename',
                           child: _FileMenuItem(
@@ -809,11 +985,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         ),
       ),
     );
-  }
-
-  Widget _entrySubtitle(FileEntry entry) {
-    final metadata = _entryMeta(entry);
-    return Text(metadata);
   }
 
   List<EntityBatchAction> _batchActions(List<FileEntry> entries) {
@@ -868,6 +1039,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
 
   Future<void> _handleEntryAction(FileEntry entry, String action) async {
     switch (action) {
+      case 'favorite':
+        _toggleFavorite(entry);
       case 'detail':
         await _showDetails(entry);
       case 'rename':
@@ -1222,7 +1395,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   Future<void> _showDetails(FileEntry entry) async {
-    final action = await showGlassSheet<_FileDetailsAction>(
+    await showGlassSheet<void>(
       context: context,
       useRootNavigator: true,
       builder: (context) => SafeArea(
@@ -1247,25 +1420,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                     Text('大小：${_formatBytes(entry.size!)}'),
                   if (entry.mimeType != null) Text('类型：${entry.mimeType}'),
                   if (entry.modifiedAt != null)
-                    Text('修改时间：${entry.modifiedAt}'),
+                    Text('修改时间：${_formatDateTime(entry.modifiedAt!)}'),
                 ],
               ),
             ),
-            if (!entry.isDirectory && _canPreview(entry))
-              ListTile(
-                leading: Icon(_previewIcon(entry)),
-                title: Text(_previewLabel(entry)),
-                subtitle: const Text('在应用内查看文件内容'),
-                onTap: () =>
-                    Navigator.of(context).pop(_FileDetailsAction.preview),
-              ),
           ],
         ),
       ),
     );
-    if (action == _FileDetailsAction.preview && mounted) {
-      await _preview(entry);
-    }
   }
 
   Future<void> _openFile(FileEntry entry) async {
@@ -1456,20 +1618,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       _isImageEntry(entry) ||
       _isSubtitleEntry(entry) ||
       _isTextEntry(entry);
-
-  String _previewLabel(FileEntry entry) {
-    if (_isVideoEntry(entry)) return '播放视频';
-    if (_isImageEntry(entry)) return '查看图片';
-    if (_isSubtitleEntry(entry)) return '查看字幕';
-    return '查看文本';
-  }
-
-  IconData _previewIcon(FileEntry entry) {
-    if (_isVideoEntry(entry)) return Icons.play_circle_outline;
-    if (_isImageEntry(entry)) return Icons.image_outlined;
-    if (_isSubtitleEntry(entry)) return Icons.closed_caption_outlined;
-    return Icons.description_outlined;
-  }
 
   bool _isVideoEntry(FileEntry entry) => _fileTypeFor(entry) == _FileType.video;
 
@@ -2223,11 +2371,28 @@ Color _fileIconColor(FileEntry entry, Brightness brightness) {
   return AppHues.chipText(hue, brightness);
 }
 
+/// 列表行副标题：目录显示修改时间；文件显示「大小 · 修改时间」，时间缺失
+/// 时退回 MIME 类型，两者都没有则留空（不占行高）。
 String _entryMeta(FileEntry entry) {
+  final time = entry.modifiedAt ?? entry.createdAt;
+  if (entry.isDirectory) {
+    return time == null ? '' : _formatDateTime(time);
+  }
   final parts = <String>[];
   if (entry.size != null) parts.add(_formatBytes(entry.size!));
-  if (entry.mimeType != null) parts.add(entry.mimeType!);
+  if (time != null) {
+    parts.add(_formatDateTime(time));
+  } else if (entry.mimeType != null) {
+    parts.add(entry.mimeType!);
+  }
   return parts.join(' · ');
+}
+
+String _formatDateTime(DateTime time) {
+  final local = time.toLocal();
+  String two(int value) => value.toString().padLeft(2, '0');
+  return '${local.year}-${two(local.month)}-${two(local.day)} '
+      '${two(local.hour)}:${two(local.minute)}';
 }
 
 String _formatBytes(int bytes) {
