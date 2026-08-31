@@ -138,7 +138,7 @@ class CircularAudioSpectrumPainter extends CustomPainter {
       final opacity =
           (minimumOpacity + math.max(energy, frame.rms) * (1 - minimumOpacity))
               .clamp(0.0, 1.0);
-      final color = _paletteColor(palette, fraction);
+      final color = colorForIntensity(palette, energy);
       glowPaint.color = color.withValues(alpha: opacity * 0.28);
       paint.color = color.withValues(alpha: opacity);
       final direction = Offset(math.cos(angle), math.sin(angle));
@@ -147,6 +147,17 @@ class CircularAudioSpectrumPainter extends CustomPainter {
       canvas.drawLine(start, end, glowPaint);
       canvas.drawLine(start, end, paint);
     }
+  }
+
+  static Color colorForIntensity(List<Color> palette, double intensity) {
+    if (palette.isEmpty) return Colors.transparent;
+    if (palette.length == 1) return palette.first;
+    final normalized = intensity.clamp(0.0, 1.0).toDouble();
+    final index = (normalized * palette.length).floor().clamp(
+      0,
+      palette.length - 1,
+    );
+    return palette[index];
   }
 
   @override
@@ -218,13 +229,4 @@ class LyricsAudioSpectrumPainter extends CustomPainter {
   bool shouldRepaint(covariant LyricsAudioSpectrumPainter oldDelegate) {
     return oldDelegate.frame != frame || oldDelegate.color != color;
   }
-}
-
-Color _paletteColor(List<Color> palette, double fraction) {
-  if (palette.length == 1) return palette.first;
-  final scaled = fraction.clamp(0.0, 1.0) * (palette.length - 1);
-  final start = scaled.floor().clamp(0, palette.length - 1);
-  final end = math.min(start + 1, palette.length - 1);
-  return Color.lerp(palette[start], palette[end], scaled - start) ??
-      palette[start];
 }

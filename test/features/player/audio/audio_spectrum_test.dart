@@ -23,7 +23,7 @@ void main() {
     expect(frame.isSilent, isFalse);
   });
 
-  test('环形频谱使用七彩色，歌词频谱只使用单色前景', () {
+  test('环形频谱按音频强度选择七彩色，歌词频谱只使用单色前景', () {
     final frame = AudioSpectrumFrame(
       rms: 0.3,
       peak: 0.7,
@@ -48,14 +48,28 @@ void main() {
     );
 
     expect(circular.palette, const <Color>[
-      Color(0xFFFF4B4B),
-      Color(0xFFFF8A3D),
-      Color(0xFFFFD43B),
-      Color(0xFF4DDC78),
-      Color(0xFF30D5C8),
-      Color(0xFF3D8BFF),
       Color(0xFF8A63FF),
+      Color(0xFF3D8BFF),
+      Color(0xFF30D5C8),
+      Color(0xFF4DDC78),
+      Color(0xFFFFD43B),
+      Color(0xFFFF8A3D),
+      Color(0xFFFF4B4B),
     ]);
+    for (var index = 0; index < circular.palette.length; index++) {
+      final intensity = (index + 0.1) / circular.palette.length;
+      expect(
+        CircularAudioSpectrumPainter.colorForIntensity(
+          circular.palette,
+          intensity,
+        ),
+        circular.palette[index],
+      );
+    }
+    expect(
+      CircularAudioSpectrumPainter.colorForIntensity(circular.palette, 1),
+      circular.palette.last,
+    );
     expect(lyrics.color, Colors.black);
     expect(CircularAudioSpectrumPainter.minimumOpacity, greaterThan(0.5));
     expect(
