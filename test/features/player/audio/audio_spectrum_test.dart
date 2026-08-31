@@ -219,4 +219,50 @@ void main() {
       32,
     );
   });
+
+  testWidgets('暂停视觉效果后恢复时重新挂载频谱层', (tester) async {
+    final spectrum = ValueNotifier<AudioSpectrumFrame>(
+      AudioSpectrumFrame.silence(),
+    );
+    addTearDown(spectrum.dispose);
+    var suspended = true;
+    late StateSetter update;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return AudioPlayerVisualLayers(
+              surface: const ColoredBox(color: Colors.black),
+              spectrum: spectrum,
+              effectsSuspended: suspended,
+              child: const SizedBox(key: ValueKey<String>('foreground')),
+            );
+          },
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey<String>('audio-spectrum-layer')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('audio-player-foreground-layer')),
+      findsOneWidget,
+    );
+
+    update(() => suspended = false);
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('audio-spectrum-layer')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('audio-player-foreground-layer')),
+      findsOneWidget,
+    );
+  });
 }

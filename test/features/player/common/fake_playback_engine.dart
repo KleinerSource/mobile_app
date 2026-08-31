@@ -113,6 +113,10 @@ class FakePlaybackEngine implements PlaybackEngine {
     );
   }
 
+  void emitPosition(Duration position) {
+    _update((state) => state.copyWith(position: position));
+  }
+
   @override
   Future<void> setRate(double rate) async {
     commands.add('rate');

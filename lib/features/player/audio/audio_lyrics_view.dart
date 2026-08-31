@@ -73,7 +73,7 @@ class AudioLyricsView extends StatelessWidget {
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
-        useSafeArea: false,
+        useSafeArea: true,
         backgroundColor: AudioPlayerTheme.backgroundFor(brightness),
         barrierColor: Colors.transparent,
         elevation: 0,

@@ -21,6 +21,7 @@ void main() {
       ),
     );
     final controller = PlayerSessionController(engine: engine);
+    final panelVisibility = <bool>[];
     const lyrics = LrcDocument(
       cues: [
         LrcCue(position: Duration.zero, text: '第一句'),
@@ -35,15 +36,22 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('zh'),
-        localizationsDelegates: AppL10n.localizationsDelegates,
-        supportedLocales: AppL10n.supportedLocales,
-        home: Scaffold(
-          body: AudioLyricsView(
-            controller: controller,
-            lyrics: lyrics,
-            spectrum: ValueNotifier(AudioSpectrumFrame.silence()),
+      MediaQuery(
+        data: const MediaQueryData(
+          size: Size(400, 800),
+          padding: EdgeInsets.only(top: 32, bottom: 24),
+        ),
+        child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: Scaffold(
+            body: AudioLyricsView(
+              controller: controller,
+              lyrics: lyrics,
+              spectrum: ValueNotifier(AudioSpectrumFrame.silence()),
+              onPanelVisibilityChanged: panelVisibility.add,
+            ),
           ),
         ),
       ),
@@ -92,9 +100,14 @@ void main() {
     await tester.tap(find.text('第一句'));
     await tester.pumpAndSettle();
     expect(find.text('歌词'), findsOneWidget);
+    expect(panelVisibility, [true]);
     expect(
       find.byKey(const ValueKey<String>('audio-lyrics-glass-sheet')),
       findsOneWidget,
+    );
+    expect(
+      tester.getTopLeft(find.byTooltip('关闭')).dy,
+      greaterThanOrEqualTo(32),
     );
     expect(find.text('第一句'), findsNWidgets(2));
     expect(find.text('第二句'), findsNWidgets(2));
@@ -112,6 +125,76 @@ void main() {
       find.descendant(of: find.byType(ListView), matching: find.text('第六句')),
       findsOneWidget,
     );
+
+    await tester.tap(find.byTooltip('关闭'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('audio-lyrics-glass-sheet')),
+      findsNothing,
+    );
+    expect(panelVisibility, [true, false]);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await controller.dispose();
+  });
+
+  testWidgets('调整进度后歌词立即使用目标时间且不被旧位置回退', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      seekDelay: const Duration(milliseconds: 40),
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        position: Duration(seconds: 2),
+        duration: Duration(minutes: 3),
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    const lyrics = LrcDocument(
+      cues: [
+        LrcCue(position: Duration.zero, text: '第一句'),
+        LrcCue(position: Duration(seconds: 5), text: '第二句'),
+        LrcCue(position: Duration(seconds: 10), text: '第三句'),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+        home: Scaffold(
+          body: AudioLyricsView(
+            controller: controller,
+            lyrics: lyrics,
+            spectrum: ValueNotifier(AudioSpectrumFrame.silence()),
+          ),
+        ),
+      ),
+    );
+    Future<String?> currentLyric() async {
+      return tester
+          .widget<Text>(
+            find.byKey(const ValueKey<String>('audio-lyrics-current')),
+          )
+          .data;
+    }
+
+    expect(await currentLyric(), '第一句');
+
+    final seek = controller.seek(const Duration(seconds: 6));
+    await tester.pump();
+    expect(await currentLyric(), '第二句');
+
+    engine.emitPosition(const Duration(seconds: 2));
+    await tester.pump();
+    expect(await currentLyric(), '第二句');
+
+    await tester.pump(const Duration(milliseconds: 50));
+    await seek;
+    // 只推进当前歌词滚动动画，避免测试等待页面中无关的全局稳定条件。
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(await currentLyric(), '第二句');
 
     await tester.pumpWidget(const SizedBox.shrink());
     await controller.dispose();

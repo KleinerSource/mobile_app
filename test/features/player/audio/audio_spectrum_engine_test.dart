@@ -65,6 +65,17 @@ void main() {
       expect(requestedPositions.length, greaterThanOrEqualTo(2));
       expect(requestedPositions.last, greaterThan(requestedPositions.first));
 
+      final samplesBeforeSuspend = requestedPositions.length;
+      engine.setVisualEffectsSuspended(true);
+      await Future<void>.delayed(const Duration(milliseconds: 70));
+      expect(spectrum.value.isSilent, isTrue);
+      expect(requestedPositions.length, samplesBeforeSuspend);
+
+      engine.setVisualEffectsSuspended(false);
+      await Future<void>.delayed(const Duration(milliseconds: 70));
+      expect(spectrum.value.ready, isTrue);
+      expect(requestedPositions.length, greaterThan(samplesBeforeSuspend));
+
       handler.playbackState.add(
         _playingState(const Duration(seconds: 13), playing: false),
       );

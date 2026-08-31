@@ -432,6 +432,59 @@ void _main_3() {
     }
   });
 
+  test('定位期间立即同步目标时间并忽略迟到的旧位置', () async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      seekDelay: const Duration(milliseconds: 40),
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        position: Duration(seconds: 2),
+        duration: Duration(minutes: 3),
+      ),
+    );
+    final session = PlayerSessionController(engine: engine);
+
+    final seek = session.seek(const Duration(seconds: 12));
+    expect(session.position, const Duration(seconds: 12));
+
+    engine.emitPosition(const Duration(seconds: 2));
+    expect(session.position, const Duration(seconds: 12));
+
+    await seek;
+    engine.emitPosition(const Duration(seconds: 2));
+    expect(session.position, const Duration(seconds: 12));
+
+    engine.emitPosition(const Duration(seconds: 13));
+    expect(session.position, const Duration(seconds: 13));
+    await session.dispose();
+  });
+
+  test('连续定位只保留最新目标并只恢复一次播放', () async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      seekDelay: const Duration(milliseconds: 20),
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        playing: true,
+        position: Duration(seconds: 2),
+        duration: Duration(minutes: 3),
+      ),
+    );
+    final session = PlayerSessionController(engine: engine);
+
+    final firstSeek = session.seek(const Duration(seconds: 12));
+    final secondSeek = session.seek(const Duration(seconds: 24));
+    expect(session.position, const Duration(seconds: 24));
+
+    await Future.wait([firstSeek, secondSeek]);
+
+    expect(session.position, const Duration(seconds: 24));
+    expect(engine.commands.where((command) => command == 'play'), hasLength(1));
+    await session.dispose();
+  });
+
   test('所有内核停止后可按续播位置和播放意图再次打开', () async {
     const resume = Duration(seconds: 84);
     for (final kind in PlaybackEngineKind.values) {

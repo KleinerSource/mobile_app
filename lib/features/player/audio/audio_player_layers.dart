@@ -29,9 +29,15 @@ class AudioPlayerVisualLayers extends StatelessWidget {
       children: [
         surface,
         if (!effectsSuspended)
-          SafeArea(child: AudioSpectrumBackdrop(spectrum: spectrum)),
+          SafeArea(
+            key: const ValueKey<String>('audio-spectrum-layer'),
+            child: AudioSpectrumBackdrop(spectrum: spectrum),
+          ),
         if (!effectsSuspended) const AudioPlayerGlassVeil(),
-        SafeArea(child: child),
+        SafeArea(
+          key: const ValueKey<String>('audio-player-foreground-layer'),
+          child: child,
+        ),
       ],
     );
   }
