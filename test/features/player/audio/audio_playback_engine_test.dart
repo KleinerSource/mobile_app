@@ -14,6 +14,30 @@ import 'package:omm/features/player/common/player_queue.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('Scratch 按住到边界不切歌，释放恢复播放后允许曲末推进', () {
+    bool shouldAdvance({required bool scratching, required Duration position}) {
+      return AudioPlaybackService.shouldAutoAdvanceScratchTrack(
+        modeActive: true,
+        playbackIntent: true,
+        scratching: scratching,
+        completionInFlight: false,
+        position: position,
+        duration: const Duration(seconds: 90),
+        rate: 1,
+      );
+    }
+
+    expect(shouldAdvance(scratching: true, position: Duration.zero), isFalse);
+    expect(
+      shouldAdvance(scratching: true, position: const Duration(seconds: 90)),
+      isFalse,
+    );
+    expect(
+      shouldAdvance(scratching: false, position: const Duration(seconds: 90)),
+      isTrue,
+    );
+  });
+
   test('音频打开请求只发送音频队列并保留顺序和索引', () async {
     final handler = _FakeAudioHandler();
     final engine = AudioPlaybackEngine(handler: handler);
@@ -190,6 +214,7 @@ void main() {
         ),
         isTrue,
       );
+      expect(handler.scratchModePayloads.last['scratching'], isTrue);
 
       final handoff = await engine.finishScratch(resumePlayback: true);
 
@@ -198,6 +223,7 @@ void main() {
       expect(handler.seekPositions, isEmpty);
       expect(handler.commands, ['pause']);
       expect(nativeCommands, ['scratch-start']);
+      expect(handler.scratchModePayloads.last['scratching'], isFalse);
 
       expect(
         await engine.startScratch(
@@ -208,6 +234,7 @@ void main() {
       );
       expect(prepareCalls, 1);
       expect(nativeCommands, ['scratch-start', 'scratch-play']);
+      expect(handler.scratchModePayloads.last['scratching'], isTrue);
     } finally {
       await engine.dispose();
       messenger.setMockMethodCallHandler(channel, null);
@@ -664,6 +691,8 @@ class _FakeAudioHandler extends audio_service.BaseAudioHandler {
   Map<String, dynamic>? customActionExtras;
   final List<String> commands = <String>[];
   final List<Duration> seekPositions = <Duration>[];
+  final List<Map<String, dynamic>> scratchModePayloads =
+      <Map<String, dynamic>>[];
   List<String>? eventLog;
   Map<String, dynamic>? scratchModeResult;
 
@@ -674,6 +703,9 @@ class _FakeAudioHandler extends audio_service.BaseAudioHandler {
   ]) async {
     customActionName = name;
     customActionExtras = extras;
+    if (name == audioSetScratchModeAction && extras != null) {
+      scratchModePayloads.add(Map<String, dynamic>.from(extras));
+    }
     if (name == audioGetScratchModeAction) return scratchModeResult;
   }
 

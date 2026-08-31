@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:audio_service/audio_service.dart' as audio_service;
 import 'package:audio_session/audio_session.dart';
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart' as just_audio;
 import 'package:omm_scratch_audio/omm_scratch_audio.dart';
 
@@ -65,6 +66,26 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   }
 
   static audio_service.AudioHandler? _handler;
+
+  @visibleForTesting
+  static bool shouldAutoAdvanceScratchTrack({
+    required bool modeActive,
+    required bool playbackIntent,
+    required bool scratching,
+    required bool completionInFlight,
+    required Duration position,
+    required Duration duration,
+    required double rate,
+  }) {
+    return modeActive &&
+        playbackIntent &&
+        !scratching &&
+        !completionInFlight &&
+        duration > Duration.zero &&
+        rate > 0 &&
+        duration - position <= const Duration(milliseconds: 20);
+  }
+
   static StreamSubscription<Object?>? _resourceEventsSubscription;
 
   /// 应用启动时调用一次。返回的 handler 是 UI isolate 使用的代理。
@@ -133,6 +154,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   bool _scratchCompletionInFlight = false;
   bool _scratchModeActive = false;
   bool _scratchPlaybackIntent = false;
+  bool _scratchGestureActive = false;
   bool _scratchCompleted = false;
   int _scratchModeGeneration = 0;
   audio_service.AudioServiceRepeatMode _repeatMode =
@@ -166,6 +188,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
         'positionMs': _scratchState?.position.inMilliseconds ?? 0,
         'durationMs': _scratchState?.duration.inMilliseconds ?? 0,
         'sourceId': _scratchState?.sourceId ?? '',
+        'scratching': _scratchGestureActive,
       });
     }
     return super.customAction(name, extras);
@@ -181,6 +204,13 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
 
     final sourceId = payload['sourceId']?.toString() ?? '';
     if (sourceId.isEmpty) throw StateError('Scratch 音轨身份为空');
+    final scratching = payload['scratching'] == true;
+    if (scratching &&
+        _scratchModeActive &&
+        _scratchState?.sourceId == sourceId) {
+      // 重抓唱片时先关闭曲末推进窗口，再等待平台状态往返。
+      _scratchGestureActive = true;
+    }
     final generation = ++_scratchModeGeneration;
     final state = await OmmScratchAudio.state();
     if (!state.ready || state.sourceId != sourceId) {
@@ -194,6 +224,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     if (generation != _scratchModeGeneration) return;
     _scratchModeActive = true;
     _scratchPlaybackIntent = payload['playbackIntent'] == true;
+    _scratchGestureActive = scratching;
     _scratchCompleted = false;
     _playRequested = _scratchPlaybackIntent;
     _scratchState = state;
@@ -544,13 +575,16 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
 
   Future<bool> _completeScratchTrackIfNeeded() async {
     final state = _scratchState;
-    if (!_scratchModeActive ||
-        !_scratchPlaybackIntent ||
-        _scratchCompletionInFlight ||
-        state == null ||
-        state.duration <= Duration.zero ||
-        state.rate <= 0 ||
-        state.duration - state.position > const Duration(milliseconds: 20)) {
+    if (state == null ||
+        !shouldAutoAdvanceScratchTrack(
+          modeActive: _scratchModeActive,
+          playbackIntent: _scratchPlaybackIntent,
+          scratching: _scratchGestureActive,
+          completionInFlight: _scratchCompletionInFlight,
+          position: state.position,
+          duration: state.duration,
+          rate: state.rate,
+        )) {
       return false;
     }
 
@@ -606,6 +640,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     _scratchCompletionInFlight = false;
     _scratchModeActive = false;
     _scratchPlaybackIntent = false;
+    _scratchGestureActive = false;
     _scratchCompleted = false;
   }
 

@@ -177,13 +177,14 @@ class AudioPlaybackEngine
       try {
         final state = await OmmScratchAudio.state();
         if (state.ready && state.sourceId == sourceId) {
-          await OmmScratchAudio.setRate(_pendingScratchRate);
-          await OmmScratchAudio.play();
           await _handler.customAction(audioSetScratchModeAction, {
             'active': true,
             'playbackIntent': resumePlayback,
             'sourceId': sourceId,
+            'scratching': true,
           });
+          await OmmScratchAudio.setRate(_pendingScratchRate);
+          await OmmScratchAudio.play();
           return true;
         }
       } catch (_) {}
@@ -253,6 +254,7 @@ class AudioPlaybackEngine
         'active': true,
         'playbackIntent': resumePlayback,
         'sourceId': sourceId,
+        'scratching': true,
       });
       _startScratchPositionPolling();
       return true;
@@ -335,6 +337,7 @@ class AudioPlaybackEngine
         'active': true,
         'playbackIntent': resumePlayback,
         'sourceId': state.sourceId,
+        'scratching': false,
       });
       _publishScratchPosition(state: state);
       return state.position;
