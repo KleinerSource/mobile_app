@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -47,6 +48,8 @@ final class AudioNowPlayingGeometry {
 class AudioSpectrumBackdrop extends StatelessWidget {
   const AudioSpectrumBackdrop({super.key, required this.spectrum});
 
+  static const double spectrumOuterPadding = 104;
+
   final ValueListenable<AudioSpectrumFrame> spectrum;
 
   @override
@@ -54,7 +57,7 @@ class AudioSpectrumBackdrop extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final geometry = AudioNowPlayingGeometry.fromConstraints(constraints);
-        final spectrumSize = geometry.recordSize + 72;
+        final spectrumSize = geometry.recordSize + spectrumOuterPadding;
         return Padding(
           padding: const EdgeInsets.only(
             top: AudioNowPlayingGeometry.stageTopInset,
@@ -107,8 +110,12 @@ class CircularAudioSpectrumPainter extends CustomPainter {
   });
 
   static const double strokeWidth = 5;
-  static const double glowStrokeWidth = 10;
-  static const double minimumOpacity = 0.58;
+  static const double glowStrokeWidth = 18;
+  static const double haloStrokeWidth = 32;
+  static const double haloBlurSigma = 12;
+  static const double glowBlurSigma = 5;
+  static const double minimumLength = 7;
+  static const double minimumOpacity = 0.82;
 
   final AudioSpectrumFrame frame;
   final double recordRadius;
@@ -129,21 +136,36 @@ class CircularAudioSpectrumPainter extends CustomPainter {
     final glowPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = glowStrokeWidth
-      ..strokeCap = StrokeCap.round;
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const ui.MaskFilter.blur(
+        ui.BlurStyle.normal,
+        glowBlurSigma,
+      );
+    final haloPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = haloStrokeWidth
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const ui.MaskFilter.blur(
+        ui.BlurStyle.normal,
+        haloBlurSigma,
+      );
     for (var index = 0; index < frame.bands.length; index++) {
       final fraction = index / frame.bands.length;
       final energy = frame.bands[index].clamp(0.0, 1.0);
       final angle = -math.pi / 2 + math.pi * 2 * fraction;
-      final length = 3 + maxLength * (energy * 0.85 + frame.peak * 0.15);
+      final length =
+          minimumLength + maxLength * (energy * 0.85 + frame.peak * 0.15);
       final opacity =
           (minimumOpacity + math.max(energy, frame.rms) * (1 - minimumOpacity))
               .clamp(0.0, 1.0);
       final color = colorForIntensity(palette, energy);
-      glowPaint.color = color.withValues(alpha: opacity * 0.28);
+      haloPaint.color = color.withValues(alpha: opacity * 0.30);
+      glowPaint.color = color.withValues(alpha: opacity * 0.52);
       paint.color = color.withValues(alpha: opacity);
       final direction = Offset(math.cos(angle), math.sin(angle));
       final start = center + direction * baseRadius;
       final end = center + direction * (baseRadius + length);
+      canvas.drawLine(start, end, haloPaint);
       canvas.drawLine(start, end, glowPaint);
       canvas.drawLine(start, end, paint);
     }
