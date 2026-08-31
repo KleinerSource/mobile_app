@@ -16,6 +16,7 @@ import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
+import 'package:omm/shared/selection_controller.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/swipe_actions.dart';
@@ -72,8 +73,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   int? _totalCount;
   int _requestSerial = 0;
   bool _lastPageComplete = false;
-  bool _selectionMode = false;
-  final Set<int> _selectedIds = <int>{};
+  late final SelectionController<int> _selection;
   Completer<void>? _refreshCompleter;
 
   /// 当前左滑展开的行（资源 id），同一时刻只展开一个。
@@ -82,6 +82,8 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   @override
   void initState() {
     super.initState();
+    _selection = SelectionController<int>();
+    _selection.activeListenable.addListener(_onSelectionModeChanged);
     _controller.addPageRequestListener(_fetch);
     _scrollController.addListener(_closeSwipeOnScroll);
   }
@@ -99,7 +101,15 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
     _controller.dispose();
     _scrollController.dispose();
     _searchController.dispose();
+    _selection.dispose();
     super.dispose();
+  }
+
+  bool get _selectionMode => _selection.isActive;
+  Set<int> get _selectedIds => _selection.selected;
+
+  void _onSelectionModeChanged() {
+    if (mounted) setState(() {});
   }
 
   /// 列表开始滚动时收起已展开的左滑操作。
@@ -187,53 +197,25 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
   }
 
   void _startSelectionSweep(int id, bool selected) {
-    setState(() {
-      _selectionMode = true;
-      _setSelectionValue(id, selected);
-    });
+    _selection.enter();
+    _selection.setSelected(id, selected);
   }
 
   void _applySelectionSweep(int id, bool selected) {
-    if (_selectedIds.contains(id) == selected) return;
-    setState(() => _setSelectionValue(id, selected));
+    _selection.setSelected(id, selected);
   }
 
   void _finishSelectionSweep() {
     if (_selectionMode && _selectedIds.isEmpty) _exitSelection();
   }
 
-  void _setSelectionValue(int id, bool selected) {
-    if (selected) {
-      _selectedIds.add(id);
-    } else {
-      _selectedIds.remove(id);
-    }
-  }
+  void _toggleSelect(int id) => _selection.toggle(id);
 
-  void _toggleSelect(int id) {
-    setState(() {
-      if (_selectedIds.remove(id)) {
-        if (_selectedIds.isEmpty) _selectionMode = false;
-      } else {
-        _selectedIds.add(id);
-      }
-    });
-  }
-
-  void _exitSelection() {
-    setState(() {
-      _selectionMode = false;
-      _selectedIds.clear();
-    });
-  }
+  void _exitSelection() => _selection.exit();
 
   void _selectAllLoaded() {
     final loaded = _controller.itemList ?? const <ResourceItem>[];
-    setState(() {
-      _selectedIds
-        ..clear()
-        ..addAll(loaded.map((item) => item.id));
-    });
+    _selection.selectAll(loaded.map((item) => item.id));
   }
 
   List<ResourceItem> _selectedItems() {
@@ -353,7 +335,7 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                     child: DragSelectionScope<int>(
                       scrollController: _scrollController,
                       selectionLayout: DragSelectionLayout.list,
-                      isSelected: _selectedIds.contains,
+                      isSelected: _selection.contains,
                       onSelectionStart: _startSelectionSweep,
                       onSelectionChanged: _applySelectionSweep,
                       onSelectionEnd: _finishSelectionSweep,
@@ -472,101 +454,104 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                                     ? const SizedBox.shrink()
                                     : Divider(height: 1, color: c.divider);
                               },
-                              builderDelegate:
-                                  PagedChildBuilderDelegate<ResourceItem>(
-                                    itemBuilder: (ctx, r, i) {
-                                      final hue =
-                                          AppHues.all[i % AppHues.all.length];
-                                      // 连排整条列表：首行圆上角、末行圆下角，
-                                      // 操作块沿用同一圆角避免顶出行轮廓。
-                                      final isLastRow =
-                                          _lastPageComplete &&
-                                          i ==
-                                              (_controller.itemList?.length ??
-                                                      0) -
-                                                  1;
-                                      final rowRadius = BorderRadius.vertical(
-                                        top: i == 0
-                                            ? const Radius.circular(16)
-                                            : Radius.zero,
-                                        bottom: isLastRow
-                                            ? const Radius.circular(16)
-                                            : Radius.zero,
-                                      );
-                                      return SwipeActionCell(
-                                        actionBorderRadius: rowRadius,
-                                        group: _openSwipe,
-                                        cellKey: r.id,
-                                        enabled: !_selectionMode,
-                                        actions: [
-                                          SwipeActionData(
-                                            icon: Icons.edit_outlined,
-                                            label: '编辑',
-                                            color: c.accent,
-                                            onPressed: () =>
-                                                _showEditor(ctx, edit: r),
-                                          ),
-                                          SwipeActionData(
-                                            icon: Icons.delete_outline,
-                                            label: '删除',
-                                            color: c.danger,
-                                            onPressed: () =>
-                                                _confirmDelete(ctx, r),
-                                          ),
-                                        ],
-                                        child: DragSelectionTarget<int>(
-                                          key: ValueKey(r.id),
-                                          id: r.id,
-                                          selectionIndex: i,
-                                          selectionHandleAlignment:
-                                              Alignment.centerLeft,
-                                          child: ClipRRect(
-                                            borderRadius: rowRadius,
-                                            child: _ResourceTile(
-                                              kind: widget.kind,
-                                              item: r,
-                                              hue: hue,
-                                              selectionMode: _selectionMode,
-                                              selected: _selectedIds.contains(
-                                                r.id,
-                                              ),
-                                              onTap: _selectionMode
-                                                  ? () => _toggleSelect(r.id)
-                                                  : () => Navigator.of(ctx).push(
-                                                      MaterialPageRoute(
-                                                        builder: (_) =>
-                                                            ResourceMoviesPage(
-                                                              kind: widget.kind,
-                                                              resource: r,
-                                                            ),
+                              builderDelegate: PagedChildBuilderDelegate<ResourceItem>(
+                                itemBuilder: (ctx, r, i) {
+                                  final hue =
+                                      AppHues.all[i % AppHues.all.length];
+                                  // 连排整条列表：首行圆上角、末行圆下角，
+                                  // 操作块沿用同一圆角避免顶出行轮廓。
+                                  final isLastRow =
+                                      _lastPageComplete &&
+                                      i ==
+                                          (_controller.itemList?.length ?? 0) -
+                                              1;
+                                  final rowRadius = BorderRadius.vertical(
+                                    top: i == 0
+                                        ? const Radius.circular(16)
+                                        : Radius.zero,
+                                    bottom: isLastRow
+                                        ? const Radius.circular(16)
+                                        : Radius.zero,
+                                  );
+                                  return SwipeActionCell(
+                                    actionBorderRadius: rowRadius,
+                                    group: _openSwipe,
+                                    cellKey: r.id,
+                                    enabled: !_selectionMode,
+                                    actions: [
+                                      SwipeActionData(
+                                        icon: Icons.edit_outlined,
+                                        label: '编辑',
+                                        color: c.accent,
+                                        onPressed: () =>
+                                            _showEditor(ctx, edit: r),
+                                      ),
+                                      SwipeActionData(
+                                        icon: Icons.delete_outline,
+                                        label: '删除',
+                                        color: c.danger,
+                                        onPressed: () => _confirmDelete(ctx, r),
+                                      ),
+                                    ],
+                                    child: DragSelectionTarget<int>(
+                                      key: ValueKey(r.id),
+                                      id: r.id,
+                                      selectionIndex: i,
+                                      selectionHandleAlignment:
+                                          Alignment.centerLeft,
+                                      child: ClipRRect(
+                                        borderRadius: rowRadius,
+                                        child: ValueListenableBuilder<Set<int>>(
+                                          valueListenable:
+                                              _selection.selectedListenable,
+                                          builder: (context, selected, _) =>
+                                              _ResourceTile(
+                                                kind: widget.kind,
+                                                item: r,
+                                                hue: hue,
+                                                selectionMode: _selectionMode,
+                                                selected: selected.contains(
+                                                  r.id,
+                                                ),
+                                                onTap: _selectionMode
+                                                    ? () => _toggleSelect(r.id)
+                                                    : () => Navigator.of(ctx).push(
+                                                        MaterialPageRoute(
+                                                          builder: (_) =>
+                                                              ResourceMoviesPage(
+                                                                kind:
+                                                                    widget.kind,
+                                                                resource: r,
+                                                              ),
+                                                        ),
                                                       ),
-                                                    ),
-                                            ),
-                                          ),
+                                              ),
                                         ),
-                                      );
-                                    },
-                                    firstPageProgressIndicatorBuilder: (_) =>
-                                        const Center(
-                                          child: CircularProgressIndicator(),
-                                        ),
-                                    firstPageErrorIndicatorBuilder: (_) =>
-                                        ErrorView(
-                                          message:
-                                              _controller.error?.toString() ??
-                                              '加载失败',
-                                          onRetry: _controller.refresh,
-                                        ),
-                                    newPageErrorIndicatorBuilder: (_) =>
-                                        PaginationRetry(
-                                          onRetry: _controller
-                                              .retryLastFailedRequest,
-                                        ),
-                                    noItemsFoundIndicatorBuilder: (_) =>
-                                        _Empty(kind: widget.kind),
-                                    noMoreItemsIndicatorBuilder: (_) =>
-                                        const NoMoreContent(),
-                                  ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                firstPageProgressIndicatorBuilder: (_) =>
+                                    const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                firstPageErrorIndicatorBuilder: (_) =>
+                                    ErrorView(
+                                      message:
+                                          _controller.error?.toString() ??
+                                          '加载失败',
+                                      onRetry: _controller.refresh,
+                                    ),
+                                newPageErrorIndicatorBuilder: (_) =>
+                                    PaginationRetry(
+                                      onRetry:
+                                          _controller.retryLastFailedRequest,
+                                    ),
+                                noItemsFoundIndicatorBuilder: (_) =>
+                                    _Empty(kind: widget.kind),
+                                noMoreItemsIndicatorBuilder: (_) =>
+                                    const NoMoreContent(),
+                              ),
                             ),
                           ),
                         ],
@@ -579,25 +564,28 @@ class _ResourceListPageState extends ConsumerState<ResourceListPage> {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    child: EntityBatchToolbar(
-                      selectedCount: _selectedIds.length,
-                      onSelectAll: _selectAllLoaded,
-                      onClear: () => setState(() => _selectedIds.clear()),
-                      onClose: _exitSelection,
-                      actions: [
-                        EntityBatchAction(
-                          icon: Icons.merge_rounded,
-                          label: '合并',
-                          color: c.warning,
-                          onTap: _selectedIds.length < 2 ? null : _onBatchMerge,
-                        ),
-                        EntityBatchAction(
-                          icon: Icons.delete_outline,
-                          label: '删除',
-                          color: c.danger,
-                          onTap: _selectedIds.isEmpty ? null : _onBatchDelete,
-                        ),
-                      ],
+                    child: ValueListenableBuilder<Set<int>>(
+                      valueListenable: _selection.selectedListenable,
+                      builder: (context, selected, _) => EntityBatchToolbar(
+                        selectedCount: selected.length,
+                        onSelectAll: _selectAllLoaded,
+                        onClear: _selection.clear,
+                        onClose: _exitSelection,
+                        actions: [
+                          EntityBatchAction(
+                            icon: Icons.merge_rounded,
+                            label: '合并',
+                            color: c.warning,
+                            onTap: selected.length < 2 ? null : _onBatchMerge,
+                          ),
+                          EntityBatchAction(
+                            icon: Icons.delete_outline,
+                            label: '删除',
+                            color: c.danger,
+                            onTap: selected.isEmpty ? null : _onBatchDelete,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
               ],

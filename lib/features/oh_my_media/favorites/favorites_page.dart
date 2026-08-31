@@ -19,6 +19,7 @@ import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
+import 'package:omm/shared/selection_controller.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/shared/poster.dart';
@@ -80,16 +81,18 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   FavoritesViewMode _viewMode = FavoritesViewMode.grid;
   FavoritesSort _sort = FavoritesSort.recent;
   int _totalCount = 0;
-  final Set<int> _selected = {};
-  bool _selectionMode = false;
+  late final SelectionController<int> _selection;
   bool _newResourcesOnly = false;
   bool _resourceScanStarting = false;
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
-  bool get _selecting => _selectionMode;
+  bool get _selecting => _selection.isActive;
+  Set<int> get _selected => _selection.selected;
 
   @override
   void initState() {
     super.initState();
+    _selection = SelectionController<int>();
+    _selection.activeListenable.addListener(_onSelectionModeChanged);
     _viewMode = _loadViewMode();
     _controller.addPageRequestListener(_fetch);
     _scrollController.addListener(_closeSwipeOnScroll);
@@ -116,7 +119,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     _openSwipe.dispose();
     _controller.dispose();
     _scrollController.dispose();
+    _selection.dispose();
     super.dispose();
+  }
+
+  void _onSelectionModeChanged() {
+    if (mounted) setState(() {});
   }
 
   /// 列表开始滚动时收起已展开的左滑操作。
@@ -296,56 +304,26 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     _reload();
   }
 
-  void _toggleSelect(int id) {
-    setState(() {
-      if (_selected.contains(id)) {
-        _selected.remove(id);
-        if (_selected.isEmpty) _selectionMode = false;
-      } else {
-        _selectionMode = true;
-        _selected.add(id);
-      }
-    });
-  }
+  void _toggleSelect(int id) => _selection.toggle(id);
 
   void _startSelectionSweep(int id, bool selected) {
-    setState(() {
-      _selectionMode = true;
-      _setSelectionValue(id, selected);
-    });
+    _selection.enter();
+    _selection.setSelected(id, selected);
   }
 
   void _applySelectionSweep(int id, bool selected) {
-    if (_selected.contains(id) == selected) return;
-    setState(() => _setSelectionValue(id, selected));
+    _selection.setSelected(id, selected);
   }
 
   void _finishSelectionSweep() {
     if (_selected.isEmpty) _clearSelection();
   }
 
-  void _setSelectionValue(int id, bool selected) {
-    if (selected) {
-      _selected.add(id);
-    } else {
-      _selected.remove(id);
-    }
-  }
-
-  void _clearSelection() {
-    setState(() {
-      _selectionMode = false;
-      _selected.clear();
-    });
-  }
+  void _clearSelection() => _selection.exit();
 
   void _selectAllLoaded() {
     final loaded = _controller.itemList ?? const <MovieListItem>[];
-    setState(() {
-      _selected
-        ..clear()
-        ..addAll(loaded.map((movie) => movie.id));
-    });
+    _selection.selectAll(loaded.map((movie) => movie.id));
   }
 
   Future<void> _removeOne(MovieListItem m) async {
@@ -401,12 +379,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       list.removeWhere((it) => ids.contains(it.id));
       _controller.itemList = list;
       _totalCount = (_totalCount - ids.length).clamp(0, 1 << 30);
-      if (mounted) {
-        setState(() {
-          _selectionMode = false;
-          _selected.clear();
-        });
-      }
+      if (mounted) _selection.exit();
       messenger.showSnackBar(
         SnackBar(
           content: Text('已移除 ${ids.length} 部'),
@@ -560,7 +533,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                             selectionLayout: _viewMode == FavoritesViewMode.grid
                                 ? DragSelectionLayout.grid
                                 : DragSelectionLayout.list,
-                            isSelected: _selected.contains,
+                            isSelected: _selection.contains,
                             onSelectionStart: _startSelectionSweep,
                             onSelectionChanged: _applySelectionSweep,
                             onSelectionEnd: _finishSelectionSweep,
@@ -711,19 +684,22 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
               left: 0,
               right: 0,
               bottom: 0,
-              child: EntityBatchToolbar(
-                selectedCount: _selected.length,
-                onSelectAll: _selectAllLoaded,
-                onClear: _clearSelection,
-                onClose: _clearSelection,
-                actions: [
-                  EntityBatchAction(
-                    icon: Icons.delete_outline,
-                    label: '移除收藏',
-                    color: c.danger,
-                    onTap: _removeSelection,
-                  ),
-                ],
+              child: ValueListenableBuilder<Set<int>>(
+                valueListenable: _selection.selectedListenable,
+                builder: (context, selected, _) => EntityBatchToolbar(
+                  selectedCount: selected.length,
+                  onSelectAll: _selectAllLoaded,
+                  onClear: _clearSelection,
+                  onClose: _clearSelection,
+                  actions: [
+                    EntityBatchAction(
+                      icon: Icons.delete_outline,
+                      label: '移除收藏',
+                      color: c.danger,
+                      onTap: selected.isEmpty ? null : _removeSelection,
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
@@ -739,18 +715,21 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         key: ValueKey(m.id),
         id: m.id,
         selectionIndex: idx,
-        child: SelectableMovieCard(
-          movie: m,
-          posterUrlBuilder: urlBuilder,
-          selected: _selected.contains(m.id),
-          selecting: _selecting,
-          onTap: () {
-            if (_selecting) {
-              _toggleSelect(m.id);
-            } else {
-              unawaited(_openMovie(m));
-            }
-          },
+        child: ValueListenableBuilder<Set<int>>(
+          valueListenable: _selection.selectedListenable,
+          builder: (context, selected, _) => SelectableMovieCard(
+            movie: m,
+            posterUrlBuilder: urlBuilder,
+            selected: selected.contains(m.id),
+            selecting: _selecting,
+            onTap: () {
+              if (_selecting) {
+                _toggleSelect(m.id);
+              } else {
+                unawaited(_openMovie(m));
+              }
+            },
+          ),
         ),
       ),
       firstPageProgressIndicatorBuilder: (_) =>
@@ -772,20 +751,23 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         key: ValueKey(m.id),
         id: m.id,
         selectionHandleAlignment: Alignment.centerLeft,
-        child: _ListRow(
-          movie: m,
-          urlBuilder: urlBuilder,
-          swipeGroup: _openSwipe,
-          selected: _selected.contains(m.id),
-          selecting: _selecting,
-          onTap: () {
-            if (_selecting) {
-              _toggleSelect(m.id);
-            } else {
-              unawaited(_openMovie(m));
-            }
-          },
-          onRemove: () => _removeOne(m),
+        child: ValueListenableBuilder<Set<int>>(
+          valueListenable: _selection.selectedListenable,
+          builder: (context, selected, _) => _ListRow(
+            movie: m,
+            urlBuilder: urlBuilder,
+            swipeGroup: _openSwipe,
+            selected: selected.contains(m.id),
+            selecting: _selecting,
+            onTap: () {
+              if (_selecting) {
+                _toggleSelect(m.id);
+              } else {
+                unawaited(_openMovie(m));
+              }
+            },
+            onRemove: () => _removeOne(m),
+          ),
         ),
       ),
       firstPageProgressIndicatorBuilder: (_) =>

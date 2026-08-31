@@ -23,6 +23,7 @@ import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/poster.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
+import 'package:omm/shared/selection_controller.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart';
@@ -67,9 +68,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   _ViewMode _viewMode = _ViewMode.grid;
   int _totalCount = 0;
 
-  // 选择模式状态
-  bool _selectionMode = false;
-  final Set<int> _selectedIds = {};
+  late final SelectionController<int> _selection;
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
   Completer<void>? _refreshCompleter;
   bool _resourceScanStarting = false;
@@ -77,6 +76,8 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   @override
   void initState() {
     super.initState();
+    _selection = SelectionController<int>();
+    _selection.activeListenable.addListener(_onSelectionModeChanged);
     _currentFilter = widget.initialFilter;
     _viewMode = _loadViewMode();
     _controller.addPageRequestListener(_fetch);
@@ -105,7 +106,15 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     _openSwipe.dispose();
     _controller.dispose();
     _scrollController.dispose();
+    _selection.dispose();
     super.dispose();
+  }
+
+  bool get _selectionMode => _selection.isActive;
+  Set<int> get _selectedIds => _selection.selected;
+
+  void _onSelectionModeChanged() {
+    if (mounted) setState(() {});
   }
 
   /// 列表开始滚动时收起已展开的左滑操作。
@@ -425,7 +434,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                             selectionLayout: _viewMode == _ViewMode.grid
                                 ? DragSelectionLayout.grid
                                 : DragSelectionLayout.list,
-                            isSelected: _selectedIds.contains,
+                            isSelected: _selection.contains,
                             onSelectionStart: _startSelectionSweep,
                             onSelectionChanged: _applySelectionSweep,
                             onSelectionEnd: _finishSelectionSweep,
@@ -478,44 +487,47 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    child: EntityBatchToolbar(
-                      selectedCount: _selectedIds.length,
-                      onSelectAll: _selectAllLoaded,
-                      onClear: () => setState(() => _selectedIds.clear()),
-                      onClose: _exitSelection,
-                      actions: [
-                        EntityBatchAction(
-                          icon: Icons.edit_outlined,
-                          label: '编辑',
-                          onTap: _selectedIds.isEmpty ? null : _onBatchEdit,
-                        ),
-                        EntityBatchAction(
-                          icon: Icons.cloud_download_outlined,
-                          label: '下载',
-                          color: const Color(0xFF34F5A5),
-                          onTap: _selectedIds.isEmpty ? null : _onBatchDownload,
-                        ),
-                        EntityBatchAction(
-                          icon: Icons.sync_rounded,
-                          label: '扫描',
-                          onTap: _selectedIds.isEmpty
-                              ? null
-                              : _onBatchResourceScan,
-                        ),
-                        if (_canMergeOrCompare)
+                    child: ValueListenableBuilder<Set<int>>(
+                      valueListenable: _selection.selectedListenable,
+                      builder: (context, selected, _) => EntityBatchToolbar(
+                        selectedCount: selected.length,
+                        onSelectAll: _selectAllLoaded,
+                        onClear: _selection.clear,
+                        onClose: _exitSelection,
+                        actions: [
                           EntityBatchAction(
-                            icon: Icons.compare_arrows_rounded,
-                            label: '比较',
-                            onTap: _onBatchCompareNfo,
+                            icon: Icons.edit_outlined,
+                            label: '编辑',
+                            onTap: selected.isEmpty ? null : _onBatchEdit,
                           ),
-                        if (_canMergeOrCompare)
                           EntityBatchAction(
-                            icon: Icons.merge_rounded,
-                            label: '合并',
-                            color: c.warning,
-                            onTap: _onBatchMerge,
+                            icon: Icons.cloud_download_outlined,
+                            label: '下载',
+                            color: const Color(0xFF34F5A5),
+                            onTap: selected.isEmpty ? null : _onBatchDownload,
                           ),
-                      ],
+                          EntityBatchAction(
+                            icon: Icons.sync_rounded,
+                            label: '扫描',
+                            onTap: selected.isEmpty
+                                ? null
+                                : _onBatchResourceScan,
+                          ),
+                          if (_canMergeOrCompare)
+                            EntityBatchAction(
+                              icon: Icons.compare_arrows_rounded,
+                              label: '比较',
+                              onTap: _onBatchCompareNfo,
+                            ),
+                          if (_canMergeOrCompare)
+                            EntityBatchAction(
+                              icon: Icons.merge_rounded,
+                              label: '合并',
+                              color: c.warning,
+                              onTap: _onBatchMerge,
+                            ),
+                        ],
+                      ),
                     ),
                   ),
               ],
@@ -536,12 +548,15 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         key: ValueKey(item.id),
         id: item.id,
         selectionIndex: idx,
-        child: SelectableMovieCard(
-          movie: item,
-          posterUrlBuilder: urlBuilder,
-          selecting: _selectionMode,
-          selected: _selectedIds.contains(item.id),
-          onTap: () => _handleMovieTap(item),
+        child: ValueListenableBuilder<Set<int>>(
+          valueListenable: _selection.selectedListenable,
+          builder: (context, selected, _) => SelectableMovieCard(
+            movie: item,
+            posterUrlBuilder: urlBuilder,
+            selecting: _selectionMode,
+            selected: selected.contains(item.id),
+            onTap: () => _handleMovieTap(item),
+          ),
         ),
       ),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
@@ -571,16 +586,19 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
         key: ValueKey(item.id),
         id: item.id,
         selectionHandleAlignment: Alignment.centerLeft,
-        child: _ListRow(
-          movie: item,
-          urlBuilder: urlBuilder,
-          swipeGroup: _openSwipe,
-          selectionMode: _selectionMode,
-          selected: _selectedIds.contains(item.id),
-          onSelectionTap: () => _toggleSelect(item.id),
-          onMovieTap: () => _openMovie(item),
-          onFavorite: (isFavorited) =>
-              unawaited(_toggleFavorite(item, isFavorited)),
+        child: ValueListenableBuilder<Set<int>>(
+          valueListenable: _selection.selectedListenable,
+          builder: (context, selected, _) => _ListRow(
+            movie: item,
+            urlBuilder: urlBuilder,
+            swipeGroup: _openSwipe,
+            selectionMode: _selectionMode,
+            selected: selected.contains(item.id),
+            onSelectionTap: () => _toggleSelect(item.id),
+            onMovieTap: () => _openMovie(item),
+            onFavorite: (isFavorited) =>
+                unawaited(_toggleFavorite(item, isFavorited)),
+          ),
         ),
       ),
       firstPageErrorIndicatorBuilder: (_) => ErrorView(
@@ -597,15 +615,12 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
   // ===== 选择模式 =====
 
   void _startSelectionSweep(int id, bool selected) {
-    setState(() {
-      _selectionMode = true;
-      _setSelectionValue(id, selected);
-    });
+    _selection.enter();
+    _selection.setSelected(id, selected);
   }
 
   void _applySelectionSweep(int id, bool selected) {
-    if (_selectedIds.contains(id) == selected) return;
-    setState(() => _setSelectionValue(id, selected));
+    _selection.setSelected(id, selected);
   }
 
   void _finishSelectionSweep() {
@@ -614,31 +629,9 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
     }
   }
 
-  void _setSelectionValue(int id, bool selected) {
-    if (selected) {
-      _selectedIds.add(id);
-    } else {
-      _selectedIds.remove(id);
-    }
-  }
+  void _toggleSelect(int id) => _selection.toggle(id);
 
-  void _toggleSelect(int id) {
-    setState(() {
-      if (_selectedIds.contains(id)) {
-        _selectedIds.remove(id);
-        if (_selectedIds.isEmpty) _selectionMode = false;
-      } else {
-        _selectedIds.add(id);
-      }
-    });
-  }
-
-  void _exitSelection() {
-    setState(() {
-      _selectionMode = false;
-      _selectedIds.clear();
-    });
-  }
+  void _exitSelection() => _selection.exit();
 
   Future<void> _toggleFavorite(MovieListItem movie, bool isFavorited) async {
     final nextValue = !isFavorited;
@@ -669,11 +662,7 @@ class _MoviesPageState extends ConsumerState<MoviesPage> {
 
   void _selectAllLoaded() {
     final loaded = _controller.itemList ?? const <MovieListItem>[];
-    setState(() {
-      _selectedIds
-        ..clear()
-        ..addAll(loaded.map((m) => m.id));
-    });
+    _selection.selectAll(loaded.map((m) => m.id));
   }
 
   /// 选中影片的番号集合

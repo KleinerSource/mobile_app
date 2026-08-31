@@ -26,6 +26,7 @@ import '../../shared/edge_swipe_back.dart';
 import '../../shared/floating_tab_bar.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/selection_controller.dart';
 import '../../shared/sheet_controls.dart';
 import '../../shared/swipe_actions.dart';
 import '../player/common/playback_engine.dart';
@@ -35,7 +36,7 @@ import '../player/video/video_player_page.dart';
 import '../player/common/player_queue.dart';
 import '../player/video/video_player_session_factory.dart';
 import '../player/common/player_settings.dart';
-import '../oh_my_media/movie_detail/movie_detail_page.dart'
+import '../oh_my_media/movie_detail/movie_detail_media_viewers.dart'
     show showImageLightbox;
 import '../settings/server_selection_page.dart';
 import '../settings/settings_common.dart';
@@ -51,6 +52,7 @@ import 'file_image_preview_settings.dart';
 import '../player/audio/file_audio_metadata_session.dart';
 import 'file_playback_engine.dart';
 import 'file_playback_proxy.dart';
+import 'file_playback_queue_builder.dart';
 
 const _maxFallbackTextBytes = 5 * 1024 * 1024;
 
@@ -120,15 +122,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   late String _path = widget.initialPath;
   late final FileOperationTracker _tracker;
   late final FilePlaybackProgressRepository _filePlaybackProgress;
+  late final SelectionController<String> _selection;
   final ScrollController _scrollController = ScrollController();
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
-  final Set<String> _selectedKeys = <String>{};
   final Map<String, Future<Uint8List>> _imagePreviewFutures = {};
   StreamSubscription<FileOperation>? _operationSubscription;
   Timer? _operationDismissTimer;
   FileOperation? _operation;
   bool _busy = false;
-  bool _selectionMode = false;
   FileEntry? _pendingAutoOpen;
 
   AppL10n get _l10n => AppL10n.of(context);
@@ -139,6 +140,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   bool get _showHiddenFiles => _browserPreferences.showHiddenFiles;
   FileBrowserSortField get _sortField => _browserPreferences.sortField;
   bool get _sortAscending => _browserPreferences.sortAscending;
+  bool get _selectionMode => _selection.isActive;
+  Set<String> get _selectedKeys => _selection.selected;
 
   FileDirectoryRequest get _request => FileDirectoryRequest(
     serverId: widget.serverId,
@@ -153,6 +156,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     super.initState();
     _pendingAutoOpen = widget.autoOpenFile;
     _tracker = FileOperationTracker(sourceId: widget.sourceId);
+    _selection = SelectionController<String>();
+    _selection.activeListenable.addListener(_handleSelectionModeChanged);
     _filePlaybackProgress = FilePlaybackProgressRepository(
       ref.read(sharedPrefsProvider),
     );
@@ -167,6 +172,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     _scrollController.removeListener(_closeSwipeOnScroll);
     _scrollController.dispose();
     _openSwipe.dispose();
+    _selection.dispose();
     _imagePreviewFutures.clear();
     unawaited(_tracker.dispose());
     super.dispose();
@@ -187,8 +193,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final visibleEntries = listing.hasValue
         ? _visibleEntries(listing.requireValue)
         : const <FileEntry>[];
-    final batchActions = _batchActions(visibleEntries);
-
     // 文件浏览页使用紧凑导航栏，把垂直空间留给文件列表。
     final l = _l10n;
     final descriptor = source.asData?.value?.descriptor;
@@ -200,112 +204,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         break;
       }
     }
-    final headerTitle = widget.directoryPicker
-        ? l.fileSelectTargetDirectory
-        : _selectionMode
-        ? l.fileSelectedItems(_selectedKeys.length)
-        : (serverName ?? descriptor?.name ?? l.fileListTitle);
-    final headerTrailing = widget.directoryPicker
-        ? IconButton(
-            tooltip: l.fileSelectThisDirectory,
-            onPressed: _busy
-                ? null
-                : () => _submitDirectory(currentDirectoryPath),
-            icon: const Icon(Icons.check),
-          )
-        : _selectionMode
-        ? PopupMenuButton<int>(
-            tooltip: l.fileBatchActions,
-            onSelected: (index) => batchActions[index].onTap?.call(),
-            itemBuilder: (_) => [
-              for (var i = 0; i < batchActions.length; i++)
-                PopupMenuItem<int>(
-                  value: i,
-                  enabled: batchActions[i].onTap != null,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(batchActions[i].icon, size: 20),
-                      const SizedBox(width: 12),
-                      Text(batchActions[i].label),
-                    ],
-                  ),
-                ),
-            ],
-          )
-        : PopupMenuButton<_BrowserMenuAction>(
-            enabled: !_busy,
-            tooltip: l.fileMoreActions,
-            onSelected: (action) =>
-                _handleMenuAction(action, currentDirectoryPath),
-            itemBuilder: (_) => [
-              // 强制刷新只对 OpenList 有意义：其服务端有目录缓存需要
-              // 绕过；SMB/WebDAV 每次列目录都是实时读取，无需该入口。
-              if (descriptor?.kind == SourceKind.openList)
-                _menuItem(
-                  _BrowserMenuAction.forceRefresh,
-                  Icons.refresh,
-                  l.fileForceRefresh,
-                ),
-              _menuItem(
-                _BrowserMenuAction.createDirectory,
-                Icons.create_new_folder_outlined,
-                l.fileCreateDirectory,
-              ),
-              _menuItem(
-                _BrowserMenuAction.upload,
-                Icons.upload_file_outlined,
-                l.fileUpload,
-              ),
-              _menuItem(
-                _BrowserMenuAction.enterSelection,
-                Icons.checklist_outlined,
-                l.fileSelect,
-              ),
-              CheckedPopupMenuItem<_BrowserMenuAction>(
-                value: _BrowserMenuAction.toggleHidden,
-                checked: browserPreferences.showHiddenFiles,
-                child: Text(l.fileShowHidden),
-              ),
-              CheckedPopupMenuItem<_BrowserMenuAction>(
-                value: _BrowserMenuAction.sortName,
-                checked:
-                    browserPreferences.sortField == FileBrowserSortField.name,
-                child: Text(
-                  _sortMenuLabel(l.fileSortName, FileBrowserSortField.name),
-                ),
-              ),
-              CheckedPopupMenuItem<_BrowserMenuAction>(
-                value: _BrowserMenuAction.sortDate,
-                checked:
-                    browserPreferences.sortField == FileBrowserSortField.date,
-                child: Text(
-                  _sortMenuLabel(l.fileSortDate, FileBrowserSortField.date),
-                ),
-              ),
-              CheckedPopupMenuItem<_BrowserMenuAction>(
-                value: _BrowserMenuAction.sortSize,
-                checked:
-                    browserPreferences.sortField == FileBrowserSortField.size,
-                child: Text(
-                  _sortMenuLabel(l.fileSortSize, FileBrowserSortField.size),
-                ),
-              ),
-              CheckedPopupMenuItem<_BrowserMenuAction>(
-                value: _BrowserMenuAction.sortCategory,
-                checked:
-                    browserPreferences.sortField ==
-                    FileBrowserSortField.category,
-                child: Text(
-                  _sortMenuLabel(
-                    l.fileSortCategory,
-                    FileBrowserSortField.category,
-                  ),
-                ),
-              ),
-            ],
-          );
-
     final page = PopScope(
       canPop: !_selectionMode,
       onPopInvokedWithResult: (didPop, _) {
@@ -318,20 +216,146 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
             bottom: false,
             child: SettingsFixedHeaderLayout(
               scrollController: _scrollController,
-              header: _FileBrowserTopBar(
-                title: headerTitle,
-                backIcon: _selectionMode ? Icons.close : Icons.arrow_back,
-                backTooltip: _selectionMode
-                    ? l.fileExitSelection
-                    : widget.directoryPicker
-                    ? (_isAtRoot ? l.fileCancelPicker : l.fileBackToParent)
-                    : (_isAtRoot ? l.fileBackToServers : l.fileBackToParent),
-                onBackPressed: _selectionMode
-                    ? _exitSelection
-                    : widget.directoryPicker
-                    ? _cancelDirectoryPicker
-                    : _handleBack,
-                trailing: headerTrailing,
+              header: ValueListenableBuilder<Set<String>>(
+                valueListenable: _selection.selectedListenable,
+                builder: (context, selectedKeys, _) {
+                  final batchActions = _batchActions(visibleEntries);
+                  final headerTitle = widget.directoryPicker
+                      ? l.fileSelectTargetDirectory
+                      : _selectionMode
+                      ? l.fileSelectedItems(selectedKeys.length)
+                      : (serverName ?? descriptor?.name ?? l.fileListTitle);
+                  final headerTrailing = widget.directoryPicker
+                      ? IconButton(
+                          tooltip: l.fileSelectThisDirectory,
+                          onPressed: _busy
+                              ? null
+                              : () => _submitDirectory(currentDirectoryPath),
+                          icon: const Icon(Icons.check),
+                        )
+                      : _selectionMode
+                      ? PopupMenuButton<int>(
+                          tooltip: l.fileBatchActions,
+                          onSelected: (index) =>
+                              batchActions[index].onTap?.call(),
+                          itemBuilder: (_) => [
+                            for (var i = 0; i < batchActions.length; i++)
+                              PopupMenuItem<int>(
+                                value: i,
+                                enabled: batchActions[i].onTap != null,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(batchActions[i].icon, size: 20),
+                                    const SizedBox(width: 12),
+                                    Text(batchActions[i].label),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        )
+                      : PopupMenuButton<_BrowserMenuAction>(
+                          enabled: !_busy,
+                          tooltip: l.fileMoreActions,
+                          onSelected: (action) =>
+                              _handleMenuAction(action, currentDirectoryPath),
+                          itemBuilder: (_) => [
+                            // 强制刷新只对 OpenList 有意义：其服务端有目录缓存需要
+                            // 绕过；SMB/WebDAV 每次列目录都是实时读取，无需该入口。
+                            if (descriptor?.kind == SourceKind.openList)
+                              _menuItem(
+                                _BrowserMenuAction.forceRefresh,
+                                Icons.refresh,
+                                l.fileForceRefresh,
+                              ),
+                            _menuItem(
+                              _BrowserMenuAction.createDirectory,
+                              Icons.create_new_folder_outlined,
+                              l.fileCreateDirectory,
+                            ),
+                            _menuItem(
+                              _BrowserMenuAction.upload,
+                              Icons.upload_file_outlined,
+                              l.fileUpload,
+                            ),
+                            _menuItem(
+                              _BrowserMenuAction.enterSelection,
+                              Icons.checklist_outlined,
+                              l.fileSelect,
+                            ),
+                            CheckedPopupMenuItem<_BrowserMenuAction>(
+                              value: _BrowserMenuAction.toggleHidden,
+                              checked: browserPreferences.showHiddenFiles,
+                              child: Text(l.fileShowHidden),
+                            ),
+                            CheckedPopupMenuItem<_BrowserMenuAction>(
+                              value: _BrowserMenuAction.sortName,
+                              checked:
+                                  browserPreferences.sortField ==
+                                  FileBrowserSortField.name,
+                              child: Text(
+                                _sortMenuLabel(
+                                  l.fileSortName,
+                                  FileBrowserSortField.name,
+                                ),
+                              ),
+                            ),
+                            CheckedPopupMenuItem<_BrowserMenuAction>(
+                              value: _BrowserMenuAction.sortDate,
+                              checked:
+                                  browserPreferences.sortField ==
+                                  FileBrowserSortField.date,
+                              child: Text(
+                                _sortMenuLabel(
+                                  l.fileSortDate,
+                                  FileBrowserSortField.date,
+                                ),
+                              ),
+                            ),
+                            CheckedPopupMenuItem<_BrowserMenuAction>(
+                              value: _BrowserMenuAction.sortSize,
+                              checked:
+                                  browserPreferences.sortField ==
+                                  FileBrowserSortField.size,
+                              child: Text(
+                                _sortMenuLabel(
+                                  l.fileSortSize,
+                                  FileBrowserSortField.size,
+                                ),
+                              ),
+                            ),
+                            CheckedPopupMenuItem<_BrowserMenuAction>(
+                              value: _BrowserMenuAction.sortCategory,
+                              checked:
+                                  browserPreferences.sortField ==
+                                  FileBrowserSortField.category,
+                              child: Text(
+                                _sortMenuLabel(
+                                  l.fileSortCategory,
+                                  FileBrowserSortField.category,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                  return _FileBrowserTopBar(
+                    title: headerTitle,
+                    backIcon: _selectionMode ? Icons.close : Icons.arrow_back,
+                    backTooltip: _selectionMode
+                        ? l.fileExitSelection
+                        : widget.directoryPicker
+                        ? (_isAtRoot ? l.fileCancelPicker : l.fileBackToParent)
+                        : (_isAtRoot
+                              ? l.fileBackToServers
+                              : l.fileBackToParent),
+                    onBackPressed: _selectionMode
+                        ? _exitSelection
+                        : widget.directoryPicker
+                        ? _cancelDirectoryPicker
+                        : _handleBack,
+                    trailing: headerTrailing,
+                  );
+                },
               ),
               body: Column(
                 children: [
@@ -431,6 +455,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     if (_openSwipe.value != null) _openSwipe.value = null;
   }
 
+  void _handleSelectionModeChanged() {
+    if (mounted) setState(() {});
+  }
+
   Future<void> _openDirectory(String path) async {
     _openSwipe.value = null;
     final selectedPath = await Navigator.of(context).push<FilePath>(
@@ -458,11 +486,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final parent = _parent(_path);
     if (parent == _path) return;
     if (mounted) {
-      setState(() {
-        _path = parent;
-        _selectionMode = false;
-        _selectedKeys.clear();
-      });
+      setState(() => _path = parent);
+      _selection.exit();
     }
   }
 
@@ -481,11 +506,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         if (currentRoute != null &&
             currentRoute.isFirst &&
             currentRoute.settings.name == rootRouteName) {
-          setState(() {
-            _path = '';
-            _selectionMode = false;
-            _selectedKeys.clear();
-          });
+          setState(() => _path = '');
+          _selection.exit();
           return;
         }
         // 选择器从当前目录开始时，选择器首页本身就叫根路由名，需排除
@@ -514,66 +536,36 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   }
 
   void _startSelectionSweep(String key, bool selected) {
-    setState(() {
-      _selectionMode = true;
-      _setSelectionValue(key, selected);
-    });
+    _selection.enter();
+    _selection.setSelected(key, selected);
   }
 
   void _applySelectionSweep(String key, bool selected) {
-    if (_selectedKeys.contains(key) == selected) return;
-    setState(() => _setSelectionValue(key, selected));
+    _selection.setSelected(key, selected);
   }
 
   void _finishSelectionSweep() {
     if (_selectionMode && _selectedKeys.isEmpty) _exitSelection();
   }
 
-  void _setSelectionValue(String key, bool selected) {
-    if (selected) {
-      _selectedKeys.add(key);
-    } else {
-      _selectedKeys.remove(key);
-    }
-  }
-
-  void _toggleSelect(FileEntry entry) {
-    setState(() {
-      if (_selectedKeys.remove(entry.stableKey)) {
-        if (_selectedKeys.isEmpty) _selectionMode = false;
-      } else {
-        _selectedKeys.add(entry.stableKey);
-      }
-    });
-  }
+  void _toggleSelect(FileEntry entry) => _selection.toggle(entry.stableKey);
 
   void _enterSelectionMode() {
     if (_busy || _selectionMode) return;
-    setState(() => _selectionMode = true);
+    _selection.enter();
   }
 
   void _exitSelection() {
     _openSwipe.value = null;
     if (!mounted) return;
-    setState(() {
-      _selectionMode = false;
-      _selectedKeys.clear();
-    });
+    _selection.exit();
   }
 
-  void _clearSelection() {
-    if (!mounted) return;
-    setState(() => _selectedKeys.clear());
-  }
+  void _clearSelection() => _selection.clear();
 
   void _selectAllVisible(List<FileEntry> entries) {
     if (entries.isEmpty) return;
-    setState(() {
-      _selectionMode = true;
-      _selectedKeys
-        ..clear()
-        ..addAll(entries.map((entry) => entry.stableKey));
-    });
+    _selection.selectAll(entries.map((entry) => entry.stableKey));
   }
 
   Future<void> _handleMenuAction(
@@ -756,12 +748,16 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
                         bottom: floatingTabBarContentBottomInset(context),
                       ),
                       itemCount: entries.length,
-                      itemBuilder: (context, index) => _entryTile(
-                        entries[index],
-                        index,
-                        imagePreviewEnabled,
-                        favoriteKeys,
-                      ),
+                      itemBuilder: (context, index) =>
+                          ValueListenableBuilder<Set<String>>(
+                            valueListenable: _selection.selectedListenable,
+                            builder: (_, __, ___) => _entryTile(
+                              entries[index],
+                              index,
+                              imagePreviewEnabled,
+                              favoriteKeys,
+                            ),
+                          ),
                       separatorBuilder: (_, __) => Divider(
                         height: 1,
                         color: Theme.of(context).dividerColor,
@@ -1536,7 +1532,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     Future<void> disposeQueueResources() async {
       // 两类下载必须并行取消：元数据读取不能阻塞播放器代理断开。
       final metadataDispose = audioMetadataSession?.dispose();
-      await _closePlaybackProxies(playbackProxies);
+      await closeFilePlaybackProxies(playbackProxies);
       if (metadataDispose != null) await metadataDispose;
     }
 
@@ -1595,13 +1591,14 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       if (!mediaEntries.any((item) => item.stableKey == entry.stableKey)) {
         mediaEntries.insert(0, entry);
       }
-      final queue = await _buildPlaybackQueue(
+      final queue = await buildFilePlaybackQueue(
         repository: repository,
         entries: mediaEntries,
         current: entry,
         itemType: itemType,
         useDirect: useDirect,
         proxies: playbackProxies,
+        directUrlMissingMessage: _l10n.fileWebDavDirectUrlMissing,
         musicCache: musicCache,
       );
       if (!mounted) return;
@@ -1662,91 +1659,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         await disposeQueueResources();
       }
       if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<List<PlayerQueueItem>> _buildPlaybackQueue({
-    required FileSourceRepository repository,
-    required List<FileEntry> entries,
-    required FileEntry current,
-    required PlayerQueueItemType itemType,
-    required bool useDirect,
-    required List<FilePlaybackProxy> proxies,
-    MusicCacheService? musicCache,
-  }) async {
-    final queue = <PlayerQueueItem>[];
-    try {
-      for (final entry in entries) {
-        try {
-          final formatHint = _pathExtension(entry.name);
-          if (useDirect) {
-            final access = await repository.resolveAccess(entry.path);
-            final uri = access.uri;
-            if (uri == null) {
-              throw FileSourceException(
-                _l10n.fileWebDavDirectUrlMissing,
-                code: 'webdav_direct_url_missing',
-              );
-            }
-            queue.add(
-              PlayerQueueItem(
-                title: entry.name,
-                type: itemType,
-                mediaId: entry.stableKey,
-                directUrl: uri.toString(),
-                directHeaders: access.headers,
-                directFormatHint: formatHint,
-                directPlaybackFileName: entry.name,
-                directPreferFfmpegForHls: true,
-              ),
-            );
-          } else {
-            // 没有可供播放器直接访问的 URL，或音频需要先完整缓存时，
-            // 为队列中的每个文件预留回环代理；资源由播放器页在整个队列
-            // 结束后释放。
-            final proxy = await FilePlaybackProxy.start(
-              repository: repository,
-              path: entry.path,
-              size: entry.size,
-              mimeType: entry.mimeType,
-              pathExtension: formatHint,
-              cacheBeforePlayback: itemType == PlayerQueueItemType.audio,
-              musicCache: musicCache,
-              modifiedAt: entry.modifiedAt,
-            );
-            proxies.add(proxy);
-            queue.add(
-              PlayerQueueItem(
-                title: entry.name,
-                type: itemType,
-                mediaId: entry.stableKey,
-                directUrl: proxy.uri.toString(),
-                directFormatHint: formatHint,
-                directPlaybackFileName: entry.name,
-                directPreferFfmpegForHls: true,
-              ),
-            );
-          }
-        } catch (error, stackTrace) {
-          if (entry.stableKey == current.stableKey) rethrow;
-          appLog(
-            '[FileBrowser] 跳过无法加入队列的视频: ${entry.name} '
-            '$error\n$stackTrace',
-          );
-        }
-      }
-      return queue;
-    } catch (_) {
-      await _closePlaybackProxies(proxies);
-      rethrow;
-    }
-  }
-
-  Future<void> _closePlaybackProxies(List<FilePlaybackProxy> proxies) async {
-    for (final proxy in proxies) {
-      try {
-        await proxy.close();
-      } catch (_) {}
     }
   }
 
@@ -1842,12 +1754,6 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
       fileTypeIconFor(entry) == FileTypeIcon.image;
 
   bool _isTextEntry(FileEntry entry) => isTextEditorEntry(entry);
-
-  String? _pathExtension(String name) {
-    final dot = name.lastIndexOf('.');
-    if (dot <= 0 || dot == name.length - 1) return null;
-    return name.substring(dot + 1);
-  }
 
   String _decodeTextPreview(FileEntry entry, List<int> bytes) {
     final text = utf8.decode(bytes, allowMalformed: true);

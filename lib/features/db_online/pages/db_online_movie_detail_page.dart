@@ -13,7 +13,7 @@ import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/poster.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/i18n/poster_badge_visibility_provider.dart';
-import 'package:omm/features/oh_my_media/movie_detail/movie_detail_page.dart'
+import 'package:omm/features/oh_my_media/movie_detail/movie_detail_media_viewers.dart'
     show showMovieImageLightbox;
 import 'package:omm/features/oh_my_media/movie_detail/cover_badges.dart';
 import 'package:omm/features/player/video/video_player_page.dart';

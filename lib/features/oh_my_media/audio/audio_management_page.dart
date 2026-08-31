@@ -16,6 +16,7 @@ import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
 import 'package:omm/shared/pagination_footer.dart';
+import 'package:omm/shared/selection_controller.dart';
 import 'package:omm/shared/status_pill.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/swipe_actions.dart';
@@ -59,8 +60,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   bool _lastPageComplete = false;
   int _requestSerial = 0;
   int _totalCount = 0;
-  bool _selectionMode = false;
-  final Set<int> _selectedIds = <int>{};
+  late final SelectionController<int> _selection;
   final Set<int> _busyAssetIds = <int>{};
   final Set<String> _busyTaskIds = <String>{};
 
@@ -72,6 +72,8 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
   @override
   void initState() {
     super.initState();
+    _selection = SelectionController<int>();
+    _selection.activeListenable.addListener(_onSelectionModeChanged);
     _controller.addPageRequestListener(_fetch);
     _scrollController.addListener(_closeSwipeOnScroll);
   }
@@ -86,7 +88,15 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
     _controller.dispose();
     _scrollController.dispose();
     _searchController.dispose();
+    _selection.dispose();
     super.dispose();
+  }
+
+  bool get _selectionMode => _selection.isActive;
+  Set<int> get _selectedIds => _selection.selected;
+
+  void _onSelectionModeChanged() {
+    if (mounted) setState(() {});
   }
 
   /// 列表开始滚动时收起已展开的左滑操作。
@@ -141,12 +151,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
         .map((asset) => asset.id)
         .toSet();
     if (keep.length != _selectedIds.length) {
-      setState(() {
-        _selectedIds
-          ..clear()
-          ..addAll(keep);
-        if (_selectedIds.isEmpty) _selectionMode = false;
-      });
+      _selection.retainWhere(keep.contains, deactivateWhenEmpty: true);
     }
   }
 
@@ -342,62 +347,34 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
 
   void _startSelectionSweep(int id, bool selected) {
     if (selected && !_isSelectableId(id)) return;
-    setState(() {
-      _selectionMode = true;
-      _setSelectionValue(id, selected);
-    });
+    _selection.enter();
+    _selection.setSelected(id, selected);
   }
 
   void _applySelectionSweep(int id, bool selected) {
-    if (_selectedIds.contains(id) == selected) return;
     if (selected && !_isSelectableId(id)) return;
-    setState(() => _setSelectionValue(id, selected));
+    _selection.setSelected(id, selected);
   }
 
   void _finishSelectionSweep() {
     if (_selectionMode && _selectedIds.isEmpty) _exitSelection();
   }
 
-  void _setSelectionValue(int id, bool selected) {
-    if (selected) {
-      _selectedIds.add(id);
-    } else {
-      _selectedIds.remove(id);
-    }
-  }
-
   void _toggleSelect(int id) {
     if (!_selectedIds.contains(id) && !_isSelectableId(id)) return;
-    setState(() {
-      if (_selectedIds.remove(id)) {
-        if (_selectedIds.isEmpty) _selectionMode = false;
-      } else {
-        _selectionMode = true;
-        _selectedIds.add(id);
-      }
-    });
+    _selection.toggle(id);
   }
 
-  void _exitSelection() {
-    if (!_selectionMode && _selectedIds.isEmpty) return;
-    setState(() {
-      _selectionMode = false;
-      _selectedIds.clear();
-    });
-  }
+  void _exitSelection() => _selection.exit();
 
   void _selectAllLoaded() {
     final loaded = _controller.itemList ?? const <AudioAsset>[];
     final activeMovies = _activeTranscriptionMovieIds();
-    setState(() {
-      _selectedIds
-        ..clear()
-        ..addAll(
-          loaded
-              .where((asset) => !_isAssetLocked(asset, activeMovies))
-              .map((asset) => asset.id),
-        );
-    });
+    _selection.selectAll(
+      loaded
+          .where((asset) => !_isAssetLocked(asset, activeMovies))
+          .map((asset) => asset.id),
+    );
   }
 
   List<AudioAsset> _selectedItems() {
@@ -757,7 +734,7 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                     child: DragSelectionScope<int>(
                       scrollController: _scrollController,
                       selectionLayout: DragSelectionLayout.list,
-                      isSelected: _selectedIds.contains,
+                      isSelected: _selection.contains,
                       onSelectionStart: _startSelectionSweep,
                       onSelectionChanged: _applySelectionSweep,
                       onSelectionEnd: _finishSelectionSweep,
@@ -913,19 +890,35 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                                               Alignment.centerLeft,
                                           child: ClipRRect(
                                             borderRadius: rowRadius,
-                                            child: _AssetCard(
-                                              asset: asset,
-                                              selected: _selectedIds.contains(
-                                                asset.id,
-                                              ),
-                                              selecting: _selectionMode,
-                                              locked: locked,
-                                              busy: busy,
-                                              onToggleSelect: () =>
-                                                  _toggleSelect(asset.id),
-                                              onOpenMovie: () =>
-                                                  _openMovieDetail(asset),
-                                            ),
+                                            child:
+                                                ValueListenableBuilder<
+                                                  Set<int>
+                                                >(
+                                                  valueListenable: _selection
+                                                      .selectedListenable,
+                                                  builder:
+                                                      (
+                                                        context,
+                                                        selected,
+                                                        _,
+                                                      ) => _AssetCard(
+                                                        asset: asset,
+                                                        selected: selected
+                                                            .contains(asset.id),
+                                                        selecting:
+                                                            _selectionMode,
+                                                        locked: locked,
+                                                        busy: busy,
+                                                        onToggleSelect: () =>
+                                                            _toggleSelect(
+                                                              asset.id,
+                                                            ),
+                                                        onOpenMovie: () =>
+                                                            _openMovieDetail(
+                                                              asset,
+                                                            ),
+                                                      ),
+                                                ),
                                           ),
                                         ),
                                       );
@@ -961,29 +954,33 @@ class _AudioManagementPageState extends ConsumerState<AudioManagementPage> {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    child: EntityBatchToolbar(
-                      selectedCount: _selectedIds.length,
-                      onSelectAll: _selectAllLoaded,
-                      onClear: _exitSelection,
-                      onClose: _exitSelection,
-                      actions: [
-                        if (transcriptionEnabled)
+                    child: ValueListenableBuilder<Set<int>>(
+                      valueListenable: _selection.selectedListenable,
+                      builder: (context, selected, _) => EntityBatchToolbar(
+                        selectedCount: selected.length,
+                        onSelectAll: _selectAllLoaded,
+                        onClear: _exitSelection,
+                        onClose: _exitSelection,
+                        actions: [
+                          if (transcriptionEnabled)
+                            EntityBatchAction(
+                              icon: Icons.cloud_upload_outlined,
+                              label: '加入转译',
+                              onTap: _busyAssetIds.isEmpty
+                                  ? () =>
+                                        _enqueueTranscriptions(_selectedItems())
+                                  : null,
+                            ),
                           EntityBatchAction(
-                            icon: Icons.cloud_upload_outlined,
-                            label: '加入转译',
+                            icon: Icons.delete_outline,
+                            label: '删除音频',
+                            color: c.danger,
                             onTap: _busyAssetIds.isEmpty
-                                ? () => _enqueueTranscriptions(_selectedItems())
+                                ? () => _deleteAssets(_selectedItems())
                                 : null,
                           ),
-                        EntityBatchAction(
-                          icon: Icons.delete_outline,
-                          label: '删除音频',
-                          color: c.danger,
-                          onTap: _busyAssetIds.isEmpty
-                              ? () => _deleteAssets(_selectedItems())
-                              : null,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
               ],

@@ -16,6 +16,7 @@ import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
+import 'package:omm/shared/selection_controller.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/swipe_actions.dart';
@@ -47,8 +48,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
   int? _totalCount;
   int _requestSerial = 0;
   bool _lastPageComplete = false;
-  bool _selectionMode = false;
-  final Set<int> _selectedIds = <int>{};
+  late final SelectionController<int> _selection;
   Completer<void>? _refreshCompleter;
 
   /// 当前左滑展开的行（规则 id），同一时刻只展开一个。
@@ -63,14 +63,24 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     _controller.dispose();
     _scrollController.dispose();
     _searchCtrl.dispose();
+    _selection.dispose();
     super.dispose();
   }
 
   @override
   void initState() {
     super.initState();
+    _selection = SelectionController<int>();
+    _selection.activeListenable.addListener(_onSelectionModeChanged);
     _controller.addPageRequestListener(_fetch);
     _scrollController.addListener(_closeSwipeOnScroll);
+  }
+
+  bool get _selectionMode => _selection.isActive;
+  Set<int> get _selectedIds => _selection.selected;
+
+  void _onSelectionModeChanged() {
+    if (mounted) setState(() {});
   }
 
   /// 列表开始滚动时收起已展开的左滑操作。
@@ -151,53 +161,25 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
   }
 
   void _startSelectionSweep(int id, bool selected) {
-    setState(() {
-      _selectionMode = true;
-      _setSelectionValue(id, selected);
-    });
+    _selection.enter();
+    _selection.setSelected(id, selected);
   }
 
   void _applySelectionSweep(int id, bool selected) {
-    if (_selectedIds.contains(id) == selected) return;
-    setState(() => _setSelectionValue(id, selected));
+    _selection.setSelected(id, selected);
   }
 
   void _finishSelectionSweep() {
     if (_selectionMode && _selectedIds.isEmpty) _exitSelection();
   }
 
-  void _setSelectionValue(int id, bool selected) {
-    if (selected) {
-      _selectedIds.add(id);
-    } else {
-      _selectedIds.remove(id);
-    }
-  }
+  void _toggleSelect(int id) => _selection.toggle(id);
 
-  void _toggleSelect(int id) {
-    setState(() {
-      if (_selectedIds.remove(id)) {
-        if (_selectedIds.isEmpty) _selectionMode = false;
-      } else {
-        _selectedIds.add(id);
-      }
-    });
-  }
-
-  void _exitSelection() {
-    setState(() {
-      _selectionMode = false;
-      _selectedIds.clear();
-    });
-  }
+  void _exitSelection() => _selection.exit();
 
   void _selectAllLoaded() {
     final loaded = _controller.itemList ?? const <MappingRule>[];
-    setState(() {
-      _selectedIds
-        ..clear()
-        ..addAll(loaded.map((rule) => rule.id));
-    });
+    _selection.selectAll(loaded.map((rule) => rule.id));
   }
 
   Future<void> _onBatchDelete() async {
@@ -253,19 +235,22 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
     return Scaffold(
       backgroundColor: c.bg,
       bottomNavigationBar: _selectionMode
-          ? EntityBatchToolbar(
-              selectedCount: _selectedIds.length,
-              onSelectAll: _selectAllLoaded,
-              onClear: () => setState(() => _selectedIds.clear()),
-              onClose: _exitSelection,
-              actions: [
-                EntityBatchAction(
-                  icon: Icons.delete_outline,
-                  label: '删除',
-                  color: c.danger,
-                  onTap: _selectedIds.isEmpty ? null : _onBatchDelete,
-                ),
-              ],
+          ? ValueListenableBuilder<Set<int>>(
+              valueListenable: _selection.selectedListenable,
+              builder: (context, selected, _) => EntityBatchToolbar(
+                selectedCount: selected.length,
+                onSelectAll: _selectAllLoaded,
+                onClear: _selection.clear,
+                onClose: _exitSelection,
+                actions: [
+                  EntityBatchAction(
+                    icon: Icons.delete_outline,
+                    label: '删除',
+                    color: c.danger,
+                    onTap: selected.isEmpty ? null : _onBatchDelete,
+                  ),
+                ],
+              ),
             )
           : null,
       body: PopScope(
@@ -304,7 +289,7 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                 child: DragSelectionScope<int>(
                   scrollController: _scrollController,
                   selectionLayout: DragSelectionLayout.list,
-                  isSelected: _selectedIds.contains,
+                  isSelected: _selection.contains,
                   onSelectionStart: _startSelectionSweep,
                   onSelectionChanged: _applySelectionSweep,
                   onSelectionEnd: _finishSelectionSweep,
@@ -463,15 +448,21 @@ class _MappingRulesPageState extends ConsumerState<MappingRulesPage> {
                                           Alignment.centerLeft,
                                       child: ClipRRect(
                                         borderRadius: rowRadius,
-                                        child: _RuleTile(
-                                          rule: rule,
-                                          selectionMode: _selectionMode,
-                                          selected: _selectedIds.contains(
-                                            rule.id,
-                                          ),
-                                          onSelectionTap: () =>
-                                              _toggleSelect(rule.id),
-                                          onEdit: () => _showEditor(rule: rule),
+                                        child: ValueListenableBuilder<Set<int>>(
+                                          valueListenable:
+                                              _selection.selectedListenable,
+                                          builder: (context, selected, _) =>
+                                              _RuleTile(
+                                                rule: rule,
+                                                selectionMode: _selectionMode,
+                                                selected: selected.contains(
+                                                  rule.id,
+                                                ),
+                                                onSelectionTap: () =>
+                                                    _toggleSelect(rule.id),
+                                                onEdit: () =>
+                                                    _showEditor(rule: rule),
+                                              ),
                                         ),
                                       ),
                                     ),

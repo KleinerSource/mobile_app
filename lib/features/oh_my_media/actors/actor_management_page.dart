@@ -21,6 +21,7 @@ import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
+import 'package:omm/shared/selection_controller.dart';
 import 'package:omm/shared/debouncer.dart';
 import 'package:omm/shared/swipe_actions.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
@@ -59,8 +60,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   bool _hasLoaded = false;
   bool _lastPageComplete = false;
   int _requestSerial = 0;
-  bool _selectionMode = false;
-  final Set<int> _selectedIds = <int>{};
+  late final SelectionController<int> _selection;
   Completer<void>? _refreshCompleter;
 
   /// 当前左滑展开的行（演员 id 或 'member:演员id:成员id'），同一时刻只展开一个。
@@ -69,6 +69,8 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   @override
   void initState() {
     super.initState();
+    _selection = SelectionController<int>();
+    _selection.activeListenable.addListener(_onSelectionModeChanged);
     _controller.addPageRequestListener(_fetch);
     _scrollController.addListener(_closeSwipeOnScroll);
   }
@@ -82,7 +84,15 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     _controller.dispose();
     _scrollController.dispose();
     _searchController.dispose();
+    _selection.dispose();
     super.dispose();
+  }
+
+  bool get _selectionMode => _selection.isActive;
+  Set<int> get _selectedIds => _selection.selected;
+
+  void _onSelectionModeChanged() {
+    if (mounted) setState(() {});
   }
 
   /// 列表开始滚动时收起已展开的左滑操作。
@@ -187,53 +197,25 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
   }
 
   void _startSelectionSweep(int id, bool selected) {
-    setState(() {
-      _selectionMode = true;
-      _setSelectionValue(id, selected);
-    });
+    _selection.enter();
+    _selection.setSelected(id, selected);
   }
 
   void _applySelectionSweep(int id, bool selected) {
-    if (_selectedIds.contains(id) == selected) return;
-    setState(() => _setSelectionValue(id, selected));
+    _selection.setSelected(id, selected);
   }
 
   void _finishSelectionSweep() {
     if (_selectionMode && _selectedIds.isEmpty) _exitSelection();
   }
 
-  void _setSelectionValue(int id, bool selected) {
-    if (selected) {
-      _selectedIds.add(id);
-    } else {
-      _selectedIds.remove(id);
-    }
-  }
+  void _toggleSelect(int id) => _selection.toggle(id);
 
-  void _toggleSelect(int id) {
-    setState(() {
-      if (_selectedIds.remove(id)) {
-        if (_selectedIds.isEmpty) _selectionMode = false;
-      } else {
-        _selectedIds.add(id);
-      }
-    });
-  }
-
-  void _exitSelection() {
-    setState(() {
-      _selectionMode = false;
-      _selectedIds.clear();
-    });
-  }
+  void _exitSelection() => _selection.exit();
 
   void _selectAllLoaded() {
     final loaded = _controller.itemList ?? const <ActorRow>[];
-    setState(() {
-      _selectedIds
-        ..clear()
-        ..addAll(loaded.map((row) => row.id));
-    });
+    _selection.selectAll(loaded.map((row) => row.id));
   }
 
   List<ActorItem> _selectedActors() {
@@ -342,19 +324,22 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
     return Scaffold(
       backgroundColor: c.bg,
       bottomNavigationBar: _selectionMode
-          ? EntityBatchToolbar(
-              selectedCount: _selectedIds.length,
-              onSelectAll: _selectAllLoaded,
-              onClear: () => setState(() => _selectedIds.clear()),
-              onClose: _exitSelection,
-              actions: [
-                EntityBatchAction(
-                  icon: Icons.delete_outline,
-                  label: '删除',
-                  color: c.danger,
-                  onTap: _selectedIds.isEmpty ? null : _onBatchDelete,
-                ),
-              ],
+          ? ValueListenableBuilder<Set<int>>(
+              valueListenable: _selection.selectedListenable,
+              builder: (context, selected, _) => EntityBatchToolbar(
+                selectedCount: selected.length,
+                onSelectAll: _selectAllLoaded,
+                onClear: _selection.clear,
+                onClose: _exitSelection,
+                actions: [
+                  EntityBatchAction(
+                    icon: Icons.delete_outline,
+                    label: '删除',
+                    color: c.danger,
+                    onTap: selected.isEmpty ? null : _onBatchDelete,
+                  ),
+                ],
+              ),
             )
           : null,
       body: PopScope(
@@ -392,7 +377,7 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                 child: DragSelectionScope<int>(
                   scrollController: _scrollController,
                   selectionLayout: DragSelectionLayout.list,
-                  isSelected: _selectedIds.contains,
+                  isSelected: _selection.contains,
                   onSelectionStart: _startSelectionSweep,
                   onSelectionChanged: _applySelectionSweep,
                   onSelectionEnd: _finishSelectionSweep,
@@ -542,36 +527,50 @@ class _ActorManagementPageState extends ConsumerState<ActorManagementPage> {
                                   id: row.id,
                                   child: ClipRRect(
                                     borderRadius: rowRadius,
-                                    child: _ActorTile(
-                                      row: row,
-                                      hue: AppHues
-                                          .all[index % AppHues.all.length],
-                                      isExpanded: _expandedIds.contains(row.id),
-                                      selectionMode: _selectionMode,
-                                      selected: _selectedIds.contains(row.id),
-                                      swipeGroup: _openSwipe,
-                                      onSelectionTap: () =>
-                                          _toggleSelect(row.id),
-                                      onToggleExpand: () =>
-                                          _toggleExpand(row.id),
-                                      onTap: () => Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => PersonDetailPage(
-                                            actor: actor,
-                                            onUpdated: () =>
-                                                _refresh(preserveScroll: true),
-                                          ),
-                                        ),
-                                      ),
-                                      onEditMember: (member) => _showEditor(
-                                        context,
-                                        actor: member.asActorItem,
-                                      ),
-                                      onDeleteMember: (member) =>
-                                          _confirmDelete(
-                                            context,
-                                            member.asActorItem,
-                                            force: true,
+                                    child: ValueListenableBuilder<Set<int>>(
+                                      valueListenable:
+                                          _selection.selectedListenable,
+                                      builder: (context, selected, _) =>
+                                          _ActorTile(
+                                            row: row,
+                                            hue:
+                                                AppHues.all[index %
+                                                    AppHues.all.length],
+                                            isExpanded: _expandedIds.contains(
+                                              row.id,
+                                            ),
+                                            selectionMode: _selectionMode,
+                                            selected: selected.contains(row.id),
+                                            swipeGroup: _openSwipe,
+                                            onSelectionTap: () =>
+                                                _toggleSelect(row.id),
+                                            onToggleExpand: () =>
+                                                _toggleExpand(row.id),
+                                            onTap: () =>
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute(
+                                                    builder: (_) =>
+                                                        PersonDetailPage(
+                                                          actor: actor,
+                                                          onUpdated: () =>
+                                                              _refresh(
+                                                                preserveScroll:
+                                                                    true,
+                                                              ),
+                                                        ),
+                                                  ),
+                                                ),
+                                            onEditMember: (member) =>
+                                                _showEditor(
+                                                  context,
+                                                  actor: member.asActorItem,
+                                                ),
+                                            onDeleteMember: (member) =>
+                                                _confirmDelete(
+                                                  context,
+                                                  member.asActorItem,
+                                                  force: true,
+                                                ),
                                           ),
                                     ),
                                   ),

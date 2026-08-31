@@ -25,23 +25,18 @@ import '../../../core/sources/media/media_source_providers.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
 import '../common/engine_playback_route.dart';
 import '../common/playback_engine.dart';
-import 'video_player_controls.dart';
 import 'player_decode_status.dart';
-import 'player_debug_overlay.dart';
 import 'player_device_stats.dart';
 import 'player_error_disposition.dart';
 import 'player_error_view.dart';
-import 'player_exit_button.dart';
-import '../common/player_gesture_layer.dart';
 import '../common/player_overlay_indicators.dart';
 import '../common/player_queue.dart';
 import 'player_resume.dart';
 import '../common/player_settings.dart';
 import '../common/player_session_controller.dart';
 import 'video_player_session_factory.dart';
-import 'player_status_overlay.dart';
+import 'video_player_view.dart';
 import 'subtitle_adjustment_sheet.dart';
-import 'subtitle_rendering.dart';
 import 'subtitle_settings.dart';
 
 const _directPlaybackDecision = playback_models.PlaybackDecision(
@@ -2036,15 +2031,14 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
   }
 
   Widget _bodyForState(PlaybackViewState playbackState) {
-    final settings = ref.watch(playerSettingsProvider);
-    final subtitleSettings = ref.watch(subtitleSettingsProvider);
-    final capabilities = _host.capabilities;
     if (_loading) {
       return Stack(
         children: [
           Positioned.fill(child: _host.buildSurface()),
           Positioned.fill(
-            child: _LoadingView(onExit: () => unawaited(_exitPlayer())),
+            child: VideoPlayerLoadingView(
+              onExit: () => unawaited(_exitPlayer()),
+            ),
           ),
         ],
       );
@@ -2068,145 +2062,51 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         onExit: () => unawaited(_exitPlayer()),
       );
     }
-    return Stack(
-      children: [
-        Positioned.fill(child: _host.buildSurface()),
-        if (capabilities.textSubtitles)
-          Positioned.fill(
-            child: PlayerSubtitleOverlay(
-              controller: _host,
-              selectedTrack: _selectedSubtitle,
-              settings: subtitleSettings,
-              adjustments: _subtitleAdjustments,
-              onVerticalOffsetBoundsChanged: _onSubtitleOffsetBoundsChanged,
-            ),
-          ),
-        Positioned.fill(
-          child: PlayerGestureLayer(
-            positionGetter: () => _host.position,
-            durationGetter: () => _host.duration,
-            onTap: _toggleControls,
-            doubleTapCenterEnabled: settings.doubleTapCenter,
-            doubleTapEdgesEnabled: settings.doubleTapEdges,
-            onDoubleTapCenter: _onDoubleTapCenter,
-            onDoubleTapSeek: _onDoubleTapSeek,
-            hapticLongPress: settings.hapticLongPress,
-            hapticSeek: settings.hapticSeek,
-            hapticRate: settings.hapticRate,
-            rateControlEnabled: capabilities.playbackRate,
-            onRateBoost: _onRateBoost,
-            onRateBoostEnd: _onRateBoostEnd,
-            onSeekPreview: _onSeekPreview,
-            onSeekCommit: _onSeekCommit,
-            onBrightnessDelta: _onBrightnessDelta,
-            onVolumeDelta: _onVolumeDelta,
-            onAxisDragEnd: _hideIndicator,
-          ),
-        ),
-        Positioned.fill(child: PlayerOverlayIndicators(indicator: _indicator)),
-        Positioned(
-          top: 8,
-          left: 20,
-          right: 20,
-          child: PlayerStatusOverlay(
-            title: widget.title,
-            stats: _deviceStats,
-            showSystemTime: settings.showSystemTime,
-            showNetworkSpeed: settings.showNetworkSpeed,
-            showCpuUsage: settings.showCpuUsage,
-            showBattery: settings.showBattery,
-          ),
-        ),
-        if (settings.debugMode)
-          Positioned(
-            top: 42,
-            left: 20,
-            right: 20,
-            child: PlayerDebugOverlay(stateListenable: _host),
-          ),
-        Positioned.fill(
-          child: IgnorePointer(
-            ignoring: !_controlsVisible,
-            child: AnimatedOpacity(
-              opacity: _controlsVisible ? 1 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: VideoPlayerControls(
-                controller: _host,
-                previewSourceUri: _pictureInPictureUrl,
-                previewSourceHeaders: _pictureInPictureHeaders,
-                quality: _quality,
-                qualityOptions: decision.qualityOptions,
-                showQualityButton: !_isDirectPlayback,
-                onQualityChanged: _onQualityChanged,
-                subtitleTracks: capabilities.textSubtitles
-                    ? decision.subtitleTracks
-                    : const [],
-                selectedSubtitle: _selectedSubtitle,
-                onSubtitleChanged: (track) =>
-                    unawaited(_onSubtitleChanged(track)),
-                onOpenSubtitleSettings: () =>
-                    unawaited(_showSubtitleSettings()),
-                audioTracks: capabilities.audioTracks
-                    ? decision.audioTracks
-                    : const [],
-                onAudioChanged: (track) => unawaited(_applyAudioTrack(track)),
-                decodeStatuses: _decodeStatuses,
-                hapticProgressBar: settings.hapticProgressBar,
-                showPlayPauseButton: settings.showPlayPauseButton,
-                showSeekButtons: settings.showSeekButtons,
-                showSpeedButton:
-                    settings.showSpeedButton && capabilities.playbackRate,
-                showPipButton:
-                    settings.showPipButton && capabilities.pictureInPicture,
-                showOrientationButton: settings.showOrientationButton,
-                showMediaSwitchButton: settings.showMediaSwitchButton,
-                playbackRate: _playbackRate,
-                onPictureInPicture: () => unawaited(_enterPictureInPicture()),
-                onPreviousMedia: widget.queueIndex > 0
-                    ? () => unawaited(_switchMedia(widget.queueIndex - 1))
-                    : null,
-                onNextMedia: widget.queueIndex < widget.queue.length - 1
-                    ? () => unawaited(_switchMedia(widget.queueIndex + 1))
-                    : null,
-                isLandscape: _isLandscape,
-                onOrientationToggle: () => unawaited(_toggleOrientation()),
-                onTogglePlay: _togglePlay,
-                onSeekBackward: () => _onDoubleTapSeek(-10),
-                onSeekForward: () => _onDoubleTapSeek(10),
-                onRateChanged: _onRateChanged,
-                onSeek: _host.seek,
-                onInteraction: _restartHideTimer,
-                onExit: () => unawaited(_exitPlayer()),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _LoadingView extends StatelessWidget {
-  const _LoadingView({required this.onExit});
-
-  final VoidCallback onExit;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: Colors.white),
-              SizedBox(height: 12),
-              Text('正在加载影片…', style: TextStyle(color: Colors.white)),
-            ],
-          ),
-        ),
-        PlayerExitButton(onExit: onExit),
-      ],
+    return VideoPlayerView(
+      controller: _host,
+      title: widget.title,
+      decision: decision,
+      isDirectPlayback: _isDirectPlayback,
+      selectedSubtitle: _selectedSubtitle,
+      subtitleAdjustments: _subtitleAdjustments,
+      onSubtitleOffsetBoundsChanged: _onSubtitleOffsetBoundsChanged,
+      deviceStats: _deviceStats,
+      indicator: _indicator,
+      controlsVisible: _controlsVisible,
+      pictureInPictureUrl: _pictureInPictureUrl,
+      pictureInPictureHeaders: _pictureInPictureHeaders,
+      quality: _quality,
+      decodeStatuses: _decodeStatuses,
+      playbackRate: _playbackRate,
+      isLandscape: _isLandscape,
+      onToggleControls: _toggleControls,
+      onDoubleTapCenter: _onDoubleTapCenter,
+      onDoubleTapSeek: _onDoubleTapSeek,
+      onRateBoost: _onRateBoost,
+      onRateBoostEnd: _onRateBoostEnd,
+      onSeekPreview: _onSeekPreview,
+      onSeekCommit: _onSeekCommit,
+      onBrightnessDelta: _onBrightnessDelta,
+      onVolumeDelta: _onVolumeDelta,
+      onHideIndicator: _hideIndicator,
+      onQualityChanged: _onQualityChanged,
+      onSubtitleChanged: (track) => unawaited(_onSubtitleChanged(track)),
+      onOpenSubtitleSettings: () => unawaited(_showSubtitleSettings()),
+      onAudioChanged: (track) => unawaited(_applyAudioTrack(track)),
+      onPictureInPicture: () => unawaited(_enterPictureInPicture()),
+      onPreviousMedia: widget.queueIndex > 0
+          ? () => unawaited(_switchMedia(widget.queueIndex - 1))
+          : null,
+      onNextMedia: widget.queueIndex < widget.queue.length - 1
+          ? () => unawaited(_switchMedia(widget.queueIndex + 1))
+          : null,
+      onOrientationToggle: () => unawaited(_toggleOrientation()),
+      onTogglePlay: _togglePlay,
+      onSeekBackward: () => _onDoubleTapSeek(-10),
+      onSeekForward: () => _onDoubleTapSeek(10),
+      onRateChanged: _onRateChanged,
+      onInteraction: _restartHideTimer,
+      onExit: () => unawaited(_exitPlayer()),
     );
   }
 }
