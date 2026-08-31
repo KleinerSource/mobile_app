@@ -134,12 +134,19 @@ void main() {
     }
 
     List<Offset> currentTonearmGeometry() {
-      final box = tester.renderObject<RenderBox>(tonearm);
+      final box = tester.renderObject<RenderBox>(tonearmImage);
       final size = box.size;
       return [
         box.localToGlobal(Offset(size.width * 0.78, size.height * 0.24)),
         box.localToGlobal(Offset(size.width * 0.075, size.height * 0.92)),
       ];
+    }
+
+    Offset recordCenter() {
+      final box = tester.renderObject<RenderBox>(
+        find.byKey(const ValueKey<String>('audio-vinyl-record')),
+      );
+      return box.localToGlobal(Offset(box.size.width / 2, box.size.height / 2));
     }
 
     try {
@@ -152,6 +159,11 @@ void main() {
           find.byKey(const ValueKey<String>('audio-vinyl-record')),
         ),
         const Size(300, 300),
+      );
+      expect(tonearmSize.width, greaterThan(160));
+      expect(
+        (startGeometry[1].dx - startGeometry[0].dx).abs(),
+        lessThan(8),
       );
 
       // 即使暂停，磁头杆也应反映用户拖动进度后所在的唱片槽位。
@@ -180,12 +192,13 @@ void main() {
       expect(atEnd, isNot(orderedEquals(atMiddle)));
       final angleDelta =
           math.atan2(atEnd[1], atEnd[0]) - math.atan2(atStart[1], atStart[0]);
-      expect(angleDelta, closeTo(-18 * math.pi / 180, 0.001));
+      expect(angleDelta, closeTo(45 * math.pi / 180, 0.001));
       expect((endGeometry[0] - startGeometry[0]).distance, lessThan(0.01));
       expect(
         (endGeometry[1] - endGeometry[0]).distance,
         closeTo((startGeometry[1] - startGeometry[0]).distance, 0.01),
       );
+      expect((endGeometry[1] - recordCenter()).distance, lessThan(8));
 
       engine.notifier.value = engine.notifier.value.copyWith(
         playing: true,

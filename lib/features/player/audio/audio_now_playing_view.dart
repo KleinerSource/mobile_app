@@ -1230,8 +1230,12 @@ class _VinylLightOverlay extends StatelessWidget {
 class _TurntableTonearm extends StatelessWidget {
   const _TurntableTonearm({required this.progress});
 
-  static const _startAngleDegrees = 20.0;
-  static const _endAngleDegrees = 2.0;
+  // 资源中的机械轴心约位于 (78%, 24%)，磁头约位于 (7.5%, 92%)。
+  // 放大到唱盘直径的一半以上后，磁头在末端才能准确落到唱片中心。
+  static const _tonearmSizeFactor = 0.54;
+  static const _startAngleDegrees = -45.0;
+  static const _endAngleDegrees = 0.0;
+  static const _pivotAlignment = Alignment(0.56, -0.52);
 
   final double progress;
 
@@ -1245,19 +1249,19 @@ class _TurntableTonearm extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final deckSize = math.min(constraints.maxWidth, constraints.maxHeight);
-        final tonearmSize = deckSize * 0.30;
+        final tonearmSize = deckSize * _tonearmSizeFactor;
         return Stack(
           clipBehavior: Clip.none,
           children: [
             Positioned(
               width: tonearmSize,
               height: tonearmSize,
-              top: -deckSize * 0.01,
+              top: 0,
               right: 0,
               child: Transform.rotate(
                 key: const ValueKey<String>('audio-dj-tonearm'),
                 angle: angleDegrees * math.pi / 180,
-                alignment: const Alignment(0.56, -0.52),
+                alignment: _pivotAlignment,
                 child: Image.asset(
                   _turntableTonearmAsset,
                   key: const ValueKey<String>('audio-dj-tonearm-image'),

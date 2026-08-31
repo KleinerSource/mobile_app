@@ -72,8 +72,11 @@ void main() {
     );
     expect(lyrics.color, Colors.black);
     expect(CircularAudioSpectrumPainter.minimumOpacity, greaterThan(0.5));
-    expect(AudioSpectrumBackdrop.spectrumOuterPadding, greaterThan(72));
-    expect(CircularAudioSpectrumPainter.minimumLength, greaterThan(3));
+    expect(AudioSpectrumBackdrop.spectrumOuterPadding, greaterThan(104));
+    expect(
+      CircularAudioSpectrumPainter.minimumLength,
+      greaterThan(CircularAudioSpectrumPainter.strokeWidth),
+    );
     expect(
       CircularAudioSpectrumPainter.glowStrokeWidth,
       greaterThan(CircularAudioSpectrumPainter.strokeWidth),
@@ -100,6 +103,54 @@ void main() {
     expect(AudioNowPlayingGeometry.maxRecordSize, 300);
     expect(geometry.recordSize, AudioNowPlayingGeometry.maxRecordSize);
     expect(stageBottom, lessThanOrEqualTo(progressTop - 16));
+  });
+
+  testWidgets('环形频谱画布中心与唱片中心重合', (tester) async {
+    final spectrum = ValueNotifier<AudioSpectrumFrame>(
+      AudioSpectrumFrame(
+        rms: 0.6,
+        peak: 0.9,
+        bands: List<double>.filled(48, 0.8),
+        ready: true,
+        sourceId: 'track-a',
+      ),
+    );
+    addTearDown(spectrum.dispose);
+    const viewport = Size(430, 839);
+    final geometry = AudioNowPlayingGeometry.fromConstraints(
+      BoxConstraints.tightFor(width: viewport.width, height: viewport.height),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: viewport.width,
+            height: viewport.height,
+            child: AudioSpectrumBackdrop(spectrum: spectrum),
+          ),
+        ),
+      ),
+    );
+
+    final spectrumBox = tester.renderObject<RenderBox>(
+      find.byKey(const ValueKey<String>('audio-circular-spectrum')),
+    );
+    final spectrumCenter = spectrumBox.localToGlobal(
+      Offset(spectrumBox.size.width / 2, spectrumBox.size.height / 2),
+    );
+    expect(
+      spectrumBox.size,
+      Size.square(
+        geometry.recordSize + AudioSpectrumBackdrop.spectrumOuterPadding,
+      ),
+    );
+    final expectedCenter = Offset(
+      viewport.width / 2,
+      AudioNowPlayingGeometry.stageTopInset + geometry.deckSize / 2,
+    );
+    expect(spectrumCenter, expectedCenter);
   });
 
   testWidgets('全屏玻璃覆盖安全区并位于背景频谱和前景之间', (tester) async {

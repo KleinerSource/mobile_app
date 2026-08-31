@@ -48,7 +48,7 @@ final class AudioNowPlayingGeometry {
 class AudioSpectrumBackdrop extends StatelessWidget {
   const AudioSpectrumBackdrop({super.key, required this.spectrum});
 
-  static const double spectrumOuterPadding = 104;
+  static const double spectrumOuterPadding = 136;
 
   final ValueListenable<AudioSpectrumFrame> spectrum;
 
@@ -58,6 +58,7 @@ class AudioSpectrumBackdrop extends StatelessWidget {
       builder: (context, constraints) {
         final geometry = AudioNowPlayingGeometry.fromConstraints(constraints);
         final spectrumSize = geometry.recordSize + spectrumOuterPadding;
+        final spectrumOffsetY = (geometry.deckSize - spectrumSize) / 2;
         return Padding(
           padding: const EdgeInsets.only(
             top: AudioNowPlayingGeometry.stageTopInset,
@@ -70,22 +71,29 @@ class AudioSpectrumBackdrop extends StatelessWidget {
               height: geometry.stageHeight,
               child: Align(
                 alignment: Alignment.topCenter,
-                child: Transform.translate(
-                  offset: const Offset(0, -22),
-                  child: SizedBox.square(
-                    dimension: spectrumSize,
-                    child: IgnorePointer(
-                      child: ValueListenableBuilder<AudioSpectrumFrame>(
-                        valueListenable: spectrum,
-                        builder: (_, frame, _) => RepaintBoundary(
-                          child: CustomPaint(
-                            key: const ValueKey<String>(
-                              'audio-circular-spectrum',
-                            ),
-                            painter: CircularAudioSpectrumPainter(
-                              frame: frame,
-                              recordRadius: geometry.recordSize / 2,
-                              palette: AudioPlayerTheme.spectrumPalette,
+                child: OverflowBox(
+                  alignment: Alignment.topCenter,
+                  minWidth: spectrumSize,
+                  maxWidth: spectrumSize,
+                  minHeight: spectrumSize,
+                  maxHeight: spectrumSize,
+                  child: Transform.translate(
+                    offset: Offset(0, spectrumOffsetY),
+                    child: SizedBox.square(
+                      dimension: spectrumSize,
+                      child: IgnorePointer(
+                        child: ValueListenableBuilder<AudioSpectrumFrame>(
+                          valueListenable: spectrum,
+                          builder: (_, frame, _) => RepaintBoundary(
+                            child: CustomPaint(
+                              key: const ValueKey<String>(
+                                'audio-circular-spectrum',
+                              ),
+                              painter: CircularAudioSpectrumPainter(
+                                frame: frame,
+                                recordRadius: geometry.recordSize / 2,
+                                palette: AudioPlayerTheme.spectrumPalette,
+                              ),
                             ),
                           ),
                         ),
@@ -114,7 +122,7 @@ class CircularAudioSpectrumPainter extends CustomPainter {
   static const double haloStrokeWidth = 32;
   static const double haloBlurSigma = 12;
   static const double glowBlurSigma = 5;
-  static const double minimumLength = 7;
+  static const double minimumLength = 14;
   static const double minimumOpacity = 0.82;
 
   final AudioSpectrumFrame frame;
@@ -153,8 +161,10 @@ class CircularAudioSpectrumPainter extends CustomPainter {
       final fraction = index / frame.bands.length;
       final energy = frame.bands[index].clamp(0.0, 1.0);
       final angle = -math.pi / 2 + math.pi * 2 * fraction;
-      final length =
-          minimumLength + maxLength * (energy * 0.85 + frame.peak * 0.15);
+      final volume = (frame.rms * 0.7 + frame.peak * 0.3).clamp(0.0, 1.0);
+      final response = (energy * 0.72 + volume * 0.18 + frame.peak * 0.10)
+          .clamp(0.0, 1.0);
+      final length = minimumLength + maxLength * response;
       final opacity =
           (minimumOpacity + math.max(energy, frame.rms) * (1 - minimumOpacity))
               .clamp(0.0, 1.0);
