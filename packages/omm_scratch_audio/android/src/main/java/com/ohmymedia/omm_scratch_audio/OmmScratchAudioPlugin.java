@@ -144,16 +144,6 @@ public final class OmmScratchAudioPlugin
 
         private final ExecutorService decoder = Executors.newSingleThreadExecutor();
         private final Object lifecycleLock = new Object();
-        private final AudioManager.OnAudioFocusChangeListener audioFocusChangeListener = change -> {
-            if (change != AudioManager.AUDIOFOCUS_LOSS
-                    && change != AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-                return;
-            }
-            synchronized (lifecycleLock) {
-                playing = false;
-                if (audioTrack != null) audioTrack.pause();
-            }
-        };
         private volatile Context applicationContext;
         private volatile File preparedSourceFile;
         private boolean audioFocusHeld;
@@ -169,6 +159,16 @@ public final class OmmScratchAudioPlugin
         private volatile AudioTrack audioTrack;
         private volatile int lastWriteResult = AudioTrack.ERROR_INVALID_OPERATION;
         private Thread renderThread;
+        private final AudioManager.OnAudioFocusChangeListener audioFocusChangeListener = change -> {
+            if (change != AudioManager.AUDIOFOCUS_LOSS
+                    && change != AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                return;
+            }
+            synchronized (lifecycleLock) {
+                playing = false;
+                if (audioTrack != null) audioTrack.pause();
+            }
+        };
 
         void setApplicationContext(Context context) {
             applicationContext = context.getApplicationContext();
