@@ -167,7 +167,6 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
         onQueueDispose: widget.onQueueDispose,
       );
       if (!mounted || _leaving || generation != _loadGeneration) return;
-      setState(() => _loading = false);
       _onPlaybackStateChanged();
     } catch (error) {
       if (!mounted || _leaving) return;
@@ -180,6 +179,23 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
 
   void _onPlaybackStateChanged() {
     if (_leaving) return;
+    final state = _host.value;
+    if (mounted) {
+      if (state.lifecycle == PlaybackLifecycle.failed) {
+        final message = state.error ?? '音频播放失败';
+        if (_loading || _error != message) {
+          setState(() {
+            _loading = false;
+            _error = message;
+          });
+        }
+      } else if (state.lifecycle == PlaybackLifecycle.opening ||
+          state.buffering) {
+        if (!_loading) setState(() => _loading = true);
+      } else if (state.lifecycle == PlaybackLifecycle.ready && _loading) {
+        setState(() => _loading = false);
+      }
+    }
     final index = (_host.value.queueIndex ?? widget.queueIndex).clamp(
       0,
       _queue.length - 1,
@@ -365,7 +381,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
             controller: _host,
             hapticProgressBar: settings.hapticProgressBar,
             showPlayPauseButton: settings.showPlayPauseButton,
-            isLoading: _loading,
+            isLoading: _loading || state.buffering,
             showSeekButtons: true,
             showSpeedButton: true,
             showMediaSwitchButton: true,
