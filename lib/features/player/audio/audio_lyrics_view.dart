@@ -38,7 +38,7 @@ class AudioLyricsView extends StatelessWidget {
         final l10n = AppL10n.of(context);
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => _showLyricsSheet(context, document),
+          onTap: () => _showLyricsPage(context, document),
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 66, maxHeight: 92),
             child: Column(
@@ -63,50 +63,27 @@ class AudioLyricsView extends StatelessWidget {
     );
   }
 
-  Future<void> _showLyricsSheet(
+  Future<void> _showLyricsPage(
     BuildContext context,
     LrcDocument document,
   ) async {
     final brightness = Theme.of(context).brightness;
+    final background = AudioPlayerTheme.backgroundFor(brightness);
     onPanelVisibilityChanged?.call(true);
     try {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        backgroundColor: AudioPlayerTheme.backgroundFor(brightness),
-        barrierColor: Colors.transparent,
-        elevation: 0,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-        builder: (sheetContext) => AnimatedPadding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-          ),
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          child: ClipRect(
-            key: const ValueKey<String>('audio-lyrics-glass-sheet'),
-            // 全屏纯色面板完全遮挡底层播放器，避免动态特效继续参与合成。
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: AudioPlayerTheme.backgroundFor(brightness),
-                border: Border(
-                  top: BorderSide(
-                    color: AudioPlayerTheme.glassBorderFor(brightness),
-                  ),
-                ),
-              ),
-              child: SafeArea(
-                top: true,
-                bottom: true,
-                child: Material(
-                  color: Colors.transparent,
-                  child: RepaintBoundary(
-                    child: _AudioLyricsSheet(
-                      controller: controller,
-                      lyrics: document,
-                    ),
-                  ),
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) => Scaffold(
+            key: const ValueKey<String>('audio-lyrics-page'),
+            backgroundColor: background,
+            body: SafeArea(
+              top: true,
+              bottom: true,
+              child: RepaintBoundary(
+                child: _AudioLyricsPage(
+                  controller: controller,
+                  lyrics: document,
                 ),
               ),
             ),
@@ -320,17 +297,17 @@ class _AudioLyricsLinePreviewState extends State<_AudioLyricsLinePreview>
   }
 }
 
-class _AudioLyricsSheet extends StatefulWidget {
-  const _AudioLyricsSheet({required this.controller, required this.lyrics});
+class _AudioLyricsPage extends StatefulWidget {
+  const _AudioLyricsPage({required this.controller, required this.lyrics});
 
   final PlayerSessionController controller;
   final LrcDocument lyrics;
 
   @override
-  State<_AudioLyricsSheet> createState() => _AudioLyricsSheetState();
+  State<_AudioLyricsPage> createState() => _AudioLyricsPageState();
 }
 
-class _AudioLyricsSheetState extends State<_AudioLyricsSheet> {
+class _AudioLyricsPageState extends State<_AudioLyricsPage> {
   static const double _rowExtent = 58.0;
   static const double _listTopPadding = 24.0;
 

@@ -10,7 +10,7 @@ import 'package:omm/l10n/generated/app_localizations.dart';
 import '../common/fake_playback_engine.dart';
 
 void main() {
-  testWidgets('歌词按播放位置高亮，点击后展开歌词面板', (tester) async {
+  testWidgets('歌词按播放位置高亮，点击后打开全屏歌词页', (tester) async {
     final engine = FakePlaybackEngine(
       PlaybackEngineKind.audio,
       initialState: const PlaybackViewState(
@@ -102,15 +102,22 @@ void main() {
     expect(find.text('歌词'), findsOneWidget);
     expect(panelVisibility, [true]);
     expect(
-      find.byKey(const ValueKey<String>('audio-lyrics-glass-sheet')),
+      find.byKey(const ValueKey<String>('audio-lyrics-page')),
       findsOneWidget,
     );
     expect(
       tester.getTopLeft(find.byTooltip('关闭')).dy,
       greaterThanOrEqualTo(32),
     );
-    expect(find.text('第一句'), findsNWidgets(2));
-    expect(find.text('第二句'), findsNWidgets(2));
+    expect(
+      tester.getSize(find.byKey(const ValueKey<String>('audio-lyrics-page'))),
+      Size(
+        tester.view.physicalSize.width / tester.view.devicePixelRatio,
+        tester.view.physicalSize.height / tester.view.devicePixelRatio,
+      ),
+    );
+    expect(find.text('第一句'), findsOneWidget);
+    expect(find.text('第二句'), findsOneWidget);
 
     final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
     final initialScrollOffset = scrollable.position.pixels;
@@ -129,7 +136,7 @@ void main() {
     await tester.tap(find.byTooltip('关闭'));
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const ValueKey<String>('audio-lyrics-glass-sheet')),
+      find.byKey(const ValueKey<String>('audio-lyrics-page')),
       findsNothing,
     );
     expect(panelVisibility, [true, false]);
