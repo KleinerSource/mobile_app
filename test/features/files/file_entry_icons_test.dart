@@ -203,4 +203,11 @@ void main() {
       'assets/file_icons/unknown_placeholder.png',
     );
   });
+
+  test('groups all text editor suffixes in one classification', () {
+    expect(isTextEditorEntry(entry('lyrics.lrc')), isTrue);
+    expect(isTextEditorEntry(entry('movie.nfo')), isTrue);
+    expect(isTextEditorEntry(entry('notes.TXT')), isTrue);
+    expect(isTextEditorEntry(entry('unknown.bin')), isFalse);
+  });
 }

@@ -1810,10 +1810,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     FileEntry entry, {
     FileSourceRepository? repository,
   }) async {
-    final access = await (repository ?? await _repository()).resolveAccess(
-      entry.path,
-    );
-    final stream = await access.open();
+    final sourceRepository = repository ?? await _repository();
+    final stream = sourceRepository.download(entry.path);
     final bytes = BytesBuilder(copy: false);
     await for (final chunk in stream) {
       bytes.add(chunk);
@@ -1843,9 +1841,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
   bool _isImageEntry(FileEntry entry) =>
       fileTypeIconFor(entry) == FileTypeIcon.image;
 
-  bool _isTextEntry(FileEntry entry) =>
-      fileTypeIconFor(entry) == FileTypeIcon.text ||
-      fileTypeIconFor(entry) == FileTypeIcon.code;
+  bool _isTextEntry(FileEntry entry) => isTextEditorEntry(entry);
 
   String? _pathExtension(String name) {
     final dot = name.lastIndexOf('.');

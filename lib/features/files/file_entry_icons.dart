@@ -105,6 +105,18 @@ const _codeFileExtensions = <String>{
   'svelte',
 };
 
+/// 可由文本查看器打开的文件后缀。
+///
+/// 这里集中维护文本、字幕、代码以及媒体中心常见的 LRC/NFO 文件，
+/// 文件浏览器只依赖这个分类，不再为单个后缀追加判断。
+const textEditorFileExtensions = <String>{
+  ..._subtitleFileExtensions,
+  ..._textFileExtensions,
+  ..._codeFileExtensions,
+  'lrc',
+  'nfo',
+};
+
 const _archiveFileExtensions = <String>{
   'zip',
   'rar',
@@ -322,6 +334,11 @@ String? fileExtensionFor(String name) {
   if (dot <= 0 || dot == name.length - 1) return null;
   return name.substring(dot + 1).toLowerCase();
 }
+
+bool isTextEditorEntry(FileEntry entry) =>
+    textEditorFileExtensions.contains(fileExtensionFor(entry.name)) ||
+    fileTypeIconFor(entry) == FileTypeIcon.text ||
+    fileTypeIconFor(entry) == FileTypeIcon.code;
 
 /// 文件条目的图标容器。
 ///

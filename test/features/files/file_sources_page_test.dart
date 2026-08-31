@@ -824,6 +824,69 @@ void main() {
     expect(find.byType(BottomSheet), findsNothing);
   });
 
+  testWidgets('lrc 和 nfo 后缀直接打开文本查看器', (tester) async {
+    final prefs = await _prefs();
+    const serverId = 'smb-one';
+    final sourceId = SourceId.of('source-one');
+    final request = FileDirectoryRequest(
+      serverId: serverId,
+      sourceId: sourceId,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          fileSourceProvider(sourceId.value).overrideWith(
+            (ref) async => _PreviewFileSource(
+              sourceId,
+              utf8.encode('文本内容'),
+              failAccess: true,
+            ),
+          ),
+          fileDirectoryProvider(request).overrideWith(
+            (ref) async => DirectoryListing(
+              currentPath: FilePath(sourceId: sourceId, value: ''),
+              breadcrumbs: [FilePath(sourceId: sourceId, value: '')],
+              entries: [
+                FileEntry(
+                  path: FilePath(sourceId: sourceId, value: '歌词.lrc'),
+                  name: '歌词.lrc',
+                  type: FileEntryType.file,
+                  size: 4,
+                ),
+                FileEntry(
+                  path: FilePath(sourceId: sourceId, value: '影片.nfo'),
+                  name: '影片.nfo',
+                  type: FileEntryType.file,
+                  size: 4,
+                ),
+              ],
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final name in const ['歌词.lrc', '影片.nfo']) {
+      await tester.tap(find.text(name));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SelectableText), findsOneWidget);
+      expect(find.text(name), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+    }
+  });
+
   testWidgets('支持传输的文本来源可编辑并用 UTF-8 覆盖原文件', (tester) async {
     final prefs = await _prefs();
     const serverId = 'smb-one';
@@ -960,7 +1023,13 @@ void main() {
           sharedPrefsProvider.overrideWithValue(prefs),
           fileSourceProvider(
             sourceId.value,
-          ).overrideWith((ref) async => _PreviewFileSource(sourceId, png)),
+          ).overrideWith(
+            (ref) async => _PreviewFileSource(
+              sourceId,
+              png,
+              failAccess: true,
+            ),
+          ),
           fileDirectoryProvider(
             request,
           ).overrideWith((ref) async => _listingWithImages(sourceId)),
@@ -1597,11 +1666,17 @@ class _KindFileSource implements FileSource {
 
 class _PreviewFileSource
     implements FileSource, FileAccessCapability, FileTransferCapability {
-  _PreviewFileSource(this.sourceId, this.bytes, {this.canUpload = false});
+  _PreviewFileSource(
+    this.sourceId,
+    this.bytes, {
+    this.canUpload = false,
+    this.failAccess = false,
+  });
 
   final SourceId sourceId;
   final List<int> bytes;
   final bool canUpload;
+  final bool failAccess;
   FilePath? uploadedPath;
   List<int>? uploadedBytes;
   bool? uploadedOverwrite;
@@ -1620,8 +1695,10 @@ class _PreviewFileSource
   bool supports(FileCapability capability) => capabilities.contains(capability);
 
   @override
-  Future<FileAccess> resolveAccess(FilePath path) async =>
-      FileAccess(openStream: () => Stream<List<int>>.value(bytes));
+  Future<FileAccess> resolveAccess(FilePath path) async {
+    if (failAccess) throw StateError('文件信息读取失败');
+    return FileAccess(openStream: () => Stream<List<int>>.value(bytes));
+  }
 
   @override
   Stream<List<int>> download(
