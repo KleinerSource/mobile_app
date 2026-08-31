@@ -48,6 +48,12 @@ jobs:
           version="$(dart tool/bump_app_version.dart --auto --commit-message "${commit_message}")"
           echo "构建版本: ${version}"
 
+      - name: 接受 Android SDK 许可证
+        timeout-minutes: 3
+        run: |
+          set +o pipefail
+          yes | flutter doctor --android-licenses
+
       - name: Flutter doctor
         timeout-minutes: 3
         run: flutter doctor -v
