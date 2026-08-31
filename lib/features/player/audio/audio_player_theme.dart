@@ -40,18 +40,6 @@ class AudioPlayerTheme extends StatelessWidget {
     return foregroundFor(brightness).withValues(alpha: 0.10);
   }
 
-  static Color sheetTintFor(Brightness brightness) {
-    return brightness == Brightness.dark
-        ? Colors.black.withValues(alpha: 0.78)
-        : Colors.white.withValues(alpha: 0.82);
-  }
-
-  static Color sheetBarrierFor(Brightness brightness) {
-    return Colors.black.withValues(
-      alpha: brightness == Brightness.dark ? 0.56 : 0.22,
-    );
-  }
-
   static ThemeData data(BuildContext context) {
     final parent = Theme.of(context);
     final background = backgroundFor(parent.brightness);

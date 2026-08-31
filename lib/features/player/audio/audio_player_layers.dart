@@ -13,11 +13,13 @@ class AudioPlayerVisualLayers extends StatelessWidget {
     required this.surface,
     required this.spectrum,
     required this.child,
+    this.effectsSuspended = false,
   });
 
   final Widget surface;
   final ValueListenable<AudioSpectrumFrame> spectrum;
   final Widget child;
+  final bool effectsSuspended;
 
   @override
   Widget build(BuildContext context) {
@@ -26,8 +28,9 @@ class AudioPlayerVisualLayers extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         surface,
-        SafeArea(child: AudioSpectrumBackdrop(spectrum: spectrum)),
-        const AudioPlayerGlassVeil(),
+        if (!effectsSuspended)
+          SafeArea(child: AudioSpectrumBackdrop(spectrum: spectrum)),
+        if (!effectsSuspended) const AudioPlayerGlassVeil(),
         SafeArea(child: child),
       ],
     );

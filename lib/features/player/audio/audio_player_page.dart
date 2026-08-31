@@ -100,6 +100,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
   LrcDocument? _lyrics;
   double _playbackRate = 1.0;
   Future<void>? _queueResourcesFuture;
+  bool _lyricsPanelOpen = false;
 
   @override
   void initState() {
@@ -232,6 +233,13 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
     unawaited(_host.setRate(rate));
   }
 
+  void _setLyricsPanelVisibility(bool visible) {
+    if (_lyricsPanelOpen == visible) return;
+    if (!mounted) return;
+    _engine.setVisualEffectsSuspended(visible);
+    setState(() => _lyricsPanelOpen = visible);
+  }
+
   void _toggleShuffle() {
     unawaited(_host.setShuffleMode(!_host.value.shuffleEnabled));
   }
@@ -315,6 +323,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
       return AudioPlayerVisualLayers(
         surface: _host.buildSurface(),
         spectrum: _engine.spectrum,
+        effectsSuspended: _lyricsPanelOpen,
         child: _AudioErrorView(
           message: _error!,
           onRetry: () {
@@ -331,6 +340,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
     return AudioPlayerVisualLayers(
       surface: _host.buildSurface(),
       spectrum: _engine.spectrum,
+      effectsSuspended: _lyricsPanelOpen,
       child: Stack(
         children: [
           Positioned.fill(
@@ -339,6 +349,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
               artworkPath: _artworkPath ?? state.artworkPath,
               lyrics: _lyrics,
               spectrum: _engine.spectrum,
+              onLyricsPanelVisibilityChanged: _setLyricsPanelVisibility,
             ),
           ),
           const Positioned.fill(

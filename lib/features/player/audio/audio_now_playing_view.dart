@@ -26,12 +26,14 @@ class AudioNowPlayingView extends StatefulWidget {
     required this.artworkPath,
     required this.lyrics,
     required this.spectrum,
+    this.onLyricsPanelVisibilityChanged,
   });
 
   final PlayerSessionController controller;
   final String? artworkPath;
   final LrcDocument? lyrics;
   final ValueListenable<AudioSpectrumFrame> spectrum;
+  final ValueChanged<bool>? onLyricsPanelVisibilityChanged;
 
   @override
   State<AudioNowPlayingView> createState() => _AudioNowPlayingViewState();
@@ -63,6 +65,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   Duration? _lastTick;
   double? _tonearmTarget;
   bool _disableAnimations = false;
+  bool _lyricsPanelOpen = false;
   Offset? _scratchStartPoint;
   Offset? _scratchCenter;
   Offset? _lastScratchLocalPosition;
@@ -112,6 +115,11 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   }
 
   void _syncRotation() {
+    if (_lyricsPanelOpen) {
+      _stopRotationTicker();
+      _tonearmController.stop();
+      return;
+    }
     final progress = _trackProgress(widget.controller.value);
     if (_disableAnimations) {
       _stopRotationTicker();
@@ -145,6 +153,14 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     } else {
       _stopRotationTicker();
     }
+  }
+
+  void _setLyricsPanelVisibility(bool visible) {
+    if (_lyricsPanelOpen == visible) return;
+    _lyricsPanelOpen = visible;
+    if (!visible) _tonearmTarget = null;
+    _syncRotation();
+    widget.onLyricsPanelVisibilityChanged?.call(visible);
   }
 
   void _syncTonearm(double progress, {bool immediate = false}) {
@@ -307,6 +323,8 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
                                   controller: widget.controller,
                                   lyrics: widget.lyrics,
                                   spectrum: widget.spectrum,
+                                  onPanelVisibilityChanged:
+                                      _setLyricsPanelVisibility,
                                 ),
                               ),
                             )
@@ -371,27 +389,6 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
                 animation: _tonearmController,
                 builder: (_, __) =>
                     _TurntableTonearm(progress: _tonearmController.value),
-              ),
-            ),
-          ),
-          Positioned(
-            top: deckSize * 0.06,
-            left: deckSize * 0.10,
-            child: IgnorePointer(
-              child: _DjBadge(label: l10n.playerDjDeckA, color: foreground),
-            ),
-          ),
-          Positioned(
-            top: deckSize * 0.06,
-            right: deckSize * 0.10,
-            child: IgnorePointer(
-              child: _DjStatusBadge(
-                label: state.playing
-                    ? l10n.playerDjPlaying
-                    : l10n.playerDjPaused,
-                active: state.playing,
-                color: foreground,
-                activeColor: foreground,
               ),
             ),
           ),
@@ -1154,50 +1151,6 @@ class _DjBadge extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         child: Text(label, style: AppText.mono(context, size: 9, color: color)),
-      ),
-    );
-  }
-}
-
-class _DjStatusBadge extends StatelessWidget {
-  const _DjStatusBadge({
-    required this.label,
-    required this.active,
-    required this.color,
-    required this.activeColor,
-  });
-
-  final String label;
-  final bool active;
-  final Color color;
-  final Color activeColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: active ? activeColor : color.withValues(alpha: 0.42),
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 5),
-            Text(label, style: AppText.mono(context, size: 9, color: color)),
-          ],
-        ),
       ),
     );
   }

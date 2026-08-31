@@ -8,6 +8,7 @@ import '../common/player_session_controller.dart';
 class AudioPlayerControls extends StatelessWidget {
   static const double _controlSlotSize = 48;
   static const double _progressSlotHeight = 66;
+  static const double _progressToPrimaryGap = 8;
 
   const AudioPlayerControls({
     super.key,
@@ -89,9 +90,7 @@ class AudioPlayerControls extends StatelessWidget {
                   icon: const Icon(Icons.close),
                   onPressed: onExit,
                 ),
-                Expanded(
-                  child: Center(child: _title(context)),
-                ),
+                Expanded(child: Center(child: _title(context))),
                 const SizedBox(width: _controlSlotSize),
               ],
             ),
@@ -105,7 +104,7 @@ class AudioPlayerControls extends StatelessWidget {
               width: double.infinity,
               height:
                   _progressSlotHeight +
-                  28 +
+                  _progressToPrimaryGap +
                   _controlSlotSize +
                   20 +
                   _controlSlotSize,
@@ -113,7 +112,7 @@ class AudioPlayerControls extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SizedBox(height: _progressSlotHeight, child: _progress()),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: _progressToPrimaryGap),
                   SizedBox(height: _controlSlotSize, child: _primaryControls()),
                   const SizedBox(height: 20),
                   SizedBox(

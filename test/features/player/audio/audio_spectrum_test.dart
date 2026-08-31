@@ -103,9 +103,9 @@ void main() {
     expect(CircularAudioSpectrumPainter.glowBlurSigma, greaterThan(0));
   });
 
-  test('唱机舞台上移并为歌词和底部进度条保留间距', () {
+  test('唱机舞台下移并为歌词和底部进度条保留间距', () {
     const height = 839.0;
-    const progressTopFromBottom = 228.0;
+    const progressTopFromBottom = 208.0;
     final geometry = AudioNowPlayingGeometry.fromConstraints(
       const BoxConstraints.tightFor(width: 430, height: height),
     );
@@ -113,7 +113,7 @@ void main() {
         AudioNowPlayingGeometry.stageTopInset + geometry.stageHeight;
     final progressTop = height - progressTopFromBottom;
 
-    expect(AudioNowPlayingGeometry.stageTopInset, 78);
+    expect(AudioNowPlayingGeometry.stageTopInset, 98);
     expect(AudioNowPlayingGeometry.lyricsTopInset, 38);
     expect(AudioNowPlayingGeometry.lyricsSlotHeight, 128);
     expect(AudioNowPlayingGeometry.maxRecordSize, 300);

@@ -58,6 +58,7 @@ class AudioPlaybackEngine
   Timer? _spectrumPollTimer;
   bool _spectrumPollInFlight = false;
   bool _spectrumSourceReady = false;
+  bool _visualEffectsSuspended = false;
   int _spectrumPollGeneration = 0;
   Duration _spectrumBasePosition = Duration.zero;
   DateTime _spectrumBaseTime = DateTime.now();
@@ -81,6 +82,17 @@ class AudioPlaybackEngine
   ValueListenable<PlaybackViewState> get state => _state;
 
   ValueListenable<AudioSpectrumFrame> get spectrum => _spectrum;
+
+  /// 歌词全屏面板打开时暂停频谱采样，关闭后按当前播放状态恢复。
+  void setVisualEffectsSuspended(bool suspended) {
+    if (_visualEffectsSuspended == suspended) return;
+    _visualEffectsSuspended = suspended;
+    if (suspended) {
+      _stopSpectrumPolling();
+    } else {
+      _syncSpectrumPolling();
+    }
+  }
 
   @override
   Future<void> open(PlaybackOpenRequest request) async {
@@ -750,6 +762,7 @@ class AudioPlaybackEngine
     final playback = _state.value;
     final shouldPoll =
         !_disposed &&
+        !_visualEffectsSuspended &&
         OmmScratchAudio.isSupported &&
         _spectrumSourceReady &&
         _scratchSourceId != null &&

@@ -17,11 +17,13 @@ class AudioLyricsView extends StatelessWidget {
     required this.controller,
     required this.lyrics,
     required this.spectrum,
+    this.onPanelVisibilityChanged,
   });
 
   final PlayerSessionController controller;
   final LrcDocument? lyrics;
   final ValueListenable<AudioSpectrumFrame> spectrum;
+  final ValueChanged<bool>? onPanelVisibilityChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -66,48 +68,54 @@ class AudioLyricsView extends StatelessWidget {
     LrcDocument document,
   ) async {
     final brightness = Theme.of(context).brightness;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: false,
-      backgroundColor: Colors.transparent,
-      barrierColor: AudioPlayerTheme.sheetBarrierFor(brightness),
-      elevation: 0,
-      builder: (sheetContext) => AnimatedPadding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-        ),
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        child: ClipRRect(
-          key: const ValueKey<String>('audio-lyrics-glass-sheet'),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          // 面板颜色本身已足够不透明；避免对正在更新的频谱做大面积实时采样。
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: AudioPlayerTheme.sheetTintFor(brightness),
-              border: Border(
-                top: BorderSide(
-                  color: AudioPlayerTheme.glassBorderFor(brightness),
+    onPanelVisibilityChanged?.call(true);
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: false,
+        backgroundColor: AudioPlayerTheme.backgroundFor(brightness),
+        barrierColor: Colors.transparent,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        builder: (sheetContext) => AnimatedPadding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          child: ClipRect(
+            key: const ValueKey<String>('audio-lyrics-glass-sheet'),
+            // 全屏纯色面板完全遮挡底层播放器，避免动态特效继续参与合成。
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: AudioPlayerTheme.backgroundFor(brightness),
+                border: Border(
+                  top: BorderSide(
+                    color: AudioPlayerTheme.glassBorderFor(brightness),
+                  ),
                 ),
               ),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Material(
-                type: MaterialType.transparency,
-                child: RepaintBoundary(
-                  child: _AudioLyricsSheet(
-                    controller: controller,
-                    lyrics: document,
+              child: SafeArea(
+                top: true,
+                bottom: true,
+                child: Material(
+                  color: Colors.transparent,
+                  child: RepaintBoundary(
+                    child: _AudioLyricsSheet(
+                      controller: controller,
+                      lyrics: document,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-    );
+      );
+    } finally {
+      onPanelVisibilityChanged?.call(false);
+    }
   }
 }
 
@@ -408,8 +416,7 @@ class _AudioLyricsSheetState extends State<_AudioLyricsSheet> {
   Widget build(BuildContext context) {
     final currentIndex = _currentIndex;
     final l10n = AppL10n.of(context);
-    return SizedBox(
-      height: MediaQuery.sizeOf(context).height * 0.78,
+    return SizedBox.expand(
       child: Column(
         children: [
           Padding(

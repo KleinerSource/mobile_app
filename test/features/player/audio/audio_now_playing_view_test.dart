@@ -55,6 +55,9 @@ void main() {
         find.byKey(const ValueKey<String>('audio-vinyl-painter')),
         findsNothing,
       );
+      expect(find.text('DECK A'), findsNothing);
+      expect(find.text('播放中'), findsNothing);
+      expect(find.text('已暂停'), findsNothing);
 
       final vinylImage = tester.widget<Image>(
         find.byKey(const ValueKey<String>('audio-vinyl-image')),
