@@ -229,7 +229,6 @@ class FakeScratchPlaybackEngine extends FakePlaybackEngine
   final List<double> scratchRates = <double>[];
   Duration? scratchPosition;
   Completer<bool>? scratchStartGate;
-  bool _scratchResumePlayback = false;
 
   @override
   Future<bool> startScratch(
@@ -238,7 +237,6 @@ class FakeScratchPlaybackEngine extends FakePlaybackEngine
   }) async {
     commands.add('scratch-start');
     scratchPosition = position;
-    _scratchResumePlayback = resumePlayback;
     final gate = scratchStartGate;
     if (gate != null) return gate.future;
     return true;
@@ -253,7 +251,6 @@ class FakeScratchPlaybackEngine extends FakePlaybackEngine
   @override
   Future<void> cancelScratchStart() async {
     commands.add('scratch-cancel');
-    if (_scratchResumePlayback) await play();
   }
 
   @override

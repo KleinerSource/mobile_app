@@ -13,6 +13,7 @@ import 'player_queue.dart';
 /// 页面只读取统一状态并发送统一命令，具体内核的状态事件都在此处归一化。
 class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   static const _seekPositionToleranceMs = 250;
+  static const _seekGuardDuration = Duration(seconds: 1);
 
   PlayerSessionController({required PlaybackEngine engine})
     : _engine = engine,
@@ -36,9 +37,12 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   bool _disposed = false;
   int _seekGeneration = 0;
   Duration? _pendingSeekTarget;
+  Duration? _pendingSeekOrigin;
   int _pendingSeekDirection = 0;
   Duration? _seekGuardTarget;
+  Duration? _seekGuardOrigin;
   int _seekGuardDirection = 0;
+  DateTime? _seekGuardExpiresAt;
   bool _seekGuardActive = false;
 
   @override
@@ -200,23 +204,32 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
         target: pendingTarget,
       )) {
         _pendingSeekTarget = null;
-        _armSeekGuard(pendingTarget, _pendingSeekDirection);
+        _armSeekGuard(
+          pendingTarget,
+          origin: _pendingSeekOrigin ?? pendingTarget,
+          direction: _pendingSeekDirection,
+        );
+        _pendingSeekOrigin = null;
+        _pendingSeekDirection = 0;
       } else {
         // seek Future 返回前，部分内核仍会发出旧位置；继续向页面提供
         // 用户刚选择的目标，避免歌词和进度条回退到旧时间。
         next = engineState.copyWith(position: pendingTarget);
       }
-    } else if (_seekGuardActive &&
-        _seekPositionIsStale(
-          engineState.position,
-          target: _seekGuardTarget!,
-          direction: _seekGuardDirection,
-        )) {
-      // 定位完成后仍可能有一个迟到的旧位置事件，直到出现目标方向的
-      // 正常位置推进前，保持目标时间不被覆盖。
-      next = engineState.copyWith(position: _seekGuardTarget);
     } else if (_seekGuardActive) {
-      _clearSeekGuard();
+      final expiresAt = _seekGuardExpiresAt;
+      if (expiresAt == null || !DateTime.now().isBefore(expiresAt)) {
+        _clearSeekGuard();
+      } else if (_seekPositionIsStale(
+        engineState.position,
+        target: _seekGuardTarget!,
+        origin: _seekGuardOrigin!,
+        direction: _seekGuardDirection,
+      )) {
+        // 定位完成后底层仍可能迟到一批旧位置事件。保护窗口内只过滤
+        // 仍处于旧位置一侧的值；目标附近的真实播放推进照常显示。
+        next = engineState.copyWith(position: _seekGuardTarget);
+      }
     }
 
     _publishState(next);
@@ -244,12 +257,15 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
 
   void _clearSeekGuard() {
     _seekGuardTarget = null;
+    _seekGuardOrigin = null;
     _seekGuardDirection = 0;
+    _seekGuardExpiresAt = null;
     _seekGuardActive = false;
   }
 
   void _clearSeekPositionProtection() {
     _pendingSeekTarget = null;
+    _pendingSeekOrigin = null;
     _pendingSeekDirection = 0;
     _clearSeekGuard();
   }
@@ -259,13 +275,21 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     _clearSeekPositionProtection();
   }
 
-  void _armSeekGuard(Duration target, int direction) {
-    if (direction == 0) {
+  void _armSeekGuard(
+    Duration target, {
+    required Duration origin,
+    required int direction,
+  }) {
+    if (direction == 0 ||
+        (target.inMilliseconds - origin.inMilliseconds).abs() <=
+            _seekPositionToleranceMs) {
       _clearSeekGuard();
       return;
     }
     _seekGuardTarget = target;
+    _seekGuardOrigin = origin;
     _seekGuardDirection = direction;
+    _seekGuardExpiresAt = DateTime.now().add(_seekGuardDuration);
     _seekGuardActive = true;
   }
 
@@ -280,14 +304,15 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
   bool _seekPositionIsStale(
     Duration position, {
     required Duration target,
+    required Duration origin,
     required int direction,
   }) {
-    final deltaMs = position.inMilliseconds - target.inMilliseconds;
+    final boundaryMs = (origin.inMilliseconds + target.inMilliseconds) ~/ 2;
     if (direction > 0) {
-      return deltaMs < -_seekPositionToleranceMs;
+      return position.inMilliseconds < boundaryMs;
     }
     if (direction < 0) {
-      return deltaMs > _seekPositionToleranceMs;
+      return position.inMilliseconds > boundaryMs;
     }
     return false;
   }
@@ -371,12 +396,14 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
     final shouldPlay = _playbackIntent;
     final generation = ++_seekGeneration;
     final origin = _state.value.position;
-    _pendingSeekTarget = position;
-    _pendingSeekDirection = position.compareTo(origin);
+    final target = _clampSeekPosition(position);
+    _pendingSeekTarget = target;
+    _pendingSeekOrigin = origin;
+    _pendingSeekDirection = target.compareTo(origin);
     _clearSeekGuard();
-    _publishState(_state.value.copyWith(position: position));
+    _publishState(_state.value.copyWith(position: target));
     try {
-      await _engine.seek(position);
+      await _engine.seek(target);
     } catch (_) {
       if (generation == _seekGeneration && !_disposed) {
         _clearSeekPositionProtection();
@@ -393,6 +420,13 @@ class PlayerSessionController implements ValueListenable<PlaybackViewState> {
         unawaited(playFuture.catchError((_) {}));
       }
     }
+  }
+
+  Duration _clampSeekPosition(Duration position) {
+    if (position < Duration.zero) return Duration.zero;
+    final duration = _state.value.duration;
+    if (duration > Duration.zero && position > duration) return duration;
+    return position;
   }
 
   Future<void> setRate(double rate) => _engine.setRate(rate);

@@ -49,7 +49,6 @@ class AudioPlaybackEngine
   int _scratchStartGeneration = 0;
   bool _scratchActive = false;
   bool _scratchMainPlaybackPaused = false;
-  bool _scratchResumePlayback = false;
   bool _scratchModeStatusKnown = false;
   double _pendingScratchRate = 0;
   Timer? _scratchPositionPollTimer;
@@ -185,7 +184,18 @@ class AudioPlaybackEngine
       });
 
   @override
-  Future<void> seek(Duration position) => _handler.seek(position);
+  Future<void> seek(Duration position) async {
+    await _handler.seek(position);
+    if (!_scratchActive || !OmmScratchAudio.isSupported) return;
+    try {
+      final state = await OmmScratchAudio.state();
+      if (_scratchActive && state.ready && state.sourceId == _scratchSourceId) {
+        _publishScratchPosition(state: state);
+      }
+    } catch (_) {
+      // 下一次 30 FPS 游标轮询会继续同步，短暂通道失败不切换播放内核。
+    }
+  }
 
   @override
   Future<void> setRate(double rate) => _handler.setSpeed(rate);
@@ -205,7 +215,6 @@ class AudioPlaybackEngine
       return false;
     }
     if (_scratchActive) {
-      _scratchResumePlayback = resumePlayback;
       try {
         final state = await OmmScratchAudio.state();
         if (state.ready && state.sourceId == sourceId) {
@@ -233,7 +242,6 @@ class AudioPlaybackEngine
     }
     final sourceGeneration = _scratchSourceGeneration;
     final startGeneration = ++_scratchStartGeneration;
-    _scratchResumePlayback = resumePlayback;
     try {
       // 先切断 just_audio 的输出，再等待 PCM 准备。否则远程音频准备期间
       // 主播放器仍在发声，手指已经按住唱片却听到另一套未受控的声音。
@@ -320,9 +328,6 @@ class AudioPlaybackEngine
   Future<void> cancelScratchStart() async {
     _scratchStartGeneration++;
     _stopScratchPositionPolling();
-    final shouldResume =
-        _scratchResumePlayback &&
-        (_scratchMainPlaybackPaused || _scratchActive);
     if (_scratchActive) {
       try {
         await OmmScratchAudio.stop();
@@ -335,10 +340,6 @@ class AudioPlaybackEngine
       } catch (_) {}
     }
     _scratchMainPlaybackPaused = false;
-    if (shouldResume) {
-      // audio_service 的 play Future 可能持续到曲目结束，不能在这里 await。
-      unawaited(_handler.play().catchError((_) {}));
-    }
   }
 
   @override
@@ -363,7 +364,6 @@ class AudioPlaybackEngine
         });
         return null;
       }
-      _scratchResumePlayback = resumePlayback;
       if (!resumePlayback) await OmmScratchAudio.pause();
       _scratchMainPlaybackPaused = false;
       await _handler.customAction(audioSetScratchModeAction, {
@@ -519,7 +519,6 @@ class AudioPlaybackEngine
         if (result['sourceId'] == _scratchSourceId) {
           _scratchActive = true;
           _spectrumSourceReady = true;
-          _scratchResumePlayback = result['playbackIntent'] == true;
           _startScratchPositionPolling();
           _syncSpectrumPolling();
         } else {

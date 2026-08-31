@@ -143,7 +143,10 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
       <StreamSubscription<Object?>>[];
   final List<audio_service.MediaItem> _items = <audio_service.MediaItem>[];
   Future<void> _operation = Future<void>.value();
+  Future<void> _seekOperation = Future<void>.value();
   var _queueGeneration = 0;
+  var _seekGeneration = 0;
+  Duration? _pendingSeekTarget;
   String? _queueKey;
   bool _playRequested = false;
   String? _errorMessage;
@@ -172,6 +175,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   Future<dynamic> customAction(String name, [Map<String, dynamic>? extras]) {
     final payload = extras ?? const <String, dynamic>{};
     if (name == audioOpenQueueAction) {
+      _invalidatePendingSeek();
       final generation = ++_queueGeneration;
       return _enqueue(() => _replaceQueue(payload, generation));
     }
@@ -201,6 +205,8 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
       _publishState();
       return;
     }
+
+    await _cancelAndDrainPendingSeek();
 
     final sourceId = payload['sourceId']?.toString() ?? '';
     if (sourceId.isEmpty) throw StateError('Scratch 音轨身份为空');
@@ -415,6 +421,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     // stop 不能排在 setAudioSources 后面：后者可能正在等待远端文件响应。
     // 先使正在加载的队列失效并通知资源注册表，下载代理才能立即断开上游连接。
     ++_queueGeneration;
+    _invalidatePendingSeek();
     _playRequested = false;
     await _stopScratchOutput();
     await _releaseQueueResources('stopped');
@@ -428,36 +435,74 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   }
 
   @override
-  Future<void> seek(Duration position) async {
+  Future<void> seek(Duration position) {
     final duration = _scratchModeActive
         ? _scratchState?.duration
         : _player.duration;
     final target = duration == null
         ? (position < Duration.zero ? Duration.zero : position)
         : _clampDuration(position, Duration.zero, duration);
-    if (_scratchModeActive) {
-      _scratchCompleted = false;
-      await OmmScratchAudio.seek(target);
-      await _refreshScratchState();
-      _publishState();
-      return;
-    }
-    await _player.seek(target);
+    final generation = ++_seekGeneration;
+    _pendingSeekTarget = target;
     _publishState();
+    final next = _seekOperation.then<void>(
+      (_) => _performSeek(target, generation),
+    );
+    _seekOperation = next.catchError((_) {});
+    return next;
+  }
+
+  Future<void> _performSeek(Duration target, int generation) async {
+    if (generation != _seekGeneration) return;
+    try {
+      if (_scratchModeActive) {
+        _scratchCompleted = false;
+        final scratchGeneration = ++_scratchModeGeneration;
+        await OmmScratchAudio.seek(target);
+        if (generation != _seekGeneration ||
+            scratchGeneration != _scratchModeGeneration ||
+            !_scratchModeActive) {
+          return;
+        }
+        final state = await OmmScratchAudio.state();
+        if (generation != _seekGeneration ||
+            scratchGeneration != _scratchModeGeneration ||
+            !_scratchModeActive) {
+          return;
+        }
+        if (state.ready && state.sourceId == _scratchState?.sourceId) {
+          _scratchState = state;
+        }
+      } else {
+        await _player.seek(target);
+        if (generation != _seekGeneration) return;
+      }
+      _pendingSeekTarget = null;
+      _publishState();
+    } catch (_) {
+      if (generation == _seekGeneration) {
+        _pendingSeekTarget = null;
+        _publishState();
+      }
+      rethrow;
+    }
   }
 
   @override
   Future<void> fastForward() => seek(
-    (_scratchState?.position ?? _player.position) + const Duration(seconds: 10),
+    (_pendingSeekTarget ?? _scratchState?.position ?? _player.position) +
+        const Duration(seconds: 10),
   );
 
   @override
   Future<void> rewind() => seek(
-    (_scratchState?.position ?? _player.position) - const Duration(seconds: 10),
+    (_pendingSeekTarget ?? _scratchState?.position ?? _player.position) -
+        const Duration(seconds: 10),
   );
 
   @override
   Future<void> skipToNext() async {
+    await _cancelAndDrainPendingSeek();
     final shouldPlay = await _leaveScratchForTrackChange();
     if (_player.hasNext) await _player.seekToNext();
     if (shouldPlay) unawaited(_player.play());
@@ -466,6 +511,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
 
   @override
   Future<void> skipToPrevious() async {
+    await _cancelAndDrainPendingSeek();
     final shouldPlay = await _leaveScratchForTrackChange();
     if (_player.hasPrevious) await _player.seekToPrevious();
     if (shouldPlay) unawaited(_player.play());
@@ -475,6 +521,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   @override
   Future<void> skipToQueueItem(int index) async {
     if (index < 0 || index >= _items.length) return;
+    await _cancelAndDrainPendingSeek();
     final shouldPlay = await _leaveScratchForTrackChange();
     await _player.seek(Duration.zero, index: index);
     if (shouldPlay) unawaited(_player.play());
@@ -573,6 +620,16 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     }
   }
 
+  void _invalidatePendingSeek() {
+    _seekGeneration++;
+    _pendingSeekTarget = null;
+  }
+
+  Future<void> _cancelAndDrainPendingSeek() async {
+    _invalidatePendingSeek();
+    await _seekOperation;
+  }
+
   Future<bool> _completeScratchTrackIfNeeded() async {
     final state = _scratchState;
     if (state == null ||
@@ -632,6 +689,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   }
 
   void _clearScratchMode() {
+    _invalidatePendingSeek();
     _scratchModeGeneration++;
     _scratchPositionTimer?.cancel();
     _scratchPositionTimer = null;
@@ -721,7 +779,8 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
             : audio_service.AudioProcessingState.error,
         errorMessage: _errorMessage,
         playing: playing,
-        updatePosition: scratchState?.position ?? _player.position,
+        updatePosition:
+            _pendingSeekTarget ?? scratchState?.position ?? _player.position,
         bufferedPosition: scratchState?.duration ?? _player.bufferedPosition,
         speed: _player.speed,
         queueIndex: index,

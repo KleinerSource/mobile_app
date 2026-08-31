@@ -305,6 +305,11 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(engine.state.value.position, const Duration(seconds: 15));
 
+      nativePositionMs = 17000;
+      await engine.seek(const Duration(seconds: 17));
+      expect(handler.seekPositions.last, const Duration(seconds: 17));
+      expect(engine.state.value.position, const Duration(seconds: 17));
+
       nativePositionMs = 8000;
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(engine.state.value.position, const Duration(seconds: 8));

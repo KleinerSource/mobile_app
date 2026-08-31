@@ -452,11 +452,54 @@ void _main_3() {
     expect(session.position, const Duration(seconds: 12));
 
     await seek;
+    engine.emitPosition(const Duration(seconds: 12));
+    expect(session.position, const Duration(seconds: 12));
     engine.emitPosition(const Duration(seconds: 2));
     expect(session.position, const Duration(seconds: 12));
 
     engine.emitPosition(const Duration(seconds: 13));
     expect(session.position, const Duration(seconds: 13));
+    await session.dispose();
+  });
+
+  test('向后定位确认后仍过滤迟到的旧位置并接受新位置推进', () async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        position: Duration(seconds: 42),
+        duration: Duration(minutes: 3),
+      ),
+    );
+    final session = PlayerSessionController(engine: engine);
+
+    await session.seek(const Duration(seconds: 12));
+    engine.emitPosition(const Duration(seconds: 12));
+    engine.emitPosition(const Duration(seconds: 42));
+    expect(session.position, const Duration(seconds: 12));
+
+    engine.emitPosition(const Duration(seconds: 13));
+    expect(session.position, const Duration(seconds: 13));
+    await session.dispose();
+  });
+
+  test('定位目标限制在音轨时长内', () async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        position: Duration(seconds: 55),
+        duration: Duration(minutes: 1),
+      ),
+    );
+    final session = PlayerSessionController(engine: engine);
+
+    await session.seek(const Duration(seconds: 65));
+
+    expect(engine.seekPositions.last, const Duration(minutes: 1));
+    expect(session.position, const Duration(minutes: 1));
     await session.dispose();
   });
 

@@ -586,7 +586,13 @@ void main() {
       await tester.pump();
 
       expect(engine.commands, contains('scratch-cancel'));
+      expect(engine.commands, contains('seek'));
       expect(engine.commands, contains('play'));
+      expect(engine.seekPositions.last, greaterThan(Duration.zero));
+      expect(
+        engine.commands.indexOf('scratch-cancel'),
+        lessThan(engine.commands.indexOf('seek')),
+      );
 
       engine.scratchStartGate!.complete(false);
       await tester.pump();

@@ -721,18 +721,19 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     _scratchSeekTimer = null;
     _scratchRateStopTimer?.cancel();
     _scratchRateStopTimer = null;
+    final wasPlaying = _scratchWasPlaying == true;
     final cancelNativeStart = _nativeScratchRequested && !_nativeScratchActive;
+    Future<void>? seekFuture;
     if (cancelNativeStart) {
       // 原生 PCM 可能仍在下载/解码。释放手势时取消这次切入，不能让收尾
       // 等待它完成，否则主播放器会在手指离开后长时间保持静音。
       _scratchStartCancelled = true;
-      unawaited(widget.controller.cancelScratchStart());
+      seekFuture = _cancelNativeScratchStartAt(_scratchPosition);
     } else {
       _startScratchSeekDrain();
+      seekFuture = _scratchSeekFuture;
     }
-    final wasPlaying = _scratchWasPlaying == true;
     final generation = _scratchGeneration;
-    final seekFuture = _scratchSeekFuture;
     _scratchActive = false;
     _scratchFinishing = true;
     _syncTurntableRate();
@@ -829,7 +830,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
           releaseAudioRate,
           resumePlayback: wasPlaying,
         );
-      } else {
+      } else if (!startWasCancelled) {
         await _playScratchBackspin(momentumVelocity: momentumVelocity);
       }
       if (!mounted || generation != _scratchGeneration) return;
@@ -857,6 +858,13 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
 
   void _requestScratchPlaybackResume(int generation) {
     unawaited(_resumePlaybackAfterScratch(generation));
+  }
+
+  Future<void> _cancelNativeScratchStartAt(Duration? position) async {
+    await widget.controller.cancelScratchStart();
+    if (position != null) {
+      await widget.controller.seek(position, waitForPlaybackResume: false);
+    }
   }
 
   Future<void> _startScratchAudioPreview() async {
