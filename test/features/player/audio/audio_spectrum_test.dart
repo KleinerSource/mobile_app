@@ -23,7 +23,7 @@ void main() {
     expect(frame.isSilent, isFalse);
   });
 
-  test('环形频谱使用青蓝青绿暖黄，歌词频谱只使用单色前景', () {
+  test('环形频谱使用七彩色，歌词频谱只使用单色前景', () {
     final frame = AudioSpectrumFrame(
       rms: 0.3,
       peak: 0.7,
@@ -48,9 +48,13 @@ void main() {
     );
 
     expect(circular.palette, const <Color>[
-      Color(0xFF20B8E8),
-      Color(0xFF35D6A3),
-      Color(0xFFF4C84B),
+      Color(0xFFFF4B4B),
+      Color(0xFFFF8A3D),
+      Color(0xFFFFD43B),
+      Color(0xFF4DDC78),
+      Color(0xFF30D5C8),
+      Color(0xFF3D8BFF),
+      Color(0xFF8A63FF),
     ]);
     expect(lyrics.color, Colors.black);
     expect(CircularAudioSpectrumPainter.minimumOpacity, greaterThan(0.5));

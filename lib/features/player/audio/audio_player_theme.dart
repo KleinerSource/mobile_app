@@ -13,9 +13,13 @@ class AudioPlayerTheme extends StatelessWidget {
   static const double glassBlurSigma = 5.5;
   static const double sheetBlurSigma = 28;
   static const List<Color> spectrumPalette = <Color>[
-    Color(0xFF20B8E8),
-    Color(0xFF35D6A3),
-    Color(0xFFF4C84B),
+    Color(0xFFFF4B4B),
+    Color(0xFFFF8A3D),
+    Color(0xFFFFD43B),
+    Color(0xFF4DDC78),
+    Color(0xFF30D5C8),
+    Color(0xFF3D8BFF),
+    Color(0xFF8A63FF),
   ];
 
   static Color backgroundFor(Brightness brightness) {
