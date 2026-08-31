@@ -202,6 +202,38 @@ void _main_1() {
     }
   });
 
+  test('关闭音频播放代理会取消上游完整下载', () async {
+    final sourceId = SourceId.of('canceled-cached-audio-source');
+    final source = _DelayedDownloadFileSource(sourceId);
+    final proxy = await FilePlaybackProxy.start(
+      repository: FileSourceRepository(source),
+      path: FilePath(sourceId: sourceId, value: '正在下载.mp3'),
+      size: 12,
+      mimeType: 'audio/mpeg',
+      pathExtension: 'mp3',
+      cacheBeforePlayback: true,
+    );
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(proxy.uri);
+      request.headers.set('range', 'bytes=0-');
+      final responseFuture = request.close();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(source.downloadCalls, 1);
+
+      await proxy.close();
+
+      await source.canceled.future.timeout(const Duration(seconds: 1));
+      try {
+        await responseFuture.timeout(const Duration(seconds: 1));
+      } catch (_) {}
+    } finally {
+      await source.controller.close();
+      await proxy.close();
+      client.close(force: true);
+    }
+  });
+
   test('音频大小未知时也先完整缓存再响应 Range', () async {
     final sourceId = SourceId.of('unknown-cached-audio-source');
     final bytes = List<int>.generate(8, (index) => index + 70);
@@ -505,6 +537,7 @@ class _DelayedDownloadFileSource implements FileSource, FileTransferCapability {
 
   final SourceId sourceId;
   final StreamController<List<int>> controller = StreamController<List<int>>();
+  final Completer<void> canceled = Completer<void>();
   var downloadCalls = 0;
 
   @override
@@ -523,6 +556,15 @@ class _DelayedDownloadFileSource implements FileSource, FileTransferCapability {
     FileTransferOptions options = const FileTransferOptions(),
   }) {
     downloadCalls++;
+    final cancellation = options.cancellation;
+    if (cancellation != null) {
+      unawaited(
+        cancellation.whenCancelled.then((_) {
+          if (!canceled.isCompleted) canceled.complete();
+          if (!controller.isClosed) unawaited(controller.close());
+        }),
+      );
+    }
     return controller.stream;
   }
 

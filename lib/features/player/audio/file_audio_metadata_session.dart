@@ -27,6 +27,7 @@ class FileAudioMetadataSession {
   final FileSourceRepository _repository;
   List<FileEntry> _directoryEntries;
   final Future<Iterable<FileEntry>> Function()? _directoryEntriesLoader;
+  final FileCancellationToken _cancellation = FileCancellationToken();
   Future<Iterable<FileEntry>>? _directoryEntriesFuture;
   final Map<String, Future<AudioTrackMetadata>> _cache = {};
   final Set<File> _ownedFiles = <File>{};
@@ -237,7 +238,10 @@ class FileAudioMetadataSession {
     _ownedFiles.add(file);
     final sink = file.openWrite();
     try {
-      await for (final chunk in _repository.download(entry.path)) {
+      await for (final chunk in _repository.download(
+        entry.path,
+        options: FileTransferOptions(cancellation: _cancellation),
+      )) {
         sink.add(chunk);
       }
       await sink.close();
@@ -270,7 +274,10 @@ class FileAudioMetadataSession {
   }) async {
     final builder = BytesBuilder(copy: false);
     var length = 0;
-    await for (final chunk in _repository.download(entry.path)) {
+    await for (final chunk in _repository.download(
+      entry.path,
+      options: FileTransferOptions(cancellation: _cancellation),
+    )) {
       length += chunk.length;
       if (length > maxBytes) throw StateError('文件超过元数据读取限制');
       builder.add(chunk);
@@ -290,6 +297,7 @@ class FileAudioMetadataSession {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    _cancellation.cancel('播放器已关闭');
     final pending = List<Future<AudioTrackMetadata>>.from(_cache.values);
     if (pending.isNotEmpty) await Future.wait(pending, eagerError: false);
     for (final file in _ownedFiles.toList()) {

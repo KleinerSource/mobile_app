@@ -1533,8 +1533,10 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     final playbackProxies = <FilePlaybackProxy>[];
     FileAudioMetadataSession? audioMetadataSession;
     Future<void> disposeQueueResources() async {
-      await audioMetadataSession?.dispose();
+      // 两类下载必须并行取消：元数据读取不能阻塞播放器代理断开。
+      final metadataDispose = audioMetadataSession?.dispose();
       await _closePlaybackProxies(playbackProxies);
+      if (metadataDispose != null) await metadataDispose;
     }
 
     var queueOwnershipTransferred = false;

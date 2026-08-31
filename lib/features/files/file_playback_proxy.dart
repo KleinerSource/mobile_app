@@ -37,6 +37,7 @@ class FilePlaybackProxy {
   final String? _pathExtension;
   final String _token =
       '${DateTime.now().microsecondsSinceEpoch}-${Object().hashCode}';
+  final FileCancellationToken _cancellation = FileCancellationToken();
   final Set<HttpResponse> _responses = <HttpResponse>{};
   Future<FileAccess>? _accessFuture;
   Future<File>? _fallbackFileFuture;
@@ -215,7 +216,12 @@ class FilePlaybackProxy {
                 throw UnsupportedError('文件来源不支持 Range');
               }
               stream = await repository
-                  .openRange(path, offset: range.start, length: range.length)
+                  .openRange(
+                    path,
+                    offset: range.start,
+                    length: range.length,
+                    options: FileTransferOptions(cancellation: _cancellation),
+                  )
                   .timeout(_operationTimeout);
               _log('远端区间读取已建立');
             } catch (error) {
@@ -267,7 +273,7 @@ class FilePlaybackProxy {
       _log('播放器响应发送完成: status=${response.statusCode}');
     } catch (error, stackTrace) {
       _logError(request, error, stackTrace);
-      if (!responseStarted) {
+      if (!responseStarted && !_closed) {
         response.statusCode = _statusCode(error);
         response.write('视频流读取失败');
       }
@@ -396,7 +402,10 @@ class FilePlaybackProxy {
     try {
       // SMB/WebDAV 的下载路径已在文件下载功能中验证可用；优先使用它，
       // 避免为了获得一个访问句柄再次触发 stat/PROPFIND。
-      return repository.download(path);
+      return repository.download(
+        path,
+        options: FileTransferOptions(cancellation: _cancellation),
+      );
     } on UnsupportedFileOperationException {
       final resolved = access ?? await _access().timeout(_operationTimeout);
       return resolved.open();
@@ -409,6 +418,7 @@ class FilePlaybackProxy {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
+    _cancellation.cancel('播放器已关闭');
     final server = _server;
     _server = null;
     try {

@@ -119,6 +119,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
       <StreamSubscription<Object?>>[];
   final List<audio_service.MediaItem> _items = <audio_service.MediaItem>[];
   Future<void> _operation = Future<void>.value();
+  var _queueGeneration = 0;
   String? _queueKey;
   bool _playRequested = false;
   String? _errorMessage;
@@ -138,7 +139,8 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   Future<dynamic> customAction(String name, [Map<String, dynamic>? extras]) {
     final payload = extras ?? const <String, dynamic>{};
     if (name == audioOpenQueueAction) {
-      return _enqueue(() => _replaceQueue(payload));
+      final generation = ++_queueGeneration;
+      return _enqueue(() => _replaceQueue(payload, generation));
     }
     if (name == audioUpdateMetadataAction) {
       return _enqueue(() => _updateCurrentMetadata(payload));
@@ -168,7 +170,10 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     mediaItem.add(updated);
   }
 
-  Future<void> _replaceQueue(Map<String, dynamic> extras) async {
+  Future<void> _replaceQueue(
+    Map<String, dynamic> extras,
+    int generation,
+  ) async {
     final rawQueue = extras['queue'];
     if (rawQueue is! List || rawQueue.isEmpty) {
       throw StateError('音频播放队列为空');
@@ -183,8 +188,11 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     if (nextItems.isEmpty) throw StateError('音频播放地址为空');
 
     await _releaseQueueResources('replaced');
+    if (generation != _queueGeneration) return;
     await _player.stop();
+    if (generation != _queueGeneration) return;
     await _player.clearAudioSources();
+    if (generation != _queueGeneration) return;
     _items
       ..clear()
       ..addAll(nextItems);
@@ -208,6 +216,11 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
           milliseconds: positionMs.clamp(0, 1 << 31).toInt(),
         ),
       );
+      if (generation != _queueGeneration) {
+        await _player.stop();
+        await _player.clearAudioSources();
+        return;
+      }
       await _player.setLoopMode(_justAudioLoopMode(_repeatMode));
       if (_shuffleMode == audio_service.AudioServiceShuffleMode.all) {
         await _player.shuffle();
@@ -219,7 +232,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
       final shouldPlay = extras['play'] != false;
       // just_audio.play() 会在当前媒体结束后才完成；后台命令必须在开始
       // 播放后立即返回，否则替换队列的 customAction 会一直悬挂到歌曲结束。
-      if (shouldPlay) unawaited(play());
+      if (shouldPlay && generation == _queueGeneration) unawaited(play());
     } catch (_) {
       final failedQueueKey = _queueKey;
       await _clearQueueState();
@@ -290,13 +303,20 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   }
 
   @override
-  Future<void> stop() => _enqueue(() async {
+  Future<void> stop() async {
+    // stop 不能排在 setAudioSources 后面：后者可能正在等待远端文件响应。
+    // 先使正在加载的队列失效并通知资源注册表，下载代理才能立即断开上游连接。
+    ++_queueGeneration;
     _playRequested = false;
     await _releaseQueueResources('stopped');
-    await _player.stop();
+    try {
+      await _player.stop();
+    } catch (_) {}
+    try {
+      await _player.clearAudioSources();
+    } catch (_) {}
     await _clearQueueState();
-    _queueKey = null;
-  });
+  }
 
   @override
   Future<void> seek(Duration position) async {

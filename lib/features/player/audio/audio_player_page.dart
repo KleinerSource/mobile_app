@@ -95,6 +95,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
   bool _loading = true;
   String? _error;
   bool _leaving = false;
+  var _loadGeneration = 0;
   Future<void>? _stopFuture;
   int? _metadataIndex;
   String? _artworkPath;
@@ -102,6 +103,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
   double _playbackRate = 1.0;
   int _lastPositionSec = 0;
   int _lastDurationSec = 0;
+  Future<void>? _queueResourcesFuture;
 
   @override
   void initState() {
@@ -138,6 +140,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     try {
       var startAt = widget.startPositionSec > 0
           ? Duration(seconds: widget.startPositionSec)
@@ -152,6 +155,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
           }
         }
       }
+      if (_leaving || generation != _loadGeneration) return;
       await _host.open(
         widget.directUrl,
         startAt: startAt,
@@ -162,7 +166,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
         queueIndex: widget.queueIndex.clamp(0, _queue.length - 1),
         onQueueDispose: widget.onQueueDispose,
       );
-      if (!mounted || _leaving) return;
+      if (!mounted || _leaving || generation != _loadGeneration) return;
       setState(() => _loading = false);
       _onPlaybackStateChanged();
     } catch (error) {
@@ -257,6 +261,11 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
     return _stopFuture ??= _host.stop().catchError((_) {});
   }
 
+  Future<void> _disposeQueueResources() {
+    return _queueResourcesFuture ??=
+        widget.onQueueDispose?.call() ?? Future<void>.value();
+  }
+
   Future<void> _disposePlayback() async {
     await _stopPlayback();
     await _host.dispose();
@@ -265,18 +274,23 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
   Future<void> _exitPlayer() async {
     if (_leaving) return;
     _leaving = true;
+    _loadGeneration++;
     final position = _host.position;
     final duration = _host.duration;
-    await _stopPlayback();
-    await _saveProgress(position: position, duration: duration);
+    // 退出不能等待播放器完成整文件缓存；先释放代理和后台下载，再立即移除页面。
+    unawaited(_disposeQueueResources());
+    unawaited(_stopPlayback());
+    unawaited(_saveProgress(position: position, duration: duration));
     if (mounted) Navigator.of(context).pop();
   }
 
   @override
   void dispose() {
     _leaving = true;
+    _loadGeneration++;
     _host.removeListener(_onPlaybackStateChanged);
     unawaited(_metadataCoordinator?.dispose());
+    unawaited(_disposeQueueResources());
     // 页面被系统返回或外部路由移除时，也必须停止独立于页面生命周期的后台音频。
     unawaited(_disposePlayback());
     super.dispose();
