@@ -203,7 +203,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
       builder: (context, constraints) {
         final maxWidth = math.max(0.0, constraints.maxWidth - 48);
         final maxHeight = math.max(0.0, constraints.maxHeight * 0.52);
-        final cardSize = math.min(math.min(maxWidth, maxHeight), 420.0);
+        final cardSize = math.min(math.min(maxWidth, maxHeight), 380.0);
         final deckSize = cardSize + 28;
         final lyricsWidth = math.min(maxWidth, 420.0);
         final stageWidth = math.max(deckSize, lyricsWidth);
