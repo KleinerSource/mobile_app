@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm_scratch_audio/omm_scratch_audio.dart';
 
 import 'package:omm/features/player/audio/audio_now_playing_view.dart';
 import 'package:omm/features/player/audio/lrc_parser.dart';
@@ -11,6 +12,10 @@ import 'package:omm/features/player/common/player_session_controller.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 
 import '../common/fake_playback_engine.dart';
+
+final _silentSpectrum = ValueNotifier<AudioSpectrumFrame>(
+  AudioSpectrumFrame.silence(),
+);
 
 void main() {
   testWidgets('中心区域使用圆形黑胶唱片和圆形封面标签', (tester) async {
@@ -1005,6 +1010,7 @@ Widget _app(
                   cues: [LrcCue(position: Duration.zero, text: '当前歌词')],
                 )
               : null,
+          spectrum: _silentSpectrum,
         ),
       ),
     ),

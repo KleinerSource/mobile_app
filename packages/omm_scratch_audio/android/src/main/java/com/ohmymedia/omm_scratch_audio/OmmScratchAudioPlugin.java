@@ -42,12 +42,14 @@ public final class OmmScratchAudioPlugin
     private static final ScratchAudioEngine ENGINE = new ScratchAudioEngine();
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private ExecutorService spectrumAnalyzer;
     private MethodChannel channel;
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
         channel = new MethodChannel(binding.getBinaryMessenger(), "omm/scratch_audio");
         channel.setMethodCallHandler(this);
+        spectrumAnalyzer = Executors.newSingleThreadExecutor();
         ENGINE.setApplicationContext(binding.getApplicationContext());
     }
 
@@ -56,6 +58,10 @@ public final class OmmScratchAudioPlugin
         if (channel != null) {
             channel.setMethodCallHandler(null);
             channel = null;
+        }
+        if (spectrumAnalyzer != null) {
+            spectrumAnalyzer.shutdownNow();
+            spectrumAnalyzer = null;
         }
     }
 
@@ -97,6 +103,32 @@ public final class OmmScratchAudioPlugin
                     break;
                 case "state":
                     result.success(ENGINE.state());
+                    break;
+                case "spectrum":
+                    Number spectrumPositionMs = call.argument("positionMs");
+                    Number requestedBandCount = call.argument("bandCount");
+                    int bandCount = requestedBandCount == null
+                            ? 48
+                            : Math.max(8, Math.min(96, requestedBandCount.intValue()));
+                    ExecutorService analyzer = spectrumAnalyzer;
+                    if (analyzer == null || analyzer.isShutdown()) {
+                        result.error("SCRATCH_SPECTRUM", "Spectrum analyzer unavailable", null);
+                        break;
+                    }
+                    analyzer.execute(() -> {
+                        try {
+                            Map<String, Object> value = ENGINE.spectrum(
+                                    spectrumPositionMs == null
+                                            ? 0
+                                            : spectrumPositionMs.doubleValue(),
+                                    bandCount
+                            );
+                            mainHandler.post(() -> result.success(value));
+                        } catch (Exception error) {
+                            mainHandler.post(() ->
+                                    result.error("SCRATCH_SPECTRUM", message(error), null));
+                        }
+                    });
                     break;
                 case "stop":
                     ENGINE.stop();
@@ -339,6 +371,99 @@ public final class OmmScratchAudioPlugin
                     && audioTrack.getState() == AudioTrack.STATE_INITIALIZED);
             value.put("lastWriteResult", lastWriteResult);
             value.put("sourceId", preparedSourceId);
+            return value;
+        }
+
+        Map<String, Object> spectrum(double positionMs, int requestedBandCount) {
+            final byte[] source;
+            final int sourceSampleRate;
+            final int sourceChannels;
+            final int sourceFrameCount;
+            final String sourceId;
+            synchronized (lifecycleLock) {
+                source = pcm;
+                sourceSampleRate = sampleRate;
+                sourceChannels = channels;
+                sourceFrameCount = frameCount;
+                sourceId = preparedSourceId;
+            }
+            int bandCount = Math.max(8, Math.min(96, requestedBandCount));
+            if (source == null || sourceSampleRate <= 0 || sourceChannels <= 0
+                    || sourceFrameCount < 2) {
+                return silentSpectrum(bandCount, sourceId);
+            }
+
+            int windowSize = Math.min(1024, sourceFrameCount);
+            int centerFrame = (int) Math.round(
+                    Math.max(0, positionMs) / 1000 * sourceSampleRate
+            );
+            int startFrame = Math.max(
+                    0,
+                    Math.min(sourceFrameCount - windowSize, centerFrame - windowSize / 2)
+            );
+            double[] window = new double[windowSize];
+            double squareSum = 0;
+            double peak = 0;
+            for (int index = 0; index < windowSize; index++) {
+                int frame = startFrame + index;
+                double mixed = 0;
+                for (int channel = 0; channel < sourceChannels; channel++) {
+                    int offset = (frame * sourceChannels + channel) * 2;
+                    short sample = (short) (
+                            (source[offset] & 0xff) | (source[offset + 1] << 8)
+                    );
+                    mixed += sample / 32768.0;
+                }
+                mixed /= sourceChannels;
+                squareSum += mixed * mixed;
+                peak = Math.max(peak, Math.abs(mixed));
+                double hann = windowSize <= 1
+                        ? 1
+                        : 0.5 - 0.5 * Math.cos(2 * Math.PI * index / (windowSize - 1));
+                window[index] = mixed * hann;
+            }
+
+            double minimumFrequency = 55;
+            double maximumFrequency = Math.min(16_000, sourceSampleRate * 0.45);
+            double frequencyRatio = maximumFrequency > minimumFrequency
+                    ? maximumFrequency / minimumFrequency
+                    : 1;
+            java.util.ArrayList<Double> bands = new java.util.ArrayList<>(bandCount);
+            for (int band = 0; band < bandCount; band++) {
+                double fraction = bandCount == 1 ? 0 : band / (double) (bandCount - 1);
+                double frequency = minimumFrequency * Math.pow(frequencyRatio, fraction);
+                double omega = 2 * Math.PI * frequency / sourceSampleRate;
+                double coefficient = 2 * Math.cos(omega);
+                double previous = 0;
+                double previous2 = 0;
+                for (double sample : window) {
+                    double current = sample + coefficient * previous - previous2;
+                    previous2 = previous;
+                    previous = current;
+                }
+                double power = previous2 * previous2 + previous * previous
+                        - coefficient * previous * previous2;
+                double magnitude = Math.sqrt(Math.max(0, power)) * 4 / windowSize;
+                double normalized = Math.log1p(magnitude * 20) / Math.log(21);
+                bands.add(Math.max(0, Math.min(1, normalized)));
+            }
+
+            Map<String, Object> value = new HashMap<>();
+            value.put("rms", Math.max(0, Math.min(1, Math.sqrt(squareSum / windowSize))));
+            value.put("peak", Math.max(0, Math.min(1, peak)));
+            value.put("bands", bands);
+            value.put("ready", true);
+            value.put("sourceId", sourceId);
+            return value;
+        }
+
+        private Map<String, Object> silentSpectrum(int bandCount, String sourceId) {
+            Map<String, Object> value = new HashMap<>();
+            value.put("rms", 0.0);
+            value.put("peak", 0.0);
+            value.put("bands", Collections.nCopies(bandCount, 0.0));
+            value.put("ready", false);
+            value.put("sourceId", sourceId == null ? "" : sourceId);
             return value;
         }
 

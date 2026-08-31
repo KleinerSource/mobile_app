@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:omm_scratch_audio/omm_scratch_audio.dart';
 
 import '../../../l10n/generated/app_localizations.dart';
-import '../../../shared/glass.dart';
+import 'audio_player_theme.dart';
+import 'audio_spectrum.dart';
 import 'lrc_parser.dart';
 import '../common/playback_engine.dart';
 import '../common/player_session_controller.dart';
@@ -13,10 +17,12 @@ class AudioLyricsView extends StatelessWidget {
     super.key,
     required this.controller,
     required this.lyrics,
+    required this.spectrum,
   });
 
   final PlayerSessionController controller;
   final LrcDocument? lyrics;
+  final ValueListenable<AudioSpectrumFrame> spectrum;
 
   @override
   Widget build(BuildContext context) {
@@ -33,34 +39,44 @@ class AudioLyricsView extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: () => _showLyricsSheet(context, document),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 40, maxHeight: 72),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 260),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 0.35),
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
-                ),
-              ),
-              child: Text(
-                cue?.text ?? l10n.playerLyricsUnavailable,
-                key: ValueKey<String>(cue?.text ?? 'empty'),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+            constraints: const BoxConstraints(minHeight: 66, maxHeight: 92),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LyricsAudioSpectrum(
+                  spectrum: spectrum,
                   color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 16,
-                  height: 1.35,
-                  fontWeight: FontWeight.w600,
                 ),
-              ),
+                const SizedBox(height: 8),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.35),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  ),
+                  child: Text(
+                    cue?.text ?? l10n.playerLyricsUnavailable,
+                    key: ValueKey<String>(cue?.text ?? 'empty'),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 16,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -72,10 +88,51 @@ class AudioLyricsView extends StatelessWidget {
     BuildContext context,
     LrcDocument document,
   ) async {
-    await showGlassSheet<void>(
+    final brightness = Theme.of(context).brightness;
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (_) =>
-          _AudioLyricsSheet(controller: controller, lyrics: document),
+      isScrollControlled: true,
+      useSafeArea: false,
+      backgroundColor: Colors.transparent,
+      barrierColor: AudioPlayerTheme.sheetBarrierFor(brightness),
+      elevation: 0,
+      builder: (sheetContext) => AnimatedPadding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        child: ClipRRect(
+          key: const ValueKey<String>('audio-lyrics-glass-sheet'),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(
+              sigmaX: AudioPlayerTheme.sheetBlurSigma,
+              sigmaY: AudioPlayerTheme.sheetBlurSigma,
+            ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: AudioPlayerTheme.sheetTintFor(brightness),
+                border: Border(
+                  top: BorderSide(
+                    color: AudioPlayerTheme.glassBorderFor(brightness),
+                  ),
+                ),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: _AudioLyricsSheet(
+                    controller: controller,
+                    lyrics: document,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

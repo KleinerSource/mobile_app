@@ -2,13 +2,16 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:omm_scratch_audio/omm_scratch_audio.dart';
 
 import '../../../core/platform/app_haptics.dart';
 import '../../../core/platform/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import 'audio_lyrics_view.dart';
+import 'audio_spectrum.dart';
 import 'lrc_parser.dart';
 import '../common/playback_engine.dart';
 import '../common/player_session_controller.dart';
@@ -25,11 +28,13 @@ class AudioNowPlayingView extends StatefulWidget {
     required this.controller,
     required this.artworkPath,
     required this.lyrics,
+    required this.spectrum,
   });
 
   final PlayerSessionController controller;
   final String? artworkPath;
   final LrcDocument? lyrics;
+  final ValueListenable<AudioSpectrumFrame> spectrum;
 
   @override
   State<AudioNowPlayingView> createState() => _AudioNowPlayingViewState();
@@ -44,8 +49,6 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     microseconds: (_rotationPeriodSeconds * Duration.microsecondsPerSecond)
         .round(),
   );
-  // 歌词只在自己的槽位内变化，不能通过改变父级高度推动唱盘。
-  static const double _lyricsSlotHeight = 108;
   static const _gestureThreshold = 10.0;
   static const _innerGestureRadiusFactor = 0.16;
   static const _maxScratchMomentum = 6.0;
@@ -244,21 +247,15 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxWidth = math.max(0.0, constraints.maxWidth - 48);
-        final maxHeight = math.max(0.0, constraints.maxHeight * 0.52);
-        final cardSize = math.min(math.min(maxWidth, maxHeight), 380.0);
-        final deckSize = cardSize + 28;
-        final lyricsWidth = math.min(maxWidth, 420.0);
-        final stageWidth = math.max(deckSize, lyricsWidth);
-        final stageHeight = deckSize + _lyricsSlotHeight;
+        final geometry = AudioNowPlayingGeometry.fromConstraints(constraints);
         final hasLyrics = widget.lyrics != null && !widget.lyrics!.isEmpty;
 
         return Align(
           alignment: const Alignment(0, -0.18),
           // stageHeight 恒定，歌词的出现/消失不会改变唱盘的定位基准。
           child: SizedBox(
-            width: stageWidth,
-            height: stageHeight,
+            width: geometry.stageWidth,
+            height: geometry.stageHeight,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -266,15 +263,18 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
                   alignment: Alignment.topCenter,
                   child: ValueListenableBuilder<PlaybackViewState>(
                     valueListenable: widget.controller,
-                    builder: (context, state, _) =>
-                        _djDeck(context, recordSize: cardSize, state: state),
+                    builder: (context, state, _) => _djDeck(
+                      context,
+                      recordSize: geometry.recordSize,
+                      state: state,
+                    ),
                   ),
                 ),
                 Positioned(
-                  top: deckSize + 18,
+                  top: geometry.deckSize + 18,
                   left: 0,
                   right: 0,
-                  height: _lyricsSlotHeight - 18,
+                  height: AudioNowPlayingGeometry.lyricsSlotHeight - 18,
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 260),
                     switchInCurve: Curves.easeOutCubic,
@@ -292,13 +292,15 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
                     child: hasLyrics
                         ? SizedBox(
                             key: const ValueKey('lyrics'),
-                            width: lyricsWidth,
-                            height: _lyricsSlotHeight - 18,
+                            width: geometry.lyricsWidth,
+                            height:
+                                AudioNowPlayingGeometry.lyricsSlotHeight - 18,
                             child: Align(
                               alignment: Alignment.topCenter,
                               child: AudioLyricsView(
                                 controller: widget.controller,
                                 lyrics: widget.lyrics,
+                                spectrum: widget.spectrum,
                               ),
                             ),
                           )
@@ -1365,8 +1367,7 @@ class _VinylRecordPainter extends CustomPainter {
     for (var index = 0; index < _vinylGrooveCount; index++) {
       canvas.drawCircle(
         center,
-        radius *
-            (_vinylGrooveStartFactor + index * _vinylGrooveStepFactor),
+        radius * (_vinylGrooveStartFactor + index * _vinylGrooveStepFactor),
         groovePaint,
       );
     }

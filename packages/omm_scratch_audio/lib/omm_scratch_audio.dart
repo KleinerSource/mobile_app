@@ -79,7 +79,82 @@ final class OmmScratchAudio {
     return ScratchAudioState.fromObject(result);
   }
 
+  static Future<AudioSpectrumFrame> spectrum({
+    required Duration position,
+    int bandCount = AudioSpectrumFrame.defaultBandCount,
+  }) async {
+    final safeBandCount = bandCount.clamp(8, 96);
+    final result = await _channel.invokeMethod<Object?>('spectrum', {
+      'positionMs': position.inMilliseconds,
+      'bandCount': safeBandCount,
+    });
+    return AudioSpectrumFrame.fromObject(result, bandCount: safeBandCount);
+  }
+
   static Future<void> stop() => _channel.invokeMethod<void>('stop');
+}
+
+final class AudioSpectrumFrame {
+  const AudioSpectrumFrame({
+    required this.rms,
+    required this.peak,
+    required this.bands,
+    required this.ready,
+    required this.sourceId,
+  });
+
+  static const int defaultBandCount = 48;
+
+  final double rms;
+  final double peak;
+  final List<double> bands;
+  final bool ready;
+  final String sourceId;
+
+  bool get isSilent =>
+      !ready || (rms <= 0 && peak <= 0 && bands.every((value) => value <= 0));
+
+  factory AudioSpectrumFrame.silence({
+    int bandCount = defaultBandCount,
+    String sourceId = '',
+  }) {
+    final safeBandCount = bandCount.clamp(8, 96);
+    return AudioSpectrumFrame(
+      rms: 0,
+      peak: 0,
+      bands: List<double>.unmodifiable(List<double>.filled(safeBandCount, 0)),
+      ready: false,
+      sourceId: sourceId,
+    );
+  }
+
+  factory AudioSpectrumFrame.fromObject(
+    Object? raw, {
+    int bandCount = defaultBandCount,
+  }) {
+    final safeBandCount = bandCount.clamp(8, 96);
+    final value = raw is Map ? raw : const <Object?, Object?>{};
+    final rawBands = value['bands'] is List
+        ? value['bands'] as List
+        : const <Object?>[];
+    final bands = List<double>.generate(safeBandCount, (index) {
+      if (index >= rawBands.length) return 0;
+      return _normalized(rawBands[index]);
+    }, growable: false);
+    return AudioSpectrumFrame(
+      rms: _normalized(value['rms']),
+      peak: _normalized(value['peak']),
+      bands: List<double>.unmodifiable(bands),
+      ready: value['ready'] == true,
+      sourceId: value['sourceId']?.toString() ?? '',
+    );
+  }
+
+  static double _normalized(Object? value) {
+    final number = value is num ? value.toDouble() : 0.0;
+    if (!number.isFinite) return 0;
+    return number.clamp(0.0, 1.0).toDouble();
+  }
 }
 
 final class ScratchAudioState {

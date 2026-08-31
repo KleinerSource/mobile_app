@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm_scratch_audio/omm_scratch_audio.dart';
 
 import 'package:omm/features/player/audio/audio_player_controls.dart';
 import 'package:omm/features/player/audio/audio_now_playing_view.dart';
@@ -318,6 +319,7 @@ Widget _controlsApp(
                 controller: session,
                 artworkPath: null,
                 lyrics: withLyrics ? lyrics : null,
+                spectrum: ValueNotifier(AudioSpectrumFrame.silence()),
               ),
             ),
             Positioned.fill(child: _testControls(session)),

@@ -19,12 +19,14 @@ import '../common/player_queue.dart';
 class AudioPlaybackEngine
     implements PlaybackEngine, AudioMetadataSink, ScratchPlaybackEngine {
   static const _scratchPositionPollInterval = Duration(milliseconds: 33);
+  static const _spectrumPollInterval = Duration(milliseconds: 33);
 
   AudioPlaybackEngine({required audio_service.AudioHandler handler})
     : _handler = handler,
       _state = ValueNotifier(
         const PlaybackViewState(engineKind: PlaybackEngineKind.audio),
-      ) {
+      ),
+      _spectrum = ValueNotifier(AudioSpectrumFrame.silence()) {
     _subscriptions.add(_handler.playbackState.listen(_handlePlaybackState));
     _subscriptions.add(_handler.mediaItem.listen(_handleMediaItem));
     _handlePlaybackState(_handler.playbackState.valueOrNull);
@@ -34,6 +36,7 @@ class AudioPlaybackEngine
 
   final audio_service.AudioHandler _handler;
   final ValueNotifier<PlaybackViewState> _state;
+  final ValueNotifier<AudioSpectrumFrame> _spectrum;
   final List<StreamSubscription<Object?>> _subscriptions =
       <StreamSubscription<Object?>>[];
   audio_service.MediaItem? _currentItem;
@@ -52,6 +55,12 @@ class AudioPlaybackEngine
   Timer? _scratchPositionPollTimer;
   bool _scratchPositionPollInFlight = false;
   int _scratchPositionPollGeneration = 0;
+  Timer? _spectrumPollTimer;
+  bool _spectrumPollInFlight = false;
+  bool _spectrumSourceReady = false;
+  int _spectrumPollGeneration = 0;
+  Duration _spectrumBasePosition = Duration.zero;
+  DateTime _spectrumBaseTime = DateTime.now();
 
   @override
   PlaybackEngineKind get kind => PlaybackEngineKind.audio;
@@ -70,6 +79,8 @@ class AudioPlaybackEngine
 
   @override
   ValueListenable<PlaybackViewState> get state => _state;
+
+  ValueListenable<AudioSpectrumFrame> get spectrum => _spectrum;
 
   @override
   Future<void> open(PlaybackOpenRequest request) async {
@@ -124,17 +135,27 @@ class AudioPlaybackEngine
   Future<void> play() => _handler.play();
 
   @override
-  Future<void> pause() => _handler.pause();
+  Future<void> pause() {
+    _stopSpectrumPolling();
+    return _handler.pause();
+  }
 
   @override
-  Future<void> playOrPause() =>
-      _state.value.playing ? _handler.pause() : _handler.play();
+  Future<void> playOrPause() => _state.value.playing ? pause() : play();
 
   @override
-  Future<void> skipToPrevious() => _handler.skipToPrevious();
+  Future<void> skipToPrevious() {
+    _spectrumSourceReady = false;
+    _stopSpectrumPolling();
+    return _handler.skipToPrevious();
+  }
 
   @override
-  Future<void> skipToNext() => _handler.skipToNext();
+  Future<void> skipToNext() {
+    _spectrumSourceReady = false;
+    _stopSpectrumPolling();
+    return _handler.skipToNext();
+  }
 
   @override
   Future<void> setShuffleMode(bool enabled) => _handler.setShuffleMode(
@@ -256,6 +277,7 @@ class AudioPlaybackEngine
         'scratching': true,
       });
       _startScratchPositionPolling();
+      _syncSpectrumPolling();
       return true;
     } catch (error) {
       _stopScratchPositionPolling();
@@ -465,7 +487,12 @@ class AudioPlaybackEngine
         sourceId: sourceId,
         headers: headers,
       );
-      return state.ready && state.sourceId == sourceId;
+      final ready = state.ready && state.sourceId == sourceId;
+      if (!_disposed && ready && sourceId == _scratchSourceId) {
+        _spectrumSourceReady = true;
+        _syncSpectrumPolling();
+      }
+      return ready;
     } catch (error) {
       appLog('[AudioScratch] PCM 准备失败: $error');
       return false;
@@ -479,8 +506,10 @@ class AudioPlaybackEngine
       if (result is Map && result['active'] == true) {
         if (result['sourceId'] == _scratchSourceId) {
           _scratchActive = true;
+          _spectrumSourceReady = true;
           _scratchResumePlayback = result['playbackIntent'] == true;
           _startScratchPositionPolling();
+          _syncSpectrumPolling();
         } else {
           try {
             await OmmScratchAudio.stop();
@@ -577,7 +606,10 @@ class AudioPlaybackEngine
   }
 
   @override
-  Future<void> stop() => _handler.stop();
+  Future<void> stop() {
+    _stopSpectrumPolling();
+    return _handler.stop();
+  }
 
   @override
   Widget buildSurface({BoxFit fit = BoxFit.contain}) {
@@ -594,6 +626,8 @@ class AudioPlaybackEngine
     final current = _state.value;
     final itemChanged = previous?.id != item?.id;
     if (itemChanged) {
+      _spectrumSourceReady = false;
+      _stopSpectrumPolling();
       _scratchActive = false;
       _scratchMainPlaybackPaused = false;
       _stopScratchPositionPolling();
@@ -646,6 +680,8 @@ class AudioPlaybackEngine
     _scratchSource = source;
     _scratchHeaders = headers;
     _scratchPrepareFuture = null;
+    _spectrumSourceReady = false;
+    _stopSpectrumPolling();
     _scratchSourceGeneration++;
     _scratchStartGeneration++;
     _scratchActive = false;
@@ -705,6 +741,82 @@ class AudioPlaybackEngine
       error: playback.errorMessage,
       clearError: playback.errorMessage == null,
     );
+    _spectrumBasePosition = _state.value.position;
+    _spectrumBaseTime = DateTime.now();
+    _syncSpectrumPolling();
+  }
+
+  void _syncSpectrumPolling() {
+    final playback = _state.value;
+    final shouldPoll =
+        !_disposed &&
+        OmmScratchAudio.isSupported &&
+        _spectrumSourceReady &&
+        _scratchSourceId != null &&
+        playback.lifecycle == PlaybackLifecycle.ready &&
+        !playback.buffering &&
+        (playback.playing || _scratchActive);
+    if (!shouldPoll) {
+      _stopSpectrumPolling();
+      return;
+    }
+    if (_spectrumPollTimer != null) return;
+    final generation = _spectrumPollGeneration;
+    unawaited(_pollSpectrum(generation));
+    _spectrumPollTimer = Timer.periodic(
+      _spectrumPollInterval,
+      (_) => unawaited(_pollSpectrum(generation)),
+    );
+  }
+
+  void _stopSpectrumPolling() {
+    _spectrumPollTimer?.cancel();
+    _spectrumPollTimer = null;
+    _spectrumPollGeneration++;
+    if (!_disposed && !_spectrum.value.isSilent) {
+      _spectrum.value = AudioSpectrumFrame.silence(
+        sourceId: _scratchSourceId ?? '',
+      );
+    }
+  }
+
+  Future<void> _pollSpectrum(int generation) async {
+    if (_disposed ||
+        _spectrumPollInFlight ||
+        generation != _spectrumPollGeneration) {
+      return;
+    }
+    final sourceId = _scratchSourceId;
+    if (sourceId == null || sourceId.isEmpty) return;
+    _spectrumPollInFlight = true;
+    try {
+      final frame = await OmmScratchAudio.spectrum(
+        position: _currentSpectrumPosition(),
+      );
+      if (_disposed || generation != _spectrumPollGeneration) return;
+      _spectrum.value = frame.ready && frame.sourceId == sourceId
+          ? frame
+          : AudioSpectrumFrame.silence(sourceId: sourceId);
+    } catch (_) {
+      if (!_disposed && generation == _spectrumPollGeneration) {
+        _spectrum.value = AudioSpectrumFrame.silence(sourceId: sourceId);
+      }
+    } finally {
+      _spectrumPollInFlight = false;
+    }
+  }
+
+  Duration _currentSpectrumPosition() {
+    if (_scratchActive || !_state.value.playing) return _state.value.position;
+    final elapsed = DateTime.now().difference(_spectrumBaseTime);
+    final rate = _state.value.rate.isFinite ? _state.value.rate : 1.0;
+    var position =
+        _spectrumBasePosition +
+        Duration(microseconds: (elapsed.inMicroseconds * rate).round());
+    final duration = _state.value.duration;
+    if (position < Duration.zero) position = Duration.zero;
+    if (duration > Duration.zero && position > duration) position = duration;
+    return position;
   }
 
   String _titleFromUrl(String url) {
@@ -718,11 +830,18 @@ class AudioPlaybackEngine
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    _spectrumPollTimer?.cancel();
+    _spectrumPollTimer = null;
+    _spectrumPollGeneration++;
+    _spectrum.value = AudioSpectrumFrame.silence(
+      sourceId: _scratchSourceId ?? '',
+    );
     _stopScratchPositionPolling();
     for (final subscription in _subscriptions) {
       await subscription.cancel();
     }
     _subscriptions.clear();
     _state.dispose();
+    _spectrum.dispose();
   }
 }

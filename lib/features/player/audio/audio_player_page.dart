@@ -14,6 +14,7 @@ import 'audio_metadata.dart';
 import 'audio_now_playing_view.dart';
 import 'audio_playback_engine.dart';
 import 'audio_player_controls.dart';
+import 'audio_player_layers.dart';
 import 'audio_player_theme.dart';
 import 'audio_playback_service.dart';
 import 'lrc_parser.dart';
@@ -298,11 +299,9 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
       child: AudioPlayerTheme(
         child: Scaffold(
           backgroundColor: background,
-          body: SafeArea(
-            child: ValueListenableBuilder<PlaybackViewState>(
-              valueListenable: _host,
-              builder: (_, state, __) => _body(state),
-            ),
+          body: ValueListenableBuilder<PlaybackViewState>(
+            valueListenable: _host,
+            builder: (_, state, __) => _body(state),
           ),
         ),
       ),
@@ -313,62 +312,72 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
     final settings = ref.watch(playerSettingsProvider);
     final l10n = AppL10n.of(context);
     if (_error != null) {
-      return _AudioErrorView(
-        message: _error!,
-        onRetry: () {
-          setState(() {
-            _error = null;
-            _loading = true;
-          });
-          unawaited(_load());
-        },
-        onExit: () => unawaited(_exitPlayer()),
+      return AudioPlayerVisualLayers(
+        surface: _host.buildSurface(),
+        spectrum: _engine.spectrum,
+        child: _AudioErrorView(
+          message: _error!,
+          onRetry: () {
+            setState(() {
+              _error = null;
+              _loading = true;
+            });
+            unawaited(_load());
+          },
+          onExit: () => unawaited(_exitPlayer()),
+        ),
       );
     }
-    return Stack(
-      children: [
-        Positioned.fill(child: _host.buildSurface()),
-        Positioned.fill(
-          child: AudioNowPlayingView(
-            controller: _host,
-            artworkPath: _artworkPath ?? state.artworkPath,
-            lyrics: _lyrics,
+    return AudioPlayerVisualLayers(
+      surface: _host.buildSurface(),
+      spectrum: _engine.spectrum,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: AudioNowPlayingView(
+              controller: _host,
+              artworkPath: _artworkPath ?? state.artworkPath,
+              lyrics: _lyrics,
+              spectrum: _engine.spectrum,
+            ),
           ),
-        ),
-        const Positioned.fill(child: PlayerOverlayIndicators(indicator: null)),
-        Positioned.fill(
-          child: AudioPlayerControls(
-            controller: _host,
-            hapticProgressBar: settings.hapticProgressBar,
-            showPlayPauseButton: settings.showPlayPauseButton,
-            isLoading: _loading || state.buffering,
-            showSeekButtons: true,
-            showSpeedButton: true,
-            showMediaSwitchButton: true,
-            showShuffleButton: true,
-            shuffleEnabled: state.shuffleEnabled,
-            shuffleOnTooltip: l10n.playerShuffleOn,
-            shuffleOffTooltip: l10n.playerShuffleOff,
-            onShuffleToggle: _toggleShuffle,
-            showRepeatButton: true,
-            repeatMode: state.repeatMode,
-            repeatOffTooltip: l10n.playerRepeatOff,
-            repeatOneTooltip: l10n.playerRepeatOne,
-            repeatAllTooltip: l10n.playerRepeatAll,
-            onRepeatToggle: _toggleRepeat,
-            playbackRate: _playbackRate,
-            onPreviousMedia: () => unawaited(_host.skipToPrevious()),
-            onNextMedia: () => unawaited(_host.skipToNext()),
-            onTogglePlay: _togglePlay,
-            onSeekBackward: () => _seekBy(-10),
-            onSeekForward: () => _seekBy(10),
-            onRateChanged: _onRateChanged,
-            onSeek: _host.seek,
-            onInteraction: () {},
-            onExit: () => unawaited(_exitPlayer()),
+          const Positioned.fill(
+            child: PlayerOverlayIndicators(indicator: null),
           ),
-        ),
-      ],
+          Positioned.fill(
+            child: AudioPlayerControls(
+              controller: _host,
+              hapticProgressBar: settings.hapticProgressBar,
+              showPlayPauseButton: settings.showPlayPauseButton,
+              isLoading: _loading || state.buffering,
+              showSeekButtons: true,
+              showSpeedButton: true,
+              showMediaSwitchButton: true,
+              showShuffleButton: true,
+              shuffleEnabled: state.shuffleEnabled,
+              shuffleOnTooltip: l10n.playerShuffleOn,
+              shuffleOffTooltip: l10n.playerShuffleOff,
+              onShuffleToggle: _toggleShuffle,
+              showRepeatButton: true,
+              repeatMode: state.repeatMode,
+              repeatOffTooltip: l10n.playerRepeatOff,
+              repeatOneTooltip: l10n.playerRepeatOne,
+              repeatAllTooltip: l10n.playerRepeatAll,
+              onRepeatToggle: _toggleRepeat,
+              playbackRate: _playbackRate,
+              onPreviousMedia: () => unawaited(_host.skipToPrevious()),
+              onNextMedia: () => unawaited(_host.skipToNext()),
+              onTogglePlay: _togglePlay,
+              onSeekBackward: () => _seekBy(-10),
+              onSeekForward: () => _seekBy(10),
+              onRateChanged: _onRateChanged,
+              onSeek: _host.seek,
+              onInteraction: () {},
+              onExit: () => unawaited(_exitPlayer()),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

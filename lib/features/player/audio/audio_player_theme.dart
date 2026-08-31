@@ -10,12 +10,42 @@ class AudioPlayerTheme extends StatelessWidget {
 
   final Widget child;
 
+  static const double glassBlurSigma = 5.5;
+  static const double sheetBlurSigma = 28;
+  static const List<Color> spectrumPalette = <Color>[
+    Color(0xFF20B8E8),
+    Color(0xFF35D6A3),
+    Color(0xFFF4C84B),
+  ];
+
   static Color backgroundFor(Brightness brightness) {
     return brightness == Brightness.dark ? Colors.black : Colors.white;
   }
 
   static Color foregroundFor(Brightness brightness) {
     return brightness == Brightness.dark ? Colors.white : Colors.black;
+  }
+
+  static Color glassTintFor(Brightness brightness) {
+    return brightness == Brightness.dark
+        ? Colors.black.withValues(alpha: 0.16)
+        : Colors.white.withValues(alpha: 0.10);
+  }
+
+  static Color glassBorderFor(Brightness brightness) {
+    return foregroundFor(brightness).withValues(alpha: 0.10);
+  }
+
+  static Color sheetTintFor(Brightness brightness) {
+    return brightness == Brightness.dark
+        ? Colors.black.withValues(alpha: 0.78)
+        : Colors.white.withValues(alpha: 0.82);
+  }
+
+  static Color sheetBarrierFor(Brightness brightness) {
+    return Colors.black.withValues(
+      alpha: brightness == Brightness.dark ? 0.56 : 0.22,
+    );
   }
 
   static ThemeData data(BuildContext context) {

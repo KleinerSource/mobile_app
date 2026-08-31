@@ -83,6 +83,14 @@ public final class OmmScratchAudioPlugin: NSObject, FlutterPlugin {
       result(nil)
     case "state":
       result(Self.engine.state())
+    case "spectrum":
+      let positionMs = (arguments?["positionMs"] as? NSNumber)?.doubleValue ?? 0
+      let requestedBandCount = (arguments?["bandCount"] as? NSNumber)?.intValue ?? 48
+      let bandCount = min(96, max(8, requestedBandCount))
+      DispatchQueue.global(qos: .userInteractive).async {
+        let spectrum = Self.engine.spectrum(positionMs: positionMs, bandCount: bandCount)
+        DispatchQueue.main.async { result(spectrum) }
+      }
     case "stop":
       Self.engine.stop()
       result(nil)
@@ -241,6 +249,93 @@ private final class ScratchAudioEngine {
     }
   }
 
+  func spectrum(positionMs: Double, bandCount requestedBandCount: Int) -> [String: Any] {
+    let snapshot = withStateLock {
+      SpectrumSnapshot(
+        samples: samples,
+        sampleRate: sampleRate,
+        channelCount: channelCount,
+        frameCount: sourceFrameCount,
+        sourceId: preparedSourceId
+      )
+    }
+    let bandCount = min(96, max(8, requestedBandCount))
+    guard snapshot.sampleRate > 0,
+          snapshot.channelCount > 0,
+          snapshot.frameCount > 1,
+          !snapshot.samples.isEmpty else {
+      return silentSpectrum(bandCount: bandCount, sourceId: snapshot.sourceId)
+    }
+
+    let windowSize = min(1024, snapshot.frameCount)
+    let centerFrame = Int((max(0, positionMs) / 1000 * snapshot.sampleRate).rounded())
+    let startFrame = max(
+      0,
+      min(snapshot.frameCount - windowSize, centerFrame - windowSize / 2)
+    )
+    var window = Array(repeating: 0.0, count: windowSize)
+    var squareSum = 0.0
+    var peak = 0.0
+    for index in 0..<windowSize {
+      let frame = startFrame + index
+      var mixed = 0.0
+      for channel in 0..<snapshot.channelCount {
+        mixed += Double(snapshot.samples[min(channel, snapshot.samples.count - 1)][frame])
+      }
+      mixed /= Double(snapshot.channelCount)
+      squareSum += mixed * mixed
+      peak = max(peak, abs(mixed))
+      let hann = windowSize <= 1
+        ? 1
+        : 0.5 - 0.5 * cos(2 * Double.pi * Double(index) / Double(windowSize - 1))
+      window[index] = mixed * hann
+    }
+
+    let minimumFrequency = 55.0
+    let maximumFrequency = min(16_000, snapshot.sampleRate * 0.45)
+    let frequencyRatio = maximumFrequency > minimumFrequency
+      ? maximumFrequency / minimumFrequency
+      : 1
+    var bands = [Double]()
+    bands.reserveCapacity(bandCount)
+    for band in 0..<bandCount {
+      let fraction = bandCount == 1 ? 0 : Double(band) / Double(bandCount - 1)
+      let frequency = minimumFrequency * pow(frequencyRatio, fraction)
+      let omega = 2 * Double.pi * frequency / snapshot.sampleRate
+      let coefficient = 2 * cos(omega)
+      var previous = 0.0
+      var previous2 = 0.0
+      for sample in window {
+        let current = sample + coefficient * previous - previous2
+        previous2 = previous
+        previous = current
+      }
+      let power = previous2 * previous2 + previous * previous
+        - coefficient * previous * previous2
+      let magnitude = sqrt(max(0, power)) * 4 / Double(windowSize)
+      let normalized = log1p(magnitude * 20) / log(21)
+      bands.append(max(0, min(1, normalized)))
+    }
+
+    return [
+      "rms": max(0, min(1, sqrt(squareSum / Double(windowSize)))),
+      "peak": max(0, min(1, peak)),
+      "bands": bands,
+      "ready": true,
+      "sourceId": snapshot.sourceId,
+    ]
+  }
+
+  private func silentSpectrum(bandCount: Int, sourceId: String) -> [String: Any] {
+    [
+      "rms": 0.0,
+      "peak": 0.0,
+      "bands": Array(repeating: 0.0, count: bandCount),
+      "ready": false,
+      "sourceId": sourceId,
+    ]
+  }
+
   func stop() {
     withStateLock { playing = false }
     if engineStarted || audioEngine.isRunning {
@@ -254,11 +349,11 @@ private final class ScratchAudioEngine {
     engineStarted = false
     if let sourceNode { audioEngine.detach(sourceNode) }
 
-    samples = decoded.samples
-    sampleRate = decoded.sampleRate
-    channelCount = decoded.channelCount
-    sourceFrameCount = decoded.frameCount
     withStateLock {
+      samples = decoded.samples
+      sampleRate = decoded.sampleRate
+      channelCount = decoded.channelCount
+      sourceFrameCount = decoded.frameCount
       sourceFrame = 0
       playbackRate = 1
       currentRate = 1
@@ -445,5 +540,13 @@ private final class ScratchAudioEngine {
     let currentRate: Double
     let sourceFrame: Double
     let frameCount: Int
+  }
+
+  private struct SpectrumSnapshot {
+    let samples: [[Float]]
+    let sampleRate: Double
+    let channelCount: Int
+    let frameCount: Int
+    let sourceId: String
   }
 }
