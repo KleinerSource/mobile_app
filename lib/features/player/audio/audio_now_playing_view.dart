@@ -78,6 +78,8 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   bool _nativeScratchActive = false;
   bool _scratchStartCancelled = false;
   double _scratchAudioRate = 0;
+  final ValueNotifier<({bool scratching, double rate})> _turntableRate =
+      ValueNotifier((scratching: false, rate: 0));
   Future<void>? _scratchAudioStartFuture;
 
   @override
@@ -201,6 +203,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     _rotationTicker.dispose();
     _tonearmController.dispose();
     _rotationController.dispose();
+    _turntableRate.dispose();
     super.dispose();
   }
 
@@ -217,109 +220,63 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
         final stageHeight = deckSize + _lyricsSlotHeight;
         final hasLyrics = widget.lyrics != null && !widget.lyrics!.isEmpty;
 
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            Positioned.fill(child: IgnorePointer(child: _djBackdrop(context))),
-            Align(
-              alignment: const Alignment(0, -0.18),
-              // stageHeight 恒定，歌词的出现/消失不会改变唱盘的定位基准。
-              child: SizedBox(
-                width: stageWidth,
-                height: stageHeight,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Align(
-                      alignment: Alignment.topCenter,
-                      child: ValueListenableBuilder<PlaybackViewState>(
-                        valueListenable: widget.controller,
-                        builder: (context, state, _) => _djDeck(
-                          context,
-                          recordSize: cardSize,
-                          state: state,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: deckSize + 18,
-                      left: 0,
-                      right: 0,
-                      height: _lyricsSlotHeight - 18,
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 260),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: (child, animation) => FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.25),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          ),
-                        ),
-                        child: hasLyrics
-                            ? SizedBox(
-                                key: const ValueKey('lyrics'),
-                                width: lyricsWidth,
-                                height: _lyricsSlotHeight - 18,
-                                child: Align(
-                                  alignment: Alignment.topCenter,
-                                  child: AudioLyricsView(
-                                    controller: widget.controller,
-                                    lyrics: widget.lyrics,
-                                  ),
-                                ),
-                              )
-                            : const SizedBox.shrink(key: ValueKey('no-lyrics')),
-                      ),
-                    ),
-                  ],
+        return Align(
+          alignment: const Alignment(0, -0.18),
+          // stageHeight 恒定，歌词的出现/消失不会改变唱盘的定位基准。
+          child: SizedBox(
+            width: stageWidth,
+            height: stageHeight,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: ValueListenableBuilder<PlaybackViewState>(
+                    valueListenable: widget.controller,
+                    builder: (context, state, _) =>
+                        _djDeck(context, recordSize: cardSize, state: state),
+                  ),
                 ),
-              ),
+                Positioned(
+                  top: deckSize + 18,
+                  left: 0,
+                  right: 0,
+                  height: _lyricsSlotHeight - 18,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 260),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.25),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: hasLyrics
+                        ? SizedBox(
+                            key: const ValueKey('lyrics'),
+                            width: lyricsWidth,
+                            height: _lyricsSlotHeight - 18,
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: AudioLyricsView(
+                                controller: widget.controller,
+                                lyrics: widget.lyrics,
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink(key: ValueKey('no-lyrics')),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
-    );
-  }
-
-  Widget _djBackdrop(BuildContext context) {
-    final colors = appColors(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(-0.12, -0.28),
-                radius: 1.05,
-                colors: [
-                  colors.glow1.withValues(alpha: isDark ? 0.18 : 0.10),
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ),
-        ),
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(0.9, 0.85),
-                radius: 0.9,
-                colors: [
-                  colors.glow2.withValues(alpha: isDark ? 0.14 : 0.08),
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -335,8 +292,6 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     final progress = durationMs <= 0
         ? 0.0
         : (state.position.inMilliseconds / durationMs).clamp(0.0, 1.0);
-    final rate = state.rate.isFinite ? state.rate : 1.0;
-
     return SizedBox(
       key: const ValueKey<String>('audio-dj-deck'),
       width: deckSize,
@@ -397,9 +352,18 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
             bottom: deckSize * 0.06,
             right: deckSize * 0.10,
             child: IgnorePointer(
-              child: _DjBadge(
-                label: '${l10n.playerDjPitch} ${rate.toStringAsFixed(2)}x',
-                color: colors.muted,
+              child: ValueListenableBuilder<({bool scratching, double rate})>(
+                valueListenable: _turntableRate,
+                builder: (_, turntableRate, __) {
+                  final rate = turntableRate.scratching
+                      ? turntableRate.rate
+                      : _playbackTurntableRate(state);
+                  return _DjBadge(
+                    key: const ValueKey<String>('audio-dj-speed'),
+                    label: '${l10n.playerDjPitch} ${rate.toStringAsFixed(2)}x',
+                    color: colors.muted,
+                  );
+                },
               ),
             ),
           ),
@@ -592,7 +556,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     final scratchRate = elapsedSeconds > 0
         ? (turns * _rotationPeriodSeconds / elapsedSeconds).clamp(-8.0, 8.0)
         : 0.0;
-    _scratchAudioRate = scratchRate;
+    _setScratchAudioRate(scratchRate);
     if (_nativeScratchRequested) {
       unawaited(widget.controller.setScratchRate(scratchRate));
     } else {
@@ -614,7 +578,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     if (!_scratchActive || _scratchFinishing || _scratchAudioRate == 0) {
       return;
     }
-    _scratchAudioRate = 0;
+    _setScratchAudioRate(0);
     if (_nativeScratchRequested) {
       unawaited(widget.controller.setScratchRate(0));
     }
@@ -648,7 +612,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     _nativeScratchRequested = widget.controller.supportsScratch;
     _nativeScratchActive = false;
     _scratchStartCancelled = false;
-    _scratchAudioRate = 0;
+    _setScratchAudioRate(0);
     _stopRotationTicker();
     _syncTonearm(true);
     AppHaptics.light();
@@ -726,6 +690,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     final seekFuture = _scratchSeekFuture;
     _scratchActive = false;
     _scratchFinishing = true;
+    _syncTurntableRate();
     unawaited(
       _completeScratch(
         wasPlaying,
@@ -839,6 +804,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
         _nativeScratchRequested = false;
         _nativeScratchActive = false;
         _scratchStartCancelled = false;
+        _syncTurntableRate();
         _syncRotation();
       }
     }
@@ -904,7 +870,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     var currentRate = releaseRate.isFinite
         ? releaseRate.clamp(-8.0, 8.0).toDouble()
         : 0.0;
-    _scratchAudioRate = currentRate;
+    _setScratchAudioRate(currentRate);
     _syncRotation();
     await widget.controller.setScratchRate(currentRate);
 
@@ -918,7 +884,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
       if ((currentRate - targetRate).abs() <= _scratchMotorRateTolerance) {
         currentRate = targetRate;
       }
-      _scratchAudioRate = currentRate;
+      _setScratchAudioRate(currentRate);
       await widget.controller.setScratchRate(currentRate);
     }
 
@@ -929,6 +895,29 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   double _normalPlaybackRate() {
     final rate = widget.controller.value.rate;
     return rate.isFinite && rate > 0 ? rate : 1.0;
+  }
+
+  double _playbackTurntableRate(PlaybackViewState state) {
+    if (!state.playing ||
+        state.lifecycle != PlaybackLifecycle.ready ||
+        state.buffering) {
+      return 0;
+    }
+    final rate = state.rate;
+    return rate.isFinite && rate > 0 ? rate : 1.0;
+  }
+
+  void _setScratchAudioRate(double rate) {
+    _scratchAudioRate = rate;
+    _syncTurntableRate();
+  }
+
+  void _syncTurntableRate() {
+    final next = (
+      scratching: _scratchActive || _scratchFinishing,
+      rate: _scratchAudioRate,
+    );
+    if (_turntableRate.value != next) _turntableRate.value = next;
   }
 
   Future<void> _playScratchBackspin({required double momentumVelocity}) async {
@@ -980,6 +969,51 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
       return renderObject.globalToLocal(globalPosition);
     }
     return fallback;
+  }
+}
+
+/// 播放页全屏氛围光背景。需由页面绘制在安全区之外（铺满整个屏幕），
+/// 让状态栏/导航栏区域与播放器主体共享同一配色，避免安全区边界出现色差。
+class AudioPlayerBackdrop extends StatelessWidget {
+  const AudioPlayerBackdrop({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(-0.12, -0.28),
+                radius: 1.05,
+                colors: [
+                  colors.glow1.withValues(alpha: isDark ? 0.18 : 0.10),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(0.9, 0.85),
+                radius: 0.9,
+                colors: [
+                  colors.glow2.withValues(alpha: isDark ? 0.14 : 0.08),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -1092,7 +1126,7 @@ class _VinylRecord extends StatelessWidget {
 }
 
 class _DjBadge extends StatelessWidget {
-  const _DjBadge({required this.label, required this.color});
+  const _DjBadge({super.key, required this.label, required this.color});
 
   final String label;
   final Color color;

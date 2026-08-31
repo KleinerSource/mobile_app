@@ -337,11 +337,21 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
           color: colors.bg,
           child: Scaffold(
             backgroundColor: colors.bg,
-            body: SafeArea(
-              child: ValueListenableBuilder<PlaybackViewState>(
-                valueListenable: _host,
-                builder: (_, state, __) => _body(state),
-              ),
+            body: Stack(
+              fit: StackFit.expand,
+              children: [
+                // 氛围光铺满整个屏幕（含状态栏/导航栏区域），避免安全区
+                // 边界处的配色断层；交互内容仍由下方 SafeArea 约束。
+                const Positioned.fill(
+                  child: IgnorePointer(child: AudioPlayerBackdrop()),
+                ),
+                SafeArea(
+                  child: ValueListenableBuilder<PlaybackViewState>(
+                    valueListenable: _host,
+                    builder: (_, state, __) => _body(state),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

@@ -530,6 +530,61 @@ void main() {
     }
   });
 
+  testWidgets('右下角速度实时显示正常播放和正反搓碟速率', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        playing: true,
+        rate: 1.5,
+        position: Duration(seconds: 30),
+        duration: Duration(minutes: 2),
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+
+      String displayedRate() {
+        final text = tester.widget<Text>(
+          find.descendant(
+            of: find.byKey(const ValueKey<String>('audio-dj-speed')),
+            matching: find.byType(Text),
+          ),
+        );
+        return text.data!;
+      }
+
+      expect(displayedRate(), endsWith('1.50x'));
+
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final center = tester.getCenter(record);
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+      await gesture.moveTo(
+        center + const Offset(120, 0),
+        timeStamp: const Duration(milliseconds: 900),
+      );
+      await tester.pump();
+      expect(displayedRate(), endsWith('0.50x'));
+
+      await gesture.moveTo(
+        center + const Offset(0, -120),
+        timeStamp: const Duration(milliseconds: 1800),
+      );
+      await tester.pump();
+      expect(displayedRate(), endsWith('-0.50x'));
+
+      await gesture.up();
+      for (var frame = 0; frame < 80; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(displayedRate(), endsWith('1.50x'));
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
   testWidgets('音频加载或缓冲时唱片保持停止，真正播放后才旋转', (tester) async {
     final engine = FakePlaybackEngine(
       PlaybackEngineKind.audio,
