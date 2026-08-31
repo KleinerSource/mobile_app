@@ -255,6 +255,10 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     try {
       await _player.setAudioSources(
         sources,
+        // 音频代理会在首次 GET 时完整缓存文件。这里不能再预加载，
+        // 否则 setAudioSources 会等待底层解码进入 ready，页面会一直卡在 loading；
+        // 后续由 play() 触发实际加载和播放。
+        preload: false,
         initialIndex: initialIndex,
         initialPosition: Duration(
           milliseconds: positionMs.clamp(0, 1 << 31).toInt(),
