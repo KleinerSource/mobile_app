@@ -7,7 +7,6 @@ import '../common/player_session_controller.dart';
 /// 音频播放器控制层。音频布局独立于视频控制层，不包含画质、字幕或画面预览。
 class AudioPlayerControls extends StatelessWidget {
   static const double _controlSlotSize = 48;
-  static const double _titleSlotHeight = 48;
   static const double _progressSlotHeight = 66;
 
   const AudioPlayerControls({
@@ -79,11 +78,23 @@ class AudioPlayerControls extends StatelessWidget {
         Positioned(
           top: 8,
           left: 20,
-          child: IconButton(
-            tooltip: '退出播放',
-            enableFeedback: false,
-            icon: const Icon(Icons.close),
-            onPressed: onExit,
+          right: 20,
+          child: SizedBox(
+            height: _controlSlotSize,
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: '退出播放',
+                  enableFeedback: false,
+                  icon: const Icon(Icons.close),
+                  onPressed: onExit,
+                ),
+                Expanded(
+                  child: Center(child: _title(context)),
+                ),
+                const SizedBox(width: _controlSlotSize),
+              ],
+            ),
           ),
         ),
         Align(
@@ -93,8 +104,6 @@ class AudioPlayerControls extends StatelessWidget {
             child: SizedBox(
               width: double.infinity,
               height:
-                  _titleSlotHeight +
-                  20 +
                   _progressSlotHeight +
                   28 +
                   _controlSlotSize +
@@ -103,8 +112,6 @@ class AudioPlayerControls extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(height: _titleSlotHeight, child: _title(context)),
-                  const SizedBox(height: 20),
                   SizedBox(height: _progressSlotHeight, child: _progress()),
                   const SizedBox(height: 28),
                   SizedBox(height: _controlSlotSize, child: _primaryControls()),
@@ -130,6 +137,7 @@ class AudioPlayerControls extends StatelessWidget {
             ? state.currentTitle!.trim()
             : '音乐播放',
         maxLines: 2,
+        textAlign: TextAlign.center,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: Theme.of(context).colorScheme.onSurface,
