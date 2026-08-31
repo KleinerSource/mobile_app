@@ -1231,10 +1231,11 @@ class _TurntableTonearm extends StatelessWidget {
   const _TurntableTonearm({required this.progress});
 
   // 资源中的机械轴心约位于 (78%, 24%)，磁头约位于 (7.5%, 92%)。
-  // 放大到唱盘直径的一半以上后，磁头在末端才能准确落到唱片中心。
+  // 放大到唱盘直径的一半以上后，磁头在末端才能落到唱片内圈。
   static const _tonearmSizeFactor = 0.54;
   static const _startAngleDegrees = -45.0;
-  static const _endAngleDegrees = 0.0;
+  // 末端停在唱片内圈，给中心封面留出安全间距。
+  static const _endAngleDegrees = -22.0;
   static const _pivotAlignment = Alignment(0.56, -0.52);
 
   final double progress;

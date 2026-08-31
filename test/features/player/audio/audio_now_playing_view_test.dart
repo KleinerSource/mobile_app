@@ -161,10 +161,7 @@ void main() {
         const Size(300, 300),
       );
       expect(tonearmSize.width, greaterThan(160));
-      expect(
-        (startGeometry[1].dx - startGeometry[0].dx).abs(),
-        lessThan(8),
-      );
+      expect((startGeometry[1].dx - startGeometry[0].dx).abs(), lessThan(8));
 
       // 即使暂停，磁头杆也应反映用户拖动进度后所在的唱片槽位。
       engine.notifier.value = engine.notifier.value.copyWith(
@@ -192,13 +189,15 @@ void main() {
       expect(atEnd, isNot(orderedEquals(atMiddle)));
       final angleDelta =
           math.atan2(atEnd[1], atEnd[0]) - math.atan2(atStart[1], atStart[0]);
-      expect(angleDelta, closeTo(45 * math.pi / 180, 0.001));
+      expect(angleDelta, closeTo(23 * math.pi / 180, 0.001));
       expect((endGeometry[0] - startGeometry[0]).distance, lessThan(0.01));
       expect(
         (endGeometry[1] - endGeometry[0]).distance,
         closeTo((startGeometry[1] - startGeometry[0]).distance, 0.01),
       );
-      expect((endGeometry[1] - recordCenter()).distance, lessThan(8));
+      final endDistanceToCenter = (endGeometry[1] - recordCenter()).distance;
+      expect(endDistanceToCenter, greaterThan(55));
+      expect(endDistanceToCenter, lessThan(80));
 
       engine.notifier.value = engine.notifier.value.copyWith(
         playing: true,

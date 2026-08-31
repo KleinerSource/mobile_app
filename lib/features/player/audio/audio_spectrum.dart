@@ -122,7 +122,8 @@ class CircularAudioSpectrumPainter extends CustomPainter {
   static const double haloStrokeWidth = 32;
   static const double haloBlurSigma = 12;
   static const double glowBlurSigma = 5;
-  static const double minimumLength = 14;
+  static const double minimumLength = 0;
+  static const double silenceThreshold = 0.04;
   static const double minimumOpacity = 0.82;
 
   final AudioSpectrumFrame frame;
@@ -161,10 +162,13 @@ class CircularAudioSpectrumPainter extends CustomPainter {
       final fraction = index / frame.bands.length;
       final energy = frame.bands[index].clamp(0.0, 1.0);
       final angle = -math.pi / 2 + math.pi * 2 * fraction;
-      final volume = (frame.rms * 0.7 + frame.peak * 0.3).clamp(0.0, 1.0);
-      final response = (energy * 0.72 + volume * 0.18 + frame.peak * 0.10)
-          .clamp(0.0, 1.0);
-      final length = minimumLength + maxLength * response;
+      final amplitude = amplitudeFor(
+        energy: energy,
+        rms: frame.rms,
+        peak: frame.peak,
+      );
+      if (amplitude <= 0) continue;
+      final length = minimumLength + maxLength * amplitude;
       final opacity =
           (minimumOpacity + math.max(energy, frame.rms) * (1 - minimumOpacity))
               .clamp(0.0, 1.0);
@@ -179,6 +183,25 @@ class CircularAudioSpectrumPainter extends CustomPainter {
       canvas.drawLine(start, end, glowPaint);
       canvas.drawLine(start, end, paint);
     }
+  }
+
+  static double amplitudeFor({
+    required double energy,
+    required double rms,
+    required double peak,
+  }) {
+    final safeEnergy = energy.clamp(0.0, 1.0);
+    final safeRms = rms.clamp(0.0, 1.0);
+    final safePeak = peak.clamp(0.0, 1.0);
+    final volume = (safeRms * 0.7 + safePeak * 0.3).clamp(0.0, 1.0);
+    final signal = (safeEnergy * 0.72 + volume * 0.18 + safePeak * 0.10).clamp(
+      0.0,
+      1.0,
+    );
+    return ((signal - silenceThreshold) / (1 - silenceThreshold)).clamp(
+      0.0,
+      1.0,
+    );
   }
 
   static Color colorForIntensity(List<Color> palette, double intensity) {

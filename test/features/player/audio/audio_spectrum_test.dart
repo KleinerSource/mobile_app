@@ -73,9 +73,23 @@ void main() {
     expect(lyrics.color, Colors.black);
     expect(CircularAudioSpectrumPainter.minimumOpacity, greaterThan(0.5));
     expect(AudioSpectrumBackdrop.spectrumOuterPadding, greaterThan(104));
+    expect(CircularAudioSpectrumPainter.minimumLength, 0);
+    expect(CircularAudioSpectrumPainter.silenceThreshold, greaterThan(0));
     expect(
-      CircularAudioSpectrumPainter.minimumLength,
-      greaterThan(CircularAudioSpectrumPainter.strokeWidth),
+      CircularAudioSpectrumPainter.amplitudeFor(energy: 0, rms: 0, peak: 0),
+      0,
+    );
+    expect(
+      CircularAudioSpectrumPainter.amplitudeFor(energy: 1, rms: 1, peak: 1),
+      closeTo(1, 1e-12),
+    );
+    expect(
+      CircularAudioSpectrumPainter.amplitudeFor(
+        energy: 0,
+        rms: CircularAudioSpectrumPainter.silenceThreshold * 0.5,
+        peak: CircularAudioSpectrumPainter.silenceThreshold * 0.5,
+      ),
+      0,
     );
     expect(
       CircularAudioSpectrumPainter.glowStrokeWidth,
