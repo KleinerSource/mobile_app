@@ -1248,9 +1248,7 @@ class _DjTonearmPainter extends CustomPainter {
     final recordRadius = recordSize / 2;
     final pivot = Offset(size.width * 0.80, size.height * 0.12);
     final parkedElbow = Offset(size.width * 0.76, size.height * 0.14);
-    final engagedElbow = Offset(size.width * 0.46, size.height * 0.42);
     final parkedReference = Offset(size.width * 0.68, size.height * 0.20);
-    final engagedReference = Offset(size.width * 0.38, size.height * 0.59);
     final outerGrooveRadius =
         recordRadius *
         (_vinylGrooveStartFactor +
@@ -1260,17 +1258,25 @@ class _DjTonearmPainter extends CustomPainter {
         (_vinylGrooveStartFactor +
             _tonearmInnerGrooveIndex * _vinylGrooveStepFactor);
 
-    Offset onGroove(Offset reference, double radius) {
-      final direction = reference - recordCenter;
-      final distance = direction.distance;
-      if (distance == 0) return recordCenter;
-      return recordCenter + direction / distance * radius;
-    }
+    // 唱针沿固定的径向线移动。对两个不同方向的坐标做 Offset.lerp
+    // 会走弦线，进度过半后就会切入唱片中心和封面。
+    final needleDirection = parkedReference - recordCenter;
+    final needleDirectionLength = needleDirection.distance;
+    final normalizedNeedleDirection = needleDirectionLength == 0
+        ? const Offset(0, -1)
+        : needleDirection / needleDirectionLength;
+    final clampedProgress = progress.clamp(0.0, 1.0).toDouble();
+    final needleRadius =
+        outerGrooveRadius +
+        (innerGrooveRadius - outerGrooveRadius) * clampedProgress;
+    final needle = recordCenter + normalizedNeedleDirection * needleRadius;
 
-    final parkedNeedle = onGroove(parkedReference, outerGrooveRadius);
-    final engagedNeedle = onGroove(engagedReference, innerGrooveRadius);
-    final elbow = Offset.lerp(parkedElbow, engagedElbow, progress)!;
-    final needle = Offset.lerp(parkedNeedle, engagedNeedle, progress)!;
+    final parkedElbowRadius = (parkedElbow - recordCenter).distance;
+    final engagedElbowRadius = innerGrooveRadius + recordRadius * 0.16;
+    final elbowRadius =
+        parkedElbowRadius +
+        (engagedElbowRadius - parkedElbowRadius) * clampedProgress;
+    final elbow = recordCenter + normalizedNeedleDirection * elbowRadius;
     final armPaint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
