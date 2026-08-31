@@ -52,7 +52,6 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   static const _scratchMotorTick = Duration(milliseconds: 16);
   static const _scratchMotorStrength = 6.0;
   static const _scratchMotorRateTolerance = 0.005;
-
   late final AnimationController _rotationController =
       AnimationController.unbounded(vsync: this, value: 0);
   late final Ticker _rotationTicker = createTicker(_advanceRotation);
@@ -1231,17 +1230,22 @@ class _VinylLightOverlay extends StatelessWidget {
 class _TurntableTonearm extends StatelessWidget {
   const _TurntableTonearm({required this.progress});
 
+  static const _startAngleDegrees = 20.0;
+  static const _endAngleDegrees = 2.0;
+
   final double progress;
 
   @override
   Widget build(BuildContext context) {
     final clampedProgress = progress.clamp(0.0, 1.0).toDouble();
     // 唱臂保持固定尺寸，只围绕图片中的机械轴心转动。
-    final angleDegrees = 15 - 10 * clampedProgress;
+    final angleDegrees =
+        _startAngleDegrees +
+        (_endAngleDegrees - _startAngleDegrees) * clampedProgress;
     return LayoutBuilder(
       builder: (context, constraints) {
         final deckSize = math.min(constraints.maxWidth, constraints.maxHeight);
-        final tonearmSize = deckSize * 0.27;
+        final tonearmSize = deckSize * 0.30;
         return Stack(
           clipBehavior: Clip.none,
           children: [
@@ -1260,8 +1264,8 @@ class _TurntableTonearm extends StatelessWidget {
                   fit: BoxFit.contain,
                   filterQuality: FilterQuality.high,
                   gaplessPlayback: true,
-                  color: const Color(0xFF888888),
-                  colorBlendMode: BlendMode.screen,
+                  color: const Color(0xFFE4E4E4),
+                  colorBlendMode: BlendMode.srcIn,
                 ),
               ),
             ),

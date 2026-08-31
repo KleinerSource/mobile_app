@@ -17,7 +17,7 @@ final class AudioNowPlayingGeometry {
 
   static const double lyricsSlotHeight = 108;
   static const double stageTopInset = 78;
-  static const double maxRecordSize = 350;
+  static const double maxRecordSize = 300;
 
   final double recordSize;
   final double deckSize;

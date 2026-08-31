@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -68,6 +70,8 @@ void main() {
         (tonearmImage.image as AssetImage).assetName,
         'assets/audio_player/turntable_tonearm.png',
       );
+      expect(tonearmImage.color, const Color(0xFFE4E4E4));
+      expect(tonearmImage.colorBlendMode, BlendMode.srcIn);
 
       final layers = tester.widget<Stack>(
         find.byKey(const ValueKey<String>('audio-dj-deck-layers')),
@@ -143,6 +147,12 @@ void main() {
       final atStart = currentTonearmTransform();
       final startGeometry = currentTonearmGeometry();
       final tonearmSize = tester.getSize(tonearmImage);
+      expect(
+        tester.getSize(
+          find.byKey(const ValueKey<String>('audio-vinyl-record')),
+        ),
+        const Size(300, 300),
+      );
 
       // 即使暂停，磁头杆也应反映用户拖动进度后所在的唱片槽位。
       engine.notifier.value = engine.notifier.value.copyWith(
@@ -168,6 +178,9 @@ void main() {
       final atEnd = currentTonearmTransform();
       final endGeometry = currentTonearmGeometry();
       expect(atEnd, isNot(orderedEquals(atMiddle)));
+      final angleDelta =
+          math.atan2(atEnd[1], atEnd[0]) - math.atan2(atStart[1], atStart[0]);
+      expect(angleDelta, closeTo(-18 * math.pi / 180, 0.001));
       expect((endGeometry[0] - startGeometry[0]).distance, lessThan(0.01));
       expect(
         (endGeometry[1] - endGeometry[0]).distance,
