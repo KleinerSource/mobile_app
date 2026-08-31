@@ -105,12 +105,14 @@ final fileBrowserPreferencesRepositoryProvider =
       (ref) => FileBrowserPreferencesRepository(ref.watch(sharedPrefsProvider)),
     );
 
-class FileBrowserPreferencesNotifier
-    extends FamilyNotifier<FileBrowserPreferences, String> {
+class FileBrowserPreferencesNotifier extends Notifier<FileBrowserPreferences> {
+  FileBrowserPreferencesNotifier(this.serverId);
+
+  final String serverId;
   late FileBrowserPreferencesRepository _repository;
 
   @override
-  FileBrowserPreferences build(String serverId) {
+  FileBrowserPreferences build() {
     _repository = ref.read(fileBrowserPreferencesRepositoryProvider);
     return _repository.load(serverId);
   }
@@ -128,7 +130,7 @@ class FileBrowserPreferencesNotifier
 
   void _update(FileBrowserPreferences next) {
     state = next;
-    unawaited(_repository.save(arg, next));
+    unawaited(_repository.save(serverId, next));
   }
 }
 

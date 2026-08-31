@@ -104,7 +104,7 @@ class _MovieDetailPageState extends ConsumerState<MovieDetailPage> {
                 Text('加载失败', style: AppText.sectionTitle(context)),
                 const SizedBox(height: 8),
                 Text(
-                  '$e',
+                  toApiException(e).message,
                   style: AppText.body(context),
                   textAlign: TextAlign.center,
                 ),
@@ -471,9 +471,7 @@ class _ActionRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final c = appColors(context);
     final l = AppL10n.of(context);
-    final watchRecord = ref
-        .watch(movieWatchRecordProvider(movie.id))
-        .valueOrNull;
+    final watchRecord = ref.watch(movieWatchRecordProvider(movie.id)).value;
     final startPositionSec = _startPositionSec(watchRecord);
     final progressRatio = _progressRatio(watchRecord);
     final playLabel = startPositionSec > 0

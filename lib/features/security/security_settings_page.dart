@@ -269,12 +269,12 @@ class _BiometricTile extends ConsumerWidget {
     try {
       if (value) {
         var pinConfigured =
-            ref.read(securityControllerProvider).valueOrNull?.hasPin ?? hasPin;
+            ref.read(securityControllerProvider).value?.hasPin ?? hasPin;
         if (!pinConfigured) {
           await onConfigurePin();
           if (!context.mounted) return;
           pinConfigured =
-              ref.read(securityControllerProvider).valueOrNull?.hasPin ?? false;
+              ref.read(securityControllerProvider).value?.hasPin ?? false;
           if (!pinConfigured) {
             ScaffoldMessenger.of(
               context,

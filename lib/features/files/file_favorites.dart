@@ -160,11 +160,14 @@ final fileFavoritesRepositoryProvider =
 
 /// 手动排序模式：用户在收藏列表拖拽过一次后启用，此后列表顺序完全由
 /// 存储数组顺序决定（新增收藏置顶），不再按「目录在前 + 时间倒序」自动排。
-class FileFavoritesManualOrderNotifier extends FamilyNotifier<bool, String> {
+class FileFavoritesManualOrderNotifier extends Notifier<bool> {
+  FileFavoritesManualOrderNotifier(this.serverId);
+
+  final String serverId;
   late FileFavoritesRepository _repository;
 
   @override
-  bool build(String serverId) {
+  bool build() {
     _repository = ref.read(fileFavoritesRepositoryProvider);
     return _repository.loadManualOrder(serverId);
   }
@@ -172,7 +175,7 @@ class FileFavoritesManualOrderNotifier extends FamilyNotifier<bool, String> {
   void enable() {
     if (state) return;
     state = true;
-    unawaited(_repository.saveManualOrder(arg, true));
+    unawaited(_repository.saveManualOrder(serverId, true));
   }
 }
 
@@ -183,11 +186,14 @@ final fileFavoritesManualOrderProvider =
       String
     >(FileFavoritesManualOrderNotifier.new);
 
-class FileFavoritesNotifier extends FamilyNotifier<List<FileFavorite>, String> {
+class FileFavoritesNotifier extends Notifier<List<FileFavorite>> {
+  FileFavoritesNotifier(this.serverId);
+
+  final String serverId;
   late FileFavoritesRepository _repository;
 
   @override
-  List<FileFavorite> build(String serverId) {
+  List<FileFavorite> build() {
     _repository = ref.read(fileFavoritesRepositoryProvider);
     return _repository.load(serverId);
   }
@@ -206,7 +212,7 @@ class FileFavoritesNotifier extends FamilyNotifier<List<FileFavorite>, String> {
       // 手动排序模式下新收藏置顶，保证收藏后立即可见；默认模式仍追加
       // 到尾部，由列表按时间倒序展示。
       final fresh = FileFavorite.fromEntry(entry);
-      if (ref.read(fileFavoritesManualOrderProvider(arg))) {
+      if (ref.read(fileFavoritesManualOrderProvider(serverId))) {
         next.insert(0, fresh);
       } else {
         next.add(fresh);
@@ -234,12 +240,12 @@ class FileFavoritesNotifier extends FamilyNotifier<List<FileFavorite>, String> {
   }
 
   void enableManualOrder() {
-    ref.read(fileFavoritesManualOrderProvider(arg).notifier).enable();
+    ref.read(fileFavoritesManualOrderProvider(serverId).notifier).enable();
   }
 
   void _update(List<FileFavorite> next) {
     state = next;
-    unawaited(_repository.save(arg, next));
+    unawaited(_repository.save(serverId, next));
   }
 }
 

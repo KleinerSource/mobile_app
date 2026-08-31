@@ -129,7 +129,7 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
     }
     _wasBackgrounded = false;
 
-    final settings = ref.read(securityControllerProvider).valueOrNull;
+    final settings = ref.read(securityControllerProvider).value;
     if (settings?.requiresUnlock != true) return;
     setState(() {
       _locked = true;
@@ -247,7 +247,7 @@ class _SecurityGateState extends ConsumerState<SecurityGate>
         coordinator.hasDeviceLockCycle) {
       return;
     }
-    final settings = ref.read(securityControllerProvider).valueOrNull;
+    final settings = ref.read(securityControllerProvider).value;
     if (settings?.requiresUnlock != true) return;
     setState(() {
       _locked = true;

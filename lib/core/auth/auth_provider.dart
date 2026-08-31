@@ -237,7 +237,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     final client = ref.read(requiredApiClientProvider);
     final isDbOnline =
         client.config?.activeServer?.project == ServerProject.dbOnline;
-    final current = state.valueOrNull;
+    final current = state.value;
     // 登录请求期间保留 needsLogin 状态（页面有自己的 busy 指示），避免根
     // 路由进入 loading 分支重建登录页。
     try {
@@ -355,7 +355,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       // 退出登录的本地清理必须独立于网络状态。
     } finally {
       await ref.read(authSessionRepositoryProvider).clear();
-      final current = state.valueOrNull;
+      final current = state.value;
       state = AsyncData(
         AuthState(phase: AuthPhase.needsLogin, status: current?.status),
       );

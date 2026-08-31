@@ -559,7 +559,7 @@ class _CollectionsSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // 封面单独渐进加载 · 未就绪时卡片先以品牌渐变呈现
     final covers =
-        ref.watch(libraryCoverImagesProvider).valueOrNull ??
+        ref.watch(libraryCoverImagesProvider).value ??
         const <int, Uint8List>{};
     return Padding(
       padding: const EdgeInsets.only(top: _homeSectionGap, bottom: 28),

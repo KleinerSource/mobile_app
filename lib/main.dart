@@ -71,6 +71,10 @@ class _AppBootstrapState extends State<_AppBootstrap> {
           );
         }
         return ProviderScope(
+          // provider 级自动重试会与 dio_factory 的 GET-only 重试叠加成 3×N 次
+          // 请求，并把错误 UI 延迟到指数退避上限（约 6.4s）之后。重试策略保持
+          // 在 dio 层单点负责。
+          retry: (retryCount, error) => null,
           overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
           child: const OmmApp(),
         );
@@ -164,7 +168,7 @@ class _AppNavigatorState extends ConsumerState<_AppNavigator> {
     final auth = ref.watch(authControllerProvider);
     final serverSwitch = ref.watch(serverSwitchTransitionProvider);
     final selectionRequested = ref.watch(serverSelectionRequestedProvider);
-    final isAuthenticated = auth.valueOrNull?.phase == AuthPhase.authenticated;
+    final isAuthenticated = auth.value?.phase == AuthPhase.authenticated;
     final isFinishingServerSwitch =
         serverSwitch.phase == ServerSwitchPhase.finishing;
     final showContent =

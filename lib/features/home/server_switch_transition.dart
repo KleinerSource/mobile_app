@@ -174,7 +174,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         await _completeAuthenticatedSwitch(operation);
         return;
       }
-      final auth = ref.read(authControllerProvider).valueOrNull;
+      final auth = ref.read(authControllerProvider).value;
       state = ServerSwitchState.needsLogin(
         targetServerId: targetServerId,
         previousServerId: previousServerId,
@@ -1291,7 +1291,7 @@ class _ServerSwitchTransitionOverlayState
           .login(password: password);
       if (!mounted) return;
       // 密码正确但服务器要求 TOTP：切换到验证码界面。
-      final phase = ref.read(authControllerProvider).valueOrNull?.phase;
+      final phase = ref.read(authControllerProvider).value?.phase;
       if (phase == AuthPhase.totpRequired) {
         setState(() => _totpRequired = true);
       }

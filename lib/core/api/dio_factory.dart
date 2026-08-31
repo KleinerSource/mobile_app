@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:dio_smart_retry/dio_smart_retry.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderException;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../auth/auth_session.dart';
@@ -226,6 +227,9 @@ DioException _withMappedError(DioException error) {
 }
 
 ApiException toApiException(Object error) {
+  // Riverpod 3 会把 provider 抛出的异常包装成 ProviderException，其 toString()
+  // 带完整堆栈，直接展示会撑爆错误页。先剥回原始异常再归一化。
+  if (error is ProviderException) return toApiException(error.exception);
   if (error is ApiException) return error;
   if (error is DioException) {
     if (error.error is ApiException) return error.error as ApiException;

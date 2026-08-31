@@ -16,16 +16,16 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/files/file_source_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class _RegistryRebuildCounter extends ProviderObserver {
+final class _RegistryRebuildCounter extends ProviderObserver {
   int registryUpdates = 0;
 
   @override
   void didUpdateProvider(
-    ProviderBase<Object?> provider,
+    ProviderObserverContext context,
     Object? previousValue,
     Object? newValue,
-    ProviderContainer container,
   ) {
+    final provider = context.provider;
     if (provider.name == 'fileSourceRegistryProvider' ||
         provider.runtimeType.toString().contains('FileSourceRegistry')) {
       registryUpdates++;

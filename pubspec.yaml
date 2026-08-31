@@ -11,7 +11,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   intl: any
-  flutter_riverpod: ^2.6.1
+  flutter_riverpod: ^3.4.2
   dio: ^5.7.0
   dio_smart_retry: ^7.0.1
   retrofit: ^4.9.0
@@ -57,7 +57,9 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   build_runner: ^2.4.13
   pigeon: 26.3.4
-  freezed: ^3.0.0
+  # 钉住稳定版：^3.0.0 的上界会匹配 3.x 的 prerelease，pub upgrade 会解析到
+  # 3.2.6-dev.1。生成器版本变化直接影响 *.freezed.dart 产物，不接受 dev 版。
+  freezed: 3.2.5
   json_serializable: ^6.8.0
   retrofit_generator: ^10.2.3
 

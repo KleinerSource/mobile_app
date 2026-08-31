@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 
@@ -86,7 +87,7 @@ class SecurityController extends AsyncNotifier<SecuritySettings> {
   }
 
   Future<void> _reload(Future<void> Function() action) async {
-    final previous = state.valueOrNull ?? const SecuritySettings.empty();
+    final previous = state.value ?? const SecuritySettings.empty();
     state = AsyncData(previous);
     try {
       await action();
