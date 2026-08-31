@@ -63,6 +63,7 @@ void main() {
       engine.notifier.value = engine.notifier.value.copyWith(
         position: const Duration(seconds: 30),
       );
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       final atMiddle = currentTonearm();
       expect(atMiddle.shouldRepaint(atStart), isTrue);
@@ -70,6 +71,7 @@ void main() {
       engine.notifier.value = engine.notifier.value.copyWith(
         position: const Duration(minutes: 1),
       );
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       final atEnd = currentTonearm();
       expect(atEnd.shouldRepaint(atMiddle), isTrue);
@@ -79,6 +81,7 @@ void main() {
         position: Duration.zero,
         queueIndex: 1,
       );
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       final nextTrack = currentTonearm();
       expect(nextTrack.shouldRepaint(atEnd), isTrue);
