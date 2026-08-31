@@ -38,7 +38,6 @@ class CacheManagementPage extends ConsumerWidget {
                       usage: usage,
                       ref: ref,
                     ),
-                    const _CacheSectionLabel(title: '音乐缓存'),
                     _MusicCacheTile(usage: musicUsage, ref: ref),
                     const _CacheSectionLabel(title: '总缓存'),
                     SettingsTile(
