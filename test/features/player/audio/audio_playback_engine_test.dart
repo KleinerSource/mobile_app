@@ -1,4 +1,6 @@
 import 'package:audio_service/audio_service.dart' as audio_service;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:omm/features/player/audio/audio_playback_engine.dart';
@@ -8,6 +10,8 @@ import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:omm/features/player/common/player_queue.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('音频打开请求只发送音频队列并保留顺序和索引', () async {
     final handler = _FakeAudioHandler();
     final engine = AudioPlaybackEngine(handler: handler);
@@ -136,11 +140,237 @@ void main() {
 
     await engine.dispose();
   });
+
+  test('Scratch 交接会追上原生游标并在关闭输出前恢复主播放', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    const channel = MethodChannel('omm/scratch_audio');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final nativeCommands = <String>[];
+    final handoffEvents = <String>[];
+    var stateCalls = 0;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      switch (call.method) {
+        case 'prepare':
+          return _scratchState(positionMs: 10000);
+        case 'start':
+          nativeCommands.add('scratch-start');
+          return null;
+        case 'setRate':
+          return null;
+        case 'state':
+          stateCalls++;
+          return _scratchState(
+            positionMs: switch (stateCalls) {
+              1 => 10000,
+              _ => 10600,
+            },
+          );
+        case 'stop':
+          nativeCommands.add('scratch-stop');
+          handoffEvents.add('scratch-stop');
+          return null;
+      }
+      return null;
+    });
+
+    final handler = _FakeAudioHandler()..eventLog = handoffEvents;
+    final engine = AudioPlaybackEngine(handler: handler);
+    try {
+      await engine.open(
+        const PlaybackOpenRequest(
+          url: 'https://example.test/audio.mp3',
+          play: false,
+        ),
+      );
+      expect(
+        await engine.startScratch(
+          const Duration(seconds: 10),
+          resumePlayback: true,
+        ),
+        isTrue,
+      );
+
+      final handoff = await engine.finishScratch(resumePlayback: true);
+
+      expect(handler.seekPositions, [
+        const Duration(milliseconds: 10500),
+        const Duration(milliseconds: 11300),
+      ]);
+      expect(handoff, const Duration(milliseconds: 11300));
+      expect(engine.state.value.position, const Duration(milliseconds: 11300));
+      expect(handler.commands, containsAllInOrder(['pause', 'play']));
+      expect(nativeCommands, ['scratch-start', 'scratch-stop']);
+      expect(handoffEvents, containsAllInOrder(['play', 'scratch-stop']));
+    } finally {
+      await engine.dispose();
+      messenger.setMockMethodCallHandler(channel, null);
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  test('Scratch 原生游标实时驱动播放进度并屏蔽主播放器旧位置', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    const channel = MethodChannel('omm/scratch_audio');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    var nativePositionMs = 10000;
+    var stateCalls = 0;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      switch (call.method) {
+        case 'prepare':
+          return _scratchState(positionMs: nativePositionMs);
+        case 'start':
+        case 'setRate':
+        case 'stop':
+          return null;
+        case 'state':
+          stateCalls++;
+          return _scratchState(positionMs: nativePositionMs);
+      }
+      return null;
+    });
+
+    final handler = _FakeAudioHandler();
+    final engine = AudioPlaybackEngine(handler: handler);
+    try {
+      await engine.open(
+        const PlaybackOpenRequest(
+          url: 'https://example.test/audio.mp3',
+          play: false,
+        ),
+      );
+      expect(
+        await engine.startScratch(
+          const Duration(seconds: 10),
+          resumePlayback: false,
+        ),
+        isTrue,
+      );
+
+      nativePositionMs = 15000;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(engine.state.value.position, const Duration(seconds: 15));
+
+      handler.playbackState.add(
+        audio_service.PlaybackState(
+          processingState: audio_service.AudioProcessingState.ready,
+          playing: false,
+          updatePosition: const Duration(seconds: 2),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(engine.state.value.position, const Duration(seconds: 15));
+
+      nativePositionMs = 8000;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(engine.state.value.position, const Duration(seconds: 8));
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(engine.state.value.position, const Duration(seconds: 8));
+
+      expect(
+        await engine.finishScratch(resumePlayback: false),
+        const Duration(seconds: 8),
+      );
+      final callsAfterFinish = stateCalls;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(stateCalls, callsAfterFinish);
+      expect(engine.state.value.position, const Duration(seconds: 8));
+    } finally {
+      await engine.dispose();
+      messenger.setMockMethodCallHandler(channel, null);
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  test('Scratch 取消和销毁后停止查询原生游标', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    const channel = MethodChannel('omm/scratch_audio');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    var stateCalls = 0;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      switch (call.method) {
+        case 'prepare':
+        case 'state':
+          if (call.method == 'state') stateCalls++;
+          return _scratchState(positionMs: 10000);
+        case 'start':
+        case 'setRate':
+        case 'stop':
+          return null;
+      }
+      return null;
+    });
+
+    final handler = _FakeAudioHandler();
+    var engine = AudioPlaybackEngine(handler: handler);
+    try {
+      await engine.open(
+        const PlaybackOpenRequest(
+          url: 'https://example.test/audio.mp3',
+          play: false,
+        ),
+      );
+      expect(
+        await engine.startScratch(
+          const Duration(seconds: 10),
+          resumePlayback: false,
+        ),
+        isTrue,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(stateCalls, greaterThan(0));
+
+      await engine.cancelScratchStart();
+      final callsAfterCancel = stateCalls;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(stateCalls, callsAfterCancel);
+
+      await engine.dispose();
+      engine = AudioPlaybackEngine(handler: handler);
+      await engine.open(
+        const PlaybackOpenRequest(
+          url: 'https://example.test/audio.mp3',
+          play: false,
+        ),
+      );
+      expect(
+        await engine.startScratch(
+          const Duration(seconds: 10),
+          resumePlayback: false,
+        ),
+        isTrue,
+      );
+      await engine.dispose();
+      final callsAfterDispose = stateCalls;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(stateCalls, callsAfterDispose);
+    } finally {
+      await engine.dispose();
+      messenger.setMockMethodCallHandler(channel, null);
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
 }
+
+Map<String, Object> _scratchState({required int positionMs}) => {
+  'positionMs': positionMs,
+  'durationMs': 120000,
+  'rate': 1.0,
+  'playing': true,
+  'ready': true,
+  'outputReady': true,
+  'lastWriteResult': 1024,
+};
 
 class _FakeAudioHandler extends audio_service.BaseAudioHandler {
   String? customActionName;
   Map<String, dynamic>? customActionExtras;
+  final List<String> commands = <String>[];
+  final List<Duration> seekPositions = <Duration>[];
+  List<String>? eventLog;
 
   @override
   Future<dynamic> customAction(
@@ -149,5 +379,24 @@ class _FakeAudioHandler extends audio_service.BaseAudioHandler {
   ]) async {
     customActionName = name;
     customActionExtras = extras;
+  }
+
+  @override
+  Future<void> pause() async {
+    commands.add('pause');
+    eventLog?.add('pause');
+  }
+
+  @override
+  Future<void> play() async {
+    commands.add('play');
+    eventLog?.add('play');
+  }
+
+  @override
+  Future<void> seek(Duration position) async {
+    commands.add('seek');
+    eventLog?.add('seek');
+    seekPositions.add(position);
   }
 }

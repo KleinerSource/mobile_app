@@ -149,7 +149,7 @@ void main() {
       );
       await tester.pump();
       await gesture.up(timeStamp: const Duration(milliseconds: 240));
-      for (var frame = 0; frame < 30; frame++) {
+      for (var frame = 0; frame < 200; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
       }
 
@@ -158,6 +158,224 @@ void main() {
       expect(engine.scratchRates.any((rate) => rate < 0), isTrue);
       expect(engine.commands, contains('scratch-finish:true'));
       expect(engine.commands, isNot(contains('seek')));
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
+  testWidgets('搓碟按十五秒每圈换算实时速率并在停手后归零', (tester) async {
+    final engine = FakeScratchPlaybackEngine(
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        playing: true,
+        position: Duration(seconds: 20),
+        duration: Duration(minutes: 2),
+        rate: 1,
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final center = tester.getCenter(record);
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+
+      await gesture.moveTo(
+        center + const Offset(120, 0),
+        timeStamp: const Duration(milliseconds: 3750),
+      );
+      await tester.pump();
+      expect(engine.scratchRates.last, closeTo(1, 0.001));
+
+      await gesture.moveTo(
+        center + const Offset(0, 120),
+        timeStamp: const Duration(milliseconds: 11250),
+      );
+      await tester.pump();
+      expect(engine.scratchRates.last, closeTo(0.5, 0.001));
+
+      await gesture.moveTo(
+        center + const Offset(120, 0),
+        timeStamp: const Duration(milliseconds: 15000),
+      );
+      await tester.pump();
+      expect(engine.scratchRates.last, closeTo(-1, 0.001));
+
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(engine.scratchRates.last, 0);
+
+      await gesture.up(timeStamp: const Duration(milliseconds: 15100));
+      for (var frame = 0; frame < 140; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
+  testWidgets('慢速甩碟自然加速到当前主播放倍速后再交接', (tester) async {
+    final engine = FakeScratchPlaybackEngine(
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        playing: true,
+        position: Duration(seconds: 20),
+        duration: Duration(minutes: 2),
+        rate: 1.5,
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final center = tester.getCenter(record);
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+      await gesture.moveTo(
+        center + const Offset(120, 0),
+        timeStamp: const Duration(milliseconds: 7500),
+      );
+      await tester.pump();
+      expect(engine.scratchRates.last, closeTo(0.5, 0.001));
+      final releaseRateStart = engine.scratchRates.length;
+
+      await gesture.up(timeStamp: const Duration(milliseconds: 7510));
+      for (var frame = 0; frame < 20; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(engine.commands, isNot(contains('scratch-finish:true')));
+
+      for (var frame = 0; frame < 130; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      final releaseRates = engine.scratchRates.sublist(releaseRateStart);
+      expect(releaseRates.first, closeTo(0.5, 0.001));
+      expect(releaseRates.last, closeTo(1.5, 0.001));
+      for (var index = 1; index < releaseRates.length; index++) {
+        expect(
+          releaseRates[index],
+          greaterThanOrEqualTo(releaseRates[index - 1]),
+        );
+      }
+      expect(engine.commands, contains('scratch-finish:true'));
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
+  testWidgets('反向甩碟连续经过停止点并恢复到主播放倍速', (tester) async {
+    final engine = FakeScratchPlaybackEngine(
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        playing: true,
+        position: Duration(seconds: 30),
+        duration: Duration(minutes: 2),
+        rate: 1,
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final center = tester.getCenter(record);
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+      await gesture.moveTo(
+        center + const Offset(-120, 0),
+        timeStamp: const Duration(milliseconds: 750),
+      );
+      await tester.pump();
+      expect(engine.scratchRates.last, closeTo(-5, 0.001));
+      final releaseRateStart = engine.scratchRates.length;
+
+      await gesture.up(timeStamp: const Duration(milliseconds: 760));
+      for (var frame = 0; frame < 210; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+
+      final releaseRates = engine.scratchRates.sublist(releaseRateStart);
+      expect(releaseRates.first, closeTo(-5, 0.001));
+      expect(releaseRates.any((rate) => rate < 0), isTrue);
+      expect(releaseRates.any((rate) => rate > 0 && rate < 1), isTrue);
+      expect(releaseRates.last, closeTo(1, 0.001));
+      for (var index = 1; index < releaseRates.length; index++) {
+        expect(
+          releaseRates[index],
+          greaterThanOrEqualTo(releaseRates[index - 1]),
+        );
+      }
+      expect(engine.commands, contains('scratch-finish:true'));
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
+  testWidgets('暂停状态甩碟自然减速到停止且不恢复主播放', (tester) async {
+    final engine = FakeScratchPlaybackEngine(
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        position: Duration(seconds: 30),
+        duration: Duration(minutes: 2),
+        rate: 1,
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final center = tester.getCenter(record);
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+      await gesture.moveTo(
+        center + const Offset(120, 0),
+        timeStamp: const Duration(milliseconds: 750),
+      );
+      await tester.pump();
+      expect(engine.scratchRates.last, closeTo(5, 0.001));
+      final releaseRateStart = engine.scratchRates.length;
+
+      await gesture.up(timeStamp: const Duration(milliseconds: 760));
+      for (var frame = 0; frame < 190; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+
+      final releaseRates = engine.scratchRates.sublist(releaseRateStart);
+      expect(releaseRates.first, closeTo(5, 0.001));
+      expect(releaseRates.last, 0);
+      for (var index = 1; index < releaseRates.length; index++) {
+        expect(releaseRates[index], lessThanOrEqualTo(releaseRates[index - 1]));
+      }
+      expect(engine.commands, contains('scratch-finish:false'));
+      expect(engine.commands, isNot(contains('play')));
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
+  testWidgets('手搓完整一圈只移动十五秒音轨', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        position: Duration(seconds: 30),
+        duration: Duration(minutes: 2),
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final center = tester.getCenter(record);
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+      await gesture.moveTo(center + const Offset(120, 0));
+      await gesture.moveTo(center + const Offset(0, 120));
+      await gesture.moveTo(center + const Offset(-120, 0));
+      await gesture.moveTo(center + const Offset(0, -120));
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(engine.seekPositions.last, const Duration(seconds: 45));
     } finally {
       await _dispose(tester, controller);
     }
@@ -288,7 +506,11 @@ void main() {
       final rotation = tester.widget<RotationTransition>(
         find.byKey(const ValueKey<String>('audio-vinyl-rotation')),
       );
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 16));
+      final revolutionStart = rotation.turns.value;
+      await tester.pump(const Duration(seconds: 15));
+      expect(rotation.turns.value - revolutionStart, closeTo(1, 0.001));
+
       final oneXStart = rotation.turns.value;
       await tester.pump(const Duration(milliseconds: 400));
       final oneXDelta = rotation.turns.value - oneXStart;

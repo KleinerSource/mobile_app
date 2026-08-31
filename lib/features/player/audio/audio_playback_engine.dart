@@ -19,6 +19,11 @@ import '../common/player_queue.dart';
 /// 全屏页面后音频仍可继续在后台播放。
 class AudioPlaybackEngine
     implements PlaybackEngine, AudioMetadataSink, ScratchPlaybackEngine {
+  static const _scratchHandoffLead = Duration(milliseconds: 500);
+  static const _scratchHandoffSafetyMargin = Duration(milliseconds: 100);
+  static const _scratchHandoffSeekAttempts = 3;
+  static const _scratchPositionPollInterval = Duration(milliseconds: 33);
+
   AudioPlaybackEngine({required audio_service.AudioHandler handler})
     : _handler = handler,
       _state = ValueNotifier(
@@ -45,6 +50,9 @@ class AudioPlaybackEngine
   bool _scratchMainPlaybackPaused = false;
   bool _scratchResumePlayback = false;
   double _pendingScratchRate = 0;
+  Timer? _scratchPositionPollTimer;
+  bool _scratchPositionPollInFlight = false;
+  int _scratchPositionPollGeneration = 0;
 
   @override
   PlaybackEngineKind get kind => PlaybackEngineKind.audio;
@@ -203,8 +211,10 @@ class AudioPlaybackEngine
       }
       _scratchActive = true;
       _scratchMainPlaybackPaused = false;
+      _startScratchPositionPolling();
       return true;
     } catch (error) {
+      _stopScratchPositionPolling();
       _scratchActive = false;
       _scratchMainPlaybackPaused = false;
       appLog('[AudioScratch] native Scratch 启动失败: $error');
@@ -228,6 +238,7 @@ class AudioPlaybackEngine
   @override
   Future<void> cancelScratchStart() async {
     _scratchStartGeneration++;
+    _stopScratchPositionPolling();
     final shouldResume =
         _scratchResumePlayback &&
         (_scratchMainPlaybackPaused || _scratchActive);
@@ -247,6 +258,7 @@ class AudioPlaybackEngine
   @override
   Future<Duration?> finishScratch({required bool resumePlayback}) async {
     _scratchStartGeneration++;
+    _stopScratchPositionPolling();
     if (!_scratchActive) {
       final shouldResume = resumePlayback && _scratchMainPlaybackPaused;
       _scratchMainPlaybackPaused = false;
@@ -257,18 +269,34 @@ class AudioPlaybackEngine
     }
     try {
       final state = await OmmScratchAudio.state();
+      if (!state.ready) {
+        await OmmScratchAudio.stop();
+        _scratchActive = false;
+        _scratchMainPlaybackPaused = false;
+        return null;
+      }
+      final handoffPosition = resumePlayback
+          ? await _prepareScratchHandoff(state)
+          : state.position;
+      if (!resumePlayback) await _handler.seek(handoffPosition);
+
+      // 主播放器已经在仍有声的 Scratch PCM 下完成 seek。先发出恢复请求，
+      // 再关闭 Scratch 输出，避免 stop 的平台往返形成可听见的静音断点。
+      if (resumePlayback) {
+        unawaited(_handler.play().catchError((_) {}));
+      }
       await OmmScratchAudio.stop();
       _scratchActive = false;
       _scratchMainPlaybackPaused = false;
-      if (!state.ready) return null;
-      await _handler.seek(state.position);
-      if (resumePlayback) {
-        unawaited(_handler.play().catchError((_) {}));
-      } else {
+      _publishScratchPosition(state: state, position: handoffPosition);
+      if (!resumePlayback) {
         await _handler.pause();
       }
-      return state.position;
+      return handoffPosition;
     } catch (_) {
+      try {
+        await OmmScratchAudio.stop();
+      } catch (_) {}
       _scratchActive = false;
       _scratchMainPlaybackPaused = false;
       if (resumePlayback) {
@@ -276,6 +304,118 @@ class AudioPlaybackEngine
       }
       return null;
     }
+  }
+
+  void _startScratchPositionPolling() {
+    _stopScratchPositionPolling();
+    final generation = _scratchPositionPollGeneration;
+    _scratchPositionPollTimer = Timer.periodic(
+      _scratchPositionPollInterval,
+      (_) => unawaited(_pollScratchPosition(generation)),
+    );
+  }
+
+  void _stopScratchPositionPolling() {
+    _scratchPositionPollTimer?.cancel();
+    _scratchPositionPollTimer = null;
+    _scratchPositionPollGeneration++;
+  }
+
+  Future<void> _pollScratchPosition(int generation) async {
+    if (_disposed ||
+        !_scratchActive ||
+        _scratchPositionPollInFlight ||
+        generation != _scratchPositionPollGeneration) {
+      return;
+    }
+    _scratchPositionPollInFlight = true;
+    try {
+      final scratchState = await OmmScratchAudio.state();
+      if (_disposed ||
+          !_scratchActive ||
+          generation != _scratchPositionPollGeneration) {
+        return;
+      }
+      if (!scratchState.ready) {
+        _stopScratchPositionPolling();
+        return;
+      }
+      _publishScratchPosition(state: scratchState);
+    } catch (_) {
+      if (generation == _scratchPositionPollGeneration) {
+        _stopScratchPositionPolling();
+      }
+    } finally {
+      _scratchPositionPollInFlight = false;
+    }
+  }
+
+  void _publishScratchPosition({
+    required ScratchAudioState state,
+    Duration? position,
+  }) {
+    if (_disposed) return;
+    final current = _state.value;
+    final duration = state.duration > Duration.zero
+        ? state.duration
+        : current.duration;
+    var nextPosition = position ?? state.position;
+    if (nextPosition < Duration.zero) {
+      nextPosition = Duration.zero;
+    }
+    if (duration > Duration.zero && nextPosition > duration) {
+      nextPosition = duration;
+    }
+    if (nextPosition == current.position && duration == current.duration) {
+      return;
+    }
+    _state.value = current.copyWith(position: nextPosition, duration: duration);
+  }
+
+  Future<Duration> _prepareScratchHandoff(ScratchAudioState initial) async {
+    var snapshot = initial;
+    var target = snapshot.position;
+    var handoffLead = _scratchHandoffLead;
+
+    for (var attempt = 0; attempt < _scratchHandoffSeekAttempts; attempt++) {
+      final rate = snapshot.rate.isFinite && snapshot.rate > 0
+          ? snapshot.rate
+          : 1.0;
+      var sourceAdvance = Duration(
+        microseconds: (handoffLead.inMicroseconds * rate).round(),
+      );
+      if (snapshot.duration > Duration.zero &&
+          snapshot.position + sourceAdvance > snapshot.duration) {
+        sourceAdvance = snapshot.duration - snapshot.position;
+      }
+      target = snapshot.position + sourceAdvance;
+      await _handler.seek(target);
+
+      final current = await OmmScratchAudio.state();
+      if (!current.ready) return target;
+      final remainingSource = target - current.position;
+      if (remainingSource >= Duration.zero) {
+        final remainingClock = Duration(
+          microseconds: (remainingSource.inMicroseconds / rate).round(),
+        );
+        if (remainingClock > Duration.zero) {
+          await Future<void>.delayed(remainingClock);
+        }
+        return target;
+      }
+
+      // seek 比前瞻窗口更慢时，native 游标已经越过目标。以最新游标重新
+      // 计算下一次交接点，避免停掉 Scratch 后从较旧位置恢复而产生回跳。
+      final overrunClock = Duration(
+        microseconds: ((current.position - target).inMicroseconds / rate)
+            .round(),
+      );
+      handoffLead += overrunClock + _scratchHandoffSafetyMargin;
+      snapshot = current;
+    }
+
+    await _handler.seek(snapshot.position);
+    return snapshot.position;
   }
 
   void _warmScratchAudio() {
@@ -458,6 +598,8 @@ class AudioPlaybackEngine
 
   void _handlePlaybackState(audio_service.PlaybackState? playback) {
     if (_disposed || playback == null) return;
+    final preserveScratchPosition =
+        _scratchActive || _scratchMainPlaybackPaused;
     final processing = playback.processingState;
     final lifecycle = switch (processing) {
       audio_service.AudioProcessingState.idle => PlaybackLifecycle.idle,
@@ -474,7 +616,9 @@ class AudioPlaybackEngine
       buffering:
           processing == audio_service.AudioProcessingState.loading ||
           processing == audio_service.AudioProcessingState.buffering,
-      position: playback.position,
+      position: preserveScratchPosition
+          ? _state.value.position
+          : playback.position,
       duration: _currentItem?.duration ?? _state.value.duration,
       buffered: playback.bufferedPosition,
       rate: playback.speed,
@@ -506,6 +650,7 @@ class AudioPlaybackEngine
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    _stopScratchPositionPolling();
     if (_scratchActive) {
       await finishScratch(resumePlayback: _scratchResumePlayback);
     }

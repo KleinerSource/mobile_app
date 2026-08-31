@@ -31,13 +31,17 @@ class AudioNowPlayingView extends StatefulWidget {
 
 class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     with TickerProviderStateMixin {
-  static const _rotationPeriod = Duration(seconds: 8);
+  // 唱片一整圈对应固定的音轨时间；自然旋转、Scratch 和释放惯性必须
+  // 使用同一个基准，否则视觉速度和实际音频速度会彼此漂移。
+  static const _rotationPeriod = Duration(seconds: 15);
   // 歌词只在自己的槽位内变化，不能通过改变父级高度推动唱盘。
   static const double _lyricsSlotHeight = 108;
-  static const _seekSecondsPerRevolution = 15.0;
   static const _gestureThreshold = 10.0;
   static const _innerGestureRadiusFactor = 0.16;
   static const _maxScratchMomentum = 6.0;
+  static const _scratchMotorTick = Duration(milliseconds: 16);
+  static const _scratchMotorStrength = 2.8;
+  static const _scratchMotorRateTolerance = 0.005;
 
   late final AnimationController _rotationController =
       AnimationController.unbounded(vsync: this, value: 0);
@@ -60,6 +64,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   Duration? _scratchPosition;
   Future<void>? _scratchSeekFuture;
   Timer? _scratchSeekTimer;
+  Timer? _scratchRateStopTimer;
   Duration? _pendingScratchSeek;
   bool _scratchActive = false;
   bool _scratchFinishing = false;
@@ -179,6 +184,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   void dispose() {
     _scratchGeneration++;
     _scratchSeekTimer?.cancel();
+    _scratchRateStopTimer?.cancel();
     widget.controller.removeListener(_syncRotation);
     _stopRotationTicker();
     _rotationTicker.dispose();
@@ -484,6 +490,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     _previousScratchSampleTime = _lastScratchSampleTime;
     _lastScratchLocalPosition = localPosition;
     _lastScratchSampleTime = event.timeStamp;
+    if (_scratchActive) _scheduleScratchRateStop();
   }
 
   void _prepareScratchCandidate(
@@ -537,7 +544,10 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
       fallbackLocalPosition,
     );
     _lastScratchLocalPosition = localPosition;
-    if ((localPosition - start).distance < _gestureThreshold) return;
+    if (!_scratchActive &&
+        (localPosition - start).distance < _gestureThreshold) {
+      return;
+    }
 
     final vector = localPosition - center;
     if (vector.distance < size * _innerGestureRadiusFactor) {
@@ -562,22 +572,40 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     _rotationController.value += turns;
 
     final current = _scratchPosition ?? widget.controller.position;
-    final deltaMicros =
-        (turns * _seekSecondsPerRevolution * Duration.microsecondsPerSecond)
-            .round();
+    final deltaMicros = (turns * _rotationPeriod.inMicroseconds).round();
     final target = _clampPosition(
       current + Duration(microseconds: deltaMicros),
     );
     _scratchPosition = target;
     final elapsedSeconds = _scratchSampleElapsedSeconds();
     final scratchRate = elapsedSeconds > 0
-        ? (turns * _seekSecondsPerRevolution / elapsedSeconds).clamp(-8.0, 8.0)
+        ? (turns * _rotationPeriod.inSeconds / elapsedSeconds).clamp(-8.0, 8.0)
         : 0.0;
     _scratchAudioRate = scratchRate;
     if (_nativeScratchRequested) {
       unawaited(widget.controller.setScratchRate(scratchRate));
     } else {
       _enqueueScratchSeek(target);
+    }
+    _scheduleScratchRateStop();
+  }
+
+  void _scheduleScratchRateStop() {
+    _scratchRateStopTimer?.cancel();
+    _scratchRateStopTimer = Timer(
+      const Duration(milliseconds: 50),
+      _stopScratchRateAfterIdle,
+    );
+  }
+
+  void _stopScratchRateAfterIdle() {
+    _scratchRateStopTimer = null;
+    if (!_scratchActive || _scratchFinishing || _scratchAudioRate == 0) {
+      return;
+    }
+    _scratchAudioRate = 0;
+    if (_nativeScratchRequested) {
+      unawaited(widget.controller.setScratchRate(0));
     }
   }
 
@@ -659,6 +687,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
 
   void _finishScratch([DragEndDetails? details]) {
     final momentumVelocity = _scratchReleaseVelocity(details);
+    final releaseAudioRate = _scratchReleaseAudioRate(momentumVelocity);
     _scratchStartPoint = null;
     _scratchCenter = null;
     _lastScratchLocalPosition = null;
@@ -670,6 +699,8 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
 
     _scratchSeekTimer?.cancel();
     _scratchSeekTimer = null;
+    _scratchRateStopTimer?.cancel();
+    _scratchRateStopTimer = null;
     final cancelNativeStart = _nativeScratchRequested && !_nativeScratchActive;
     if (cancelNativeStart) {
       // 原生 PCM 可能仍在下载/解码。释放手势时取消这次切入，不能让收尾
@@ -685,8 +716,24 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     _scratchActive = false;
     _scratchFinishing = true;
     unawaited(
-      _completeScratch(wasPlaying, generation, seekFuture, momentumVelocity),
+      _completeScratch(
+        wasPlaying,
+        generation,
+        seekFuture,
+        momentumVelocity,
+        releaseAudioRate,
+      ),
     );
+  }
+
+  double _scratchReleaseAudioRate(double momentumVelocity) {
+    final sampledRate = _scratchAudioRate.isFinite ? _scratchAudioRate : 0.0;
+    if (momentumVelocity.isFinite && momentumVelocity.abs() >= 0.01) {
+      return (momentumVelocity * _rotationPeriod.inSeconds)
+          .clamp(-8.0, 8.0)
+          .toDouble();
+    }
+    return sampledRate.clamp(-8.0, 8.0).toDouble();
   }
 
   double _scratchReleaseVelocity(DragEndDetails? details) {
@@ -746,6 +793,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     int generation,
     Future<void>? seekFuture,
     double momentumVelocity,
+    double releaseAudioRate,
   ) async {
     try {
       if (seekFuture != null) await seekFuture;
@@ -756,7 +804,10 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
       }
       final usedNativeScratch = _nativeScratchActive;
       if (usedNativeScratch) {
-        await _releaseNativeScratch(momentumVelocity);
+        await _releaseNativeScratch(
+          releaseAudioRate,
+          resumePlayback: wasPlaying,
+        );
       } else {
         await _playScratchBackspin(momentumVelocity: momentumVelocity);
       }
@@ -832,28 +883,35 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     }
   }
 
-  Future<void> _releaseNativeScratch(double momentumVelocity) async {
-    final normalRate = _normalPlaybackRate();
-    final hasMomentum =
-        momentumVelocity.isFinite && momentumVelocity.abs() >= 0.05;
-    final releaseRate = hasMomentum
-        ? (momentumVelocity * _seekSecondsPerRevolution).clamp(-8.0, 8.0)
-        : normalRate;
-    _scratchAudioRate = releaseRate;
+  Future<void> _releaseNativeScratch(
+    double releaseRate, {
+    required bool resumePlayback,
+  }) async {
+    // 释放不是固定时长的 UI 动画，而是把唱盘当前角速度交给电机模型：
+    // 反向甩碟先自然减速到 0，再向正常播放速率加速。
+    final targetRate = resumePlayback ? _normalPlaybackRate() : 0.0;
+    var currentRate = releaseRate.isFinite
+        ? releaseRate.clamp(-8.0, 8.0).toDouble()
+        : 0.0;
+    _scratchAudioRate = currentRate;
     _syncRotation();
-    await widget.controller.setScratchRate(releaseRate);
-    if (hasMomentum) {
-      const steps = 24;
-      for (var step = 1; step <= steps; step++) {
-        await Future<void>.delayed(const Duration(milliseconds: 16));
-        if (!mounted) return;
-        final progress = step / steps;
-        _scratchAudioRate = releaseRate + (normalRate - releaseRate) * progress;
-        await widget.controller.setScratchRate(_scratchAudioRate);
+    await widget.controller.setScratchRate(currentRate);
+
+    final tickSeconds =
+        _scratchMotorTick.inMicroseconds / Duration.microsecondsPerSecond;
+    final response = 1 - math.exp(-_scratchMotorStrength * tickSeconds);
+    while ((currentRate - targetRate).abs() > _scratchMotorRateTolerance) {
+      await Future<void>.delayed(_scratchMotorTick);
+      if (!mounted) return;
+      currentRate += (targetRate - currentRate) * response;
+      if ((currentRate - targetRate).abs() <= _scratchMotorRateTolerance) {
+        currentRate = targetRate;
       }
+      _scratchAudioRate = currentRate;
+      await widget.controller.setScratchRate(currentRate);
     }
-    final wasPlaying = _scratchWasPlaying == true;
-    await widget.controller.finishScratch(resumePlayback: wasPlaying);
+
+    await widget.controller.finishScratch(resumePlayback: resumePlayback);
     _nativeScratchActive = false;
   }
 
