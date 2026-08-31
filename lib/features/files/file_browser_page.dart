@@ -39,6 +39,7 @@ import '../oh_my_media/movie_detail/movie_detail_page.dart'
     show showImageLightbox;
 import '../settings/server_selection_page.dart';
 import '../settings/settings_common.dart';
+import '../cache/music_cache.dart';
 import '../text_editor/text_editor_page.dart';
 import 'file_navigation.dart';
 import 'file_browser_preferences.dart';
@@ -1544,6 +1545,9 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     try {
       final repository = await _repository();
       final sourceKind = repository.source.descriptor.kind;
+      final musicCache = itemType == PlayerQueueItemType.audio
+          ? ref.read(musicCacheServiceProvider)
+          : null;
       // 视频使用原生 HTTP(S) 地址，保留播放器自身的 Range/seek 能力。
       // 音频统一经过回环代理并完整缓存后再交给播放器，避免边下载边播放
       // 时出现解码、歌词加载和关闭资源竞争。
@@ -1562,12 +1566,13 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         'source=${repository.source.descriptor.id.value}',
       );
 
-      final listing = ref.read(fileDirectoryProvider(_request)).valueOrNull;
+      final listing = ref.read(fileDirectoryProvider(_request)).value;
       if (itemType == PlayerQueueItemType.audio) {
         final directoryPath = FilePath(sourceId: widget.sourceId, value: _path);
         audioMetadataSession = FileAudioMetadataSession(
           repository: repository,
           directoryEntries: listing?.entries ?? <FileEntry>[entry],
+          musicCache: musicCache,
           directoryEntriesLoader: listing == null
               ? () async =>
                     (await repository.listDirectory(directoryPath)).entries
@@ -1597,6 +1602,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
         itemType: itemType,
         useDirect: useDirect,
         proxies: playbackProxies,
+        musicCache: musicCache,
       );
       if (!mounted) return;
       final queueIndex = queue.indexWhere(
@@ -1666,6 +1672,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
     required PlayerQueueItemType itemType,
     required bool useDirect,
     required List<FilePlaybackProxy> proxies,
+    MusicCacheService? musicCache,
   }) async {
     final queue = <PlayerQueueItem>[];
     try {
@@ -1704,6 +1711,8 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
               mimeType: entry.mimeType,
               pathExtension: formatHint,
               cacheBeforePlayback: itemType == PlayerQueueItemType.audio,
+              musicCache: musicCache,
+              modifiedAt: entry.modifiedAt,
             );
             proxies.add(proxy);
             queue.add(
@@ -1743,7 +1752,7 @@ class _FileBrowserPageState extends ConsumerState<FileBrowserPage> {
 
   Future<void> _previewImage(FileEntry entry) async {
     try {
-      final listing = ref.read(fileDirectoryProvider(_request)).valueOrNull;
+      final listing = ref.read(fileDirectoryProvider(_request)).value;
       final entries = listing == null
           ? <FileEntry>[entry]
           : _visibleEntries(listing).where(_isImageEntry).toList();

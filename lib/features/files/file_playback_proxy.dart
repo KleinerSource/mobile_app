@@ -7,6 +7,7 @@ import '../../core/platform/app_log_store.dart';
 import '../../core/sources/common/source_exception.dart';
 import '../../core/sources/files/file_entry.dart';
 import '../../core/sources/files/file_source_repository.dart';
+import '../cache/music_cache.dart';
 
 const _operationTimeout = Duration(seconds: 30);
 const _metadataTimeout = Duration(seconds: 2);
@@ -26,6 +27,8 @@ class FilePlaybackProxy {
     this.size,
     this.mimeType,
     this.cacheBeforePlayback = false,
+    this.musicCache,
+    this.modifiedAt,
     String? pathExtension,
   }) : _pathExtension = _normalizePathExtension(pathExtension);
 
@@ -34,6 +37,8 @@ class FilePlaybackProxy {
   final int? size;
   final String? mimeType;
   final bool cacheBeforePlayback;
+  final MusicCacheService? musicCache;
+  final DateTime? modifiedAt;
   final String? _pathExtension;
   final String _token =
       '${DateTime.now().microsecondsSinceEpoch}-${Object().hashCode}';
@@ -42,6 +47,8 @@ class FilePlaybackProxy {
   Future<FileAccess>? _accessFuture;
   Future<File>? _fallbackFileFuture;
   File? _fallbackFile;
+  MusicCacheLease? _musicCacheLease;
+  File? _musicCacheFile;
   HttpServer? _server;
   var _closed = false;
 
@@ -52,6 +59,8 @@ class FilePlaybackProxy {
     String? mimeType,
     String? pathExtension,
     bool cacheBeforePlayback = false,
+    MusicCacheService? musicCache,
+    DateTime? modifiedAt,
   }) async {
     final proxy = FilePlaybackProxy._(
       repository: repository,
@@ -59,6 +68,8 @@ class FilePlaybackProxy {
       size: size,
       mimeType: mimeType,
       cacheBeforePlayback: cacheBeforePlayback,
+      musicCache: musicCache,
+      modifiedAt: modifiedAt,
       pathExtension: pathExtension,
     );
     try {
@@ -160,7 +171,9 @@ class FilePlaybackProxy {
       }
 
       if (request.method == 'GET' && cacheBeforePlayback) {
-        final cached = await _ensureFallbackFile();
+        final cached = musicCache == null
+            ? await _ensureFallbackFile()
+            : await _ensureMusicCacheFile();
         total = await cached.length();
         _log('完整缓存完成，开始响应播放器: size=$total');
       }
@@ -205,7 +218,7 @@ class FilePlaybackProxy {
       Stream<List<int>>? stream;
       if (request.method == 'GET') {
         if (range != null) {
-          final cached = _fallbackFile;
+          final cached = _musicCacheFile ?? _fallbackFile;
           if (cached != null) {
             _log('使用完整缓存响应区间: offset=${range.start} length=${range.length}');
             stream = cached.openRead(range.start, range.end + 1);
@@ -242,9 +255,15 @@ class FilePlaybackProxy {
             }
           }
         } else {
-          _log('开始远端完整流读取');
-          stream = await _openFullStream(access: access);
-          _log('远端完整流已建立');
+          final cached = _musicCacheFile;
+          if (cached != null) {
+            _log('使用音乐缓存响应完整文件');
+            stream = cached.openRead();
+          } else {
+            _log('开始远端完整流读取');
+            stream = await _openFullStream(access: access);
+            _log('远端完整流已建立');
+          }
         }
       }
 
@@ -368,6 +387,35 @@ class FilePlaybackProxy {
     }
   }
 
+  Future<File> _ensureMusicCacheFile() async {
+    final existing = _musicCacheFile;
+    if (existing != null) return existing;
+    final service = musicCache;
+    if (service == null) return _ensureFallbackFile();
+    var lease = _musicCacheLease;
+    if (lease == null) {
+      lease = service.acquire(
+        repository: repository,
+        path: path,
+        size: size,
+        modifiedAt: modifiedAt,
+        pathExtension: _pathExtension,
+      );
+      _musicCacheLease = lease;
+    }
+    try {
+      final file = await lease.file;
+      _musicCacheFile = file;
+      return file;
+    } catch (_) {
+      if (identical(_musicCacheLease, lease)) {
+        _musicCacheLease = null;
+      }
+      lease.release();
+      rethrow;
+    }
+  }
+
   Future<File> _spoolToTempFile() async {
     late final Directory directory;
     try {
@@ -434,6 +482,9 @@ class FilePlaybackProxy {
     if (fallback != null) {
       await _deleteQuietly(fallback);
     }
+    _musicCacheLease?.release();
+    _musicCacheLease = null;
+    _musicCacheFile = null;
     final pending = _fallbackFileFuture;
     if (pending != null) {
       unawaited(pending.then(_deleteQuietly, onError: (_, __) {}));

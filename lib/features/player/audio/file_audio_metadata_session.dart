@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../core/platform/app_log_store.dart';
 import '../../../core/sources/files/file_entry.dart';
 import '../../../core/sources/files/file_source_repository.dart';
+import '../../cache/music_cache.dart';
 import 'audio_metadata.dart';
 import 'lrc_parser.dart';
 import '../common/player_queue.dart';
@@ -20,17 +21,21 @@ class FileAudioMetadataSession {
     required FileSourceRepository repository,
     required Iterable<FileEntry> directoryEntries,
     Future<Iterable<FileEntry>> Function()? directoryEntriesLoader,
+    MusicCacheService? musicCache,
   }) : _repository = repository,
        _directoryEntries = List<FileEntry>.unmodifiable(directoryEntries),
-       _directoryEntriesLoader = directoryEntriesLoader;
+       _directoryEntriesLoader = directoryEntriesLoader,
+       _musicCache = musicCache;
 
   final FileSourceRepository _repository;
   List<FileEntry> _directoryEntries;
   final Future<Iterable<FileEntry>> Function()? _directoryEntriesLoader;
+  final MusicCacheService? _musicCache;
   final FileCancellationToken _cancellation = FileCancellationToken();
   Future<Iterable<FileEntry>>? _directoryEntriesFuture;
   final Map<String, Future<AudioTrackMetadata>> _cache = {};
   final Set<File> _ownedFiles = <File>{};
+  final Set<MusicCacheLease> _musicCacheLeases = <MusicCacheLease>{};
   bool _disposed = false;
 
   /// 清理上一次进程异常退出后遗留的元数据临时文件。
@@ -209,6 +214,34 @@ class FileAudioMetadataSession {
   }
 
   Future<_EmbeddedMetadata?> _readEmbeddedMetadata(FileEntry entry) async {
+    final musicCache = _musicCache;
+    if (musicCache != null) {
+      final lease = musicCache.acquire(
+        repository: _repository,
+        path: entry.path,
+        size: entry.size,
+        modifiedAt: entry.modifiedAt,
+        pathExtension: _extension(entry.name),
+      );
+      _musicCacheLeases.add(lease);
+      try {
+        final cachedAudio = await lease.file;
+        final parsed = await Isolate.run(
+          () => _parseMetadataFile(cachedAudio.path),
+        );
+        final pictureBytes = parsed['pictureBytes'];
+        return _EmbeddedMetadata(
+          artist: parsed['artist']?.toString(),
+          album: parsed['album']?.toString(),
+          pictureBytes: pictureBytes is Uint8List ? pictureBytes : null,
+          pictureMimeType: parsed['pictureMimeType']?.toString(),
+        );
+      } finally {
+        _musicCacheLeases.remove(lease);
+        lease.release();
+      }
+    }
+
     final tempAudio = await _copyRemoteFile(entry, prefix: 'audio');
     try {
       final parsed = await Isolate.run(
@@ -298,6 +331,9 @@ class FileAudioMetadataSession {
     if (_disposed) return;
     _disposed = true;
     _cancellation.cancel('播放器已关闭');
+    for (final lease in _musicCacheLeases.toList()) {
+      lease.release();
+    }
     final pending = List<Future<AudioTrackMetadata>>.from(_cache.values);
     if (pending.isNotEmpty) await Future.wait(pending, eagerError: false);
     for (final file in _ownedFiles.toList()) {

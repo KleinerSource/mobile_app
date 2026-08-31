@@ -21,6 +21,7 @@ import 'features/security/security_providers.dart';
 import 'features/files/file_manager_shell.dart';
 import 'features/player/common/player_settings.dart';
 import 'features/player/audio/file_audio_metadata_session.dart';
+import 'features/cache/music_cache.dart';
 import 'features/files/file_navigation.dart';
 import 'features/player/audio/audio_playback_service.dart';
 import 'features/settings/app_update_startup_gate.dart';
@@ -34,6 +35,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   unawaited(FileAudioMetadataSession.cleanupStaleCache());
+  unawaited(MusicCacheService().cleanupStaleCache());
   await AudioPlaybackService.initialize();
   runApp(const _AppBootstrap());
 }

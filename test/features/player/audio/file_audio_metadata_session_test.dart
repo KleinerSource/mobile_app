@@ -9,6 +9,7 @@ import 'package:omm/core/sources/files/file_entry.dart';
 import 'package:omm/core/sources/files/file_operation.dart';
 import 'package:omm/core/sources/files/file_source.dart';
 import 'package:omm/core/sources/files/file_source_repository.dart';
+import 'package:omm/features/cache/music_cache.dart';
 import 'package:omm/features/player/audio/file_audio_metadata_session.dart';
 import 'package:omm/features/player/common/player_queue.dart';
 
@@ -83,6 +84,40 @@ void main() {
     await session.dispose();
   });
 
+  test('内嵌元数据读取复用音乐缓存中的音频文件', () async {
+    final root = await Directory.systemTemp.createTemp('omm-metadata-cache-');
+    addTearDown(() => root.delete(recursive: true));
+    final sourceId = SourceId.of('metadata-music-cache-source');
+    final source = _MemoryFileSource(
+      sourceId,
+      files: {
+        'song.mp3': [0, 1, 2],
+      },
+    );
+    final audio = FileEntry(
+      path: FilePath(sourceId: sourceId, value: 'song.mp3'),
+      name: 'song.mp3',
+      type: FileEntryType.file,
+      size: 3,
+    );
+    final session = FileAudioMetadataSession(
+      repository: FileSourceRepository(source),
+      directoryEntries: [audio],
+      musicCache: MusicCacheService(rootDirectory: root),
+    );
+
+    await session.load(
+      PlayerQueueItem(
+        title: audio.name,
+        type: PlayerQueueItemType.audio,
+        mediaId: audio.stableKey,
+      ),
+    );
+
+    expect(source.downloadCount, 1);
+    await session.dispose();
+  });
+
   test('初始目录列表不完整时会补拉同目录歌词', () async {
     final sourceId = SourceId.of('metadata-directory-loader-source');
     final source = _MemoryFileSource(
@@ -128,6 +163,7 @@ class _MemoryFileSource implements FileSource, FileTransferCapability {
 
   final SourceId sourceId;
   final Map<String, List<int>> files;
+  var downloadCount = 0;
 
   @override
   SourceDescriptor get descriptor =>
@@ -144,6 +180,7 @@ class _MemoryFileSource implements FileSource, FileTransferCapability {
     FilePath path, {
     FileTransferOptions options = const FileTransferOptions(),
   }) {
+    downloadCount++;
     final bytes = files[path.value];
     if (bytes == null) return Stream<List<int>>.error(StateError('文件不存在'));
     return Stream<List<int>>.value(bytes);

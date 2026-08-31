@@ -5,6 +5,7 @@ import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glow_background.dart';
 import '../cache/disk_cache.dart';
+import '../cache/music_cache.dart';
 import 'settings_common.dart';
 
 class CacheManagementPage extends ConsumerWidget {
@@ -13,6 +14,7 @@ class CacheManagementPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final usage = ref.watch(cacheUsageProvider);
+    final musicUsage = ref.watch(musicCacheUsageProvider);
     return Scaffold(
       backgroundColor: appColors(context).bg,
       body: GlowBackground(
@@ -36,14 +38,12 @@ class CacheManagementPage extends ConsumerWidget {
                       usage: usage,
                       ref: ref,
                     ),
+                    const _CacheSectionLabel(title: '音乐缓存'),
+                    _MusicCacheTile(usage: musicUsage, ref: ref),
                     const _CacheSectionLabel(title: '总缓存'),
                     SettingsTile(
                       title: '总缓存大小',
-                      subtitle: usage.when(
-                        data: (value) => formatCacheBytes(value.totalBytes),
-                        loading: () => '读取中…',
-                        error: (_, __) => '读取失败',
-                      ),
+                      subtitle: _totalCacheText(usage, musicUsage),
                       leadingIcon: Icons.storage_outlined,
                     ),
                     Padding(
@@ -79,14 +79,17 @@ class CacheManagementPage extends ConsumerWidget {
     final confirmed = await _confirmCacheClear(
       context,
       title: '确认清理全部缓存',
-      message: '将清理图片和其他缓存，此操作不可撤销。',
+      message: '将清理图片、其他和音乐缓存，此操作不可撤销。',
       actionLabel: '一键清理',
     );
     if (!confirmed || !context.mounted) return;
 
     AppHaptics.medium();
     try {
-      await ref.read(diskCacheServiceProvider).clearAll();
+      await Future.wait([
+        ref.read(diskCacheServiceProvider).clearAll(),
+        ref.read(musicCacheServiceProvider).clear(),
+      ]);
     } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(
@@ -96,6 +99,7 @@ class CacheManagementPage extends ConsumerWidget {
       return;
     }
     ref.invalidate(cacheUsageProvider);
+    ref.invalidate(musicCacheUsageProvider);
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
@@ -214,4 +218,72 @@ class _CacheTile extends StatelessWidget {
       ).showSnackBar(SnackBar(content: Text('${category.label}已清理')));
     }
   }
+}
+
+class _MusicCacheTile extends StatelessWidget {
+  const _MusicCacheTile({required this.usage, required this.ref});
+
+  final AsyncValue<int> usage;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsTile(
+      title: '音乐缓存',
+      subtitle: usage.when(
+        data: formatCacheBytes,
+        loading: () => '读取中…',
+        error: (_, __) => '读取失败',
+      ),
+      leadingIcon: Icons.music_note_outlined,
+      trailing: TextButton.icon(
+        onPressed: () => _clear(context),
+        icon: const Icon(Icons.delete_outline, size: 16),
+        label: const Text('清理'),
+      ),
+    );
+  }
+
+  Future<void> _clear(BuildContext context) async {
+    final confirmed = await _confirmCacheClear(
+      context,
+      title: '确认清理音乐缓存',
+      message: '将删除音乐缓存中的全部未使用文件，此操作不可撤销。',
+      actionLabel: '清理',
+    );
+    if (!confirmed || !context.mounted) return;
+
+    AppHaptics.medium();
+    try {
+      await ref.read(musicCacheServiceProvider).clear();
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('清理失败: $error')));
+      }
+      return;
+    }
+    ref.invalidate(musicCacheUsageProvider);
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('音乐缓存已清理')));
+    }
+  }
+}
+
+String _totalCacheText(
+  AsyncValue<CacheUsage> usage,
+  AsyncValue<int> musicUsage,
+) {
+  return usage.when(
+    data: (base) => musicUsage.when(
+      data: (music) => formatCacheBytes(base.totalBytes + music),
+      loading: () => '读取中…',
+      error: (_, __) => '读取失败',
+    ),
+    loading: () => '读取中…',
+    error: (_, __) => '读取失败',
+  );
 }

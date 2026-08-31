@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/sources/files/file_playback_progress.dart';
-import '../../../core/config/server_config_provider.dart';
 import '../../../core/platform/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../common/playback_engine.dart';
@@ -88,7 +86,6 @@ class AudioPlayerPage extends ConsumerStatefulWidget {
 class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
   late final AudioPlaybackEngine _engine;
   late final PlayerSessionController _host;
-  late final FilePlaybackProgressRepository _filePlaybackProgress;
   late final List<PlayerQueueItem> _audioQueue;
   AudioMetadataCoordinator? _metadataCoordinator;
 
@@ -101,8 +98,6 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
   String? _artworkPath;
   LrcDocument? _lyrics;
   double _playbackRate = 1.0;
-  int _lastPositionSec = 0;
-  int _lastDurationSec = 0;
   Future<void>? _queueResourcesFuture;
 
   @override
@@ -113,9 +108,6 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
         .toList(growable: false);
     _engine = AudioPlaybackEngine(handler: AudioPlaybackService.handler);
     _host = PlayerSessionController(engine: _engine);
-    _filePlaybackProgress = FilePlaybackProgressRepository(
-      ref.read(sharedPrefsProvider),
-    );
     final loader = widget.audioMetadataLoader;
     if (loader != null) {
       _metadataCoordinator = AudioMetadataCoordinator(loader: loader);
@@ -142,19 +134,9 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
   Future<void> _load() async {
     final generation = ++_loadGeneration;
     try {
-      var startAt = widget.startPositionSec > 0
+      final startAt = widget.startPositionSec > 0
           ? Duration(seconds: widget.startPositionSec)
           : null;
-      final fileName = widget.directPlaybackFileName?.trim();
-      if (startAt == null && fileName != null && fileName.isNotEmpty) {
-        final settings = ref.read(playerSettingsProvider);
-        if (settings.resumeFromLastPosition) {
-          final saved = _filePlaybackProgress.load(fileName);
-          if (saved != null && saved.positionSec > 0) {
-            startAt = Duration(seconds: saved.positionSec);
-          }
-        }
-      }
       if (_leaving || generation != _loadGeneration) return;
       await _host.open(
         widget.directUrl,
@@ -258,21 +240,6 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
     unawaited(_host.setRepeatMode(next));
   }
 
-  Future<void> _saveProgress({Duration? position, Duration? duration}) async {
-    final fileName = widget.directPlaybackFileName?.trim();
-    if (fileName == null || fileName.isEmpty) return;
-    if (!ref.read(playerSettingsProvider).resumeFromLastPosition) return;
-    final positionSec = (position ?? _host.position).inSeconds;
-    final durationSec = (duration ?? _host.duration).inSeconds;
-    _lastPositionSec = positionSec > 0 ? positionSec : _lastPositionSec;
-    _lastDurationSec = durationSec > 0 ? durationSec : _lastDurationSec;
-    await _filePlaybackProgress.savePosition(
-      fileName: fileName,
-      positionSec: _lastPositionSec,
-      durationSec: _lastDurationSec,
-    );
-  }
-
   Future<void> _stopPlayback() {
     return _stopFuture ??= _host.stop().catchError((_) {});
   }
@@ -291,12 +258,9 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
     if (_leaving) return;
     _leaving = true;
     _loadGeneration++;
-    final position = _host.position;
-    final duration = _host.duration;
     // 退出不能等待播放器完成整文件缓存；先释放代理和后台下载，再立即移除页面。
     unawaited(_disposeQueueResources());
     unawaited(_stopPlayback());
-    unawaited(_saveProgress(position: position, duration: duration));
     if (mounted) Navigator.of(context).pop();
   }
 

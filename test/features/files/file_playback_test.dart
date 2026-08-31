@@ -16,6 +16,7 @@ import 'package:omm/core/sources/files/file_source.dart';
 import 'package:omm/core/sources/files/file_source_repository.dart';
 import 'package:omm/features/files/file_playback_engine.dart';
 import 'package:omm/features/files/file_playback_proxy.dart';
+import 'package:omm/features/cache/music_cache.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
 
 // ==================== 原 test/features/files/file_playback_engine_test.dart ====================
@@ -198,6 +199,47 @@ void _main_1() {
     } finally {
       await source.controller.close();
       await proxy.close();
+      client.close(force: true);
+    }
+  });
+
+  test('音频播放代理复用持久音乐缓存，不重复下载', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'omm-proxy-music-cache-',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    final sourceId = SourceId.of('persistent-cached-audio-source');
+    final bytes = List<int>.generate(12, (index) => index + 80);
+    final source = _DownloadOnlyFileSource(sourceId, bytes);
+    final repository = FileSourceRepository(source);
+    final service = MusicCacheService(rootDirectory: root);
+    final path = FilePath(sourceId: sourceId, value: '持久缓存.mp3');
+    final client = HttpClient();
+
+    Future<void> readWithProxy() async {
+      final proxy = await FilePlaybackProxy.start(
+        repository: repository,
+        path: path,
+        size: bytes.length,
+        mimeType: 'audio/mpeg',
+        pathExtension: 'mp3',
+        cacheBeforePlayback: true,
+        musicCache: service,
+      );
+      try {
+        final response = await (await client.getUrl(proxy.uri)).close();
+        expect(response.statusCode, HttpStatus.ok);
+        expect(await _read(response), bytes);
+      } finally {
+        await proxy.close();
+      }
+    }
+
+    try {
+      await readWithProxy();
+      await readWithProxy();
+      expect(source.downloadCalls, 1);
+    } finally {
       client.close(force: true);
     }
   });
