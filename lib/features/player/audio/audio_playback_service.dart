@@ -165,6 +165,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
         'playbackIntent': _scratchPlaybackIntent,
         'positionMs': _scratchState?.position.inMilliseconds ?? 0,
         'durationMs': _scratchState?.duration.inMilliseconds ?? 0,
+        'sourceId': _scratchState?.sourceId ?? '',
       });
     }
     return super.customAction(name, extras);
@@ -178,9 +179,18 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
       return;
     }
 
+    final sourceId = payload['sourceId']?.toString() ?? '';
+    if (sourceId.isEmpty) throw StateError('Scratch 音轨身份为空');
     final generation = ++_scratchModeGeneration;
     final state = await OmmScratchAudio.state();
-    if (!state.ready) throw StateError('Scratch 音频尚未准备完成');
+    if (!state.ready || state.sourceId != sourceId) {
+      throw StateError('Scratch 音轨身份不匹配');
+    }
+    final index = _player.currentIndex;
+    final currentId = index != null && index >= 0 && index < _items.length
+        ? _items[index].id
+        : null;
+    if (currentId != sourceId) throw StateError('Scratch 不是当前播放音轨');
     if (generation != _scratchModeGeneration) return;
     _scratchModeActive = true;
     _scratchPlaybackIntent = payload['playbackIntent'] == true;
@@ -521,7 +531,8 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
       final state = await OmmScratchAudio.state();
       if (_scratchModeActive &&
           generation == _scratchModeGeneration &&
-          state.ready) {
+          state.ready &&
+          state.sourceId == _scratchState?.sourceId) {
         _scratchState = state;
       }
     } catch (_) {

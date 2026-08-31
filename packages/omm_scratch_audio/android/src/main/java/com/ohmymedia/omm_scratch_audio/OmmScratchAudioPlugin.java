@@ -68,8 +68,10 @@ public final class OmmScratchAudioPlugin
                     break;
                 case "start":
                     Number positionMs = call.argument("positionMs");
+                    String startSourceId = call.argument("sourceId");
                     Boolean autoplay = call.argument("autoplay");
                     ENGINE.start(
+                            startSourceId,
                             positionMs == null ? 0 : positionMs.doubleValue(),
                             autoplay == null || autoplay
                     );
@@ -115,7 +117,12 @@ public final class OmmScratchAudioPlugin
             result.error("SCRATCH_PREPARE", "Missing audio source", null);
             return;
         }
-        ENGINE.prepare(source, headers(call.argument("headers")), new PrepareCallback() {
+        String sourceId = call.argument("sourceId");
+        if (sourceId == null || sourceId.trim().isEmpty()) {
+            result.error("SCRATCH_PREPARE", "Missing audio source identity", null);
+            return;
+        }
+        ENGINE.prepare(source, sourceId, headers(call.argument("headers")), new PrepareCallback() {
             @Override
             public void success(Map<String, Object> value) {
                 mainHandler.post(() -> result.success(value));
@@ -171,6 +178,8 @@ public final class OmmScratchAudioPlugin
         private volatile boolean playing;
         private volatile AudioTrack audioTrack;
         private volatile int lastWriteResult = AudioTrack.ERROR_INVALID_OPERATION;
+        private volatile String preparedSourceId = "";
+        private long prepareGeneration;
         private Thread renderThread;
         private final AudioManager.OnAudioFocusChangeListener audioFocusChangeListener = change -> {
             if (change != AudioManager.AUDIOFOCUS_LOSS
@@ -189,31 +198,43 @@ public final class OmmScratchAudioPlugin
 
         void prepare(
                 String source,
+                String sourceId,
                 Map<String, String> headers,
                 PrepareCallback callback
         ) {
+            final long requestGeneration;
+            synchronized (lifecycleLock) {
+                requestGeneration = ++prepareGeneration;
+            }
             decoder.execute(() -> {
                 File localSource = null;
                 boolean temporarySource = false;
                 try {
+                    if (!isLatestPrepare(requestGeneration)) {
+                        callback.success(state());
+                        return;
+                    }
                     localSource = materializeSource(source, headers);
                     temporarySource = localSource != null
                             && localSource.equals(preparedSourceFile);
                     DecodedPcm decoded = decode(localSource);
                     synchronized (lifecycleLock) {
-                        releaseTrackLocked();
-                        pcm = decoded.bytes;
-                        sampleRate = decoded.sampleRate;
-                        channels = decoded.channels;
-                        frameCount = decoded.frameCount;
-                        sourceFrame = 0;
-                        rate = 1;
-                        currentRate = 1;
-                        playing = false;
-                        createTrackLocked();
-                        startRenderThreadLocked();
-                        Log.i(TAG, "PCM ready: " + sampleRate + "Hz, "
-                                + channels + "ch, " + frameCount + " frames");
+                        if (requestGeneration == prepareGeneration) {
+                            releaseTrackLocked();
+                            pcm = decoded.bytes;
+                            sampleRate = decoded.sampleRate;
+                            channels = decoded.channels;
+                            frameCount = decoded.frameCount;
+                            sourceFrame = 0;
+                            rate = 1;
+                            currentRate = 1;
+                            playing = false;
+                            preparedSourceId = sourceId;
+                            createTrackLocked();
+                            startRenderThreadLocked();
+                            Log.i(TAG, "PCM ready: " + sampleRate + "Hz, "
+                                    + channels + "ch, " + frameCount + " frames");
+                        }
                     }
                     callback.success(state());
                 } catch (Exception error) {
@@ -229,9 +250,18 @@ public final class OmmScratchAudioPlugin
             });
         }
 
-        void start(double positionMs, boolean autoplay) {
+        private boolean isLatestPrepare(long requestGeneration) {
+            synchronized (lifecycleLock) {
+                return requestGeneration == prepareGeneration;
+            }
+        }
+
+        void start(String sourceId, double positionMs, boolean autoplay) {
             synchronized (lifecycleLock) {
                 ensureReadyLocked();
+                if (sourceId == null || !sourceId.equals(preparedSourceId)) {
+                    throw new IllegalStateException("Scratch audio source does not match");
+                }
                 sourceFrame = clampFrame(positionMs / 1000 * sampleRate);
                 currentRate = rate;
                 startRenderThreadLocked();
@@ -308,6 +338,7 @@ public final class OmmScratchAudioPlugin
             value.put("outputReady", audioTrack != null
                     && audioTrack.getState() == AudioTrack.STATE_INITIALIZED);
             value.put("lastWriteResult", lastWriteResult);
+            value.put("sourceId", preparedSourceId);
             return value;
         }
 

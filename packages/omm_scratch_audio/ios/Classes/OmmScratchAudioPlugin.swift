@@ -23,8 +23,16 @@ public final class OmmScratchAudioPlugin: NSObject, FlutterPlugin {
         result(FlutterError(code: "SCRATCH_PREPARE", message: "Missing audio source", details: nil))
         return
       }
+      guard let sourceId = arguments?["sourceId"] as? String, !sourceId.isEmpty else {
+        result(FlutterError(
+          code: "SCRATCH_PREPARE",
+          message: "Missing audio source identity",
+          details: nil
+        ))
+        return
+      }
       let headers = arguments?["headers"] as? [String: String] ?? [:]
-      Self.engine.prepare(source: source, headers: headers) { state, error in
+      Self.engine.prepare(source: source, sourceId: sourceId, headers: headers) { state, error in
         DispatchQueue.main.async {
           if let error {
             result(FlutterError(
@@ -38,10 +46,11 @@ public final class OmmScratchAudioPlugin: NSObject, FlutterPlugin {
         }
       }
     case "start":
+      let sourceId = arguments?["sourceId"] as? String ?? ""
       let positionMs = (arguments?["positionMs"] as? NSNumber)?.doubleValue ?? 0
       let autoplay = (arguments?["autoplay"] as? NSNumber)?.boolValue ?? true
       do {
-        try Self.engine.start(positionMs: positionMs, autoplay: autoplay)
+        try Self.engine.start(sourceId: sourceId, positionMs: positionMs, autoplay: autoplay)
         result(nil)
       } catch {
         result(FlutterError(
@@ -96,13 +105,20 @@ private final class ScratchAudioEngine {
   private var playing = false
   private var engineStarted = false
   private var downloadedURL: URL?
+  private var preparedSourceId = ""
+  private var prepareGeneration: UInt64 = 0
   private var stateLock = os_unfair_lock_s()
 
   func prepare(
     source: String,
+    sourceId: String,
     headers: [String: String],
     completion: @escaping ([String: Any]?, Error?) -> Void
   ) {
+    let requestGeneration = withStateLock {
+      prepareGeneration &+= 1
+      return prepareGeneration
+    }
     resolveSource(source: source, headers: headers) { [weak self] url, error in
       guard let self else { return }
       if let error {
@@ -113,14 +129,22 @@ private final class ScratchAudioEngine {
         completion(nil, self.error(code: 1, message: "Invalid audio source"))
         return
       }
+      guard self.isLatestPrepare(requestGeneration) else {
+        completion(self.state(), nil)
+        return
+      }
       DispatchQueue.global(qos: .userInitiated).async {
         do {
           let decoded = try self.decode(url: url)
           if Thread.isMainThread {
-            try self.install(decoded)
+            if self.isLatestPrepare(requestGeneration) {
+              try self.install(decoded, sourceId: sourceId)
+            }
           } else {
             try DispatchQueue.main.sync {
-              try self.install(decoded)
+              if self.isLatestPrepare(requestGeneration) {
+                try self.install(decoded, sourceId: sourceId)
+              }
             }
           }
           completion(self.state(), nil)
@@ -131,9 +155,15 @@ private final class ScratchAudioEngine {
     }
   }
 
-  func start(positionMs: Double, autoplay: Bool) throws {
+  private func isLatestPrepare(_ requestGeneration: UInt64) -> Bool {
+    withStateLock { requestGeneration == prepareGeneration }
+  }
+
+  func start(sourceId: String, positionMs: Double, autoplay: Bool) throws {
     let ready = withStateLock {
-      guard sourceFrameCount > 1, sampleRate > 0 else { return false }
+      guard sourceFrameCount > 1,
+            sampleRate > 0,
+            sourceId == preparedSourceId else { return false }
       sourceFrame = clampFrame(positionMs / 1000 * sampleRate)
       currentRate = playbackRate
       playing = autoplay
@@ -206,6 +236,7 @@ private final class ScratchAudioEngine {
         "rate": playbackRate,
         "playing": playing,
         "ready": sourceFrameCount > 1,
+        "sourceId": preparedSourceId,
       ]
     }
   }
@@ -218,7 +249,7 @@ private final class ScratchAudioEngine {
     engineStarted = false
   }
 
-  private func install(_ decoded: DecodedAudio) throws {
+  private func install(_ decoded: DecodedAudio, sourceId: String) throws {
     if audioEngine.isRunning { audioEngine.stop() }
     engineStarted = false
     if let sourceNode { audioEngine.detach(sourceNode) }
@@ -232,6 +263,7 @@ private final class ScratchAudioEngine {
       playbackRate = 1
       currentRate = 1
       playing = false
+      preparedSourceId = sourceId
     }
 
     guard let format = AVAudioFormat(

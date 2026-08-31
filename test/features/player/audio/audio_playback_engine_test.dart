@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:audio_service/audio_service.dart' as audio_service;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -148,11 +150,13 @@ void main() {
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     final nativeCommands = <String>[];
     var prepareCalls = 0;
+    var preparedSourceId = '';
     messenger.setMockMethodCallHandler(channel, (call) async {
       switch (call.method) {
         case 'prepare':
           prepareCalls++;
-          return _scratchState(positionMs: 10000);
+          preparedSourceId = _sourceId(call);
+          return _scratchState(positionMs: 10000, sourceId: preparedSourceId);
         case 'start':
           nativeCommands.add('scratch-start');
           return null;
@@ -162,7 +166,7 @@ void main() {
         case 'setRate':
           return null;
         case 'state':
-          return _scratchState(positionMs: 10600);
+          return _scratchState(positionMs: 10600, sourceId: preparedSourceId);
         case 'stop':
           nativeCommands.add('scratch-stop');
           return null;
@@ -218,10 +222,15 @@ void main() {
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     var nativePositionMs = 10000;
     var stateCalls = 0;
+    var preparedSourceId = '';
     messenger.setMockMethodCallHandler(channel, (call) async {
       switch (call.method) {
         case 'prepare':
-          return _scratchState(positionMs: nativePositionMs);
+          preparedSourceId = _sourceId(call);
+          return _scratchState(
+            positionMs: nativePositionMs,
+            sourceId: preparedSourceId,
+          );
         case 'start':
         case 'setRate':
         case 'stop':
@@ -230,7 +239,10 @@ void main() {
           return null;
         case 'state':
           stateCalls++;
-          return _scratchState(positionMs: nativePositionMs);
+          return _scratchState(
+            positionMs: nativePositionMs,
+            sourceId: preparedSourceId,
+          );
       }
       return null;
     });
@@ -294,12 +306,15 @@ void main() {
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     var stateCalls = 0;
+    var preparedSourceId = '';
     messenger.setMockMethodCallHandler(channel, (call) async {
       switch (call.method) {
         case 'prepare':
+          preparedSourceId = _sourceId(call);
+          return _scratchState(positionMs: 10000, sourceId: preparedSourceId);
         case 'state':
-          if (call.method == 'state') stateCalls++;
-          return _scratchState(positionMs: 10000);
+          stateCalls++;
+          return _scratchState(positionMs: 10000, sourceId: preparedSourceId);
         case 'start':
         case 'setRate':
         case 'stop':
@@ -366,11 +381,12 @@ void main() {
     var prepareCalls = 0;
     var startCalls = 0;
     var playCalls = 0;
+    const sourceId = 'file:audio';
     messenger.setMockMethodCallHandler(channel, (call) async {
       switch (call.method) {
         case 'prepare':
           prepareCalls++;
-          return _scratchState(positionMs: 12000);
+          return _scratchState(positionMs: 12000, sourceId: sourceId);
         case 'start':
           startCalls++;
           return null;
@@ -378,7 +394,7 @@ void main() {
           playCalls++;
           return null;
         case 'state':
-          return _scratchState(positionMs: 12000);
+          return _scratchState(positionMs: 12000, sourceId: sourceId);
         case 'setRate':
           return null;
       }
@@ -391,6 +407,7 @@ void main() {
         'playbackIntent': true,
         'positionMs': 12000,
         'durationMs': 120000,
+        'sourceId': sourceId,
       };
     handler.mediaItem.add(
       const audio_service.MediaItem(
@@ -420,9 +437,218 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     }
   });
+
+  test('Scratch 准备结果属于其他音轨时拒绝启动', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    const channel = MethodChannel('omm/scratch_audio');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    var startCalls = 0;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      switch (call.method) {
+        case 'prepare':
+          return _scratchState(positionMs: 0, sourceId: 'file:other');
+        case 'start':
+          startCalls++;
+          return null;
+        case 'setRate':
+        case 'stop':
+          return null;
+      }
+      return null;
+    });
+
+    const item = PlayerQueueItem(
+      title: 'A.mp3',
+      type: PlayerQueueItemType.audio,
+      mediaId: 'library:a',
+      directUrl: 'https://example.test/a.mp3',
+    );
+    final handler = _FakeAudioHandler();
+    final engine = AudioPlaybackEngine(handler: handler);
+    try {
+      await engine.open(
+        const PlaybackOpenRequest(
+          url: 'https://example.test/a.mp3',
+          play: false,
+          queue: [item],
+        ),
+      );
+
+      expect(
+        await engine.startScratch(Duration.zero, resumePlayback: false),
+        isFalse,
+      );
+      expect(startCalls, 0);
+    } finally {
+      await engine.dispose();
+      messenger.setMockMethodCallHandler(channel, null);
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  test('快速切歌后只用新音轨身份启动 Scratch', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    const channel = MethodChannel('omm/scratch_audio');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final prepareCompleters = <Completer<Map<String, Object>>>[];
+    final preparedIds = <String>[];
+    final startedIds = <String>[];
+    var installedSourceId = '';
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      switch (call.method) {
+        case 'prepare':
+          preparedIds.add(_sourceId(call));
+          final completer = Completer<Map<String, Object>>();
+          prepareCompleters.add(completer);
+          return completer.future;
+        case 'start':
+          final sourceId = _sourceId(call);
+          startedIds.add(sourceId);
+          if (sourceId != installedSourceId) {
+            throw PlatformException(code: 'SCRATCH_AUDIO');
+          }
+          return null;
+        case 'state':
+          return _scratchState(positionMs: 0, sourceId: installedSourceId);
+        case 'setRate':
+        case 'stop':
+          return null;
+      }
+      return null;
+    });
+
+    const first = PlayerQueueItem(
+      title: 'A.mp3',
+      type: PlayerQueueItemType.audio,
+      mediaId: 'library:a',
+      directUrl: 'https://example.test/a.mp3',
+    );
+    const second = PlayerQueueItem(
+      title: 'B.mp3',
+      type: PlayerQueueItemType.audio,
+      mediaId: 'library:b',
+      directUrl: 'https://example.test/b.mp3',
+    );
+    final handler = _FakeAudioHandler();
+    final engine = AudioPlaybackEngine(handler: handler);
+    try {
+      await Future<void>.delayed(Duration.zero);
+      await engine.open(
+        const PlaybackOpenRequest(
+          url: 'https://example.test/a.mp3',
+          play: false,
+          queue: [first],
+        ),
+      );
+      await engine.open(
+        const PlaybackOpenRequest(
+          url: 'https://example.test/b.mp3',
+          play: false,
+          queue: [second],
+        ),
+      );
+      expect(prepareCompleters, hasLength(2));
+
+      final start = engine.startScratch(Duration.zero, resumePlayback: false);
+      installedSourceId = second.safeMediaId;
+      prepareCompleters[1].complete(
+        _scratchState(positionMs: 0, sourceId: installedSourceId),
+      );
+      expect(await start, isTrue);
+
+      prepareCompleters[0].complete(
+        _scratchState(positionMs: 0, sourceId: installedSourceId),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(preparedIds, [first.safeMediaId, second.safeMediaId]);
+      expect(startedIds, [second.safeMediaId]);
+    } finally {
+      for (final completer in prepareCompleters) {
+        if (!completer.isCompleted) {
+          completer.complete(
+            _scratchState(positionMs: 0, sourceId: installedSourceId),
+          );
+        }
+      }
+      await engine.dispose();
+      messenger.setMockMethodCallHandler(channel, null);
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  test('页面重开不会复用其他音轨的后台 Scratch 会话', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    const channel = MethodChannel('omm/scratch_audio');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    var preparedSourceId = '';
+    var stopCalls = 0;
+    var startCalls = 0;
+    var playCalls = 0;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      switch (call.method) {
+        case 'prepare':
+          preparedSourceId = _sourceId(call);
+          return _scratchState(positionMs: 0, sourceId: preparedSourceId);
+        case 'state':
+          return _scratchState(positionMs: 0, sourceId: preparedSourceId);
+        case 'start':
+          startCalls++;
+          return null;
+        case 'play':
+          playCalls++;
+          return null;
+        case 'stop':
+          stopCalls++;
+          return null;
+        case 'setRate':
+          return null;
+      }
+      return null;
+    });
+
+    final handler = _FakeAudioHandler()
+      ..scratchModeResult = <String, dynamic>{
+        'active': true,
+        'playbackIntent': true,
+        'sourceId': 'file:b',
+      };
+    handler.mediaItem.add(
+      const audio_service.MediaItem(
+        id: 'file:a',
+        title: 'A.mp3',
+        extras: <String, dynamic>{'audioUrl': 'https://example.test/a.mp3'},
+      ),
+    );
+    final engine = AudioPlaybackEngine(handler: handler);
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(stopCalls, 1);
+      expect(preparedSourceId, 'file:a');
+
+      expect(
+        await engine.startScratch(Duration.zero, resumePlayback: true),
+        isTrue,
+      );
+      expect(startCalls, 1);
+      expect(playCalls, 0);
+    } finally {
+      await engine.dispose();
+      messenger.setMockMethodCallHandler(channel, null);
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
 }
 
-Map<String, Object> _scratchState({required int positionMs}) => {
+String _sourceId(MethodCall call) =>
+    (call.arguments as Map<Object?, Object?>)['sourceId']?.toString() ?? '';
+
+Map<String, Object> _scratchState({
+  required int positionMs,
+  required String sourceId,
+}) => {
   'positionMs': positionMs,
   'durationMs': 120000,
   'rate': 1.0,
@@ -430,6 +656,7 @@ Map<String, Object> _scratchState({required int positionMs}) => {
   'ready': true,
   'outputReady': true,
   'lastWriteResult': 1024,
+  'sourceId': sourceId,
 };
 
 class _FakeAudioHandler extends audio_service.BaseAudioHandler {

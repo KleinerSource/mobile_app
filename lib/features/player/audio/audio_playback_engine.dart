@@ -40,6 +40,7 @@ class AudioPlaybackEngine
   audio_service.MediaItem? _currentItem;
   bool _disposed = false;
   String? _scratchSource;
+  String? _scratchSourceId;
   Map<String, String>? _scratchHeaders;
   Future<bool>? _scratchPrepareFuture;
   int _scratchSourceGeneration = 0;
@@ -93,6 +94,7 @@ class AudioPlaybackEngine
     var index = request.queueIndex;
     if (index < 0 || index >= queue.length) index = 0;
     _setScratchSource(
+      queue[index].safeMediaId,
       queue[index].directUrl ?? request.url,
       queue[index].directHeaders ?? request.headers,
     );
@@ -162,22 +164,40 @@ class AudioPlaybackEngine
     required bool resumePlayback,
   }) async {
     if (!OmmScratchAudio.isSupported) return false;
+    final source = _scratchSource;
+    final sourceId = _scratchSourceId;
+    if (source == null ||
+        source.isEmpty ||
+        sourceId == null ||
+        sourceId.isEmpty) {
+      return false;
+    }
     if (_scratchActive) {
       _scratchResumePlayback = resumePlayback;
       try {
-        await OmmScratchAudio.setRate(_pendingScratchRate);
-        await OmmScratchAudio.play();
+        final state = await OmmScratchAudio.state();
+        if (state.ready && state.sourceId == sourceId) {
+          await OmmScratchAudio.setRate(_pendingScratchRate);
+          await OmmScratchAudio.play();
+          await _handler.customAction(audioSetScratchModeAction, {
+            'active': true,
+            'playbackIntent': resumePlayback,
+            'sourceId': sourceId,
+          });
+          return true;
+        }
+      } catch (_) {}
+      _scratchActive = false;
+      _stopScratchPositionPolling();
+      try {
+        await OmmScratchAudio.stop();
+      } catch (_) {}
+      try {
         await _handler.customAction(audioSetScratchModeAction, {
-          'active': true,
-          'playbackIntent': resumePlayback,
+          'active': false,
         });
-        return true;
-      } catch (_) {
-        return false;
-      }
+      } catch (_) {}
     }
-    final source = _scratchSource;
-    if (source == null || source.isEmpty) return false;
     final sourceGeneration = _scratchSourceGeneration;
     final startGeneration = ++_scratchStartGeneration;
     _scratchResumePlayback = resumePlayback;
@@ -188,6 +208,7 @@ class AudioPlaybackEngine
       await _handler.pause();
       final prepare = _scratchPrepareFuture ??= _prepareScratchAudio(
         source: source,
+        sourceId: sourceId,
         headers: _scratchHeaders,
       );
       var timedOut = false;
@@ -217,7 +238,11 @@ class AudioPlaybackEngine
         return false;
       }
       await OmmScratchAudio.setRate(_pendingScratchRate);
-      await OmmScratchAudio.start(position: position, autoplay: true);
+      await OmmScratchAudio.start(
+        position: position,
+        sourceId: sourceId,
+        autoplay: true,
+      );
       if (startGeneration != _scratchStartGeneration) {
         await OmmScratchAudio.stop();
         return false;
@@ -227,6 +252,7 @@ class AudioPlaybackEngine
       await _handler.customAction(audioSetScratchModeAction, {
         'active': true,
         'playbackIntent': resumePlayback,
+        'sourceId': sourceId,
       });
       _startScratchPositionPolling();
       return true;
@@ -293,7 +319,7 @@ class AudioPlaybackEngine
     }
     try {
       final state = await OmmScratchAudio.state();
-      if (!state.ready) {
+      if (!state.ready || state.sourceId != _scratchSourceId) {
         await OmmScratchAudio.stop();
         _scratchActive = false;
         _scratchMainPlaybackPaused = false;
@@ -308,6 +334,7 @@ class AudioPlaybackEngine
       await _handler.customAction(audioSetScratchModeAction, {
         'active': true,
         'playbackIntent': resumePlayback,
+        'sourceId': state.sourceId,
       });
       _publishScratchPosition(state: state);
       return state.position;
@@ -359,8 +386,17 @@ class AudioPlaybackEngine
           generation != _scratchPositionPollGeneration) {
         return;
       }
-      if (!scratchState.ready) {
+      if (!scratchState.ready || scratchState.sourceId != _scratchSourceId) {
         _stopScratchPositionPolling();
+        _scratchActive = false;
+        try {
+          await OmmScratchAudio.stop();
+        } catch (_) {}
+        try {
+          await _handler.customAction(audioSetScratchModeAction, {
+            'active': false,
+          });
+        } catch (_) {}
         return;
       }
       _publishScratchPosition(state: scratchState);
@@ -404,8 +440,11 @@ class AudioPlaybackEngine
     }
     if (_scratchPrepareFuture != null) return;
     final source = _scratchSource!;
+    final sourceId = _scratchSourceId;
+    if (sourceId == null || sourceId.isEmpty) return;
     final future = _prepareScratchAudio(
       source: source,
+      sourceId: sourceId,
       headers: _scratchHeaders,
     );
     _scratchPrepareFuture = future;
@@ -414,15 +453,17 @@ class AudioPlaybackEngine
 
   Future<bool> _prepareScratchAudio({
     required String source,
+    required String sourceId,
     Map<String, String>? headers,
   }) async {
     if (source.isEmpty) return false;
     try {
       final state = await OmmScratchAudio.prepare(
         source: source,
+        sourceId: sourceId,
         headers: headers,
       );
-      return state.ready;
+      return state.ready && state.sourceId == sourceId;
     } catch (error) {
       appLog('[AudioScratch] PCM 准备失败: $error');
       return false;
@@ -434,9 +475,18 @@ class AudioPlaybackEngine
       final result = await _handler.customAction(audioGetScratchModeAction);
       if (_disposed) return;
       if (result is Map && result['active'] == true) {
-        _scratchActive = true;
-        _scratchResumePlayback = result['playbackIntent'] == true;
-        _startScratchPositionPolling();
+        if (result['sourceId'] == _scratchSourceId) {
+          _scratchActive = true;
+          _scratchResumePlayback = result['playbackIntent'] == true;
+          _startScratchPositionPolling();
+        } else {
+          try {
+            await OmmScratchAudio.stop();
+          } catch (_) {}
+          await _handler.customAction(audioSetScratchModeAction, {
+            'active': false,
+          });
+        }
       }
     } catch (_) {
       // 旧版或测试 handler 不支持查询时，继续按普通预热路径工作。
@@ -546,7 +596,7 @@ class AudioPlaybackEngine
       _stopScratchPositionPolling();
       final source = item?.extras?['audioUrl']?.toString().trim();
       if (item != null && source != null && source.isNotEmpty) {
-        _setScratchSource(source, _scratchHeadersFor(item));
+        _setScratchSource(item.id, source, _scratchHeadersFor(item));
         _warmScratchAudio();
       }
     }
@@ -579,14 +629,25 @@ class AudioPlaybackEngine
     }
   }
 
-  void _setScratchSource(String source, Map<String, String>? headers) {
-    if (_scratchSource == source && _sameHeaders(_scratchHeaders, headers)) {
+  void _setScratchSource(
+    String sourceId,
+    String source,
+    Map<String, String>? headers,
+  ) {
+    if (_scratchSourceId == sourceId &&
+        _scratchSource == source &&
+        _sameHeaders(_scratchHeaders, headers)) {
       return;
     }
+    _scratchSourceId = sourceId;
     _scratchSource = source;
     _scratchHeaders = headers;
     _scratchPrepareFuture = null;
     _scratchSourceGeneration++;
+    _scratchStartGeneration++;
+    _scratchActive = false;
+    _scratchMainPlaybackPaused = false;
+    _stopScratchPositionPolling();
   }
 
   bool _sameHeaders(Map<String, String>? left, Map<String, String>? right) {

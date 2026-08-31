@@ -15,10 +15,12 @@ final class OmmScratchAudio {
 
   static Future<ScratchAudioState> prepare({
     required String source,
+    required String sourceId,
     Map<String, String>? headers,
   }) async {
     final result = await _channel.invokeMethod<Object?>('prepare', {
       'source': source,
+      'sourceId': sourceId,
       'headers': headers ?? const <String, String>{},
     });
     return ScratchAudioState.fromObject(result);
@@ -26,10 +28,12 @@ final class OmmScratchAudio {
 
   static Future<void> start({
     required Duration position,
+    required String sourceId,
     bool autoplay = true,
   }) async {
     await _channel.invokeMethod<void>('start', {
       'positionMs': position.inMilliseconds,
+      'sourceId': sourceId,
       'autoplay': autoplay,
     });
   }
@@ -87,6 +91,7 @@ final class ScratchAudioState {
     required this.ready,
     required this.outputReady,
     required this.lastWriteResult,
+    required this.sourceId,
   });
 
   final Duration position;
@@ -96,6 +101,7 @@ final class ScratchAudioState {
   final bool ready;
   final bool outputReady;
   final int lastWriteResult;
+  final String sourceId;
 
   factory ScratchAudioState.fromObject(Object? raw) {
     final value = raw is Map ? raw : const <Object?, Object?>{};
@@ -111,6 +117,7 @@ final class ScratchAudioState {
       lastWriteResult: value['lastWriteResult'] is num
           ? (value['lastWriteResult'] as num).toInt()
           : 0,
+      sourceId: value['sourceId']?.toString() ?? '',
     );
   }
 
