@@ -16,11 +16,8 @@ import 'lrc_parser.dart';
 import '../common/playback_engine.dart';
 import '../common/player_session_controller.dart';
 
-const _vinylGrooveStartFactor = 0.25;
-const _vinylGrooveStepFactor = 0.047;
-const _vinylGrooveCount = 14;
-// 最内侧的两条沟槽被中心封面覆盖；磁针落在封面外第一条完整沟槽上。
-const _tonearmInnerGrooveIndex = 3;
+const _vinylRecordAsset = 'assets/audio_player/vinyl_record_matte.png';
+const _turntableTonearmAsset = 'assets/audio_player/turntable_tonearm.png';
 
 class AudioNowPlayingView extends StatefulWidget {
   const AudioNowPlayingView({
@@ -250,64 +247,70 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
         final geometry = AudioNowPlayingGeometry.fromConstraints(constraints);
         final hasLyrics = widget.lyrics != null && !widget.lyrics!.isEmpty;
 
-        return Align(
-          alignment: const Alignment(0, -0.18),
-          // stageHeight 恒定，歌词的出现/消失不会改变唱盘的定位基准。
-          child: SizedBox(
-            width: geometry.stageWidth,
-            height: geometry.stageHeight,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: ValueListenableBuilder<PlaybackViewState>(
-                    valueListenable: widget.controller,
-                    builder: (context, state, _) => _djDeck(
-                      context,
-                      recordSize: geometry.recordSize,
-                      state: state,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: geometry.deckSize + 18,
-                  left: 0,
-                  right: 0,
-                  height: AudioNowPlayingGeometry.lyricsSlotHeight - 18,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 260),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 0.25),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
+        return Padding(
+          padding: const EdgeInsets.only(
+            top: AudioNowPlayingGeometry.stageTopInset,
+          ),
+          child: Align(
+            alignment: Alignment.topCenter,
+            // stageHeight 恒定，歌词的出现/消失不会改变唱盘的定位基准。
+            child: SizedBox(
+              key: const ValueKey<String>('audio-now-playing-stage'),
+              width: geometry.stageWidth,
+              height: geometry.stageHeight,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: ValueListenableBuilder<PlaybackViewState>(
+                      valueListenable: widget.controller,
+                      builder: (context, state, _) => _djDeck(
+                        context,
+                        recordSize: geometry.recordSize,
+                        state: state,
                       ),
                     ),
-                    child: hasLyrics
-                        ? SizedBox(
-                            key: const ValueKey('lyrics'),
-                            width: geometry.lyricsWidth,
-                            height:
-                                AudioNowPlayingGeometry.lyricsSlotHeight - 18,
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              child: AudioLyricsView(
-                                controller: widget.controller,
-                                lyrics: widget.lyrics,
-                                spectrum: widget.spectrum,
-                              ),
-                            ),
-                          )
-                        : const SizedBox.shrink(key: ValueKey('no-lyrics')),
                   ),
-                ),
-              ],
+                  Positioned(
+                    top: geometry.deckSize + 18,
+                    left: 0,
+                    right: 0,
+                    height: AudioNowPlayingGeometry.lyricsSlotHeight - 18,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 260),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 0.25),
+                            end: Offset.zero,
+                          ).animate(animation),
+                          child: child,
+                        ),
+                      ),
+                      child: hasLyrics
+                          ? SizedBox(
+                              key: const ValueKey('lyrics'),
+                              width: geometry.lyricsWidth,
+                              height:
+                                  AudioNowPlayingGeometry.lyricsSlotHeight - 18,
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: AudioLyricsView(
+                                  controller: widget.controller,
+                                  lyrics: widget.lyrics,
+                                  spectrum: widget.spectrum,
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(key: ValueKey('no-lyrics')),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -323,40 +326,32 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     final foreground = Theme.of(context).colorScheme.onSurface;
     final l10n = AppL10n.of(context);
     final deckSize = recordSize + 28;
-    final progress = _trackProgress(state);
     return SizedBox(
       key: const ValueKey<String>('audio-dj-deck'),
       width: deckSize,
       height: deckSize,
       child: Stack(
+        key: const ValueKey<String>('audio-dj-deck-layers'),
         clipBehavior: Clip.none,
         children: [
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                key: const ValueKey<String>('audio-dj-progress-ring'),
-                painter: _DjProgressRingPainter(
-                  progress: progress,
-                  trackColor: foreground.withValues(alpha: 0.12),
-                  progressColor: foreground,
-                ),
-              ),
+          Center(
+            key: const ValueKey<String>('audio-vinyl-layer'),
+            child: _artwork(recordSize, state),
+          ),
+          Center(
+            key: const ValueKey<String>('audio-vinyl-light-layer'),
+            child: SizedBox.square(
+              dimension: recordSize,
+              child: const _VinylLightOverlay(),
             ),
           ),
-          Center(child: _artwork(recordSize, state)),
           Positioned.fill(
+            key: const ValueKey<String>('audio-tonearm-layer'),
             child: IgnorePointer(
               child: AnimatedBuilder(
                 animation: _tonearmController,
-                builder: (_, __) => CustomPaint(
-                  key: const ValueKey<String>('audio-dj-tonearm'),
-                  painter: _DjTonearmPainter(
-                    progress: _tonearmController.value,
-                    recordSize: recordSize,
-                    color: foreground.withValues(alpha: 0.78),
-                    accent: foreground,
-                  ),
-                ),
+                builder: (_, __) =>
+                    _TurntableTonearm(progress: _tonearmController.value),
               ),
             ),
           ),
@@ -1046,10 +1041,19 @@ class _VinylRecord extends StatelessWidget {
           child: Stack(
             alignment: Alignment.center,
             children: [
+              Positioned.fill(
+                child: Image.asset(
+                  _vinylRecordAsset,
+                  key: const ValueKey<String>('audio-vinyl-image'),
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  gaplessPlayback: true,
+                ),
+              ),
               const Positioned.fill(
-                child: CustomPaint(
-                  key: ValueKey<String>('audio-vinyl-painter'),
-                  painter: _VinylRecordPainter(),
+                child: ColoredBox(
+                  key: ValueKey<String>('audio-vinyl-material-shade'),
+                  color: Color(0xB3000000),
                 ),
               ),
               SizedBox(
@@ -1180,130 +1184,91 @@ class _DjStatusBadge extends StatelessWidget {
   }
 }
 
-class _DjProgressRingPainter extends CustomPainter {
-  const _DjProgressRingPainter({
-    required this.progress,
-    required this.trackColor,
-    required this.progressColor,
-  });
-
-  final double progress;
-  final Color trackColor;
-  final Color progressColor;
+class _VinylLightOverlay extends StatelessWidget {
+  const _VinylLightOverlay();
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2 - 6;
-    if (radius <= 0) return;
-    final rect = Rect.fromCircle(center: center, radius: radius);
-    final track = Paint()
-      ..color = trackColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
-    canvas.drawArc(rect, -math.pi / 2, math.pi * 2, false, track);
-
-    if (progress <= 0) return;
-    final progressPaint = Paint()
-      ..color = progressColor
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 3.5;
-    canvas.drawArc(
-      rect,
-      -math.pi / 2,
-      math.pi * 2 * progress.clamp(0.0, 1.0),
-      false,
-      progressPaint,
+  Widget build(BuildContext context) {
+    return const IgnorePointer(
+      child: ClipOval(
+        key: ValueKey<String>('audio-vinyl-light-overlay'),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment(-1.0, -0.55),
+                  end: Alignment(1.0, 0.55),
+                  colors: [
+                    Colors.transparent,
+                    Color(0x08FFFFFF),
+                    Color(0x1FFFFFFF),
+                    Color(0x06FFFFFF),
+                    Colors.transparent,
+                  ],
+                  stops: [0.12, 0.35, 0.49, 0.62, 0.84],
+                ),
+              ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(-0.48, -0.58),
+                  radius: 0.92,
+                  colors: [Color(0x14FFFFFF), Colors.transparent],
+                  stops: [0.0, 0.66],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
-    final endpoint = Offset(
-      center.dx + radius * math.cos(-math.pi / 2 + math.pi * 2 * progress),
-      center.dy + radius * math.sin(-math.pi / 2 + math.pi * 2 * progress),
-    );
-    canvas.drawCircle(endpoint, 3.5, Paint()..color = progressColor);
-  }
-
-  @override
-  bool shouldRepaint(covariant _DjProgressRingPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.trackColor != trackColor ||
-        oldDelegate.progressColor != progressColor;
   }
 }
 
-class _DjTonearmPainter extends CustomPainter {
-  const _DjTonearmPainter({
-    required this.progress,
-    required this.recordSize,
-    required this.color,
-    required this.accent,
-  });
+class _TurntableTonearm extends StatelessWidget {
+  const _TurntableTonearm({required this.progress});
 
   final double progress;
-  final double recordSize;
-  final Color color;
-  final Color accent;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final recordCenter = Offset(size.width / 2, size.height / 2);
-    final recordRadius = recordSize / 2;
-    final pivot = Offset(size.width * 0.80, size.height * 0.12);
-    final parkedElbow = Offset(size.width * 0.76, size.height * 0.14);
-    final parkedReference = Offset(size.width * 0.68, size.height * 0.20);
-    final outerGrooveRadius =
-        recordRadius *
-        (_vinylGrooveStartFactor +
-            (_vinylGrooveCount - 1) * _vinylGrooveStepFactor);
-    final innerGrooveRadius =
-        recordRadius *
-        (_vinylGrooveStartFactor +
-            _tonearmInnerGrooveIndex * _vinylGrooveStepFactor);
-
-    // 唱针沿固定的径向线移动。对两个不同方向的坐标做 Offset.lerp
-    // 会走弦线，进度过半后就会切入唱片中心和封面。
-    final needleDirection = parkedReference - recordCenter;
-    final needleDirectionLength = needleDirection.distance;
-    final normalizedNeedleDirection = needleDirectionLength == 0
-        ? const Offset(0, -1)
-        : needleDirection / needleDirectionLength;
+  Widget build(BuildContext context) {
     final clampedProgress = progress.clamp(0.0, 1.0).toDouble();
-    final needleRadius =
-        outerGrooveRadius +
-        (innerGrooveRadius - outerGrooveRadius) * clampedProgress;
-    final needle = recordCenter + normalizedNeedleDirection * needleRadius;
-
-    final parkedElbowRadius = (parkedElbow - recordCenter).distance;
-    final engagedElbowRadius = innerGrooveRadius + recordRadius * 0.16;
-    final elbowRadius =
-        parkedElbowRadius +
-        (engagedElbowRadius - parkedElbowRadius) * clampedProgress;
-    final elbow = recordCenter + normalizedNeedleDirection * elbowRadius;
-    final armPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = math.max(3.0, size.width * 0.012);
-    canvas.drawLine(pivot, elbow, armPaint);
-    canvas.drawLine(elbow, needle, armPaint);
-    canvas.drawCircle(
-      pivot,
-      math.max(5.0, size.width * 0.022),
-      armPaint..style = PaintingStyle.fill,
+    // 唱臂保持固定尺寸，只围绕图片中的机械轴心转动。
+    final angleDegrees = 15 - 10 * clampedProgress;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final deckSize = math.min(constraints.maxWidth, constraints.maxHeight);
+        final tonearmSize = deckSize * 0.27;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              width: tonearmSize,
+              height: tonearmSize,
+              top: -deckSize * 0.01,
+              right: 0,
+              child: Transform.rotate(
+                key: const ValueKey<String>('audio-dj-tonearm'),
+                angle: angleDegrees * math.pi / 180,
+                alignment: const Alignment(0.56, -0.52),
+                child: Image.asset(
+                  _turntableTonearmAsset,
+                  key: const ValueKey<String>('audio-dj-tonearm-image'),
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  gaplessPlayback: true,
+                  color: const Color(0xFF888888),
+                  colorBlendMode: BlendMode.screen,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
-
-    final cartridge = Paint()
-      ..color = accent
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(needle, math.max(3.0, size.width * 0.014), cartridge);
-  }
-
-  @override
-  bool shouldRepaint(covariant _DjTonearmPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.recordSize != recordSize ||
-        oldDelegate.color != color ||
-        oldDelegate.accent != accent;
   }
 }
 
@@ -1349,42 +1314,4 @@ class _ArtworkLabel extends StatelessWidget {
       ),
     );
   }
-}
-
-class _VinylRecordPainter extends CustomPainter {
-  const _VinylRecordPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2;
-    canvas.drawCircle(center, radius, Paint()..color = const Color(0xff101010));
-
-    final groovePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.075)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(0.7, radius * 0.006);
-    for (var index = 0; index < _vinylGrooveCount; index++) {
-      canvas.drawCircle(
-        center,
-        radius * (_vinylGrooveStartFactor + index * _vinylGrooveStepFactor),
-        groovePaint,
-      );
-    }
-
-    final sheenPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.085)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(1.0, radius * 0.014);
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius * 0.82),
-      -math.pi * 0.82,
-      math.pi * 0.52,
-      false,
-      sheenPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _VinylRecordPainter oldDelegate) => false;
 }

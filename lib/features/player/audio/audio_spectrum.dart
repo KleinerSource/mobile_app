@@ -16,6 +16,8 @@ final class AudioNowPlayingGeometry {
   });
 
   static const double lyricsSlotHeight = 108;
+  static const double stageTopInset = 78;
+  static const double maxRecordSize = 350;
 
   final double recordSize;
   final double deckSize;
@@ -25,8 +27,11 @@ final class AudioNowPlayingGeometry {
 
   factory AudioNowPlayingGeometry.fromConstraints(BoxConstraints constraints) {
     final maxWidth = math.max(0.0, constraints.maxWidth - 48);
-    final maxHeight = math.max(0.0, constraints.maxHeight * 0.52);
-    final recordSize = math.min(math.min(maxWidth, maxHeight), 380.0);
+    final layoutHeight = constraints.hasBoundedHeight
+        ? constraints.maxHeight
+        : 932.0;
+    final maxHeight = math.max(0.0, layoutHeight * 0.52);
+    final recordSize = math.min(math.min(maxWidth, maxHeight), maxRecordSize);
     final deckSize = recordSize + 28;
     final lyricsWidth = math.min(maxWidth, 420.0);
     return AudioNowPlayingGeometry(
@@ -50,29 +55,35 @@ class AudioSpectrumBackdrop extends StatelessWidget {
       builder: (context, constraints) {
         final geometry = AudioNowPlayingGeometry.fromConstraints(constraints);
         final spectrumSize = geometry.recordSize + 72;
-        return Align(
-          alignment: const Alignment(0, -0.18),
-          child: SizedBox(
-            width: geometry.stageWidth,
-            height: geometry.stageHeight,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Transform.translate(
-                offset: const Offset(0, -22),
-                child: SizedBox.square(
-                  dimension: spectrumSize,
-                  child: IgnorePointer(
-                    child: ValueListenableBuilder<AudioSpectrumFrame>(
-                      valueListenable: spectrum,
-                      builder: (_, frame, _) => RepaintBoundary(
-                        child: CustomPaint(
-                          key: const ValueKey<String>(
-                            'audio-circular-spectrum',
-                          ),
-                          painter: CircularAudioSpectrumPainter(
-                            frame: frame,
-                            recordRadius: geometry.recordSize / 2,
-                            palette: AudioPlayerTheme.spectrumPalette,
+        return Padding(
+          padding: const EdgeInsets.only(
+            top: AudioNowPlayingGeometry.stageTopInset,
+          ),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              key: const ValueKey<String>('audio-spectrum-stage'),
+              width: geometry.stageWidth,
+              height: geometry.stageHeight,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Transform.translate(
+                  offset: const Offset(0, -22),
+                  child: SizedBox.square(
+                    dimension: spectrumSize,
+                    child: IgnorePointer(
+                      child: ValueListenableBuilder<AudioSpectrumFrame>(
+                        valueListenable: spectrum,
+                        builder: (_, frame, _) => RepaintBoundary(
+                          child: CustomPaint(
+                            key: const ValueKey<String>(
+                              'audio-circular-spectrum',
+                            ),
+                            painter: CircularAudioSpectrumPainter(
+                              frame: frame,
+                              recordRadius: geometry.recordSize / 2,
+                              palette: AudioPlayerTheme.spectrumPalette,
+                            ),
                           ),
                         ),
                       ),
@@ -95,6 +106,10 @@ class CircularAudioSpectrumPainter extends CustomPainter {
     required this.palette,
   });
 
+  static const double strokeWidth = 5;
+  static const double glowStrokeWidth = 10;
+  static const double minimumOpacity = 0.58;
+
   final AudioSpectrumFrame frame;
   final double recordRadius;
   final List<Color> palette;
@@ -109,24 +124,28 @@ class CircularAudioSpectrumPainter extends CustomPainter {
 
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    final glowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = glowStrokeWidth
       ..strokeCap = StrokeCap.round;
     for (var index = 0; index < frame.bands.length; index++) {
       final fraction = index / frame.bands.length;
       final energy = frame.bands[index].clamp(0.0, 1.0);
       final angle = -math.pi / 2 + math.pi * 2 * fraction;
       final length = 3 + maxLength * (energy * 0.85 + frame.peak * 0.15);
-      final opacity = (0.34 + math.max(energy, frame.rms) * 0.66).clamp(
-        0.0,
-        1.0,
-      );
-      paint.color = _paletteColor(palette, fraction).withValues(alpha: opacity);
+      final opacity =
+          (minimumOpacity + math.max(energy, frame.rms) * (1 - minimumOpacity))
+              .clamp(0.0, 1.0);
+      final color = _paletteColor(palette, fraction);
+      glowPaint.color = color.withValues(alpha: opacity * 0.28);
+      paint.color = color.withValues(alpha: opacity);
       final direction = Offset(math.cos(angle), math.sin(angle));
-      canvas.drawLine(
-        center + direction * baseRadius,
-        center + direction * (baseRadius + length),
-        paint,
-      );
+      final start = center + direction * baseRadius;
+      final end = center + direction * (baseRadius + length);
+      canvas.drawLine(start, end, glowPaint);
+      canvas.drawLine(start, end, paint);
     }
   }
 

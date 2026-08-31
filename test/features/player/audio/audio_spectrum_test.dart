@@ -53,6 +53,26 @@ void main() {
       Color(0xFFF4C84B),
     ]);
     expect(lyrics.color, Colors.black);
+    expect(CircularAudioSpectrumPainter.minimumOpacity, greaterThan(0.5));
+    expect(
+      CircularAudioSpectrumPainter.glowStrokeWidth,
+      greaterThan(CircularAudioSpectrumPainter.strokeWidth),
+    );
+  });
+
+  test('唱机舞台上移并为歌词和底部进度条保留间距', () {
+    const height = 839.0;
+    const progressTopFromBottom = 228.0;
+    final geometry = AudioNowPlayingGeometry.fromConstraints(
+      const BoxConstraints.tightFor(width: 430, height: height),
+    );
+    final stageBottom =
+        AudioNowPlayingGeometry.stageTopInset + geometry.stageHeight;
+    final progressTop = height - progressTopFromBottom;
+
+    expect(AudioNowPlayingGeometry.stageTopInset, 78);
+    expect(geometry.recordSize, AudioNowPlayingGeometry.maxRecordSize);
+    expect(stageBottom, lessThanOrEqualTo(progressTop - 16));
   });
 
   testWidgets('全屏玻璃覆盖安全区并位于背景频谱和前景之间', (tester) async {

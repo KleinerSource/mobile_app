@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm_scratch_audio/omm_scratch_audio.dart';
 
 import 'package:omm/features/player/audio/audio_now_playing_view.dart';
+import 'package:omm/features/player/audio/audio_spectrum.dart';
 import 'package:omm/features/player/audio/lrc_parser.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:omm/features/player/common/player_session_controller.dart';
@@ -18,7 +19,7 @@ final _silentSpectrum = ValueNotifier<AudioSpectrumFrame>(
 );
 
 void main() {
-  testWidgets('中心区域使用圆形黑胶唱片和圆形封面标签', (tester) async {
+  testWidgets('中心区域按黑胶图片、固定光线、唱臂图片分层', (tester) async {
     final engine = FakePlaybackEngine(PlaybackEngineKind.audio);
     final controller = PlayerSessionController(engine: engine);
     try {
@@ -33,11 +34,74 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.byKey(const ValueKey<String>('audio-vinyl-painter')),
+        find.byKey(const ValueKey<String>('audio-vinyl-image')),
         findsOneWidget,
       );
-      expect(find.byType(ClipOval), findsNWidgets(2));
+      expect(
+        find.byKey(const ValueKey<String>('audio-vinyl-light-overlay')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('audio-dj-tonearm-image')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('audio-dj-progress-ring')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('audio-vinyl-painter')),
+        findsNothing,
+      );
+
+      final vinylImage = tester.widget<Image>(
+        find.byKey(const ValueKey<String>('audio-vinyl-image')),
+      );
+      final tonearmImage = tester.widget<Image>(
+        find.byKey(const ValueKey<String>('audio-dj-tonearm-image')),
+      );
+      expect(
+        (vinylImage.image as AssetImage).assetName,
+        'assets/audio_player/vinyl_record_matte.png',
+      );
+      expect(
+        (tonearmImage.image as AssetImage).assetName,
+        'assets/audio_player/turntable_tonearm.png',
+      );
+
+      final layers = tester.widget<Stack>(
+        find.byKey(const ValueKey<String>('audio-dj-deck-layers')),
+      );
+      final layerKeys = layers.children.map((child) => child.key).toList();
+      expect(
+        layerKeys.indexOf(const ValueKey<String>('audio-vinyl-layer')),
+        lessThan(
+          layerKeys.indexOf(const ValueKey<String>('audio-vinyl-light-layer')),
+        ),
+      );
+      expect(
+        layerKeys.indexOf(const ValueKey<String>('audio-vinyl-light-layer')),
+        lessThan(
+          layerKeys.indexOf(const ValueKey<String>('audio-tonearm-layer')),
+        ),
+      );
+      expect(
+        find.ancestor(
+          of: find.byKey(const ValueKey<String>('audio-vinyl-light-overlay')),
+          matching: find.byType(RotationTransition),
+        ),
+        findsNothing,
+      );
+      expect(find.byType(ClipOval), findsNWidgets(3));
       expect(find.byType(ClipRRect), findsNothing);
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey<String>('audio-now-playing-stage')),
+            )
+            .dy,
+        AudioNowPlayingGeometry.stageTopInset,
+      );
     } finally {
       await _dispose(tester, controller);
     }
@@ -55,14 +119,30 @@ void main() {
     );
     final controller = PlayerSessionController(engine: engine);
     final tonearm = find.byKey(const ValueKey<String>('audio-dj-tonearm'));
+    final tonearmImage = find.byKey(
+      const ValueKey<String>('audio-dj-tonearm-image'),
+    );
 
-    CustomPainter currentTonearm() {
-      return tester.widget<CustomPaint>(tonearm).painter!;
+    List<double> currentTonearmTransform() {
+      return List<double>.of(
+        tester.widget<Transform>(tonearm).transform.storage,
+      );
+    }
+
+    List<Offset> currentTonearmGeometry() {
+      final box = tester.renderObject<RenderBox>(tonearm);
+      final size = box.size;
+      return [
+        box.localToGlobal(Offset(size.width * 0.78, size.height * 0.24)),
+        box.localToGlobal(Offset(size.width * 0.075, size.height * 0.92)),
+      ];
     }
 
     try {
       await tester.pumpWidget(_app(controller));
-      final atStart = currentTonearm();
+      final atStart = currentTonearmTransform();
+      final startGeometry = currentTonearmGeometry();
+      final tonearmSize = tester.getSize(tonearmImage);
 
       // 即使暂停，磁头杆也应反映用户拖动进度后所在的唱片槽位。
       engine.notifier.value = engine.notifier.value.copyWith(
@@ -70,16 +150,29 @@ void main() {
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      final atMiddle = currentTonearm();
-      expect(atMiddle.shouldRepaint(atStart), isTrue);
+      final atMiddle = currentTonearmTransform();
+      final middleGeometry = currentTonearmGeometry();
+      expect(atMiddle, isNot(orderedEquals(atStart)));
+      expect(tester.getSize(tonearmImage), tonearmSize);
+      expect((middleGeometry[0] - startGeometry[0]).distance, lessThan(0.01));
+      expect(
+        (middleGeometry[1] - middleGeometry[0]).distance,
+        closeTo((startGeometry[1] - startGeometry[0]).distance, 0.01),
+      );
 
       engine.notifier.value = engine.notifier.value.copyWith(
         position: const Duration(minutes: 1),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      final atEnd = currentTonearm();
-      expect(atEnd.shouldRepaint(atMiddle), isTrue);
+      final atEnd = currentTonearmTransform();
+      final endGeometry = currentTonearmGeometry();
+      expect(atEnd, isNot(orderedEquals(atMiddle)));
+      expect((endGeometry[0] - startGeometry[0]).distance, lessThan(0.01));
+      expect(
+        (endGeometry[1] - endGeometry[0]).distance,
+        closeTo((startGeometry[1] - startGeometry[0]).distance, 0.01),
+      );
 
       engine.notifier.value = engine.notifier.value.copyWith(
         playing: true,
@@ -88,8 +181,8 @@ void main() {
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      final nextTrack = currentTonearm();
-      expect(nextTrack.shouldRepaint(atEnd), isTrue);
+      final nextTrack = currentTonearmTransform();
+      expect(nextTrack, orderedEquals(atStart));
     } finally {
       await _dispose(tester, controller);
     }
