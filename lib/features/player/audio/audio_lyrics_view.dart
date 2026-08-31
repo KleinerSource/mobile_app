@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -131,24 +130,21 @@ class AudioLyricsView extends StatelessWidget {
         child: ClipRRect(
           key: const ValueKey<String>('audio-lyrics-glass-sheet'),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(
-              sigmaX: AudioPlayerTheme.sheetBlurSigma,
-              sigmaY: AudioPlayerTheme.sheetBlurSigma,
-            ),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: AudioPlayerTheme.sheetTintFor(brightness),
-                border: Border(
-                  top: BorderSide(
-                    color: AudioPlayerTheme.glassBorderFor(brightness),
-                  ),
+          // 面板颜色本身已足够不透明；避免对正在更新的频谱做大面积实时采样。
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: AudioPlayerTheme.sheetTintFor(brightness),
+              border: Border(
+                top: BorderSide(
+                  color: AudioPlayerTheme.glassBorderFor(brightness),
                 ),
               ),
-              child: SafeArea(
-                top: false,
-                child: Material(
-                  type: MaterialType.transparency,
+            ),
+            child: SafeArea(
+              top: false,
+              child: Material(
+                type: MaterialType.transparency,
+                child: RepaintBoundary(
                   child: _AudioLyricsSheet(
                     controller: controller,
                     lyrics: document,
@@ -180,6 +176,7 @@ class _AudioLyricsSheetState extends State<_AudioLyricsSheet> {
   final ScrollController _scrollController = ScrollController();
   StreamSubscription<Duration>? _positionSubscription;
   int _lastIndex = -1;
+  int _currentIndex = -1;
   int? _pendingIndex;
   bool _scrollScheduled = false;
   bool _initialPositioned = false;
@@ -187,6 +184,7 @@ class _AudioLyricsSheetState extends State<_AudioLyricsSheet> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.lyrics.indexAt(widget.controller.position);
     _positionSubscription = widget.controller.positionStream.listen(
       _onPlaybackChanged,
     );
@@ -207,7 +205,7 @@ class _AudioLyricsSheetState extends State<_AudioLyricsSheet> {
     final index = widget.lyrics.indexAt(position);
     if (index == _lastIndex || index == _pendingIndex) return;
     _pendingIndex = index;
-    setState(() {});
+    setState(() => _currentIndex = index);
     _scheduleScroll(position);
   }
 
@@ -255,9 +253,7 @@ class _AudioLyricsSheetState extends State<_AudioLyricsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final currentIndex = widget.lyrics.indexAt(
-      widget.controller.value.position,
-    );
+    final currentIndex = _currentIndex;
     final l10n = AppL10n.of(context);
     return SizedBox(
       height: MediaQuery.sizeOf(context).height * 0.78,

@@ -11,7 +11,6 @@ class AudioPlayerTheme extends StatelessWidget {
   final Widget child;
 
   static const double glassBlurSigma = 5.5;
-  static const double sheetBlurSigma = 28;
   // 按低强度到高强度排列，频谱颜色由音频能量分桶选择。
   static const List<Color> spectrumPalette = <Color>[
     Color(0xFF8A63FF),

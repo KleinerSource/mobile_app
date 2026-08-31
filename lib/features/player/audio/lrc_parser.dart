@@ -17,19 +17,23 @@ class LrcDocument {
   bool get isEmpty => cues.isEmpty;
 
   LrcCue? cueAt(Duration position) {
-    LrcCue? current;
-    for (final cue in cues) {
-      if (cue.position > position) break;
-      current = cue;
-    }
-    return current;
+    final index = indexAt(position);
+    return index < 0 ? null : cues[index];
   }
 
   int indexAt(Duration position) {
+    // 播放位置事件频率较高，使用 upper-bound 二分查找避免长歌词逐行扫描。
+    var low = 0;
+    var high = cues.length - 1;
     var index = -1;
-    for (var i = 0; i < cues.length; i++) {
-      if (cues[i].position > position) break;
-      index = i;
+    while (low <= high) {
+      final middle = low + (high - low) ~/ 2;
+      if (cues[middle].position <= position) {
+        index = middle;
+        low = middle + 1;
+      } else {
+        high = middle - 1;
+      }
     }
     return index;
   }
