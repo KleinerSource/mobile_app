@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/platform/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../common/playback_engine.dart';
 import '../common/player_overlay_indicators.dart';
@@ -15,6 +14,7 @@ import 'audio_metadata.dart';
 import 'audio_now_playing_view.dart';
 import 'audio_playback_engine.dart';
 import 'audio_player_controls.dart';
+import 'audio_player_theme.dart';
 import 'audio_playback_service.dart';
 import 'lrc_parser.dart';
 
@@ -287,46 +287,21 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = appColors(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final background = AudioPlayerTheme.backgroundFor(
+      Theme.of(context).brightness,
+    );
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(_exitPlayer());
       },
-      child: AnnotatedRegion<SystemUiOverlayStyle>(
-        // 系统栏保持透明，让页面的全屏氛围光透出来；图标亮度仍随深浅色
-        // 模式切换。不透明底色会把安全区盖成与播放器本体不同的配色。
-        value: SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-          statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
-          systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: isDark
-              ? Brightness.light
-              : Brightness.dark,
-          systemNavigationBarDividerColor: Colors.transparent,
-          systemNavigationBarContrastEnforced: false,
-        ),
-        child: ColoredBox(
-          color: colors.bg,
-          child: Scaffold(
-            backgroundColor: colors.bg,
-            body: Stack(
-              fit: StackFit.expand,
-              children: [
-                // 氛围光铺满整个屏幕（含状态栏/导航栏区域），避免安全区
-                // 边界处的配色断层；交互内容仍由下方 SafeArea 约束。
-                const Positioned.fill(
-                  child: IgnorePointer(child: AudioPlayerBackdrop()),
-                ),
-                SafeArea(
-                  child: ValueListenableBuilder<PlaybackViewState>(
-                    valueListenable: _host,
-                    builder: (_, state, __) => _body(state),
-                  ),
-                ),
-              ],
+      child: AudioPlayerTheme(
+        child: Scaffold(
+          backgroundColor: background,
+          body: SafeArea(
+            child: ValueListenableBuilder<PlaybackViewState>(
+              valueListenable: _host,
+              builder: (_, state, __) => _body(state),
             ),
           ),
         ),

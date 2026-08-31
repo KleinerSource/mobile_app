@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:omm_scratch_audio/omm_scratch_audio.dart';
 
-import '../../../core/platform/app_theme.dart';
 import '../../../core/platform/app_log_store.dart';
 import 'audio_metadata.dart';
 import 'audio_playback_service.dart';
@@ -583,7 +582,8 @@ class AudioPlaybackEngine
   @override
   Widget buildSurface({BoxFit fit = BoxFit.contain}) {
     return Builder(
-      builder: (context) => ColoredBox(color: appColors(context).bg),
+      builder: (context) =>
+          ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
     );
   }
 

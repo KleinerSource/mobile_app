@@ -13,6 +13,12 @@ import 'lrc_parser.dart';
 import '../common/playback_engine.dart';
 import '../common/player_session_controller.dart';
 
+const _vinylGrooveStartFactor = 0.25;
+const _vinylGrooveStepFactor = 0.047;
+const _vinylGrooveCount = 14;
+// 最内侧的两条沟槽被中心封面覆盖；磁针落在封面外第一条完整沟槽上。
+const _tonearmInnerGrooveIndex = 3;
+
 class AudioNowPlayingView extends StatefulWidget {
   const AudioNowPlayingView({
     super.key,
@@ -312,7 +318,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     required double recordSize,
     required PlaybackViewState state,
   }) {
-    final colors = appColors(context);
+    final foreground = Theme.of(context).colorScheme.onSurface;
     final l10n = AppL10n.of(context);
     final deckSize = recordSize + 28;
     final progress = _trackProgress(state);
@@ -329,8 +335,8 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
                 key: const ValueKey<String>('audio-dj-progress-ring'),
                 painter: _DjProgressRingPainter(
                   progress: progress,
-                  trackColor: colors.text.withValues(alpha: 0.12),
-                  progressColor: colors.accent,
+                  trackColor: foreground.withValues(alpha: 0.12),
+                  progressColor: foreground,
                 ),
               ),
             ),
@@ -344,8 +350,9 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
                   key: const ValueKey<String>('audio-dj-tonearm'),
                   painter: _DjTonearmPainter(
                     progress: _tonearmController.value,
-                    color: colors.text.withValues(alpha: 0.78),
-                    accent: colors.accent,
+                    recordSize: recordSize,
+                    color: foreground.withValues(alpha: 0.78),
+                    accent: foreground,
                   ),
                 ),
               ),
@@ -355,7 +362,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
             top: deckSize * 0.06,
             left: deckSize * 0.10,
             child: IgnorePointer(
-              child: _DjBadge(label: l10n.playerDjDeckA, color: colors.text),
+              child: _DjBadge(label: l10n.playerDjDeckA, color: foreground),
             ),
           ),
           Positioned(
@@ -367,8 +374,8 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
                     ? l10n.playerDjPlaying
                     : l10n.playerDjPaused,
                 active: state.playing,
-                color: colors.text,
-                activeColor: colors.accent,
+                color: foreground,
+                activeColor: foreground,
               ),
             ),
           ),
@@ -385,7 +392,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
                   return _DjBadge(
                     key: const ValueKey<String>('audio-dj-speed'),
                     label: '${l10n.playerDjPitch} ${rate.toStringAsFixed(2)}x',
-                    color: colors.muted,
+                    color: foreground.withValues(alpha: 0.62),
                   );
                 },
               ),
@@ -997,51 +1004,6 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   }
 }
 
-/// 播放页全屏氛围光背景。需由页面绘制在安全区之外（铺满整个屏幕），
-/// 让状态栏/导航栏区域与播放器主体共享同一配色，避免安全区边界出现色差。
-class AudioPlayerBackdrop extends StatelessWidget {
-  const AudioPlayerBackdrop({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(-0.12, -0.28),
-                radius: 1.05,
-                colors: [
-                  colors.glow1.withValues(alpha: isDark ? 0.18 : 0.10),
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ),
-        ),
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(0.9, 0.85),
-                radius: 0.9,
-                colors: [
-                  colors.glow2.withValues(alpha: isDark ? 0.14 : 0.08),
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _VinylRecord extends StatelessWidget {
   const _VinylRecord({
     required this.artworkPath,
@@ -1270,21 +1232,43 @@ class _DjProgressRingPainter extends CustomPainter {
 class _DjTonearmPainter extends CustomPainter {
   const _DjTonearmPainter({
     required this.progress,
+    required this.recordSize,
     required this.color,
     required this.accent,
   });
 
   final double progress;
+  final double recordSize;
   final Color color;
   final Color accent;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final recordCenter = Offset(size.width / 2, size.height / 2);
+    final recordRadius = recordSize / 2;
     final pivot = Offset(size.width * 0.80, size.height * 0.12);
     final parkedElbow = Offset(size.width * 0.76, size.height * 0.14);
     final engagedElbow = Offset(size.width * 0.46, size.height * 0.42);
-    final parkedNeedle = Offset(size.width * 0.68, size.height * 0.20);
-    final engagedNeedle = Offset(size.width * 0.38, size.height * 0.59);
+    final parkedReference = Offset(size.width * 0.68, size.height * 0.20);
+    final engagedReference = Offset(size.width * 0.38, size.height * 0.59);
+    final outerGrooveRadius =
+        recordRadius *
+        (_vinylGrooveStartFactor +
+            (_vinylGrooveCount - 1) * _vinylGrooveStepFactor);
+    final innerGrooveRadius =
+        recordRadius *
+        (_vinylGrooveStartFactor +
+            _tonearmInnerGrooveIndex * _vinylGrooveStepFactor);
+
+    Offset onGroove(Offset reference, double radius) {
+      final direction = reference - recordCenter;
+      final distance = direction.distance;
+      if (distance == 0) return recordCenter;
+      return recordCenter + direction / distance * radius;
+    }
+
+    final parkedNeedle = onGroove(parkedReference, outerGrooveRadius);
+    final engagedNeedle = onGroove(engagedReference, innerGrooveRadius);
     final elbow = Offset.lerp(parkedElbow, engagedElbow, progress)!;
     final needle = Offset.lerp(parkedNeedle, engagedNeedle, progress)!;
     final armPaint = Paint()
@@ -1309,6 +1293,7 @@ class _DjTonearmPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _DjTonearmPainter oldDelegate) {
     return oldDelegate.progress != progress ||
+        oldDelegate.recordSize != recordSize ||
         oldDelegate.color != color ||
         oldDelegate.accent != accent;
   }
@@ -1371,8 +1356,13 @@ class _VinylRecordPainter extends CustomPainter {
       ..color = Colors.white.withValues(alpha: 0.075)
       ..style = PaintingStyle.stroke
       ..strokeWidth = math.max(0.7, radius * 0.006);
-    for (var index = 0; index < 14; index++) {
-      canvas.drawCircle(center, radius * (0.25 + index * 0.047), groovePaint);
+    for (var index = 0; index < _vinylGrooveCount; index++) {
+      canvas.drawCircle(
+        center,
+        radius *
+            (_vinylGrooveStartFactor + index * _vinylGrooveStepFactor),
+        groovePaint,
+      );
     }
 
     final sheenPaint = Paint()
