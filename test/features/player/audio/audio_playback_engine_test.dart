@@ -167,6 +167,261 @@ void main() {
     await engine.dispose();
   });
 
+  test('首次普通 seek 直接切入精确 PCM 位置并保留播放意图', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    const channel = MethodChannel('omm/scratch_audio');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    var preparedSourceId = '';
+    var nativePositionMs = 0;
+    bool? startAutoplay;
+    final nativeCommands = <String>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      final arguments = call.arguments is Map
+          ? Map<String, dynamic>.from(call.arguments as Map)
+          : const <String, dynamic>{};
+      switch (call.method) {
+        case 'prepare':
+          preparedSourceId = _sourceId(call);
+          return _scratchState(positionMs: 0, sourceId: preparedSourceId);
+        case 'setRate':
+          nativeCommands.add('set-rate');
+          return null;
+        case 'start':
+          nativeCommands.add('start');
+          nativePositionMs = (arguments['positionMs'] as num).toInt();
+          startAutoplay = arguments['autoplay'] == true;
+          return null;
+        case 'state':
+          return _scratchState(
+            positionMs: nativePositionMs,
+            sourceId: preparedSourceId,
+          );
+        case 'stop':
+          return null;
+      }
+      return null;
+    });
+
+    final handler = _FakeAudioHandler();
+    final engine = AudioPlaybackEngine(handler: handler);
+    try {
+      await engine.open(
+        const PlaybackOpenRequest(
+          url: 'https://example.test/audio.mp3',
+          play: true,
+        ),
+      );
+      handler.playbackState.add(
+        audio_service.PlaybackState(
+          processingState: audio_service.AudioProcessingState.ready,
+          playing: true,
+          updatePosition: const Duration(seconds: 3),
+          speed: 1,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      await engine.seek(const Duration(seconds: 45));
+
+      expect(handler.seekPositions, isEmpty);
+      expect(handler.commands, ['pause']);
+      expect(nativeCommands, ['set-rate', 'start']);
+      expect(nativePositionMs, 45000);
+      expect(startAutoplay, isTrue);
+      expect(handler.scratchModePayloads, hasLength(1));
+      expect(handler.scratchModePayloads.single, <String, dynamic>{
+        'active': true,
+        'playbackIntent': true,
+        'sourceId': preparedSourceId,
+        'scratching': false,
+      });
+      expect(engine.state.value.position, const Duration(seconds: 45));
+    } finally {
+      await engine.dispose();
+      messenger.setMockMethodCallHandler(channel, null);
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  test('暂停状态首次 seek 切入 PCM 后仍保持暂停', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    const channel = MethodChannel('omm/scratch_audio');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    var preparedSourceId = '';
+    var nativePositionMs = 0;
+    bool? startAutoplay;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      final arguments = call.arguments is Map
+          ? Map<String, dynamic>.from(call.arguments as Map)
+          : const <String, dynamic>{};
+      switch (call.method) {
+        case 'prepare':
+          preparedSourceId = _sourceId(call);
+          return _scratchState(positionMs: 0, sourceId: preparedSourceId);
+        case 'setRate':
+          return null;
+        case 'start':
+          nativePositionMs = (arguments['positionMs'] as num).toInt();
+          startAutoplay = arguments['autoplay'] == true;
+          return null;
+        case 'state':
+          return _scratchState(
+            positionMs: nativePositionMs,
+            sourceId: preparedSourceId,
+          );
+        case 'stop':
+          return null;
+      }
+      return null;
+    });
+
+    final handler = _FakeAudioHandler();
+    final engine = AudioPlaybackEngine(handler: handler);
+    try {
+      await engine.open(
+        const PlaybackOpenRequest(
+          url: 'https://example.test/audio.mp3',
+          play: false,
+        ),
+      );
+      handler.playbackState.add(
+        audio_service.PlaybackState(
+          processingState: audio_service.AudioProcessingState.ready,
+          playing: false,
+          updatePosition: const Duration(seconds: 3),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      await engine.seek(const Duration(seconds: 30));
+
+      expect(startAutoplay, isFalse);
+      expect(handler.scratchModePayloads.single['playbackIntent'], isFalse);
+      expect(handler.scratchModePayloads.single['scratching'], isFalse);
+      expect(handler.commands, ['pause']);
+      expect(handler.commands, isNot(contains('play')));
+      expect(engine.state.value.position, const Duration(seconds: 30));
+    } finally {
+      await engine.dispose();
+      messenger.setMockMethodCallHandler(channel, null);
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  test('连续两次首次 seek 只向 PCM 提交最新目标', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    const channel = MethodChannel('omm/scratch_audio');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final prepareCompleter = Completer<Map<String, Object>>();
+    final startPositions = <int>[];
+    var preparedSourceId = '';
+    var nativePositionMs = 0;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      final arguments = call.arguments is Map
+          ? Map<String, dynamic>.from(call.arguments as Map)
+          : const <String, dynamic>{};
+      switch (call.method) {
+        case 'prepare':
+          preparedSourceId = _sourceId(call);
+          return prepareCompleter.future;
+        case 'setRate':
+          return null;
+        case 'start':
+          nativePositionMs = (arguments['positionMs'] as num).toInt();
+          startPositions.add(nativePositionMs);
+          return null;
+        case 'state':
+          return _scratchState(
+            positionMs: nativePositionMs,
+            sourceId: preparedSourceId,
+          );
+        case 'stop':
+          return null;
+      }
+      return null;
+    });
+
+    final handler = _FakeAudioHandler();
+    final engine = AudioPlaybackEngine(handler: handler);
+    try {
+      await engine.open(
+        const PlaybackOpenRequest(
+          url: 'https://example.test/audio.mp3',
+          play: true,
+        ),
+      );
+      handler.playbackState.add(
+        audio_service.PlaybackState(
+          processingState: audio_service.AudioProcessingState.ready,
+          playing: true,
+          speed: 1,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final first = engine.seek(const Duration(seconds: 10));
+      final latest = engine.seek(const Duration(seconds: 50));
+      prepareCompleter.complete(
+        _scratchState(positionMs: 0, sourceId: preparedSourceId),
+      );
+      await Future.wait([first, latest]);
+
+      expect(startPositions, [50000]);
+      expect(handler.seekPositions, isEmpty);
+      expect(handler.commands, ['pause']);
+      expect(engine.state.value.position, const Duration(seconds: 50));
+    } finally {
+      if (!prepareCompleter.isCompleted) {
+        prepareCompleter.complete(
+          _scratchState(positionMs: 0, sourceId: preparedSourceId),
+        );
+      }
+      await engine.dispose();
+      messenger.setMockMethodCallHandler(channel, null);
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  test('PCM 准备失败时首次 seek 立即回退普通通道', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    const channel = MethodChannel('omm/scratch_audio');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'prepare') {
+        return <String, Object>{
+          ..._scratchState(positionMs: 0, sourceId: _sourceId(call)),
+          'ready': false,
+        };
+      }
+      return null;
+    });
+
+    final handler = _FakeAudioHandler();
+    final engine = AudioPlaybackEngine(handler: handler);
+    try {
+      await engine.open(
+        const PlaybackOpenRequest(
+          url: 'https://example.test/audio.mp3',
+          play: true,
+        ),
+      );
+
+      await engine.seek(const Duration(seconds: 25));
+
+      expect(handler.seekPositions, [const Duration(seconds: 25)]);
+      expect(handler.commands, ['seek']);
+      expect(handler.scratchModePayloads, isEmpty);
+    } finally {
+      await engine.dispose();
+      messenger.setMockMethodCallHandler(channel, null);
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
   test('Scratch 恢复正常倍率后继续复用原生游标和输出', () async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     const channel = MethodChannel('omm/scratch_audio');

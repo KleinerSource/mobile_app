@@ -20,6 +20,7 @@ class AudioPlaybackEngine
     implements PlaybackEngine, AudioMetadataSink, ScratchPlaybackEngine {
   static const _scratchPositionPollInterval = Duration(milliseconds: 33);
   static const _spectrumPollInterval = Duration(milliseconds: 33);
+  static const _preciseSeekPrepareTimeout = Duration(seconds: 2);
 
   AudioPlaybackEngine({required audio_service.AudioHandler handler})
     : _handler = handler,
@@ -31,7 +32,8 @@ class AudioPlaybackEngine
     _subscriptions.add(_handler.mediaItem.listen(_handleMediaItem));
     _handlePlaybackState(_handler.playbackState.valueOrNull);
     _handleMediaItem(_handler.mediaItem.valueOrNull);
-    unawaited(_restoreScratchMode());
+    _scratchModeRestoreFuture = _restoreScratchMode();
+    unawaited(_scratchModeRestoreFuture);
   }
 
   final audio_service.AudioHandler _handler;
@@ -39,6 +41,7 @@ class AudioPlaybackEngine
   final ValueNotifier<AudioSpectrumFrame> _spectrum;
   final List<StreamSubscription<Object?>> _subscriptions =
       <StreamSubscription<Object?>>[];
+  late final Future<void> _scratchModeRestoreFuture;
   audio_service.MediaItem? _currentItem;
   bool _disposed = false;
   String? _scratchSource;
@@ -47,6 +50,8 @@ class AudioPlaybackEngine
   Future<bool>? _scratchPrepareFuture;
   int _scratchSourceGeneration = 0;
   int _scratchStartGeneration = 0;
+  int _seekGeneration = 0;
+  Future<void> _seekOperation = Future<void>.value();
   bool _scratchActive = false;
   bool _scratchMainPlaybackPaused = false;
   bool _scratchModeStatusKnown = false;
@@ -156,6 +161,7 @@ class AudioPlaybackEngine
 
   @override
   Future<void> skipToPrevious() {
+    _seekGeneration++;
     _spectrumSourceReady = false;
     _stopSpectrumPolling();
     return _handler.skipToPrevious();
@@ -163,6 +169,7 @@ class AudioPlaybackEngine
 
   @override
   Future<void> skipToNext() {
+    _seekGeneration++;
     _spectrumSourceReady = false;
     _stopSpectrumPolling();
     return _handler.skipToNext();
@@ -184,12 +191,159 @@ class AudioPlaybackEngine
       });
 
   @override
-  Future<void> seek(Duration position) async {
+  Future<void> seek(Duration position) {
+    final generation = ++_seekGeneration;
+    final resumePlayback = _state.value.playing;
+    final playbackRate = _state.value.rate;
+    final next = _seekOperation.then<void>(
+      (_) => _performSeek(
+        position,
+        generation: generation,
+        resumePlayback: resumePlayback,
+        playbackRate: playbackRate,
+      ),
+    );
+    _seekOperation = next.catchError((_) {});
+    return next;
+  }
+
+  Future<void> _performSeek(
+    Duration position, {
+    required int generation,
+    required bool resumePlayback,
+    required double playbackRate,
+  }) async {
+    if (_disposed || generation != _seekGeneration) return;
+    await _scratchModeRestoreFuture;
+    if (_disposed || generation != _seekGeneration) return;
+
+    final source = _scratchSource;
+    final sourceId = _scratchSourceId;
+    if (_scratchActive ||
+        !OmmScratchAudio.isSupported ||
+        source == null ||
+        source.isEmpty ||
+        sourceId == null ||
+        sourceId.isEmpty) {
+      await _seekCurrentOutput(position, generation);
+      return;
+    }
+
+    final sourceGeneration = _scratchSourceGeneration;
+    final prepare = _scratchPrepareFuture ??= _prepareScratchAudio(
+      source: source,
+      sourceId: sourceId,
+      headers: _scratchHeaders,
+    );
+    var timedOut = false;
+    final ready = _spectrumSourceReady
+        ? true
+        : await prepare.timeout(
+            _preciseSeekPrepareTimeout,
+            onTimeout: () {
+              timedOut = true;
+              return false;
+            },
+          );
+    if (_disposed ||
+        generation != _seekGeneration ||
+        sourceGeneration != _scratchSourceGeneration) {
+      return;
+    }
+    if (!ready) {
+      if (!timedOut && identical(_scratchPrepareFuture, prepare)) {
+        _scratchPrepareFuture = null;
+      }
+      if (timedOut) {
+        appLog('[AudioScratch] 首次精确 seek 等待 PCM 超时，已回退普通 seek');
+      }
+      await _seekCurrentOutput(position, generation);
+      return;
+    }
+
+    var pausedMainOutput = false;
+    try {
+      _scratchMainPlaybackPaused = true;
+      await _handler.pause();
+      pausedMainOutput = true;
+      if (_disposed ||
+          generation != _seekGeneration ||
+          sourceGeneration != _scratchSourceGeneration) {
+        return;
+      }
+
+      final safeRate = playbackRate.isFinite && playbackRate > 0
+          ? playbackRate
+          : 1.0;
+      await OmmScratchAudio.setRate(safeRate);
+      if (_disposed ||
+          generation != _seekGeneration ||
+          sourceGeneration != _scratchSourceGeneration) {
+        return;
+      }
+      await OmmScratchAudio.start(
+        position: position,
+        sourceId: sourceId,
+        autoplay: resumePlayback,
+      );
+
+      final nativeState = await OmmScratchAudio.state();
+      if (_disposed ||
+          sourceGeneration != _scratchSourceGeneration ||
+          !nativeState.ready ||
+          nativeState.sourceId != sourceId) {
+        throw StateError('首次精确 seek 的 PCM 音轨失效');
+      }
+      await _handler.customAction(audioSetScratchModeAction, {
+        'active': true,
+        'playbackIntent': resumePlayback,
+        'sourceId': sourceId,
+        'scratching': false,
+      });
+      _scratchActive = true;
+      _scratchMainPlaybackPaused = false;
+      _publishScratchPosition(state: nativeState);
+      _startScratchPositionPolling();
+      _syncSpectrumPolling();
+    } catch (error) {
+      try {
+        await OmmScratchAudio.stop();
+      } catch (_) {}
+      _scratchActive = false;
+      _scratchMainPlaybackPaused = false;
+      try {
+        await _handler.customAction(audioSetScratchModeAction, {
+          'active': false,
+        });
+      } catch (_) {}
+      if (_disposed ||
+          generation != _seekGeneration ||
+          sourceGeneration != _scratchSourceGeneration) {
+        return;
+      }
+      appLog('[AudioScratch] 首次精确 seek 交接失败，已回退普通 seek: $error');
+      await _handler.seek(position);
+      if (resumePlayback && pausedMainOutput) {
+        unawaited(_handler.play().catchError((_) {}));
+      }
+    }
+  }
+
+  Future<void> _seekCurrentOutput(Duration position, int generation) async {
     await _handler.seek(position);
-    if (!_scratchActive || !OmmScratchAudio.isSupported) return;
+    if (_disposed ||
+        generation != _seekGeneration ||
+        !_scratchActive ||
+        !OmmScratchAudio.isSupported) {
+      return;
+    }
     try {
       final state = await OmmScratchAudio.state();
-      if (_scratchActive && state.ready && state.sourceId == _scratchSourceId) {
+      if (!_disposed &&
+          generation == _seekGeneration &&
+          _scratchActive &&
+          state.ready &&
+          state.sourceId == _scratchSourceId) {
         _publishScratchPosition(state: state);
       }
     } catch (_) {
@@ -205,6 +359,7 @@ class AudioPlaybackEngine
     Duration position, {
     required bool resumePlayback,
   }) async {
+    _seekGeneration++;
     if (!OmmScratchAudio.isSupported) return false;
     final source = _scratchSource;
     final sourceId = _scratchSourceId;
@@ -618,6 +773,8 @@ class AudioPlaybackEngine
 
   @override
   Future<void> stop() {
+    _seekGeneration++;
+    _scratchMainPlaybackPaused = false;
     _stopSpectrumPolling();
     return _handler.stop();
   }
@@ -695,6 +852,7 @@ class AudioPlaybackEngine
     _stopSpectrumPolling();
     _scratchSourceGeneration++;
     _scratchStartGeneration++;
+    _seekGeneration++;
     _scratchActive = false;
     _scratchMainPlaybackPaused = false;
     _stopScratchPositionPolling();
@@ -842,6 +1000,7 @@ class AudioPlaybackEngine
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    _seekGeneration++;
     _spectrumPollTimer?.cancel();
     _spectrumPollTimer = null;
     _spectrumPollGeneration++;
