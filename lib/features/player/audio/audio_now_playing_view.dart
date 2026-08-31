@@ -272,10 +272,14 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
                     ),
                   ),
                   Positioned(
-                    top: geometry.deckSize + 18,
+                    top:
+                        geometry.deckSize +
+                        AudioNowPlayingGeometry.lyricsTopInset,
                     left: 0,
                     right: 0,
-                    height: AudioNowPlayingGeometry.lyricsSlotHeight - 18,
+                    height:
+                        AudioNowPlayingGeometry.lyricsSlotHeight -
+                        AudioNowPlayingGeometry.lyricsTopInset,
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 260),
                       switchInCurve: Curves.easeOutCubic,
@@ -295,7 +299,8 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
                               key: const ValueKey('lyrics'),
                               width: geometry.lyricsWidth,
                               height:
-                                  AudioNowPlayingGeometry.lyricsSlotHeight - 18,
+                                  AudioNowPlayingGeometry.lyricsSlotHeight -
+                                  AudioNowPlayingGeometry.lyricsTopInset,
                               child: Align(
                                 alignment: Alignment.topCenter,
                                 child: AudioLyricsView(
@@ -305,7 +310,22 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
                                 ),
                               ),
                             )
-                          : const SizedBox.shrink(key: ValueKey('no-lyrics')),
+                          : SizedBox(
+                              key: const ValueKey('no-lyrics'),
+                              width: geometry.lyricsWidth,
+                              height:
+                                  AudioNowPlayingGeometry.lyricsSlotHeight -
+                                  AudioNowPlayingGeometry.lyricsTopInset,
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: LyricsAudioSpectrum(
+                                  spectrum: widget.spectrum,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                 ],

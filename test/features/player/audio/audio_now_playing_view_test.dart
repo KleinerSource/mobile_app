@@ -226,6 +226,10 @@ void main() {
     final controller = PlayerSessionController(engine: engine);
     try {
       await tester.pumpWidget(_app(controller));
+      expect(
+        find.byKey(const ValueKey<String>('audio-lyrics-spectrum')),
+        findsOneWidget,
+      );
       final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
 
       await tester.tap(record);

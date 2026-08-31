@@ -51,10 +51,18 @@ void main() {
 
     expect(find.text('第一句'), findsOneWidget);
     expect(
+      find.byKey(const ValueKey<String>('audio-lyrics-current')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('audio-lyrics-next')),
+      findsOneWidget,
+    );
+    expect(find.text('第二句'), findsOneWidget);
+    expect(
       find.byKey(const ValueKey<String>('audio-lyrics-spectrum')),
       findsOneWidget,
     );
-    expect(find.text('第二句'), findsNothing);
     await tester.tap(find.text('第一句'));
     await tester.pumpAndSettle();
     expect(find.text('歌词'), findsOneWidget);
@@ -63,7 +71,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('第一句'), findsNWidgets(2));
-    expect(find.text('第二句'), findsOneWidget);
+    expect(find.text('第二句'), findsNWidgets(2));
 
     final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
     final initialScrollOffset = scrollable.position.pixels;

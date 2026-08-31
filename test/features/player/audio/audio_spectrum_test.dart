@@ -114,6 +114,8 @@ void main() {
     final progressTop = height - progressTopFromBottom;
 
     expect(AudioNowPlayingGeometry.stageTopInset, 78);
+    expect(AudioNowPlayingGeometry.lyricsTopInset, 38);
+    expect(AudioNowPlayingGeometry.lyricsSlotHeight, 128);
     expect(AudioNowPlayingGeometry.maxRecordSize, 300);
     expect(geometry.recordSize, AudioNowPlayingGeometry.maxRecordSize);
     expect(stageBottom, lessThanOrEqualTo(progressTop - 16));

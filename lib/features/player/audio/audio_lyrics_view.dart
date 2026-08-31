@@ -34,6 +34,10 @@ class AudioLyricsView extends StatelessWidget {
       builder: (context, state, _) {
         final index = document.indexAt(state.position);
         final cue = index >= 0 ? document.cues[index] : null;
+        final nextIndex = index < 0 ? 0 : index + 1;
+        final nextCue = nextIndex < document.cues.length
+            ? document.cues[nextIndex]
+            : null;
         final l10n = AppL10n.of(context);
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -49,7 +53,7 @@ class AudioLyricsView extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 260),
+                  duration: const Duration(milliseconds: 360),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
                   transitionBuilder: (child, animation) => FadeTransition(
@@ -62,18 +66,40 @@ class AudioLyricsView extends StatelessWidget {
                       child: child,
                     ),
                   ),
-                  child: Text(
-                    cue?.text ?? l10n.playerLyricsUnavailable,
-                    key: ValueKey<String>(cue?.text ?? 'empty'),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                      fontSize: 16,
-                      height: 1.35,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Column(
+                    key: ValueKey<int>(index),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        cue?.text ?? l10n.playerLyricsUnavailable,
+                        key: const ValueKey<String>('audio-lyrics-current'),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 16,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        nextCue?.text ?? '',
+                        key: const ValueKey<String>('audio-lyrics-next'),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.48),
+                          fontSize: 13,
+                          height: 1.3,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
