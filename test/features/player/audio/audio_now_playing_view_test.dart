@@ -530,6 +530,40 @@ void main() {
     }
   });
 
+  testWidgets('音频加载或缓冲时唱片保持停止，真正播放后才旋转', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.opening,
+        playing: true,
+        buffering: true,
+        duration: Duration(minutes: 1),
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    try {
+      await tester.pumpWidget(_app(controller));
+      final rotation = tester.widget<RotationTransition>(
+        find.byKey(const ValueKey<String>('audio-vinyl-rotation')),
+      );
+      final whileLoading = rotation.turns.value;
+
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(rotation.turns.value, closeTo(whileLoading, 0.0001));
+
+      engine.notifier.value = engine.notifier.value.copyWith(
+        lifecycle: PlaybackLifecycle.ready,
+        buffering: false,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(rotation.turns.value, greaterThan(whileLoading));
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
   testWidgets('旋拧 seek 会合并快速更新并限制在歌曲边界内', (tester) async {
     final engine = FakePlaybackEngine(
       PlaybackEngineKind.audio,

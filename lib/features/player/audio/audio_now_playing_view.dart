@@ -127,7 +127,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
       return;
     }
 
-    final playing = widget.controller.playing;
+    final playing = _isPlaybackActive;
     _syncTonearm(playing);
     if (playing) {
       _startRotationTicker();
@@ -165,6 +165,13 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     _lastTick = null;
   }
 
+  bool get _isPlaybackActive {
+    final state = widget.controller.value;
+    return state.playing &&
+        state.lifecycle == PlaybackLifecycle.ready &&
+        !state.buffering;
+  }
+
   void _advanceRotation(Duration elapsed) {
     final previous = _lastTick;
     _lastTick = elapsed;
@@ -176,7 +183,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
           elapsedSeconds / _rotationPeriodSeconds * _scratchAudioRate;
       return;
     }
-    if (!widget.controller.playing) return;
+    if (!_isPlaybackActive) return;
     final elapsedFraction =
         (elapsed - previous).inMicroseconds / _rotationPeriod.inMicroseconds;
     final rate = widget.controller.value.rate;
