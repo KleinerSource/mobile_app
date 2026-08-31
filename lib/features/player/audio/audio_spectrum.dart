@@ -118,11 +118,11 @@ class CircularAudioSpectrumPainter extends CustomPainter {
     required this.palette,
   });
 
-  static const double strokeWidth = 5;
-  static const double glowStrokeWidth = 18;
-  static const double haloStrokeWidth = 32;
-  static const double haloBlurSigma = 12;
-  static const double glowBlurSigma = 5;
+  static const int layerCount = 4;
+  static const double glowStrokeWidth = 13;
+  static const double haloStrokeWidth = 26;
+  static const double haloBlurSigma = 18;
+  static const double glowBlurSigma = 8;
   static const double minimumLength = 0;
   static const double silenceThreshold = 0.04;
   static const double minimumOpacity = 0.82;
@@ -139,10 +139,6 @@ class CircularAudioSpectrumPainter extends CustomPainter {
     final maxLength = math.max(0.0, size.shortestSide / 2 - baseRadius - 2);
     if (maxLength <= 0) return;
 
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
     final glowPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = glowStrokeWidth
@@ -173,16 +169,19 @@ class CircularAudioSpectrumPainter extends CustomPainter {
       final opacity =
           (minimumOpacity + math.max(energy, frame.rms) * (1 - minimumOpacity))
               .clamp(0.0, 1.0);
-      final color = colorForIntensity(palette, energy);
-      haloPaint.color = color.withValues(alpha: opacity * 0.30);
-      glowPaint.color = color.withValues(alpha: opacity * 0.52);
-      paint.color = color.withValues(alpha: opacity);
       final direction = Offset(math.cos(angle), math.sin(angle));
-      final start = center + direction * baseRadius;
-      final end = center + direction * (baseRadius + length);
-      canvas.drawLine(start, end, haloPaint);
-      canvas.drawLine(start, end, glowPaint);
-      canvas.drawLine(start, end, paint);
+      for (var layer = 0; layer < layerCount; layer++) {
+        final color = colorForLayer(palette, amplitude, layer);
+        glowPaint.color = color.withValues(alpha: opacity * 0.66);
+        haloPaint.color = color.withValues(alpha: opacity * 0.30);
+        final start =
+            center + direction * (baseRadius + length * layer / layerCount);
+        final end =
+            center +
+            direction * (baseRadius + length * (layer + 1) / layerCount);
+        canvas.drawLine(start, end, haloPaint);
+        canvas.drawLine(start, end, glowPaint);
+      }
     }
   }
 
@@ -214,6 +213,11 @@ class CircularAudioSpectrumPainter extends CustomPainter {
       palette.length - 1,
     );
     return palette[index];
+  }
+
+  static Color colorForLayer(List<Color> palette, double amplitude, int layer) {
+    final layerCenter = (layer + 0.5) / layerCount;
+    return colorForIntensity(palette, amplitude.clamp(0.0, 1.0) * layerCenter);
   }
 
   @override

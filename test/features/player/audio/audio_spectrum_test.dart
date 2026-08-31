@@ -70,6 +70,21 @@ void main() {
       CircularAudioSpectrumPainter.colorForIntensity(circular.palette, 1),
       circular.palette.last,
     );
+    final layerColors = List<Color>.generate(
+      CircularAudioSpectrumPainter.layerCount,
+      (layer) => CircularAudioSpectrumPainter.colorForLayer(
+        circular.palette,
+        1,
+        layer,
+      ),
+    );
+    expect(layerColors.toSet().length, CircularAudioSpectrumPainter.layerCount);
+    expect(
+      CircularAudioSpectrumPainter.colorForLayer(circular.palette, 0.9, 3),
+      isNot(
+        CircularAudioSpectrumPainter.colorForLayer(circular.palette, 0.2, 3),
+      ),
+    );
     expect(lyrics.color, Colors.black);
     expect(CircularAudioSpectrumPainter.minimumOpacity, greaterThan(0.5));
     expect(AudioSpectrumBackdrop.spectrumOuterPadding, greaterThan(104));
@@ -92,15 +107,12 @@ void main() {
       0,
     );
     expect(
-      CircularAudioSpectrumPainter.glowStrokeWidth,
-      greaterThan(CircularAudioSpectrumPainter.strokeWidth),
-    );
-    expect(
       CircularAudioSpectrumPainter.haloStrokeWidth,
       greaterThan(CircularAudioSpectrumPainter.glowStrokeWidth),
     );
     expect(CircularAudioSpectrumPainter.haloBlurSigma, greaterThan(0));
     expect(CircularAudioSpectrumPainter.glowBlurSigma, greaterThan(0));
+    expect(CircularAudioSpectrumPainter.layerCount, greaterThan(1));
   });
 
   test('唱机舞台下移并为歌词和底部进度条保留间距', () {
