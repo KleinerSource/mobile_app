@@ -103,6 +103,10 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
   @override
   void initState() {
     super.initState();
+    // 窗口延伸到系统栏后方（与视频播放器退出后的常驻模式一致），配合透明
+    // 系统栏颜色，全屏氛围光才能覆盖安全区；否则系统栏会用不透明底色把
+    // 页面上下边缘盖成另一种配色。
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _audioQueue = widget.queue
         .where((item) => item.type == PlayerQueueItemType.audio)
         .toList(growable: false);
@@ -271,6 +275,11 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
     _host.removeListener(_onPlaybackStateChanged);
     unawaited(_metadataCoordinator?.dispose());
     unawaited(_disposeQueueResources());
+    // 与视频播放器退出时一致：恢复 edge-to-edge 常驻模式并确保系统栏显示。
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+      overlays: SystemUiOverlay.values,
+    );
     // 页面被系统返回或外部路由移除时，也必须停止独立于页面生命周期的后台音频。
     unawaited(_disposePlayback());
     super.dispose();
@@ -286,15 +295,17 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
         if (!didPop) unawaited(_exitPlayer());
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
+        // 系统栏保持透明，让页面的全屏氛围光透出来；图标亮度仍随深浅色
+        // 模式切换。不透明底色会把安全区盖成与播放器本体不同的配色。
         value: SystemUiOverlayStyle(
-          statusBarColor: colors.bg,
+          statusBarColor: Colors.transparent,
           statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
           statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
-          systemNavigationBarColor: colors.bg,
+          systemNavigationBarColor: Colors.transparent,
           systemNavigationBarIconBrightness: isDark
               ? Brightness.light
               : Brightness.dark,
-          systemNavigationBarDividerColor: colors.bg,
+          systemNavigationBarDividerColor: Colors.transparent,
           systemNavigationBarContrastEnforced: false,
         ),
         child: ColoredBox(

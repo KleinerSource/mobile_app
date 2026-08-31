@@ -107,30 +107,34 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   }
 
   void _syncRotation() {
+    final progress = _trackProgress(widget.controller.value);
     if (_disableAnimations) {
       _stopRotationTicker();
-      _syncTonearm(_scratchActive || _scratchFinishing);
+      _syncTonearm(
+        _scratchActive || _scratchFinishing ? _scratchProgress : progress,
+        immediate: true,
+      );
       return;
     }
 
     if (_scratchActive) {
       _stopRotationTicker();
-      _syncTonearm(true);
+      _syncTonearm(_scratchProgress, immediate: true);
       return;
     }
     if (_scratchFinishing && _nativeScratchActive) {
-      _syncTonearm(true);
+      _syncTonearm(_scratchProgress, immediate: true);
       _startRotationTicker();
       return;
     }
     if (_scratchFinishing) {
       _stopRotationTicker();
-      _syncTonearm(true);
+      _syncTonearm(_scratchProgress, immediate: true);
       return;
     }
 
     final playing = _isPlaybackActive;
-    _syncTonearm(playing);
+    _syncTonearm(progress);
     if (playing) {
       _startRotationTicker();
     } else {
@@ -138,11 +142,14 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     }
   }
 
-  void _syncTonearm(bool engaged) {
-    final target = engaged ? 1.0 : 0.0;
-    if (_tonearmTarget == target) return;
+  void _syncTonearm(double progress, {bool immediate = false}) {
+    final target = progress.clamp(0.0, 1.0).toDouble();
+    if (_tonearmTarget == target &&
+        (!immediate || !_tonearmController.isAnimating)) {
+      return;
+    }
     _tonearmTarget = target;
-    if (_disableAnimations) {
+    if (_disableAnimations || immediate) {
       _tonearmController.stop();
       _tonearmController.value = target;
       return;
@@ -150,10 +157,30 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     unawaited(
       _tonearmController.animateTo(
         target,
-        duration: const Duration(milliseconds: 320),
+        duration: Duration(
+          milliseconds: target == 0 || target == 1 ? 320 : 180,
+        ),
         curve: Curves.easeOutCubic,
       ),
     );
+  }
+
+  double _trackProgress(PlaybackViewState state) {
+    return _progressFor(state.position, state.duration);
+  }
+
+  double get _scratchProgress {
+    return _progressFor(
+      _scratchPosition ?? widget.controller.position,
+      widget.controller.duration,
+    );
+  }
+
+  double _progressFor(Duration position, Duration duration) {
+    if (duration <= Duration.zero) return 0;
+    return (position.inMicroseconds / duration.inMicroseconds)
+        .clamp(0.0, 1.0)
+        .toDouble();
   }
 
   void _startRotationTicker() {
@@ -288,10 +315,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     final colors = appColors(context);
     final l10n = AppL10n.of(context);
     final deckSize = recordSize + 28;
-    final durationMs = state.duration.inMilliseconds;
-    final progress = durationMs <= 0
-        ? 0.0
-        : (state.position.inMilliseconds / durationMs).clamp(0.0, 1.0);
+    final progress = _trackProgress(state);
     return SizedBox(
       key: const ValueKey<String>('audio-dj-deck'),
       width: deckSize,
@@ -552,6 +576,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
       current + Duration(microseconds: deltaMicros),
     );
     _scratchPosition = target;
+    _syncTonearm(_scratchProgress, immediate: true);
     final elapsedSeconds = _scratchSampleElapsedSeconds();
     final scratchRate = elapsedSeconds > 0
         ? (turns * _rotationPeriodSeconds / elapsedSeconds).clamp(-8.0, 8.0)
@@ -614,7 +639,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     _scratchStartCancelled = false;
     _setScratchAudioRate(0);
     _stopRotationTicker();
-    _syncTonearm(true);
+    _syncTonearm(_scratchProgress, immediate: true);
     AppHaptics.light();
     if (_nativeScratchRequested) {
       final future = _startNativeScratch(_scratchGeneration, _scratchPosition!);

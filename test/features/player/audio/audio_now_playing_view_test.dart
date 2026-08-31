@@ -38,6 +38,55 @@ void main() {
     }
   });
 
+  testWidgets('磁头杆按曲目进度移动，下一曲从最外圈重新开始', (tester) async {
+    final engine = FakePlaybackEngine(
+      PlaybackEngineKind.audio,
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        duration: Duration(minutes: 1),
+        queueIndex: 0,
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    final tonearm = find.byKey(const ValueKey<String>('audio-dj-tonearm'));
+
+    CustomPainter currentTonearm() {
+      return tester.widget<CustomPaint>(tonearm).painter!;
+    }
+
+    try {
+      await tester.pumpWidget(_app(controller));
+      final atStart = currentTonearm();
+
+      // 即使暂停，磁头杆也应反映用户拖动进度后所在的唱片槽位。
+      engine.notifier.value = engine.notifier.value.copyWith(
+        position: const Duration(seconds: 30),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      final atMiddle = currentTonearm();
+      expect(atMiddle.shouldRepaint(atStart), isTrue);
+
+      engine.notifier.value = engine.notifier.value.copyWith(
+        position: const Duration(minutes: 1),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      final atEnd = currentTonearm();
+      expect(atEnd.shouldRepaint(atMiddle), isTrue);
+
+      engine.notifier.value = engine.notifier.value.copyWith(
+        playing: true,
+        position: Duration.zero,
+        queueIndex: 1,
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      final nextTrack = currentTonearm();
+      expect(nextTrack.shouldRepaint(atEnd), isTrue);
+    } finally {
+      await _dispose(tester, controller);
+    }
+  });
+
   testWidgets('点按唱片切换播放状态', (tester) async {
     final engine = FakePlaybackEngine(
       PlaybackEngineKind.audio,
