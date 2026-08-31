@@ -10,17 +10,6 @@ class AudioPlayerTheme extends StatelessWidget {
 
   final Widget child;
 
-  // 按低强度到高强度排列，频谱颜色由音频能量分桶选择。
-  static const List<Color> spectrumPalette = <Color>[
-    Color(0xFF8A63FF),
-    Color(0xFF3D8BFF),
-    Color(0xFF30D5C8),
-    Color(0xFF4DDC78),
-    Color(0xFFFFD43B),
-    Color(0xFFFF8A3D),
-    Color(0xFFFF4B4B),
-  ];
-
   static Color backgroundFor(Brightness brightness) {
     return brightness == Brightness.dark ? Colors.black : Colors.white;
   }
