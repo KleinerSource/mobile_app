@@ -163,7 +163,7 @@ void main() {
     }
   });
 
-  testWidgets('搓碟按十五秒每圈换算实时速率并在停手后归零', (tester) async {
+  testWidgets('搓碟按一点八秒每圈换算实时速率并在停手后归零', (tester) async {
     final engine = FakeScratchPlaybackEngine(
       initialState: const PlaybackViewState(
         engineKind: PlaybackEngineKind.audio,
@@ -183,21 +183,21 @@ void main() {
 
       await gesture.moveTo(
         center + const Offset(120, 0),
-        timeStamp: const Duration(milliseconds: 3750),
+        timeStamp: const Duration(milliseconds: 450),
       );
       await tester.pump();
       expect(engine.scratchRates.last, closeTo(1, 0.001));
 
       await gesture.moveTo(
         center + const Offset(0, 120),
-        timeStamp: const Duration(milliseconds: 11250),
+        timeStamp: const Duration(milliseconds: 675),
       );
       await tester.pump();
-      expect(engine.scratchRates.last, closeTo(0.5, 0.001));
+      expect(engine.scratchRates.last, closeTo(2, 0.001));
 
       await gesture.moveTo(
         center + const Offset(120, 0),
-        timeStamp: const Duration(milliseconds: 15000),
+        timeStamp: const Duration(milliseconds: 1125),
       );
       await tester.pump();
       expect(engine.scratchRates.last, closeTo(-1, 0.001));
@@ -205,7 +205,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 80));
       expect(engine.scratchRates.last, 0);
 
-      await gesture.up(timeStamp: const Duration(milliseconds: 15100));
+      await gesture.up(timeStamp: const Duration(milliseconds: 1225));
       for (var frame = 0; frame < 140; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
       }
@@ -233,13 +233,13 @@ void main() {
       final gesture = await tester.startGesture(center + const Offset(0, -120));
       await gesture.moveTo(
         center + const Offset(120, 0),
-        timeStamp: const Duration(milliseconds: 7500),
+        timeStamp: const Duration(milliseconds: 900),
       );
       await tester.pump();
       expect(engine.scratchRates.last, closeTo(0.5, 0.001));
       final releaseRateStart = engine.scratchRates.length;
 
-      await gesture.up(timeStamp: const Duration(milliseconds: 7510));
+      await gesture.up(timeStamp: const Duration(milliseconds: 910));
       for (var frame = 0; frame < 20; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
       }
@@ -282,13 +282,13 @@ void main() {
       final gesture = await tester.startGesture(center + const Offset(0, -120));
       await gesture.moveTo(
         center + const Offset(-120, 0),
-        timeStamp: const Duration(milliseconds: 750),
+        timeStamp: const Duration(milliseconds: 90),
       );
       await tester.pump();
       expect(engine.scratchRates.last, closeTo(-5, 0.001));
       final releaseRateStart = engine.scratchRates.length;
 
-      await gesture.up(timeStamp: const Duration(milliseconds: 760));
+      await gesture.up(timeStamp: const Duration(milliseconds: 100));
       for (var frame = 0; frame < 80; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
       }
@@ -328,13 +328,13 @@ void main() {
       final gesture = await tester.startGesture(center + const Offset(0, -120));
       await gesture.moveTo(
         center + const Offset(120, 0),
-        timeStamp: const Duration(milliseconds: 750),
+        timeStamp: const Duration(milliseconds: 90),
       );
       await tester.pump();
       expect(engine.scratchRates.last, closeTo(5, 0.001));
       final releaseRateStart = engine.scratchRates.length;
 
-      await gesture.up(timeStamp: const Duration(milliseconds: 760));
+      await gesture.up(timeStamp: const Duration(milliseconds: 100));
       for (var frame = 0; frame < 80; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
       }
@@ -352,7 +352,7 @@ void main() {
     }
   });
 
-  testWidgets('手搓完整一圈只移动十五秒音轨', (tester) async {
+  testWidgets('手搓完整一圈只移动一点八秒音轨', (tester) async {
     final engine = FakePlaybackEngine(
       PlaybackEngineKind.audio,
       initialState: const PlaybackViewState(
@@ -375,7 +375,10 @@ void main() {
       await gesture.up();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(engine.seekPositions.last, const Duration(seconds: 45));
+      expect(
+        engine.seekPositions.last,
+        const Duration(seconds: 31, milliseconds: 800),
+      );
     } finally {
       await _dispose(tester, controller);
     }
@@ -508,7 +511,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 16));
       final revolutionStart = rotation.turns.value;
-      await tester.pump(const Duration(seconds: 15));
+      await tester.pump(const Duration(milliseconds: 1800));
       expect(rotation.turns.value - revolutionStart, closeTo(1, 0.001));
 
       final oneXStart = rotation.turns.value;

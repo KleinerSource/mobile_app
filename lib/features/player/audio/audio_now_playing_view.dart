@@ -33,7 +33,11 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     with TickerProviderStateMixin {
   // 唱片一整圈对应固定的音轨时间；自然旋转、Scratch 和释放惯性必须
   // 使用同一个基准，否则视觉速度和实际音频速度会彼此漂移。
-  static const _rotationPeriod = Duration(seconds: 15);
+  static const _rotationPeriodSeconds = 1.8;
+  static final _rotationPeriod = Duration(
+    microseconds: (_rotationPeriodSeconds * Duration.microsecondsPerSecond)
+        .round(),
+  );
   // 歌词只在自己的槽位内变化，不能通过改变父级高度推动唱盘。
   static const double _lyricsSlotHeight = 108;
   static const _gestureThreshold = 10.0;
@@ -169,7 +173,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
       final elapsedSeconds =
           (elapsed - previous).inMicroseconds / Duration.microsecondsPerSecond;
       _rotationController.value +=
-          elapsedSeconds / _rotationPeriod.inSeconds * _scratchAudioRate;
+          elapsedSeconds / _rotationPeriodSeconds * _scratchAudioRate;
       return;
     }
     if (!widget.controller.playing) return;
@@ -579,7 +583,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
     _scratchPosition = target;
     final elapsedSeconds = _scratchSampleElapsedSeconds();
     final scratchRate = elapsedSeconds > 0
-        ? (turns * _rotationPeriod.inSeconds / elapsedSeconds).clamp(-8.0, 8.0)
+        ? (turns * _rotationPeriodSeconds / elapsedSeconds).clamp(-8.0, 8.0)
         : 0.0;
     _scratchAudioRate = scratchRate;
     if (_nativeScratchRequested) {
@@ -729,7 +733,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   double _scratchReleaseAudioRate(double momentumVelocity) {
     final sampledRate = _scratchAudioRate.isFinite ? _scratchAudioRate : 0.0;
     if (momentumVelocity.isFinite && momentumVelocity.abs() >= 0.01) {
-      return (momentumVelocity * _rotationPeriod.inSeconds)
+      return (momentumVelocity * _rotationPeriodSeconds)
           .clamp(-8.0, 8.0)
           .toDouble();
     }
