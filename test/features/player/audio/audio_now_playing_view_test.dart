@@ -245,7 +245,7 @@ void main() {
       }
       expect(engine.commands, isNot(contains('scratch-finish:true')));
 
-      for (var frame = 0; frame < 130; frame++) {
+      for (var frame = 0; frame < 50; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
       }
       final releaseRates = engine.scratchRates.sublist(releaseRateStart);
@@ -289,7 +289,7 @@ void main() {
       final releaseRateStart = engine.scratchRates.length;
 
       await gesture.up(timeStamp: const Duration(milliseconds: 760));
-      for (var frame = 0; frame < 210; frame++) {
+      for (var frame = 0; frame < 80; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
       }
 
@@ -335,7 +335,7 @@ void main() {
       final releaseRateStart = engine.scratchRates.length;
 
       await gesture.up(timeStamp: const Duration(milliseconds: 760));
-      for (var frame = 0; frame < 190; frame++) {
+      for (var frame = 0; frame < 80; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
       }
 

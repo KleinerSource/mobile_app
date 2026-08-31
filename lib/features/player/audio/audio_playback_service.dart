@@ -4,10 +4,13 @@ import 'dart:convert';
 import 'package:audio_service/audio_service.dart' as audio_service;
 import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart' as just_audio;
+import 'package:omm_scratch_audio/omm_scratch_audio.dart';
 
 /// 后台音频服务的自定义动作名。
 const audioOpenQueueAction = 'omm.openAudioQueue';
 const audioUpdateMetadataAction = 'omm.updateAudioMetadata';
+const audioSetScratchModeAction = 'omm.setScratchMode';
+const audioGetScratchModeAction = 'omm.getScratchMode';
 
 /// 运行在主 isolate 的 SMB 代理资源注册表。
 ///
@@ -124,6 +127,14 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   bool _playRequested = false;
   String? _errorMessage;
   final Set<int> _failedIndices = <int>{};
+  Timer? _scratchPositionTimer;
+  ScratchAudioState? _scratchState;
+  bool _scratchStateRequestInFlight = false;
+  bool _scratchCompletionInFlight = false;
+  bool _scratchModeActive = false;
+  bool _scratchPlaybackIntent = false;
+  bool _scratchCompleted = false;
+  int _scratchModeGeneration = 0;
   audio_service.AudioServiceRepeatMode _repeatMode =
       audio_service.AudioServiceRepeatMode.none;
   audio_service.AudioServiceShuffleMode _shuffleMode =
@@ -145,7 +156,39 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     if (name == audioUpdateMetadataAction) {
       return _enqueue(() => _updateCurrentMetadata(payload));
     }
+    if (name == audioSetScratchModeAction) {
+      return _setScratchMode(payload);
+    }
+    if (name == audioGetScratchModeAction) {
+      return Future<dynamic>.value(<String, dynamic>{
+        'active': _scratchModeActive,
+        'playbackIntent': _scratchPlaybackIntent,
+        'positionMs': _scratchState?.position.inMilliseconds ?? 0,
+        'durationMs': _scratchState?.duration.inMilliseconds ?? 0,
+      });
+    }
     return super.customAction(name, extras);
+  }
+
+  Future<void> _setScratchMode(Map<String, dynamic> payload) async {
+    final active = payload['active'] == true;
+    if (!active) {
+      _clearScratchMode();
+      _publishState();
+      return;
+    }
+
+    final generation = ++_scratchModeGeneration;
+    final state = await OmmScratchAudio.state();
+    if (!state.ready) throw StateError('Scratch 音频尚未准备完成');
+    if (generation != _scratchModeGeneration) return;
+    _scratchModeActive = true;
+    _scratchPlaybackIntent = payload['playbackIntent'] == true;
+    _scratchCompleted = false;
+    _playRequested = _scratchPlaybackIntent;
+    _scratchState = state;
+    _startScratchPositionPolling();
+    _publishState();
   }
 
   Future<void> _updateCurrentMetadata(Map<String, dynamic> payload) async {
@@ -187,6 +230,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     }
     if (nextItems.isEmpty) throw StateError('音频播放地址为空');
 
+    await _stopScratchOutput();
     await _releaseQueueResources('replaced');
     if (generation != _queueGeneration) return;
     await _player.stop();
@@ -291,6 +335,18 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   @override
   Future<void> play() async {
     _playRequested = true;
+    if (_scratchModeActive) {
+      _scratchPlaybackIntent = true;
+      if (_scratchCompleted) {
+        await OmmScratchAudio.seek(Duration.zero);
+        _scratchCompleted = false;
+      }
+      await OmmScratchAudio.setRate(_player.speed);
+      await OmmScratchAudio.play();
+      await _refreshScratchState();
+      _publishState();
+      return;
+    }
     await _player.play();
     _publishState();
   }
@@ -298,6 +354,13 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
   @override
   Future<void> pause() async {
     _playRequested = false;
+    if (_scratchModeActive) {
+      _scratchPlaybackIntent = false;
+      await OmmScratchAudio.pause();
+      await _refreshScratchState();
+      _publishState();
+      return;
+    }
     await _player.pause();
     _publishState();
   }
@@ -308,6 +371,7 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     // 先使正在加载的队列失效并通知资源注册表，下载代理才能立即断开上游连接。
     ++_queueGeneration;
     _playRequested = false;
+    await _stopScratchOutput();
     await _releaseQueueResources('stopped');
     try {
       await _player.stop();
@@ -320,43 +384,63 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
 
   @override
   Future<void> seek(Duration position) async {
-    final duration = _player.duration;
+    final duration = _scratchModeActive
+        ? _scratchState?.duration
+        : _player.duration;
     final target = duration == null
         ? (position < Duration.zero ? Duration.zero : position)
         : _clampDuration(position, Duration.zero, duration);
+    if (_scratchModeActive) {
+      _scratchCompleted = false;
+      await OmmScratchAudio.seek(target);
+      await _refreshScratchState();
+      _publishState();
+      return;
+    }
     await _player.seek(target);
     _publishState();
   }
 
   @override
-  Future<void> fastForward() =>
-      seek(_player.position + const Duration(seconds: 10));
+  Future<void> fastForward() => seek(
+    (_scratchState?.position ?? _player.position) + const Duration(seconds: 10),
+  );
 
   @override
-  Future<void> rewind() => seek(_player.position - const Duration(seconds: 10));
+  Future<void> rewind() => seek(
+    (_scratchState?.position ?? _player.position) - const Duration(seconds: 10),
+  );
 
   @override
   Future<void> skipToNext() async {
+    final shouldPlay = await _leaveScratchForTrackChange();
     if (_player.hasNext) await _player.seekToNext();
+    if (shouldPlay) unawaited(_player.play());
     _publishState();
   }
 
   @override
   Future<void> skipToPrevious() async {
+    final shouldPlay = await _leaveScratchForTrackChange();
     if (_player.hasPrevious) await _player.seekToPrevious();
+    if (shouldPlay) unawaited(_player.play());
     _publishState();
   }
 
   @override
   Future<void> skipToQueueItem(int index) async {
     if (index < 0 || index >= _items.length) return;
+    final shouldPlay = await _leaveScratchForTrackChange();
     await _player.seek(Duration.zero, index: index);
+    if (shouldPlay) unawaited(_player.play());
     _publishState();
   }
 
   @override
   Future<void> setSpeed(double speed) async {
-    await _player.setSpeed(speed.clamp(0.25, 4.0).toDouble());
+    final target = speed.clamp(0.25, 4.0).toDouble();
+    await _player.setSpeed(target);
+    if (_scratchModeActive) await OmmScratchAudio.setRate(target);
     _publishState();
   }
 
@@ -410,6 +494,106 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     }
   }
 
+  void _startScratchPositionPolling() {
+    _scratchPositionTimer?.cancel();
+    _scratchPositionTimer = Timer.periodic(
+      const Duration(milliseconds: 50),
+      (_) => unawaited(_pollScratchState()),
+    );
+  }
+
+  Future<void> _pollScratchState() async {
+    await _refreshScratchState();
+    if (!_scratchModeActive) return;
+    if (await _completeScratchTrackIfNeeded()) return;
+    _publishState();
+  }
+
+  Future<void> _refreshScratchState() async {
+    if (!_scratchModeActive || _scratchStateRequestInFlight) return;
+    final generation = _scratchModeGeneration;
+    _scratchStateRequestInFlight = true;
+    try {
+      final state = await OmmScratchAudio.state();
+      if (_scratchModeActive &&
+          generation == _scratchModeGeneration &&
+          state.ready) {
+        _scratchState = state;
+      }
+    } catch (_) {
+      // 短暂的平台通道失败不应切回另一播放器；下一次轮询继续使用同一游标。
+    } finally {
+      _scratchStateRequestInFlight = false;
+    }
+  }
+
+  Future<bool> _completeScratchTrackIfNeeded() async {
+    final state = _scratchState;
+    if (!_scratchModeActive ||
+        !_scratchPlaybackIntent ||
+        _scratchCompletionInFlight ||
+        state == null ||
+        state.duration <= Duration.zero ||
+        state.rate <= 0 ||
+        state.duration - state.position > const Duration(milliseconds: 20)) {
+      return false;
+    }
+
+    _scratchCompletionInFlight = true;
+    try {
+      if (_repeatMode == audio_service.AudioServiceRepeatMode.one) {
+        await OmmScratchAudio.seek(Duration.zero);
+        await OmmScratchAudio.setRate(_player.speed);
+        await OmmScratchAudio.play();
+        _scratchCompleted = false;
+        await _refreshScratchState();
+        _publishState();
+        return true;
+      }
+      if (_player.hasNext) {
+        await skipToNext();
+        return true;
+      }
+
+      _scratchPlaybackIntent = false;
+      _playRequested = false;
+      _scratchCompleted = true;
+      await OmmScratchAudio.pause();
+      _publishState();
+      return true;
+    } finally {
+      _scratchCompletionInFlight = false;
+    }
+  }
+
+  Future<bool> _leaveScratchForTrackChange() async {
+    if (!_scratchModeActive) return false;
+    final shouldPlay = _scratchPlaybackIntent;
+    await _stopScratchOutput();
+    _playRequested = shouldPlay;
+    return shouldPlay;
+  }
+
+  Future<void> _stopScratchOutput() async {
+    if (!_scratchModeActive) return;
+    _clearScratchMode();
+    try {
+      await OmmScratchAudio.stop();
+    } catch (_) {}
+  }
+
+  void _clearScratchMode() {
+    _scratchModeGeneration++;
+    _scratchPositionTimer?.cancel();
+    _scratchPositionTimer = null;
+    _scratchState = null;
+    _scratchStateRequestInFlight = false;
+    _scratchCompletionInFlight = false;
+    _scratchModeActive = false;
+    _scratchPlaybackIntent = false;
+    _scratchCompleted = false;
+  }
+
   Future<void> _handlePlayerError(just_audio.PlayerException error) async {
     final errorMessage = error.message ?? '音频播放失败';
     final failedIndex = error.index ?? _player.currentIndex;
@@ -434,7 +618,8 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     final current = index != null && index >= 0 && index < _items.length
         ? _items[index]
         : null;
-    final duration = _player.duration;
+    final scratchState = _scratchModeActive ? _scratchState : null;
+    final duration = scratchState?.duration ?? _player.duration;
     if (current != null && duration != null && current.duration != duration) {
       final updated = current.copyWith(duration: duration);
       _items[index!] = updated;
@@ -443,25 +628,32 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
     } else {
       mediaItem.add(current);
     }
-    final processingState = switch (_player.processingState) {
-      just_audio.ProcessingState.idle =>
-        audio_service.AudioProcessingState.idle,
-      just_audio.ProcessingState.loading =>
-        audio_service.AudioProcessingState.loading,
-      just_audio.ProcessingState.buffering =>
-        audio_service.AudioProcessingState.buffering,
-      just_audio.ProcessingState.ready =>
-        audio_service.AudioProcessingState.ready,
-      just_audio.ProcessingState.completed =>
-        audio_service.AudioProcessingState.completed,
-    };
+    final processingState = scratchState?.ready == true
+        ? (_scratchCompleted
+              ? audio_service.AudioProcessingState.completed
+              : audio_service.AudioProcessingState.ready)
+        : switch (_player.processingState) {
+            just_audio.ProcessingState.idle =>
+              audio_service.AudioProcessingState.idle,
+            just_audio.ProcessingState.loading =>
+              audio_service.AudioProcessingState.loading,
+            just_audio.ProcessingState.buffering =>
+              audio_service.AudioProcessingState.buffering,
+            just_audio.ProcessingState.ready =>
+              audio_service.AudioProcessingState.ready,
+            just_audio.ProcessingState.completed =>
+              audio_service.AudioProcessingState.completed,
+          };
+    final playing = _scratchModeActive
+        ? _scratchPlaybackIntent
+        : _player.playing;
     playbackState.add(
       audio_service.PlaybackState(
         controls: current == null
             ? const []
             : [
                 audio_service.MediaControl.skipToPrevious,
-                if (_player.playing)
+                if (playing)
                   audio_service.MediaControl.pause
                 else
                   audio_service.MediaControl.play,
@@ -478,9 +670,9 @@ class AudioPlaybackService extends audio_service.BaseAudioHandler
             ? processingState
             : audio_service.AudioProcessingState.error,
         errorMessage: _errorMessage,
-        playing: _player.playing,
-        updatePosition: _player.position,
-        bufferedPosition: _player.bufferedPosition,
+        playing: playing,
+        updatePosition: scratchState?.position ?? _player.position,
+        bufferedPosition: scratchState?.duration ?? _player.bufferedPosition,
         speed: _player.speed,
         queueIndex: index,
         repeatMode: _repeatMode,

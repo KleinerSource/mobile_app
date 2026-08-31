@@ -40,7 +40,7 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   static const _innerGestureRadiusFactor = 0.16;
   static const _maxScratchMomentum = 6.0;
   static const _scratchMotorTick = Duration(milliseconds: 16);
-  static const _scratchMotorStrength = 2.8;
+  static const _scratchMotorStrength = 6.0;
   static const _scratchMotorRateTolerance = 0.005;
 
   late final AnimationController _rotationController =

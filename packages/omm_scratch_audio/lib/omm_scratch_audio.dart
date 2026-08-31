@@ -34,6 +34,15 @@ final class OmmScratchAudio {
     });
   }
 
+  static Future<void> play() => _channel.invokeMethod<void>('play');
+
+  static Future<void> pause() => _channel.invokeMethod<void>('pause');
+
+  static Future<void> seek(Duration position) => _channel.invokeMethod<void>(
+    'seek',
+    {'positionMs': position.inMilliseconds},
+  );
+
   static Future<void> setRate(double rate) async {
     if (!rate.isFinite) return;
     _pendingRate = rate;

@@ -141,40 +141,36 @@ void main() {
     await engine.dispose();
   });
 
-  test('Scratch 交接会追上原生游标并在关闭输出前恢复主播放', () async {
+  test('Scratch 恢复正常倍率后继续复用原生游标和输出', () async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     const channel = MethodChannel('omm/scratch_audio');
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     final nativeCommands = <String>[];
-    final handoffEvents = <String>[];
-    var stateCalls = 0;
+    var prepareCalls = 0;
     messenger.setMockMethodCallHandler(channel, (call) async {
       switch (call.method) {
         case 'prepare':
+          prepareCalls++;
           return _scratchState(positionMs: 10000);
         case 'start':
           nativeCommands.add('scratch-start');
           return null;
+        case 'play':
+          nativeCommands.add('scratch-play');
+          return null;
         case 'setRate':
           return null;
         case 'state':
-          stateCalls++;
-          return _scratchState(
-            positionMs: switch (stateCalls) {
-              1 => 10000,
-              _ => 10600,
-            },
-          );
+          return _scratchState(positionMs: 10600);
         case 'stop':
           nativeCommands.add('scratch-stop');
-          handoffEvents.add('scratch-stop');
           return null;
       }
       return null;
     });
 
-    final handler = _FakeAudioHandler()..eventLog = handoffEvents;
+    final handler = _FakeAudioHandler();
     final engine = AudioPlaybackEngine(handler: handler);
     try {
       await engine.open(
@@ -193,15 +189,21 @@ void main() {
 
       final handoff = await engine.finishScratch(resumePlayback: true);
 
-      expect(handler.seekPositions, [
-        const Duration(milliseconds: 10500),
-        const Duration(milliseconds: 11300),
-      ]);
-      expect(handoff, const Duration(milliseconds: 11300));
-      expect(engine.state.value.position, const Duration(milliseconds: 11300));
-      expect(handler.commands, containsAllInOrder(['pause', 'play']));
-      expect(nativeCommands, ['scratch-start', 'scratch-stop']);
-      expect(handoffEvents, containsAllInOrder(['play', 'scratch-stop']));
+      expect(handoff, const Duration(milliseconds: 10600));
+      expect(engine.state.value.position, const Duration(milliseconds: 10600));
+      expect(handler.seekPositions, isEmpty);
+      expect(handler.commands, ['pause']);
+      expect(nativeCommands, ['scratch-start']);
+
+      expect(
+        await engine.startScratch(
+          const Duration(milliseconds: 10600),
+          resumePlayback: true,
+        ),
+        isTrue,
+      );
+      expect(prepareCalls, 1);
+      expect(nativeCommands, ['scratch-start', 'scratch-play']);
     } finally {
       await engine.dispose();
       messenger.setMockMethodCallHandler(channel, null);
@@ -223,6 +225,8 @@ void main() {
         case 'start':
         case 'setRate':
         case 'stop':
+          return null;
+        case 'pause':
           return null;
         case 'state':
           stateCalls++;
@@ -275,7 +279,7 @@ void main() {
       );
       final callsAfterFinish = stateCalls;
       await Future<void>.delayed(const Duration(milliseconds: 100));
-      expect(stateCalls, callsAfterFinish);
+      expect(stateCalls, greaterThan(callsAfterFinish));
       expect(engine.state.value.position, const Duration(seconds: 8));
     } finally {
       await engine.dispose();
@@ -353,6 +357,69 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     }
   });
+
+  test('重新打开播放页会复用后台 Scratch 会话而不重新准备音轨', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    const channel = MethodChannel('omm/scratch_audio');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    var prepareCalls = 0;
+    var startCalls = 0;
+    var playCalls = 0;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      switch (call.method) {
+        case 'prepare':
+          prepareCalls++;
+          return _scratchState(positionMs: 12000);
+        case 'start':
+          startCalls++;
+          return null;
+        case 'play':
+          playCalls++;
+          return null;
+        case 'state':
+          return _scratchState(positionMs: 12000);
+        case 'setRate':
+          return null;
+      }
+      return null;
+    });
+
+    final handler = _FakeAudioHandler()
+      ..scratchModeResult = <String, dynamic>{
+        'active': true,
+        'playbackIntent': true,
+        'positionMs': 12000,
+        'durationMs': 120000,
+      };
+    handler.mediaItem.add(
+      const audio_service.MediaItem(
+        id: 'file:audio',
+        title: '歌曲.mp3',
+        extras: <String, dynamic>{'audioUrl': 'https://example.test/audio.mp3'},
+      ),
+    );
+    final engine = AudioPlaybackEngine(handler: handler);
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(prepareCalls, 0);
+
+      expect(
+        await engine.startScratch(
+          const Duration(seconds: 12),
+          resumePlayback: true,
+        ),
+        isTrue,
+      );
+      expect(prepareCalls, 0);
+      expect(startCalls, 0);
+      expect(playCalls, 1);
+    } finally {
+      await engine.dispose();
+      messenger.setMockMethodCallHandler(channel, null);
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
 }
 
 Map<String, Object> _scratchState({required int positionMs}) => {
@@ -371,6 +438,7 @@ class _FakeAudioHandler extends audio_service.BaseAudioHandler {
   final List<String> commands = <String>[];
   final List<Duration> seekPositions = <Duration>[];
   List<String>? eventLog;
+  Map<String, dynamic>? scratchModeResult;
 
   @override
   Future<dynamic> customAction(
@@ -379,6 +447,7 @@ class _FakeAudioHandler extends audio_service.BaseAudioHandler {
   ]) async {
     customActionName = name;
     customActionExtras = extras;
+    if (name == audioGetScratchModeAction) return scratchModeResult;
   }
 
   @override

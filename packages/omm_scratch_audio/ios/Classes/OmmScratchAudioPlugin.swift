@@ -50,6 +50,25 @@ public final class OmmScratchAudioPlugin: NSObject, FlutterPlugin {
           details: nil
         ))
       }
+    case "play":
+      do {
+        try Self.engine.play()
+        result(nil)
+      } catch {
+        result(FlutterError(
+          code: "SCRATCH_AUDIO",
+          message: error.localizedDescription,
+          details: nil
+        ))
+      }
+    case "pause":
+      Self.engine.pause()
+      result(nil)
+    case "seek":
+      Self.engine.seek(
+        positionMs: (arguments?["positionMs"] as? NSNumber)?.doubleValue ?? 0
+      )
+      result(nil)
     case "setRate":
       Self.engine.setRate((arguments?["rate"] as? NSNumber)?.doubleValue ?? 1)
       result(nil)
@@ -131,6 +150,42 @@ private final class ScratchAudioEngine {
     } catch {
       withStateLock { playing = false }
       throw error
+    }
+  }
+
+  func play() throws {
+    let ready = withStateLock {
+      guard sourceFrameCount > 1, sampleRate > 0 else { return false }
+      playing = true
+      return true
+    }
+    guard ready else {
+      throw error(code: 2, message: "Scratch audio is not prepared")
+    }
+    do {
+      if !engineStarted || !audioEngine.isRunning {
+        try audioEngine.start()
+        engineStarted = true
+      }
+    } catch {
+      withStateLock { playing = false }
+      throw error
+    }
+  }
+
+  func pause() {
+    withStateLock { playing = false }
+    if engineStarted || audioEngine.isRunning {
+      audioEngine.pause()
+    }
+    engineStarted = false
+  }
+
+  func seek(positionMs: Double) {
+    withStateLock {
+      guard sourceFrameCount > 1, sampleRate > 0 else { return }
+      sourceFrame = clampFrame(positionMs / 1000 * sampleRate)
+      currentRate = playbackRate
     }
   }
 

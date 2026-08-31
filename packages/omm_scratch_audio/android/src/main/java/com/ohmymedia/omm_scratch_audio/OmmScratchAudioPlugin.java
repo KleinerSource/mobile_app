@@ -75,6 +75,19 @@ public final class OmmScratchAudioPlugin
                     );
                     result.success(null);
                     break;
+                case "play":
+                    ENGINE.play();
+                    result.success(null);
+                    break;
+                case "pause":
+                    ENGINE.pause();
+                    result.success(null);
+                    break;
+                case "seek":
+                    Number seekPositionMs = call.argument("positionMs");
+                    ENGINE.seek(seekPositionMs == null ? 0 : seekPositionMs.doubleValue());
+                    result.success(null);
+                    break;
                 case "setRate":
                     Number rate = call.argument("rate");
                     ENGINE.setRate(rate == null ? 1 : rate.floatValue());
@@ -231,6 +244,41 @@ public final class OmmScratchAudioPlugin
                 playing = autoplay;
                 Log.i(TAG, "PCM output started: rate=" + rate
                         + ", autoplay=" + autoplay);
+            }
+        }
+
+        void play() {
+            synchronized (lifecycleLock) {
+                ensureReadyLocked();
+                startRenderThreadLocked();
+                requestAudioFocusLocked();
+                audioTrack.play();
+                playing = true;
+            }
+        }
+
+        void pause() {
+            synchronized (lifecycleLock) {
+                playing = false;
+                if (audioTrack != null) audioTrack.pause();
+                abandonAudioFocusLocked();
+            }
+        }
+
+        void seek(double positionMs) {
+            synchronized (lifecycleLock) {
+                ensureReadyLocked();
+                boolean resume = playing;
+                playing = false;
+                audioTrack.pause();
+                audioTrack.flush();
+                sourceFrame = clampFrame(positionMs / 1000 * sampleRate);
+                currentRate = rate;
+                if (resume) {
+                    requestAudioFocusLocked();
+                    audioTrack.play();
+                    playing = true;
+                }
             }
         }
 
