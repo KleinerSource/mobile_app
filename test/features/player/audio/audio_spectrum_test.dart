@@ -169,7 +169,7 @@ void main() {
     expect(spectrumCenter, expectedCenter);
   });
 
-  testWidgets('全屏玻璃覆盖安全区并位于背景频谱和前景之间', (tester) async {
+  testWidgets('背景频谱直接位于纯色基底与前景之间且不存在毛玻璃层', (tester) async {
     final spectrum = ValueNotifier<AudioSpectrumFrame>(
       AudioSpectrumFrame.silence(),
     );
@@ -205,14 +205,11 @@ void main() {
     );
     expect(layers.children[0].key, const ValueKey<String>('surface'));
     expect(layers.children[1], isA<SafeArea>());
-    expect(layers.children[2], isA<AudioPlayerGlassVeil>());
-    expect(layers.children[3], isA<SafeArea>());
-
-    final glass = find.byKey(const ValueKey<String>('audio-player-glass-veil'));
-    expect(tester.getTopLeft(glass), Offset.zero);
+    expect(layers.children[2], isA<SafeArea>());
+    expect(find.byType(BackdropFilter), findsNothing);
     expect(
-      tester.getSize(glass),
-      tester.getSize(find.byKey(const ValueKey<String>('surface'))),
+      find.byKey(const ValueKey<String>('audio-player-glass-veil')),
+      findsNothing,
     );
     expect(
       tester.getTopLeft(find.byKey(const ValueKey<String>('foreground'))).dy,

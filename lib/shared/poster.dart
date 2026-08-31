@@ -56,14 +56,26 @@ class Poster extends StatelessWidget {
           children: [
             const _PlaceholderBase(),
             if (url != null && url!.isNotEmpty)
-              CachedNetworkImage(
-                imageUrl: url!,
-                fit: BoxFit.cover,
-                alignment: imageAlignment,
-                fadeInDuration: const Duration(milliseconds: 200),
-                placeholder: (_, __) => const SizedBox.shrink(),
-                errorWidget: (_, __, ___) =>
-                    _PlaceholderLabel(title: title, year: year),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final logicalWidth = constraints.maxWidth;
+                  final physicalWidth =
+                      logicalWidth.isFinite && logicalWidth > 0
+                      ? (logicalWidth * MediaQuery.devicePixelRatioOf(context))
+                            .round()
+                      : null;
+                  return CachedNetworkImage(
+                    imageUrl: url!,
+                    fit: BoxFit.cover,
+                    alignment: imageAlignment,
+                    memCacheWidth: physicalWidth,
+                    maxWidthDiskCache: 1080,
+                    fadeInDuration: const Duration(milliseconds: 200),
+                    placeholder: (_, __) => const SizedBox.shrink(),
+                    errorWidget: (_, __, ___) =>
+                        _PlaceholderLabel(title: title, year: year),
+                  );
+                },
               )
             else
               _PlaceholderLabel(title: title, year: year),

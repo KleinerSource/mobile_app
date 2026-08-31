@@ -33,6 +33,9 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  PaintingBinding.instance.imageCache
+    ..maximumSizeBytes = 80 << 20
+    ..maximumSize = 300;
   MediaKit.ensureInitialized();
   unawaited(FileAudioMetadataSession.cleanupStaleCache());
   unawaited(MusicCacheService().cleanupStaleCache());
