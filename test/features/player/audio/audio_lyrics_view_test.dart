@@ -63,6 +63,32 @@ void main() {
       find.byKey(const ValueKey<String>('audio-lyrics-spectrum')),
       findsOneWidget,
     );
+
+    engine.notifier.value = engine.notifier.value.copyWith(
+      position: const Duration(seconds: 5),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      find.byKey(const ValueKey<String>('audio-lyrics-current')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('audio-lyrics-next')),
+      findsOneWidget,
+    );
+    expect(find.text('第一句'), findsOneWidget);
+    expect(find.text('第二句'), findsOneWidget);
+    expect(find.text('第三句'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('第一句'), findsNothing);
+    expect(find.text('第二句'), findsOneWidget);
+    expect(find.text('第三句'), findsOneWidget);
+
+    engine.notifier.value = engine.notifier.value.copyWith(
+      position: const Duration(seconds: 2),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('第一句'));
     await tester.pumpAndSettle();
     expect(find.text('歌词'), findsOneWidget);

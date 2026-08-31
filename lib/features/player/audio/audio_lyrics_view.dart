@@ -33,10 +33,6 @@ class AudioLyricsView extends StatelessWidget {
       builder: (context, state, _) {
         final index = document.indexAt(state.position);
         final cue = index >= 0 ? document.cues[index] : null;
-        final nextIndex = index < 0 ? 0 : index + 1;
-        final nextCue = nextIndex < document.cues.length
-            ? document.cues[nextIndex]
-            : null;
         final l10n = AppL10n.of(context);
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -51,55 +47,11 @@ class AudioLyricsView extends StatelessWidget {
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
                 const SizedBox(height: 8),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 360),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.35),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    ),
-                  ),
-                  child: Column(
-                    key: ValueKey<int>(index),
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        cue?.text ?? l10n.playerLyricsUnavailable,
-                        key: const ValueKey<String>('audio-lyrics-current'),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface,
-                          fontSize: 16,
-                          height: 1.35,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        nextCue?.text ?? '',
-                        key: const ValueKey<String>('audio-lyrics-next'),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: 0.48),
-                          fontSize: 13,
-                          height: 1.3,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
+                _AudioLyricsLinePreview(
+                  document: document,
+                  currentIndex: index,
+                  unavailableText: cue?.text ?? l10n.playerLyricsUnavailable,
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
                 ),
               ],
             ),
@@ -152,6 +104,207 @@ class AudioLyricsView extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AudioLyricsLinePreview extends StatefulWidget {
+  const _AudioLyricsLinePreview({
+    required this.document,
+    required this.currentIndex,
+    required this.unavailableText,
+    required this.foregroundColor,
+  });
+
+  static const Duration transitionDuration = Duration(milliseconds: 360);
+
+  final LrcDocument document;
+  final int currentIndex;
+  final String unavailableText;
+  final Color foregroundColor;
+
+  @override
+  State<_AudioLyricsLinePreview> createState() =>
+      _AudioLyricsLinePreviewState();
+}
+
+class _AudioLyricsLinePreviewState extends State<_AudioLyricsLinePreview>
+    with SingleTickerProviderStateMixin {
+  static const double _lineExtent = 25;
+  static const double _viewportHeight = 45;
+
+  late final AnimationController _controller;
+  late int _fromIndex;
+  late int _targetIndex;
+  bool _transitioning = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fromIndex = widget.currentIndex;
+    _targetIndex = widget.currentIndex;
+    _controller = AnimationController(
+      vsync: this,
+      duration: _AudioLyricsLinePreview.transitionDuration,
+      value: 1,
+    )..addStatusListener(_handleAnimationStatus);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AudioLyricsLinePreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextIndex = widget.currentIndex;
+    if (nextIndex == _targetIndex) return;
+
+    final canRollOneLine = _targetIndex >= 0 && nextIndex == _targetIndex + 1;
+    if (!canRollOneLine) {
+      _controller.stop();
+      _fromIndex = nextIndex;
+      _targetIndex = nextIndex;
+      _transitioning = false;
+      _controller.value = 1;
+      return;
+    }
+
+    _fromIndex = _targetIndex;
+    _targetIndex = nextIndex;
+    _transitioning = true;
+    _controller
+      ..duration = _AudioLyricsLinePreview.transitionDuration
+      ..value = 0
+      ..forward();
+  }
+
+  void _handleAnimationStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed || !mounted) return;
+    setState(() {
+      _fromIndex = _targetIndex;
+      _transitioning = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller
+      ..removeStatusListener(_handleAnimationStatus)
+      ..dispose();
+    super.dispose();
+  }
+
+  TextStyle get _currentStyle => TextStyle(
+    color: widget.foregroundColor,
+    fontSize: 16,
+    height: 1.35,
+    fontWeight: FontWeight.w600,
+  );
+
+  TextStyle get _nextStyle => TextStyle(
+    color: widget.foregroundColor.withValues(alpha: 0.48),
+    fontSize: 13,
+    height: 1.3,
+    fontWeight: FontWeight.w500,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final progress = Curves.easeOutCubic.transform(_controller.value);
+        return ClipRect(
+          child: SizedBox(
+            height: _viewportHeight,
+            child: _transitioning
+                ? _buildRollingLines(progress)
+                : _buildStillLines(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStillLines() {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        _buildLine(
+          index: _targetIndex,
+          top: 0,
+          style: _currentStyle,
+          key: const ValueKey<String>('audio-lyrics-current'),
+          primary: true,
+        ),
+        _buildLine(
+          index: _targetIndex + 1,
+          top: _lineExtent,
+          style: _nextStyle,
+          key: const ValueKey<String>('audio-lyrics-next'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRollingLines(double progress) {
+    final movingStyle = TextStyle.lerp(_nextStyle, _currentStyle, progress)!;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        _buildLine(
+          index: _fromIndex,
+          top: -progress * _lineExtent,
+          style: _currentStyle,
+          key: ValueKey<String>('audio-lyrics-outgoing-$_fromIndex'),
+          opacity: 1 - progress,
+          primary: true,
+        ),
+        _buildLine(
+          index: _fromIndex + 1,
+          top: (1 - progress) * _lineExtent,
+          style: movingStyle,
+          key: const ValueKey<String>('audio-lyrics-current'),
+        ),
+        _buildLine(
+          index: _targetIndex + 1,
+          top: (2 - progress) * _lineExtent,
+          style: _nextStyle,
+          key: const ValueKey<String>('audio-lyrics-next'),
+          opacity: progress,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLine({
+    required int index,
+    required double top,
+    required TextStyle style,
+    required Key key,
+    double opacity = 1,
+    bool primary = false,
+  }) {
+    final text = index >= 0 && index < widget.document.cues.length
+        ? widget.document.cues[index].text
+        : primary
+        ? widget.unavailableText
+        : '';
+    return Positioned(
+      top: top,
+      left: 0,
+      right: 0,
+      height: _lineExtent,
+      child: Opacity(
+        opacity: opacity.clamp(0.0, 1.0),
+        child: Center(
+          child: Text(
+            text,
+            key: key,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
           ),
         ),
       ),
