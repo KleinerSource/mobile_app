@@ -159,7 +159,7 @@ void main() {
         final resume = await api.resumeItems('user-1', limit: 6);
         final nextUp = await api.nextUp('user-1');
         final seasons = await api.seasons('user-1', 'series-1');
-        final episodes = await api.episodes('user-1', 'season-1');
+        final episodes = await api.episodes('user-1', 'series-1', 'season-1');
         final detail = await api.item('user-1', 'item-1');
 
         expect(views.single.id, 'lib-1');
@@ -184,8 +184,8 @@ void main() {
           'GET $base/Users/user-1/Items/Resume?MediaTypes=Video&Limit=6',
           'GET $base/Shows/NextUp?UserId=user-1&Limit=12',
           'GET $base/Shows/series-1/Seasons?UserId=user-1',
-          'GET $base/Shows/season-1/Episodes'
-              '?UserId=user-1&Fields=Overview%2CMediaSources'
+          'GET $base/Shows/series-1/Episodes'
+              '?UserId=user-1&SeasonId=season-1&Fields=Overview%2CMediaSources'
               '&SortBy=ParentIndexNumber%2CIndexNumber',
           'GET $base/Users/user-1/Items/item-1',
         ]);
