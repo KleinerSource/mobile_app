@@ -1232,6 +1232,16 @@ void _main_3() {
     expect(isSupportedServerVersion('1.12.99-dev', '1.13.0'), isFalse);
   });
 
+  test('四段式版本（Emby）忽略末段 build 号后比较前三段', () {
+    expect(isSupportedServerVersion('4.9.5.0', '4.6.0'), isTrue);
+    expect(isSupportedServerVersion('4.9.5.10', '4.6.0'), isTrue);
+    expect(isSupportedServerVersion('4.6.0.1', '4.6.0'), isTrue);
+    expect(isSupportedServerVersion('4.5.9.99', '4.6.0'), isFalse);
+    // 三段式行为保持不变。
+    expect(isSupportedServerVersion('4.6.0', '4.6.0'), isTrue);
+    expect(isSupportedServerVersion('4.5.2', '4.6.0'), isFalse);
+  });
+
   test('dbonline 低于 1.14.0 时拒绝并提示实际版本', () {
     expect(
       () => requireCompatibleServerVersion({

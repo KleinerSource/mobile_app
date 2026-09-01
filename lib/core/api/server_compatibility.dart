@@ -172,8 +172,10 @@ ServerVersionInfo _decodeServerVersion(Object? raw) {
 }
 
 List<int>? _parseVersion(String value) {
+  // Emby 等外部服务器可能返回四段式版本（如 4.9.5.0），末段是 build 号，
+  // 不参与兼容性比较；只取语义化版本的前三段，与最低版本等长比较。
   final match = RegExp(
-    r'^v?(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$',
+    r'^v?(\d+)\.(\d+)\.(\d+)(?:\.\d+)*(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$',
     caseSensitive: false,
   ).firstMatch(value.trim());
   if (match == null) return null;
