@@ -937,6 +937,50 @@ void main() {
     }
   });
 
+  testWidgets('禁用搓碟后旋拧唱片不触发任何命令，点按仍可播放/暂停', (tester) async {
+    final engine = FakeScratchPlaybackEngine(
+      initialState: const PlaybackViewState(
+        engineKind: PlaybackEngineKind.audio,
+        lifecycle: PlaybackLifecycle.ready,
+        playing: true,
+        position: Duration(seconds: 30),
+        duration: Duration(minutes: 1),
+      ),
+    );
+    final controller = PlayerSessionController(engine: engine);
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.pumpWidget(_app(controller, scratchEnabled: false));
+      final record = find.byKey(const ValueKey<String>('audio-vinyl-record'));
+      final center = tester.getCenter(record);
+
+      // 旋拧手势不进入搓碟流程：无 scratch、无速率、无 seek。
+      final gesture = await tester.startGesture(center + const Offset(0, -120));
+      await gesture.moveTo(center + const Offset(120, 0));
+      await gesture.up();
+      for (var frame = 0; frame < 60; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(engine.commands, isNot(contains('scratch-start')));
+      expect(engine.scratchRates, isEmpty);
+      expect(engine.commands, isNot(contains('seek')));
+
+      // 无障碍语义不再提示可旋拧。
+      final node = tester.getSemantics(
+        find.byKey(const ValueKey<String>('audio-dj-record-semantics')),
+      );
+      expect(node.hint, isEmpty);
+
+      // 点按播放/暂停保留。
+      await tester.tap(record);
+      await tester.pump();
+      expect(engine.commands, contains('pause'));
+    } finally {
+      semantics.dispose();
+      await _dispose(tester, controller);
+    }
+  });
+
   testWidgets('唱片提供 DJ 操作的无障碍语义', (tester) async {
     final engine = FakePlaybackEngine(
       PlaybackEngineKind.audio,
@@ -1122,6 +1166,7 @@ Widget _app(
   String? artworkPath,
   bool disableAnimations = false,
   bool withLyrics = false,
+  bool scratchEnabled = true,
 }) {
   return MaterialApp(
     locale: const Locale('zh'),
@@ -1142,6 +1187,7 @@ Widget _app(
                 )
               : null,
           spectrum: _silentSpectrum,
+          scratchEnabled: scratchEnabled,
         ),
       ),
     ),

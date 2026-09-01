@@ -180,8 +180,6 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     final config = ref.watch(serverSelectionConfigProvider);
     final servers = config?.servers ?? const <ServerProfile>[];
     final transition = ref.watch(serverSwitchTransitionProvider);
-    final activeServerId =
-        config?.activeServerId ?? (servers.isEmpty ? null : servers.first.id);
     final visibleServers = _filterServers(servers);
 
     return PopScope<void>(
@@ -198,7 +196,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _LibraryHeader(onChanged: _updateSearchQuery),
+                      _ConnectionHeader(onChanged: _updateSearchQuery),
                       const SizedBox(height: 22),
                       Expanded(
                         child: RefreshIndicator(
@@ -232,7 +230,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                                     vertical: 18,
                                   ),
                                   child: Text(
-                                    '没有找到匹配的资源库',
+                                    '没有找到匹配的连接',
                                     textAlign: TextAlign.center,
                                     style: AppText.meta(context),
                                   ),
@@ -240,7 +238,6 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                               else
                                 _ServerStrip(
                                   servers: visibleServers,
-                                  activeServerId: activeServerId,
                                   transition: transition,
                                   profileFor: _profileFor,
                                   cachedProfileFor: _cachedProfileFor,
@@ -531,8 +528,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   }
 }
 
-class _LibraryHeader extends StatelessWidget {
-  const _LibraryHeader({required this.onChanged});
+class _ConnectionHeader extends StatelessWidget {
+  const _ConnectionHeader({required this.onChanged});
 
   final ValueChanged<String> onChanged;
 
@@ -542,7 +539,7 @@ class _LibraryHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('资源库', style: AppText.pageTitle(context).copyWith(fontSize: 24)),
+        Text('连接', style: AppText.pageTitle(context).copyWith(fontSize: 24)),
         const SizedBox(height: 16),
         SizedBox(
           height: 48,
@@ -560,7 +557,7 @@ class _LibraryHeader extends StatelessWidget {
               style: AppText.body(context).copyWith(fontSize: 14),
               cursorColor: colors.accent,
               decoration: InputDecoration(
-                hintText: '搜索资源库',
+                hintText: '搜索连接',
                 hintStyle: TextStyle(
                   color: colors.muted,
                   fontFamily: 'Inter',
@@ -628,7 +625,6 @@ class _AddServerCard extends StatelessWidget {
 class _ServerStrip extends StatefulWidget {
   const _ServerStrip({
     required this.servers,
-    required this.activeServerId,
     required this.transition,
     required this.profileFor,
     required this.cachedProfileFor,
@@ -644,7 +640,6 @@ class _ServerStrip extends StatefulWidget {
   });
 
   final List<ServerProfile> servers;
-  final String? activeServerId;
   final ServerSwitchState transition;
   final Future<ServerProfileData?> Function(ServerProfile server) profileFor;
   final ServerProfileData? Function(ServerProfile server) cachedProfileFor;
@@ -672,6 +667,8 @@ class _ServerStripState extends State<_ServerStrip> {
   Offset? _dragPosition;
   Offset? _dragGrabOffset;
   int? _dragTargetIndex;
+  var _actionAlignRight = false;
+  var _actionShowAbove = false;
 
   GlobalKey _cardKeyFor(String serverId) {
     return _cardKeys.putIfAbsent(serverId, GlobalKey.new);
@@ -722,6 +719,8 @@ class _ServerStripState extends State<_ServerStrip> {
       _dragPosition = null;
       _dragGrabOffset = null;
       _dragTargetIndex = null;
+      _actionAlignRight = false;
+      _actionShowAbove = false;
     });
   }
 
@@ -733,6 +732,20 @@ class _ServerStripState extends State<_ServerStrip> {
   void _startLongPress(String serverId, LongPressStartDetails details) {
     if (!mounted || _draggingServerId != null) return;
     final cardRect = _globalRectFor(_cardKeyFor(serverId));
+    final mediaQuery = MediaQuery.maybeOf(context);
+    final viewportSize = mediaQuery?.size;
+    final safeTop = mediaQuery?.padding.top ?? 0;
+    final safeBottom = mediaQuery?.padding.bottom ?? 0;
+    final alignRight =
+        cardRect != null &&
+        viewportSize != null &&
+        cardRect.center.dx > viewportSize.width / 2;
+    final showAbove =
+        cardRect != null &&
+        viewportSize != null &&
+        cardRect.bottom + 8 + _ServerActionList.height >
+            viewportSize.height - safeBottom &&
+        cardRect.top - 8 - _ServerActionList.height >= safeTop;
     setState(() {
       _actionServerId = serverId;
       _longPressStart = details.globalPosition;
@@ -743,6 +756,8 @@ class _ServerStripState extends State<_ServerStrip> {
       _dragTargetIndex = widget.servers.indexWhere(
         (server) => server.id == serverId,
       );
+      _actionAlignRight = alignRight;
+      _actionShowAbove = showAbove;
     });
     AppHaptics.medium();
   }
@@ -858,7 +873,6 @@ class _ServerStripState extends State<_ServerStrip> {
       cachedProfile: widget.cachedProfileFor(server),
       statusFuture: widget.statusFor(server),
       avatarKey: feedback ? null : widget.avatarKeyFor(server.id),
-      active: server.id == widget.activeServerId,
       busy: busy,
       dropTarget: isDropTarget,
       onTap: feedback
@@ -876,6 +890,8 @@ class _ServerStripState extends State<_ServerStrip> {
         opacity: isDragging ? 0.28 : 1,
         child: _ServerCardInteraction(
           showActions: _actionServerId == server.id,
+          actionAlignRight: _actionAlignRight,
+          actionShowAbove: _actionShowAbove,
           enabled: !busy && !transition.isActive,
           onEdit: () {
             _dismissActions();
@@ -971,6 +987,8 @@ class _ServerCardInteraction extends StatefulWidget {
     required this.child,
     required this.enabled,
     required this.showActions,
+    required this.actionAlignRight,
+    required this.actionShowAbove,
     required this.onEdit,
     required this.onDelete,
     required this.onDismissActions,
@@ -983,6 +1001,8 @@ class _ServerCardInteraction extends StatefulWidget {
   final Widget child;
   final bool enabled;
   final bool showActions;
+  final bool actionAlignRight;
+  final bool actionShowAbove;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onDismissActions;
@@ -1049,35 +1069,28 @@ class _ServerCardInteractionState extends State<_ServerCardInteraction> {
   }
 
   Widget _buildActionOverlay(BuildContext context) {
-    final colors = appColors(context);
+    final targetAnchor = Alignment(
+      widget.actionAlignRight ? 1 : -1,
+      widget.actionShowAbove ? -1 : 1,
+    );
+    final followerAnchor = Alignment(
+      widget.actionAlignRight ? 1 : -1,
+      widget.actionShowAbove ? 1 : -1,
+    );
     return Align(
       alignment: Alignment.topLeft,
       child: CompositedTransformFollower(
         link: _layerLink,
-        targetAnchor: Alignment.topRight,
-        followerAnchor: Alignment.bottomRight,
-        offset: const Offset(0, -8),
+        targetAnchor: targetAnchor,
+        followerAnchor: followerAnchor,
+        offset: Offset(0, widget.actionShowAbove ? -8 : 8),
         child: TapRegion(
           groupId: _tapRegionGroup,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _ServerActionButton(
-                key: const ValueKey('server-selection-edit-action'),
-                icon: Icons.edit_outlined,
-                label: '编辑服务器',
-                color: colors.text,
-                onTap: widget.onEdit,
-              ),
-              const SizedBox(width: 8),
-              _ServerActionButton(
-                key: const ValueKey('server-selection-delete-action'),
-                icon: Icons.delete_outline,
-                label: '删除服务器',
-                color: colors.danger,
-                onTap: widget.onDelete,
-              ),
-            ],
+          child: _ServerActionList(
+            editKey: const ValueKey('server-selection-edit-action'),
+            deleteKey: const ValueKey('server-selection-delete-action'),
+            onEdit: widget.onEdit,
+            onDelete: widget.onDelete,
           ),
         ),
       ),
@@ -1085,8 +1098,73 @@ class _ServerCardInteractionState extends State<_ServerCardInteraction> {
   }
 }
 
-class _ServerActionButton extends StatelessWidget {
-  const _ServerActionButton({
+class _ServerActionList extends StatelessWidget {
+  const _ServerActionList({
+    required this.editKey,
+    required this.deleteKey,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  static const width = 196.0;
+  static const itemHeight = 50.0;
+  static const height = 101.0;
+
+  final Key editKey;
+  final Key deleteKey;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return Material(
+      color: colors.surface,
+      elevation: 12,
+      shadowColor: Colors.black.withValues(alpha: 0.34),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: colors.cardBorder.withValues(alpha: 0.45),
+          width: 0.5,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Column(
+          children: [
+            SizedBox(
+              height: itemHeight,
+              child: _ServerActionListItem(
+                key: editKey,
+                icon: Icons.edit_outlined,
+                label: '编辑服务器',
+                color: colors.text,
+                onTap: onEdit,
+              ),
+            ),
+            SizedBox(height: 1, child: ColoredBox(color: colors.divider)),
+            SizedBox(
+              height: itemHeight,
+              child: _ServerActionListItem(
+                key: deleteKey,
+                icon: Icons.delete_outline,
+                label: '删除服务器',
+                color: colors.danger,
+                onTap: onDelete,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ServerActionListItem extends StatelessWidget {
+  const _ServerActionListItem({
     super.key,
     required this.icon,
     required this.label,
@@ -1101,25 +1179,34 @@ class _ServerActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = appColors(context);
     return Semantics(
+      container: true,
       button: true,
       label: label,
-      child: Tooltip(
-        message: label,
-        child: Material(
-          color: colors.surface,
-          elevation: 7,
-          shape: CircleBorder(side: BorderSide(color: colors.cardBorder)),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onTap,
-            child: SizedBox(
-              width: 40,
-              height: 40,
-              child: Icon(icon, color: color, size: 19),
-            ),
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: color,
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(icon, color: color, size: 21),
+            ],
           ),
         ),
       ),
@@ -1136,7 +1223,6 @@ class _ServerAvatarCard extends StatelessWidget {
     required this.cachedProfile,
     required this.statusFuture,
     required this.avatarKey,
-    required this.active,
     required this.busy,
     this.dropTarget = false,
     required this.onTap,
@@ -1147,7 +1233,6 @@ class _ServerAvatarCard extends StatelessWidget {
   final ServerProfileData? cachedProfile;
   final Future<_ServerStatus> statusFuture;
   final GlobalKey? avatarKey;
-  final bool active;
   final bool busy;
   final bool dropTarget;
   final VoidCallback? onTap;
@@ -1180,7 +1265,6 @@ class _ServerAvatarCard extends StatelessWidget {
           child: _ServerCardShell(
             project: server.project,
             avatarUrl: avatarUrl,
-            selected: active,
             busy: busy,
             onTap: busy ? null : onTap,
             dropTarget: dropTarget,
@@ -1308,7 +1392,6 @@ class _ServerCardShell extends StatelessWidget {
     required this.child,
     this.project,
     this.avatarUrl,
-    this.selected = false,
     this.busy = false,
     this.dropTarget = false,
     this.onTap,
@@ -1317,7 +1400,6 @@ class _ServerCardShell extends StatelessWidget {
   final Widget child;
   final ServerProject? project;
   final String? avatarUrl;
-  final bool selected;
   final bool busy;
   final bool dropTarget;
   final VoidCallback? onTap;
@@ -1340,12 +1422,10 @@ class _ServerCardShell extends StatelessWidget {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(_ServerSelectionMetrics.cardRadius),
-        border: selected || dropTarget
+        border: dropTarget
             ? Border.all(
-                color: dropTarget
-                    ? colors.accent.withValues(alpha: 0.76)
-                    : colors.text.withValues(alpha: isDark ? 0.24 : 0.18),
-                width: dropTarget ? 1.5 : 1,
+                color: colors.accent.withValues(alpha: 0.76),
+                width: 1.5,
               )
             : null,
         boxShadow: [
