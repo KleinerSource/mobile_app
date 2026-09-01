@@ -73,6 +73,9 @@ class MediaBrowserAudioProxy {
     return Uri(scheme: 'http', host: InternetAddress.loopbackIPv4.host, port: server.port);
   }
 
+  /// 已绑定的本机基址（诊断与测试用）；代理关闭后抛 StateError。
+  Uri get localBaseUri => _baseUri;
+
   /// 关闭代理：停止接收播放器请求、取消在途下载并清理临时文件。
   Future<void> close() async {
     if (_closed) return;

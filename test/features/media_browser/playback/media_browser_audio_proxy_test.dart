@@ -165,7 +165,7 @@ void main() {
       expect(downloads, 1);
 
       final missing = await client.get(
-        'http://127.0.0.1:${proxy.basePortForTest}/unknown',
+        proxy.localBaseUri.replace(path: '/unknown').toString(),
         options: Options(validateStatus: (status) => status != null && status < 500),
       );
       expect(missing.statusCode, 404);
@@ -205,7 +205,7 @@ void main() {
     }
   });
 
-  test('close 后不再接受请求并清理临时文件', () async {
+  test('close 后不再接受请求（幂等）', () async {
     final adapter = _RemoteAdapter((_) => Uint8List.fromList(_mp3Bytes));
     final proxy = await MediaBrowserAudioProxy.start(
       downloader: Dio()..httpClientAdapter = adapter,
