@@ -11,6 +11,8 @@ import 'dbo_media_source_adapter.dart';
 import 'dbo_media_source.dart';
 import 'emby_media_source_adapter.dart';
 import 'emby_media_source.dart';
+import 'jellyfin_media_source_adapter.dart';
+import 'jellyfin_media_source.dart';
 import 'media_models.dart';
 import 'media_source.dart';
 import 'omm_media_source_adapter.dart';
@@ -43,6 +45,13 @@ final mediaSourceRegistryProvider = Provider<MediaSourceRegistry>((ref) {
       serverId: client.config?.activeServerId,
       endpoint: client.config?.baseUrl,
     );
+  } else if (project == ServerProject.jellyfin) {
+    source = JellyfinMediaSourceAdapter(
+      client.jellyfin,
+      sessionRepository: ref.read(authSessionRepositoryProvider),
+      serverId: client.config?.activeServerId,
+      endpoint: client.config?.baseUrl,
+    );
   } else if (project == ServerProject.ohMyMedia) {
     source = OmmMediaSourceAdapter(client);
   } else {
@@ -71,6 +80,13 @@ final embyMediaSourceProvider = Provider<EmbyMediaSource?>((ref) {
       .watch(mediaSourceRegistryProvider)
       .find(const SourceId('emby'));
   return source is EmbyMediaSource ? source : null;
+});
+
+final jellyfinMediaSourceProvider = Provider<JellyfinMediaSource?>((ref) {
+  final source = ref
+      .watch(mediaSourceRegistryProvider)
+      .find(const SourceId('jellyfin'));
+  return source is JellyfinMediaSource ? source : null;
 });
 
 class MediaCatalogRequest {

@@ -19,6 +19,7 @@ import '../../shared/totp_input_field.dart';
 import 'package:omm/features/oh_my_media/libraries/libraries_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
 import 'package:omm/features/emby/providers/emby_providers.dart';
+import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
 import 'home_providers.dart';
 
 enum ServerSwitchPhase {
@@ -369,6 +370,16 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
         ref.refresh(embyLatestProvider.future),
         ref.refresh(embyResumeProvider.future),
         ref.refresh(embyNextUpProvider.future),
+      ]);
+      unawaited(refresh);
+      return;
+    }
+    if (project == ServerProject.jellyfin) {
+      beginFinishing();
+      final refresh = Future.wait([
+        ref.refresh(jellyfinLatestProvider.future),
+        ref.refresh(jellyfinResumeProvider.future),
+        ref.refresh(jellyfinNextUpProvider.future),
       ]);
       unawaited(refresh);
       return;
@@ -1171,7 +1182,8 @@ class _ServerSwitchTransitionOverlayState
         Text(
           requiresTotp
               ? '输入动态验证码完成切换。'
-              : server.project == ServerProject.emby
+              : server.project == ServerProject.emby ||
+                    server.project == ServerProject.jellyfin
               ? '请输入此服务器的用户名和密码继续。'
               : '请输入此服务器的密码继续。',
           textAlign: TextAlign.center,
@@ -1188,8 +1200,9 @@ class _ServerSwitchTransitionOverlayState
             onCompleted: (_) => _submitTotp(),
           ),
         ] else ...[
-          // Emby 以用户名 + 密码登录；OMM/DBO 只有密码。
-          if (server.project == ServerProject.emby) ...[
+          // Emby/Jellyfin 以用户名 + 密码登录；OMM/DBO 只有密码。
+          if (server.project == ServerProject.emby ||
+              server.project == ServerProject.jellyfin) ...[
             _input(
               context,
               controller: _usernameController,
@@ -1314,7 +1327,9 @@ class _ServerSwitchTransitionOverlayState
       ref.read(serverSelectionConfigProvider),
       transition.targetServerId,
     );
-    final needsUsername = target?.project == ServerProject.emby;
+    final needsUsername =
+        target?.project == ServerProject.emby ||
+        target?.project == ServerProject.jellyfin;
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
     if (needsUsername && username.isEmpty) {

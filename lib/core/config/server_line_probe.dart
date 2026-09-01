@@ -222,17 +222,17 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
   try {
     final versionInfo = await _probeOmmVersion(line);
     if (versionInfo == null) {
-      // OMM 协议不通时回退尝试 Emby：/emby/System/Info/Public 是免鉴权的
-      // 标准入口，OMM/DBO 服务器对其返回 404，不会误判。
-      final embyInfo = await _probeEmbyVersion(line);
-      if (embyInfo == null) {
+      // OMM 协议不通时回退尝试 Emby/Jellyfin：System/Info/Public 是免鉴权
+      // 的标准入口，OMM/DBO 服务器对其返回 404，不会误判。
+      final mediaServerInfo = await _probeEmbyLikeVersion(line);
+      if (mediaServerInfo == null) {
         throw ApiException('服务器版本检测失败');
       }
       stopwatch.stop();
       return ServerLineProbeResult.success(
         line,
         stopwatch.elapsedMilliseconds,
-        versionInfo: embyInfo,
+        versionInfo: mediaServerInfo,
       );
     }
     if (versionInfo.project == ServerProject.dbOnline) {
@@ -305,19 +305,48 @@ Future<ServerVersionInfo?> _probeOmmVersion(ServerLine line) async {
   return requireCompatibleServerVersion(data);
 }
 
-/// 读取 Emby 的 /emby/System/Info/Public；非 Emby 服务器（404/格式不符）
-/// 返回 null。
-Future<ServerVersionInfo?> _probeEmbyVersion(ServerLine line) async {
+/// 读取 Emby/Jellyfin 的 System/Info/Public；非该系列服务器（404/格式
+/// 不符）返回 null。
+///
+/// 两个项目接口同源，靠响应里的 ProductName 区分：Jellyfin 返回
+/// "Jellyfin Server"，Emby 无该字段。根路径探测覆盖 Jellyfin 全系
+/// （/emby 前缀自 10.11 起移除）与部分 Emby，404 时回退 /emby 前缀。
+Future<ServerVersionInfo?> _probeEmbyLikeVersion(ServerLine line) async {
   final dio = buildDio(
     ServerConfig(baseUrl: line.baseUrl),
     connectTimeout: const Duration(milliseconds: 1200),
     sendTimeout: const Duration(milliseconds: 1200),
     receiveTimeout: const Duration(milliseconds: 2200),
   );
-  // 探测用 dio 的 baseUrl 带 OMM 的 /api 前缀，Emby 接口在根路径下，
+  // 探测用 dio 的 baseUrl 带 OMM 的 /api 前缀，Emby 系接口在根路径下，
   // 必须用绝对地址绕开。
-  final probeUrl =
-      '${ServerConfig.normalize(line.baseUrl)}/emby/System/Info/Public';
+  final base = ServerConfig.normalize(line.baseUrl);
+  final data =
+      await _fetchPublicSystemInfo(dio, '$base/System/Info/Public') ??
+      await _fetchPublicSystemInfo(dio, '$base/emby/System/Info/Public');
+  if (data == null) return null;
+  final version = data['Version'].toString().trim();
+  final productName = data['ProductName']?.toString().trim() ?? '';
+  final project = productName == 'Jellyfin Server'
+      ? ServerProject.jellyfin
+      : ServerProject.emby;
+  if (!isSupportedServerVersion(version, project.minimumVersion)) {
+    throw ServerCompatibilityException(
+      '服务器版本不满足要求，需要 ${project.projectName} >= '
+      '${project.minimumVersion}，当前版本为 ${version.isEmpty ? '未知' : version}',
+    );
+  }
+  return ServerVersionInfo(
+    projectName: project.projectName,
+    version: version,
+    buildTime: data['BuildTime']?.toString().trim() ?? '',
+  );
+}
+
+Future<Map<String, dynamic>?> _fetchPublicSystemInfo(
+  Dio dio,
+  String probeUrl,
+) async {
   final Response<dynamic> response;
   try {
     response = await dio.get<dynamic>(
@@ -338,19 +367,7 @@ Future<ServerVersionInfo?> _probeEmbyVersion(ServerLine line) async {
   if (data is! Map || data['Version'] == null) {
     return null;
   }
-  final version = data['Version'].toString().trim();
-  final project = ServerProject.emby;
-  if (!isSupportedServerVersion(version, project.minimumVersion)) {
-    throw ServerCompatibilityException(
-      '服务器版本不满足要求，需要 ${project.projectName} >= '
-      '${project.minimumVersion}，当前版本为 ${version.isEmpty ? '未知' : version}',
-    );
-  }
-  return ServerVersionInfo(
-    projectName: project.projectName,
-    version: version,
-    buildTime: data['BuildTime']?.toString().trim() ?? '',
-  );
+  return Map<String, dynamic>.from(data);
 }
 
 void _requireHealthyServer(Object? raw) {

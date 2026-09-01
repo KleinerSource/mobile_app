@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'package:omm/features/db_online/models/db_online_movie.dart';
 import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/poster.dart';
@@ -29,7 +30,10 @@ class RecommendCarousel extends StatefulWidget {
        _dbOnlineOnTap = null,
        _embyItems = null,
        _embyImageUrlBuilder = null,
-       _embyOnTap = null;
+       _embyOnTap = null,
+       _jellyfinItems = null,
+       _jellyfinImageUrlBuilder = null,
+       _jellyfinOnTap = null;
 
   const RecommendCarousel.emby({
     super.key,
@@ -46,7 +50,30 @@ class RecommendCarousel extends StatefulWidget {
        _dbOnlineOnTap = null,
        _embyItems = items,
        _embyImageUrlBuilder = imageUrlBuilder,
-       _embyOnTap = onItemTap;
+       _embyOnTap = onItemTap,
+       _jellyfinItems = null,
+       _jellyfinImageUrlBuilder = null,
+       _jellyfinOnTap = null;
+
+  const RecommendCarousel.jellyfin({
+    super.key,
+    required List<JellyfinItem> items,
+    required String Function(JellyfinItem item) imageUrlBuilder,
+    required Future<void> Function(BuildContext context, JellyfinItem item)
+    onItemTap,
+    this.pagePosition,
+  }) : items = const <MovieListItem>[],
+       urlBuilder = null,
+       onMovieReturned = _noopMovieReturned,
+       _dbOnlineItems = null,
+       _dbOnlineImageUrlBuilder = null,
+       _dbOnlineOnTap = null,
+       _embyItems = null,
+       _embyImageUrlBuilder = null,
+       _embyOnTap = null,
+       _jellyfinItems = items,
+       _jellyfinImageUrlBuilder = imageUrlBuilder,
+       _jellyfinOnTap = onItemTap;
 
   const RecommendCarousel.dbOnline({
     super.key,
@@ -63,7 +90,10 @@ class RecommendCarousel extends StatefulWidget {
        _dbOnlineOnTap = onMovieTap,
        _embyItems = null,
        _embyImageUrlBuilder = null,
-       _embyOnTap = null;
+       _embyOnTap = null,
+       _jellyfinItems = null,
+       _jellyfinImageUrlBuilder = null,
+       _jellyfinOnTap = null;
 
   final List<MovieListItem> items;
   final String Function(String uuid)? urlBuilder;
@@ -76,6 +106,10 @@ class RecommendCarousel extends StatefulWidget {
   final List<EmbyItem>? _embyItems;
   final String Function(EmbyItem item)? _embyImageUrlBuilder;
   final Future<void> Function(BuildContext context, EmbyItem item)? _embyOnTap;
+  final List<JellyfinItem>? _jellyfinItems;
+  final String Function(JellyfinItem item)? _jellyfinImageUrlBuilder;
+  final Future<void> Function(BuildContext context, JellyfinItem item)?
+  _jellyfinOnTap;
 
   static void _noopMovieReturned(MovieDataChanges _) {}
 
@@ -236,6 +270,29 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
   }
 
   List<_CarouselItem> _itemsFor(RecommendCarousel value) {
+    final jellyfinItems = value._jellyfinItems;
+    final jellyfinImageBuilder = value._jellyfinImageUrlBuilder;
+    final jellyfinOnTap = value._jellyfinOnTap;
+    if (jellyfinItems != null &&
+        jellyfinImageBuilder != null &&
+        jellyfinOnTap != null) {
+      return [
+        for (final item in jellyfinItems)
+          _CarouselItem(
+            key: item.id,
+            title: item.name,
+            code: item.type,
+            imageUrl: _nullableUrl(jellyfinImageBuilder(item)),
+            rating: item.communityRating,
+            runtime: item.runtimeMinutes,
+            year: item.productionYear,
+            privacyId: item.id,
+            canPlay: item.isPlayable,
+            onTap: (context) => jellyfinOnTap(context, item),
+          ),
+      ];
+    }
+
     final embyItems = value._embyItems;
     final embyImageBuilder = value._embyImageUrlBuilder;
     final embyOnTap = value._embyOnTap;

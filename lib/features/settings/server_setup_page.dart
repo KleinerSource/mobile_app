@@ -259,7 +259,8 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       ),
       ServerProject.ohMyMedia ||
       ServerProject.dbOnline ||
-      ServerProject.emby => null,
+      ServerProject.emby ||
+      ServerProject.jellyfin => null,
     };
     if (config == null || !config.isValid) {
       _showError('请完整填写有效的文件服务器配置');
@@ -378,6 +379,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       case ServerProject.ohMyMedia:
       case ServerProject.dbOnline:
       case ServerProject.emby:
+      case ServerProject.jellyfin:
         throw StateError('当前服务器类型不是文件服务器');
     }
   }
@@ -489,7 +491,8 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     final httpServer =
         project == ServerProject.ohMyMedia ||
         project == ServerProject.dbOnline ||
-        project == ServerProject.emby;
+        project == ServerProject.emby ||
+        project == ServerProject.jellyfin;
     final webDav = project == ServerProject.webDav;
     final openList = project == ServerProject.openList;
     final httpLike = webDav || openList;
@@ -787,9 +790,10 @@ String _projectLabel(ServerProject project) {
     ServerProject.ohMyMedia => 'Oh My Media',
     ServerProject.dbOnline => 'DB Online',
     ServerProject.emby => 'Emby',
+    ServerProject.jellyfin => 'Jellyfin',
     ServerProject.smb => 'SMB',
     ServerProject.webDav => 'WebDAV',
-    ServerProject.openList => 'OpenList',
+    ServerProject.openList => 'Openlist',
   };
 }
 

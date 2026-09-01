@@ -20,6 +20,7 @@ import 'services/catalog_extended_api.dart';
 import 'services/configs_extended_api.dart';
 import 'package:omm/features/db_online/api/db_online_api.dart';
 import 'package:omm/features/emby/api/emby_api.dart';
+import 'package:omm/features/jellyfin/api/jellyfin_api.dart';
 import 'services/mappings_extended_api.dart';
 import 'services/modal_transcription_api.dart';
 import 'services/series_api.dart';
@@ -52,7 +53,8 @@ class ApiClient {
       configs = ConfigsApi(dio),
       configsExtended = ConfigsExtendedApi(dio),
       dbOnline = DbOnlineApi(dio),
-      emby = EmbyApi(dio);
+      emby = EmbyApi(dio),
+      jellyfin = JellyfinApi(dio);
 
   factory ApiClient.fromConfig(
     ServerConfig config, {
@@ -60,10 +62,11 @@ class ApiClient {
     void Function()? onSessionExpired,
   }) {
     final activeProject = config.activeServer?.project;
-    // DBO/Emby 只有 access token，不能参与 OMM 旧版全局令牌迁移。
+    // DBO/Emby/Jellyfin 只有 access token，不能参与 OMM 旧版全局令牌迁移。
     final allowLegacyMigration =
         activeProject != ServerProject.dbOnline &&
-        activeProject != ServerProject.emby;
+        activeProject != ServerProject.emby &&
+        activeProject != ServerProject.jellyfin;
     sessionRepository?.setActiveServerId(
       config.activeServerId,
       allowLegacyMigration: allowLegacyMigration,
@@ -106,5 +109,6 @@ class ApiClient {
   final ConfigsExtendedApi configsExtended;
   final DbOnlineApi dbOnline;
   final EmbyApi emby;
+  final JellyfinApi jellyfin;
   final SystemExtendedApi systemExtended;
 }

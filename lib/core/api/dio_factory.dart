@@ -40,11 +40,13 @@ Dio buildDio(
   Duration sendTimeout = const Duration(seconds: 30),
   Duration receiveTimeout = const Duration(seconds: 30),
 }) {
-  // Emby 的 REST 接口挂在根路径的 /emby 前缀下，没有 OMM 的 /api 网关。
-  final isEmby = config.activeServer?.project == ServerProject.emby;
+  // Emby/Jellyfin 的 REST 接口挂在根路径下，没有 OMM 的 /api 网关。
+  final project = config.activeServer?.project;
+  final isEmbyLike =
+      project == ServerProject.emby || project == ServerProject.jellyfin;
   final dio = Dio(
     BaseOptions(
-      baseUrl: isEmby ? config.baseUrl : config.apiBase,
+      baseUrl: isEmbyLike ? config.baseUrl : config.apiBase,
       connectTimeout: connectTimeout,
       sendTimeout: sendTimeout,
       receiveTimeout: receiveTimeout,
@@ -105,7 +107,12 @@ Dio buildDio(
         if (options.extra['skipAuth'] != true && sessionRepository != null) {
           final token = await sessionRepository.accessToken();
           if (token != null && token.isNotEmpty) {
-            if (isEmby) {
+            if (project == ServerProject.jellyfin) {
+              // Jellyfin 使用标准 Authorization 头携带 MediaBrowser 令牌；
+              // 旧版 X-Emby-Token 头自 Jellyfin 12 起默认禁用。
+              options.headers['Authorization'] =
+                  'MediaBrowser Token="$token"';
+            } else if (project == ServerProject.emby) {
               // Emby 不识别 Bearer 令牌，改用其原生的令牌头。
               options.headers['X-Emby-Token'] = token;
             } else {
@@ -144,11 +151,11 @@ Dio buildDio(
             (error.error is ApiException
                 ? (error.error as ApiException).status
                 : null);
-        final project = config.activeServer?.project;
         final canRefresh =
             sessionRepository != null &&
             project != ServerProject.dbOnline &&
             project != ServerProject.emby &&
+            project != ServerProject.jellyfin &&
             status == 401 &&
             options.extra['skipRefresh'] != true &&
             options.extra['authRetried'] != true &&

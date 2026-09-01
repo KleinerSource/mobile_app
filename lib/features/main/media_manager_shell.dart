@@ -20,6 +20,9 @@ import 'package:omm/features/db_online/pages/db_online_search_page.dart';
 import 'package:omm/features/emby/pages/emby_home_page.dart';
 import 'package:omm/features/emby/pages/emby_library_page.dart';
 import 'package:omm/features/emby/pages/emby_search_page.dart';
+import 'package:omm/features/jellyfin/pages/jellyfin_home_page.dart';
+import 'package:omm/features/jellyfin/pages/jellyfin_library_page.dart';
+import 'package:omm/features/jellyfin/pages/jellyfin_search_page.dart';
 import 'package:omm/features/oh_my_media/libraries/libraries_page.dart';
 import 'package:omm/features/db_online/pages/db_online_library_page.dart';
 import 'package:omm/features/oh_my_media/movies/movies_page.dart';
@@ -172,9 +175,10 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     BuildContext context, {
     required bool dbOnline,
     required bool emby,
+    required bool jellyfin,
   }) {
     final l = AppL10n.of(context);
-    if (dbOnline || emby) {
+    if (dbOnline || emby || jellyfin) {
       return [
         FloatingTabSpec(label: l.tabHome, icon: Icons.home_rounded),
         FloatingTabSpec(label: l.tabLibrary, icon: Icons.video_library_rounded),
@@ -198,22 +202,32 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     ];
   }
 
-  Widget _bodyFor(int i, {required bool dbOnline, required bool emby}) {
+  Widget _bodyFor(
+    int i, {
+    required bool dbOnline,
+    required bool emby,
+    required bool jellyfin,
+  }) {
     switch (i) {
       case 0:
         if (dbOnline) return const DbOnlineHomePage();
         if (emby) return const EmbyHomePage();
+        if (jellyfin) return const JellyfinHomePage();
         return const HomePage();
       case 1:
         if (dbOnline) return const DbOnlineLibraryPage();
         if (emby) return const EmbyLibraryPage();
+        if (jellyfin) return const JellyfinLibraryPage();
         return const MoviesPage();
       case 2:
         if (dbOnline) return const DbOnlineSearchPage();
         if (emby) return const EmbySearchPage();
+        if (jellyfin) return const JellyfinSearchPage();
         return const SearchPage();
       case 3:
-        return dbOnline || emby ? const SettingsPage() : const FavoritesPage();
+        return dbOnline || emby || jellyfin
+            ? const SettingsPage()
+            : const FavoritesPage();
       default:
         return const SizedBox.shrink();
     }
@@ -225,11 +239,17 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     final project = ref.watch(serverConfigProvider)?.activeServer?.project;
     final dbOnline = project == ServerProject.dbOnline;
     final emby = project == ServerProject.emby;
+    final jellyfin = project == ServerProject.jellyfin;
     if (_lastProject != null && project != _lastProject && _index != 0) {
       _index = 0;
     }
     _lastProject = project;
-    final tabs = _tabsFor(context, dbOnline: dbOnline, emby: emby);
+    final tabs = _tabsFor(
+      context,
+      dbOnline: dbOnline,
+      emby: emby,
+      jellyfin: jellyfin,
+    );
     return Scaffold(
       extendBody: true,
       backgroundColor: c.bg,
@@ -241,7 +261,12 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
               active: i == _index,
               child: StatusBarScrollToTop(
                 scrollController: _tabScrollControllers[i],
-                    child: _bodyFor(i, dbOnline: dbOnline, emby: emby),
+                    child: _bodyFor(
+                      i,
+                      dbOnline: dbOnline,
+                      emby: emby,
+                      jellyfin: jellyfin,
+                    ),
               ),
             ),
         ],

@@ -8,6 +8,8 @@ const defaultOmmPort = 8001;
 const defaultDboPort = 9090;
 const defaultEmbyPort = 8096;
 const defaultEmbyHttpsPort = 8920;
+const defaultJellyfinPort = 8096;
+const defaultJellyfinHttpsPort = 8920;
 const defaultSmbPort = 445;
 const defaultWebDavHttpPort = 80;
 const defaultWebDavHttpsPort = 443;
@@ -28,6 +30,11 @@ enum ServerProject {
     projectName: 'emby',
     displayName: 'Emby Server',
     minimumVersion: '4.6.0',
+  ),
+  jellyfin(
+    projectName: 'jellyfin',
+    displayName: 'Jellyfin Server',
+    minimumVersion: '10.8.0',
   ),
   smb(
     projectName: 'smb',
@@ -76,6 +83,11 @@ int defaultServerPort(ServerProject project, {String scheme = 'http'}) {
     // Emby 默认监听 8096；HTTPS 通常经反向代理落在 8920。
     ServerProject.emby =>
       scheme.toLowerCase() == 'https' ? defaultEmbyHttpsPort : defaultEmbyPort,
+    // Jellyfin 与 Emby 同源，默认端口一致。
+    ServerProject.jellyfin =>
+      scheme.toLowerCase() == 'https'
+          ? defaultJellyfinHttpsPort
+          : defaultJellyfinPort,
     ServerProject.smb => defaultSmbPort,
     ServerProject.webDav =>
       scheme.toLowerCase() == 'https'
@@ -91,9 +103,11 @@ String get serverCompatibilityRequirementMessage =>
     '服务器不兼容，需要 ${ServerProject.ohMyMedia.projectName} >= '
     '${ServerProject.ohMyMedia.minimumVersion}、'
     '${ServerProject.dbOnline.projectName} >= '
-    '${ServerProject.dbOnline.minimumVersion} 或 '
+    '${ServerProject.dbOnline.minimumVersion}、'
     '${ServerProject.emby.projectName} >= '
-    '${ServerProject.emby.minimumVersion}';
+    '${ServerProject.emby.minimumVersion} 或 '
+    '${ServerProject.jellyfin.projectName} >= '
+    '${ServerProject.jellyfin.minimumVersion}';
 
 @immutable
 class ServerVersionInfo {
