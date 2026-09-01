@@ -793,7 +793,7 @@ String _projectLabel(ServerProject project) {
     ServerProject.jellyfin => 'Jellyfin',
     ServerProject.smb => 'SMB',
     ServerProject.webDav => 'WebDAV',
-    ServerProject.openList => 'Openlist',
+    ServerProject.openList => 'OpenList',
   };
 }
 
