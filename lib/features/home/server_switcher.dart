@@ -134,14 +134,22 @@ class _HomeServerSwitcherMenuState
                 ),
               ),
           ],
-          child: ServerAvatar(
+          child: DecoratedBox(
             key: _avatarKey,
-            displayName: displayName,
-            avatarUrl: avatarUrl,
-            size: 36,
-            colors: colors,
-            project: widget.activeServer.project,
-            showBackground: false,
+            decoration: BoxDecoration(
+              // 首页入口位于海报/背景图上，使用中性磨砂底板承接透明头像，
+              // 避免底层画面直接穿透；头像本身不恢复紫色渐变背景。
+              color: colors.sheetBackground,
+              shape: BoxShape.circle,
+            ),
+            child: ServerAvatar(
+              displayName: displayName,
+              avatarUrl: avatarUrl,
+              size: 36,
+              colors: colors,
+              project: widget.activeServer.project,
+              showBackground: false,
+            ),
           ),
         );
       },
@@ -199,6 +207,7 @@ class _ServerMenuRow extends StatelessWidget {
             size: 34,
             colors: colors,
             project: server.project,
+            showBackground: false,
           ),
           selected: selected,
           onTap: busy || active ? null : onTap,
