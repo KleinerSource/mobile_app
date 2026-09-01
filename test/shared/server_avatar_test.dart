@@ -28,7 +28,7 @@ void main() {
     final cases = <(ServerProject, String, String)>[
       (ServerProject.smb, 'assets/server_avatars/green_folder.png', 'SMB'),
       (ServerProject.webDav, 'assets/server_avatars/red_folder.png', 'DAV'),
-      (ServerProject.openList, 'assets/server_avatars/logo.svg', 'OL'),
+      (ServerProject.openList, 'assets/server_avatars/openlist.svg', 'OL'),
     ];
     for (final (project, asset, badge) in cases) {
       await tester.pumpWidget(_wrap(project: project));
@@ -63,7 +63,7 @@ void main() {
     final image = tester.widget<Image>(find.byType(Image));
     expect(
       (image.image as AssetImage).assetName,
-      'assets/server_avatars/dbo_default.jpg',
+      'assets/server_avatars/dbonline.jpg',
     );
     expect(find.text('DBO'), findsOneWidget);
     expect(find.text('NA'), findsNothing);
@@ -74,7 +74,7 @@ void main() {
     final image = tester.widget<Image>(find.byType(Image));
     expect(
       (image.image as AssetImage).assetName,
-      'assets/branding/oh_my_media_logo.png',
+      'assets/server_avatars/oh_my_media.png',
     );
     expect(find.text('OMM'), findsOneWidget);
     expect(find.text('NA'), findsNothing);
