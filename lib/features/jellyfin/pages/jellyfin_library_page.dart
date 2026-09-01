@@ -22,7 +22,10 @@ import 'package:omm/shared/status_bar_scroll_to_top.dart';
 /// 顶部按 Jellyfin Views（媒体库）切换，类型筛选在电影/剧集/全部间切换；
 /// 排序沿用 Jellyfin 的 SortBy 语义，升降序切换与 Emby 影片库一致。
 class JellyfinLibraryPage extends ConsumerStatefulWidget {
-  const JellyfinLibraryPage({super.key});
+  const JellyfinLibraryPage({super.key, this.initialViewId});
+
+  /// 从首页媒体库卡片进入时预选的库；null 保持默认的“全部库”模式。
+  final String? initialViewId;
 
   @override
   ConsumerState<JellyfinLibraryPage> createState() =>
@@ -55,6 +58,7 @@ class _JellyfinLibraryPageState extends ConsumerState<JellyfinLibraryPage> {
   @override
   void initState() {
     super.initState();
+    _parentId = widget.initialViewId;
     _controller.addPageRequestListener(_fetchPage);
   }
 

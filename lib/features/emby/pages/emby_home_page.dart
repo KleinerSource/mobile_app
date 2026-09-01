@@ -4,13 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/emby/models/emby_models.dart';
 import 'package:omm/features/emby/navigation/emby_navigation.dart';
+import 'package:omm/features/emby/pages/emby_library_page.dart';
 import 'package:omm/features/emby/providers/emby_providers.dart';
 import 'package:omm/features/emby/widgets/emby_continue_watching_section.dart';
 import 'package:omm/features/emby/widgets/emby_item_card.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
+import 'package:omm/features/home/home_libraries_section.dart';
 import 'package:omm/features/home/home_movie_section.dart';
 import 'package:omm/features/home/recommend_carousel.dart';
 
@@ -147,13 +150,19 @@ class _EmbyHomePageState extends ConsumerState<EmbyHomePage> {
                   child: EmbyContinueWatchingSection(items: items),
                 ),
         ),
-        SliverToBoxAdapter(
-          child: _EmbyHomeSection(
-            title: '接下来观看',
-            value: nextUp,
-            onRetry: () => ref.invalidate(embyNextUpProvider),
-            emptyText: '暂无待看剧集',
-          ),
+        // -------- 接下来观看 · 空态静默 --------
+        nextUp.when(
+          loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          data: (items) => items.isEmpty
+              ? const SliverToBoxAdapter(child: SizedBox.shrink())
+              : SliverToBoxAdapter(
+                  child: _EmbyHomeSection(
+                    title: '接下来观看',
+                    value: AsyncValue.data(items),
+                    onRetry: () => ref.invalidate(embyNextUpProvider),
+                  ),
+                ),
         ),
         SliverToBoxAdapter(
           child: _EmbyHomeSection(
@@ -162,6 +171,8 @@ class _EmbyHomePageState extends ConsumerState<EmbyHomePage> {
             onRetry: () => ref.invalidate(embyLatestProvider),
           ),
         ),
+        // -------- 每个媒体库的最近添加 + 媒体库入口卡片 --------
+        const _EmbyViewSections(),
       ],
       heroMaxHeight: heroMaxHeight,
     );
@@ -174,13 +185,13 @@ class _EmbyHomeSection extends ConsumerWidget {
     required this.title,
     required this.value,
     required this.onRetry,
-    this.emptyText = '暂无数据',
+    this.trailing,
   });
 
   final String title;
   final AsyncValue<List<EmbyItem>> value;
   final VoidCallback onRetry;
-  final String emptyText;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -190,7 +201,7 @@ class _EmbyHomeSection extends ConsumerWidget {
       value: value,
       itemsOf: (items) => items,
       onRetry: onRetry,
-      emptyText: emptyText,
+      trailing: trailing,
       itemKeyBuilder: (item) => item.id,
       itemBuilder: (context, item) => urls.maybeWhen(
         data: (value) => EmbyItemCard(
@@ -200,6 +211,138 @@ class _EmbyHomeSection extends ConsumerWidget {
           onTap: () => openEmbyItemUnawaited(context, item),
         ),
         orElse: () => const SizedBox(width: 132),
+      ),
+    );
+  }
+}
+
+/// 每个媒体库的「最近添加」横排 + 底部媒体库入口卡片。
+///
+/// 音乐/图书等无海报内容的库不出影片行（入口卡片仍显示）；某个库没有
+/// 可展示条目时整行隐藏；Views 加载失败/为空时整个区块隐藏。
+class _EmbyViewSections extends ConsumerWidget {
+  const _EmbyViewSections();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final views = ref.watch(embyViewsProvider);
+    final urls = ref.watch(embyServerUrlsProvider).value;
+    return views.maybeWhen(
+      data: (list) {
+        if (list.isEmpty) {
+          return const SliverToBoxAdapter(child: SizedBox.shrink());
+        }
+        final serverId = ref.read(serverConfigProvider)?.activeServerId ?? '';
+        final displayable = list
+            .where((view) => !isSkippableViewType(view.collectionType))
+            .toList(growable: false);
+        return SliverMainAxisGroup(
+          slivers: [
+            for (final view in displayable)
+              SliverToBoxAdapter(
+                child: _EmbyViewLatestRow(serverId: serverId, view: view),
+              ),
+            SliverToBoxAdapter(
+              child: HomeLibrariesSection(
+                entries: [
+                  for (final view in list)
+                    HomeLibraryCardEntry(
+                      id: view.id,
+                      name: view.name,
+                      coverUrl: urls?.poster(view.id, maxWidth: 600),
+                      onTap: () => _openLibrary(context, view.id),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+      orElse: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+    );
+  }
+
+  void _openLibrary(BuildContext context, String viewId) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => EmbyLibraryPage(initialViewId: viewId),
+      ),
+    );
+  }
+}
+
+/// 单个媒体库的最近添加横排；没有可展示条目时整行隐藏。
+class _EmbyViewLatestRow extends ConsumerWidget {
+  const _EmbyViewLatestRow({required this.serverId, required this.view});
+
+  final String serverId;
+  final EmbyItem view;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final includeItemTypes = includeItemTypesForView(view.collectionType);
+    final value = ref.watch(
+      embyViewLatestProvider(
+        EmbyViewLatestRequest(
+          serverId: serverId,
+          viewId: view.id,
+          includeItemTypes: includeItemTypes,
+        ),
+      ),
+    );
+    // 该库没有可展示条目时整行隐藏。
+    if (value.hasValue && value.requireValue.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return _EmbyHomeSection(
+      title: view.name,
+      value: value,
+      onRetry: () => ref.invalidate(
+        embyViewLatestProvider(
+          EmbyViewLatestRequest(
+            serverId: serverId,
+            viewId: view.id,
+            includeItemTypes: includeItemTypes,
+          ),
+        ),
+      ),
+      trailing: _SeeAllButton(
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => EmbyLibraryPage(initialViewId: view.id),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 「查看全部」入口按钮，样式与 OMM 首页一致。
+class _SeeAllButton extends StatelessWidget {
+  const _SeeAllButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return TextButton.icon(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: colors.accent,
+        padding: EdgeInsets.zero,
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+      ),
+      icon: const Icon(Icons.arrow_forward_ios_rounded, size: 13),
+      label: const Text(
+        '查看全部',
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
       ),
     );
   }

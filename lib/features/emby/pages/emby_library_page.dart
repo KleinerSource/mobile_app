@@ -22,7 +22,10 @@ import 'package:omm/shared/status_bar_scroll_to_top.dart';
 /// 顶部按 Emby Views（媒体库）切换，类型筛选在电影/剧集/全部间切换；
 /// 排序沿用 Emby 的 SortBy 语义，升降序切换与 DBO 影片库一致。
 class EmbyLibraryPage extends ConsumerStatefulWidget {
-  const EmbyLibraryPage({super.key});
+  const EmbyLibraryPage({super.key, this.initialViewId});
+
+  /// 从首页媒体库卡片进入时预选的库；null 保持默认的“全部库”模式。
+  final String? initialViewId;
 
   @override
   ConsumerState<EmbyLibraryPage> createState() => _EmbyLibraryPageState();
@@ -54,6 +57,7 @@ class _EmbyLibraryPageState extends ConsumerState<EmbyLibraryPage> {
   @override
   void initState() {
     super.initState();
+    _parentId = widget.initialViewId;
     _controller.addPageRequestListener(_fetchPage);
   }
 

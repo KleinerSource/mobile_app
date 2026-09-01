@@ -80,6 +80,73 @@ final jellyfinViewsProvider = FutureProvider.autoDispose<List<JellyfinItem>>((
   return ref.watch(jellyfinMediaRepositoryProvider).views();
 });
 
+/// 媒体库类型 → 条目类型过滤。
+///
+/// 返回 null 有两种含义，用 [isSkippableViewType] 区分：
+/// - 跳过：音乐/图书等无海报内容的库，首页不出影片行；
+/// - 混合库（collectionType 为空）：不加类型过滤，展示全部条目。
+String? includeItemTypesForView(String? collectionType) => switch (
+      collectionType?.trim().toLowerCase() ?? ''
+    ) {
+      '' => null,
+      'movies' => 'Movie',
+      'tvshows' => 'Series',
+      _ => null,
+    };
+
+/// 该类型的库是否不在首页出影片行（卡片行仍显示入口）。
+bool isSkippableViewType(String? collectionType) {
+  final normalized = collectionType?.trim().toLowerCase() ?? '';
+  return const {
+    'music',
+    'audiobooks',
+    'books',
+    'photos',
+    'games',
+    'musicvideos',
+    'playlists',
+  }.contains(normalized);
+}
+
+/// 某个媒体库的「最近添加」横排。
+final jellyfinViewLatestProvider = FutureProvider.autoDispose
+    .family<List<JellyfinItem>, JellyfinViewLatestRequest>((ref, request) async {
+      _checkServerScope(ref, request.serverId);
+      final page = await ref
+          .watch(jellyfinMediaRepositoryProvider)
+          .itemPage(
+            parentId: request.viewId,
+            includeItemTypes: request.includeItemTypes,
+            recursive: true,
+            sortBy: 'DateCreated',
+            sortOrder: 'Descending',
+            limit: 20,
+          );
+      return page.items;
+    });
+
+class JellyfinViewLatestRequest {
+  const JellyfinViewLatestRequest({
+    required this.serverId,
+    required this.viewId,
+    this.includeItemTypes,
+  });
+
+  final String serverId;
+  final String viewId;
+  final String? includeItemTypes;
+
+  @override
+  bool operator ==(Object other) =>
+      other is JellyfinViewLatestRequest &&
+      other.serverId == serverId &&
+      other.viewId == viewId &&
+      other.includeItemTypes == includeItemTypes;
+
+  @override
+  int get hashCode => Object.hash(serverId, viewId, includeItemTypes);
+}
+
 /// 首页「最新入库」。
 final jellyfinLatestProvider = FutureProvider.autoDispose<List<JellyfinItem>>((
   ref,

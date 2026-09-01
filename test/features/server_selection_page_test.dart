@@ -263,7 +263,7 @@ void main() {
       ),
     );
 
-    await tester.longPress(find.text('DB Online'));
+    await tester.longPress(find.bySemanticsLabel('选择DB Online'));
     await tester.pumpAndSettle();
 
     expect(find.text('编辑服务器'), findsOneWidget);
@@ -337,6 +337,60 @@ void main() {
     expect(find.text('旧名称'), findsNothing);
   });
 
+  testWidgets('OMM 卡片显示真实名称，其他类型显示用户配置名称', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'omm-one',
+          'name': 'OMM 用户配置名称',
+          'lines': [
+            {
+              'id': 'omm-line',
+              'name': 'OMM 公网线路',
+              'base_url': 'http://127.0.0.1:1',
+            },
+          ],
+          'active_line_id': 'omm-line',
+          'project_name': 'oh-my-media',
+        },
+        {
+          'id': 'smb-one',
+          'name': 'SMB 用户配置名称',
+          'lines': [
+            {
+              'id': 'smb-line',
+              'name': 'SMB 线路名称',
+              'base_url': 'smb://nas.example/share',
+            },
+          ],
+          'active_line_id': 'smb-line',
+          'project_name': 'smb',
+        },
+      ]),
+      'server.active_server_id': 'omm-one',
+      'server.profile_cache.v1': jsonEncode({
+        'omm-one': {'name': 'OMM 真实服务器名称'},
+        'smb-one': {'name': '不应显示的 SMB 服务端名称'},
+      }),
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: _testApp(const ServerSelectionPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('OMM 真实服务器名称'), findsOneWidget);
+    expect(find.text('OMM 用户配置名称'), findsNothing);
+    expect(find.text('OMM 公网线路'), findsNothing);
+    expect(find.text('SMB 用户配置名称'), findsOneWidget);
+    expect(find.text('不应显示的 SMB 服务端名称'), findsNothing);
+    expect(find.text('SMB 线路名称'), findsNothing);
+  });
+
   testWidgets('服务器列表使用双列卡片网格', (tester) async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([
@@ -349,6 +403,7 @@ void main() {
                 'id': 'line-$i',
                 'name': '主线路',
                 'base_url': 'https://server-$i.example',
+                'latency_ms': 8,
               },
             ],
             'active_line_id': 'line-$i',
@@ -376,6 +431,66 @@ void main() {
       2,
     );
     expect(find.text('服务器 5'), findsOneWidget);
+    expect(find.text('线路'), findsNWidgets(6));
+    expect(find.text('1条线路'), findsNWidgets(6));
+    expect(find.text('延迟'), findsNWidgets(6));
+    expect(find.text('8 ms'), findsNWidgets(6));
+  });
+
+  testWidgets('服务器选择器显示资源库标题并支持搜索', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'smb-one',
+          'name': 'SMB 一号',
+          'lines': [
+            {
+              'id': 'smb-line',
+              'name': '主线路',
+              'base_url': 'smb://nas-one/share',
+            },
+          ],
+          'active_line_id': 'smb-line',
+          'project_name': 'smb',
+        },
+        {
+          'id': 'webdav-two',
+          'name': 'WebDAV 二号',
+          'lines': [
+            {
+              'id': 'webdav-line',
+              'name': '主线路',
+              'base_url': 'https://nas-two/dav',
+            },
+          ],
+          'active_line_id': 'webdav-line',
+          'project_name': 'webdav',
+        },
+      ]),
+      'server.active_server_id': 'smb-one',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: _testApp(const ServerSelectionPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('资源库'), findsOneWidget);
+    expect(find.text('Oh My Media'), findsNothing);
+    final search = find.byKey(
+      const ValueKey<String>('server-selection-search'),
+    );
+    expect(search, findsOneWidget);
+
+    await tester.enterText(search, 'WebDAV');
+    await tester.pump();
+
+    expect(find.text('WebDAV 二号'), findsOneWidget);
+    expect(find.text('SMB 一号'), findsNothing);
   });
 
   testWidgets('已登录页面打开服务器选择器使用普通页面转场', (tester) async {

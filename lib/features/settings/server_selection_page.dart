@@ -142,6 +142,7 @@ class ServerNavigationScope extends InheritedWidget {
 class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   final _profileFutures = <String, Future<ServerProfileData?>>{};
   final _avatarKeys = <String, GlobalKey>{};
+  var _searchQuery = '';
 
   GlobalKey _avatarKeyFor(String serverId) {
     return _avatarKeys.putIfAbsent(serverId, GlobalKey.new);
@@ -171,6 +172,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     final transition = ref.watch(serverSwitchTransitionProvider);
     final activeServerId =
         config?.activeServerId ?? (servers.isEmpty ? null : servers.first.id);
+    final visibleServers = _filterServers(servers);
 
     return PopScope<void>(
       canPop: false,
@@ -187,8 +189,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _BrandHeader(colors: colors),
-                        const SizedBox(height: 30),
+                        _LibraryHeader(onChanged: _updateSearchQuery),
+                        const SizedBox(height: 22),
                         if (servers.isEmpty)
                           Center(
                             child: ConstrainedBox(
@@ -196,9 +198,18 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                               child: _AddServerCard(onTap: _openCreateServer),
                             ),
                           )
-                        else
+                        else ...[
+                          if (visibleServers.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              child: Text(
+                                '没有找到匹配的资源库',
+                                textAlign: TextAlign.center,
+                                style: AppText.meta(context),
+                              ),
+                            ),
                           _ServerStrip(
-                            servers: servers,
+                            servers: visibleServers,
                             activeServerId: activeServerId,
                             transition: transition,
                             profileFor: _profileFor,
@@ -210,6 +221,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                             onLongPress: (server) =>
                                 unawaited(_showServerActions(server)),
                           ),
+                        ],
                       ],
                     ),
                   ),
@@ -220,6 +232,29 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
         ),
       ),
     );
+  }
+
+  void _updateSearchQuery(String value) {
+    final query = value.trim();
+    if (_searchQuery == query) return;
+    setState(() => _searchQuery = query);
+  }
+
+  List<ServerProfile> _filterServers(List<ServerProfile> servers) {
+    final query = _searchQuery.toLowerCase();
+    if (query.isEmpty) return servers;
+    return servers
+        .where((server) {
+          final line = server.activeLine;
+          final searchable = [
+            server.name,
+            _serverProjectLabel(server.project),
+            line?.name,
+            line?.baseUrl,
+          ].whereType<String>().join(' ').toLowerCase();
+          return searchable.contains(query);
+        })
+        .toList(growable: false);
   }
 
   void _openCreateServer() {
@@ -383,44 +418,55 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   }
 }
 
-class _BrandHeader extends StatelessWidget {
-  const _BrandHeader({required this.colors});
+class _LibraryHeader extends StatelessWidget {
+  const _LibraryHeader({required this.onChanged});
 
-  final AppColors colors;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
+    final colors = appColors(context);
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: colors.text.withValues(alpha: 0.18),
-                blurRadius: 28,
-                offset: const Offset(0, 12),
+        Text('资源库', style: AppText.pageTitle(context).copyWith(fontSize: 24)),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 48,
+          child: GlassPanel(
+            borderRadius: BorderRadius.circular(16),
+            sigma: 18,
+            tint: colors.surface.withValues(alpha: 0.72),
+            showBorder: false,
+            showHighlight: false,
+            child: TextField(
+              key: const ValueKey('server-selection-search'),
+              onChanged: onChanged,
+              textInputAction: TextInputAction.search,
+              textAlignVertical: TextAlignVertical.center,
+              style: AppText.body(context).copyWith(fontSize: 14),
+              cursorColor: colors.accent,
+              decoration: InputDecoration(
+                hintText: '搜索资源库',
+                hintStyle: TextStyle(
+                  color: colors.muted,
+                  fontFamily: 'Inter',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: colors.muted,
+                  size: 21,
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: Image.asset(
-              'assets/branding/oh_my_media_logo.png',
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.high,
-              semanticLabel: 'Oh My Media',
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Oh My Media',
-          style: AppText.cardTitle(
-            context,
-          ).copyWith(fontSize: 18, letterSpacing: 0.3),
         ),
       ],
     );
@@ -551,9 +597,13 @@ class _ServerAvatarCard extends StatelessWidget {
       initialData: cachedProfile,
       builder: (context, snapshot) {
         final profile = snapshot.data;
-        // 服务器名称是本地配置中的用户自定义名称，不能被缓存的服务端
-        // profile 名称覆盖；profile 仍只用于补充头像信息。
-        final displayName = server.name;
+        // OMM 可以从服务端取得真实名称；其他类型暂不支持该接口，
+        // 始终显示用户配置名称。线路名称不参与卡片标题。
+        final displayName =
+            server.project == ServerProject.ohMyMedia &&
+                profile?.name.trim().isNotEmpty == true
+            ? profile!.name.trim()
+            : server.name;
         final avatarUrl = profile?.avatarUrl ?? server.avatarUrl;
         final line = server.activeLine;
         final projectLabel = _serverProjectLabel(server.project);
@@ -576,40 +626,20 @@ class _ServerAvatarCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                        child: Row(
                           children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    displayName,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppText.cardTitle(
-                                      context,
-                                    ).copyWith(fontSize: 15, height: 1.2),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                _ServerStatusDot(online: line?.enabled == true),
-                              ],
-                            ),
-                            if (projectLabel != displayName) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                projectLabel,
+                            Flexible(
+                              child: Text(
+                                displayName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: colors.muted,
-                                  fontFamily: 'Inter',
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.15,
-                                ),
+                                style: AppText.cardTitle(
+                                  context,
+                                ).copyWith(fontSize: 15, height: 1.2),
                               ),
-                            ],
+                            ),
+                            const SizedBox(width: 6),
+                            _ServerStatusDot(online: line?.enabled == true),
                           ],
                         ),
                       ),
@@ -630,18 +660,56 @@ class _ServerAvatarCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 4),
                   Text(
-                    _serverCardMeta(server),
+                    projectLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: colors.muted2,
+                      color: colors.muted,
                       fontFamily: 'Inter',
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      height: 1.2,
+                      height: 1.15,
                     ),
+                  ),
+                  const Spacer(),
+                  Row(
+                    children: [
+                      Text(
+                        '线路',
+                        style: AppText.meta(
+                          context,
+                        ).copyWith(fontSize: 11, color: colors.muted),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${server.lines.length}条线路',
+                        style: AppText.meta(
+                          context,
+                        ).copyWith(fontSize: 11, color: colors.text),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        '延迟',
+                        style: AppText.meta(
+                          context,
+                        ).copyWith(fontSize: 11, color: colors.muted),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        line?.latencyMs == null
+                            ? '--'
+                            : '${line!.latencyMs} ms',
+                        style: AppText.meta(
+                          context,
+                        ).copyWith(fontSize: 11, color: colors.text),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -850,14 +918,13 @@ class _ServerStatusDot extends StatefulWidget {
   State<_ServerStatusDot> createState() => _ServerStatusDotState();
 }
 
-class _ServerStatusDotState extends State<_ServerStatusDot>
-    with SingleTickerProviderStateMixin {
+class _ServerStatusDotState extends State<_ServerStatusDot> {
   bool _disableAnimations = false;
+  Timer? _pulseTimer;
+  var _pulseStep = 7;
 
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  );
+  // 低频状态反馈不需要跟随屏幕刷新率，200ms 一次约为 5fps。
+  static const _pulseInterval = Duration(milliseconds: 200);
 
   @override
   void initState() {
@@ -881,7 +948,7 @@ class _ServerStatusDotState extends State<_ServerStatusDot>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _pulseTimer?.cancel();
     super.dispose();
   }
 
@@ -893,22 +960,26 @@ class _ServerStatusDotState extends State<_ServerStatusDot>
     if (!widget.online || _disableAnimations) {
       return _dot(widget.online ? onlineColor : offlineColor, 1, 1);
     }
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final value = Curves.easeInOut.transform(_controller.value);
-        return _dot(onlineColor, 0.78 + (value * 0.22), 0.88 + (value * 0.16));
-      },
-    );
+    final phase = _pulseStep <= 7 ? _pulseStep : 14 - _pulseStep;
+    final value = Curves.easeInOut.transform(phase / 7);
+    return _dot(onlineColor, 0.78 + (value * 0.22), 0.88 + (value * 0.16));
   }
 
   void _syncAnimation() {
     if (widget.online && !_disableAnimations) {
-      if (!_controller.isAnimating) _controller.repeat(reverse: true);
+      if (_pulseTimer != null) return;
+      _pulseStep = 0;
+      _pulseTimer = Timer.periodic(_pulseInterval, (_) {
+        if (!mounted || !widget.online || _disableAnimations) return;
+        setState(() {
+          _pulseStep = (_pulseStep + 1) % 14;
+        });
+      });
       return;
     }
-    _controller.stop();
-    _controller.value = 1;
+    _pulseTimer?.cancel();
+    _pulseTimer = null;
+    _pulseStep = 7;
   }
 
   Widget _dot(Color color, double opacity, double scale) {
@@ -956,15 +1027,4 @@ String _serverProjectLabel(ServerProject? project) {
     ServerProject.openList => 'OpenList',
     null => '服务器',
   };
-}
-
-String _serverCardMeta(ServerProfile server) {
-  final line = server.activeLine;
-  final lineName = line?.name.trim();
-  final parts = <String>[
-    if (lineName != null && lineName.isNotEmpty) lineName,
-    '${server.lines.length} 条线路',
-    if (line?.latencyMs != null) '${line!.latencyMs} ms',
-  ];
-  return parts.isEmpty ? '未配置线路' : parts.join(' · ');
 }
