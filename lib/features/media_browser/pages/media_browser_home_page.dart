@@ -126,8 +126,7 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
                     Positioned.fill(
                       child: RecommendCarousel.mediaBrowser(
                         items: items,
-                        imageUrlBuilder: (item) =>
-                            value.heroImage(item) ?? '',
+                        imageUrlBuilder: (item) => value.heroImage(item) ?? '',
                         pagePosition: _heroPagePosition,
                         onItemTap: (context, item) =>
                             openMediaBrowserItem(context, ref, item),
@@ -232,6 +231,9 @@ class _MediaBrowserHomeSection extends ConsumerWidget {
           width: 132,
           square: square,
           onTap: () => openMediaBrowserItemUnawaited(context, ref, item),
+          // 首页无拖选设计（同 OMM 首页）：空操作长按用于压制水波纹，
+          // 避免长按松手误触打开详情。
+          onLongPress: () {},
         ),
         orElse: () => const SizedBox(width: 132),
       ),

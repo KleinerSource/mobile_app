@@ -6,15 +6,21 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_selectable_item_card.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
+import 'package:omm/shared/drag_selection.dart';
+import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/pagination_footer.dart';
+import 'package:omm/shared/paged_scroll_position_restorer.dart';
+import 'package:omm/shared/selection_controller.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 
@@ -22,6 +28,7 @@ import 'package:omm/shared/status_bar_scroll_to_top.dart';
 ///
 /// 顶部按 MediaBrowser Views（媒体库）切换，类型筛选在电影/剧集/全部间切换；
 /// 排序沿用 MediaBrowser 的 SortBy 语义，升降序切换与 DBO 影片库一致。
+/// 长按进入拖选多选（与 OMM 影片库同构），批量收藏/已看标记。
 class MediaBrowserLibraryPage extends ConsumerStatefulWidget {
   const MediaBrowserLibraryPage({super.key, this.initialViewId});
 
@@ -54,6 +61,7 @@ class _MediaBrowserLibraryPageState
 
   final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
+  late final SelectionController<String> _selection;
   Completer<void>? _refreshCompleter;
   String? _parentId;
   String? _collectionType;
@@ -61,6 +69,10 @@ class _MediaBrowserLibraryPageState
   String _sortBy = 'DateCreated';
   String _sortOrder = 'Descending';
   int _requestSerial = 0;
+  bool _batchBusy = false;
+
+  bool get _selectionMode => _selection.isActive;
+  Set<String> get _selectedIds => _selection.selected;
 
   /// 当前选中库的类型过滤选项；音乐库切到「专辑/歌曲」。
   List<({String value, String label})> get _typeOptions =>
@@ -81,6 +93,8 @@ class _MediaBrowserLibraryPageState
   void initState() {
     super.initState();
     _parentId = widget.initialViewId;
+    _selection = SelectionController<String>();
+    _selection.activeListenable.addListener(_onSelectionModeChanged);
     _controller.addPageRequestListener(_fetchPage);
   }
 
@@ -89,7 +103,34 @@ class _MediaBrowserLibraryPageState
     _completeRefresh();
     _controller.dispose();
     _scrollController.dispose();
+    _selection.dispose();
     super.dispose();
+  }
+
+  void _onSelectionModeChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _startSelectionSweep(String id, bool selected) {
+    _selection.enter();
+    _selection.setSelected(id, selected);
+  }
+
+  void _applySelectionSweep(String id, bool selected) {
+    _selection.setSelected(id, selected);
+  }
+
+  void _finishSelectionSweep() {
+    if (_selectionMode && _selectedIds.isEmpty) _exitSelection();
+  }
+
+  void _toggleSelect(String id) => _selection.toggle(id);
+
+  void _exitSelection() => _selection.exit();
+
+  void _selectAllLoaded() {
+    final loaded = _controller.itemList ?? const <MediaBrowserItem>[];
+    _selection.selectAll(loaded.map((item) => item.id));
   }
 
   Future<void> _fetchPage(int startIndex) async {
@@ -177,6 +218,7 @@ class _MediaBrowserLibraryPageState
       _sortBy = nextSortBy;
       _sortOrder = nextSortOrder;
     });
+    _selection.exit();
     _requestSerial++;
     _controller.refresh();
   }
@@ -205,9 +247,95 @@ class _MediaBrowserLibraryPageState
           _includeItemTypes = options.first.value;
         }
       });
+      _selection.exit();
       _requestSerial++;
       _controller.refresh();
     });
+  }
+
+  Future<void> _openItem(MediaBrowserItem item) async {
+    await openMediaBrowserItem(context, ref, item);
+    if (!mounted) return;
+    // 详情页内可能切换了收藏/已看，返回时后台刷新已加载条目并保持滚动位置。
+    await _refreshLoadedInBackground();
+  }
+
+  Future<void> _refreshLoadedInBackground() async {
+    final parentId = _parentId;
+    final includeItemTypes = _includeItemTypes;
+    final sortBy = _sortBy;
+    final sortOrder = _sortOrder;
+    final refreshed = await refreshPagedListInBackground<MediaBrowserItem>(
+      controller: _controller,
+      loadFirstPage: (limit) async {
+        final result = await ref.read(
+          mediaBrowserItemPageProvider(
+            MediaBrowserItemPageRequest(
+              serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+              parentId: parentId,
+              includeItemTypes: includeItemTypes,
+              recursive: true,
+              sortBy: sortBy,
+              sortOrder: sortOrder,
+              startIndex: 0,
+              limit: limit,
+            ),
+          ).future,
+        );
+        return PagedResult(
+          items: result.items,
+          totalCount: result.total,
+          limit: limit,
+          offset: 0,
+        );
+      },
+    );
+    if (mounted && refreshed) setState(() {});
+  }
+
+  /// 批量收藏/已看标记：非破坏性操作直接执行（无确认对话框，
+  /// 与 OMM 影片库批量行为一致），完成后原位刷新已加载条目。
+  Future<void> _applySelection({bool? favorite, bool? played}) async {
+    if (_selectedIds.isEmpty || _batchBusy) return;
+    final ids = _selectedIds.toList();
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _batchBusy = true);
+    var failed = 0;
+    try {
+      final repo = ref.read(mediaBrowserMediaRepositoryProvider);
+      for (final id in ids) {
+        try {
+          if (favorite != null) {
+            await repo.markFavorite(id, favorite);
+          } else {
+            await repo.markPlayed(id, played!);
+          }
+        } catch (_) {
+          failed++;
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _batchBusy = false);
+    }
+    if (!mounted) return;
+    if (played != null) {
+      // 已看状态影响首页「继续观看/接下来观看」区块。
+      ref.invalidate(mediaBrowserResumeProvider);
+      ref.invalidate(mediaBrowserNextUpProvider);
+    }
+    await _refreshLoadedInBackground();
+    if (!mounted) return;
+    _exitSelection();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          failed == 0
+              ? '已更新 ${ids.length} 个条目'
+              : '已更新 ${ids.length - failed} 个条目，$failed 个失败',
+        ),
+        duration: const Duration(seconds: 1),
+      ),
+    );
   }
 
   Future<void> _openSortMenu(BuildContext context) async {
@@ -319,117 +447,164 @@ class _MediaBrowserLibraryPageState
         ((width - horizontalPadding) - spacing * (crossAxisCount - 1)) /
         crossAxisCount;
     // 影视海报 2:3 + 双行文字；音乐方形封面按实际卡片高度反推比例。
-    final cardAspectRatio = _isMusicGrid
-        ? itemWidth / (itemWidth + 62)
-        : 0.5;
+    final cardAspectRatio = _isMusicGrid ? itemWidth / (itemWidth + 62) : 0.5;
 
     // 独立路由进入时页面自身就是 Material 根：无 Scaffold 会让 debug
     // 构建的文本出现黄色双下划线。底色由 FrostedBase 自绘，保持透明。
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: GlowBackground(
-        child: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+      body: PopScope(
+        canPop: !_selectionMode,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _selectionMode) _exitSelection();
+        },
+        child: GlowBackground(
+          child: SafeArea(
+            bottom: false,
+            child: Stack(
+              children: [
+                Column(
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Text(
-                            ref.watch(mediaBrowserConfigProvider)?.brandLabel ??
-                                '',
-                            style: AppText.eyebrow(context),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  ref
+                                          .watch(mediaBrowserConfigProvider)
+                                          ?.brandLabel ??
+                                      '',
+                                  style: AppText.eyebrow(context),
+                                ),
+                                const SizedBox(height: 3),
+                                Text('媒体库', style: AppText.pageTitle(context)),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 3),
-                          Text('媒体库', style: AppText.pageTitle(context)),
+                          _LibrarySortButton(
+                            ascending: _sortOrder == 'Ascending',
+                            onTap: () => _openSortMenu(context),
+                          ),
+                          const SizedBox(width: 8),
+                          _LibraryFilterButton(
+                            active:
+                                _includeItemTypes != _typeOptions.first.value,
+                            onTap: () => _openTypeMenu(context),
+                          ),
                         ],
                       ),
                     ),
-                    _LibrarySortButton(
-                      ascending: _sortOrder == 'Ascending',
-                      onTap: () => _openSortMenu(context),
+                    views.maybeWhen(
+                      data: (list) => list.length <= 1
+                          ? const SizedBox.shrink()
+                          : SizedBox(
+                              height: 38,
+                              child: ListView.separated(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 22,
+                                ),
+                                scrollDirection: Axis.horizontal,
+                                itemCount: list.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(width: 8),
+                                itemBuilder: (context, index) {
+                                  final view = list[index];
+                                  final selected = view.id == _parentId;
+                                  return _ViewChip(
+                                    privacyId: view.id,
+                                    label: view.name,
+                                    selected: selected,
+                                    onTap: () => _reloadWith(parentId: view.id),
+                                  );
+                                },
+                              ),
+                            ),
+                      orElse: () => const SizedBox.shrink(),
                     ),
-                    const SizedBox(width: 8),
-                    _LibraryFilterButton(
-                      active: _includeItemTypes != _typeOptions.first.value,
-                      onTap: () => _openTypeMenu(context),
-                    ),
-                  ],
-                ),
-              ),
-              views.maybeWhen(
-                data: (list) => list.length <= 1
-                    ? const SizedBox.shrink()
-                    : SizedBox(
-                        height: 38,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 22),
-                          scrollDirection: Axis.horizontal,
-                          itemCount: list.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 8),
-                          itemBuilder: (context, index) {
-                            final view = list[index];
-                            final selected = view.id == _parentId;
-                            return _ViewChip(
-                              privacyId: view.id,
-                              label: view.name,
-                              selected: selected,
-                              onTap: () => _reloadWith(parentId: view.id),
-                            );
+                    const SizedBox(height: 6),
+                    Expanded(
+                      child: StatusBarScrollToTop(
+                        scrollController: _scrollController,
+                        child: RefreshIndicator(
+                          onRefresh: () async {
+                            ref.invalidate(mediaBrowserViewsProvider);
+                            await _refresh();
                           },
-                        ),
-                      ),
-                orElse: () => const SizedBox.shrink(),
-              ),
-              const SizedBox(height: 6),
-              Expanded(
-                child: StatusBarScrollToTop(
-                  scrollController: _scrollController,
-                  child: RefreshIndicator(
-                    onRefresh: () async {
-                      ref.invalidate(mediaBrowserViewsProvider);
-                      await _refresh();
-                    },
-                    child: CustomScrollView(
-                      controller: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      slivers: [
-                        SliverPadding(
-                          padding: const EdgeInsets.symmetric(horizontal: 22),
-                          sliver: urls.maybeWhen(
-                            data: (value) =>
-                                PagedSliverGrid<int, MediaBrowserItem>(
-                                  pagingController: _controller,
-                                  gridDelegate:
-                                      SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: crossAxisCount,
-                                        childAspectRatio: cardAspectRatio,
-                                        mainAxisSpacing: 14,
-                                        crossAxisSpacing: spacing,
-                                      ),
-                                  builderDelegate:
-                                      PagedChildBuilderDelegate<
-                                        MediaBrowserItem
-                                      >(
+                          child: DragSelectionScope<String>(
+                            scrollController: _scrollController,
+                            selectionLayout: DragSelectionLayout.grid,
+                            isSelected: _selection.contains,
+                            onSelectionStart: _startSelectionSweep,
+                            onSelectionChanged: _applySelectionSweep,
+                            onSelectionEnd: _finishSelectionSweep,
+                            selectionMode: _selectionMode,
+                            child: CustomScrollView(
+                              controller: _scrollController,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              slivers: [
+                                SliverPadding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 22,
+                                  ),
+                                  sliver: urls.maybeWhen(
+                                    data: (value) => PagedSliverGrid<int, MediaBrowserItem>(
+                                      pagingController: _controller,
+                                      gridDelegate:
+                                          SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: crossAxisCount,
+                                            childAspectRatio: cardAspectRatio,
+                                            mainAxisSpacing: 14,
+                                            crossAxisSpacing: spacing,
+                                          ),
+                                      builderDelegate: PagedChildBuilderDelegate<MediaBrowserItem>(
                                         itemBuilder: (context, item, index) =>
-                                            MediaBrowserItemCard(
+                                            DragSelectionTarget<String>(
                                               key: ValueKey(item.id),
-                                              item: item,
-                                              urls: value,
-                                              width: itemWidth,
-                                              square: _isMusicGrid,
-                                              showFavoriteBadge: true,
-                                              onTap: () =>
-                                                  openMediaBrowserItemUnawaited(
-                                                    context,
-                                                    ref,
-                                                    item,
+                                              id: item.id,
+                                              selectionIndex: index,
+                                              // 勾选态跟随 selectedListenable
+                                              // 局部重建（同 OMM 影片库）。
+                                              child:
+                                                  ValueListenableBuilder<
+                                                    Set<String>
+                                                  >(
+                                                    valueListenable: _selection
+                                                        .selectedListenable,
+                                                    builder:
+                                                        (
+                                                          context,
+                                                          selected,
+                                                          _,
+                                                        ) => MediaBrowserSelectableItemCard(
+                                                          item: item,
+                                                          urls: value,
+                                                          width: itemWidth,
+                                                          square: _isMusicGrid,
+                                                          showFavoriteBadge:
+                                                              true,
+                                                          selected: selected
+                                                              .contains(
+                                                                item.id,
+                                                              ),
+                                                          selecting:
+                                                              _selectionMode,
+                                                          onTap: () {
+                                                            if (_selectionMode) {
+                                                              _toggleSelect(
+                                                                item.id,
+                                                              );
+                                                            } else {
+                                                              unawaited(
+                                                                _openItem(item),
+                                                              );
+                                                            }
+                                                          },
+                                                        ),
                                                   ),
                                             ),
                                         firstPageProgressIndicatorBuilder:
@@ -475,19 +650,77 @@ class _MediaBrowserLibraryPageState
                                         noMoreItemsIndicatorBuilder: (_) =>
                                             const NoMoreContent(),
                                       ),
+                                    ),
+                                    orElse: () => const SliverToBoxAdapter(
+                                      child: SizedBox.shrink(),
+                                    ),
+                                  ),
                                 ),
-                            orElse: () => const SliverToBoxAdapter(
-                              child: SizedBox.shrink(),
+                                const SliverToBoxAdapter(
+                                  child: SizedBox(height: 120),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 120)),
-                      ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (_selectionMode)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: ValueListenableBuilder<Set<String>>(
+                      valueListenable: _selection.selectedListenable,
+                      builder: (context, selected, _) => EntityBatchToolbar(
+                        selectedCount: selected.length,
+                        onSelectAll: _selectAllLoaded,
+                        onClear: _selection.clear,
+                        onClose: _exitSelection,
+                        actions: [
+                          EntityBatchAction(
+                            icon: Icons.favorite_rounded,
+                            label: '收藏',
+                            onTap: selected.isEmpty || _batchBusy
+                                ? null
+                                : () => unawaited(
+                                    _applySelection(favorite: true),
+                                  ),
+                          ),
+                          EntityBatchAction(
+                            icon: Icons.favorite_border_rounded,
+                            label: '取消收藏',
+                            color: colors.danger,
+                            onTap: selected.isEmpty || _batchBusy
+                                ? null
+                                : () => unawaited(
+                                    _applySelection(favorite: false),
+                                  ),
+                          ),
+                          EntityBatchAction(
+                            icon: Icons.task_alt_rounded,
+                            label: '标记已看',
+                            onTap: selected.isEmpty || _batchBusy
+                                ? null
+                                : () =>
+                                      unawaited(_applySelection(played: true)),
+                          ),
+                          EntityBatchAction(
+                            icon: Icons.check_circle_outline_rounded,
+                            label: '取消已看',
+                            onTap: selected.isEmpty || _batchBusy
+                                ? null
+                                : () =>
+                                      unawaited(_applySelection(played: false)),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -1,18 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
+import 'package:omm/core/models/paged_result.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
-import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_selectable_item_card.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
+import 'package:omm/shared/drag_selection.dart';
+import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/pagination_footer.dart';
+import 'package:omm/shared/paged_scroll_position_restorer.dart';
+import 'package:omm/shared/selection_controller.dart';
 
 /// MediaBrowser 搜索页。
 ///
@@ -210,10 +217,17 @@ class _MediaBrowserSearchResultsState
     firstPageKey: 0,
   );
   final _scrollController = ScrollController();
+  late final SelectionController<String> _selection;
+  bool _batchBusy = false;
+
+  bool get _selectionMode => _selection.isActive;
+  Set<String> get _selectedIds => _selection.selected;
 
   @override
   void initState() {
     super.initState();
+    _selection = SelectionController<String>();
+    _selection.activeListenable.addListener(_onSelectionModeChanged);
     _pagingController.addPageRequestListener(_fetchPage);
   }
 
@@ -221,7 +235,114 @@ class _MediaBrowserSearchResultsState
   void dispose() {
     _pagingController.dispose();
     _scrollController.dispose();
+    _selection.dispose();
     super.dispose();
+  }
+
+  void _onSelectionModeChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _startSelectionSweep(String id, bool selected) {
+    _selection.enter();
+    _selection.setSelected(id, selected);
+  }
+
+  void _applySelectionSweep(String id, bool selected) {
+    _selection.setSelected(id, selected);
+  }
+
+  void _finishSelectionSweep() {
+    if (_selectionMode && _selectedIds.isEmpty) _exitSelection();
+  }
+
+  void _toggleSelect(String id) => _selection.toggle(id);
+
+  void _exitSelection() => _selection.exit();
+
+  void _selectAllLoaded() {
+    final loaded = _pagingController.itemList ?? const <MediaBrowserItem>[];
+    _selection.selectAll(loaded.map((item) => item.id));
+  }
+
+  Future<void> _openItem(MediaBrowserItem item) async {
+    await openMediaBrowserItem(context, ref, item);
+    if (!mounted) return;
+    // 详情页内可能切换了收藏/已看，返回时后台刷新已加载条目。
+    await _refreshLoadedInBackground();
+  }
+
+  Future<void> _refreshLoadedInBackground() async {
+    final query = widget.query;
+    final refreshed = await refreshPagedListInBackground<MediaBrowserItem>(
+      controller: _pagingController,
+      loadFirstPage: (limit) async {
+        final result = await ref.read(
+          mediaBrowserItemPageProvider(
+            MediaBrowserItemPageRequest(
+              serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+              includeItemTypes: 'Movie,Series,Episode,MusicAlbum,Audio',
+              recursive: true,
+              searchTerm: query,
+              sortBy: 'SortName',
+              sortOrder: 'Ascending',
+              startIndex: 0,
+              limit: limit,
+            ),
+          ).future,
+        );
+        return PagedResult(
+          items: result.items,
+          totalCount: result.total,
+          limit: limit,
+          offset: 0,
+        );
+      },
+    );
+    if (mounted && refreshed) setState(() {});
+  }
+
+  /// 批量收藏/已看标记（与媒体库页同构）：完成后原位刷新已加载条目。
+  Future<void> _applySelection({bool? favorite, bool? played}) async {
+    if (_selectedIds.isEmpty || _batchBusy) return;
+    final ids = _selectedIds.toList();
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _batchBusy = true);
+    var failed = 0;
+    try {
+      final repo = ref.read(mediaBrowserMediaRepositoryProvider);
+      for (final id in ids) {
+        try {
+          if (favorite != null) {
+            await repo.markFavorite(id, favorite);
+          } else {
+            await repo.markPlayed(id, played!);
+          }
+        } catch (_) {
+          failed++;
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _batchBusy = false);
+    }
+    if (!mounted) return;
+    if (played != null) {
+      ref.invalidate(mediaBrowserResumeProvider);
+      ref.invalidate(mediaBrowserNextUpProvider);
+    }
+    await _refreshLoadedInBackground();
+    if (!mounted) return;
+    _exitSelection();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          failed == 0
+              ? '已更新 ${ids.length} 个条目'
+              : '已更新 ${ids.length - failed} 个条目，$failed 个失败',
+        ),
+        duration: const Duration(seconds: 1),
+      ),
+    );
   }
 
   Future<void> _fetchPage(int startIndex) async {
@@ -262,61 +383,149 @@ class _MediaBrowserSearchResultsState
 
   @override
   Widget build(BuildContext context) {
+    final colors = appColors(context);
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
     final width = MediaQuery.sizeOf(context).width;
     final itemWidth = (width - 44 - 20) / 3;
 
-    return CustomScrollView(
-      controller: _scrollController,
-      primary: false,
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
-          sliver: PagedSliverGrid<int, MediaBrowserItem>(
-            pagingController: _pagingController,
-            showNoMoreItemsIndicatorAsGridChild: false,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              childAspectRatio: 0.5,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 14,
-            ),
-            builderDelegate: PagedChildBuilderDelegate<MediaBrowserItem>(
-              itemBuilder: (context, item, _) => urls.maybeWhen(
-                data: (value) => MediaBrowserItemCard(
-                  key: ValueKey(item.id),
-                  item: item,
-                  urls: value,
-                  width: itemWidth,
-                  showFavoriteBadge: true,
-                  onTap: () => openMediaBrowserItemUnawaited(context, ref, item),
-                ),
-                orElse: () => const SizedBox.shrink(),
-              ),
-              firstPageProgressIndicatorBuilder: (_) =>
-                  const Center(child: CircularProgressIndicator()),
-              firstPageErrorIndicatorBuilder: (_) => ErrorView(
-                message: _pagingController.error?.toString() ?? '加载失败',
-                onRetry: _pagingController.refresh,
-              ),
-              newPageErrorIndicatorBuilder: (_) => PaginationRetry(
-                onRetry: _pagingController.retryLastFailedRequest,
-              ),
-              noItemsFoundIndicatorBuilder: (_) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    '没有找到相关内容',
-                    style: AppText.meta(context),
-                    textAlign: TextAlign.center,
+    return PopScope(
+      canPop: !_selectionMode,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _selectionMode) _exitSelection();
+      },
+      child: Stack(
+        children: [
+          DragSelectionScope<String>(
+            scrollController: _scrollController,
+            selectionLayout: DragSelectionLayout.grid,
+            isSelected: _selection.contains,
+            onSelectionStart: _startSelectionSweep,
+            onSelectionChanged: _applySelectionSweep,
+            onSelectionEnd: _finishSelectionSweep,
+            selectionMode: _selectionMode,
+            child: CustomScrollView(
+              controller: _scrollController,
+              primary: false,
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
+                  sliver: PagedSliverGrid<int, MediaBrowserItem>(
+                    pagingController: _pagingController,
+                    showNoMoreItemsIndicatorAsGridChild: false,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          childAspectRatio: 0.5,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 14,
+                        ),
+                    builderDelegate:
+                        PagedChildBuilderDelegate<MediaBrowserItem>(
+                          itemBuilder: (context, item, index) => urls.maybeWhen(
+                            data: (value) => DragSelectionTarget<String>(
+                              key: ValueKey(item.id),
+                              id: item.id,
+                              selectionIndex: index,
+                              // 勾选态跟随 selectedListenable 局部重建
+                              // （同 OMM 影片库）。
+                              child: ValueListenableBuilder<Set<String>>(
+                                valueListenable: _selection.selectedListenable,
+                                builder: (context, selected, _) =>
+                                    MediaBrowserSelectableItemCard(
+                                      item: item,
+                                      urls: value,
+                                      width: itemWidth,
+                                      showFavoriteBadge: true,
+                                      selected: selected.contains(item.id),
+                                      selecting: _selectionMode,
+                                      onTap: () {
+                                        if (_selectionMode) {
+                                          _toggleSelect(item.id);
+                                        } else {
+                                          unawaited(_openItem(item));
+                                        }
+                                      },
+                                    ),
+                              ),
+                            ),
+                            orElse: () => const SizedBox.shrink(),
+                          ),
+                          firstPageProgressIndicatorBuilder: (_) =>
+                              const Center(child: CircularProgressIndicator()),
+                          firstPageErrorIndicatorBuilder: (_) => ErrorView(
+                            message:
+                                _pagingController.error?.toString() ?? '加载失败',
+                            onRetry: _pagingController.refresh,
+                          ),
+                          newPageErrorIndicatorBuilder: (_) => PaginationRetry(
+                            onRetry: _pagingController.retryLastFailedRequest,
+                          ),
+                          noItemsFoundIndicatorBuilder: (_) => Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                '没有找到相关内容',
+                                style: AppText.meta(context),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                          noMoreItemsIndicatorBuilder: (_) =>
+                              const NoMoreContent(),
+                        ),
                   ),
                 ),
-              ),
-              noMoreItemsIndicatorBuilder: (_) => const NoMoreContent(),
+              ],
             ),
           ),
-        ),
-      ],
+          if (_selectionMode)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: ValueListenableBuilder<Set<String>>(
+                valueListenable: _selection.selectedListenable,
+                builder: (context, selected, _) => EntityBatchToolbar(
+                  selectedCount: selected.length,
+                  onSelectAll: _selectAllLoaded,
+                  onClear: _selection.clear,
+                  onClose: _exitSelection,
+                  actions: [
+                    EntityBatchAction(
+                      icon: Icons.favorite_rounded,
+                      label: '收藏',
+                      onTap: selected.isEmpty || _batchBusy
+                          ? null
+                          : () => unawaited(_applySelection(favorite: true)),
+                    ),
+                    EntityBatchAction(
+                      icon: Icons.favorite_border_rounded,
+                      label: '取消收藏',
+                      color: colors.danger,
+                      onTap: selected.isEmpty || _batchBusy
+                          ? null
+                          : () => unawaited(_applySelection(favorite: false)),
+                    ),
+                    EntityBatchAction(
+                      icon: Icons.task_alt_rounded,
+                      label: '标记已看',
+                      onTap: selected.isEmpty || _batchBusy
+                          ? null
+                          : () => unawaited(_applySelection(played: true)),
+                    ),
+                    EntityBatchAction(
+                      icon: Icons.check_circle_outline_rounded,
+                      label: '取消已看',
+                      onTap: selected.isEmpty || _batchBusy
+                          ? null
+                          : () => unawaited(_applySelection(played: false)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

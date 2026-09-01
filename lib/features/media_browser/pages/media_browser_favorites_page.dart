@@ -12,6 +12,7 @@ import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_selectable_item_card.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -102,9 +103,7 @@ class _MediaBrowserFavoritesPageState
   Future<void> _setViewMode(_FavoritesViewMode mode) async {
     if (_viewMode == mode) return;
     setState(() => _viewMode = mode);
-    await ref
-        .read(sharedPrefsProvider)
-        .setString(_viewModeKey, mode.name);
+    await ref.read(sharedPrefsProvider).setString(_viewModeKey, mode.name);
   }
 
   @override
@@ -129,21 +128,20 @@ class _MediaBrowserFavoritesPageState
   Future<void> _fetchPage(int startIndex) async {
     final requestSerial = _requestSerial;
     try {
-      final result = await ref
-          .read(
-            mediaBrowserItemPageProvider(
-              MediaBrowserItemPageRequest(
-                serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-                includeItemTypes: _includeItemTypes,
-                recursive: true,
-                sortBy: _sort.value,
-                sortOrder: _sort.order,
-                startIndex: startIndex,
-                limit: _pageSize,
-                isFavorite: true,
-              ),
-            ).future,
-          );
+      final result = await ref.read(
+        mediaBrowserItemPageProvider(
+          MediaBrowserItemPageRequest(
+            serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+            includeItemTypes: _includeItemTypes,
+            recursive: true,
+            sortBy: _sort.value,
+            sortOrder: _sort.order,
+            startIndex: startIndex,
+            limit: _pageSize,
+            isFavorite: true,
+          ),
+        ).future,
+      );
       if (!mounted || requestSerial != _requestSerial) return;
 
       _totalCount = result.total;
@@ -210,22 +208,20 @@ class _MediaBrowserFavoritesPageState
     final refreshed = await refreshPagedListInBackground<MediaBrowserItem>(
       controller: _controller,
       loadFirstPage: (limit) async {
-        final result = await ref
-            .read(
-              mediaBrowserItemPageProvider(
-                MediaBrowserItemPageRequest(
-                  serverId:
-                      ref.read(serverConfigProvider)?.activeServerId ?? '',
-                  includeItemTypes: includeItemTypes,
-                  recursive: true,
-                  sortBy: sort.value,
-                  sortOrder: sort.order,
-                  startIndex: 0,
-                  limit: limit,
-                  isFavorite: true,
-                ),
-              ).future,
-            );
+        final result = await ref.read(
+          mediaBrowserItemPageProvider(
+            MediaBrowserItemPageRequest(
+              serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+              includeItemTypes: includeItemTypes,
+              recursive: true,
+              sortBy: sort.value,
+              sortOrder: sort.order,
+              startIndex: 0,
+              limit: limit,
+              isFavorite: true,
+            ),
+          ).future,
+        );
         _totalCount = result.total;
         return PagedResult(
           items: result.items,
@@ -435,9 +431,9 @@ class _MediaBrowserFavoritesPageState
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  ref.watch(
-                                            mediaBrowserConfigProvider,
-                                          )?.brandLabel ??
+                                  ref
+                                          .watch(mediaBrowserConfigProvider)
+                                          ?.brandLabel ??
                                       '',
                                   style: AppText.eyebrow(context),
                                 ),
@@ -469,7 +465,8 @@ class _MediaBrowserFavoritesPageState
                           onRefresh: _refresh,
                           child: DragSelectionScope<String>(
                             scrollController: _scrollController,
-                            selectionLayout: _viewMode == _FavoritesViewMode.grid
+                            selectionLayout:
+                                _viewMode == _FavoritesViewMode.grid
                                 ? DragSelectionLayout.grid
                                 : DragSelectionLayout.list,
                             isSelected: _selection.contains,
@@ -521,9 +518,11 @@ class _MediaBrowserFavoritesPageState
                                           horizontal: 22,
                                         ),
                                         children: [
-                                          for (var i = 0;
-                                              i < _typeOptions.length;
-                                              i++) ...[
+                                          for (
+                                            var i = 0;
+                                            i < _typeOptions.length;
+                                            i++
+                                          ) ...[
                                             if (i > 0) const SizedBox(width: 6),
                                             _TypeChip(
                                               label: _typeOptions[i].label,
@@ -545,9 +544,8 @@ class _MediaBrowserFavoritesPageState
                                           const SizedBox(width: 6),
                                           _ViewToggle(
                                             mode: _viewMode,
-                                            onChange: (mode) => unawaited(
-                                              _setViewMode(mode),
-                                            ),
+                                            onChange: (mode) =>
+                                                unawaited(_setViewMode(mode)),
                                           ),
                                         ],
                                       ),
@@ -562,24 +560,29 @@ class _MediaBrowserFavoritesPageState
                                   sliver: urls.maybeWhen(
                                     data: (value) =>
                                         _viewMode == _FavoritesViewMode.grid
-                                    ? PagedSliverGrid<int, MediaBrowserItem>(
-                                        pagingController: _controller,
-                                        showNoMoreItemsIndicatorAsGridChild:
-                                            false,
-                                        gridDelegate:
-                                            SliverGridDelegateWithFixedCrossAxisCount(
-                                              crossAxisCount: crossAxisCount,
-                                              childAspectRatio:
-                                                  cardAspectRatio,
-                                              mainAxisSpacing: 14,
-                                              crossAxisSpacing: spacing,
-                                            ),
-                                        builderDelegate:
-                                            PagedChildBuilderDelegate<
-                                              MediaBrowserItem
-                                            >(
-                                              itemBuilder: (context, item, index) =>
-                                                  DragSelectionTarget<String>(
+                                        ? PagedSliverGrid<
+                                            int,
+                                            MediaBrowserItem
+                                          >(
+                                            pagingController: _controller,
+                                            showNoMoreItemsIndicatorAsGridChild:
+                                                false,
+                                            gridDelegate:
+                                                SliverGridDelegateWithFixedCrossAxisCount(
+                                                  crossAxisCount:
+                                                      crossAxisCount,
+                                                  childAspectRatio:
+                                                      cardAspectRatio,
+                                                  mainAxisSpacing: 14,
+                                                  crossAxisSpacing: spacing,
+                                                ),
+                                            builderDelegate: PagedChildBuilderDelegate<MediaBrowserItem>(
+                                              itemBuilder:
+                                                  (
+                                                    context,
+                                                    item,
+                                                    index,
+                                                  ) => DragSelectionTarget<String>(
                                                     key: ValueKey(item.id),
                                                     id: item.id,
                                                     selectionIndex: index,
@@ -587,56 +590,62 @@ class _MediaBrowserFavoritesPageState
                                                     // selectedListenable 通知，
                                                     // 勾选态在卡片局部重建，
                                                     // 不整页 setState（同 OMM）。
-                                                    child: ValueListenableBuilder<
-                                                      Set<String>
-                                                    >(
-                                                      valueListenable:
-                                                          _selection
-                                                              .selectedListenable,
-                                                      builder: (
-                                                        context,
-                                                        selected,
-                                                        _,
-                                                      ) => _GridItem(
-                                                        item: item,
-                                                        urls: value,
-                                                        width: itemWidth,
-                                                        square: _isMusicGrid,
-                                                        selected: selected
-                                                            .contains(item.id),
-                                                        selecting: _selecting,
-                                                        onTap: () {
-                                                          if (_selecting) {
-                                                            _toggleSelect(
-                                                              item.id,
-                                                            );
-                                                          } else {
-                                                            unawaited(
-                                                              _openItem(item),
-                                                            );
-                                                          }
-                                                        },
-                                                      ),
+                                                    child: ValueListenableBuilder<Set<String>>(
+                                                      valueListenable: _selection
+                                                          .selectedListenable,
+                                                      builder:
+                                                          (
+                                                            context,
+                                                            selected,
+                                                            _,
+                                                          ) => MediaBrowserSelectableItemCard(
+                                                            item: item,
+                                                            urls: value,
+                                                            width: itemWidth,
+                                                            square:
+                                                                _isMusicGrid,
+                                                            selected: selected
+                                                                .contains(
+                                                                  item.id,
+                                                                ),
+                                                            selecting:
+                                                                _selecting,
+                                                            onTap: () {
+                                                              if (_selecting) {
+                                                                _toggleSelect(
+                                                                  item.id,
+                                                                );
+                                                              } else {
+                                                                unawaited(
+                                                                  _openItem(
+                                                                    item,
+                                                                  ),
+                                                                );
+                                                              }
+                                                            },
+                                                          ),
                                                     ),
                                                   ),
                                               firstPageProgressIndicatorBuilder:
                                                   (_) => Padding(
                                                     padding:
                                                         const EdgeInsets.only(
-                                                      top: 56,
-                                                    ),
+                                                          top: 56,
+                                                        ),
                                                     child: Center(
-                                                      child: CircularProgressIndicator(
-                                                        color: colors.accent,
-                                                      ),
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            color:
+                                                                colors.accent,
+                                                          ),
                                                     ),
                                                   ),
                                               newPageProgressIndicatorBuilder:
                                                   (_) => const Padding(
-                                                    padding: EdgeInsets
-                                                        .symmetric(
-                                                      vertical: 18,
-                                                    ),
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                          vertical: 18,
+                                                        ),
                                                     child: Center(
                                                       child:
                                                           CircularProgressIndicator(),
@@ -661,15 +670,19 @@ class _MediaBrowserFavoritesPageState
                                               noMoreItemsIndicatorBuilder:
                                                   (_) => const NoMoreContent(),
                                             ),
-                                      )
-                                    : PagedSliverList<int, MediaBrowserItem>(
-                                        pagingController: _controller,
-                                        builderDelegate:
-                                            PagedChildBuilderDelegate<
-                                              MediaBrowserItem
-                                            >(
-                                              itemBuilder: (context, item, index) =>
-                                                  DragSelectionTarget<String>(
+                                          )
+                                        : PagedSliverList<
+                                            int,
+                                            MediaBrowserItem
+                                          >(
+                                            pagingController: _controller,
+                                            builderDelegate: PagedChildBuilderDelegate<MediaBrowserItem>(
+                                              itemBuilder:
+                                                  (
+                                                    context,
+                                                    item,
+                                                    index,
+                                                  ) => DragSelectionTarget<String>(
                                                     key: ValueKey(item.id),
                                                     id: item.id,
                                                     selectionIndex: null,
@@ -677,59 +690,71 @@ class _MediaBrowserFavoritesPageState
                                                         Alignment.centerLeft,
                                                     // 同网格：勾选态跟随
                                                     // selectedListenable 局部重建。
-                                                    child: ValueListenableBuilder<
-                                                      Set<String>
-                                                    >(
-                                                      valueListenable:
-                                                          _selection
-                                                              .selectedListenable,
-                                                      builder: (
-                                                        context,
-                                                        selected,
-                                                        _,
-                                                      ) => _ListRow(
-                                                        item: item,
-                                                        urls: value,
-                                                        swipeGroup: _openSwipe,
-                                                        selected: selected
-                                                            .contains(item.id),
-                                                        selecting: _selecting,
-                                                        onTap: () {
-                                                          if (_selecting) {
-                                                            _toggleSelect(
-                                                              item.id,
-                                                            );
-                                                          } else {
-                                                            unawaited(
-                                                              _openItem(item),
-                                                            );
-                                                          }
-                                                        },
-                                                        onRemove: () =>
-                                                            unawaited(
-                                                              _removeOne(item),
-                                                            ),
-                                                      ),
-                                                    ),
+                                                    child:
+                                                        ValueListenableBuilder<
+                                                          Set<String>
+                                                        >(
+                                                          valueListenable:
+                                                              _selection
+                                                                  .selectedListenable,
+                                                          builder:
+                                                              (
+                                                                context,
+                                                                selected,
+                                                                _,
+                                                              ) => _ListRow(
+                                                                item: item,
+                                                                urls: value,
+                                                                swipeGroup:
+                                                                    _openSwipe,
+                                                                selected: selected
+                                                                    .contains(
+                                                                      item.id,
+                                                                    ),
+                                                                selecting:
+                                                                    _selecting,
+                                                                onTap: () {
+                                                                  if (_selecting) {
+                                                                    _toggleSelect(
+                                                                      item.id,
+                                                                    );
+                                                                  } else {
+                                                                    unawaited(
+                                                                      _openItem(
+                                                                        item,
+                                                                      ),
+                                                                    );
+                                                                  }
+                                                                },
+                                                                onRemove: () =>
+                                                                    unawaited(
+                                                                      _removeOne(
+                                                                        item,
+                                                                      ),
+                                                                    ),
+                                                              ),
+                                                        ),
                                                   ),
                                               firstPageProgressIndicatorBuilder:
                                                   (_) => Padding(
                                                     padding:
                                                         const EdgeInsets.only(
-                                                      top: 56,
-                                                    ),
+                                                          top: 56,
+                                                        ),
                                                     child: Center(
-                                                      child: CircularProgressIndicator(
-                                                        color: colors.accent,
-                                                      ),
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            color:
+                                                                colors.accent,
+                                                          ),
                                                     ),
                                                   ),
                                               newPageProgressIndicatorBuilder:
                                                   (_) => const Padding(
-                                                    padding: EdgeInsets
-                                                        .symmetric(
-                                                      vertical: 18,
-                                                    ),
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                          vertical: 18,
+                                                        ),
                                                     child: Center(
                                                       child:
                                                           CircularProgressIndicator(),
@@ -754,7 +779,7 @@ class _MediaBrowserFavoritesPageState
                                               noMoreItemsIndicatorBuilder:
                                                   (_) => const NoMoreContent(),
                                             ),
-                                      ),
+                                          ),
                                     orElse: () => const SliverToBoxAdapter(
                                       child: SizedBox.shrink(),
                                     ),
@@ -801,67 +826,6 @@ class _MediaBrowserFavoritesPageState
           ),
         ),
       ),
-    );
-  }
-}
-
-// ============ 网格条目（可选中） ============
-class _GridItem extends StatelessWidget {
-  const _GridItem({
-    required this.item,
-    required this.urls,
-    required this.width,
-    required this.square,
-    required this.selected,
-    required this.selecting,
-    required this.onTap,
-  });
-
-  final MediaBrowserItem item;
-  final MediaBrowserServerUrls urls;
-  final double width;
-  final bool square;
-  final bool selected;
-  final bool selecting;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return Stack(
-      children: [
-        AnimatedOpacity(
-          duration: const Duration(milliseconds: 180),
-          opacity: selecting && !selected ? 0.55 : 1.0,
-          child: MediaBrowserItemCard(
-            item: item,
-            urls: urls,
-            width: width,
-            square: square,
-            onTap: onTap,
-          ),
-        ),
-        if (selecting)
-          Positioned(
-            top: 6,
-            left: 6,
-            child: Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: selected
-                    ? colors.accent
-                    : Colors.black.withValues(alpha: 0.5),
-                border: Border.all(color: Colors.white, width: 1.5),
-              ),
-              alignment: Alignment.center,
-              child: selected
-                  ? const Icon(Icons.check, color: Colors.white, size: 14)
-                  : const SizedBox.shrink(),
-            ),
-          ),
-      ],
     );
   }
 }
@@ -1017,11 +981,7 @@ class _EmptyState extends StatelessWidget {
       child: Center(
         child: Column(
           children: [
-            Icon(
-              Icons.favorite_border,
-              size: 36,
-              color: colors.muted,
-            ),
+            Icon(Icons.favorite_border, size: 36, color: colors.muted),
             const SizedBox(height: 10),
             Text(
               '还没有收藏的内容',
@@ -1055,7 +1015,11 @@ class _FavoritesError extends StatelessWidget {
         children: [
           Icon(Icons.error_outline_rounded, color: colors.muted, size: 38),
           const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center, style: TextStyle(color: colors.muted)),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colors.muted),
+          ),
           const SizedBox(height: 12),
           TextButton(onPressed: onRetry, child: const Text('重试')),
         ],
@@ -1197,7 +1161,11 @@ class _ViewToggle extends StatelessWidget {
             color: active ? colors.surface : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
           ),
-          child: Icon(icon, size: 15, color: active ? colors.text : colors.muted),
+          child: Icon(
+            icon,
+            size: 15,
+            color: active ? colors.text : colors.muted,
+          ),
         ),
       );
     }

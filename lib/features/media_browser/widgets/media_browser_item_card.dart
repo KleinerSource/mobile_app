@@ -19,6 +19,7 @@ class MediaBrowserItemCard extends StatelessWidget {
     this.square = false,
     this.showFavoriteBadge = false,
     this.onTap,
+    this.onLongPress,
   });
 
   final MediaBrowserItem item;
@@ -32,6 +33,10 @@ class MediaBrowserItemCard extends StatelessWidget {
   /// 收藏夹页内条目全部已收藏，不启用。
   final bool showFavoriteBadge;
   final VoidCallback? onTap;
+
+  /// 无拖选的页面传非空回调以压制长按水波纹（同 OMM MovieCard 设计）；
+  /// 有 DragSelectionTarget 的拖选页面必须保持 null。
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -51,10 +56,14 @@ class MediaBrowserItemCard extends StatelessWidget {
       privacyId: item.id,
       posterAspectRatio: square ? 1 : 2 / 3,
       onTap: onTap,
+      onLongPress: onLongPress,
     );
     if (!showFavoriteBadge || !item.userData.isFavorite) return card;
     return Stack(
-      children: [card, const Positioned(top: 6, left: 6, child: _FavoriteBadge())],
+      children: [
+        card,
+        const Positioned(top: 6, left: 6, child: _FavoriteBadge()),
+      ],
     );
   }
 }
