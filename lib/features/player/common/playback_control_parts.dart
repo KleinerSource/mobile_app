@@ -69,6 +69,15 @@ class _PlaybackProgressSliderState extends State<PlaybackProgressSlider> {
             .clamp(0, max.toInt())
             .toDouble();
         final value = (_dragValue ?? current).clamp(0, max).toDouble();
+        final showBuffered =
+            durationMs > 0 &&
+            widget.controller.capabilities.customBuffering;
+        final buffered = showBuffered
+            ? state.buffered.inMilliseconds
+                  .toDouble()
+                  .clamp(value, max)
+                  .toDouble()
+            : null;
         return SliderTheme(
           data: SliderTheme.of(context).copyWith(
             trackHeight: 4,
@@ -90,14 +99,14 @@ class _PlaybackProgressSliderState extends State<PlaybackProgressSlider> {
             min: 0,
             max: max,
             value: value,
-            secondaryTrackValue: widget.controller.capabilities.customBuffering
-                ? state.buffered.inMilliseconds
-                      .toDouble()
-                      .clamp(value, max)
-                      .toDouble()
-                : null,
-            semanticFormatterCallback: (sliderValue) =>
-                '当前播放 ${formatDuration(Duration(milliseconds: sliderValue.round()))}',
+            secondaryTrackValue: buffered,
+            semanticFormatterCallback: (sliderValue) {
+              final current =
+                  '当前播放 ${formatDuration(Duration(milliseconds: sliderValue.round()))}';
+              if (buffered == null) return current;
+              return '$current，'
+                  '已缓冲 ${formatDuration(Duration(milliseconds: buffered.round()))}';
+            },
             onChangeStart: durationMs <= 0 ? null : _beginDrag,
             onChanged: durationMs <= 0 ? null : _updateDrag,
             onChangeEnd: durationMs <= 0 ? null : _endDrag,

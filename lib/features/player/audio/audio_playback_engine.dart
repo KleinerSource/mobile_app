@@ -78,7 +78,7 @@ class AudioPlaybackEngine
         audioTracks: false,
         textSubtitles: false,
         bitmapSubtitles: false,
-        customBuffering: false,
+        customBuffering: true,
         playbackRate: false,
       );
 
