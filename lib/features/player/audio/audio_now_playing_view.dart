@@ -26,6 +26,7 @@ class AudioNowPlayingView extends StatefulWidget {
     required this.artworkPath,
     required this.lyrics,
     required this.spectrum,
+    this.scratchEnabled = true,
     this.onLyricsPanelVisibilityChanged,
   });
 
@@ -33,6 +34,10 @@ class AudioNowPlayingView extends StatefulWidget {
   final String? artworkPath;
   final LrcDocument? lyrics;
   final ValueListenable<AudioSpectrumFrame> spectrum;
+
+  /// 是否允许在唱片上搓碟（DJ 台）。远程直链音源没有本地 PCM，
+  /// 原生搓碟引擎无法工作，此时应关闭；点按播放/暂停不受影响。
+  final bool scratchEnabled;
   final ValueChanged<bool>? onLyricsPanelVisibilityChanged;
 
   @override
@@ -419,6 +424,8 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
   Widget _artwork(double size, PlaybackViewState state) {
     final l10n = AppL10n.of(context);
     final enabled = _recordInteractionEnabled(state);
+    // 搓碟依赖本地 PCM；远程直链音源关闭搓碟手势，点按播放/暂停保留。
+    final scratchEnabled = widget.scratchEnabled && enabled;
     return SizedBox(
       key: _recordGestureKey,
       width: size,
@@ -429,29 +436,33 @@ class _AudioNowPlayingViewState extends State<AudioNowPlayingView>
         button: true,
         enabled: enabled,
         label: l10n.playerDjDeck,
-        hint: l10n.playerDjGestureHint,
+        hint: scratchEnabled ? l10n.playerDjGestureHint : null,
         onTap: enabled ? _toggleFromRecord : null,
         child: Listener(
           behavior: HitTestBehavior.opaque,
-          onPointerDown: enabled
+          onPointerDown: scratchEnabled
               ? (event) => _onScratchPointerDown(event, size)
               : null,
-          onPointerMove: enabled
+          onPointerMove: scratchEnabled
               ? (event) => _onScratchPointerMove(event, size)
               : null,
-          onPointerUp: enabled ? (_) => _clearScratchCandidate() : null,
-          onPointerCancel: enabled ? (_) => _clearScratchCandidate() : null,
+          onPointerUp: scratchEnabled ? (_) => _clearScratchCandidate() : null,
+          onPointerCancel: scratchEnabled
+              ? (_) => _clearScratchCandidate()
+              : null,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: enabled ? _toggleFromRecord : null,
-            onPanStart: enabled
+            onPanStart: scratchEnabled
                 ? (details) => _onScratchStart(details, size)
                 : null,
-            onPanUpdate: enabled
+            onPanUpdate: scratchEnabled
                 ? (details) => _onScratchUpdate(details, size)
                 : null,
-            onPanEnd: enabled ? (details) => _finishScratch(details) : null,
-            onPanCancel: enabled ? _finishScratch : null,
+            onPanEnd: scratchEnabled
+                ? (details) => _finishScratch(details)
+                : null,
+            onPanCancel: scratchEnabled ? _finishScratch : null,
             child: RotationTransition(
               key: const ValueKey<String>('audio-vinyl-rotation'),
               turns: _rotationController,

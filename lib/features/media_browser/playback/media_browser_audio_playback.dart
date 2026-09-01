@@ -55,6 +55,8 @@ Future<void> openMediaBrowserAudioPlayback(
       queueIndex: index,
       audioMetadataLoader: session.loadMetadata,
       onQueueDispose: session.dispose,
+      // 搓碟（DJ 台）依赖本地 PCM，远程直链音源不支持，禁用搓碟手势。
+      scratchEnabled: false,
       useRootNavigator: true,
     );
     await session.dispose();

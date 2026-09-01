@@ -34,6 +34,7 @@ class AudioPlayerPage extends ConsumerStatefulWidget {
     this.queueIndex = 0,
     this.audioMetadataLoader,
     this.onQueueDispose,
+    this.scratchEnabled = true,
   });
 
   final String title;
@@ -47,6 +48,10 @@ class AudioPlayerPage extends ConsumerStatefulWidget {
   final AudioTrackMetadataLoader? audioMetadataLoader;
   final Future<void> Function()? onQueueDispose;
 
+  /// 是否允许唱盘搓碟（DJ 台）。搓碟依赖本地 PCM，远程直链音源
+  /// （如 Emby/Jellyfin）不支持时应传 false；点按播放/暂停不受影响。
+  final bool scratchEnabled;
+
   static Future<void> openDirect(
     BuildContext context, {
     required String title,
@@ -59,6 +64,7 @@ class AudioPlayerPage extends ConsumerStatefulWidget {
     int queueIndex = 0,
     AudioTrackMetadataLoader? audioMetadataLoader,
     Future<void> Function()? onQueueDispose,
+    bool scratchEnabled = true,
     bool useRootNavigator = false,
   }) {
     // 与子页面（含视频播放器）保持一致的标准页面转场。
@@ -75,6 +81,7 @@ class AudioPlayerPage extends ConsumerStatefulWidget {
           queueIndex: queueIndex,
           audioMetadataLoader: audioMetadataLoader,
           onQueueDispose: onQueueDispose,
+          scratchEnabled: scratchEnabled,
         ),
       ),
     );
@@ -342,6 +349,7 @@ class _AudioPlayerPageState extends ConsumerState<AudioPlayerPage> {
               artworkPath: _artworkPath ?? state.artworkPath,
               lyrics: _lyrics,
               spectrum: _engine.spectrum,
+              scratchEnabled: widget.scratchEnabled,
               onLyricsPanelVisibilityChanged: _setLyricsPanelVisibility,
             ),
           ),
