@@ -62,92 +62,101 @@ class _JellyfinSearchPageState extends ConsumerState<JellyfinSearchPage> {
     final colors = appColors(context);
     final l = AppL10n.of(context);
 
-    return GlowBackground(
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('JELLYFIN', style: AppText.eyebrow(context)),
-                  const SizedBox(height: 3),
-                  Text(l.searchFind, style: AppText.pageTitle(context)),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  border: Border.all(color: colors.cardBorder),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
+    // 独立路由进入时页面自身就是 Material 根：无 Scaffold 会让 debug
+    // 构建的文本出现黄色双下划线。底色由 FrostedBase 自绘，保持透明。
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: GlowBackground(
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(width: 14),
-                    Icon(Icons.search_rounded, size: 18, color: colors.muted),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        autofocus: true,
-                        textInputAction: TextInputAction.search,
-                        textAlignVertical: TextAlignVertical.center,
-                        decoration: InputDecoration(
-                          hintText: '搜索电影、剧集…',
-                          hintStyle: TextStyle(
-                            color: colors.muted,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          isCollapsed: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 14,
-                          ),
-                          border: InputBorder.none,
-                        ),
-                        style: TextStyle(
-                          color: colors.text,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        onChanged: _onChanged,
-                        onSubmitted: _submitSearch,
-                      ),
-                    ),
-                    if (_controller.text.isNotEmpty)
-                      IconButton(
-                        icon: Icon(Icons.close, size: 16, color: colors.muted),
-                        onPressed: () {
-                          _controller.clear();
-                          setState(() {
-                            _submittedQuery = '';
-                            _searchSerial++;
-                          });
-                        },
-                      ),
-                    IconButton(
-                      tooltip: '搜索',
-                      icon: Icon(Icons.search, size: 18, color: colors.muted),
-                      onPressed: _submitSearch,
-                    ),
-                    const SizedBox(width: 4),
+                    Text('JELLYFIN', style: AppText.eyebrow(context)),
+                    const SizedBox(height: 3),
+                    Text(l.searchFind, style: AppText.pageTitle(context)),
                   ],
                 ),
               ),
-            ),
-            Expanded(
-              child: _submittedQuery.isEmpty
-                  ? _JellyfinSearchEmptyHint(hint: l.searchEmpty)
-                  : _JellyfinSearchResults(
-                      key: ValueKey('$_submittedQuery:$_searchSerial'),
-                      query: _submittedQuery,
-                    ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    border: Border.all(color: colors.cardBorder),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 14),
+                      Icon(Icons.search_rounded, size: 18, color: colors.muted),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _controller,
+                          autofocus: true,
+                          textInputAction: TextInputAction.search,
+                          textAlignVertical: TextAlignVertical.center,
+                          decoration: InputDecoration(
+                            hintText: '搜索电影、剧集…',
+                            hintStyle: TextStyle(
+                              color: colors.muted,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            isCollapsed: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 14,
+                            ),
+                            border: InputBorder.none,
+                          ),
+                          style: TextStyle(
+                            color: colors.text,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          onChanged: _onChanged,
+                          onSubmitted: _submitSearch,
+                        ),
+                      ),
+                      if (_controller.text.isNotEmpty)
+                        IconButton(
+                          icon: Icon(
+                            Icons.close,
+                            size: 16,
+                            color: colors.muted,
+                          ),
+                          onPressed: () {
+                            _controller.clear();
+                            setState(() {
+                              _submittedQuery = '';
+                              _searchSerial++;
+                            });
+                          },
+                        ),
+                      IconButton(
+                        tooltip: '搜索',
+                        icon: Icon(Icons.search, size: 18, color: colors.muted),
+                        onPressed: _submitSearch,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                  ),
+                ),
+              ),
+              Expanded(
+                child: _submittedQuery.isEmpty
+                    ? _JellyfinSearchEmptyHint(hint: l.searchEmpty)
+                    : _JellyfinSearchResults(
+                        key: ValueKey('$_submittedQuery:$_searchSerial'),
+                        query: _submittedQuery,
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -188,10 +197,13 @@ class _JellyfinSearchResults extends ConsumerStatefulWidget {
       _JellyfinSearchResultsState();
 }
 
-class _JellyfinSearchResultsState extends ConsumerState<_JellyfinSearchResults> {
+class _JellyfinSearchResultsState
+    extends ConsumerState<_JellyfinSearchResults> {
   static const _pageSize = 24;
 
-  final _pagingController = PagingController<int, JellyfinItem>(firstPageKey: 0);
+  final _pagingController = PagingController<int, JellyfinItem>(
+    firstPageKey: 0,
+  );
   final _scrollController = ScrollController();
 
   @override
@@ -260,7 +272,7 @@ class _JellyfinSearchResultsState extends ConsumerState<_JellyfinSearchResults> 
             showNoMoreItemsIndicatorAsGridChild: false,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
-              childAspectRatio: 0.5,
+              childAspectRatio: 0.43,
               crossAxisSpacing: 10,
               mainAxisSpacing: 14,
             ),

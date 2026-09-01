@@ -141,6 +141,7 @@ class _HomeServerSwitcherMenuState
             size: 36,
             colors: colors,
             project: widget.activeServer.project,
+            showBackground: false,
           ),
         );
       },

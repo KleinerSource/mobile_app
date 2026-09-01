@@ -5,7 +5,11 @@ import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/shared/server_avatar.dart';
 
-Widget _wrap({required ServerProject? project, double size = 40}) {
+Widget _wrap({
+  required ServerProject? project,
+  double size = 40,
+  bool showBackground = true,
+}) {
   return MaterialApp(
     home: Scaffold(
       body: Center(
@@ -16,6 +20,7 @@ Widget _wrap({required ServerProject? project, double size = 40}) {
             size: size,
             colors: appColors(context),
             project: project,
+            showBackground: showBackground,
           ),
         ),
       ),
@@ -89,5 +94,21 @@ void main() {
   testWidgets('大尺寸 OpenList 头像同样使用 SVG 图片', (tester) async {
     await tester.pumpWidget(_wrap(project: ServerProject.openList, size: 96));
     expect(find.byType(SvgPicture), findsOneWidget);
+  });
+
+  testWidgets('可关闭快捷入口头像的紫色背景', (tester) async {
+    await tester.pumpWidget(
+      _wrap(project: ServerProject.ohMyMedia, showBackground: false),
+    );
+
+    final decorations = tester
+        .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+        .map((widget) => widget.decoration)
+        .whereType<BoxDecoration>();
+    expect(
+      decorations.any((decoration) => decoration.gradient != null),
+      isFalse,
+    );
+    expect(find.byType(ClipOval), findsOneWidget);
   });
 }

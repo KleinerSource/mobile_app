@@ -30,7 +30,8 @@ String? serverProjectAvatarAsset(ServerProject? project) {
 }
 
 /// 服务器头像: 渐变圆底 + 远程头像(文件源用默认素材、其余用首字母
-/// 兜底) + 白色描边。
+/// 兜底) + 白色描边。[showBackground] 为 false 时不绘制紫色渐变底，
+/// 用于不需要紫色底的紧凑入口。
 ///
 /// 小尺寸(菜单行 ≤40)用细描边与大号首字母;大尺寸(>60)自动加投影、
 /// 更粗的描边并缩小首字母占比。[busy] 时轻微缩放;大尺寸把白色进度环
@@ -45,6 +46,7 @@ class ServerAvatar extends StatelessWidget {
     required this.colors,
     this.busy = false,
     this.project,
+    this.showBackground = true,
   });
 
   final String displayName;
@@ -53,6 +55,7 @@ class ServerAvatar extends StatelessWidget {
   final AppColors colors;
   final bool busy;
   final ServerProject? project;
+  final bool showBackground;
 
   @override
   Widget build(BuildContext context) {
@@ -99,15 +102,17 @@ class ServerAvatar extends StatelessWidget {
     final face = DecoratedBox(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colors.accent.withValues(alpha: 0.95),
-            colors.accent.withValues(alpha: 0.52),
-          ],
-        ),
-        boxShadow: isHeroSize
+        gradient: showBackground
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  colors.accent.withValues(alpha: 0.95),
+                  colors.accent.withValues(alpha: 0.52),
+                ],
+              )
+            : null,
+        boxShadow: showBackground && isHeroSize
             ? [
                 BoxShadow(
                   color: colors.accent.withValues(alpha: 0.2),

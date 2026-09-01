@@ -126,7 +126,12 @@ class _JellyfinLibraryPageState extends ConsumerState<JellyfinLibraryPage> {
     if (completer != null && !completer.isCompleted) completer.complete();
   }
 
-  void _reloadWith({String? parentId, String? includeItemTypes, String? sortBy, String? sortOrder}) {
+  void _reloadWith({
+    String? parentId,
+    String? includeItemTypes,
+    String? sortBy,
+    String? sortOrder,
+  }) {
     final nextParent = parentId ?? _parentId;
     final nextTypes = includeItemTypes ?? _includeItemTypes;
     final nextSortBy = sortBy ?? _sortBy;
@@ -255,150 +260,158 @@ class _JellyfinLibraryPageState extends ConsumerState<JellyfinLibraryPage> {
         ((width - horizontalPadding) - spacing * (crossAxisCount - 1)) /
         crossAxisCount;
 
-    return GlowBackground(
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('JELLYFIN', style: AppText.eyebrow(context)),
-                        const SizedBox(height: 3),
-                        Text('媒体库', style: AppText.pageTitle(context)),
+    // 独立路由进入时页面自身就是 Material 根：无 Scaffold 会让 debug
+    // 构建的文本出现黄色双下划线。底色由 FrostedBase 自绘，保持透明。
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: GlowBackground(
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 16, 22, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('JELLYFIN', style: AppText.eyebrow(context)),
+                          const SizedBox(height: 3),
+                          Text('媒体库', style: AppText.pageTitle(context)),
+                        ],
+                      ),
+                    ),
+                    _LibrarySortButton(
+                      ascending: _sortOrder == 'Ascending',
+                      onTap: () => _openSortMenu(context),
+                    ),
+                    const SizedBox(width: 8),
+                    _LibraryFilterButton(
+                      active: _includeItemTypes != 'Movie,Series',
+                      onTap: () => _openTypeMenu(context),
+                    ),
+                  ],
+                ),
+              ),
+              views.maybeWhen(
+                data: (list) => list.length <= 1
+                    ? const SizedBox.shrink()
+                    : SizedBox(
+                        height: 38,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 22),
+                          scrollDirection: Axis.horizontal,
+                          itemCount: list.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (context, index) {
+                            final view = list[index];
+                            final selected = view.id == _parentId;
+                            return _ViewChip(
+                              label: view.name,
+                              selected: selected,
+                              onTap: () => _reloadWith(parentId: view.id),
+                            );
+                          },
+                        ),
+                      ),
+                orElse: () => const SizedBox.shrink(),
+              ),
+              const SizedBox(height: 6),
+              Expanded(
+                child: StatusBarScrollToTop(
+                  scrollController: _scrollController,
+                  child: RefreshIndicator(
+                    onRefresh: () async {
+                      ref.invalidate(jellyfinViewsProvider);
+                      await _refresh();
+                    },
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 22),
+                          sliver: urls.maybeWhen(
+                            data: (value) => PagedSliverGrid<int, JellyfinItem>(
+                              pagingController: _controller,
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: crossAxisCount,
+                                    childAspectRatio: 0.43,
+                                    mainAxisSpacing: 14,
+                                    crossAxisSpacing: spacing,
+                                  ),
+                              builderDelegate:
+                                  PagedChildBuilderDelegate<JellyfinItem>(
+                                    itemBuilder: (context, item, index) =>
+                                        JellyfinItemCard(
+                                          key: ValueKey(item.id),
+                                          item: item,
+                                          urls: value,
+                                          width: itemWidth,
+                                          onTap: () =>
+                                              openJellyfinItemUnawaited(
+                                                context,
+                                                item,
+                                              ),
+                                        ),
+                                    firstPageProgressIndicatorBuilder: (_) =>
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 56,
+                                          ),
+                                          child: Center(
+                                            child: CircularProgressIndicator(
+                                              color: colors.accent,
+                                            ),
+                                          ),
+                                        ),
+                                    newPageProgressIndicatorBuilder: (_) =>
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: 18,
+                                          ),
+                                          child: Center(
+                                            child: CircularProgressIndicator(),
+                                          ),
+                                        ),
+                                    firstPageErrorIndicatorBuilder: (_) =>
+                                        _LibraryListError(
+                                          message:
+                                              _controller.error?.toString() ??
+                                              '加载失败',
+                                          onRetry: _controller
+                                              .retryLastFailedRequest,
+                                        ),
+                                    newPageErrorIndicatorBuilder: (_) =>
+                                        PaginationRetry(
+                                          onRetry: _controller
+                                              .retryLastFailedRequest,
+                                        ),
+                                    noItemsFoundIndicatorBuilder: (_) =>
+                                        const JellyfinEmptyPlaceholder(
+                                          text: '暂无符合条件的条目',
+                                        ),
+                                    noMoreItemsIndicatorBuilder: (_) =>
+                                        const NoMoreContent(),
+                                  ),
+                            ),
+                            orElse: () => const SliverToBoxAdapter(
+                              child: SizedBox.shrink(),
+                            ),
+                          ),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 120)),
                       ],
                     ),
                   ),
-                  _LibrarySortButton(
-                    ascending: _sortOrder == 'Ascending',
-                    onTap: () => _openSortMenu(context),
-                  ),
-                  const SizedBox(width: 8),
-                  _LibraryFilterButton(
-                    active: _includeItemTypes != 'Movie,Series',
-                    onTap: () => _openTypeMenu(context),
-                  ),
-                ],
-              ),
-            ),
-            views.maybeWhen(
-              data: (list) => list.length <= 1
-                  ? const SizedBox.shrink()
-                  : SizedBox(
-                      height: 38,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 22),
-                        scrollDirection: Axis.horizontal,
-                        itemCount: list.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (context, index) {
-                          final view = list[index];
-                          final selected = view.id == _parentId;
-                          return _ViewChip(
-                            label: view.name,
-                            selected: selected,
-                            onTap: () => _reloadWith(parentId: view.id),
-                          );
-                        },
-                      ),
-                    ),
-              orElse: () => const SizedBox.shrink(),
-            ),
-            const SizedBox(height: 6),
-            Expanded(
-              child: StatusBarScrollToTop(
-                scrollController: _scrollController,
-                child: RefreshIndicator(
-                  onRefresh: () async {
-                    ref.invalidate(jellyfinViewsProvider);
-                    await _refresh();
-                  },
-                  child: CustomScrollView(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 22),
-                        sliver: urls.maybeWhen(
-                          data: (value) => PagedSliverGrid<int, JellyfinItem>(
-                            pagingController: _controller,
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: crossAxisCount,
-                                  childAspectRatio: 0.5,
-                                  mainAxisSpacing: 14,
-                                  crossAxisSpacing: spacing,
-                                ),
-                            builderDelegate:
-                                PagedChildBuilderDelegate<JellyfinItem>(
-                                  itemBuilder: (context, item, index) =>
-                                      JellyfinItemCard(
-                                        key: ValueKey(item.id),
-                                        item: item,
-                                        urls: value,
-                                        width: itemWidth,
-                                        onTap: () => openJellyfinItemUnawaited(
-                                          context,
-                                          item,
-                                        ),
-                                      ),
-                                  firstPageProgressIndicatorBuilder: (_) =>
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 56),
-                                        child: Center(
-                                          child: CircularProgressIndicator(
-                                            color: colors.accent,
-                                          ),
-                                        ),
-                                      ),
-                                  newPageProgressIndicatorBuilder: (_) =>
-                                      const Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          vertical: 18,
-                                        ),
-                                        child: Center(
-                                          child: CircularProgressIndicator(),
-                                        ),
-                                      ),
-                                  firstPageErrorIndicatorBuilder: (_) =>
-                                      _LibraryListError(
-                                        message:
-                                            _controller.error?.toString() ??
-                                            '加载失败',
-                                        onRetry:
-                                            _controller.retryLastFailedRequest,
-                                      ),
-                                  newPageErrorIndicatorBuilder: (_) =>
-                                      PaginationRetry(
-                                        onRetry:
-                                            _controller.retryLastFailedRequest,
-                                      ),
-                                  noItemsFoundIndicatorBuilder: (_) =>
-                                      const JellyfinEmptyPlaceholder(
-                                        text: '暂无符合条件的条目',
-                                      ),
-                                  noMoreItemsIndicatorBuilder: (_) =>
-                                      const NoMoreContent(),
-                                ),
-                          ),
-                          orElse: () => const SliverToBoxAdapter(
-                            child: SizedBox.shrink(),
-                          ),
-                        ),
-                      ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 120)),
-                    ],
-                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -466,7 +479,11 @@ class _LibraryListError extends StatelessWidget {
         children: [
           Icon(Icons.error_outline_rounded, color: colors.muted, size: 38),
           const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center, style: TextStyle(color: colors.muted)),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colors.muted),
+          ),
           const SizedBox(height: 12),
           TextButton(onPressed: onRetry, child: const Text('重试')),
         ],
