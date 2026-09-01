@@ -12,7 +12,6 @@ import android.os.Build
 import android.os.PowerManager
 import android.os.Process
 import android.os.SystemClock
-import android.system.Os
 import android.net.TrafficStats
 import android.provider.Settings
 import android.telephony.TelephonyManager
@@ -311,12 +310,9 @@ class MainActivity : AudioServiceFragmentActivity() {
             .coerceIn(0.0, 100.0)
     }
 
-    // /proc 时间字段的时钟粒度（USER_HZ），绝大多数 Android 设备为 100。
-    private val clockTicksPerSecond: Long = try {
-        Os.sysconf(Os._SC_CLK_TCK).coerceAtLeast(1)
-    } catch (_: Exception) {
-        100L
-    }
+    // /proc 时间字段（utime/stime）以 USER_HZ 为单位，Linux 上恒为 100，
+    // 且 android.system.Os 未公开 _SC_CLK_TCK 常量，故不做 sysconf 查询。
+    private val clockTicksPerSecond = 100.0
 
     // 单核口径：100% = 跑满 1 个核，多线程可超过 100%。
     private fun readProcessCpuUsage(nowMs: Long): Double? {
