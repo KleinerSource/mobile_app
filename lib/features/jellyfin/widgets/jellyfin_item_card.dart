@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/i18n/badge_position_provider.dart';
 import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
 import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
-import 'package:omm/features/privacy/privacy_mask.dart';
-import 'package:omm/shared/poster.dart' show Poster, RatingBadge;
+import 'package:omm/shared/movie_card.dart';
 
-/// Jellyfin 条目卡片 · 显示风格与尺寸对齐 OMM [MovieCard]：
-/// 2:3 海报（评分角标右上、已看完左上、进度条贴底）+ 两行标题 +
-/// 年份/时长 meta，随 OMM 的角标可见性与位置配置联动。
-class JellyfinItemCard extends ConsumerWidget {
+/// Jellyfin 条目卡片。
+///
+/// 渲染由共享 [CatalogMovieCard] 统一维护（与 OMM/DBO 同一套风格和尺寸），
+/// 这里只把 Jellyfin 的字段整理成展示值：无番号行，meta 为
+/// 「年份 · 时长」或「SxxEyy · 剧名」。
+class JellyfinItemCard extends StatelessWidget {
   const JellyfinItemCard({
     super.key,
     required this.item,
@@ -26,111 +25,20 @@ class JellyfinItemCard extends ConsumerWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = appColors(context);
-    final positions = ref.watch(badgePositionsProvider);
+  Widget build(BuildContext context) {
     final played = item.userData.played;
-    final progress = played ? 0.0 : _progressOf(item);
-    final hasRating =
-        positions.ratingEnabled &&
-        item.communityRating != null &&
-        item.communityRating! > 0;
-    final coverUrl = item.primaryImageTag == null ? null : urls.poster(item.id);
-
-    return SizedBox(
+    return CatalogMovieCard(
+      title: item.name,
+      code: null,
+      imageUrl: item.primaryImageTag == null ? null : urls.poster(item.id),
+      meta: _metaText(item),
       width: width,
-      child: PrivacyAwareInkWell(
-        movieId: item.id,
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              children: [
-                PrivacyMask(
-                  movieId: item.id,
-                  radius: 10,
-                  child: Poster(
-                    url: coverUrl,
-                    title: item.name,
-                    year: item.productionYear,
-                  ),
-                ),
-                // 已看完 (固定左上, 与 OMM 卡片一致)
-                if (played)
-                  Positioned(
-                    top: 6,
-                    left: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.65),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        '已看完',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                // 观看进度 (固定贴海报底部边缘)
-                if (!played && progress > 0)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(10),
-                        bottomRight: Radius.circular(10),
-                      ),
-                      child: LinearProgressIndicator(
-                        value: progress.clamp(0.0, 1.0),
-                        minHeight: 3,
-                        backgroundColor: Colors.black.withValues(alpha: 0.45),
-                        valueColor: AlwaysStoppedAnimation(c.accent),
-                      ),
-                    ),
-                  ),
-                // 评分 (默认右上, 与 OMM 角标位置配置联动)
-                if (hasRating)
-                  Positioned(
-                    top: 6 + positions.topRightOffset.vertical.toDouble(),
-                    right: 6 + positions.topRightOffset.horizontal.toDouble(),
-                    child: RatingBadge(rating: item.communityRating!),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // 标题: 隐私模式遮罩 · 固定 2 行高度避免溢出
-            PrivacyText(
-              movieId: item.id,
-              text: item.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppText.movieCardTitle(context),
-            ),
-            if (_metaText(item).isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  _metaText(item),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.movieCardMeta(context),
-                ),
-              ),
-          ],
-        ),
-      ),
+      rating: item.communityRating,
+      played: played,
+      progress: played ? 0 : _progressOf(item),
+      year: item.productionYear,
+      privacyId: item.id,
+      onTap: onTap,
     );
   }
 }
@@ -141,7 +49,7 @@ double _progressOf(JellyfinItem item) {
   return (item.userData.resumeSeconds / 60 / runtimeMinutes).clamp(0.0, 1.0);
 }
 
-/// meta 行 · 与 OMM 一致的「年份 · 时长」格式；剧集条目为「S01E02 · 剧名」。
+/// meta 行 · 与 OMM 一致的「年份 · 时长」格式；剧集条目为「SxxEyy · 剧名」。
 String _metaText(JellyfinItem item) {
   final parts = <String>[];
   if (item.isEpisode) {

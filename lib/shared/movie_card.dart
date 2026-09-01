@@ -266,17 +266,24 @@ class MovieCard extends ConsumerWidget {
 /// dbonline 等数据源的影片标识不一定是 OMM 的整数 ID，因此不强行转换为
 /// [MovieListItem]。数据源只负责把字段整理成这里需要的展示值，海报、字号、
 /// 角标和点击反馈仍由共享组件统一维护。
+///
+/// 与 OMM [MovieCard] 的差异通过可选参数表达：[code] 传 null 时省略番号行
+/// （Emby/Jellyfin 的标题 + meta 两行布局与 MovieCard 完全一致）；
+/// [played] / [progress] 提供 OMM 同款的已看完角标与海报底部进度条。
 class CatalogMovieCard extends ConsumerWidget {
   const CatalogMovieCard({
     super.key,
     required this.title,
-    required this.code,
     required this.imageUrl,
     required this.meta,
+    this.code,
     this.width = 112,
     this.rating,
     this.canPlay = false,
     this.hasSubtitle = false,
+    this.played = false,
+    this.progress = 0,
+    this.year,
     this.onTap,
     this.privacyId,
     this.showTitle = true,
@@ -284,13 +291,25 @@ class CatalogMovieCard extends ConsumerWidget {
   });
 
   final String title;
-  final String code;
+
+  /// 番号行（DBO 等有番号的数据源）；null 时不渲染番号行，布局与
+  /// [MovieCard] 的「标题 + meta」两行结构一致。
+  final String? code;
   final String? imageUrl;
   final String meta;
   final double width;
   final double? rating;
   final bool canPlay;
   final bool hasSubtitle;
+
+  /// 已看完 · 海报左上角标。
+  final bool played;
+
+  /// 观看进度 0..1 · 未看完时贴海报底部渲染。
+  final double progress;
+
+  /// 海报占位符上的年份（与 OMM 卡片一致）。
+  final int? year;
   final VoidCallback? onTap;
   final bool showTitle;
   final bool showMeta;
@@ -303,7 +322,10 @@ class CatalogMovieCard extends ConsumerWidget {
     final colors = appColors(context);
     final positions = ref.watch(badgePositionsProvider);
     final displayTitle = title.trim().isEmpty ? '未命名影片' : title.trim();
-    final displayCode = code.trim().isEmpty ? '未命名番号' : code.trim();
+    // code 为 null 省略番号行；空串保留 DBO 原有的「未命名番号」回退。
+    final displayCode = code == null
+        ? null
+        : (code!.trim().isEmpty ? '未命名番号' : code!.trim());
     final displayMeta = meta.trim().isEmpty ? '暂无信息' : meta;
     final badgesByCorner = <BadgeCorner, List<Widget>>{
       for (final corner in BadgeCorner.values) corner: <Widget>[],
@@ -323,12 +345,52 @@ class CatalogMovieCard extends ConsumerWidget {
     }
     final poster = Stack(
       children: [
-        Poster(url: imageUrl, title: displayTitle, radius: 10),
+        Poster(url: imageUrl, title: displayTitle, year: year, radius: 10),
+        // 已看完 (固定左上, 与 OMM 卡片一致)
+        if (played)
+          Positioned(
+            top: 6,
+            left: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                '已看完',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        // 进度条 (固定贴海报底部边缘, 不占独立空间)
+        if (!played && progress > 0)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(10),
+                bottomRight: Radius.circular(10),
+              ),
+              child: LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0),
+                minHeight: 3,
+                backgroundColor: Colors.black.withValues(alpha: 0.45),
+                valueColor: AlwaysStoppedAnimation(colors.accent),
+              ),
+            ),
+          ),
         for (final corner in BadgeCorner.values)
           if (badgesByCorner[corner]!.isNotEmpty)
             _CornerBadges(
               corner: corner,
-              completed: false,
+              completed: played,
               skipTopLeftForSelection: false,
               offset: positions.offsetOf(corner),
               children: badgesByCorner[corner]!,
@@ -350,24 +412,25 @@ class CatalogMovieCard extends ConsumerWidget {
                   ? poster
                   : PrivacyMask(movieId: privacyId!, child: poster),
               const SizedBox(height: 8),
-              privacyId == null
-                  ? Text(
-                      displayCode,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.movieCardMeta(
-                        context,
-                      ).copyWith(color: colors.accent, fontSize: 11.5),
-                    )
-                  : PrivacyText(
-                      movieId: privacyId!,
-                      text: displayCode,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.movieCardMeta(
-                        context,
-                      ).copyWith(color: colors.accent, fontSize: 11.5),
-                    ),
+              if (displayCode != null)
+                privacyId == null
+                    ? Text(
+                        displayCode,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.movieCardMeta(
+                          context,
+                        ).copyWith(color: colors.accent, fontSize: 11.5),
+                      )
+                    : PrivacyText(
+                        movieId: privacyId!,
+                        text: displayCode,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.movieCardMeta(
+                          context,
+                        ).copyWith(color: colors.accent, fontSize: 11.5),
+                      ),
               if (showTitle) ...[
                 const SizedBox(height: 2),
                 privacyId == null
