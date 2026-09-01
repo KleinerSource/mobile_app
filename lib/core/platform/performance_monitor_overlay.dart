@@ -121,9 +121,9 @@ class _PerformanceMonitorOverlayState extends State<PerformanceMonitorOverlay>
     return IgnorePointer(
       child: SafeArea(
         child: Align(
-          alignment: Alignment.topRight,
+          alignment: Alignment.bottomRight,
           child: Padding(
-            padding: const EdgeInsets.only(top: 8, right: 12),
+            padding: const EdgeInsets.only(bottom: 8, right: 12),
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: const Color(0xCC000000),
