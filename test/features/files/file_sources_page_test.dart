@@ -1148,6 +1148,7 @@ void main() {
           locale: Locale('zh'),
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
+          builder: _disableAnimationsBuilder,
           home: FileSourcesPage(),
         ),
       ),
@@ -1157,7 +1158,7 @@ void main() {
     await tester.tap(find.byTooltip('返回服务器选择'));
     await tester.pumpAndSettle();
 
-    expect(find.text('选择服务器'), findsOneWidget);
+    expect(find.byType(ServerSelectionPage), findsOneWidget);
     expect(find.text('WebDAV 二号'), findsOneWidget);
   });
 
@@ -1301,6 +1302,7 @@ void main() {
           locale: const Locale('zh'),
           localizationsDelegates: AppL10n.localizationsDelegates,
           supportedLocales: AppL10n.supportedLocales,
+          builder: _disableAnimationsBuilder,
           home: FileBrowserPage(serverId: serverId, sourceId: sourceId),
         ),
       ),
@@ -1368,6 +1370,7 @@ Future<void> _testNestedEdgeBack(
         locale: const Locale('zh'),
         localizationsDelegates: AppL10n.localizationsDelegates,
         supportedLocales: AppL10n.supportedLocales,
+        builder: _disableAnimationsBuilder,
         home: FileBrowserPage(
           serverId: serverId,
           sourceId: sourceId,
@@ -1394,6 +1397,13 @@ Future<void> _testNestedEdgeBack(
   await swipeFromEdge();
   expect(find.byType(ServerSelectionPage), findsOneWidget);
   expect(find.text(serverName), findsOneWidget);
+}
+
+Widget _disableAnimationsBuilder(BuildContext context, Widget? child) {
+  return MediaQuery(
+    data: MediaQuery.of(context).copyWith(disableAnimations: true),
+    child: child ?? const SizedBox.shrink(),
+  );
 }
 
 Future<SharedPreferences> _prefs({
