@@ -210,15 +210,21 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                             padding: const EdgeInsets.only(bottom: 12),
                             children: [
                               if (servers.isEmpty)
-                                Center(
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 360,
-                                    ),
-                                    child: _AddServerCard(
-                                      onTap: _openCreateServer,
-                                    ),
-                                  ),
+                                LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final cardWidth =
+                                        (constraints.maxWidth -
+                                            _ServerSelectionMetrics.cardGap) /
+                                        2;
+                                    return Center(
+                                      child: SizedBox(
+                                        width: cardWidth,
+                                        child: _AddServerCard(
+                                          onTap: _openCreateServer,
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 )
                               else if (visibleServers.isEmpty)
                                 Padding(

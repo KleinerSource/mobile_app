@@ -18,6 +18,8 @@ void main() {
   testWidgets('无服务器时显示加号入口并打开创建页', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
+    await tester.binding.setSurfaceSize(const Size(800, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
       ProviderScope(
@@ -27,6 +29,11 @@ void main() {
     );
 
     expect(find.byIcon(Icons.add_rounded), findsOneWidget);
+    final addCard = find.byWidgetPredicate(
+      (widget) => widget is Semantics && widget.properties.label == '添加服务器',
+    );
+    expect(addCard, findsOneWidget);
+    expect(tester.getSize(addCard), const Size(354, 124));
     await tester.tap(find.byIcon(Icons.add_rounded));
     await tester.pumpAndSettle();
 
