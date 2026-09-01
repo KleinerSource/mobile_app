@@ -29,9 +29,7 @@ class _MediaBrowserTestAdapter implements HttpClientAdapter {
     if (options.data is Map) {
       requestBodies.add(Map<String, dynamic>.from(options.data as Map));
     }
-    authorizationHeaders.add(
-      options.headers[authHeaderName]?.toString(),
-    );
+    authorizationHeaders.add(options.headers[authHeaderName]?.toString());
     final body = respond(options);
     return ResponseBody.fromString(
       jsonEncode(body),
@@ -101,7 +99,12 @@ void main() {
           if (path.endsWith('/Seasons')) {
             return {
               'Items': [
-                {'Id': 'season-1', 'Name': '第 1 季', 'Type': 'Season', 'IndexNumber': 1},
+                {
+                  'Id': 'season-1',
+                  'Name': '第 1 季',
+                  'Type': 'Season',
+                  'IndexNumber': 1,
+                },
               ],
               'TotalRecordCount': 1,
             };
@@ -109,7 +112,12 @@ void main() {
           if (path.endsWith('/Episodes')) {
             return {
               'Items': [
-                {'Id': 'ep-2', 'Name': '第 2 集', 'Type': 'Episode', 'SeriesId': 'series-1'},
+                {
+                  'Id': 'ep-2',
+                  'Name': '第 2 集',
+                  'Type': 'Episode',
+                  'SeriesId': 'series-1',
+                },
               ],
               'TotalRecordCount': 1,
             };
@@ -184,15 +192,18 @@ void main() {
       });
 
       test('authenticateByName 携带客户端身份头并解析令牌与用户', () async {
-        final adapter = _MediaBrowserTestAdapter((_) => {
-          'AccessToken': 'token-1',
-          'ServerId': 'server-1',
-          'User': {
-            'Id': 'user-1',
-            'Name': 'Alice',
-            'Policy': {'IsAdministrator': true},
+        final adapter = _MediaBrowserTestAdapter(
+          (_) => {
+            'AccessToken': 'token-1',
+            'ServerId': 'server-1',
+            'User': {
+              'Id': 'user-1',
+              'Name': 'Alice',
+              'Policy': {'IsAdministrator': true},
+            },
           },
-        }, config.authHeaderName);
+          config.authHeaderName,
+        );
         final api = apiFor(config, adapter);
 
         final result = await api.authenticateByName(
@@ -281,12 +292,15 @@ void main() {
       });
 
       test('收藏与已看标记分别使用 FavoriteItems/PlayedItems 端点', () async {
-        final adapter = _MediaBrowserTestAdapter((_) => {
-          'Id': 'item-1',
-          'Name': '条目',
-          'Type': 'Movie',
-          'UserData': {'IsFavorite': true, 'Played': true},
-        }, config.authHeaderName);
+        final adapter = _MediaBrowserTestAdapter(
+          (_) => {
+            'Id': 'item-1',
+            'Name': '条目',
+            'Type': 'Movie',
+            'UserData': {'IsFavorite': true, 'Played': true},
+          },
+          config.authHeaderName,
+        );
         final api = apiFor(config, adapter);
         final base = 'http://test${config.pathPrefix}';
 
@@ -304,20 +318,29 @@ void main() {
       });
 
       test('playbackInfo 使用 POST 并带 UserId 查询参数', () async {
-        final adapter = _MediaBrowserTestAdapter((_) => {
-          'PlaySessionId': 'play-1',
-          'MediaSources': [
-            {
-              'Id': 'ms-1',
-              'SupportsDirectPlay': true,
-              'TranscodingUrl': '${config.pathPrefix}/videos/item-1/master.m3u8',
-              'MediaStreams': [
-                {'Index': 0, 'Type': 'Video', 'Codec': 'hevc'},
-                {'Index': 1, 'Type': 'Audio', 'Codec': 'aac', 'DisplayTitle': 'AAC 中文'},
-              ],
-            },
-          ],
-        }, config.authHeaderName);
+        final adapter = _MediaBrowserTestAdapter(
+          (_) => {
+            'PlaySessionId': 'play-1',
+            'MediaSources': [
+              {
+                'Id': 'ms-1',
+                'SupportsDirectPlay': true,
+                'TranscodingUrl':
+                    '${config.pathPrefix}/videos/item-1/master.m3u8',
+                'MediaStreams': [
+                  {'Index': 0, 'Type': 'Video', 'Codec': 'hevc'},
+                  {
+                    'Index': 1,
+                    'Type': 'Audio',
+                    'Codec': 'aac',
+                    'DisplayTitle': 'AAC 中文',
+                  },
+                ],
+              },
+            ],
+          },
+          config.authHeaderName,
+        );
         final api = apiFor(config, adapter);
 
         final info = await api.playbackInfo(
@@ -338,7 +361,7 @@ void main() {
         expect(
           adapter.requests.single,
           'POST http://test${config.pathPrefix}/Items/item-1/PlaybackInfo'
-              '?UserId=user-1&MediaSourceId=ms-1&AutoOpenLiveStream=true',
+          '?UserId=user-1&MediaSourceId=ms-1&AutoOpenLiveStream=true',
         );
         expect(adapter.requestBodies.single, {
           'DeviceProfile': {
@@ -358,8 +381,8 @@ void main() {
         expect(
           streamUrl,
           'http://test${config.pathPrefix}/Videos/item%201/stream'
-              '?static=true&MediaSourceId=ms-1'
-              '&${config.tokenQueryParam}=token-1',
+          '?static=true&MediaSourceId=ms-1'
+          '&${config.tokenQueryParam}=token-1',
         );
 
         final imageUrl = MediaBrowserApi.imageUrl(
@@ -372,7 +395,7 @@ void main() {
         expect(
           imageUrl,
           'http://test${config.pathPrefix}/Items/item-1/Images/Primary'
-              '?maxWidth=440&quality=90&${config.tokenQueryParam}=token-1',
+          '?maxWidth=440&quality=90&${config.tokenQueryParam}=token-1',
         );
       });
     });
@@ -396,10 +419,7 @@ void main() {
 
       expect(user.id, 'user-1');
       expect(user.name, 'Alice');
-      expect(
-        adapter.requests.single,
-        'GET http://test/emby/Users/user-1',
-      );
+      expect(adapter.requests.single, 'GET http://test/emby/Users/user-1');
     });
 
     test('Emby 拒绝空持久化用户 ID', () {
@@ -431,10 +451,7 @@ void main() {
 
       expect(user.id, 'user-1');
       expect(user.name, 'Alice');
-      expect(
-        adapter.requests.single,
-        'GET http://test/Users/Me',
-      );
+      expect(adapter.requests.single, 'GET http://test/Users/Me');
     });
   });
 

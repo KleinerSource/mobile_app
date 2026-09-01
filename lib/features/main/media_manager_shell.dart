@@ -17,12 +17,10 @@ import 'package:omm/features/oh_my_media/favorites/favorites_page.dart';
 import '../home/home_page.dart';
 import 'package:omm/features/db_online/pages/db_online_home_page.dart';
 import 'package:omm/features/db_online/pages/db_online_search_page.dart';
-import 'package:omm/features/emby/pages/emby_home_page.dart';
-import 'package:omm/features/emby/pages/emby_library_page.dart';
-import 'package:omm/features/emby/pages/emby_search_page.dart';
-import 'package:omm/features/jellyfin/pages/jellyfin_home_page.dart';
-import 'package:omm/features/jellyfin/pages/jellyfin_library_page.dart';
-import 'package:omm/features/jellyfin/pages/jellyfin_search_page.dart';
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
+import 'package:omm/features/media_browser/pages/media_browser_home_page.dart';
+import 'package:omm/features/media_browser/pages/media_browser_library_page.dart';
+import 'package:omm/features/media_browser/pages/media_browser_search_page.dart';
 import 'package:omm/features/oh_my_media/libraries/libraries_page.dart';
 import 'package:omm/features/db_online/pages/db_online_library_page.dart';
 import 'package:omm/features/oh_my_media/movies/movies_page.dart';
@@ -174,11 +172,10 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
   List<FloatingTabSpec<_YouQuickAction>> _tabsFor(
     BuildContext context, {
     required bool dbOnline,
-    required bool emby,
-    required bool jellyfin,
+    required bool mediaBrowser,
   }) {
     final l = AppL10n.of(context);
-    if (dbOnline || emby || jellyfin) {
+    if (dbOnline || mediaBrowser) {
       return [
         FloatingTabSpec(label: l.tabHome, icon: Icons.home_rounded),
         FloatingTabSpec(label: l.tabLibrary, icon: Icons.video_library_rounded),
@@ -202,30 +199,22 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     ];
   }
 
-  Widget _bodyFor(
-    int i, {
-    required bool dbOnline,
-    required bool emby,
-    required bool jellyfin,
-  }) {
+  Widget _bodyFor(int i, {required bool dbOnline, required bool mediaBrowser}) {
     switch (i) {
       case 0:
         if (dbOnline) return const DbOnlineHomePage();
-        if (emby) return const EmbyHomePage();
-        if (jellyfin) return const JellyfinHomePage();
+        if (mediaBrowser) return const MediaBrowserHomePage();
         return const HomePage();
       case 1:
         if (dbOnline) return const DbOnlineLibraryPage();
-        if (emby) return const EmbyLibraryPage();
-        if (jellyfin) return const JellyfinLibraryPage();
+        if (mediaBrowser) return const MediaBrowserLibraryPage();
         return const MoviesPage();
       case 2:
         if (dbOnline) return const DbOnlineSearchPage();
-        if (emby) return const EmbySearchPage();
-        if (jellyfin) return const JellyfinSearchPage();
+        if (mediaBrowser) return const MediaBrowserSearchPage();
         return const SearchPage();
       case 3:
-        return dbOnline || emby || jellyfin
+        return dbOnline || mediaBrowser
             ? const SettingsPage()
             : const FavoritesPage();
       default:
@@ -238,8 +227,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     final c = appColors(context);
     final project = ref.watch(serverConfigProvider)?.activeServer?.project;
     final dbOnline = project == ServerProject.dbOnline;
-    final emby = project == ServerProject.emby;
-    final jellyfin = project == ServerProject.jellyfin;
+    final mediaBrowser = MediaBrowserConfig.byProject[project] != null;
     if (_lastProject != null && project != _lastProject && _index != 0) {
       _index = 0;
     }
@@ -247,8 +235,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     final tabs = _tabsFor(
       context,
       dbOnline: dbOnline,
-      emby: emby,
-      jellyfin: jellyfin,
+      mediaBrowser: mediaBrowser,
     );
     return Scaffold(
       extendBody: true,
@@ -261,12 +248,11 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
               active: i == _index,
               child: StatusBarScrollToTop(
                 scrollController: _tabScrollControllers[i],
-                    child: _bodyFor(
-                      i,
-                      dbOnline: dbOnline,
-                      emby: emby,
-                      jellyfin: jellyfin,
-                    ),
+                child: _bodyFor(
+                  i,
+                  dbOnline: dbOnline,
+                  mediaBrowser: mediaBrowser,
+                ),
               ),
             ),
         ],

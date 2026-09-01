@@ -11,6 +11,9 @@ abstract interface class MediaBrowserMediaOperationsSource {
   /// 媒体库（Views）列表。
   Future<List<MediaBrowserItem>> views();
 
+  /// 媒体库统计。
+  Future<MediaBrowserLibraryStats> libraryStats();
+
   /// 「最新入库」。
   Future<List<MediaBrowserItem>> latestMedia({
     String? parentId,

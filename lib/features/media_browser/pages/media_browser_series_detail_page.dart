@@ -4,30 +4,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/jellyfin/jellyfin_playback.dart';
+import 'package:omm/features/media_browser/playback/media_browser_playback.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
-import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
+import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/shared/poster.dart';
 
-/// Jellyfin 剧集详情页：季切换 + 集列表。
+/// MediaBrowser 剧集详情页：季切换 + 集列表。
 ///
 /// 每一集展示缩略图、季集号、标题与观看状态；点击直接从当前进度
 /// （或下一待看集）开始播放。
-class JellyfinSeriesDetailPage extends ConsumerStatefulWidget {
-  const JellyfinSeriesDetailPage({super.key, required this.seriesId});
+class MediaBrowserSeriesDetailPage extends ConsumerStatefulWidget {
+  const MediaBrowserSeriesDetailPage({super.key, required this.seriesId});
 
   final String seriesId;
 
   @override
-  ConsumerState<JellyfinSeriesDetailPage> createState() =>
-      _JellyfinSeriesDetailPageState();
+  ConsumerState<MediaBrowserSeriesDetailPage> createState() =>
+      _MediaBrowserSeriesDetailPageState();
 }
 
-class _JellyfinSeriesDetailPageState
-    extends ConsumerState<JellyfinSeriesDetailPage> {
+class _MediaBrowserSeriesDetailPageState
+    extends ConsumerState<MediaBrowserSeriesDetailPage> {
   final _heroArts = ValueNotifier<List<HeroArt>>(const []);
   final _heroPosition = ValueNotifier(0.0);
   String? _selectedSeasonId;
@@ -42,7 +42,7 @@ class _JellyfinSeriesDetailPageState
     super.dispose();
   }
 
-  void _syncHeroArt(MediaBrowserItem series, JellyfinServerUrls? urls) {
+  void _syncHeroArt(MediaBrowserItem series, MediaBrowserServerUrls? urls) {
     final url = urls == null
         ? ''
         : series.backdropImageTags.isEmpty
@@ -63,7 +63,7 @@ class _JellyfinSeriesDetailPageState
     setState(() => _actionBusy = true);
     try {
       await ref
-          .read(jellyfinMediaRepositoryProvider)
+          .read(mediaBrowserMediaRepositoryProvider)
           .markFavorite(series.id, !series.userData.isFavorite);
       _invalidateDetail();
     } catch (error) {
@@ -76,8 +76,8 @@ class _JellyfinSeriesDetailPageState
   void _invalidateDetail() {
     final serverId = ref.read(serverConfigProvider)?.activeServerId ?? '';
     ref.invalidate(
-      jellyfinItemDetailProvider(
-        JellyfinItemDetailRequest(serverId: serverId, itemId: _seriesId),
+      mediaBrowserItemDetailProvider(
+        MediaBrowserItemDetailRequest(serverId: serverId, itemId: _seriesId),
       ),
     );
   }
@@ -93,11 +93,11 @@ class _JellyfinSeriesDetailPageState
   Widget build(BuildContext context) {
     final serverId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
     final detail = ref.watch(
-      jellyfinItemDetailProvider(
-        JellyfinItemDetailRequest(serverId: serverId, itemId: _seriesId),
+      mediaBrowserItemDetailProvider(
+        MediaBrowserItemDetailRequest(serverId: serverId, itemId: _seriesId),
       ),
     );
-    final urls = ref.watch(jellyfinServerUrlsProvider);
+    final urls = ref.watch(mediaBrowserServerUrlsProvider);
     final colors = appColors(context);
     return Scaffold(
       backgroundColor: colors.bg,
@@ -113,8 +113,8 @@ class _JellyfinSeriesDetailPageState
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () => ref.invalidate(
-                  jellyfinItemDetailProvider(
-                    JellyfinItemDetailRequest(
+                  mediaBrowserItemDetailProvider(
+                    MediaBrowserItemDetailRequest(
                       serverId: serverId,
                       itemId: _seriesId,
                     ),
@@ -232,8 +232,8 @@ class _SeasonSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final serverId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
     final seasons = ref.watch(
-      jellyfinSeasonsProvider(
-        JellyfinSeasonsRequest(serverId: serverId, seriesId: seriesId),
+      mediaBrowserSeasonsProvider(
+        MediaBrowserSeasonsRequest(serverId: serverId, seriesId: seriesId),
       ),
     );
     final colors = appColors(context);
@@ -253,12 +253,11 @@ class _SeasonSection extends ConsumerWidget {
         if (list.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text('暂无剧集分集', style: AppText.meta(context)),
-            ),
+            child: Center(child: Text('暂无剧集分集', style: AppText.meta(context))),
           );
         }
-        final activeId = selectedSeasonId == null ||
+        final activeId =
+            selectedSeasonId == null ||
                 list.every((season) => season.id != selectedSeasonId)
             ? list.first.id
             : selectedSeasonId!;
@@ -358,11 +357,11 @@ class _EpisodeList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final serverId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
     final episodes = ref.watch(
-      jellyfinEpisodesProvider(
-        JellyfinEpisodesRequest(serverId: serverId, seasonId: seasonId),
+      mediaBrowserEpisodesProvider(
+        MediaBrowserEpisodesRequest(serverId: serverId, seasonId: seasonId),
       ),
     );
-    final urls = ref.watch(jellyfinServerUrlsProvider);
+    final urls = ref.watch(mediaBrowserServerUrlsProvider);
     final colors = appColors(context);
     return episodes.when(
       loading: () => const Padding(
@@ -381,8 +380,11 @@ class _EpisodeList extends ConsumerWidget {
             ),
             TextButton(
               onPressed: () => ref.invalidate(
-                jellyfinEpisodesProvider(
-                  JellyfinEpisodesRequest(serverId: serverId, seasonId: seasonId),
+                mediaBrowserEpisodesProvider(
+                  MediaBrowserEpisodesRequest(
+                    serverId: serverId,
+                    seasonId: seasonId,
+                  ),
                 ),
               ),
               child: const Text('重试'),
@@ -394,9 +396,7 @@ class _EpisodeList extends ConsumerWidget {
         if (page.items.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text('本季暂无剧集', style: AppText.meta(context)),
-            ),
+            child: Center(child: Text('本季暂无剧集', style: AppText.meta(context))),
           );
         }
         return Column(
@@ -407,10 +407,11 @@ class _EpisodeList extends ConsumerWidget {
                 imageUrl: episode.primaryImageTag == null
                     ? null
                     : urls.value?.thumb(episode.id),
-                onTap: () => openJellyfinPlayback(context, ref, item: episode),
+                onTap: () =>
+                    openMediaBrowserPlayback(context, ref, item: episode),
                 // 与 OMM/电影详情页一致：长按先选内核（libmpv / KSPlayer）。
                 onLongPress: playbackEnginePickerEnabled
-                    ? () => openJellyfinPlaybackWithEnginePicker(
+                    ? () => openMediaBrowserPlaybackWithEnginePicker(
                         context,
                         ref,
                         item: episode,
@@ -488,9 +489,7 @@ class _EpisodeTile extends StatelessWidget {
                               value: resumePct,
                               minHeight: 3,
                               backgroundColor: Colors.black45,
-                              valueColor: AlwaysStoppedAnimation(
-                                colors.accent,
-                              ),
+                              valueColor: AlwaysStoppedAnimation(colors.accent),
                             ),
                           ),
                       ],
@@ -516,9 +515,9 @@ class _EpisodeTile extends StatelessWidget {
                         episode.name,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: AppText.movieCardTitle(context).copyWith(
-                          color: played ? colors.muted : colors.text,
-                        ),
+                        style: AppText.movieCardTitle(
+                          context,
+                        ).copyWith(color: played ? colors.muted : colors.text),
                       ),
                       if (episode.overview?.trim().isNotEmpty == true) ...[
                         const SizedBox(height: 3),
@@ -526,9 +525,9 @@ class _EpisodeTile extends StatelessWidget {
                           episode.overview!,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: AppText.movieCardMeta(context).copyWith(
-                            color: colors.muted,
-                          ),
+                          style: AppText.movieCardMeta(
+                            context,
+                          ).copyWith(color: colors.muted),
                         ),
                       ],
                     ],

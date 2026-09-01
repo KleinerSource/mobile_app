@@ -9,7 +9,6 @@ import '../common/source_id.dart';
 import '../common/source_exception.dart';
 import 'dbo_media_source_adapter.dart';
 import 'dbo_media_source.dart';
-import 'media_browser_media_source.dart';
 import 'media_browser_media_source_adapter.dart';
 import 'media_models.dart';
 import 'media_source.dart';
@@ -67,22 +66,6 @@ final dboMediaSourceProvider = Provider<DboMediaSource?>((ref) {
       .watch(mediaSourceRegistryProvider)
       .find(const SourceId('dbo'));
   return source is DboMediaSource ? source : null;
-});
-
-/// 当前服务器的 MediaBrowser（Emby/Jellyfin）媒体源。
-///
-/// Emby 与 Jellyfin 共用同一 adapter，按注册的 SourceId 区分。
-MediaBrowserMediaSource? _mediaBrowserSource(Ref ref, SourceId id) {
-  final source = ref.watch(mediaSourceRegistryProvider).find(id);
-  return source is MediaBrowserMediaSource ? source : null;
-}
-
-final embyMediaSourceProvider = Provider<MediaBrowserMediaSource?>((ref) {
-  return _mediaBrowserSource(ref, const SourceId('emby'));
-});
-
-final jellyfinMediaSourceProvider = Provider<MediaBrowserMediaSource?>((ref) {
-  return _mediaBrowserSource(ref, const SourceId('jellyfin'));
 });
 
 class MediaCatalogRequest {

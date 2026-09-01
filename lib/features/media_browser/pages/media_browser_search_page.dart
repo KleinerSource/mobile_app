@@ -6,26 +6,28 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
-import 'package:omm/features/jellyfin/navigation/jellyfin_navigation.dart';
-import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
-import 'package:omm/features/jellyfin/widgets/jellyfin_item_card.dart';
+import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
+import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/pagination_footer.dart';
 
-/// Jellyfin 搜索页。
+/// MediaBrowser 搜索页。
 ///
-/// 搜索框和结果网格沿用 OMM/Emby 搜索页的交互结构；Jellyfin 的
+/// 搜索框和结果网格沿用 OMM/DBO 搜索页的交互结构；MediaBrowser 的
 /// SearchTerm 同时命中电影和剧集，结果卡片按类型跳转对应详情。
-class JellyfinSearchPage extends ConsumerStatefulWidget {
-  const JellyfinSearchPage({super.key});
+class MediaBrowserSearchPage extends ConsumerStatefulWidget {
+  const MediaBrowserSearchPage({super.key});
 
   @override
-  ConsumerState<JellyfinSearchPage> createState() => _JellyfinSearchPageState();
+  ConsumerState<MediaBrowserSearchPage> createState() =>
+      _MediaBrowserSearchPageState();
 }
 
-class _JellyfinSearchPageState extends ConsumerState<JellyfinSearchPage> {
+class _MediaBrowserSearchPageState
+    extends ConsumerState<MediaBrowserSearchPage> {
   final _controller = TextEditingController();
   String _submittedQuery = '';
   int _searchSerial = 0;
@@ -77,7 +79,10 @@ class _JellyfinSearchPageState extends ConsumerState<JellyfinSearchPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('JELLYFIN', style: AppText.eyebrow(context)),
+                    Text(
+                      ref.watch(mediaBrowserConfigProvider)?.brandLabel ?? '',
+                      style: AppText.eyebrow(context),
+                    ),
                     const SizedBox(height: 3),
                     Text(l.searchFind, style: AppText.pageTitle(context)),
                   ],
@@ -149,8 +154,8 @@ class _JellyfinSearchPageState extends ConsumerState<JellyfinSearchPage> {
               ),
               Expanded(
                 child: _submittedQuery.isEmpty
-                    ? _JellyfinSearchEmptyHint(hint: l.searchEmpty)
-                    : _JellyfinSearchResults(
+                    ? _MediaBrowserSearchEmptyHint(hint: l.searchEmpty)
+                    : _MediaBrowserSearchResults(
                         key: ValueKey('$_submittedQuery:$_searchSerial'),
                         query: _submittedQuery,
                       ),
@@ -163,8 +168,8 @@ class _JellyfinSearchPageState extends ConsumerState<JellyfinSearchPage> {
   }
 }
 
-class _JellyfinSearchEmptyHint extends StatelessWidget {
-  const _JellyfinSearchEmptyHint({required this.hint});
+class _MediaBrowserSearchEmptyHint extends StatelessWidget {
+  const _MediaBrowserSearchEmptyHint({required this.hint});
 
   final String hint;
 
@@ -187,18 +192,18 @@ class _JellyfinSearchEmptyHint extends StatelessWidget {
   }
 }
 
-class _JellyfinSearchResults extends ConsumerStatefulWidget {
-  const _JellyfinSearchResults({super.key, required this.query});
+class _MediaBrowserSearchResults extends ConsumerStatefulWidget {
+  const _MediaBrowserSearchResults({super.key, required this.query});
 
   final String query;
 
   @override
-  ConsumerState<_JellyfinSearchResults> createState() =>
-      _JellyfinSearchResultsState();
+  ConsumerState<_MediaBrowserSearchResults> createState() =>
+      _MediaBrowserSearchResultsState();
 }
 
-class _JellyfinSearchResultsState
-    extends ConsumerState<_JellyfinSearchResults> {
+class _MediaBrowserSearchResultsState
+    extends ConsumerState<_MediaBrowserSearchResults> {
   static const _pageSize = 24;
 
   final _pagingController = PagingController<int, MediaBrowserItem>(
@@ -222,8 +227,8 @@ class _JellyfinSearchResultsState
   Future<void> _fetchPage(int startIndex) async {
     try {
       final result = await ref.read(
-        jellyfinItemPageProvider(
-          JellyfinItemPageRequest(
+        mediaBrowserItemPageProvider(
+          MediaBrowserItemPageRequest(
             serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
             includeItemTypes: 'Movie,Series,Episode',
             recursive: true,
@@ -257,7 +262,7 @@ class _JellyfinSearchResultsState
 
   @override
   Widget build(BuildContext context) {
-    final urls = ref.watch(jellyfinServerUrlsProvider);
+    final urls = ref.watch(mediaBrowserServerUrlsProvider);
     final width = MediaQuery.sizeOf(context).width;
     final itemWidth = (width - 44 - 20) / 3;
 
@@ -278,12 +283,12 @@ class _JellyfinSearchResultsState
             ),
             builderDelegate: PagedChildBuilderDelegate<MediaBrowserItem>(
               itemBuilder: (context, item, _) => urls.maybeWhen(
-                data: (value) => JellyfinItemCard(
+                data: (value) => MediaBrowserItemCard(
                   key: ValueKey(item.id),
                   item: item,
                   urls: value,
                   width: itemWidth,
-                  onTap: () => openJellyfinItemUnawaited(context, item),
+                  onTap: () => openMediaBrowserItemUnawaited(context, item),
                 ),
                 orElse: () => const SizedBox.shrink(),
               ),

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:omm/features/emby/providers/emby_providers.dart';
+import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 
 void main() {
   test('includeItemTypesForView 按库类型映射条目过滤', () {
@@ -23,8 +23,8 @@ void main() {
     expect(isSkippableViewType('mixed'), isFalse);
   });
 
-  test('EmbyViewLatestRequest 全字段相等语义', () {
-    const request = EmbyViewLatestRequest(
+  test('MediaBrowserViewLatestRequest 全字段相等语义', () {
+    const request = MediaBrowserViewLatestRequest(
       serverId: 's1',
       viewId: 'v1',
       includeItemTypes: 'Movie',
@@ -32,7 +32,7 @@ void main() {
 
     expect(
       request,
-      const EmbyViewLatestRequest(
+      const MediaBrowserViewLatestRequest(
         serverId: 's1',
         viewId: 'v1',
         includeItemTypes: 'Movie',
@@ -41,7 +41,7 @@ void main() {
     expect(
       request,
       isNot(
-        const EmbyViewLatestRequest(
+        const MediaBrowserViewLatestRequest(
           serverId: 's1',
           viewId: 'v1',
           includeItemTypes: 'Series',
@@ -50,9 +50,7 @@ void main() {
     );
     expect(
       request,
-      isNot(
-        const EmbyViewLatestRequest(serverId: 's1', viewId: 'v2'),
-      ),
+      isNot(const MediaBrowserViewLatestRequest(serverId: 's1', viewId: 'v2')),
     );
   });
 }

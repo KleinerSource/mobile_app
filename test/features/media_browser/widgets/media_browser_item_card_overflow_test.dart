@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
-import 'package:omm/features/emby/providers/emby_providers.dart';
-import 'package:omm/features/emby/widgets/emby_item_card.dart';
+import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/features/i18n/badge_position_provider.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/shared/movie_card.dart';
@@ -30,7 +31,10 @@ class _BadgePositionsState extends BadgePositionsNotifier {
 
 const _longTitle = '非常长的影片标题用来测试两行折行之后的卡片高度表现';
 
-MediaBrowserItem _embyItem({String type = 'Movie', String series = ''}) {
+MediaBrowserItem _mediaBrowserItem({
+  String type = 'Movie',
+  String series = '',
+}) {
   return MediaBrowserItem.fromJson({
     'Id': 'item-1',
     'Name': _longTitle,
@@ -56,8 +60,12 @@ MovieListItem _ommItem() {
   });
 }
 
-// EmbyServerUrls 只做字符串拼接，不触网。
-EmbyServerUrls _urls() => EmbyServerUrls(baseUrl: 'http://img.test', token: 't');
+// MediaBrowserServerUrls 只做字符串拼接，不触网。
+MediaBrowserServerUrls _urls() => MediaBrowserServerUrls(
+  config: MediaBrowserConfig.emby,
+  baseUrl: 'http://img.test',
+  token: 't',
+);
 
 Widget _grid(List<Widget> children, double aspectRatio) {
   return ProviderScope(
@@ -84,7 +92,7 @@ Widget _grid(List<Widget> children, double aspectRatio) {
 
 /// 测试字体（Ahem）度量与真机 Inter 不同，卡片文字行的亚像素差异会被
 /// 放大成溢出条；这里以 OMM MovieCard 在同一环境下的表现为基准，
-/// 断言 Emby 卡片的几何不超过 OMM。
+/// 断言 MediaBrowser 卡片的几何不超过 OMM。
 Future<void> _pumpBoth(WidgetTester tester) async {
   tester.view.physicalSize = const Size(390 * 3, 844 * 3);
   tester.view.devicePixelRatio = 3.0;
@@ -107,34 +115,42 @@ Future<void> _pumpBoth(WidgetTester tester) async {
 
   await tester.pumpWidget(
     _grid([
-      EmbyItemCard(item: _embyItem(), urls: _urls(), width: width),
-      EmbyItemCard(
-        item: _embyItem(type: 'Episode', series: '很长的剧集名称同样会占满一行'),
+      MediaBrowserItemCard(
+        item: _mediaBrowserItem(),
+        urls: _urls(),
+        width: width,
+      ),
+      MediaBrowserItemCard(
+        item: _mediaBrowserItem(type: 'Episode', series: '很长的剧集名称同样会占满一行'),
         urls: _urls(),
         width: width,
       ),
     ], aspectRatio),
   );
   await tester.pump();
-  final embyException = tester.takeException();
-  final embyHeight = tester.getSize(find.byType(Column).first).height;
+  final mediaBrowserException = tester.takeException();
+  final mediaBrowserHeight = tester.getSize(find.byType(Column).first).height;
 
   // ignore: avoid_print
   print(
     'geometry: omm=$ommHeight (exception=${ommException != null}) '
-    'emby=$embyHeight (exception=${embyException != null})',
+    'mediaBrowser=$mediaBrowserHeight (exception=${mediaBrowserException != null})',
   );
 
   // 几何一致：卡片总高与 OMM 差异在亚像素级。
-  expect((embyHeight - ommHeight).abs(), lessThan(2.0));
-  // 溢出状态一致：OMM 不溢出时 Emby 也不溢出。
+  expect((mediaBrowserHeight - ommHeight).abs(), lessThan(2.0));
+  // 溢出状态一致：OMM 不溢出时 MediaBrowser 也不溢出。
   if (ommException == null) {
-    expect(embyException, isNull, reason: 'OMM 不溢出时 Emby 卡片也不应溢出');
+    expect(
+      mediaBrowserException,
+      isNull,
+      reason: 'OMM 不溢出时 MediaBrowser 卡片也不应溢出',
+    );
   }
 }
 
 void main() {
-  testWidgets('Emby 卡片风格尺寸与 OMM MovieCard 一致（0.5 网格）', (tester) async {
+  testWidgets('MediaBrowser 卡片风格尺寸与 OMM MovieCard 一致（0.5 网格）', (tester) async {
     await _pumpBoth(tester);
     expect(tester.takeException(), isNull);
   });
@@ -146,9 +162,13 @@ void main() {
 
     await tester.pumpWidget(
       _grid([
-        EmbyItemCard(item: _embyItem(), urls: _urls(), width: 132),
-        EmbyItemCard(
-          item: _embyItem(type: 'Episode', series: '很长的剧集名称同样会占满一行'),
+        MediaBrowserItemCard(
+          item: _mediaBrowserItem(),
+          urls: _urls(),
+          width: 132,
+        ),
+        MediaBrowserItemCard(
+          item: _mediaBrowserItem(type: 'Episode', series: '很长的剧集名称同样会占满一行'),
           urls: _urls(),
           width: 132,
         ),
@@ -176,16 +196,16 @@ void main() {
       'UserData': {'PlaybackPositionTicks': 3600000000},
     });
     await tester.pumpWidget(
-      _grid(
-        [EmbyItemCard(item: item, urls: _urls(), width: 132)],
-        0.4,
-      ),
+      _grid([MediaBrowserItemCard(item: item, urls: _urls(), width: 132)], 0.4),
     );
     await tester.pump();
 
     final progressRect = tester.getRect(find.byType(LinearProgressIndicator));
     final posterRect = tester.getRect(find.byType(Poster));
-    expect(progressRect.bottom, moreOrLessEquals(posterRect.bottom, epsilon: 1));
+    expect(
+      progressRect.bottom,
+      moreOrLessEquals(posterRect.bottom, epsilon: 1),
+    );
     // 5% 进度（360s / 7200s）。
     final progress = tester.widget<LinearProgressIndicator>(
       find.byType(LinearProgressIndicator),

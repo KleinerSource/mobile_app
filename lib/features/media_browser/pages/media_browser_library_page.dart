@@ -8,31 +8,32 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
-import 'package:omm/features/jellyfin/navigation/jellyfin_navigation.dart';
-import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
-import 'package:omm/features/jellyfin/widgets/jellyfin_item_card.dart';
+import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
+import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 
-/// Jellyfin 媒体库。
+/// MediaBrowser 媒体库。
 ///
-/// 顶部按 Jellyfin Views（媒体库）切换，类型筛选在电影/剧集/全部间切换；
-/// 排序沿用 Jellyfin 的 SortBy 语义，升降序切换与 Emby 影片库一致。
-class JellyfinLibraryPage extends ConsumerStatefulWidget {
-  const JellyfinLibraryPage({super.key, this.initialViewId});
+/// 顶部按 MediaBrowser Views（媒体库）切换，类型筛选在电影/剧集/全部间切换；
+/// 排序沿用 MediaBrowser 的 SortBy 语义，升降序切换与 DBO 影片库一致。
+class MediaBrowserLibraryPage extends ConsumerStatefulWidget {
+  const MediaBrowserLibraryPage({super.key, this.initialViewId});
 
   /// 从首页媒体库卡片进入时预选的库；null 保持默认的“全部库”模式。
   final String? initialViewId;
 
   @override
-  ConsumerState<JellyfinLibraryPage> createState() =>
-      _JellyfinLibraryPageState();
+  ConsumerState<MediaBrowserLibraryPage> createState() =>
+      _MediaBrowserLibraryPageState();
 }
 
-class _JellyfinLibraryPageState extends ConsumerState<JellyfinLibraryPage> {
+class _MediaBrowserLibraryPageState
+    extends ConsumerState<MediaBrowserLibraryPage> {
   static const _pageSize = 24;
   static const _typeOptions = <({String value, String label})>[
     (value: 'Movie,Series', label: '全部'),
@@ -74,8 +75,8 @@ class _JellyfinLibraryPageState extends ConsumerState<JellyfinLibraryPage> {
     final requestSerial = _requestSerial;
     try {
       final result = await ref.read(
-        jellyfinItemPageProvider(
-          JellyfinItemPageRequest(
+        mediaBrowserItemPageProvider(
+          MediaBrowserItemPageRequest(
             serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
             parentId: _parentId,
             includeItemTypes: _includeItemTypes,
@@ -244,8 +245,8 @@ class _JellyfinLibraryPageState extends ConsumerState<JellyfinLibraryPage> {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final views = ref.watch(jellyfinViewsProvider);
-    final urls = ref.watch(jellyfinServerUrlsProvider);
+    final views = ref.watch(mediaBrowserViewsProvider);
+    final urls = ref.watch(mediaBrowserServerUrlsProvider);
     final width = MediaQuery.sizeOf(context).width;
     final crossAxisCount = width >= 1100
         ? 6
@@ -278,7 +279,11 @@ class _JellyfinLibraryPageState extends ConsumerState<JellyfinLibraryPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('JELLYFIN', style: AppText.eyebrow(context)),
+                          Text(
+                            ref.watch(mediaBrowserConfigProvider)?.brandLabel ??
+                                '',
+                            style: AppText.eyebrow(context),
+                          ),
                           const SizedBox(height: 3),
                           Text('媒体库', style: AppText.pageTitle(context)),
                         ],
@@ -325,7 +330,7 @@ class _JellyfinLibraryPageState extends ConsumerState<JellyfinLibraryPage> {
                   scrollController: _scrollController,
                   child: RefreshIndicator(
                     onRefresh: () async {
-                      ref.invalidate(jellyfinViewsProvider);
+                      ref.invalidate(mediaBrowserViewsProvider);
                       await _refresh();
                     },
                     child: CustomScrollView(
@@ -335,70 +340,76 @@ class _JellyfinLibraryPageState extends ConsumerState<JellyfinLibraryPage> {
                         SliverPadding(
                           padding: const EdgeInsets.symmetric(horizontal: 22),
                           sliver: urls.maybeWhen(
-                            data: (value) => PagedSliverGrid<int, MediaBrowserItem>(
-                              pagingController: _controller,
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: crossAxisCount,
-                                    childAspectRatio: 0.5,
-                                    mainAxisSpacing: 14,
-                                    crossAxisSpacing: spacing,
-                                  ),
-                              builderDelegate:
-                                  PagedChildBuilderDelegate<MediaBrowserItem>(
-                                    itemBuilder: (context, item, index) =>
-                                        JellyfinItemCard(
-                                          key: ValueKey(item.id),
-                                          item: item,
-                                          urls: value,
-                                          width: itemWidth,
-                                          onTap: () =>
-                                              openJellyfinItemUnawaited(
-                                                context,
-                                                item,
-                                              ),
-                                        ),
-                                    firstPageProgressIndicatorBuilder: (_) =>
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            top: 56,
-                                          ),
-                                          child: Center(
-                                            child: CircularProgressIndicator(
-                                              color: colors.accent,
+                            data: (value) =>
+                                PagedSliverGrid<int, MediaBrowserItem>(
+                                  pagingController: _controller,
+                                  gridDelegate:
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: crossAxisCount,
+                                        childAspectRatio: 0.5,
+                                        mainAxisSpacing: 14,
+                                        crossAxisSpacing: spacing,
+                                      ),
+                                  builderDelegate:
+                                      PagedChildBuilderDelegate<
+                                        MediaBrowserItem
+                                      >(
+                                        itemBuilder: (context, item, index) =>
+                                            MediaBrowserItemCard(
+                                              key: ValueKey(item.id),
+                                              item: item,
+                                              urls: value,
+                                              width: itemWidth,
+                                              onTap: () =>
+                                                  openMediaBrowserItemUnawaited(
+                                                    context,
+                                                    item,
+                                                  ),
                                             ),
-                                          ),
-                                        ),
-                                    newPageProgressIndicatorBuilder: (_) =>
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(
-                                            vertical: 18,
-                                          ),
-                                          child: Center(
-                                            child: CircularProgressIndicator(),
-                                          ),
-                                        ),
-                                    firstPageErrorIndicatorBuilder: (_) =>
-                                        _LibraryListError(
-                                          message:
-                                              _controller.error?.toString() ??
-                                              '加载失败',
-                                          onRetry: _controller
-                                              .retryLastFailedRequest,
-                                        ),
-                                    newPageErrorIndicatorBuilder: (_) =>
-                                        PaginationRetry(
-                                          onRetry: _controller
-                                              .retryLastFailedRequest,
-                                        ),
-                                    noItemsFoundIndicatorBuilder: (_) =>
-                                        const JellyfinEmptyPlaceholder(
-                                          text: '暂无符合条件的条目',
-                                        ),
-                                    noMoreItemsIndicatorBuilder: (_) =>
-                                        const NoMoreContent(),
-                                  ),
-                            ),
+                                        firstPageProgressIndicatorBuilder:
+                                            (_) => Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 56,
+                                              ),
+                                              child: Center(
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: colors.accent,
+                                                    ),
+                                              ),
+                                            ),
+                                        newPageProgressIndicatorBuilder: (_) =>
+                                            const Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                vertical: 18,
+                                              ),
+                                              child: Center(
+                                                child:
+                                                    CircularProgressIndicator(),
+                                              ),
+                                            ),
+                                        firstPageErrorIndicatorBuilder: (_) =>
+                                            _LibraryListError(
+                                              message:
+                                                  _controller.error
+                                                      ?.toString() ??
+                                                  '加载失败',
+                                              onRetry: _controller
+                                                  .retryLastFailedRequest,
+                                            ),
+                                        newPageErrorIndicatorBuilder: (_) =>
+                                            PaginationRetry(
+                                              onRetry: _controller
+                                                  .retryLastFailedRequest,
+                                            ),
+                                        noItemsFoundIndicatorBuilder: (_) =>
+                                            const MediaBrowserEmptyPlaceholder(
+                                              text: '暂无符合条件的条目',
+                                            ),
+                                        noMoreItemsIndicatorBuilder: (_) =>
+                                            const NoMoreContent(),
+                                      ),
+                                ),
                             orElse: () => const SliverToBoxAdapter(
                               child: SizedBox.shrink(),
                             ),

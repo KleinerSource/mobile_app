@@ -94,23 +94,34 @@ class MediaBrowserApi {
     List<String>? filters,
     List<String>? fields,
   }) {
-    return _itemPage(
-      _p('/Users/${_segment(userId)}/Items'),
-      <String, dynamic>{
-        if (parentId?.trim().isNotEmpty == true) 'ParentId': parentId!.trim(),
-        if (includeItemTypes?.trim().isNotEmpty == true)
-          'IncludeItemTypes': includeItemTypes!.trim(),
-        if (recursive != null) 'Recursive': recursive,
-        if (searchTerm?.trim().isNotEmpty == true)
-          'SearchTerm': searchTerm!.trim(),
-        if (sortBy?.trim().isNotEmpty == true) 'SortBy': sortBy!.trim(),
-        if (sortOrder?.trim().isNotEmpty == true) 'SortOrder': sortOrder!.trim(),
-        if (startIndex != null && startIndex >= 0) 'StartIndex': startIndex,
-        if (limit != null && limit > 0) 'Limit': limit,
-        if (isFavorite != null) 'Filters': isFavorite ? 'IsFavorite' : null,
-        if (filters != null && filters.isNotEmpty) 'Filters': filters.join(','),
-        if (fields != null && fields.isNotEmpty) 'Fields': fields.join(','),
-      },
+    return _itemPage(_p('/Users/${_segment(userId)}/Items'), <String, dynamic>{
+      if (parentId?.trim().isNotEmpty == true) 'ParentId': parentId!.trim(),
+      if (includeItemTypes?.trim().isNotEmpty == true)
+        'IncludeItemTypes': includeItemTypes!.trim(),
+      if (recursive != null) 'Recursive': recursive,
+      if (searchTerm?.trim().isNotEmpty == true)
+        'SearchTerm': searchTerm!.trim(),
+      if (sortBy?.trim().isNotEmpty == true) 'SortBy': sortBy!.trim(),
+      if (sortOrder?.trim().isNotEmpty == true) 'SortOrder': sortOrder!.trim(),
+      if (startIndex != null && startIndex >= 0) 'StartIndex': startIndex,
+      if (limit != null && limit > 0) 'Limit': limit,
+      if (isFavorite != null) 'Filters': isFavorite ? 'IsFavorite' : null,
+      if (filters != null && filters.isNotEmpty) 'Filters': filters.join(','),
+      if (fields != null && fields.isNotEmpty) 'Fields': fields.join(','),
+    });
+  }
+
+  /// 首页媒体库统计：只请求一条数据，使用服务端返回的总数。
+  Future<MediaBrowserLibraryStats> libraryStats(String userId) async {
+    final pages = await Future.wait<MediaBrowserItemPage>([
+      items(userId, includeItemTypes: 'Movie', recursive: true, limit: 1),
+      items(userId, includeItemTypes: 'Series', recursive: true, limit: 1),
+      items(userId, includeItemTypes: 'Episode', recursive: true, limit: 1),
+    ]);
+    return MediaBrowserLibraryStats(
+      movieCount: pages[0].total,
+      seriesCount: pages[1].total,
+      episodeCount: pages[2].total,
     );
   }
 
@@ -160,10 +171,7 @@ class MediaBrowserApi {
   Future<MediaBrowserItemPage> resumeItems(String userId, {int limit = 12}) {
     return _itemPage(
       _p('/Users/${_segment(userId)}/Items/Resume'),
-      <String, dynamic>{
-        'MediaTypes': 'Video',
-        'Limit': limit,
-      },
+      <String, dynamic>{'MediaTypes': 'Video', 'Limit': limit},
     );
   }
 
@@ -173,14 +181,11 @@ class MediaBrowserApi {
     String? parentId,
     int limit = 12,
   }) {
-    return _itemPage(
-      _p('/Shows/NextUp'),
-      <String, dynamic>{
-        'UserId': userId,
-        if (parentId?.trim().isNotEmpty == true) 'ParentId': parentId!.trim(),
-        'Limit': limit,
-      },
-    );
+    return _itemPage(_p('/Shows/NextUp'), <String, dynamic>{
+      'UserId': userId,
+      if (parentId?.trim().isNotEmpty == true) 'ParentId': parentId!.trim(),
+      'Limit': limit,
+    });
   }
 
   /// 剧集的季列表。
@@ -222,9 +227,7 @@ class MediaBrowserApi {
           'MediaSourceId': mediaSourceId!.trim(),
         'AutoOpenLiveStream': true,
       },
-      data: {
-        if (deviceProfile != null) 'DeviceProfile': deviceProfile,
-      },
+      data: {if (deviceProfile != null) 'DeviceProfile': deviceProfile},
       options: Options(
         // 播放决策不需要 GET 重试语义，失败直接上抛。
         extra: const {'skipRetry': true},
@@ -382,9 +385,7 @@ class MediaBrowserApi {
   Future<MediaBrowserUser> _userFrom(String path) async {
     final response = await _dio.get<Map<String, dynamic>>(
       path,
-      options: Options(
-        extra: const {'skipRefresh': true, 'skipRetry': true},
-      ),
+      options: Options(extra: const {'skipRefresh': true, 'skipRetry': true}),
     );
     final data = response.data;
     if (data == null) {
@@ -441,13 +442,17 @@ class MediaBrowserApi {
         .toList(growable: false);
   }
 
-  static String _buildUrl(String baseUrl, String path, Map<String, String> query) {
+  static String _buildUrl(
+    String baseUrl,
+    String path,
+    Map<String, String> query,
+  ) {
     final normalizedBase = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
         : baseUrl;
-    return Uri.parse('$normalizedBase$path').replace(
-      queryParameters: query,
-    ).toString();
+    return Uri.parse(
+      '$normalizedBase$path',
+    ).replace(queryParameters: query).toString();
   }
 }
 

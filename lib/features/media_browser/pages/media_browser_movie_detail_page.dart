@@ -4,20 +4,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/emby/emby_playback.dart';
+import 'package:omm/features/media_browser/playback/media_browser_playback.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
-import 'package:omm/features/emby/providers/emby_providers.dart';
+import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/shared/filter_chip.dart';
 
-/// Emby 条目详情页（电影 / 单集等可播条目）。
+/// MediaBrowser 条目详情页（电影 / 单集等可播条目）。
 ///
 /// 结构沿用 OMM/DBO 详情页：hero + 标题 + 播放 + 简介 + 标签块；
-/// Emby 特有操作（收藏、已看标记、转码播放）放在标题下方操作行。
-class EmbyMovieDetailPage extends ConsumerWidget {
-  const EmbyMovieDetailPage({super.key, required this.itemId});
+/// MediaBrowser 特有操作（收藏、已看标记、转码播放）放在标题下方操作行。
+class MediaBrowserMovieDetailPage extends ConsumerWidget {
+  const MediaBrowserMovieDetailPage({super.key, required this.itemId});
 
   final String itemId;
 
@@ -25,7 +25,9 @@ class EmbyMovieDetailPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final serverId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
     final value = ref.watch(
-      embyItemDetailProvider(EmbyItemDetailRequest(serverId: serverId, itemId: itemId)),
+      mediaBrowserItemDetailProvider(
+        MediaBrowserItemDetailRequest(serverId: serverId, itemId: itemId),
+      ),
     );
     final colors = appColors(context);
     return Scaffold(
@@ -35,12 +37,12 @@ class EmbyMovieDetailPage extends ConsumerWidget {
         error: (error, _) => _ErrorBody(
           message: toApiException(error).message,
           onRetry: () => ref.invalidate(
-            embyItemDetailProvider(
-              EmbyItemDetailRequest(serverId: serverId, itemId: itemId),
+            mediaBrowserItemDetailProvider(
+              MediaBrowserItemDetailRequest(serverId: serverId, itemId: itemId),
             ),
           ),
         ),
-        data: (item) => _EmbyDetailBody(item: item),
+        data: (item) => _MediaBrowserDetailBody(item: item),
       ),
     );
   }
@@ -69,16 +71,18 @@ class _ErrorBody extends StatelessWidget {
   }
 }
 
-class _EmbyDetailBody extends ConsumerStatefulWidget {
-  const _EmbyDetailBody({required this.item});
+class _MediaBrowserDetailBody extends ConsumerStatefulWidget {
+  const _MediaBrowserDetailBody({required this.item});
 
   final MediaBrowserItem item;
 
   @override
-  ConsumerState<_EmbyDetailBody> createState() => _EmbyDetailBodyState();
+  ConsumerState<_MediaBrowserDetailBody> createState() =>
+      _MediaBrowserDetailBodyState();
 }
 
-class _EmbyDetailBodyState extends ConsumerState<_EmbyDetailBody> {
+class _MediaBrowserDetailBodyState
+    extends ConsumerState<_MediaBrowserDetailBody> {
   final _heroArts = ValueNotifier<List<HeroArt>>(const []);
   final _heroPosition = ValueNotifier(0.0);
   bool _actionBusy = false;
@@ -90,7 +94,7 @@ class _EmbyDetailBodyState extends ConsumerState<_EmbyDetailBody> {
   }
 
   @override
-  void didUpdateWidget(covariant _EmbyDetailBody oldWidget) {
+  void didUpdateWidget(covariant _MediaBrowserDetailBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     _syncHeroArt();
   }
@@ -104,7 +108,7 @@ class _EmbyDetailBodyState extends ConsumerState<_EmbyDetailBody> {
 
   void _syncHeroArt() {
     final item = widget.item;
-    final urls = ref.read(embyServerUrlsProvider).value;
+    final urls = ref.read(mediaBrowserServerUrlsProvider).value;
     final url = urls == null
         ? ''
         : item.backdropImageTags.isEmpty
@@ -125,7 +129,7 @@ class _EmbyDetailBodyState extends ConsumerState<_EmbyDetailBody> {
     setState(() => _actionBusy = true);
     try {
       await ref
-          .read(embyMediaRepositoryProvider)
+          .read(mediaBrowserMediaRepositoryProvider)
           .markFavorite(widget.item.id, !widget.item.userData.isFavorite);
       if (mounted) _invalidateDetail();
     } catch (error) {
@@ -140,11 +144,11 @@ class _EmbyDetailBodyState extends ConsumerState<_EmbyDetailBody> {
     setState(() => _actionBusy = true);
     try {
       await ref
-          .read(embyMediaRepositoryProvider)
+          .read(mediaBrowserMediaRepositoryProvider)
           .markPlayed(widget.item.id, !widget.item.userData.played);
       if (mounted) {
         _invalidateDetail();
-        ref.invalidate(embyNextUpProvider);
+        ref.invalidate(mediaBrowserNextUpProvider);
       }
     } catch (error) {
       _showError(toApiException(error).message);
@@ -156,8 +160,11 @@ class _EmbyDetailBodyState extends ConsumerState<_EmbyDetailBody> {
   void _invalidateDetail() {
     final serverId = ref.read(serverConfigProvider)?.activeServerId ?? '';
     ref.invalidate(
-      embyItemDetailProvider(
-        EmbyItemDetailRequest(serverId: serverId, itemId: widget.item.id),
+      mediaBrowserItemDetailProvider(
+        MediaBrowserItemDetailRequest(
+          serverId: serverId,
+          itemId: widget.item.id,
+        ),
       ),
     );
   }
@@ -172,7 +179,7 @@ class _EmbyDetailBodyState extends ConsumerState<_EmbyDetailBody> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    final urls = ref.watch(embyServerUrlsProvider);
+    final urls = ref.watch(mediaBrowserServerUrlsProvider);
     final posterUrl = item.primaryImageTag == null
         ? null
         : urls.value?.poster(item.id);
@@ -217,17 +224,21 @@ class _EmbyDetailBodyState extends ConsumerState<_EmbyDetailBody> {
               favorite: item.userData.isFavorite,
               played: item.userData.played,
               busy: _actionBusy,
-              onPlay: () => openEmbyPlayback(context, ref, item: item),
+              onPlay: () => openMediaBrowserPlayback(context, ref, item: item),
               // 与 OMM 详情页一致：长按播放先选内核（libmpv / KSPlayer）。
               onLongPressPlay: playbackEnginePickerEnabled
-                  ? () => openEmbyPlaybackWithEnginePicker(
+                  ? () => openMediaBrowserPlaybackWithEnginePicker(
                       context,
                       ref,
                       item: item,
                     )
                   : null,
-              onTranscodePlay: () =>
-                  openEmbyPlayback(context, ref, item: item, transcode: true),
+              onTranscodePlay: () => openMediaBrowserPlayback(
+                context,
+                ref,
+                item: item,
+                transcode: true,
+              ),
               onToggleFavorite: _toggleFavorite,
               onTogglePlayed: _togglePlayed,
             ),
@@ -326,7 +337,10 @@ class _ActionRow extends StatelessWidget {
               icon: const Icon(Icons.play_arrow_rounded, size: 18),
               label: const Text(
                 '播放',
-                style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
@@ -434,10 +448,7 @@ class _ChipSection extends StatelessWidget {
         runSpacing: 8,
         children: [
           for (var i = 0; i < items.length; i++)
-            HueChip(
-              label: items[i],
-              hue: AppHues.all[i % AppHues.all.length],
-            ),
+            HueChip(label: items[i], hue: AppHues.all[i % AppHues.all.length]),
         ],
       ),
     );
@@ -452,9 +463,7 @@ class _DetailsTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
-    final source = item.mediaSources.isEmpty
-        ? null
-        : item.mediaSources.first;
+    final source = item.mediaSources.isEmpty ? null : item.mediaSources.first;
     final rows = <(String, String)>[
       if (item.seriesName?.trim().isNotEmpty == true)
         ('所属剧集', item.seriesName!),
@@ -477,18 +486,17 @@ class _DetailsTable extends StatelessWidget {
                   width: 76,
                   child: Text(
                     label,
-                    style: AppText.movieCardMeta(context).copyWith(
-                      color: colors.muted,
-                    ),
+                    style: AppText.movieCardMeta(
+                      context,
+                    ).copyWith(color: colors.muted),
                   ),
                 ),
                 Expanded(
                   child: Text(
                     value,
-                    style: AppText.movieCardMeta(context).copyWith(
-                      color: colors.text,
-                      height: 1.4,
-                    ),
+                    style: AppText.movieCardMeta(
+                      context,
+                    ).copyWith(color: colors.text, height: 1.4),
                   ),
                 ),
               ],

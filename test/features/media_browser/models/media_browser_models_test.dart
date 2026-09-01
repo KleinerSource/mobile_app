@@ -34,8 +34,18 @@ void main() {
           'SupportsDirectPlay': true,
           'MediaStreams': [
             {'Index': 0, 'Type': 'Video', 'Codec': 'hevc'},
-            {'Index': 1, 'Type': 'Audio', 'Codec': 'flac', 'DisplayTitle': 'FLAC 5.1'},
-            {'Index': 2, 'Type': 'Subtitle', 'Codec': 'ass', 'IsExternal': true},
+            {
+              'Index': 1,
+              'Type': 'Audio',
+              'Codec': 'flac',
+              'DisplayTitle': 'FLAC 5.1',
+            },
+            {
+              'Index': 2,
+              'Type': 'Subtitle',
+              'Codec': 'ass',
+              'IsExternal': true,
+            },
           ],
         },
       ],

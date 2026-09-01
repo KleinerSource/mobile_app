@@ -18,7 +18,12 @@ Map<String, Object?> playbackDeviceProfile() => const {
       'AudioCodec': 'aac,mp3,ac3,eac3,opus,flac,vorbis',
       'BreakOnNonKeyFrames': true,
     },
-    {'Type': 'Audio', 'Protocol': 'http', 'Container': 'mp3', 'AudioCodec': 'mp3'},
+    {
+      'Type': 'Audio',
+      'Protocol': 'http',
+      'Container': 'mp3',
+      'AudioCodec': 'mp3',
+    },
   ],
   'SubtitleProfiles': [
     {'Format': 'srt', 'Method': 'External'},

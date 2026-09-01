@@ -250,8 +250,8 @@ class AuthController extends AsyncNotifier<AuthState> {
     final client = ref.read(requiredApiClientProvider);
     final isDbOnline =
         client.config?.activeServer?.project == ServerProject.dbOnline;
-    final mediaBrowserConfig = MediaBrowserConfig.byProject[
-        client.config?.activeServer?.project];
+    final mediaBrowserConfig =
+        MediaBrowserConfig.byProject[client.config?.activeServer?.project];
     if (mediaBrowserConfig != null) {
       return _loginMediaBrowser(
         client,
@@ -340,12 +340,14 @@ class AuthController extends AsyncNotifier<AuthState> {
       if (user.id.isNotEmpty && user.id != session.userId) {
         await ref
             .read(authSessionRepositoryProvider)
-            .save(AuthSession(
-              accessToken: session.accessToken,
-              refreshToken: '',
-              expiresIn: 0,
-              userId: user.id,
-            ));
+            .save(
+              AuthSession(
+                accessToken: session.accessToken,
+                refreshToken: '',
+                expiresIn: 0,
+                userId: user.id,
+              ),
+            );
       }
       return const AuthState(phase: AuthPhase.authenticated);
     } catch (error) {
@@ -382,24 +384,28 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
     try {
       final deviceId = await stableDeviceId(ref.read(sharedPrefsProvider));
-      final result = await client.mediaBrowserFor(config).authenticateByName(
-        username: user,
-        password: password,
-        deviceId: deviceId,
-        deviceName: Platform.operatingSystem,
-        appVersion: await _appVersion(),
-      );
+      final result = await client
+          .mediaBrowserFor(config)
+          .authenticateByName(
+            username: user,
+            password: password,
+            deviceId: deviceId,
+            deviceName: Platform.operatingSystem,
+            appVersion: await _appVersion(),
+          );
       if (result.accessToken.isEmpty || result.user.id.isEmpty) {
         throw ApiException('登录响应缺少有效会话');
       }
       await ref
           .read(authSessionRepositoryProvider)
-          .save(AuthSession(
-            accessToken: result.accessToken,
-            refreshToken: '',
-            expiresIn: 0,
-            userId: result.user.id,
-          ));
+          .save(
+            AuthSession(
+              accessToken: result.accessToken,
+              refreshToken: '',
+              expiresIn: 0,
+              userId: result.user.id,
+            ),
+          );
       state = const AsyncData(AuthState(phase: AuthPhase.authenticated));
       return true;
     } catch (error) {

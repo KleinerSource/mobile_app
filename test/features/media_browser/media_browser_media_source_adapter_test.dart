@@ -84,12 +84,11 @@ void main() {
         );
       });
 
-      MediaBrowserMediaSourceAdapter buildAdapter(
-        _RecordingAdapter adapter,
-      ) {
+      MediaBrowserMediaSourceAdapter buildAdapter(_RecordingAdapter adapter) {
         return MediaBrowserMediaSourceAdapter(
           MediaBrowserApi(
-            Dio(BaseOptions(baseUrl: 'http://test'))..httpClientAdapter = adapter,
+            Dio(BaseOptions(baseUrl: 'http://test'))
+              ..httpClientAdapter = adapter,
             config,
           ),
           sessionRepository: sessionRepository,
@@ -190,7 +189,12 @@ void main() {
                   'Container': 'mkv,webm',
                   'SupportsDirectPlay': true,
                   'MediaStreams': [
-                    {'Index': 1, 'Type': 'Audio', 'Codec': 'aac', 'DisplayTitle': 'AAC'},
+                    {
+                      'Index': 1,
+                      'Type': 'Audio',
+                      'Codec': 'aac',
+                      'DisplayTitle': 'AAC',
+                    },
                     {'Index': 2, 'Type': 'Subtitle', 'Codec': 'ass'},
                   ],
                 },

@@ -6,28 +6,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
+import 'package:omm/features/media_browser/pages/media_browser_library_page.dart';
+import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_continue_watching_section.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_next_up_section.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/home/home_libraries_section.dart';
 import 'package:omm/features/home/home_movie_section.dart';
 import 'package:omm/features/home/recommend_carousel.dart';
-import 'package:omm/features/media_browser/models/media_browser_models.dart';
-import 'package:omm/features/jellyfin/navigation/jellyfin_navigation.dart';
-import 'package:omm/features/jellyfin/pages/jellyfin_library_page.dart';
-import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
-import 'package:omm/features/jellyfin/widgets/jellyfin_continue_watching_section.dart';
-import 'package:omm/features/jellyfin/widgets/jellyfin_item_card.dart';
-import 'package:omm/features/jellyfin/widgets/jellyfin_next_up_section.dart';
 
-/// Jellyfin 首页复用 OMM 首页的氛围背景、半屏折叠 hero、轮播和区块布局。
+/// MediaBrowser 首页复用 OMM 首页的氛围背景、半屏折叠 hero、轮播和区块布局。
 /// 数据来自「继续观看 / 接下来观看 / 最新入库」，跳转走统一导航入口。
-class JellyfinHomePage extends ConsumerStatefulWidget {
-  const JellyfinHomePage({super.key});
+class MediaBrowserHomePage extends ConsumerStatefulWidget {
+  const MediaBrowserHomePage({super.key});
 
   @override
-  ConsumerState<JellyfinHomePage> createState() => _JellyfinHomePageState();
+  ConsumerState<MediaBrowserHomePage> createState() =>
+      _MediaBrowserHomePageState();
 }
 
-class _JellyfinHomePageState extends ConsumerState<JellyfinHomePage> {
+class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
   final _heroArts = ValueNotifier<List<HeroArt>>(const []);
   final _heroPagePosition = ValueNotifier(0.0);
 
@@ -39,17 +40,26 @@ class _JellyfinHomePageState extends ConsumerState<JellyfinHomePage> {
   }
 
   Future<void> _refreshHome() async {
-    ref.invalidate(jellyfinLatestProvider);
-    ref.invalidate(jellyfinResumeProvider);
-    ref.invalidate(jellyfinNextUpProvider);
+    ref.invalidate(mediaBrowserLatestProvider);
+    ref.invalidate(mediaBrowserResumeProvider);
+    ref.invalidate(mediaBrowserNextUpProvider);
     await Future.wait([
-      ref.read(jellyfinLatestProvider.future).catchError((_) => const <MediaBrowserItem>[]),
-      ref.read(jellyfinResumeProvider.future).catchError((_) => const <MediaBrowserItem>[]),
-      ref.read(jellyfinNextUpProvider.future).catchError((_) => const <MediaBrowserItem>[]),
+      ref
+          .read(mediaBrowserLatestProvider.future)
+          .catchError((_) => const <MediaBrowserItem>[]),
+      ref
+          .read(mediaBrowserResumeProvider.future)
+          .catchError((_) => const <MediaBrowserItem>[]),
+      ref
+          .read(mediaBrowserNextUpProvider.future)
+          .catchError((_) => const <MediaBrowserItem>[]),
     ]);
   }
 
-  void _syncHeroArts(List<MediaBrowserItem> items, JellyfinServerUrls urls) {
+  void _syncHeroArts(
+    List<MediaBrowserItem> items,
+    MediaBrowserServerUrls urls,
+  ) {
     final arts = [
       for (final item in items)
         HeroArt(
@@ -72,10 +82,10 @@ class _JellyfinHomePageState extends ConsumerState<JellyfinHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final latest = ref.watch(jellyfinLatestProvider);
-    final resume = ref.watch(jellyfinResumeProvider);
-    final nextUp = ref.watch(jellyfinNextUpProvider);
-    final urls = ref.watch(jellyfinServerUrlsProvider);
+    final latest = ref.watch(mediaBrowserLatestProvider);
+    final resume = ref.watch(mediaBrowserResumeProvider);
+    final nextUp = ref.watch(mediaBrowserNextUpProvider);
+    final urls = ref.watch(mediaBrowserServerUrlsProvider);
 
     final heroReady = latest.when(
       loading: () => false,
@@ -110,12 +120,12 @@ class _JellyfinHomePageState extends ConsumerState<JellyfinHomePage> {
                     Positioned.fill(
                       child: RecommendCarousel.mediaBrowser(
                         items: items,
-                        imageUrlBuilder: (item) => item.backdropImageTags
-                            .isEmpty
+                        imageUrlBuilder: (item) =>
+                            item.backdropImageTags.isEmpty
                             ? value.poster(item.id)
                             : value.backdrop(item.id),
                         pagePosition: _heroPagePosition,
-                        onItemTap: openJellyfinItem,
+                        onItemTap: openMediaBrowserItem,
                       ),
                     ),
                     const Positioned(
@@ -132,10 +142,10 @@ class _JellyfinHomePageState extends ConsumerState<JellyfinHomePage> {
       heroFallback: Column(
         children: [
           const HomeGreetingRow(onHero: false),
-          _JellyfinHeroFallback(
+          _MediaBrowserHeroFallback(
             value: latest,
             height: heroMaxHeight,
-            onRetry: () => ref.invalidate(jellyfinLatestProvider),
+            onRetry: () => ref.invalidate(mediaBrowserLatestProvider),
           ),
         ],
       ),
@@ -148,7 +158,7 @@ class _JellyfinHomePageState extends ConsumerState<JellyfinHomePage> {
           data: (items) => items.isEmpty
               ? const SliverToBoxAdapter(child: SizedBox.shrink())
               : SliverToBoxAdapter(
-                  child: JellyfinContinueWatchingSection(items: items),
+                  child: MediaBrowserContinueWatchingSection(items: items),
                 ),
         ),
         // -------- 接下来观看 · 与继续观看同款宽幅横滑卡片，空态静默 --------
@@ -158,18 +168,18 @@ class _JellyfinHomePageState extends ConsumerState<JellyfinHomePage> {
           data: (items) => items.isEmpty
               ? const SliverToBoxAdapter(child: SizedBox.shrink())
               : SliverToBoxAdapter(
-                  child: JellyfinNextUpSection(items: items),
+                  child: MediaBrowserNextUpSection(items: items),
                 ),
         ),
         SliverToBoxAdapter(
-          child: _JellyfinHomeSection(
+          child: _MediaBrowserHomeSection(
             title: '最新入库',
             value: latest,
-            onRetry: () => ref.invalidate(jellyfinLatestProvider),
+            onRetry: () => ref.invalidate(mediaBrowserLatestProvider),
           ),
         ),
         // -------- 每个媒体库的最近添加 + 媒体库入口卡片 --------
-        const _JellyfinViewSections(),
+        const _MediaBrowserViewSections(),
       ],
       heroMaxHeight: heroMaxHeight,
     );
@@ -177,8 +187,8 @@ class _JellyfinHomePageState extends ConsumerState<JellyfinHomePage> {
 }
 
 /// 首页横向区块：复用 [HomeMovieSection] 的布局，只替换条目卡片。
-class _JellyfinHomeSection extends ConsumerWidget {
-  const _JellyfinHomeSection({
+class _MediaBrowserHomeSection extends ConsumerWidget {
+  const _MediaBrowserHomeSection({
     required this.title,
     required this.value,
     required this.onRetry,
@@ -192,7 +202,7 @@ class _JellyfinHomeSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final urls = ref.watch(jellyfinServerUrlsProvider);
+    final urls = ref.watch(mediaBrowserServerUrlsProvider);
     return HomeMovieSection<List<MediaBrowserItem>, MediaBrowserItem>(
       title: title,
       value: value,
@@ -201,11 +211,11 @@ class _JellyfinHomeSection extends ConsumerWidget {
       trailing: trailing,
       itemKeyBuilder: (item) => item.id,
       itemBuilder: (context, item) => urls.maybeWhen(
-        data: (value) => JellyfinItemCard(
+        data: (value) => MediaBrowserItemCard(
           item: item,
           urls: value,
           width: 132,
-          onTap: () => openJellyfinItemUnawaited(context, item),
+          onTap: () => openMediaBrowserItemUnawaited(context, item),
         ),
         orElse: () => const SizedBox(width: 132),
       ),
@@ -217,13 +227,13 @@ class _JellyfinHomeSection extends ConsumerWidget {
 ///
 /// 音乐/图书等无海报内容的库不出影片行（入口卡片仍显示）；某个库没有
 /// 可展示条目时整行隐藏；Views 加载失败/为空时整个区块隐藏。
-class _JellyfinViewSections extends ConsumerWidget {
-  const _JellyfinViewSections();
+class _MediaBrowserViewSections extends ConsumerWidget {
+  const _MediaBrowserViewSections();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final views = ref.watch(jellyfinViewsProvider);
-    final urls = ref.watch(jellyfinServerUrlsProvider).value;
+    final views = ref.watch(mediaBrowserViewsProvider);
+    final urls = ref.watch(mediaBrowserServerUrlsProvider).value;
     return views.maybeWhen(
       data: (list) {
         if (list.isEmpty) {
@@ -237,7 +247,10 @@ class _JellyfinViewSections extends ConsumerWidget {
           slivers: [
             for (final view in displayable)
               SliverToBoxAdapter(
-                child: _JellyfinViewLatestRow(serverId: serverId, view: view),
+                child: _MediaBrowserViewLatestRow(
+                  serverId: serverId,
+                  view: view,
+                ),
               ),
             SliverToBoxAdapter(
               child: HomeLibrariesSection(
@@ -262,15 +275,18 @@ class _JellyfinViewSections extends ConsumerWidget {
   void _openLibrary(BuildContext context, String viewId) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => JellyfinLibraryPage(initialViewId: viewId),
+        builder: (_) => MediaBrowserLibraryPage(initialViewId: viewId),
       ),
     );
   }
 }
 
 /// 单个媒体库的最近添加横排；没有可展示条目时整行隐藏。
-class _JellyfinViewLatestRow extends ConsumerWidget {
-  const _JellyfinViewLatestRow({required this.serverId, required this.view});
+class _MediaBrowserViewLatestRow extends ConsumerWidget {
+  const _MediaBrowserViewLatestRow({
+    required this.serverId,
+    required this.view,
+  });
 
   final String serverId;
   final MediaBrowserItem view;
@@ -278,24 +294,35 @@ class _JellyfinViewLatestRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final includeItemTypes = includeItemTypesForView(view.collectionType);
-    final request = JellyfinViewLatestRequest(
-      serverId: serverId,
-      viewId: view.id,
-      includeItemTypes: includeItemTypes,
+    final value = ref.watch(
+      mediaBrowserViewLatestProvider(
+        MediaBrowserViewLatestRequest(
+          serverId: serverId,
+          viewId: view.id,
+          includeItemTypes: includeItemTypes,
+        ),
+      ),
     );
-    final value = ref.watch(jellyfinViewLatestProvider(request));
     // 该库没有可展示条目时整行隐藏。
     if (value.hasValue && value.requireValue.isEmpty) {
       return const SizedBox.shrink();
     }
-    return _JellyfinHomeSection(
+    return _MediaBrowserHomeSection(
       title: view.name,
       value: value,
-      onRetry: () => ref.invalidate(jellyfinViewLatestProvider(request)),
+      onRetry: () => ref.invalidate(
+        mediaBrowserViewLatestProvider(
+          MediaBrowserViewLatestRequest(
+            serverId: serverId,
+            viewId: view.id,
+            includeItemTypes: includeItemTypes,
+          ),
+        ),
+      ),
       trailing: _SeeAllButton(
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
-            builder: (_) => JellyfinLibraryPage(initialViewId: view.id),
+            builder: (_) => MediaBrowserLibraryPage(initialViewId: view.id),
           ),
         ),
       ),
@@ -334,8 +361,8 @@ class _SeeAllButton extends StatelessWidget {
   }
 }
 
-class _JellyfinHeroFallback extends StatelessWidget {
-  const _JellyfinHeroFallback({
+class _MediaBrowserHeroFallback extends StatelessWidget {
+  const _MediaBrowserHeroFallback({
     required this.value,
     required this.height,
     required this.onRetry,

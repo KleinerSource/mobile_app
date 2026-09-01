@@ -5,35 +5,40 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/sources/common/source_id.dart';
+import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
-import 'package:omm/features/emby/providers/emby_providers.dart';
+import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:omm/features/player/common/player_settings.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/features/player/video/video_player_page.dart';
 
-/// 打开 Emby 条目播放。
+/// 打开 Emby/Jellyfin 条目播放。
 ///
 /// 默认直连原始文件（static=true），[transcode] 为 true 时使用服务器
 /// PlaybackInfo 返回的 HLS 转码地址。开播上报 Sessions/Playing，退出时
-/// 通过播放页的进度回调上报 Stopped，让 Emby 记住「继续观看」位置。
-Future<void> openEmbyPlayback(
+/// 通过播放页的进度回调上报 Stopped，让服务器记住「继续观看」位置。
+Future<void> openMediaBrowserPlayback(
   BuildContext context,
   WidgetRef ref, {
   required MediaBrowserItem item,
   bool transcode = false,
   PlaybackEngineKind? engineKind,
 }) async {
-  final source = ref.read(embyMediaSourceProvider);
-  if (source == null) return;
-  final repo = ref.read(embyMediaRepositoryProvider);
+  final config = ref.read(mediaBrowserConfigProvider);
+  if (config == null) return;
+  final source = ref
+      .read(mediaSourceRegistryProvider)
+      .find(SourceId(config.sourceId));
+  if (source is! MediaBrowserMediaSource) return;
+  final repo = ref.read(mediaBrowserMediaRepositoryProvider);
   final itemId = item.id.trim();
   if (itemId.isEmpty) return;
   try {
     final descriptor = await source.resolvePlayback(
-      MediaRef(sourceId: const SourceId('emby'), value: itemId),
+      MediaRef(sourceId: SourceId(config.sourceId), value: itemId),
       PlaybackRequest(forceVideoTranscode: transcode),
     );
     final payload = descriptor.payload;
@@ -69,8 +74,8 @@ Future<void> openEmbyPlayback(
           ),
     );
     // 播放结束同步详情与首页的进度/已看状态。
-    ref.invalidate(embyItemDetailProvider);
-    ref.invalidate(embyResumeProvider);
+    ref.invalidate(mediaBrowserItemDetailProvider);
+    ref.invalidate(mediaBrowserResumeProvider);
   } catch (error) {
     if (context.mounted) {
       ScaffoldMessenger.of(
@@ -84,7 +89,7 @@ Future<void> openEmbyPlayback(
 ///
 /// 当前平台无可选内核（非 iOS）时是空操作，调用方应以
 /// [playbackEnginePickerEnabled] 禁用长按。
-Future<void> openEmbyPlaybackWithEnginePicker(
+Future<void> openMediaBrowserPlaybackWithEnginePicker(
   BuildContext context,
   WidgetRef ref, {
   required MediaBrowserItem item,
@@ -96,7 +101,7 @@ Future<void> openEmbyPlaybackWithEnginePicker(
     ref.read(playerSettingsProvider).iosEngine,
   );
   if (engineKind == null || !context.mounted) return;
-  await openEmbyPlayback(
+  await openMediaBrowserPlayback(
     context,
     ref,
     item: item,
@@ -110,7 +115,8 @@ String _playbackTitle(MediaBrowserItem item) {
   final series = item.seriesName?.trim();
   final season = item.parentIndexNumber ?? 0;
   final episode = item.indexNumber ?? 0;
-  final code = 'S${season.toString().padLeft(2, '0')}'
+  final code =
+      'S${season.toString().padLeft(2, '0')}'
       'E${episode.toString().padLeft(2, '0')}';
   return series?.isNotEmpty == true ? '$series · $code' : code;
 }

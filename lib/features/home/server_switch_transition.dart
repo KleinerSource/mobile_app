@@ -18,8 +18,8 @@ import '../../shared/shake_error_text.dart';
 import '../../shared/totp_input_field.dart';
 import 'package:omm/features/oh_my_media/libraries/libraries_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
-import 'package:omm/features/emby/providers/emby_providers.dart';
-import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
+import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'home_providers.dart';
 
 enum ServerSwitchPhase {
@@ -364,22 +364,12 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       unawaited(refresh);
       return;
     }
-    if (project == ServerProject.emby) {
+    if (MediaBrowserConfig.byProject[project] != null) {
       beginFinishing();
       final refresh = Future.wait([
-        ref.refresh(embyLatestProvider.future),
-        ref.refresh(embyResumeProvider.future),
-        ref.refresh(embyNextUpProvider.future),
-      ]);
-      unawaited(refresh);
-      return;
-    }
-    if (project == ServerProject.jellyfin) {
-      beginFinishing();
-      final refresh = Future.wait([
-        ref.refresh(jellyfinLatestProvider.future),
-        ref.refresh(jellyfinResumeProvider.future),
-        ref.refresh(jellyfinNextUpProvider.future),
+        ref.refresh(mediaBrowserLatestProvider.future),
+        ref.refresh(mediaBrowserResumeProvider.future),
+        ref.refresh(mediaBrowserNextUpProvider.future),
       ]);
       unawaited(refresh);
       return;

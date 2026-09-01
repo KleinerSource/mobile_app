@@ -60,8 +60,7 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
       capabilities.contains(capability);
 
   @override
-  Future<String?> userId() async =>
-      (await sessionRepository.load())?.userId;
+  Future<String?> userId() async => (await sessionRepository.load())?.userId;
 
   @override
   Future<MediaPage<MediaSummary>> listMovies(MediaQuery query) =>
@@ -128,7 +127,9 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
       ref.value,
       deviceProfile: playbackDeviceProfile(),
     );
-    final mediaSource = info.mediaSources.isEmpty ? null : info.mediaSources.first;
+    final mediaSource = info.mediaSources.isEmpty
+        ? null
+        : info.mediaSources.first;
     if (mediaSource == null || mediaSource.id.isEmpty) {
       throw SourceException('${config.displayName} 条目没有可用的媒体源');
     }
@@ -138,9 +139,8 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
             request.quality.trim().isNotEmpty &&
             mediaSource.transcodingUrl?.trim().isNotEmpty == true);
     final transcodingUrl = mediaSource.transcodingUrl?.trim();
-    final isTranscode = wantTranscode &&
-        transcodingUrl != null &&
-        transcodingUrl.isNotEmpty;
+    final isTranscode =
+        wantTranscode && transcodingUrl != null && transcodingUrl.isNotEmpty;
     final Uri uri;
     if (isTranscode) {
       uri = Uri.parse(MediaBrowserApi.resolveUrl(base, transcodingUrl));
@@ -177,6 +177,12 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
   });
 
   @override
+  Future<MediaBrowserLibraryStats> libraryStats() => _call(() async {
+    final uid = await _requireUserId();
+    return api.libraryStats(uid);
+  });
+
+  @override
   Future<List<MediaBrowserItem>> latestMedia({
     String? parentId,
     String? includeItemTypes,
@@ -198,10 +204,11 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
   });
 
   @override
-  Future<MediaBrowserItemPage> nextUp({String? parentId, int limit = 12}) => _call(() async {
-    final uid = await _requireUserId();
-    return api.nextUp(uid, parentId: parentId, limit: limit);
-  });
+  Future<MediaBrowserItemPage> nextUp({String? parentId, int limit = 12}) =>
+      _call(() async {
+        final uid = await _requireUserId();
+        return api.nextUp(uid, parentId: parentId, limit: limit);
+      });
 
   @override
   Future<MediaBrowserItemPage> itemPage({
@@ -249,27 +256,31 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
   });
 
   @override
-  Future<MediaBrowserItem> markFavorite(String itemId, bool favorite) => _call(() async {
-    final uid = await _requireUserId();
-    return api.markFavorite(uid, itemId, favorite);
-  });
+  Future<MediaBrowserItem> markFavorite(String itemId, bool favorite) =>
+      _call(() async {
+        final uid = await _requireUserId();
+        return api.markFavorite(uid, itemId, favorite);
+      });
 
   @override
-  Future<MediaBrowserItem> markPlayed(String itemId, bool played) => _call(() async {
-    final uid = await _requireUserId();
-    return api.markPlayed(uid, itemId, played);
-  });
+  Future<MediaBrowserItem> markPlayed(String itemId, bool played) =>
+      _call(() async {
+        final uid = await _requireUserId();
+        return api.markPlayed(uid, itemId, played);
+      });
 
   @override
   Future<void> reportPlaybackStart({
     required String itemId,
     required int positionTicks,
     String? playSessionId,
-  }) => _call(() => api.reportPlaybackStart(
-    itemId: itemId,
-    positionTicks: positionTicks,
-    playSessionId: playSessionId,
-  ));
+  }) => _call(
+    () => api.reportPlaybackStart(
+      itemId: itemId,
+      positionTicks: positionTicks,
+      playSessionId: playSessionId,
+    ),
+  );
 
   @override
   Future<void> reportPlaybackProgress({
@@ -277,23 +288,27 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
     required int positionTicks,
     String? playSessionId,
     bool isPaused = false,
-  }) => _call(() => api.reportPlaybackProgress(
-    itemId: itemId,
-    positionTicks: positionTicks,
-    playSessionId: playSessionId,
-    isPaused: isPaused,
-  ));
+  }) => _call(
+    () => api.reportPlaybackProgress(
+      itemId: itemId,
+      positionTicks: positionTicks,
+      playSessionId: playSessionId,
+      isPaused: isPaused,
+    ),
+  );
 
   @override
   Future<void> reportPlaybackStopped({
     required String itemId,
     required int positionTicks,
     String? playSessionId,
-  }) => _call(() => api.reportPlaybackStopped(
-    itemId: itemId,
-    positionTicks: positionTicks,
-    playSessionId: playSessionId,
-  ));
+  }) => _call(
+    () => api.reportPlaybackStopped(
+      itemId: itemId,
+      positionTicks: positionTicks,
+      playSessionId: playSessionId,
+    ),
+  );
 
   @override
   Future<String> imageUrl(
@@ -344,9 +359,7 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
     return MediaDetails(
       summary: await _summaryFromItem(item),
       overview: item.overview,
-      filePath: item.mediaSources.isEmpty
-          ? null
-          : item.mediaSources.first.path,
+      filePath: item.mediaSources.isEmpty ? null : item.mediaSources.first.path,
       fileSize: item.mediaSources.isEmpty
           ? null
           : item.mediaSources.first.sizeInBytes,
@@ -372,7 +385,8 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
     );
   }
 
-  MediaRef _refFor(MediaBrowserItem item) => MediaRef(sourceId: _sourceId, value: item.id);
+  MediaRef _refFor(MediaBrowserItem item) =>
+      MediaRef(sourceId: _sourceId, value: item.id);
 
   /// 恢复播放位置：看完（>= 95%）的条目从头开始。
   int _resumeSeconds(MediaBrowserItem item) {

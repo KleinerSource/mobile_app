@@ -14,21 +14,28 @@ int mediaBrowserTicksToSeconds(int? ticks) {
   return (ticks / mediaBrowserTicksPerSecond).round();
 }
 
-int secondsToMediaBrowserTicks(int seconds) => seconds * mediaBrowserTicksPerSecond;
+int secondsToMediaBrowserTicks(int seconds) =>
+    seconds * mediaBrowserTicksPerSecond;
 
 @immutable
 class MediaBrowserUser {
-  const MediaBrowserUser({required this.id, required this.name, this.isAdmin = false});
+  const MediaBrowserUser({
+    required this.id,
+    required this.name,
+    this.isAdmin = false,
+  });
 
   final String id;
   final String name;
   final bool isAdmin;
 
-  factory MediaBrowserUser.fromJson(Map<String, dynamic> json) => MediaBrowserUser(
-    id: json['Id']?.toString() ?? '',
-    name: json['Name']?.toString() ?? '',
-    isAdmin: json['Policy'] is Map && json['Policy']['IsAdministrator'] == true,
-  );
+  factory MediaBrowserUser.fromJson(Map<String, dynamic> json) =>
+      MediaBrowserUser(
+        id: json['Id']?.toString() ?? '',
+        name: json['Name']?.toString() ?? '',
+        isAdmin:
+            json['Policy'] is Map && json['Policy']['IsAdministrator'] == true,
+      );
 }
 
 /// 条目上按用户维度的状态：收藏、已看、播放位置。
@@ -70,6 +77,7 @@ class MediaBrowserPerson {
   final String id;
   final String name;
   final String? role;
+
   /// 'Actor' / 'Director' 等；空字符串表示未标注。
   final String type;
 
@@ -99,6 +107,7 @@ class MediaBrowserMediaStream {
   });
 
   final int index;
+
   /// 'Video' / 'Audio' / 'Subtitle'
   final String type;
   final String? codec;
@@ -151,6 +160,7 @@ class MediaBrowserMediaSourceDto {
   final bool supportsDirectPlay;
   final bool supportsDirectStream;
   final bool supportsTranscoding;
+
   /// 服务器生成的 HLS 转码地址（相对路径，含全部转码参数）。
   final String? transcodingUrl;
   final List<MediaBrowserMediaStream> mediaStreams;
@@ -173,7 +183,9 @@ class MediaBrowserMediaSourceDto {
       supportsTranscoding: json['SupportsTranscoding'] == true,
       transcodingUrl: _stringOrNull(json['TranscodingUrl']),
       mediaStreams: streams is List
-          ? streams.map(MediaBrowserMediaStream.fromJson).toList(growable: false)
+          ? streams
+                .map(MediaBrowserMediaStream.fromJson)
+                .toList(growable: false)
           : const <MediaBrowserMediaStream>[],
     );
   }
@@ -193,7 +205,9 @@ class MediaBrowserPlaybackInfo {
     final sources = json['MediaSources'];
     return MediaBrowserPlaybackInfo(
       mediaSources: sources is List
-          ? sources.map(MediaBrowserMediaSourceDto.fromJson).toList(growable: false)
+          ? sources
+                .map(MediaBrowserMediaSourceDto.fromJson)
+                .toList(growable: false)
           : const <MediaBrowserMediaSourceDto>[],
       playSessionId: json['PlaySessionId']?.toString() ?? '',
     );
@@ -231,9 +245,11 @@ class MediaBrowserItem {
   });
 
   final String id;
+
   /// 'Movie' / 'Series' / 'Season' / 'Episode' / 'CollectionFolder' 等。
   final String type;
   final String? serverId;
+
   /// 媒体库类型：'movies' / 'tvshows' / 'music' 等，仅 Views 返回。
   final String? collectionType;
   final String name;
@@ -248,6 +264,7 @@ class MediaBrowserItem {
   final String? seriesId;
   final String? seriesName;
   final String? seasonId;
+
   /// 剧集的季号 / 集的集号。
   final int? parentIndexNumber;
   final int? indexNumber;
@@ -308,14 +325,32 @@ class MediaBrowserItem {
       backdropImageTags: backdrops is List
           ? backdrops.map((item) => item.toString()).toList(growable: false)
           : const <String>[],
-      thumbImageTag: imageTags is Map ? _stringOrNull(imageTags['Thumb']) : null,
+      thumbImageTag: imageTags is Map
+          ? _stringOrNull(imageTags['Thumb'])
+          : null,
       childCount: _intValue(json['ChildCount']),
       recursiveItemCount: _intValue(json['RecursiveItemCount']),
       mediaSources: sources is List
-          ? sources.map(MediaBrowserMediaSourceDto.fromJson).toList(growable: false)
+          ? sources
+                .map(MediaBrowserMediaSourceDto.fromJson)
+                .toList(growable: false)
           : const <MediaBrowserMediaSourceDto>[],
     );
   }
+}
+
+/// MediaBrowser 首页媒体库统计。
+@immutable
+class MediaBrowserLibraryStats {
+  const MediaBrowserLibraryStats({
+    required this.movieCount,
+    required this.seriesCount,
+    required this.episodeCount,
+  });
+
+  final int movieCount;
+  final int seriesCount;
+  final int episodeCount;
 }
 
 /// /Users/{uid}/Items 系列接口的分页结果。
@@ -341,7 +376,11 @@ class MediaBrowserItemPage {
       items: rawItems is List
           ? rawItems
                 .whereType<Map>()
-                .map((item) => MediaBrowserItem.fromJson(Map<String, dynamic>.from(item)))
+                .map(
+                  (item) => MediaBrowserItem.fromJson(
+                    Map<String, dynamic>.from(item),
+                  ),
+                )
                 .where((item) => item.id.isNotEmpty)
                 .toList(growable: false)
           : const <MediaBrowserItem>[],

@@ -1,12 +1,12 @@
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
-/// Emby Feature 的 Source 门面。
+/// MediaBrowser（Emby/Jellyfin）Feature 的 Source 门面。
 ///
-/// 页面使用 Emby 自有 DTO，Source 负责网络协议；这里只透传并保持
+/// 页面使用服务器自有 DTO，Source 负责网络协议；这里只透传并保持
 /// 调用方与 Source 接口解耦（与 DboMediaRepository 同构）。
-class EmbyMediaRepository {
-  EmbyMediaRepository(this._source);
+class MediaBrowserMediaRepository {
+  MediaBrowserMediaRepository(this._source);
 
   final MediaBrowserMediaSource _source;
 
@@ -102,9 +102,5 @@ class EmbyMediaRepository {
     String itemId, {
     String imageType = 'Primary',
     int? maxWidth,
-  }) => _source.imageUrl(
-    itemId,
-    imageType: imageType,
-    maxWidth: maxWidth,
-  );
+  }) => _source.imageUrl(itemId, imageType: imageType, maxWidth: maxWidth);
 }

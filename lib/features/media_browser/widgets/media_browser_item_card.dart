@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
-import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
+import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/shared/movie_card.dart';
 
-/// Jellyfin 条目卡片。
+/// Emby/Jellyfin 条目卡片。
 ///
 /// 渲染由共享 [CatalogMovieCard] 统一维护（与 OMM/DBO 同一套风格和尺寸），
-/// 这里只把 Jellyfin 的字段整理成展示值：无番号行，meta 为
+/// 这里只把服务器字段整理成展示值：无番号行，meta 为
 /// 「年份 · 时长」或「SxxEyy · 剧名」。
-class JellyfinItemCard extends StatelessWidget {
-  const JellyfinItemCard({
+class MediaBrowserItemCard extends StatelessWidget {
+  const MediaBrowserItemCard({
     super.key,
     required this.item,
     required this.urls,
@@ -20,7 +20,7 @@ class JellyfinItemCard extends StatelessWidget {
   });
 
   final MediaBrowserItem item;
-  final JellyfinServerUrls urls;
+  final MediaBrowserServerUrls urls;
   final double width;
   final VoidCallback? onTap;
 
@@ -70,8 +70,8 @@ String _metaText(MediaBrowserItem item) {
 }
 
 /// 列表为空时的占位。
-class JellyfinEmptyPlaceholder extends StatelessWidget {
-  const JellyfinEmptyPlaceholder({super.key, this.text = '暂无内容'});
+class MediaBrowserEmptyPlaceholder extends StatelessWidget {
+  const MediaBrowserEmptyPlaceholder({super.key, this.text = '暂无内容'});
 
   final String text;
 
