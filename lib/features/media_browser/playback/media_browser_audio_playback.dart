@@ -23,9 +23,9 @@ import 'package:omm/features/player/common/player_queue.dart';
 
 /// 打开 Emby/Jellyfin 音频队列播放。
 ///
-/// 音频经 [MediaBrowserAudioProxy] 回环代理完整缓存后本地应答（保证任意
-/// 时刻可 seek）；切歌与退出时通过 Sessions/Playing 上报让服务器累计
-/// 播放次数。
+/// 音频经 [MediaBrowserAudioProxy] 回环代理流式透传播放（边下边播），
+/// 完整缓存后由本地文件应答以保证任意时刻可 seek；切歌与退出时通过
+/// Sessions/Playing 上报让服务器累计播放次数。
 Future<void> openMediaBrowserAudioPlayback(
   BuildContext context,
   WidgetRef ref, {
@@ -42,9 +42,8 @@ Future<void> openMediaBrowserAudioPlayback(
   try {
     final urls = await ref.read(mediaBrowserServerUrlsProvider.future);
     final repository = ref.read(mediaBrowserMediaRepositoryProvider);
-    // 远程直链未完整下载前无法稳定 seek（服务器/反向代理的 Range 行为
-    // 差异会让播放器把拖动钳制回原位置），与文件管理器音频链路一致：
-    // 经回环代理完整缓存后由本地文件应答，任意时刻拖动立即生效。
+    // 经回环代理把远程直链 Range 透传给播放器实现流式在线播放，完整
+    // 缓存落盘后由本地文件应答，任意时刻拖动立即生效。
     final startedProxy = proxy = await MediaBrowserAudioProxy.start();
     session = MediaBrowserAudioQueueSession(
       tracks: playable,

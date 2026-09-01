@@ -285,7 +285,6 @@ class CatalogMovieCard extends ConsumerWidget {
     this.progress = 0,
     this.year,
     this.onTap,
-    this.onLongPress,
     this.privacyId,
     this.showTitle = true,
     this.showMeta = true,
@@ -313,11 +312,6 @@ class CatalogMovieCard extends ConsumerWidget {
   /// 海报占位符上的年份（与 OMM 卡片一致）。
   final int? year;
   final VoidCallback? onTap;
-
-  /// 与 [MovieCard] 一致的长按通道。非 null 时 InkWell 注册长按手势，
-  /// 长按不再出现水波纹/松手误触；拖选页面不要传（由 DragSelectionTarget
-  /// 的长按手势接管，两个长按手势会竞争导致拖选失效）。
-  final VoidCallback? onLongPress;
   final bool showTitle;
   final bool showMeta;
 
@@ -419,7 +413,6 @@ class CatalogMovieCard extends ConsumerWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

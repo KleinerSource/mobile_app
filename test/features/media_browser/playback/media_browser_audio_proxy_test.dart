@@ -34,6 +34,51 @@ class _RemoteAdapter implements HttpClientAdapter {
   }
 }
 
+/// 支持 Range 的远端 fake：记录透传的 Range 头并按区间返回 206。
+class _RangeRemoteAdapter implements HttpClientAdapter {
+  _RangeRemoteAdapter(this.bytes);
+
+  final Uint8List bytes;
+  final requestedRanges = <String>[];
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final range = options.headers[HttpHeaders.rangeHeader];
+    if (range is String) requestedRanges.add(range);
+    final header = range is String ? range : '';
+    final match = RegExp(r'bytes=(\d+)-(\d*)').firstMatch(header);
+    if (match != null) {
+      final start = int.parse(match.group(1)!);
+      final end = match.group(2)!.isEmpty
+          ? bytes.length - 1
+          : int.parse(match.group(2)!);
+      final slice = bytes.sublist(start, end + 1);
+      return ResponseBody(
+        Stream<Uint8List>.value(slice),
+        206,
+        headers: {
+          Headers.contentLengthHeader: [slice.length.toString()],
+          'content-range': ['bytes $start-$end/${bytes.length}'],
+        },
+      );
+    }
+    return ResponseBody(
+      Stream<Uint8List>.value(bytes),
+      200,
+      headers: {
+        Headers.contentLengthHeader: [bytes.length.toString()],
+      },
+    );
+  }
+}
+
 MediaBrowserItem _track(String id) => MediaBrowserItem(
   id: id,
   name: '曲目$id',
@@ -199,6 +244,33 @@ void main() {
         options: Options(responseType: ResponseType.bytes),
       );
       expect(downloads, 1);
+    } finally {
+      await proxy.close();
+      client.close();
+    }
+  });
+
+  test('未缓存时 Range 请求透传远程返回 206，不等待完整下载', () async {
+    final bytes = Uint8List.fromList(_mp3Bytes);
+    final adapter = _RangeRemoteAdapter(bytes);
+    final proxy = await MediaBrowserAudioProxy.start(
+      downloader: Dio()..httpClientAdapter = adapter,
+    );
+    final client = Dio();
+    try {
+      final url = proxy.register(_track('t1'), 'http://remote/t1/stream');
+      final partial = await client.get<List<int>>(
+        url,
+        options: Options(
+          responseType: ResponseType.bytes,
+          validateStatus: (status) => status != null && status < 500,
+          headers: {HttpHeaders.rangeHeader: 'bytes=4-7'},
+        ),
+      );
+      expect(partial.statusCode, 206);
+      expect(partial.data, bytes.sublist(4, 8));
+      // 透传的 Range 头原样到达远程。
+      expect(adapter.requestedRanges, contains('bytes=4-7'));
     } finally {
       await proxy.close();
       client.close();

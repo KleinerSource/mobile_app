@@ -303,4 +303,67 @@ void main() {
     await tester.pump();
     expect(find.byIcon(Icons.favorite_rounded), findsOneWidget);
   });
+
+  testWidgets('点击走外层 GestureDetector，内部 InkWell 无回调（同 DBO，按住无水波纹）', (tester) async {
+    tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    var tapped = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          privacyShieldProvider.overrideWith(() => _PrivacyState(false)),
+          badgePositionsProvider.overrideWith(
+            () => _BadgePositionsState(const BadgePositions()),
+          ),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: MediaBrowserItemCard(
+                item: _item('a', '条目甲'),
+                urls: MediaBrowserServerUrls(
+                  config: MediaBrowserConfig.emby,
+                  baseUrl: 'http://mb.test',
+                  token: 't',
+                ),
+                width: 132,
+                onTap: () => tapped++,
+                // 非拖选页面的约定用法：空操作长按阻止长按松手误触打开。
+                onLongPress: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // 点击由外层 GestureDetector 承接。
+    final detector = tester.widget<GestureDetector>(
+      find.byType(GestureDetector).first,
+    );
+    expect(detector.onTap, isNotNull);
+
+    // CatalogMovieCard 内部 InkWell 不接回调 —— 它是按住时
+    // 水波纹/按压高亮的来源（DBO 卡片同款约定）。
+    final inkWell = tester.widget<InkWell>(find.byType(InkWell).first);
+    expect(inkWell.onTap, isNull);
+    expect(inkWell.onLongPress, isNull);
+
+    await tester.tap(find.byType(Poster));
+    await tester.pump();
+    expect(tapped, 1);
+
+    // 长按（无 onLongPress）松手不误触打开。
+    await tester.pump(const Duration(milliseconds: 50));
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(Poster)),
+    );
+    await tester.pump(const Duration(milliseconds: 800));
+    await gesture.up();
+    await tester.pump();
+    expect(tapped, 1);
+  });
 }

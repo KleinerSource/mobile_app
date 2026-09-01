@@ -182,6 +182,9 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     final transition = ref.watch(serverSwitchTransitionProvider);
     final searchEnabled = servers.length > 20;
     final visibleServers = searchEnabled ? _filterServers(servers) : servers;
+    // 列表底部穿透安全区滚动；安全区高度并入列表内边距，停靠时保持
+    // 与原先 48+12 相同的呼吸空间。
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
 
     return PopScope<void>(
       canPop: false,
@@ -189,9 +192,10 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
         backgroundColor: colors.bg,
         body: GlowBackground(
           child: SafeArea(
+            bottom: false,
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 720),
                   child: Column(
@@ -209,7 +213,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                           child: ListView(
                             controller: _listScrollController,
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: EdgeInsets.only(bottom: 60 + safeBottom),
                             children: [
                               if (servers.isEmpty)
                                 LayoutBuilder(

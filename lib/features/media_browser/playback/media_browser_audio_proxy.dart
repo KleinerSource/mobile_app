@@ -12,12 +12,10 @@ import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 /// MediaBrowser（Emby/Jellyfin）音频回环代理。
 ///
-/// 远程音频直链交给 just_audio 时，未完整下载前的可寻址窗口取决于
-/// 服务器（或其反向代理）返回的 Content-Length / Range 行为，常见表现
-/// 是拖动进度条无效、音频仍从原位置继续播放。与文件管理器的音频链路
-/// 保持同一策略：先把远程音频完整下载到本地临时文件，再以本机 HTTP
-/// 地址应答播放器，Range 由本地文件随机读取满足，任意时刻的 seek 都
-/// 立即生效。
+/// 播放器对本机地址的请求（含 Range）实时透传给远程直链，字节边到达
+/// 边转发，实现流式在线播放与即时 seek；同时在后台把整曲落盘到本地
+/// 临时文件（播放开始时若曲子尚未缓存则顺带落盘，当前曲目完成后预取
+/// 下一首），已完整落盘的曲目改由本地文件应答，seek 零延迟。
 class MediaBrowserAudioProxy {
   MediaBrowserAudioProxy._(this._downloader);
 
@@ -136,42 +134,14 @@ class MediaBrowserAudioProxy {
         response.statusCode = HttpStatus.notFound;
         return;
       }
-      final file = await _ensureFile(track);
-      if (_closed) {
-        response.statusCode = HttpStatus.serviceUnavailable;
-        return;
-      }
-      final total = await file.length();
-      final range = _parseRange(
-        request.headers.value(HttpHeaders.rangeHeader),
-        total,
-      );
-      if (range != null && range.invalid) {
-        response.statusCode = HttpStatus.requestedRangeNotSatisfiable;
-        response.headers.set('content-range', 'bytes */$total');
-        return;
-      }
-      final mime = track.mimeType ?? _sniffAudioMime(file);
-      track.mimeType = mime;
-      response.headers.set('accept-ranges', 'bytes');
-      response.headers.contentType = ContentType.parse(mime);
-      if (range != null) {
-        response.statusCode = HttpStatus.partialContent;
-        response.contentLength = range.length;
-        response.headers.set(
-          'content-range',
-          'bytes ${range.start}-${range.end}/$total',
-        );
+      final file = track.file;
+      if (file != null) {
+        responseStarted = true;
+        await _serveLocalFile(request, track, file);
       } else {
-        response.contentLength = total;
+        responseStarted = true;
+        await _serveRemoteStream(request, track);
       }
-      responseStarted = true;
-      if (request.method == 'HEAD') return;
-      await response.addStream(
-        range == null
-            ? file.openRead()
-            : file.openRead(range.start, range.end + 1),
-      );
     } catch (error, stackTrace) {
       appLog('[MbAudioProxy] 请求处理失败: ${request.uri.path} $error\n$stackTrace');
       if (!responseStarted && !_closed) {
@@ -184,26 +154,219 @@ class MediaBrowserAudioProxy {
     }
   }
 
-  /// 确保曲目已完整落盘；并发请求（播放器与 PCM 预热）共享同一次下载。
+  /// 已完整落盘的曲目：由本地文件随机读取应答，任意 seek 零延迟。
+  Future<void> _serveLocalFile(
+    HttpRequest request,
+    _ProxiedTrack track,
+    File file,
+  ) async {
+    final response = request.response;
+    final total = await file.length();
+    final range = _parseRange(
+      request.headers.value(HttpHeaders.rangeHeader),
+      total,
+    );
+    if (range != null && range.invalid) {
+      response.statusCode = HttpStatus.requestedRangeNotSatisfiable;
+      response.headers.set('content-range', 'bytes */$total');
+      return;
+    }
+    final mime = track.mimeType ?? _sniffAudioMime(file);
+    track.mimeType = mime;
+    response.headers.set('accept-ranges', 'bytes');
+    response.headers.contentType = ContentType.parse(mime);
+    if (range != null) {
+      response.statusCode = HttpStatus.partialContent;
+      response.contentLength = range.length;
+      response.headers.set(
+        'content-range',
+        'bytes ${range.start}-${range.end}/$total',
+      );
+    } else {
+      response.contentLength = total;
+    }
+    if (request.method == 'HEAD') return;
+    await response.addStream(
+      range == null ? file.openRead() : file.openRead(range.start, range.end + 1),
+    );
+  }
+
+  /// 未缓存曲目：把播放器请求（含 Range）透传给远程直链，字节边到达
+  /// 边转发，实现流式在线播放；从 0 开始的完整响应顺边落盘作为缓存。
+  Future<void> _serveRemoteStream(
+    HttpRequest request,
+    _ProxiedTrack track,
+  ) async {
+    final response = request.response;
+    final cancelToken = CancelToken();
+    _activeDownloads.add(cancelToken);
+    File? teeFile;
+    IOSink? teeSink;
+    var teeExpected = 0;
+    Completer<File>? teeClaim;
+    try {
+      final rangeHeader = request.headers.value(HttpHeaders.rangeHeader);
+      final remote = await _downloader.get<ResponseBody>(
+        track.remoteUrl,
+        cancelToken: cancelToken,
+        options: Options(
+          responseType: ResponseType.stream,
+          headers: {
+            if (rangeHeader != null) HttpHeaders.rangeHeader: rangeHeader,
+            'Accept-Encoding': 'identity',
+          },
+        ),
+      );
+      if (_closed) {
+        cancelToken.cancel('播放器已关闭');
+        response.statusCode = HttpStatus.serviceUnavailable;
+        return;
+      }
+      final status = remote.statusCode ?? HttpStatus.ok;
+      response.statusCode = status;
+      // Content-Type 延迟到首块：远程给的是通用类型时按文件头嗅探。
+      final remoteContentType = _normalizeContentType(
+        remote.headers.value(HttpHeaders.contentTypeHeader),
+      );
+      final acceptRanges = remote.headers.value(HttpHeaders.acceptRangesHeader);
+      response.headers.set(
+        HttpHeaders.acceptRangesHeader,
+        acceptRanges ?? 'bytes',
+      );
+      final contentRange = remote.headers.value('content-range');
+      if (contentRange != null) {
+        response.headers.set('content-range', contentRange);
+      }
+      final contentLengthText = remote.headers.value(
+        HttpHeaders.contentLengthHeader,
+      );
+      var contentLength = -1;
+      if (contentLengthText != null) {
+        contentLength = int.tryParse(contentLengthText) ?? -1;
+        if (contentLength >= 0) response.contentLength = contentLength;
+      }
+      if (request.method == 'HEAD') {
+        response.headers.contentType = ContentType.parse(
+          remoteContentType == 'application/octet-stream'
+              ? (track.mimeType ?? remoteContentType)
+              : remoteContentType,
+        );
+        return;
+      }
+
+      // 仅从 0 开始的完整 200 响应落盘；Range/部分响应不缓存，避免半截
+      // 文件被当作完整缓存。
+      final fullBodyFromStart =
+          status == HttpStatus.ok &&
+          contentLength > 0 &&
+          (rangeHeader == null || rangeHeader.contains('bytes=0-'));
+      if (fullBodyFromStart && track.file == null && track.download == null) {
+        try {
+          teeFile = await _cacheFileFor(track);
+          teeSink = teeFile.openWrite();
+          teeExpected = contentLength;
+          // 占位避免并发请求对同一缓存文件双写；各分支都会终结它。
+          teeClaim = Completer<File>();
+          teeClaim.future.ignore();
+          track.download = teeClaim.future;
+        } catch (_) {
+          teeFile = null;
+          teeSink = null;
+        }
+      }
+
+      final stream = remote.data!.stream;
+      var headersSent = false;
+      var written = 0;
+      try {
+        await for (final chunk in stream) {
+          final bytes = chunk;
+          if (!headersSent) {
+            if (remoteContentType == 'application/octet-stream' &&
+                track.mimeType == null) {
+              final sniffed = _sniffAudioMimeBytes(
+                bytes,
+                fallback: 'application/octet-stream',
+              );
+              if (sniffed != 'application/octet-stream') {
+                track.mimeType = sniffed;
+              }
+            }
+            response.headers.contentType = ContentType.parse(
+              track.mimeType ?? remoteContentType,
+            );
+            headersSent = true;
+          }
+          response.add(bytes);
+          teeSink?.add(bytes);
+          written += bytes.length;
+          await response.flush();
+        }
+        if (!headersSent) {
+          response.headers.contentType = ContentType.parse(remoteContentType);
+        }
+        if (teeSink != null) {
+          await teeSink.flush();
+          await teeSink.close();
+          teeSink = null;
+          track.download = null;
+          if (written == teeExpected && written > 0) {
+            track.file = teeFile;
+            teeClaim!.complete(teeFile);
+            appLog(
+              '[MbAudioProxy] 流式缓存完成: ${track.track.name} size=$written',
+            );
+            unawaited(_prefetchNext(track));
+          } else {
+            await _deleteQuietly(teeFile!);
+            teeClaim!.completeError(
+              StateError('流式缓存不完整: $written/$teeExpected'),
+            );
+          }
+        }
+      } catch (error) {
+        // 客户端断开（如 seek 触发新 Range 请求）或网络中断：终止远程
+        // 拉取并丢弃半截缓存。
+        cancelToken.cancel('流式转发中断');
+        if (teeSink != null) {
+          try {
+            await teeSink.close();
+          } catch (_) {}
+          await _deleteQuietly(teeFile!);
+        }
+        track.download = null;
+        teeClaim?.completeError(error);
+        rethrow;
+      }
+    } finally {
+      _activeDownloads.remove(cancelToken);
+    }
+  }
+
+  /// 确保曲目已完整落盘；并发请求共享同一次下载。
   Future<File> _ensureFile(_ProxiedTrack track) {
     final existing = track.file;
     if (existing != null) return Future<File>.value(existing);
     return track.download ??= _downloadTrack(track);
   }
 
-  Future<File> _downloadTrack(_ProxiedTrack track) async {
-    final cancelToken = CancelToken();
-    _activeDownloads.add(cancelToken);
+  Future<File> _cacheFileFor(_ProxiedTrack track) async {
     Directory directory;
     try {
       directory = await _mediaDirectory();
     } catch (_) {
       directory = Directory.systemTemp;
     }
-    final file = File(
+    return File(
       '${directory.path}${Platform.pathSeparator}'
       'mb_audio_${_digest(track.track.id)}.media',
     );
+  }
+
+  Future<File> _downloadTrack(_ProxiedTrack track) async {
+    final cancelToken = CancelToken();
+    _activeDownloads.add(cancelToken);
+    final file = await _cacheFileFor(track);
     try {
       appLog('[MbAudioProxy] 开始下载: ${track.track.name}');
       await _downloader.download(
@@ -320,6 +483,19 @@ _ByteRange? _parseRange(String? header, int total) {
   return _ByteRange(start: start, end: requestedEnd.clamp(start, total - 1));
 }
 
+/// 远程 Content-Type 透传前校验，非法值回退通用类型，避免播放器选错
+/// 解码路径。
+String _normalizeContentType(String? value) {
+  final text = value?.trim();
+  if (text == null || text.isEmpty) return 'application/octet-stream';
+  try {
+    ContentType.parse(text);
+    return text;
+  } catch (_) {
+    return 'application/octet-stream';
+  }
+}
+
 /// 按文件头嗅探音频 MIME，避免依赖服务器 Content-Type（部分反代会
 /// 返回通用类型导致播放器选错解码路径）。
 String _sniffAudioMime(File file) {
@@ -328,34 +504,42 @@ String _sniffAudioMime(File file) {
     try {
       final bytes = Uint8List(12);
       final read = head.readIntoSync(bytes, 0, 12);
-      if (read >= 3) {
-        if (bytes[0] == 0x49 && bytes[1] == 0x44 && bytes[2] == 0x33) {
-          return 'audio/mpeg'; // ID3
-        }
-        if (bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0) {
-          return 'audio/mpeg'; // MPEG audio frame sync
-        }
-      }
-      if (read >= 4) {
-        const flac = [0x66, 0x4C, 0x61, 0x43]; // fLaC
-        const oggs = [0x4F, 0x67, 0x67, 0x53]; // OggS
-        if (_bytesEqual(bytes, flac, 4)) return 'audio/flac';
-        if (_bytesEqual(bytes, oggs, 4)) return 'audio/ogg';
-      }
-      if (read >= 12) {
-        const riff = [0x52, 0x49, 0x46, 0x46]; // RIFF
-        const wave = [0x57, 0x41, 0x56, 0x45]; // WAVE
-        const ftyp = [0x66, 0x74, 0x79, 0x70]; // ftyp
-        if (_bytesEqual(bytes, riff, 4) && _bytesEqual(bytes, wave, 4, 8)) {
-          return 'audio/wav';
-        }
-        if (_bytesEqual(bytes, ftyp, 4, 4)) return 'audio/mp4';
-      }
+      return _sniffAudioMimeBytes(
+        Uint8List.sublistView(bytes, 0, read),
+        fallback: 'application/octet-stream',
+      );
     } finally {
       head.closeSync();
     }
   } catch (_) {}
   return 'application/octet-stream';
+}
+
+String _sniffAudioMimeBytes(Uint8List bytes, {String fallback = ''}) {
+  if (bytes.length >= 3) {
+    if (bytes[0] == 0x49 && bytes[1] == 0x44 && bytes[2] == 0x33) {
+      return 'audio/mpeg'; // ID3
+    }
+    if (bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0) {
+      return 'audio/mpeg'; // MPEG audio frame sync
+    }
+  }
+  if (bytes.length >= 4) {
+    const flac = [0x66, 0x4C, 0x61, 0x43]; // fLaC
+    const oggs = [0x4F, 0x67, 0x67, 0x53]; // OggS
+    if (_bytesEqual(bytes, flac, 4)) return 'audio/flac';
+    if (_bytesEqual(bytes, oggs, 4)) return 'audio/ogg';
+  }
+  if (bytes.length >= 12) {
+    const riff = [0x52, 0x49, 0x46, 0x46]; // RIFF
+    const wave = [0x57, 0x41, 0x56, 0x45]; // WAVE
+    const ftyp = [0x66, 0x74, 0x79, 0x70]; // ftyp
+    if (_bytesEqual(bytes, riff, 4) && _bytesEqual(bytes, wave, 4, 8)) {
+      return 'audio/wav';
+    }
+    if (_bytesEqual(bytes, ftyp, 4, 4)) return 'audio/mp4';
+  }
+  return fallback;
 }
 
 bool _bytesEqual(

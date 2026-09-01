@@ -111,19 +111,18 @@ class _MediaBrowserLibraryPageState
   Future<void> _fetchPage(int startIndex) async {
     final requestSerial = _requestSerial;
     try {
-      final result = await ref.read(
-        mediaBrowserItemPageProvider(
-          MediaBrowserItemPageRequest(
-            serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-            parentId: _parentId,
-            includeItemTypes: _includeItemTypes,
-            recursive: true,
-            sortBy: _sortBy,
-            sortOrder: _sortOrder,
-            startIndex: startIndex,
-            limit: _pageSize,
-          ),
-        ).future,
+      final result = await readMediaBrowserItemPage(
+        ref,
+        MediaBrowserItemPageRequest(
+          serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+          parentId: _parentId,
+          includeItemTypes: _includeItemTypes,
+          recursive: true,
+          sortBy: _sortBy,
+          sortOrder: _sortOrder,
+          startIndex: startIndex,
+          limit: _pageSize,
+        ),
       );
       if (!mounted || requestSerial != _requestSerial) return;
 
@@ -243,19 +242,18 @@ class _MediaBrowserLibraryPageState
     final refreshed = await refreshPagedListInBackground<MediaBrowserItem>(
       controller: _controller,
       loadFirstPage: (limit) async {
-        final result = await ref.read(
-          mediaBrowserItemPageProvider(
-            MediaBrowserItemPageRequest(
-              serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-              parentId: parentId,
-              includeItemTypes: includeItemTypes,
-              recursive: true,
-              sortBy: sortBy,
-              sortOrder: sortOrder,
-              startIndex: 0,
-              limit: limit,
-            ),
-          ).future,
+        final result = await readMediaBrowserItemPage(
+          ref,
+          MediaBrowserItemPageRequest(
+            serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+            parentId: parentId,
+            includeItemTypes: includeItemTypes,
+            recursive: true,
+            sortBy: sortBy,
+            sortOrder: sortOrder,
+            startIndex: 0,
+            limit: limit,
+          ),
         );
         return PagedResult(
           items: result.items,
@@ -560,6 +558,22 @@ class _MediaBrowserLibraryPageState
                                             noMoreItemsIndicatorBuilder: (_) =>
                                                 const NoMoreContent(),
                                           ),
+                                    ),
+                                    loading: () => const SliverFillRemaining(
+                                      hasScrollBody: false,
+                                      child: Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    ),
+                                    error: (error, _) => SliverFillRemaining(
+                                      hasScrollBody: false,
+                                      child: _LibraryListError(
+                                        message:
+                                            toApiException(error).message,
+                                        onRetry: () => ref.invalidate(
+                                          mediaBrowserServerUrlsProvider,
+                                        ),
+                                      ),
                                     ),
                                     orElse: () => const SliverToBoxAdapter(
                                       child: SizedBox.shrink(),

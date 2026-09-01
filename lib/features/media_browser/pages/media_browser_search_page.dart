@@ -252,19 +252,18 @@ class _MediaBrowserSearchResultsState
     final refreshed = await refreshPagedListInBackground<MediaBrowserItem>(
       controller: _pagingController,
       loadFirstPage: (limit) async {
-        final result = await ref.read(
-          mediaBrowserItemPageProvider(
-            MediaBrowserItemPageRequest(
-              serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-              includeItemTypes: 'Movie,Series,Episode,MusicAlbum,Audio',
-              recursive: true,
-              searchTerm: query,
-              sortBy: 'SortName',
-              sortOrder: 'Ascending',
-              startIndex: 0,
-              limit: limit,
-            ),
-          ).future,
+        final result = await readMediaBrowserItemPage(
+          ref,
+          MediaBrowserItemPageRequest(
+            serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+            includeItemTypes: 'Movie,Series,Episode,MusicAlbum,Audio',
+            recursive: true,
+            searchTerm: query,
+            sortBy: 'SortName',
+            sortOrder: 'Ascending',
+            startIndex: 0,
+            limit: limit,
+          ),
         );
         return PagedResult(
           items: result.items,
@@ -296,19 +295,18 @@ class _MediaBrowserSearchResultsState
 
   Future<void> _fetchPage(int startIndex) async {
     try {
-      final result = await ref.read(
-        mediaBrowserItemPageProvider(
-          MediaBrowserItemPageRequest(
-            serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-            includeItemTypes: 'Movie,Series,Episode,MusicAlbum,Audio',
-            recursive: true,
-            searchTerm: widget.query,
-            sortBy: 'SortName',
-            sortOrder: 'Ascending',
-            startIndex: startIndex,
-            limit: _pageSize,
-          ),
-        ).future,
+      final result = await readMediaBrowserItemPage(
+        ref,
+        MediaBrowserItemPageRequest(
+          serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+          includeItemTypes: 'Movie,Series,Episode,MusicAlbum,Audio',
+          recursive: true,
+          searchTerm: widget.query,
+          sortBy: 'SortName',
+          sortOrder: 'Ascending',
+          startIndex: startIndex,
+          limit: _pageSize,
+        ),
       );
       if (!mounted) return;
 

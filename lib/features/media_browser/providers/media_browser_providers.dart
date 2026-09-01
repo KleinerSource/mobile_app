@@ -276,6 +276,32 @@ final mediaBrowserItemPageProvider = FutureProvider.autoDispose
           );
     });
 
+/// 命令式读取一页媒体条目（分页控件回调等 build 之外的场景）。
+///
+/// 不能用 `ref.read(mediaBrowserItemPageProvider(...).future)`：它是
+/// autoDispose family，命令式读取不建立监听，element 会在帧末被销毁，
+/// in-flight future 永不完成也不抛错，页面表现为无限加载。
+Future<MediaBrowserItemPage> readMediaBrowserItemPage(
+  WidgetRef ref,
+  MediaBrowserItemPageRequest request,
+) {
+  final activeServerId = ref.read(serverConfigProvider)?.activeServerId ?? '';
+  if (request.serverId != activeServerId) {
+    throw const SourceException('媒体请求已过期，请重新加载当前服务器');
+  }
+  return ref.read(mediaBrowserMediaRepositoryProvider).itemPage(
+    parentId: request.parentId,
+    includeItemTypes: request.includeItemTypes,
+    recursive: request.recursive,
+    searchTerm: request.searchTerm,
+    sortBy: request.sortBy,
+    sortOrder: request.sortOrder,
+    startIndex: request.startIndex,
+    limit: request.limit,
+    isFavorite: request.isFavorite,
+  );
+}
+
 /// 条目详情（电影/剧集通用）。
 final mediaBrowserItemDetailProvider = FutureProvider.autoDispose
     .family<MediaBrowserItem, MediaBrowserItemDetailRequest>((ref, request) {

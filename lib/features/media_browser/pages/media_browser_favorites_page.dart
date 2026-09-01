@@ -128,19 +128,18 @@ class _MediaBrowserFavoritesPageState
   Future<void> _fetchPage(int startIndex) async {
     final requestSerial = _requestSerial;
     try {
-      final result = await ref.read(
-        mediaBrowserItemPageProvider(
-          MediaBrowserItemPageRequest(
-            serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-            includeItemTypes: _includeItemTypes,
-            recursive: true,
-            sortBy: _sort.value,
-            sortOrder: _sort.order,
-            startIndex: startIndex,
-            limit: _pageSize,
-            isFavorite: true,
-          ),
-        ).future,
+      final result = await readMediaBrowserItemPage(
+        ref,
+        MediaBrowserItemPageRequest(
+          serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+          includeItemTypes: _includeItemTypes,
+          recursive: true,
+          sortBy: _sort.value,
+          sortOrder: _sort.order,
+          startIndex: startIndex,
+          limit: _pageSize,
+          isFavorite: true,
+        ),
       );
       if (!mounted || requestSerial != _requestSerial) return;
 
@@ -208,19 +207,18 @@ class _MediaBrowserFavoritesPageState
     final refreshed = await refreshPagedListInBackground<MediaBrowserItem>(
       controller: _controller,
       loadFirstPage: (limit) async {
-        final result = await ref.read(
-          mediaBrowserItemPageProvider(
-            MediaBrowserItemPageRequest(
-              serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-              includeItemTypes: includeItemTypes,
-              recursive: true,
-              sortBy: sort.value,
-              sortOrder: sort.order,
-              startIndex: 0,
-              limit: limit,
-              isFavorite: true,
-            ),
-          ).future,
+        final result = await readMediaBrowserItemPage(
+          ref,
+          MediaBrowserItemPageRequest(
+            serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
+            includeItemTypes: includeItemTypes,
+            recursive: true,
+            sortBy: sort.value,
+            sortOrder: sort.order,
+            startIndex: 0,
+            limit: limit,
+            isFavorite: true,
+          ),
         );
         _totalCount = result.total;
         return PagedResult(

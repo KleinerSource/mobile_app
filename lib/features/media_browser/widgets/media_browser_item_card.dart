@@ -10,6 +10,10 @@ import 'package:omm/shared/movie_card.dart';
 /// 渲染由共享 [CatalogMovieCard] 统一维护（与 OMM/DBO 同一套风格和尺寸），
 /// 这里只把服务器字段整理成展示值：无番号行，meta 为
 /// 「年份 · 时长」或「SxxEyy · 剧名」。
+///
+/// 交互与 DBO 卡片（DbOnlineMovieCard）一致：点击由外层 GestureDetector
+/// 承接，内部 InkWell 不接回调 —— 按住不出现水波纹/按压高亮；拖选页面的
+/// 长按手势由 DragSelectionTarget 接管并触发选择震动（同 OMM 影片库）。
 class MediaBrowserItemCard extends StatelessWidget {
   const MediaBrowserItemCard({
     super.key,
@@ -34,37 +38,44 @@ class MediaBrowserItemCard extends StatelessWidget {
   final bool showFavoriteBadge;
   final VoidCallback? onTap;
 
-  /// 无拖选的页面传非空回调以压制长按水波纹（同 OMM MovieCard 设计）；
-  /// 有 DragSelectionTarget 的拖选页面必须保持 null。
+  /// 无拖选的页面（如首页横排）传非空回调，避免长按松手误触打开；
+  /// 拖选页面的长按手势由 DragSelectionTarget 接管，保持 null。
   final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final played = item.userData.played;
-    final card = CatalogMovieCard(
-      title: item.name,
-      code: null,
-      imageUrl: item.primaryImageTag == null
-          ? null
-          : urls.poster(item.id, tag: item.primaryImageTag),
-      meta: mediaBrowserItemMetaText(item),
-      width: width,
-      rating: item.communityRating,
-      played: played,
-      progress: played ? 0 : _progressOf(item),
-      year: item.productionYear,
-      privacyId: item.id,
-      posterAspectRatio: square ? 1 : 2 / 3,
-      onTap: onTap,
-      onLongPress: onLongPress,
-    );
-    if (!showFavoriteBadge || !item.userData.isFavorite) return card;
-    return Stack(
+    // 与 DBO 卡片（DbOnlineMovieCard）同款：CatalogMovieCard 只作展示层，
+    // 不给内部 InkWell 传 onTap —— 按住时不会出现水波纹/按压高亮，
+    // 点击交给外层 GestureDetector（无任何 Material 墨水特效）。
+    // 拖选页面的长按由 DragSelectionTarget 接管并触发选择震动。
+    final card = Stack(
       children: [
-        card,
-        const Positioned(top: 6, left: 6, child: _FavoriteBadge()),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: CatalogMovieCard(
+            title: item.name,
+            code: null,
+            imageUrl: item.primaryImageTag == null
+                ? null
+                : urls.poster(item.id, tag: item.primaryImageTag),
+            meta: mediaBrowserItemMetaText(item),
+            width: width,
+            rating: item.communityRating,
+            played: played,
+            progress: played ? 0 : _progressOf(item),
+            year: item.productionYear,
+            privacyId: item.id,
+            posterAspectRatio: square ? 1 : 2 / 3,
+          ),
+        ),
+        if (showFavoriteBadge && item.userData.isFavorite)
+          const Positioned(top: 6, left: 6, child: _FavoriteBadge()),
       ],
     );
+    return card;
   }
 }
 

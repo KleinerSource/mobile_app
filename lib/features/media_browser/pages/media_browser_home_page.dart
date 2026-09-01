@@ -231,8 +231,7 @@ class _MediaBrowserHomeSection extends ConsumerWidget {
           width: 132,
           square: square,
           onTap: () => openMediaBrowserItemUnawaited(context, ref, item),
-          // 首页无拖选设计（同 OMM 首页）：空操作长按用于压制水波纹，
-          // 避免长按松手误触打开详情。
+          // 首页无拖选设计（同 OMM 首页）：空操作长按避免长按松手误触打开。
           onLongPress: () {},
         ),
         orElse: () => const SizedBox(width: 132),
