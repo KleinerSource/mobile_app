@@ -1597,111 +1597,29 @@ class _ServerStatusDot extends StatelessWidget {
     return FutureBuilder<_ServerStatus>(
       future: statusFuture,
       initialData: _ServerStatus.checking,
-      builder: (context, snapshot) => _AnimatedServerStatusDot(
-        status: snapshot.data ?? _ServerStatus.checking,
-      ),
+      builder: (context, snapshot) {
+        final colors = appColors(context);
+        const onlineColor = Color(0xFF65D391);
+        const authenticationColor = Color(0xFFFFC857);
+        final color = switch (snapshot.data ?? _ServerStatus.checking) {
+          _ServerStatus.connected => onlineColor,
+          _ServerStatus.authenticationRequired => authenticationColor,
+          _ServerStatus.unavailable => colors.danger,
+          _ServerStatus.checking => colors.muted2,
+        };
+        return _dot(color);
+      },
     );
   }
-}
 
-class _AnimatedServerStatusDot extends StatefulWidget {
-  const _AnimatedServerStatusDot({required this.status});
-
-  final _ServerStatus status;
-
-  @override
-  State<_AnimatedServerStatusDot> createState() =>
-      _AnimatedServerStatusDotState();
-}
-
-class _AnimatedServerStatusDotState extends State<_AnimatedServerStatusDot> {
-  bool _disableAnimations = false;
-  Timer? _pulseTimer;
-  var _pulseStep = 7;
-
-  // 低频状态反馈不需要跟随屏幕刷新率，200ms 一次约为 5fps。
-  static const _pulseInterval = Duration(milliseconds: 200);
-
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _disableAnimations =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    _syncAnimation();
-  }
-
-  @override
-  void didUpdateWidget(covariant _AnimatedServerStatusDot oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.status == oldWidget.status) return;
-    _syncAnimation();
-  }
-
-  @override
-  void dispose() {
-    _pulseTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    const onlineColor = Color(0xFF65D391);
-    const authenticationColor = Color(0xFFFFC857);
-    final color = switch (widget.status) {
-      _ServerStatus.connected => onlineColor,
-      _ServerStatus.authenticationRequired => authenticationColor,
-      _ServerStatus.unavailable => colors.danger,
-      _ServerStatus.checking => colors.muted2,
-    };
-    if (widget.status != _ServerStatus.connected || _disableAnimations) {
-      return _dot(color, 1, 1);
-    }
-    final phase = _pulseStep <= 7 ? _pulseStep : 14 - _pulseStep;
-    final value = Curves.easeInOut.transform(phase / 7);
-    return _dot(onlineColor, 0.78 + (value * 0.22), 0.88 + (value * 0.16));
-  }
-
-  void _syncAnimation() {
-    if (widget.status == _ServerStatus.connected && !_disableAnimations) {
-      if (_pulseTimer != null) return;
-      _pulseStep = 0;
-      _pulseTimer = Timer.periodic(_pulseInterval, (_) {
-        if (!mounted ||
-            widget.status != _ServerStatus.connected ||
-            _disableAnimations) {
-          return;
-        }
-        setState(() {
-          _pulseStep = (_pulseStep + 1) % 14;
-        });
-      });
-      return;
-    }
-    _pulseTimer?.cancel();
-    _pulseTimer = null;
-    _pulseStep = 7;
-  }
-
-  Widget _dot(Color color, double opacity, double scale) {
+  Widget _dot(Color color) {
     return SizedBox(
       width: 8,
       height: 8,
       child: Center(
-        child: Opacity(
-          opacity: opacity,
-          child: Transform.scale(
-            scale: scale,
-            child: DecoratedBox(
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              child: const SizedBox(width: 6, height: 6),
-            ),
-          ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          child: const SizedBox(width: 6, height: 6),
         ),
       ),
     );
