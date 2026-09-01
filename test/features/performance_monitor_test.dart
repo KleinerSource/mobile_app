@@ -80,10 +80,18 @@ void main() {
     expect(prefs.getBool('player.performance_monitor_enabled'), isTrue);
   });
 
-  testWidgets('性能覆盖层显示应用 CPU 和 RAM，并按采样更新', (tester) async {
+  testWidgets('性能覆盖层显示整机/进程 CPU 和 RAM，并按采样更新', (tester) async {
     final reader = _FakeStatsReader([
-      const PlayerDeviceStats(processCpuPercent: 12.5, ramUsedMegabytes: 156),
-      const PlayerDeviceStats(processCpuPercent: 34, ramUsedMegabytes: 160),
+      const PlayerDeviceStats(
+        cpuPercent: 23,
+        processCpuPercent: 12.5,
+        ramUsedMegabytes: 156,
+      ),
+      const PlayerDeviceStats(
+        cpuPercent: 41,
+        processCpuPercent: 34,
+        ramUsedMegabytes: 160,
+      ),
     ]);
 
     await tester.pumpWidget(
@@ -93,11 +101,26 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('FPS -- · CPU 13% · RAM 156M'), findsOneWidget);
+    expect(find.text('FPS -- · CPU 23% · APP 13% · RAM 156M'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 1));
     await tester.pump();
-    expect(find.text('FPS 0 · CPU 34% · RAM 160M'), findsOneWidget);
+    expect(find.text('FPS 0 · CPU 41% · APP 34% · RAM 160M'), findsOneWidget);
+  });
+
+  testWidgets('性能覆盖层进程 CPU 单核口径超过 100% 时不被钳制', (tester) async {
+    final reader = _FakeStatsReader([
+      const PlayerDeviceStats(cpuPercent: 95, processCpuPercent: 250),
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: PerformanceMonitorOverlay(statsReader: reader)),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('FPS -- · CPU 95% · APP 250% · RAM --M'), findsOneWidget);
   });
 }
 

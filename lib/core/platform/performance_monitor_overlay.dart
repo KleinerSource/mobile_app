@@ -112,40 +112,40 @@ class _PerformanceMonitorOverlayState extends State<PerformanceMonitorOverlay>
   @override
   Widget build(BuildContext context) {
     final fps = _fps == null ? '--' : _fps!.toStringAsFixed(0);
-    final cpu = _stats.processCpuPercent == null
+    // CPU 为整机占用；APP 为本进程占用，单核口径（100% = 跑满 1 核，可超 100）。
+    final cpu = _stats.cpuPercent == null
         ? '--'
-        : _stats.processCpuPercent!.clamp(0, 100).toStringAsFixed(0);
+        : _stats.cpuPercent!.clamp(0, 100).toStringAsFixed(0);
+    final appCpu = _stats.processCpuPercent == null
+        ? '--'
+        : _stats.processCpuPercent!.clamp(0, 999).toStringAsFixed(0);
     final ram = _stats.ramUsedMegabytes?.toString() ?? '--';
     const label = 'FPS';
 
     return IgnorePointer(
-      child: SafeArea(
-        child: Align(
-          alignment: Alignment.bottomRight,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: -10, right: 12),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xCC000000),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                child: Semantics(
-                  container: true,
-                  label: 'FPS $fps，CPU $cpu%，RAM ${ram}M',
-                  child: Text(
-                    '$label $fps · CPU $cpu% · RAM ${ram}M',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'monospace',
-                      fontFeatures: [FontFeature.tabularFigures()],
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
+      // 调试浮层允许贴到屏幕物理底边（安全区域外），不再受 SafeArea 约束。
+      child: Align(
+        alignment: Alignment.bottomRight,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xCC000000),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Semantics(
+                container: true,
+                label: 'FPS $fps，CPU $cpu%，APP $appCpu%，RAM ${ram}M',
+                child: Text(
+                  '$label $fps · CPU $cpu% · APP $appCpu% · RAM ${ram}M',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'monospace',
+                    fontFeatures: [FontFeature.tabularFigures()],
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),

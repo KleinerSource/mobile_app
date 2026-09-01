@@ -283,8 +283,9 @@ private final class PlayerStatsReader {
     let elapsed = now - previousAt
     let cpuDelta = current - previousCpu
     guard elapsed > 0, cpuDelta >= 0 else { return nil }
+    // 单核口径：100% = 跑满 1 个核，多线程可超过 100%。
     let processorCount = Double(max(ProcessInfo.processInfo.activeProcessorCount, 1))
-    return (cpuDelta / elapsed / processorCount * 100).clamped(to: 0...100)
+    return (cpuDelta / elapsed * 100).clamped(to: 0...(100.0 * processorCount))
   }
 
   private func readProcessMemoryMegabytes() -> Int? {

@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.PowerManager
 import android.os.Process
 import android.os.SystemClock
+import android.system.Os
 import android.net.TrafficStats
 import android.provider.Settings
 import android.telephony.TelephonyManager
@@ -38,6 +39,7 @@ class MainActivity : AudioServiceFragmentActivity() {
     private var previousNetworkAtMs: Long? = null
     private var previousCpu: CpuSnapshot? = null
     private var previousProcessCpuTicks: Long? = null
+    private var previousProcessCpuAtMs: Long? = null
     private var deviceLockSink: EventChannel.EventSink? = null
     private var deviceLockReceiverRegistered = false
 
@@ -220,10 +222,7 @@ class MainActivity : AudioServiceFragmentActivity() {
 
         return mapOf(
             "cpu_percent" to readCpuUsage(currentCpu, previousCpuSnapshot),
-            "process_cpu_percent" to readProcessCpuUsage(
-                currentCpu,
-                previousCpuSnapshot,
-            ),
+            "process_cpu_percent" to readProcessCpuUsage(now),
             "ram_used_mb" to readProcessMemoryMegabytes(),
             "battery_percent" to readBatteryPercent(),
             "download_bps" to download,
@@ -312,20 +311,28 @@ class MainActivity : AudioServiceFragmentActivity() {
             .coerceIn(0.0, 100.0)
     }
 
-    private fun readProcessCpuUsage(
-        current: CpuSnapshot?,
-        previous: CpuSnapshot?,
-    ): Double? {
+    // /proc 时间字段的时钟粒度（USER_HZ），绝大多数 Android 设备为 100。
+    private val clockTicksPerSecond: Long = try {
+        Os.sysconf(Os._SC_CLK_TCK).coerceAtLeast(1)
+    } catch (_: Exception) {
+        100L
+    }
+
+    // 单核口径：100% = 跑满 1 个核，多线程可超过 100%。
+    private fun readProcessCpuUsage(nowMs: Long): Double? {
         val processTicks = readProcessCpuTicks() ?: return null
-        val previousProcessTicks = previousProcessCpuTicks
+        val previousTicks = previousProcessCpuTicks
+        val previousAtMs = previousProcessCpuAtMs
         previousProcessCpuTicks = processTicks
-        if (current == null || previous == null || previousProcessTicks == null) {
-            return null
-        }
-        val totalDelta = current.total - previous.total
-        val processDelta = processTicks - previousProcessTicks
-        if (totalDelta <= 0 || processDelta < 0) return null
-        return (processDelta.toDouble() / totalDelta * 100).coerceIn(0.0, 100.0)
+        previousProcessCpuAtMs = nowMs
+        if (previousTicks == null || previousAtMs == null) return null
+        val elapsedMs = nowMs - previousAtMs
+        val processDelta = processTicks - previousTicks
+        if (elapsedMs <= 0 || processDelta < 0) return null
+        val elapsedSeconds = elapsedMs / 1000.0
+        val maxPercent = 100.0 * Runtime.getRuntime().availableProcessors()
+        return (processDelta.toDouble() / (elapsedSeconds * clockTicksPerSecond) * 100)
+            .coerceIn(0.0, maxPercent)
     }
 
     private fun readProcessCpuTicks(): Long? {
