@@ -250,10 +250,11 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
   });
 
   @override
-  Future<MediaBrowserItemPage> episodes(String seasonId) => _call(() async {
-    final uid = await _requireUserId();
-    return api.episodes(uid, seasonId);
-  });
+  Future<MediaBrowserItemPage> episodes(String seriesId, String seasonId) =>
+      _call(() async {
+        final uid = await _requireUserId();
+        return api.episodes(uid, seriesId, seasonId);
+      });
 
   @override
   Future<MediaBrowserItem> markFavorite(String itemId, bool favorite) =>

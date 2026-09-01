@@ -262,7 +262,7 @@ final mediaBrowserEpisodesProvider = FutureProvider.autoDispose
       _checkServerScope(ref, request.serverId);
       return ref
           .watch(mediaBrowserMediaRepositoryProvider)
-          .episodes(request.seasonId);
+          .episodes(request.seriesId, request.seasonId);
     });
 
 class MediaBrowserItemPageRequest {
@@ -360,20 +360,23 @@ class MediaBrowserSeasonsRequest {
 class MediaBrowserEpisodesRequest {
   const MediaBrowserEpisodesRequest({
     required this.serverId,
+    required this.seriesId,
     required this.seasonId,
   });
 
   final String serverId;
+  final String seriesId;
   final String seasonId;
 
   @override
   bool operator ==(Object other) =>
       other is MediaBrowserEpisodesRequest &&
       other.serverId == serverId &&
+      other.seriesId == seriesId &&
       other.seasonId == seasonId;
 
   @override
-  int get hashCode => Object.hash(serverId, seasonId);
+  int get hashCode => Object.hash(serverId, seriesId, seasonId);
 }
 
 void _checkServerScope(Ref ref, String requestServerId) {

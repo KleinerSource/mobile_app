@@ -198,11 +198,19 @@ class MediaBrowserApi {
   }
 
   /// 某一季的集列表，按季内序号排序。
-  Future<MediaBrowserItemPage> episodes(String userId, String seasonId) {
+  ///
+  /// 路径必须是 [seriesId]：Jellyfin 严格按路径 ID 查找剧集，传季 ID 会 404；
+  /// 季通过 [seasonId] 查询参数过滤（Emby/Jellyfin 通用写法）。
+  Future<MediaBrowserItemPage> episodes(
+    String userId,
+    String seriesId,
+    String seasonId,
+  ) {
     return _itemPage(
-      _p('/Shows/${_segment(seasonId)}/Episodes'),
+      _p('/Shows/${_segment(seriesId)}/Episodes'),
       <String, dynamic>{
         'UserId': userId,
+        'SeasonId': seasonId,
         'Fields': 'Overview,MediaSources',
         'SortBy': 'ParentIndexNumber,IndexNumber',
       },

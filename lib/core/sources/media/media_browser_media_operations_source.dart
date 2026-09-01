@@ -47,7 +47,7 @@ abstract interface class MediaBrowserMediaOperationsSource {
   Future<List<MediaBrowserItem>> seasons(String seriesId);
 
   /// 某一季的集列表。
-  Future<MediaBrowserItemPage> episodes(String seasonId);
+  Future<MediaBrowserItemPage> episodes(String seriesId, String seasonId);
 
   /// 收藏 / 取消收藏，返回带最新 UserData 的条目。
   Future<MediaBrowserItem> markFavorite(String itemId, bool favorite);

@@ -59,8 +59,8 @@ class MediaBrowserMediaRepository {
   Future<List<MediaBrowserItem>> seasons(String seriesId) =>
       _source.seasons(seriesId);
 
-  Future<MediaBrowserItemPage> episodes(String seasonId) =>
-      _source.episodes(seasonId);
+  Future<MediaBrowserItemPage> episodes(String seriesId, String seasonId) =>
+      _source.episodes(seriesId, seasonId);
 
   Future<MediaBrowserItem> markFavorite(String itemId, bool favorite) =>
       _source.markFavorite(itemId, favorite);

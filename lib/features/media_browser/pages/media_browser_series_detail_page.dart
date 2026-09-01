@@ -290,7 +290,7 @@ class _SeasonSection extends ConsumerWidget {
                 },
               ),
             ),
-            _EpisodeList(seasonId: activeId),
+            _EpisodeList(seriesId: seriesId, seasonId: activeId),
           ],
         );
       },
@@ -349,8 +349,9 @@ class _SeasonChip extends StatelessWidget {
 }
 
 class _EpisodeList extends ConsumerWidget {
-  const _EpisodeList({required this.seasonId});
+  const _EpisodeList({required this.seriesId, required this.seasonId});
 
+  final String seriesId;
   final String seasonId;
 
   @override
@@ -358,7 +359,11 @@ class _EpisodeList extends ConsumerWidget {
     final serverId = ref.watch(serverConfigProvider)?.activeServerId ?? '';
     final episodes = ref.watch(
       mediaBrowserEpisodesProvider(
-        MediaBrowserEpisodesRequest(serverId: serverId, seasonId: seasonId),
+        MediaBrowserEpisodesRequest(
+          serverId: serverId,
+          seriesId: seriesId,
+          seasonId: seasonId,
+        ),
       ),
     );
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
@@ -383,6 +388,7 @@ class _EpisodeList extends ConsumerWidget {
                 mediaBrowserEpisodesProvider(
                   MediaBrowserEpisodesRequest(
                     serverId: serverId,
+                    seriesId: seriesId,
                     seasonId: seasonId,
                   ),
                 ),
