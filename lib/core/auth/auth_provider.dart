@@ -308,32 +308,28 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
   }
 
-  /// Emby 启动校验：令牌存在则用 /Users/Me 验证，失效回到登录页。
+  /// Emby 启动校验：用登录时持久化的用户 ID 查 /Users/{uid} 验证令牌，
+  /// 失效回到登录页。
   ///
-  /// Emby 没有 OMM 的 /auth/status 接口，鉴权状态只能由令牌有效性推导。
+  /// Emby 没有 OMM 的 /auth/status 接口，也没有 Jellyfin 的
+  /// /Users/Me（按 token 反查用户，实测返回 500），鉴权状态只能由
+  /// 持久化的 userId + 令牌有效性推导。
   Future<AuthState> _bootstrapEmby(ApiClient client) async {
     final session = await ref.read(authSessionRepositoryProvider).load();
-    if (session == null || !session.hasAccessToken) {
+    final userId = session?.userId?.trim() ?? '';
+    if (session == null ||
+        !session.hasAccessToken ||
+        userId.isEmpty) {
+      // 没有用户 ID 就无法拼出任何用户端点，只能重新登录。
+      await ref.read(authSessionRepositoryProvider).clear();
       return const AuthState(phase: AuthPhase.needsLogin);
     }
     try {
-      final user = await client.emby.currentUser();
-      // 极少数情况下令牌仍有效但绑定用户变化（服务端重建用户），同步本地
-      // 记录的 userId，条目查询依赖它拼接 /Users/{uid} 路径。
-      if (user.id.isNotEmpty && user.id != session.userId) {
-        await ref
-            .read(authSessionRepositoryProvider)
-            .save(AuthSession(
-              accessToken: session.accessToken,
-              refreshToken: '',
-              expiresIn: 0,
-              userId: user.id,
-            ));
-      }
+      await client.emby.user(userId);
       return const AuthState(phase: AuthPhase.authenticated);
     } catch (error) {
       final exception = toApiException(error);
-      if (exception.status == 401) {
+      if (exception.status == 401 || exception.status == 404) {
         await ref.read(authSessionRepositoryProvider).clear();
         return const AuthState(phase: AuthPhase.needsLogin);
       }

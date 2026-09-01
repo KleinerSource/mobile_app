@@ -48,10 +48,18 @@ class EmbyApi {
     return EmbyAuthResult.fromJson(data);
   }
 
-  /// 用当前令牌取登录用户，用于启动时校验会话有效性。
-  Future<EmbyUser> currentUser() async {
+  /// 读取指定用户的资料，用于启动时校验令牌是否仍有效。
+  ///
+  /// Emby 不提供 Jellyfin 的 /Users/Me（按 token 反查用户，实测返回
+  /// 500）；用户 ID 在登录时已随会话持久化，这里按文档端点
+  /// /Users/{Id} 直接查询。
+  Future<EmbyUser> user(String userId) async {
+    final normalized = userId.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(userId, 'userId', '用户 ID 不能为空');
+    }
     final response = await _dio.get<Map<String, dynamic>>(
-      '/emby/Users/Me',
+      '/emby/Users/${Uri.encodeComponent(normalized)}',
       options: Options(
         extra: const {'skipRefresh': true, 'skipRetry': true},
       ),
