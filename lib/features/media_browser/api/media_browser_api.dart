@@ -342,6 +342,39 @@ class MediaBrowserApi {
     String? mediaSourceId,
     String? token,
   }) {
+    return _buildStreamUrl(
+      config: config,
+      baseUrl: baseUrl,
+      path: '/Videos/${Uri.encodeComponent(itemId)}/stream',
+      mediaSourceId: mediaSourceId,
+      token: token,
+    );
+  }
+
+  /// 音频直链播放地址，与 [streamUrl] 同构（static=true 原始文件）。
+  static String audioStreamUrl({
+    required MediaBrowserConfig config,
+    required String baseUrl,
+    required String itemId,
+    String? mediaSourceId,
+    String? token,
+  }) {
+    return _buildStreamUrl(
+      config: config,
+      baseUrl: baseUrl,
+      path: '/Audio/${Uri.encodeComponent(itemId)}/stream',
+      mediaSourceId: mediaSourceId,
+      token: token,
+    );
+  }
+
+  static String _buildStreamUrl({
+    required MediaBrowserConfig config,
+    required String baseUrl,
+    required String path,
+    String? mediaSourceId,
+    String? token,
+  }) {
     final query = <String, String>{
       'static': 'true',
       if (mediaSourceId?.trim().isNotEmpty == true)
@@ -349,11 +382,24 @@ class MediaBrowserApi {
       if (token?.trim().isNotEmpty == true)
         config.tokenQueryParam: token!.trim(),
     };
-    return _buildUrl(
-      baseUrl,
-      config.path('/Videos/${Uri.encodeComponent(itemId)}/stream'),
-      query,
+    return _buildUrl(baseUrl, config.path(path), query);
+  }
+
+  /// 音频歌词。Emby / Jellyfin 的返回格式不同（Jellyfin 10.9+ 返回
+  /// LyricsDto 结构，老版本或 Emby 可能返回纯 LRC 文本），这里只负责
+  /// 取回原始响应，格式判定交给调用方；失败允许静默（歌词是增强信息）。
+  Future<Object?> lyrics(String itemId) async {
+    final normalized = itemId.trim();
+    if (normalized.isEmpty) return null;
+    final response = await _dio.get<Object>(
+      _p('/Audio/${_segment(normalized)}/Lyrics'),
+      options: Options(
+        // 服务器未提供歌词时通常 404，上抛由调用方决定是否回退。
+        extra: const {'skipRetry': true, 'skipRefresh': true},
+        validateStatus: (status) => status != null && status < 500,
+      ),
     );
+    return response.data;
   }
 
   /// 海报 / 背景图地址。图片端点在默认配置下免鉴权，token 仅作兜底。

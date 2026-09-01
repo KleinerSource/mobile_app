@@ -93,6 +93,15 @@ class MediaBrowserServerUrls {
         mediaSourceId: mediaSourceId,
         token: token,
       );
+
+  String audioStream(String itemId, {String? mediaSourceId}) =>
+      MediaBrowserApi.audioStreamUrl(
+        config: config,
+        baseUrl: baseUrl,
+        itemId: itemId,
+        mediaSourceId: mediaSourceId,
+        token: token,
+      );
 }
 
 final mediaBrowserServerUrlsProvider = FutureProvider<MediaBrowserServerUrls>((
@@ -127,13 +136,14 @@ final mediaBrowserLibraryStatsProvider =
 /// 媒体库类型 → 条目类型过滤。
 ///
 /// 返回 null 有两种含义，用 [isSkippableViewType] 区分：
-/// - 跳过：音乐/图书等无海报内容的库，首页不出影片行；
+/// - 跳过：图书/照片等无海报内容的库，首页不出影片行；
 /// - 混合库（collectionType 为空）：不加类型过滤，展示全部条目。
 String? includeItemTypesForView(String? collectionType) =>
     switch (collectionType?.trim().toLowerCase() ?? '') {
       '' => null,
       'movies' => 'Movie',
       'tvshows' => 'Series',
+      'music' => 'MusicAlbum',
       _ => null,
     };
 
@@ -141,7 +151,6 @@ String? includeItemTypesForView(String? collectionType) =>
 bool isSkippableViewType(String? collectionType) {
   final normalized = collectionType?.trim().toLowerCase() ?? '';
   return const {
-    'music',
     'audiobooks',
     'books',
     'photos',
@@ -264,6 +273,37 @@ final mediaBrowserEpisodesProvider = FutureProvider.autoDispose
           .watch(mediaBrowserMediaRepositoryProvider)
           .episodes(request.seriesId, request.seasonId);
     });
+
+/// 专辑的曲目列表（按光盘号 + 曲号排序）。
+final mediaBrowserAlbumTracksProvider = FutureProvider.autoDispose
+    .family<List<MediaBrowserItem>, MediaBrowserAlbumTracksRequest>((
+      ref,
+      request,
+    ) {
+      _checkServerScope(ref, request.serverId);
+      return ref
+          .watch(mediaBrowserMediaRepositoryProvider)
+          .albumTracks(request.albumId);
+    });
+
+class MediaBrowserAlbumTracksRequest {
+  const MediaBrowserAlbumTracksRequest({
+    required this.serverId,
+    required this.albumId,
+  });
+
+  final String serverId;
+  final String albumId;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MediaBrowserAlbumTracksRequest &&
+      other.serverId == serverId &&
+      other.albumId == albumId;
+
+  @override
+  int get hashCode => Object.hash(serverId, albumId);
+}
 
 class MediaBrowserItemPageRequest {
   const MediaBrowserItemPageRequest({

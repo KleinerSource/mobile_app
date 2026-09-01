@@ -257,6 +257,25 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
       });
 
   @override
+  Future<List<MediaBrowserItem>> albumTracks(String albumId) => _call(() async {
+    final uid = await _requireUserId();
+    // 专辑通常几十首内，一次性取全（Limit 放宽防截断），不分页。
+    final page = await api.items(
+      uid,
+      parentId: albumId,
+      includeItemTypes: 'Audio',
+      recursive: true,
+      sortBy: 'ParentIndexNumber,IndexNumber',
+      limit: 1000,
+    );
+    return page.items;
+  });
+
+  @override
+  Future<Object?> fetchLyrics(String itemId) =>
+      _call(() => api.lyrics(itemId));
+
+  @override
   Future<MediaBrowserItem> markFavorite(String itemId, bool favorite) =>
       _call(() async {
         final uid = await _requireUserId();

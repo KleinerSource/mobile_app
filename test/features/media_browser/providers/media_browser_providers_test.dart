@@ -5,6 +5,9 @@ void main() {
   test('includeItemTypesForView 按库类型映射条目过滤', () {
     expect(includeItemTypesForView('movies'), 'Movie');
     expect(includeItemTypesForView('TVShows'), 'Series');
+    // 音乐库出「最新专辑」行。
+    expect(includeItemTypesForView('music'), 'MusicAlbum');
+    expect(includeItemTypesForView('Music'), 'MusicAlbum');
     // 混合库（类型为空或未知）不过滤，展示全部条目。
     expect(includeItemTypesForView(null), isNull);
     expect(includeItemTypesForView('mixed'), isNull);
@@ -12,7 +15,8 @@ void main() {
   });
 
   test('isSkippableViewType 识别无海报内容的库', () {
-    expect(isSkippableViewType('music'), isTrue);
+    // 音乐库已改为展示专辑行,不再跳过
+    expect(isSkippableViewType('music'), isFalse);
     expect(isSkippableViewType('books'), isTrue);
     expect(isSkippableViewType('audiobooks'), isTrue);
     expect(isSkippableViewType('photos'), isTrue);

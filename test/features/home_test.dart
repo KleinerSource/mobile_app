@@ -11,9 +11,11 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/models/movie.dart';
 import 'package:omm/features/db_online/models/db_online_movie.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
+import 'package:omm/features/home/home_libraries_section.dart';
 import 'package:omm/features/home/home_movie_view_state.dart';
 import 'package:omm/features/home/home_providers.dart';
 import 'package:omm/features/home/recommend_carousel.dart';
+import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -402,8 +404,50 @@ class _PrivacyOn extends PrivacyShieldNotifier {
   bool build() => true;
 }
 
+// ==================== Emby/Jellyfin 媒体库入口卡片隐私 ====================
+void _main_3() {
+  testWidgets('媒体库入口卡片适配隐私模式:遮罩库名且首点只揭示', (tester) async {
+    var opened = false;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [privacyShieldProvider.overrideWith(() => _PrivacyOn())],
+        child: MaterialApp(
+          home: Scaffold(
+            body: HomeLibrariesSection(
+              entries: [
+                HomeLibraryCardEntry(
+                  id: 'lib-7',
+                  name: '私人媒体库',
+                  onTap: () => opened = true,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // 库名遮罩成方块,卡片盖揭示图标
+    expect(find.text('▆▆▆▆▆'), findsOneWidget);
+    expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+
+    // 首次点击只揭开当前卡片,不进入媒体库
+    await tester.tap(find.byType(PrivacyAwareInkWell));
+    await tester.pump();
+    expect(find.text('▆▆▆▆▆'), findsNothing);
+    expect(find.byIcon(Icons.visibility_off_outlined), findsNothing);
+    expect(opened, isFalse);
+
+    // 揭开后再次点击进入媒体库
+    await tester.tap(find.byType(PrivacyAwareInkWell));
+    await tester.pump();
+    expect(opened, isTrue);
+  });
+}
+
 void main() {
   group('home_providers', _main_0);
   group('home_movie_view_state', _main_1);
   group('home_hero', _main_2);
+  group('home_libraries_section', _main_3);
 }

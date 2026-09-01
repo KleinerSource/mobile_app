@@ -16,12 +16,16 @@ class MediaBrowserItemCard extends StatelessWidget {
     required this.item,
     required this.urls,
     this.width = 112,
+    this.square = false,
     this.onTap,
   });
 
   final MediaBrowserItem item;
   final MediaBrowserServerUrls urls;
   final double width;
+
+  /// 专辑/歌曲等方形封面；影视海报保持 2:3。
+  final bool square;
   final VoidCallback? onTap;
 
   @override
@@ -38,6 +42,7 @@ class MediaBrowserItemCard extends StatelessWidget {
       progress: played ? 0 : _progressOf(item),
       year: item.productionYear,
       privacyId: item.id,
+      posterAspectRatio: square ? 1 : 2 / 3,
       onTap: onTap,
     );
   }
@@ -49,7 +54,8 @@ double _progressOf(MediaBrowserItem item) {
   return (item.userData.resumeSeconds / 60 / runtimeMinutes).clamp(0.0, 1.0);
 }
 
-/// meta 行 · 与 OMM 一致的「年份 · 时长」格式；剧集条目为「SxxEyy · 剧名」。
+/// meta 行 · 与 OMM 一致的「年份 · 时长」格式；剧集条目为「SxxEyy · 剧名」，
+/// 音乐条目为「年份 · 艺术家」（专辑）或「艺术家 · 时长」（歌曲）。
 String _metaText(MediaBrowserItem item) {
   final parts = <String>[];
   if (item.isEpisode) {
@@ -61,6 +67,21 @@ String _metaText(MediaBrowserItem item) {
     );
     final series = item.seriesName?.trim();
     if (series?.isNotEmpty == true) parts.add(series!);
+    return parts.join(' · ');
+  }
+  if (item.isMusicAlbum) {
+    if (item.productionYear != null) parts.add('${item.productionYear}');
+    final artist = item.displayArtist;
+    if (artist != null) parts.add(artist);
+    final trackCount = item.childCount;
+    if (trackCount != null && trackCount > 0) parts.add('$trackCount 首');
+    return parts.join(' · ');
+  }
+  if (item.isAudio) {
+    final artist = item.displayArtist;
+    if (artist != null) parts.add(artist);
+    final minutes = item.runtimeMinutes;
+    if (minutes > 0) parts.add('${minutes}m');
     return parts.join(' · ');
   }
   if (item.productionYear != null) parts.add('${item.productionYear}');

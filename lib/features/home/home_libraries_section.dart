@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/shared/collection_card_layout.dart';
 import 'package:omm/shared/poster.dart';
 
@@ -80,9 +81,12 @@ class _HomeLibraryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    // 与 OMM 首页 _LibraryCard 同款隐私遮罩:点击先揭开,不直接进库
+    return PrivacyAwareInkWell(
+      movieId: entry.id,
+      scope: PrivacyScope.library,
       onTap: entry.onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: 16,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: AspectRatio(
@@ -91,29 +95,34 @@ class _HomeLibraryCard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               // 背景: 封面就绪后淡入替换品牌渐变
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                layoutBuilder: (currentChild, previousChildren) => Stack(
-                  fit: StackFit.expand,
-                  alignment: Alignment.center,
-                  children: [
-                    ...previousChildren,
-                    if (currentChild != null) currentChild,
-                  ],
-                ),
-                child: entry.coverUrl != null
-                    ? KeyedSubtree(
-                        key: ValueKey('cover-${entry.id}'),
-                        child: Poster(
-                          url: entry.coverUrl,
-                          title: entry.name,
-                          radius: 0,
+              PrivacyMask(
+                movieId: entry.id,
+                scope: PrivacyScope.library,
+                radius: 0,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  layoutBuilder: (currentChild, previousChildren) => Stack(
+                    fit: StackFit.expand,
+                    alignment: Alignment.center,
+                    children: [
+                      ...previousChildren,
+                      if (currentChild != null) currentChild,
+                    ],
+                  ),
+                  child: entry.coverUrl != null
+                      ? KeyedSubtree(
+                          key: ValueKey('cover-${entry.id}'),
+                          child: Poster(
+                            url: entry.coverUrl,
+                            title: entry.name,
+                            radius: 0,
+                          ),
+                        )
+                      : KeyedSubtree(
+                          key: ValueKey('hue-$hue'),
+                          child: _HueGradient(hue: hue),
                         ),
-                      )
-                    : KeyedSubtree(
-                        key: ValueKey('hue-$hue'),
-                        child: _HueGradient(hue: hue),
-                      ),
+                ),
               ),
               // 封面上的压暗渐变,保证白色文字可读
               const DecoratedBox(
@@ -134,8 +143,10 @@ class _HomeLibraryCard extends StatelessWidget {
                 padding: const EdgeInsets.all(14),
                 child: Align(
                   alignment: Alignment.bottomLeft,
-                  child: Text(
-                    entry.name,
+                  child: PrivacyText(
+                    movieId: entry.id,
+                    scope: PrivacyScope.library,
+                    text: entry.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(

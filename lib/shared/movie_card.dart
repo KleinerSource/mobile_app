@@ -288,6 +288,7 @@ class CatalogMovieCard extends ConsumerWidget {
     this.privacyId,
     this.showTitle = true,
     this.showMeta = true,
+    this.posterAspectRatio = 2 / 3,
   });
 
   final String title;
@@ -313,6 +314,9 @@ class CatalogMovieCard extends ConsumerWidget {
   final VoidCallback? onTap;
   final bool showTitle;
   final bool showMeta;
+
+  /// 海报宽高比；音乐专辑等方形封面传 1。
+  final double posterAspectRatio;
 
   /// 为非 OMM 影片提供隐私遮罩键；为空时保持普通目录卡片行为。
   final Object? privacyId;
@@ -345,7 +349,13 @@ class CatalogMovieCard extends ConsumerWidget {
     }
     final poster = Stack(
       children: [
-        Poster(url: imageUrl, title: displayTitle, year: year, radius: 10),
+        Poster(
+          url: imageUrl,
+          title: displayTitle,
+          year: year,
+          radius: 10,
+          aspectRatio: posterAspectRatio,
+        ),
         // 已看完 (固定左上, 与 OMM 卡片一致)
         if (played)
           Positioned(

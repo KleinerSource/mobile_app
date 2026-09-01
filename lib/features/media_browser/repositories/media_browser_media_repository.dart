@@ -62,6 +62,11 @@ class MediaBrowserMediaRepository {
   Future<MediaBrowserItemPage> episodes(String seriesId, String seasonId) =>
       _source.episodes(seriesId, seasonId);
 
+  Future<List<MediaBrowserItem>> albumTracks(String albumId) =>
+      _source.albumTracks(albumId);
+
+  Future<Object?> fetchLyrics(String itemId) => _source.fetchLyrics(itemId);
+
   Future<MediaBrowserItem> markFavorite(String itemId, bool favorite) =>
       _source.markFavorite(itemId, favorite);
 

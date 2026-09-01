@@ -135,4 +135,53 @@ void main() {
     expect(secondsToMediaBrowserTicks(90), 900000000);
     expect(mediaBrowserTicksToSeconds(secondsToMediaBrowserTicks(1234)), 1234);
   });
+
+  test('MediaBrowserItem.fromJson 解析音频曲目的音乐字段', () {
+    final track = MediaBrowserItem.fromJson(const {
+      'Id': 'track-1',
+      'Name': '曲目一',
+      'Type': 'Audio',
+      'Album': '专辑一',
+      'AlbumId': 'album-1',
+      'AlbumArtist': '专辑艺术家',
+      'Artists': ['艺术家 A', '艺术家 B'],
+      'IndexNumber': 3,
+      'ParentIndexNumber': 2,
+      'RunTimeTicks': 2400000000,
+      'ImageTags': {'Primary': 'primary-tag'},
+    });
+
+    expect(track.isAudio, isTrue);
+    expect(track.isMusicAlbum, isFalse);
+    expect(track.album, '专辑一');
+    expect(track.albumId, 'album-1');
+    expect(track.indexNumber, 3);
+    expect(track.parentIndexNumber, 2);
+    // 专辑艺术家优先于参与艺术家。
+    expect(track.displayArtist, '专辑艺术家');
+
+    final withoutAlbumArtist = MediaBrowserItem.fromJson(const {
+      'Id': 'track-2',
+      'Name': '曲目二',
+      'Type': 'Audio',
+      'Artists': ['艺术家 A', ''],
+    });
+    expect(withoutAlbumArtist.displayArtist, '艺术家 A');
+  });
+
+  test('MusicAlbum 条目识别与艺术家回退', () {
+    final album = MediaBrowserItem.fromJson(const {
+      'Id': 'album-1',
+      'Name': '专辑一',
+      'Type': 'MusicAlbum',
+      'AlbumArtist': '',
+      'Artists': [],
+      'ChildCount': 10,
+      'ProductionYear': 2023,
+    });
+
+    expect(album.isMusicAlbum, isTrue);
+    expect(album.childCount, 10);
+    expect(album.displayArtist, isNull);
+  });
 }

@@ -136,7 +136,8 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
                             ? value.poster(item.id)
                             : value.backdrop(item.id),
                         pagePosition: _heroPagePosition,
-                        onItemTap: openMediaBrowserItem,
+                        onItemTap: (context, item) =>
+                            openMediaBrowserItem(context, ref, item),
                       ),
                     ),
                     const Positioned(
@@ -210,12 +211,16 @@ class _MediaBrowserHomeSection extends ConsumerWidget {
     required this.value,
     required this.onRetry,
     this.trailing,
+    this.square = false,
   });
 
   final String title;
   final AsyncValue<List<MediaBrowserItem>> value;
   final VoidCallback onRetry;
   final Widget? trailing;
+
+  /// 音乐库行使用方形专辑封面。
+  final bool square;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -232,7 +237,8 @@ class _MediaBrowserHomeSection extends ConsumerWidget {
           item: item,
           urls: value,
           width: 132,
-          onTap: () => openMediaBrowserItemUnawaited(context, item),
+          square: square,
+          onTap: () => openMediaBrowserItemUnawaited(context, ref, item),
         ),
         orElse: () => const SizedBox(width: 132),
       ),
@@ -242,8 +248,9 @@ class _MediaBrowserHomeSection extends ConsumerWidget {
 
 /// 每个媒体库的「最近添加」横排 + 底部媒体库入口卡片。
 ///
-/// 音乐/图书等无海报内容的库不出影片行（入口卡片仍显示）；某个库没有
-/// 可展示条目时整行隐藏；Views 加载失败/为空时整个区块隐藏。
+/// 音乐库出「最新专辑」横排（方形封面）；图书/照片等无海报内容的库
+/// 不出影片行（入口卡片仍显示）；某个库没有可展示条目时整行隐藏；
+/// Views 加载失败/为空时整个区块隐藏。
 class _MediaBrowserViewSections extends ConsumerWidget {
   const _MediaBrowserViewSections();
 
@@ -327,6 +334,7 @@ class _MediaBrowserViewLatestRow extends ConsumerWidget {
     return _MediaBrowserHomeSection(
       title: view.name,
       value: value,
+      square: includeItemTypes == 'MusicAlbum',
       onRetry: () => ref.invalidate(
         mediaBrowserViewLatestProvider(
           MediaBrowserViewLatestRequest(

@@ -108,7 +108,7 @@ class _MediaBrowserSearchPageState
                           textInputAction: TextInputAction.search,
                           textAlignVertical: TextAlignVertical.center,
                           decoration: InputDecoration(
-                            hintText: '搜索电影、剧集…',
+                            hintText: '搜索电影、剧集、音乐…',
                             hintStyle: TextStyle(
                               color: colors.muted,
                               fontWeight: FontWeight.w500,
@@ -230,7 +230,7 @@ class _MediaBrowserSearchResultsState
         mediaBrowserItemPageProvider(
           MediaBrowserItemPageRequest(
             serverId: ref.read(serverConfigProvider)?.activeServerId ?? '',
-            includeItemTypes: 'Movie,Series,Episode',
+            includeItemTypes: 'Movie,Series,Episode,MusicAlbum,Audio',
             recursive: true,
             searchTerm: widget.query,
             sortBy: 'SortName',
@@ -288,7 +288,7 @@ class _MediaBrowserSearchResultsState
                   item: item,
                   urls: value,
                   width: itemWidth,
-                  onTap: () => openMediaBrowserItemUnawaited(context, item),
+                  onTap: () => openMediaBrowserItemUnawaited(context, ref, item),
                 ),
                 orElse: () => const SizedBox.shrink(),
               ),

@@ -31,7 +31,7 @@ class MediaBrowserNextUpSection extends ConsumerWidget {
                 : item.backdropImageTags.isEmpty
                 ? (item.primaryImageTag == null ? null : urls.poster(item.id))
                 : urls.backdrop(item.id),
-            onOpen: () => openMediaBrowserItem(context, item),
+            onOpen: () => openMediaBrowserItem(context, ref, item),
             onResume: () => openMediaBrowserPlayback(context, ref, item: item),
           ),
       ],

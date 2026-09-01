@@ -31,7 +31,7 @@ class MediaBrowserContinueWatchingSection extends ConsumerWidget {
                 : urls.backdrop(item.id),
             progress: _progressOf(item),
             minutesLeft: _minutesLeft(item),
-            onOpen: () => openMediaBrowserItem(context, item),
+            onOpen: () => openMediaBrowserItem(context, ref, item),
             onResume: () => openMediaBrowserPlayback(context, ref, item: item),
           ),
       ],

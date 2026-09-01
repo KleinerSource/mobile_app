@@ -398,6 +398,46 @@ void main() {
           '?maxWidth=440&quality=90&${config.tokenQueryParam}=token-1',
         );
       });
+
+      test('音频直链使用 /Audio/{id}/stream 并拼接 token 参数', () {
+        final audioUrl = MediaBrowserApi.audioStreamUrl(
+          config: config,
+          baseUrl: 'http://test/',
+          itemId: 'song 1',
+          mediaSourceId: 'ms-1',
+          token: 'token-1',
+        );
+        expect(
+          audioUrl,
+          'http://test${config.pathPrefix}/Audio/song%201/stream'
+          '?static=true&MediaSourceId=ms-1'
+          '&${config.tokenQueryParam}=token-1',
+        );
+      });
+
+      test('lyrics 请求 /Audio/{id}/Lyrics 且空 ID 返回 null', () async {
+        final adapter = _MediaBrowserTestAdapter((options) {
+          if (options.uri.path.endsWith('/Audio/song-1/Lyrics')) {
+            return {
+              'Metadata': {'Artist': '艺术家'},
+              'Lyrics': [
+                {'Text': '第一行', 'Start': 10000000},
+              ],
+            };
+          }
+          return {};
+        }, config.authHeaderName);
+        final api = apiFor(config, adapter);
+
+        final raw = await api.lyrics(' song-1 ');
+
+        expect(raw, isA<Map<dynamic, dynamic>>());
+        expect(
+          adapter.requests.single,
+          'GET http://test${config.pathPrefix}/Audio/song-1/Lyrics',
+        );
+        expect(await api.lyrics('  '), isNull);
+      });
     });
   }
 

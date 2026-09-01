@@ -236,6 +236,10 @@ class MediaBrowserItem {
     this.seasonId,
     this.parentIndexNumber,
     this.indexNumber,
+    this.album,
+    this.albumId,
+    this.albumArtist,
+    this.artistNames = const <String>[],
     this.primaryImageTag,
     this.backdropImageTags = const <String>[],
     this.thumbImageTag,
@@ -265,9 +269,19 @@ class MediaBrowserItem {
   final String? seriesName;
   final String? seasonId;
 
-  /// 剧集的季号 / 集的集号。
+  /// 剧集的季号 / 集的集号；音频条目上是光盘号 / 曲号。
   final int? parentIndexNumber;
   final int? indexNumber;
+
+  /// 音频条目所属专辑名与专辑 ID；专辑条目上为空。
+  final String? album;
+  final String? albumId;
+
+  /// 专辑艺术家（音频与专辑条目都可能出现）。
+  final String? albumArtist;
+
+  /// 参与艺术家名列表（不含专辑艺术家语义，顺序与服务器一致）。
+  final List<String> artistNames;
   final String? primaryImageTag;
   final List<String> backdropImageTags;
   final String? thumbImageTag;
@@ -279,7 +293,17 @@ class MediaBrowserItem {
   bool get isSeries => type == 'Series';
   bool get isSeason => type == 'Season';
   bool get isEpisode => type == 'Episode';
+  bool get isMusicAlbum => type == 'MusicAlbum';
+  bool get isAudio => type == 'Audio';
   bool get isPlayable => isMovie || isEpisode;
+
+  /// 音乐条目的展示艺术家：专辑艺术家优先，缺省时合并参与艺术家。
+  String? get displayArtist {
+    final album = albumArtist?.trim();
+    if (album?.isNotEmpty == true) return album;
+    final joined = artistNames.where((name) => name.trim().isNotEmpty).join(' / ');
+    return joined.isEmpty ? null : joined;
+  }
 
   int get runtimeMinutes =>
       (mediaBrowserTicksToSeconds(runTimeTicks) / 60).ceil().clamp(0, 1 << 31);
@@ -292,6 +316,7 @@ class MediaBrowserItem {
     final backdrops = json['BackdropImageTags'];
     final sources = json['MediaSources'];
     final imageTags = json['ImageTags'];
+    final artists = json['Artists'];
     return MediaBrowserItem(
       id: json['Id']?.toString() ?? '',
       name: json['Name']?.toString() ?? '',
@@ -319,6 +344,12 @@ class MediaBrowserItem {
       seasonId: _stringOrNull(json['SeasonId']),
       parentIndexNumber: _intValue(json['ParentIndexNumber']),
       indexNumber: _intValue(json['IndexNumber']),
+      album: _stringOrNull(json['Album']),
+      albumId: _stringOrNull(json['AlbumId']),
+      albumArtist: _stringOrNull(json['AlbumArtist']),
+      artistNames: artists is List
+          ? artists.map((item) => item.toString()).toList(growable: false)
+          : const <String>[],
       primaryImageTag: imageTags is Map
           ? _stringOrNull(imageTags['Primary'])
           : null,

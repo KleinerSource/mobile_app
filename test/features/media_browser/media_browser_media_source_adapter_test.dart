@@ -108,6 +108,62 @@ void main() {
         });
       });
 
+      test('albumTracks 按光盘号与曲号查询专辑曲目', () async {
+        final httpAdapter = _RecordingAdapter(
+          (options) => {
+            'Items': [
+              {
+                'Id': 'track-1',
+                'Name': '曲目一',
+                'Type': 'Audio',
+                'Album': '专辑一',
+                'AlbumId': 'album-1',
+                'AlbumArtist': '艺术家',
+                'Artists': ['艺术家'],
+                'IndexNumber': 1,
+                'ParentIndexNumber': 1,
+                'RunTimeTicks': 2400000000,
+              },
+            ],
+            'TotalRecordCount': 1,
+            'StartIndex': 0,
+          },
+        );
+        final adapter = buildAdapter(httpAdapter);
+
+        final tracks = await adapter.albumTracks('album-1');
+
+        expect(tracks.single.id, 'track-1');
+        expect(tracks.single.isAudio, isTrue);
+        expect(tracks.single.album, '专辑一');
+        expect(tracks.single.displayArtist, '艺术家');
+        final request = httpAdapter.requests.single;
+        expect(request, contains('/Users/user-1/Items'));
+        expect(request, contains('ParentId=album-1'));
+        expect(request, contains('IncludeItemTypes=Audio'));
+        expect(request, contains('Recursive=true'));
+        expect(request, contains('SortBy=ParentIndexNumber%2CIndexNumber'));
+      });
+
+      test('fetchLyrics 透传歌词原始响应', () async {
+        final httpAdapter = _RecordingAdapter((options) {
+          if (options.uri.path.endsWith('/Audio/track-1/Lyrics')) {
+            return {
+              'Lyrics': [
+                {'Text': '第一行', 'Start': 10000000},
+              ],
+            };
+          }
+          return {};
+        });
+        final adapter = buildAdapter(httpAdapter);
+
+        final raw = await adapter.fetchLyrics('track-1');
+
+        expect(raw, isA<Map<dynamic, dynamic>>());
+        expect(httpAdapter.requests.single, contains('/Audio/track-1/Lyrics'));
+      });
+
       test('listMovies 把 MediaQuery 映射为分页查询', () async {
         final httpAdapter = _RecordingAdapter(
           (options) => {

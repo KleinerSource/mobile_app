@@ -11,6 +11,7 @@ import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
+import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
 import 'package:omm/shared/pagination_footer.dart';
@@ -35,10 +36,14 @@ class MediaBrowserLibraryPage extends ConsumerStatefulWidget {
 class _MediaBrowserLibraryPageState
     extends ConsumerState<MediaBrowserLibraryPage> {
   static const _pageSize = 24;
-  static const _typeOptions = <({String value, String label})>[
+  static const _videoTypeOptions = <({String value, String label})>[
     (value: 'Movie,Series', label: '全部'),
     (value: 'Movie', label: '电影'),
     (value: 'Series', label: '剧集'),
+  ];
+  static const _musicTypeOptions = <({String value, String label})>[
+    (value: 'MusicAlbum', label: '专辑'),
+    (value: 'Audio', label: '歌曲'),
   ];
   static const _sortOptions = <({String value, String label})>[
     (value: 'DateCreated', label: '最近添加'),
@@ -51,10 +56,26 @@ class _MediaBrowserLibraryPageState
   final _scrollController = ScrollController();
   Completer<void>? _refreshCompleter;
   String? _parentId;
+  String? _collectionType;
   String _includeItemTypes = 'Movie,Series';
   String _sortBy = 'DateCreated';
   String _sortOrder = 'Descending';
   int _requestSerial = 0;
+
+  /// 当前选中库的类型过滤选项；音乐库切到「专辑/歌曲」。
+  List<({String value, String label})> get _typeOptions =>
+      _typeOptionsFor(_collectionType);
+
+  static List<({String value, String label})> _typeOptionsFor(
+    String? collectionType,
+  ) => _isMusicCollectionType(collectionType)
+      ? _musicTypeOptions
+      : _videoTypeOptions;
+
+  static bool _isMusicCollectionType(String? collectionType) =>
+      (collectionType ?? '').trim().toLowerCase() == 'music';
+
+  bool get _isMusicGrid => _isMusicCollectionType(_collectionType);
 
   @override
   void initState() {
@@ -134,7 +155,13 @@ class _MediaBrowserLibraryPageState
     String? sortOrder,
   }) {
     final nextParent = parentId ?? _parentId;
-    final nextTypes = includeItemTypes ?? _includeItemTypes;
+    final nextCollectionType = _collectionTypeOf(nextParent);
+    final nextTypeOptions = _typeOptionsFor(nextCollectionType);
+    final nextTypes =
+        includeItemTypes ??
+        (_collectionTypeOf(_parentId) == nextCollectionType
+            ? _includeItemTypes
+            : nextTypeOptions.first.value);
     final nextSortBy = sortBy ?? _sortBy;
     final nextSortOrder = sortOrder ?? _sortOrder;
     if (nextParent == _parentId &&
@@ -145,12 +172,42 @@ class _MediaBrowserLibraryPageState
     }
     setState(() {
       _parentId = nextParent;
+      _collectionType = nextCollectionType;
       _includeItemTypes = nextTypes;
       _sortBy = nextSortBy;
       _sortOrder = nextSortOrder;
     });
     _requestSerial++;
     _controller.refresh();
+  }
+
+  /// 从已加载的 Views 里解析选中库的 collectionType；「全部库」为 null。
+  String? _collectionTypeOf(String? parentId) {
+    if (parentId == null) return null;
+    final views = ref.read(mediaBrowserViewsProvider).value;
+    for (final view in views ?? const <MediaBrowserItem>[]) {
+      if (view.id == parentId) return view.collectionType;
+    }
+    return null;
+  }
+
+  /// Views 异步到达后补齐选中库的类型（如从首页音乐库卡片直接进入），
+  /// 类型过滤不匹配时切到该库的默认选项。
+  void _syncCollectionType(List<MediaBrowserItem> views) {
+    final next = _collectionTypeOf(_parentId);
+    if (next == _collectionType) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || next != _collectionTypeOf(_parentId)) return;
+      final options = _typeOptionsFor(next);
+      setState(() {
+        _collectionType = next;
+        if (!options.any((option) => option.value == _includeItemTypes)) {
+          _includeItemTypes = options.first.value;
+        }
+      });
+      _requestSerial++;
+      _controller.refresh();
+    });
   }
 
   Future<void> _openSortMenu(BuildContext context) async {
@@ -247,6 +304,7 @@ class _MediaBrowserLibraryPageState
     final colors = appColors(context);
     final views = ref.watch(mediaBrowserViewsProvider);
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
+    views.maybeWhen(data: _syncCollectionType, orElse: () {});
     final width = MediaQuery.sizeOf(context).width;
     final crossAxisCount = width >= 1100
         ? 6
@@ -260,6 +318,10 @@ class _MediaBrowserLibraryPageState
     final itemWidth =
         ((width - horizontalPadding) - spacing * (crossAxisCount - 1)) /
         crossAxisCount;
+    // 影视海报 2:3 + 双行文字；音乐方形封面按实际卡片高度反推比例。
+    final cardAspectRatio = _isMusicGrid
+        ? itemWidth / (itemWidth + 62)
+        : 0.5;
 
     // 独立路由进入时页面自身就是 Material 根：无 Scaffold 会让 debug
     // 构建的文本出现黄色双下划线。底色由 FrostedBase 自绘，保持透明。
@@ -295,7 +357,7 @@ class _MediaBrowserLibraryPageState
                     ),
                     const SizedBox(width: 8),
                     _LibraryFilterButton(
-                      active: _includeItemTypes != 'Movie,Series',
+                      active: _includeItemTypes != _typeOptions.first.value,
                       onTap: () => _openTypeMenu(context),
                     ),
                   ],
@@ -315,6 +377,7 @@ class _MediaBrowserLibraryPageState
                             final view = list[index];
                             final selected = view.id == _parentId;
                             return _ViewChip(
+                              privacyId: view.id,
                               label: view.name,
                               selected: selected,
                               onTap: () => _reloadWith(parentId: view.id),
@@ -346,7 +409,7 @@ class _MediaBrowserLibraryPageState
                                   gridDelegate:
                                       SliverGridDelegateWithFixedCrossAxisCount(
                                         crossAxisCount: crossAxisCount,
-                                        childAspectRatio: 0.5,
+                                        childAspectRatio: cardAspectRatio,
                                         mainAxisSpacing: 14,
                                         crossAxisSpacing: spacing,
                                       ),
@@ -360,9 +423,11 @@ class _MediaBrowserLibraryPageState
                                               item: item,
                                               urls: value,
                                               width: itemWidth,
+                                              square: _isMusicGrid,
                                               onTap: () =>
                                                   openMediaBrowserItemUnawaited(
                                                     context,
+                                                    ref,
                                                     item,
                                                   ),
                                             ),
@@ -431,11 +496,14 @@ class _MediaBrowserLibraryPageState
 
 class _ViewChip extends StatelessWidget {
   const _ViewChip({
+    required this.privacyId,
     required this.label,
     required this.selected,
     required this.onTap,
   });
 
+  /// 库 id · 隐私模式下库名按 PrivacyScope.library 域遮罩/揭开
+  final String privacyId;
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -459,8 +527,10 @@ class _ViewChip extends StatelessWidget {
                 : colors.cardBorder,
           ),
         ),
-        child: Text(
-          label,
+        child: PrivacyText(
+          movieId: privacyId,
+          scope: PrivacyScope.library,
+          text: label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(

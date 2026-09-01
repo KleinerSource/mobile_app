@@ -49,6 +49,12 @@ abstract interface class MediaBrowserMediaOperationsSource {
   /// 某一季的集列表。
   Future<MediaBrowserItemPage> episodes(String seriesId, String seasonId);
 
+  /// 专辑的曲目列表，按光盘号 + 曲号排序。
+  Future<List<MediaBrowserItem>> albumTracks(String albumId);
+
+  /// 音频歌词原始响应；服务器无歌词时为 null，格式由调用方解析。
+  Future<Object?> fetchLyrics(String itemId);
+
   /// 收藏 / 取消收藏，返回带最新 UserData 的条目。
   Future<MediaBrowserItem> markFavorite(String itemId, bool favorite);
 
