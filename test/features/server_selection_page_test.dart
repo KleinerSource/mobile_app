@@ -281,6 +281,62 @@ void main() {
     expect(fields[2].controller?.text, '9090');
   });
 
+  testWidgets('编辑服务器名称后选择器显示新名称', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'saved',
+          'name': '旧名称',
+          'lines': [
+            {
+              'id': 'saved-line',
+              'name': '主线路',
+              'base_url': 'https://db.example',
+            },
+          ],
+          'active_line_id': 'saved-line',
+          'project_name': 'db_online',
+        },
+      ]),
+      'server.active_server_id': 'saved',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          serverLineProbeCoordinatorProvider.overrideWithValue(
+            ServerLineProbeCoordinator(
+              probe: (line) async => ServerLineProbeResult.success(
+                line,
+                8,
+                versionInfo: const ServerVersionInfo(
+                  projectName: 'db_online',
+                  version: '1.14.0',
+                ),
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(home: ServerSelectionPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('旧名称'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('编辑服务器'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), '新名称');
+    await tester.tap(find.text('测试并保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('新名称'), findsOneWidget);
+    expect(find.text('旧名称'), findsNothing);
+  });
+
   testWidgets('头像横向滚动区域延伸到屏幕边缘', (tester) async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([

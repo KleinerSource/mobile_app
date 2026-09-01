@@ -676,9 +676,9 @@ class _ServerAvatarCard extends StatelessWidget {
       initialData: cachedProfile,
       builder: (context, snapshot) {
         final profile = snapshot.data;
-        final displayName = profile?.name.trim().isNotEmpty == true
-            ? profile!.name.trim()
-            : server.name;
+        // 服务器名称是本地配置中的用户自定义名称，不能被缓存的服务端
+        // profile 名称覆盖；profile 仍只用于补充头像信息。
+        final displayName = server.name;
         final avatarUrl = profile?.avatarUrl ?? server.avatarUrl;
         return Semantics(
           button: true,
