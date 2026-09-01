@@ -649,12 +649,16 @@ class _ServerAvatarCard extends StatelessWidget {
                         width: _ServerSelectionMetrics.logoMaskSize,
                         height: _ServerSelectionMetrics.logoMaskSize,
                         child: Center(
-                          child: _ServerCardLogo(
-                            displayName: displayName,
-                            avatarUrl: avatarUrl,
-                            project: server.project,
-                            colors: colors,
-                            size: _ServerSelectionMetrics.logoSize,
+                          // 只裁切 Logo 四角，不添加背景、边框、阴影或高光；
+                          // 保持 Logo 原有尺寸，统一不同素材的显示形状。
+                          child: ClipOval(
+                            child: _ServerCardLogo(
+                              displayName: displayName,
+                              avatarUrl: avatarUrl,
+                              project: server.project,
+                              colors: colors,
+                              size: _ServerSelectionMetrics.logoSize,
+                            ),
                           ),
                         ),
                       ),
