@@ -1,3 +1,4 @@
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/features/media_browser/api/media_browser_api.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
@@ -7,16 +8,18 @@ import '../common/source_error_mapper.dart';
 import '../common/source_exception.dart';
 import '../common/source_id.dart';
 import 'media_capabilities.dart';
+import 'media_browser_media_source.dart';
 import 'media_models.dart';
 import 'playback_device_profile.dart';
-import 'emby_media_source.dart';
 
-/// Emby adapter。Emby 是独立的外部媒体服务器：目录/详情/播放走通用
-/// 能力，媒体库管理与扫描由 Emby 服务端完成，因此不实现这两类能力。
-/// 直链播放优先（static=true 原始文件），需要转码时使用 PlaybackInfo
-/// 返回的 TranscodingUrl。
-class EmbyMediaSourceAdapter implements EmbyMediaSource {
-  EmbyMediaSourceAdapter(
+/// MediaBrowser（Emby/Jellyfin）adapter。
+///
+/// 两家都是独立的外部媒体服务器：目录/详情/播放走通用能力，媒体库管理
+/// 与扫描由服务端完成，因此不实现这两类能力。直链播放优先（static=true
+/// 原始文件），需要转码时使用 PlaybackInfo 返回的 TranscodingUrl。
+/// 项目差异（路径前缀 / token 参数 / 显示名）全部来自 [config]。
+class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
+  MediaBrowserMediaSourceAdapter(
     this.api, {
     required this.sessionRepository,
     this.serverId,
@@ -28,13 +31,19 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
   final String? serverId;
   final String? endpoint;
 
-  static const _sourceId = SourceId('emby');
+  MediaBrowserConfig get config => api.config;
+
+  SourceId get _sourceId => SourceId(config.sourceId);
 
   @override
   SourceDescriptor get descriptor => SourceDescriptor(
     id: _sourceId,
-    kind: SourceKind.emby,
-    name: 'Emby',
+    kind: switch (config.project) {
+      ServerProject.emby => SourceKind.emby,
+      ServerProject.jellyfin => SourceKind.jellyfin,
+      _ => throw ArgumentError('非 MediaBrowser 项目：${config.project}'),
+    },
+    name: config.displayName,
     serverId: serverId,
     endpoint: endpoint,
   );
@@ -121,7 +130,7 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
     );
     final mediaSource = info.mediaSources.isEmpty ? null : info.mediaSources.first;
     if (mediaSource == null || mediaSource.id.isEmpty) {
-      throw const SourceException('Emby 条目没有可用的媒体源');
+      throw SourceException('${config.displayName} 条目没有可用的媒体源');
     }
     final wantTranscode =
         request.forceVideoTranscode ||
@@ -137,7 +146,8 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
       uri = Uri.parse(MediaBrowserApi.resolveUrl(base, transcodingUrl));
     } else {
       uri = Uri.parse(
-        MediaBrowserApi.streamUrl(config: MediaBrowserConfig.emby,
+        MediaBrowserApi.streamUrl(
+          config: config,
           baseUrl: base,
           itemId: ref.value,
           mediaSourceId: mediaSource.id,
@@ -292,7 +302,8 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
     int? maxWidth,
   }) async {
     final token = await sessionRepository.accessToken();
-    return MediaBrowserApi.imageUrl(config: MediaBrowserConfig.emby,
+    return MediaBrowserApi.imageUrl(
+      config: config,
       baseUrl: endpoint ?? '',
       itemId: itemId,
       imageType: imageType,
@@ -396,17 +407,19 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
   Future<String> _requireUserId() async {
     final uid = (await sessionRepository.load())?.userId;
     if (uid == null || uid.trim().isEmpty) {
-      throw const SourceException('Emby 用户信息缺失，请重新登录');
+      throw SourceException('${config.displayName} 用户信息缺失，请重新登录');
     }
     return uid;
   }
 
   void _checkRef(MediaRef ref) {
     if (ref.sourceId != _sourceId) {
-      throw SourceException('来源 ID 不属于 Emby：${ref.sourceId.value}');
+      throw SourceException(
+        '来源 ID 不属于 ${config.displayName}：${ref.sourceId.value}',
+      );
     }
     if (ref.value.trim().isEmpty) {
-      throw const SourceException('Emby 条目 ID 不能为空');
+      throw SourceException('${config.displayName} 条目 ID 不能为空');
     }
   }
 
@@ -416,7 +429,7 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
     } on SourceException {
       rethrow;
     } catch (error) {
-      throw mapSourceError(error, fallback: 'Emby 请求失败');
+      throw mapSourceError(error, fallback: '${config.displayName} 请求失败');
     }
   }
 }

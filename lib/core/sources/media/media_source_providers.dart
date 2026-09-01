@@ -9,13 +9,12 @@ import '../common/source_id.dart';
 import '../common/source_exception.dart';
 import 'dbo_media_source_adapter.dart';
 import 'dbo_media_source.dart';
-import 'emby_media_source_adapter.dart';
-import 'emby_media_source.dart';
-import 'jellyfin_media_source_adapter.dart';
-import 'jellyfin_media_source.dart';
+import 'media_browser_media_source.dart';
+import 'media_browser_media_source_adapter.dart';
 import 'media_models.dart';
 import 'media_source.dart';
 import 'omm_media_source_adapter.dart';
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
 
 /// Provides the media sources for the currently selected server.
 ///
@@ -38,16 +37,11 @@ final mediaSourceRegistryProvider = Provider<MediaSourceRegistry>((ref) {
       serverId: client.config?.activeServerId,
       endpoint: client.config?.baseUrl,
     );
-  } else if (project == ServerProject.emby) {
-    source = EmbyMediaSourceAdapter(
-      client.emby,
-      sessionRepository: ref.read(authSessionRepositoryProvider),
-      serverId: client.config?.activeServerId,
-      endpoint: client.config?.baseUrl,
-    );
-  } else if (project == ServerProject.jellyfin) {
-    source = JellyfinMediaSourceAdapter(
-      client.jellyfin,
+  } else if (project == ServerProject.emby ||
+      project == ServerProject.jellyfin) {
+    final mediaBrowserConfig = MediaBrowserConfig.byProject[project]!;
+    source = MediaBrowserMediaSourceAdapter(
+      client.mediaBrowserFor(mediaBrowserConfig),
       sessionRepository: ref.read(authSessionRepositoryProvider),
       serverId: client.config?.activeServerId,
       endpoint: client.config?.baseUrl,
@@ -75,18 +69,20 @@ final dboMediaSourceProvider = Provider<DboMediaSource?>((ref) {
   return source is DboMediaSource ? source : null;
 });
 
-final embyMediaSourceProvider = Provider<EmbyMediaSource?>((ref) {
-  final source = ref
-      .watch(mediaSourceRegistryProvider)
-      .find(const SourceId('emby'));
-  return source is EmbyMediaSource ? source : null;
+/// 当前服务器的 MediaBrowser（Emby/Jellyfin）媒体源。
+///
+/// Emby 与 Jellyfin 共用同一 adapter，按注册的 SourceId 区分。
+MediaBrowserMediaSource? _mediaBrowserSource(Ref ref, SourceId id) {
+  final source = ref.watch(mediaSourceRegistryProvider).find(id);
+  return source is MediaBrowserMediaSource ? source : null;
+}
+
+final embyMediaSourceProvider = Provider<MediaBrowserMediaSource?>((ref) {
+  return _mediaBrowserSource(ref, const SourceId('emby'));
 });
 
-final jellyfinMediaSourceProvider = Provider<JellyfinMediaSource?>((ref) {
-  final source = ref
-      .watch(mediaSourceRegistryProvider)
-      .find(const SourceId('jellyfin'));
-  return source is JellyfinMediaSource ? source : null;
+final jellyfinMediaSourceProvider = Provider<MediaBrowserMediaSource?>((ref) {
+  return _mediaBrowserSource(ref, const SourceId('jellyfin'));
 });
 
 class MediaCatalogRequest {

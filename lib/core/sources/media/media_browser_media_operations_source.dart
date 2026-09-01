@@ -1,11 +1,11 @@
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
-/// Emby 保留给 Feature 的扩展能力。
+/// MediaBrowser（Emby/Jellyfin）保留给 Feature 的扩展能力。
 ///
-/// 这些方法返回 Emby 自有 DTO，供 Emby 专属页面使用；请求仍由 Source
-/// Adapter 负责，页面和 Provider 不直接接触 `EmbyApi`。
-abstract interface class EmbyMediaOperationsSource {
-  /// 当前登录用户的 Emby ID；未登录时为 null。
+/// 这些方法返回服务器自有 DTO，供 Emby/Jellyfin 专属页面使用；请求仍由
+/// Source Adapter 负责，页面和 Provider 不直接接触 `MediaBrowserApi`。
+abstract interface class MediaBrowserMediaOperationsSource {
+  /// 当前登录用户的 ID；未登录时为 null。
   Future<String?> userId();
 
   /// 媒体库（Views）列表。
@@ -72,7 +72,7 @@ abstract interface class EmbyMediaOperationsSource {
     String? playSessionId,
   });
 
-  /// 海报 / 背景图绝对地址（含 api_key，可直接交给图片内核）。
+  /// 海报 / 背景图绝对地址（含 token 参数，可直接交给图片内核）。
   Future<String> imageUrl(
     String itemId, {
     String imageType = 'Primary',

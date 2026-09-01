@@ -1,4 +1,4 @@
-import 'package:omm/core/sources/media/jellyfin_media_source.dart';
+import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 /// Jellyfin Feature 的 Source 门面。
@@ -8,7 +8,7 @@ import 'package:omm/features/media_browser/models/media_browser_models.dart';
 class JellyfinMediaRepository {
   JellyfinMediaRepository(this._source);
 
-  final JellyfinMediaSource _source;
+  final MediaBrowserMediaSource _source;
 
   Future<String?> userId() => _source.userId();
 
