@@ -170,6 +170,37 @@ void main() {
     ]);
   });
 
+  test('user 按持久化用户 ID 查询 /Users/{Id}（Emby 无 /Users/Me）', () async {
+    final adapter = _EmbyTestAdapter((options) {
+      if (options.uri.path == '/emby/Users/user-1') {
+        return {
+          'Id': 'user-1',
+          'Name': 'Alice',
+          'Policy': {'IsAdministrator': false},
+        };
+      }
+      return {};
+    });
+    final api = EmbyApi(
+      Dio(BaseOptions(baseUrl: 'http://test'))..httpClientAdapter = adapter,
+    );
+
+    final user = await api.user('user-1');
+
+    expect(user.id, 'user-1');
+    expect(user.name, 'Alice');
+    expect(
+      adapter.requests.single,
+      'GET http://test/emby/Users/user-1',
+    );
+  });
+
+  test('user 拒绝空用户 ID', () {
+    final api = EmbyApi(Dio(BaseOptions(baseUrl: 'http://test')));
+
+    expect(() => api.user('  '), throwsA(isA<ArgumentError>()));
+  });
+
   test('authenticateByName 携带 X-Emby-Authorization 并解析令牌与用户', () async {
     final adapter = _EmbyTestAdapter((_) => {
       'AccessToken': 'token-1',
