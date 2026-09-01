@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/dio_factory.dart';
@@ -25,11 +28,12 @@ import 'server_setup_page.dart';
 class _ServerSelectionMetrics {
   const _ServerSelectionMetrics._();
 
-  static const avatarSize = 93.0;
-  static const addIconSize = 40.0;
-  static const itemWidth = 108.0;
-  static const gap = 13.0;
-  static const hoverRadius = 18.0;
+  static const cardHeight = 124.0;
+  static const cardGap = 12.0;
+  static const cardRadius = 23.0;
+  static const logoMaskSize = 44.0;
+  static const logoSize = 31.0;
+  static const addIconSize = 27.0;
 }
 
 class ServerSelectionPage extends ConsumerStatefulWidget {
@@ -165,6 +169,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     final config = ref.watch(serverSelectionConfigProvider);
     final servers = config?.servers ?? const <ServerProfile>[];
     final transition = ref.watch(serverSwitchTransitionProvider);
+    final activeServerId =
+        config?.activeServerId ?? (servers.isEmpty ? null : servers.first.id);
 
     return PopScope<void>(
       canPop: false,
@@ -173,63 +179,39 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
         body: GlowBackground(
           child: SafeArea(
             child: Center(
-              child: SizedBox(
-                width: double.infinity,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(vertical: 48),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 720),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _BrandHeader(colors: colors),
-                                const SizedBox(height: 42),
-                                Text(
-                                  servers.isEmpty ? '添加服务器' : '选择服务器',
-                                  textAlign: TextAlign.center,
-                                  style: AppText.pageTitle(
-                                    context,
-                                  ).copyWith(fontSize: 30),
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  servers.isEmpty
-                                      ? '还没有配置服务器，点击头像添加。'
-                                      : '选择要连接的服务器',
-                                  textAlign: TextAlign.center,
-                                  style: AppText.body(
-                                    context,
-                                  ).copyWith(color: colors.muted, fontSize: 15),
-                                ),
-                                const SizedBox(height: 34),
-                                if (servers.isEmpty)
-                                  _AddServerCard(onTap: _openCreateServer),
-                              ],
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 48, 24, 48),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _BrandHeader(colors: colors),
+                        const SizedBox(height: 30),
+                        if (servers.isEmpty)
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 360),
+                              child: _AddServerCard(onTap: _openCreateServer),
                             ),
+                          )
+                        else
+                          _ServerStrip(
+                            servers: servers,
+                            activeServerId: activeServerId,
+                            transition: transition,
+                            profileFor: _profileFor,
+                            cachedProfileFor: _cachedProfileFor,
+                            avatarKeyFor: _avatarKeyFor,
+                            onSelect: (server) =>
+                                unawaited(_selectServer(server)),
+                            onAdd: _openCreateServer,
+                            onLongPress: (server) =>
+                                unawaited(_showServerActions(server)),
                           ),
-                        ),
-                      ),
-                      if (servers.isNotEmpty)
-                        _ServerStrip(
-                          servers: servers,
-                          transition: transition,
-                          profileFor: _profileFor,
-                          cachedProfileFor: _cachedProfileFor,
-                          avatarKeyFor: _avatarKeyFor,
-                          onSelect: (server) =>
-                              unawaited(_selectServer(server)),
-                          onAdd: _openCreateServer,
-                          onLongPress: (server) =>
-                              unawaited(_showServerActions(server)),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -452,55 +434,25 @@ class _AddServerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = appColors(context);
     return Semantics(
       button: true,
       label: '添加服务器',
-      child: Center(
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(
-              _ServerSelectionMetrics.hoverRadius,
-            ),
-            splashColor: colors.accent.withValues(alpha: 0.12),
-            highlightColor: colors.accent.withValues(alpha: 0.06),
+      child: SizedBox(
+        width: double.infinity,
+        height: _ServerSelectionMetrics.cardHeight,
+        child: _ServerCardShell(
+          onTap: onTap,
+          child: Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              padding: const EdgeInsets.all(12),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: _ServerSelectionMetrics.avatarSize,
-                    height: _ServerSelectionMetrics.avatarSize,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          colors.accent.withValues(alpha: 0.95),
-                          colors.accent.withValues(alpha: 0.52),
-                        ],
-                      ),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.94),
-                        width: 4,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: colors.accent.withValues(alpha: 0.2),
-                          blurRadius: 26,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.add_rounded,
-                      size: _ServerSelectionMetrics.addIconSize,
-                    ),
+                  const Icon(
+                    Icons.add_rounded,
+                    size: _ServerSelectionMetrics.addIconSize,
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 7),
                   Text('添加服务器', style: AppText.cardTitle(context)),
                 ],
               ),
@@ -515,6 +467,7 @@ class _AddServerCard extends StatelessWidget {
 class _ServerStrip extends StatelessWidget {
   const _ServerStrip({
     required this.servers,
+    required this.activeServerId,
     required this.transition,
     required this.profileFor,
     required this.cachedProfileFor,
@@ -525,6 +478,7 @@ class _ServerStrip extends StatelessWidget {
   });
 
   final List<ServerProfile> servers;
+  final String? activeServerId;
   final ServerSwitchState transition;
   final Future<ServerProfileData?> Function(ServerProfile server) profileFor;
   final ServerProfileData? Function(ServerProfile server) cachedProfileFor;
@@ -535,47 +489,31 @@ class _ServerStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const itemWidth = _ServerSelectionMetrics.itemWidth;
-        const gap = _ServerSelectionMetrics.gap;
-        final itemCount = servers.length + 1;
-        final gaps = itemCount - 1;
-        final contentWidth = itemCount * itemWidth + gaps * gap;
-        final horizontalPadding = contentWidth < constraints.maxWidth
-            ? (constraints.maxWidth - contentWidth) / 2
-            : 0.0;
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var index = 0; index < servers.length; index++) ...[
-                if (index > 0) const SizedBox(width: gap),
-                SizedBox(
-                  width: itemWidth,
-                  child: _ServerAvatarCard(
-                    server: servers[index],
-                    profileFuture: profileFor(servers[index]),
-                    cachedProfile: cachedProfileFor(servers[index]),
-                    avatarKey: avatarKeyFor(servers[index].id),
-                    busy:
-                        transition.phase == ServerSwitchPhase.checking &&
-                        transition.targetServerId == servers[index].id,
-                    onTap: () => onSelect(servers[index]),
-                    onLongPress: () => onLongPress(servers[index]),
-                  ),
-                ),
-              ],
-              const SizedBox(width: gap),
-              SizedBox(
-                width: itemWidth,
-                child: _AddServerAvatarCard(onTap: onAdd),
-              ),
-            ],
-          ),
+    return GridView.builder(
+      padding: EdgeInsets.zero,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: _ServerSelectionMetrics.cardGap,
+        mainAxisSpacing: _ServerSelectionMetrics.cardGap,
+        mainAxisExtent: _ServerSelectionMetrics.cardHeight,
+      ),
+      itemCount: servers.length + 1,
+      itemBuilder: (context, index) {
+        if (index == servers.length) {
+          return _AddServerCard(onTap: onAdd);
+        }
+        final server = servers[index];
+        return _ServerAvatarCard(
+          server: server,
+          profileFuture: profileFor(server),
+          cachedProfile: cachedProfileFor(server),
+          avatarKey: avatarKeyFor(server.id),
+          active: server.id == activeServerId,
+          busy: transition.isActive && transition.targetServerId == server.id,
+          onTap: () => onSelect(server),
+          onLongPress: () => onLongPress(server),
         );
       },
     );
@@ -584,77 +522,13 @@ class _ServerStrip extends StatelessWidget {
 
 enum _ServerAction { edit, delete }
 
-class _AddServerAvatarCard extends StatelessWidget {
-  const _AddServerAvatarCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return Semantics(
-      button: true,
-      label: '添加服务器',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(
-            _ServerSelectionMetrics.hoverRadius,
-          ),
-          splashColor: colors.accent.withValues(alpha: 0.12),
-          highlightColor: colors.accent.withValues(alpha: 0.06),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-            child: Column(
-              children: [
-                Container(
-                  width: _ServerSelectionMetrics.avatarSize,
-                  height: _ServerSelectionMetrics.avatarSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        colors.accent.withValues(alpha: 0.95),
-                        colors.accent.withValues(alpha: 0.52),
-                      ],
-                    ),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.94),
-                      width: 4,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: colors.accent.withValues(alpha: 0.2),
-                        blurRadius: 26,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.add_rounded,
-                    size: _ServerSelectionMetrics.addIconSize,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text('添加服务器', style: AppText.cardTitle(context)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ServerAvatarCard extends StatelessWidget {
   const _ServerAvatarCard({
     required this.server,
     required this.profileFuture,
     required this.cachedProfile,
     required this.avatarKey,
+    required this.active,
     required this.busy,
     required this.onTap,
     required this.onLongPress,
@@ -664,6 +538,7 @@ class _ServerAvatarCard extends StatelessWidget {
   final Future<ServerProfileData?> profileFuture;
   final ServerProfileData? cachedProfile;
   final GlobalKey avatarKey;
+  final bool active;
   final bool busy;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
@@ -680,45 +555,95 @@ class _ServerAvatarCard extends StatelessWidget {
         // profile 名称覆盖；profile 仍只用于补充头像信息。
         final displayName = server.name;
         final avatarUrl = profile?.avatarUrl ?? server.avatarUrl;
+        final line = server.activeLine;
+        final projectLabel = _serverProjectLabel(server.project);
         return Semantics(
           button: true,
           label: '选择$displayName',
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: busy ? null : onTap,
-              onLongPress: busy ? null : onLongPress,
-              borderRadius: BorderRadius.circular(
-                _ServerSelectionMetrics.hoverRadius,
-              ),
-              splashColor: colors.accent.withValues(alpha: 0.12),
-              highlightColor: colors.accent.withValues(alpha: 0.06),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 10,
-                  horizontal: 4,
-                ),
-                child: Column(
-                  children: [
-                    ServerAvatar(
-                      key: avatarKey,
-                      displayName: displayName,
-                      avatarUrl: avatarUrl,
-                      size: _ServerSelectionMetrics.avatarSize,
-                      busy: busy,
-                      colors: colors,
-                      project: server.project,
+          child: _ServerCardShell(
+            project: server.project,
+            avatarUrl: avatarUrl,
+            selected: active,
+            busy: busy,
+            onTap: busy ? null : onTap,
+            onLongPress: busy ? null : onLongPress,
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    displayName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppText.cardTitle(
+                                      context,
+                                    ).copyWith(fontSize: 15, height: 1.2),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                _ServerStatusDot(online: line?.enabled == true),
+                              ],
+                            ),
+                            if (projectLabel != displayName) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                projectLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colors.muted,
+                                  fontFamily: 'Inter',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.15,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        key: avatarKey,
+                        width: _ServerSelectionMetrics.logoMaskSize,
+                        height: _ServerSelectionMetrics.logoMaskSize,
+                        child: Center(
+                          child: _ServerCardLogo(
+                            displayName: displayName,
+                            avatarUrl: avatarUrl,
+                            project: server.project,
+                            colors: colors,
+                            size: _ServerSelectionMetrics.logoSize,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _serverCardMeta(server),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.muted2,
+                      fontFamily: 'Inter',
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
                     ),
-                    const SizedBox(height: 14),
-                    Text(
-                      displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: AppText.cardTitle(context).copyWith(fontSize: 15),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -726,4 +651,320 @@ class _ServerAvatarCard extends StatelessWidget {
       },
     );
   }
+}
+
+class _ServerCardShell extends StatelessWidget {
+  const _ServerCardShell({
+    required this.child,
+    this.project,
+    this.avatarUrl,
+    this.selected = false,
+    this.busy = false,
+    this.onTap,
+    this.onLongPress,
+  });
+
+  final Widget child;
+  final ServerProject? project;
+  final String? avatarUrl;
+  final bool selected;
+  final bool busy;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundLogo = _serverCardLogoSource(project, avatarUrl);
+    final cardColor = isDark
+        ? const Color(0xFF1B1A22)
+        : const Color(0xFFF7F7FA);
+    final glassTint = isDark
+        ? Colors.black.withValues(alpha: 0.14)
+        : Colors.white.withValues(alpha: 0.52);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(_ServerSelectionMetrics.cardRadius),
+        border: selected
+            ? Border.all(
+                color: colors.text.withValues(alpha: isDark ? 0.24 : 0.18),
+              )
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_ServerSelectionMetrics.cardRadius),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (backgroundLogo != null)
+              Positioned(
+                top: 12,
+                right: 12,
+                width: 208,
+                height: 208,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: isDark ? 0.16 : 0.10,
+                    child: ImageFiltered(
+                      imageFilter: ui.ImageFilter.blur(sigmaX: 13, sigmaY: 13),
+                      child: _ServerCardLogo(
+                        displayName: '',
+                        avatarUrl: backgroundLogo.startsWith('http')
+                            ? backgroundLogo
+                            : null,
+                        assetPath: backgroundLogo.startsWith('http')
+                            ? null
+                            : backgroundLogo,
+                        project: null,
+                        colors: colors,
+                        size: 208,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: GlassPanel(
+                  borderRadius: BorderRadius.circular(
+                    _ServerSelectionMetrics.cardRadius,
+                  ),
+                  sigma: 19,
+                  tint: glassTint,
+                  showBorder: false,
+                  showHighlight: false,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                opacity: busy ? 0.62 : 1,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    onTap: onTap,
+                    onLongPress: onLongPress,
+                    borderRadius: BorderRadius.circular(
+                      _ServerSelectionMetrics.cardRadius,
+                    ),
+                    splashColor: colors.text.withValues(alpha: 0.08),
+                    highlightColor: colors.text.withValues(alpha: 0.04),
+                    child: child,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ServerCardLogo extends StatelessWidget {
+  const _ServerCardLogo({
+    required this.displayName,
+    required this.avatarUrl,
+    required this.project,
+    required this.colors,
+    required this.size,
+    this.assetPath,
+  });
+
+  final String displayName;
+  final String? avatarUrl;
+  final ServerProject? project;
+  final AppColors colors;
+  final double size;
+  final String? assetPath;
+
+  @override
+  Widget build(BuildContext context) {
+    final source = avatarUrl?.trim();
+    final asset = assetPath ?? _serverCardAsset(project);
+    final fallback = Center(
+      child: Text(
+        serverInitials(displayName),
+        maxLines: 1,
+        style: TextStyle(
+          color: colors.text2,
+          fontFamily: 'Inter',
+          fontSize: size * 0.34,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+
+    Widget assetImage() {
+      if (asset == null) return fallback;
+      if (asset.endsWith('.svg')) {
+        return SvgPicture.asset(
+          asset,
+          fit: BoxFit.contain,
+          placeholderBuilder: (_) => fallback,
+        );
+      }
+      return Image.asset(
+        asset,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, __, ___) => fallback,
+      );
+    }
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: source == null || source.isEmpty
+          ? assetImage()
+          : CachedNetworkImage(
+              imageUrl: source,
+              fit: BoxFit.contain,
+              placeholder: (_, __) => assetImage(),
+              errorWidget: (_, __, ___) => assetImage(),
+            ),
+    );
+  }
+}
+
+class _ServerStatusDot extends StatefulWidget {
+  const _ServerStatusDot({required this.online});
+
+  final bool online;
+
+  @override
+  State<_ServerStatusDot> createState() => _ServerStatusDotState();
+}
+
+class _ServerStatusDotState extends State<_ServerStatusDot>
+    with SingleTickerProviderStateMixin {
+  bool _disableAnimations = false;
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _disableAnimations =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    _syncAnimation();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ServerStatusDot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.online == oldWidget.online) return;
+    _syncAnimation();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    const onlineColor = Color(0xFF65D391);
+    final offlineColor = colors.muted2;
+    if (!widget.online || _disableAnimations) {
+      return _dot(widget.online ? onlineColor : offlineColor, 1, 1);
+    }
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final value = Curves.easeInOut.transform(_controller.value);
+        return _dot(onlineColor, 0.78 + (value * 0.22), 0.88 + (value * 0.16));
+      },
+    );
+  }
+
+  void _syncAnimation() {
+    if (widget.online && !_disableAnimations) {
+      if (!_controller.isAnimating) _controller.repeat(reverse: true);
+      return;
+    }
+    _controller.stop();
+    _controller.value = 1;
+  }
+
+  Widget _dot(Color color, double opacity, double scale) {
+    return SizedBox(
+      width: 8,
+      height: 8,
+      child: Center(
+        child: Opacity(
+          opacity: opacity,
+          child: Transform.scale(
+            scale: scale,
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              child: const SizedBox(width: 6, height: 6),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String? _serverCardLogoSource(ServerProject? project, String? avatarUrl) {
+  final remote = avatarUrl?.trim();
+  if (remote != null && remote.isNotEmpty) return remote;
+  return _serverCardAsset(project);
+}
+
+String? _serverCardAsset(ServerProject? project) {
+  final asset = serverProjectAvatarAsset(project);
+  if (asset == 'assets/server_avatars/oh_my_media.png') {
+    return 'assets/server_avatars/oh_my_media_logo.png';
+  }
+  return asset;
+}
+
+String _serverProjectLabel(ServerProject? project) {
+  return switch (project) {
+    ServerProject.ohMyMedia => 'Oh My Media',
+    ServerProject.dbOnline => 'DB Online',
+    ServerProject.emby => 'Emby',
+    ServerProject.jellyfin => 'Jellyfin',
+    ServerProject.smb => 'SMB',
+    ServerProject.webDav => 'WebDAV',
+    ServerProject.openList => 'OpenList',
+    null => '服务器',
+  };
+}
+
+String _serverCardMeta(ServerProfile server) {
+  final line = server.activeLine;
+  final lineName = line?.name.trim();
+  final parts = <String>[
+    if (lineName != null && lineName.isNotEmpty) lineName,
+    '${server.lines.length} 条线路',
+    if (line?.latencyMs != null) '${line!.latencyMs} ms',
+  ];
+  return parts.isEmpty ? '未配置线路' : parts.join(' · ');
 }

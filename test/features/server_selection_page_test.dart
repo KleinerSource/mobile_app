@@ -21,7 +21,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: ServerSelectionPage()),
+        child: _testApp(const ServerSelectionPage()),
       ),
     );
 
@@ -53,7 +53,7 @@ void main() {
             ),
           ),
         ],
-        child: const MaterialApp(home: ServerSelectionPage()),
+        child: _testApp(const ServerSelectionPage()),
       ),
     );
 
@@ -63,7 +63,7 @@ void main() {
     await tester.tap(find.text('测试并保存'));
     await tester.pumpAndSettle();
 
-    expect(find.text('选择服务器'), findsOneWidget);
+    expect(find.byType(ServerSelectionPage), findsOneWidget);
     expect(prefs.getString('server.servers'), contains('oh-my-media'));
   });
 
@@ -88,7 +88,7 @@ void main() {
             ),
           ),
         ],
-        child: const MaterialApp(home: ServerSelectionPage()),
+        child: _testApp(const ServerSelectionPage()),
       ),
     );
 
@@ -133,7 +133,7 @@ void main() {
             ),
           ),
         ],
-        child: const MaterialApp(home: ServerSelectionPage()),
+        child: _testApp(const ServerSelectionPage()),
       ),
     );
 
@@ -153,7 +153,7 @@ void main() {
     }
 
     await addServer('https://first.example');
-    expect(find.text('选择服务器'), findsOneWidget);
+    expect(find.byType(ServerSelectionPage), findsOneWidget);
     expect(
       (jsonDecode(prefs.getString('server.servers')!) as List),
       hasLength(1),
@@ -205,7 +205,7 @@ void main() {
             ),
           ),
         ],
-        child: const MaterialApp(home: ServerSelectionPage()),
+        child: _testApp(const ServerSelectionPage()),
       ),
     );
 
@@ -259,7 +259,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: ServerSelectionPage()),
+        child: _testApp(const ServerSelectionPage()),
       ),
     );
 
@@ -319,7 +319,7 @@ void main() {
             ),
           ),
         ],
-        child: const MaterialApp(home: ServerSelectionPage()),
+        child: _testApp(const ServerSelectionPage()),
       ),
     );
     await tester.pumpAndSettle();
@@ -337,7 +337,7 @@ void main() {
     expect(find.text('旧名称'), findsNothing);
   });
 
-  testWidgets('头像横向滚动区域延伸到屏幕边缘', (tester) async {
+  testWidgets('服务器列表使用双列卡片网格', (tester) async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([
         for (var i = 0; i < 6; i++)
@@ -362,21 +362,20 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: ServerSelectionPage()),
+        child: _testApp(const ServerSelectionPage()),
       ),
     );
     await tester.pumpAndSettle();
 
-    final horizontalScrollView = find.byWidgetPredicate(
-      (widget) =>
-          widget is SingleChildScrollView &&
-          widget.scrollDirection == Axis.horizontal,
-    );
-    expect(horizontalScrollView, findsOneWidget);
+    final grid = tester.widget<GridView>(find.byType(GridView));
+    expect(grid, isNotNull);
+    final delegate = grid.gridDelegate;
+    expect(delegate, isA<SliverGridDelegateWithFixedCrossAxisCount>());
     expect(
-      tester.getSize(horizontalScrollView).width,
-      tester.getSize(find.byType(Scaffold)).width,
+      (delegate as SliverGridDelegateWithFixedCrossAxisCount).crossAxisCount,
+      2,
     );
+    expect(find.text('服务器 5'), findsOneWidget);
   });
 
   testWidgets('已登录页面打开服务器选择器使用普通页面转场', (tester) async {
@@ -386,7 +385,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: _SelectorLauncher()),
+        child: _testApp(const _SelectorLauncher()),
       ),
     );
 
@@ -405,7 +404,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: _SelectorLauncher()),
+        child: _testApp(const _SelectorLauncher()),
       ),
     );
 
@@ -443,7 +442,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: _ServerStackFixture()),
+        child: _testApp(const _ServerStackFixture()),
       ),
     );
     await tester.pumpAndSettle();
@@ -500,7 +499,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: _SelectorLauncher()),
+        child: _testApp(const _SelectorLauncher()),
       ),
     );
 
@@ -554,7 +553,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-        child: const MaterialApp(home: ServerSelectionPage()),
+        child: _testApp(const ServerSelectionPage()),
       ),
     );
     final container = ProviderScope.containerOf(
@@ -629,7 +628,7 @@ void main() {
           dbOnlineLatestUpdatedProvider.overrideWith((ref) async => const []),
           dbOnlineLatestReleasedProvider.overrideWith((ref) async => const []),
         ],
-        child: const MaterialApp(home: ServerSelectionPage()),
+        child: _testApp(const ServerSelectionPage()),
       ),
     );
     final container = ProviderScope.containerOf(
@@ -677,6 +676,16 @@ void main() {
     expect(container.read(serverSelectionRequestedProvider), isFalse);
     expect(container.read(serverConfigProvider)?.activeServerId, 'db-one');
   });
+}
+
+Widget _testApp(Widget home) {
+  return MaterialApp(
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(disableAnimations: true),
+      child: child ?? const SizedBox.shrink(),
+    ),
+    home: home,
+  );
 }
 
 class _LoginAuthController extends AuthController {

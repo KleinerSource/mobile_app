@@ -19,12 +19,16 @@ class GlassPanel extends StatelessWidget {
     this.borderRadius = const BorderRadius.all(Radius.circular(20)),
     this.sigma = 28,
     this.tint,
+    this.showBorder = true,
+    this.showHighlight = true,
   });
 
   final Widget child;
   final BorderRadius borderRadius;
   final double sigma;
   final Color? tint;
+  final bool showBorder;
+  final bool showHighlight;
 
   @override
   Widget build(BuildContext context) {
@@ -44,8 +48,6 @@ class GlassPanel extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: [Color(0x66FFFFFF), Color(0x00FFFFFF)],
           );
-    final borderColor = c.sheetBorder;
-
     return ClipRRect(
       borderRadius: borderRadius,
       child: BackdropFilter(
@@ -55,15 +57,22 @@ class GlassPanel extends StatelessWidget {
           decoration: BoxDecoration(
             color: solidBg,
             borderRadius: borderRadius,
-            border: Border.all(color: borderColor, width: 1),
+            border: showBorder
+                ? Border.all(color: c.sheetBorder, width: 1)
+                : null,
           ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: highlight,
-              borderRadius: borderRadius,
-            ),
-            child: Material(type: MaterialType.transparency, child: child),
-          ),
+          child: showHighlight
+              ? DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: highlight,
+                    borderRadius: borderRadius,
+                  ),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: child,
+                  ),
+                )
+              : Material(type: MaterialType.transparency, child: child),
         ),
       ),
     );
