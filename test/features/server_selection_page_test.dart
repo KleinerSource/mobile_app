@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -266,11 +267,14 @@ void main() {
     await tester.longPress(find.bySemanticsLabel('选择DB Online'));
     await tester.pumpAndSettle();
 
-    expect(find.text('编辑服务器'), findsOneWidget);
-    expect(find.text('删除服务器'), findsOneWidget);
+    expect(find.bySemanticsLabel('编辑服务器'), findsOneWidget);
+    expect(find.bySemanticsLabel('删除服务器'), findsOneWidget);
+    expect(find.text('服务器操作'), findsNothing);
     expect(find.text('编辑服务器地址'), findsNothing);
 
-    await tester.tap(find.text('编辑服务器'));
+    await tester.tap(
+      find.byKey(const ValueKey('server-selection-edit-action')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('更换服务器'), findsOneWidget);
     final fields = tester
@@ -326,7 +330,9 @@ void main() {
 
     await tester.longPress(find.text('旧名称'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('编辑服务器'));
+    await tester.tap(
+      find.byKey(const ValueKey('server-selection-edit-action')),
+    );
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).at(0), '新名称');
@@ -509,6 +515,155 @@ void main() {
     expect(find.text('1条线路'), findsNWidgets(6));
     expect(find.text('延迟'), findsNWidgets(6));
     expect(find.text('8 ms'), findsNWidgets(6));
+  });
+
+  testWidgets('服务器卡片长按后可直接拖动排序', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        for (var i = 0; i < 3; i++)
+          {
+            'id': 'server-$i',
+            'name': '服务器 $i',
+            'lines': [
+              {
+                'id': 'line-$i',
+                'name': '主线路',
+                'base_url': 'https://server-$i.example',
+              },
+            ],
+            'active_line_id': 'line-$i',
+            'project_name': 'db_online',
+          },
+      ]),
+      'server.active_server_id': 'server-0',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: _testApp(const ServerSelectionPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final first = tester.getCenter(find.bySemanticsLabel('选择服务器 0'));
+    final second = tester.getCenter(find.bySemanticsLabel('选择服务器 1'));
+    final gesture = await tester.startGesture(first);
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await gesture.moveTo(second);
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    final stored = jsonDecode(prefs.getString('server.servers')!) as List;
+    expect(stored.map((server) => server['id']), [
+      'server-1',
+      'server-0',
+      'server-2',
+    ]);
+    expect(find.bySemanticsLabel('编辑服务器'), findsNothing);
+  });
+
+  testWidgets('悬浮操作显示后继续长按拖动仍可排序', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        for (var i = 0; i < 3; i++)
+          {
+            'id': 'server-$i',
+            'name': '服务器 $i',
+            'lines': [
+              {
+                'id': 'line-$i',
+                'name': '主线路',
+                'base_url': 'https://server-$i.example',
+              },
+            ],
+            'active_line_id': 'line-$i',
+            'project_name': 'db_online',
+          },
+      ]),
+      'server.active_server_id': 'server-0',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: _testApp(const ServerSelectionPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.bySemanticsLabel('选择服务器 0'));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('编辑服务器'), findsOneWidget);
+
+    final first = tester.getCenter(find.bySemanticsLabel('选择服务器 0'));
+    final second = tester.getCenter(find.bySemanticsLabel('选择服务器 1'));
+    final gesture = await tester.startGesture(first);
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await gesture.moveTo(second);
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    final stored = jsonDecode(prefs.getString('server.servers')!) as List;
+    expect(stored.map((server) => server['id']), [
+      'server-1',
+      'server-0',
+      'server-2',
+    ]);
+    expect(find.bySemanticsLabel('编辑服务器'), findsNothing);
+  });
+
+  testWidgets('搜索时长按仍可显示操作但不会排序', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        for (var i = 0; i < 2; i++)
+          {
+            'id': 'server-$i',
+            'name': '服务器 $i',
+            'lines': [
+              {
+                'id': 'line-$i',
+                'name': '主线路',
+                'base_url': 'https://server-$i.example',
+              },
+            ],
+            'active_line_id': 'line-$i',
+            'project_name': 'db_online',
+          },
+      ]),
+      'server.active_server_id': 'server-0',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: _testApp(const ServerSelectionPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final search = find.byKey(
+      const ValueKey<String>('server-selection-search'),
+    );
+    await tester.enterText(search, '服务器 0');
+    await tester.pump();
+
+    await tester.longPress(find.bySemanticsLabel('选择服务器 0'));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('编辑服务器'), findsOneWidget);
+
+    final card = tester.getCenter(find.bySemanticsLabel('选择服务器 0'));
+    final gesture = await tester.startGesture(card);
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await gesture.moveBy(const Offset(80, 0));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    final stored = jsonDecode(prefs.getString('server.servers')!) as List;
+    expect(stored.map((server) => server['id']), ['server-0', 'server-1']);
   });
 
   testWidgets('服务器选择器显示资源库标题并支持搜索', (tester) async {

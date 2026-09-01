@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -16,7 +17,6 @@ import '../../core/models/system.dart';
 import '../../core/platform/app_haptics.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/glass.dart';
-import '../../shared/sheet_controls.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/server_avatar.dart';
 import '../home/server_switch_transition.dart';
@@ -145,7 +145,14 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   final _profileFutures = <String, Future<ServerProfileData?>>{};
   final _statusFutures = <String, Future<_ServerStatus>>{};
   final _avatarKeys = <String, GlobalKey>{};
+  final _listScrollController = ScrollController();
   var _searchQuery = '';
+
+  @override
+  void dispose() {
+    _listScrollController.dispose();
+    super.dispose();
+  }
 
   GlobalKey _avatarKeyFor(String serverId) {
     return _avatarKeys.putIfAbsent(serverId, GlobalKey.new);
@@ -198,6 +205,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                           color: colors.accent,
                           onRefresh: _refreshServers,
                           child: ListView(
+                            controller: _listScrollController,
                             physics: const AlwaysScrollableScrollPhysics(),
                             padding: const EdgeInsets.only(bottom: 12),
                             children: [
@@ -232,11 +240,20 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                                   cachedProfileFor: _cachedProfileFor,
                                   statusFor: _statusFor,
                                   avatarKeyFor: _avatarKeyFor,
+                                  scrollController: _listScrollController,
+                                  reorderEnabled:
+                                      _searchQuery.isEmpty &&
+                                      !transition.isActive &&
+                                      servers.length >= 2,
                                   onSelect: (server) =>
                                       unawaited(_selectServer(server)),
                                   onAdd: _openCreateServer,
-                                  onLongPress: (server) =>
-                                      unawaited(_showServerActions(server)),
+                                  onEdit: _editServer,
+                                  onDelete: (server) =>
+                                      unawaited(_deleteServer(server)),
+                                  onReorder: (oldIndex, newIndex) => ref
+                                      .read(serverConfigProvider.notifier)
+                                      .reorderServers(oldIndex, newIndex),
                                 ),
                             ],
                           ),
@@ -302,49 +319,13 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     ).push(MaterialPageRoute<void>(builder: (_) => const ServerSetupPage()));
   }
 
-  Future<void> _showServerActions(ServerProfile server) async {
-    if (ref.read(serverSwitchTransitionProvider).isActive) return;
-    final action = await showGlassSheet<_ServerAction>(
-      context: context,
-      builder: (context) {
-        final c = appColors(context);
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SheetHeader(
-                icon: Icons.dns_outlined,
-                title: '服务器操作',
-                subtitle: server.name,
-                padding: const EdgeInsets.fromLTRB(22, 6, 22, 8),
-              ),
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: const Text('编辑服务器'),
-                onTap: () => Navigator.of(context).pop(_ServerAction.edit),
-              ),
-              ListTile(
-                leading: Icon(Icons.delete_outline, color: c.danger),
-                title: Text('删除服务器', style: TextStyle(color: c.danger)),
-                onTap: () => Navigator.of(context).pop(_ServerAction.delete),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
+  Future<void> _editServer(ServerProfile server) async {
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ServerSetupPage(serverId: server.id),
+      ),
     );
-    if (!mounted || action == null) return;
-    switch (action) {
-      case _ServerAction.edit:
-        await Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => ServerSetupPage(serverId: server.id),
-          ),
-        );
-      case _ServerAction.delete:
-        await _deleteServer(server);
-    }
   }
 
   Future<void> _deleteServer(ServerProfile server) async {
@@ -519,10 +500,11 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
       }
       // Emby 没有持久化 userId 时 validateSession 会抛错，走 catch 分支
       // 回退到缓存档案，与旧实现返回空名的行为一致。
-      final userName = (await client
-              .mediaBrowserFor(mediaBrowserConfig)
-              .validateSession(session.userId))
-          .name;
+      final userName =
+          (await client
+                  .mediaBrowserFor(mediaBrowserConfig)
+                  .validateSession(session.userId))
+              .name;
       final normalizedName = userName.trim();
       if (normalizedName.isEmpty) {
         return cached ?? _fallbackProfile(server);
@@ -599,9 +581,10 @@ class _LibraryHeader extends StatelessWidget {
 }
 
 class _AddServerCard extends StatelessWidget {
-  const _AddServerCard({required this.onTap});
+  const _AddServerCard({required this.onTap, this.dropTarget = false});
 
   final VoidCallback onTap;
+  final bool dropTarget;
 
   @override
   Widget build(BuildContext context) {
@@ -612,6 +595,7 @@ class _AddServerCard extends StatelessWidget {
         width: double.infinity,
         height: _ServerSelectionMetrics.cardHeight,
         child: _ServerCardShell(
+          dropTarget: dropTarget,
           onTap: onTap,
           child: Center(
             child: Padding(
@@ -635,7 +619,7 @@ class _AddServerCard extends StatelessWidget {
   }
 }
 
-class _ServerStrip extends StatelessWidget {
+class _ServerStrip extends StatefulWidget {
   const _ServerStrip({
     required this.servers,
     required this.activeServerId,
@@ -644,9 +628,13 @@ class _ServerStrip extends StatelessWidget {
     required this.cachedProfileFor,
     required this.statusFor,
     required this.avatarKeyFor,
+    required this.scrollController,
+    required this.reorderEnabled,
     required this.onSelect,
     required this.onAdd,
-    required this.onLongPress,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onReorder,
   });
 
   final List<ServerProfile> servers;
@@ -656,45 +644,482 @@ class _ServerStrip extends StatelessWidget {
   final ServerProfileData? Function(ServerProfile server) cachedProfileFor;
   final Future<_ServerStatus> Function(ServerProfile server) statusFor;
   final GlobalKey Function(String serverId) avatarKeyFor;
+  final ScrollController scrollController;
+  final bool reorderEnabled;
   final ValueChanged<ServerProfile> onSelect;
   final VoidCallback onAdd;
-  final ValueChanged<ServerProfile> onLongPress;
+  final ValueChanged<ServerProfile> onEdit;
+  final ValueChanged<ServerProfile> onDelete;
+  final Future<void> Function(int oldIndex, int newIndex) onReorder;
+
+  @override
+  State<_ServerStrip> createState() => _ServerStripState();
+}
+
+class _ServerStripState extends State<_ServerStrip> {
+  final _gridKey = GlobalKey();
+  final _cardKeys = <String, GlobalKey>{};
+  final _addCardKey = GlobalKey();
+  String? _actionServerId;
+  String? _draggingServerId;
+  Offset? _longPressStart;
+  Offset? _dragPosition;
+  Offset? _dragGrabOffset;
+  int? _dragTargetIndex;
+
+  GlobalKey _cardKeyFor(String serverId) {
+    return _cardKeys.putIfAbsent(serverId, GlobalKey.new);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.scrollController.addListener(_closeInteraction);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ServerStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController != widget.scrollController) {
+      oldWidget.scrollController.removeListener(_closeInteraction);
+      widget.scrollController.addListener(_closeInteraction);
+    }
+    final actionId = _actionServerId;
+    final draggingId = _draggingServerId;
+    if ((actionId != null &&
+            !widget.servers.any((server) => server.id == actionId)) ||
+        (draggingId != null &&
+            !widget.servers.any((server) => server.id == draggingId))) {
+      _resetInteraction();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController.removeListener(_closeInteraction);
+    super.dispose();
+  }
+
+  void _closeInteraction() {
+    if (!mounted) return;
+    if (_actionServerId != null || _draggingServerId != null) {
+      _resetInteraction();
+    }
+  }
+
+  void _resetInteraction() {
+    if (!mounted) return;
+    setState(() {
+      _actionServerId = null;
+      _draggingServerId = null;
+      _longPressStart = null;
+      _dragPosition = null;
+      _dragGrabOffset = null;
+      _dragTargetIndex = null;
+    });
+  }
+
+  void _dismissActions() {
+    if (_actionServerId == null || !mounted) return;
+    setState(() => _actionServerId = null);
+  }
+
+  void _startLongPress(String serverId, LongPressStartDetails details) {
+    if (!mounted || _draggingServerId != null) return;
+    final cardRect = _globalRectFor(_cardKeyFor(serverId));
+    setState(() {
+      _actionServerId = serverId;
+      _longPressStart = details.globalPosition;
+      _dragPosition = details.globalPosition;
+      _dragGrabOffset = cardRect == null
+          ? null
+          : details.globalPosition - cardRect.topLeft;
+      _dragTargetIndex = widget.servers.indexWhere(
+        (server) => server.id == serverId,
+      );
+    });
+    AppHaptics.medium();
+  }
+
+  void _updateLongPress(String serverId, LongPressMoveUpdateDetails details) {
+    if (!mounted || _longPressStart == null) return;
+    if (_actionServerId != serverId && _draggingServerId != serverId) return;
+    final position = details.globalPosition;
+    if (_draggingServerId == null) {
+      if (!widget.reorderEnabled ||
+          (position - _longPressStart!).distance <= kTouchSlop) {
+        return;
+      }
+      final cardRect = _globalRectFor(_cardKeyFor(serverId));
+      setState(() {
+        _actionServerId = null;
+        _draggingServerId = serverId;
+        _dragPosition = position;
+        _dragGrabOffset = cardRect == null
+            ? null
+            : _longPressStart! - cardRect.topLeft;
+        _dragTargetIndex = _targetIndexFor(position);
+      });
+      AppHaptics.medium();
+      return;
+    }
+
+    final targetIndex = _targetIndexFor(position);
+    if (targetIndex == null) return;
+    final targetChanged = targetIndex != _dragTargetIndex;
+    setState(() {
+      _dragPosition = position;
+      _dragTargetIndex = targetIndex;
+    });
+    if (targetChanged) AppHaptics.selection();
+  }
+
+  void _finishLongPress(String serverId, LongPressEndDetails details) {
+    if (!mounted) return;
+    if (_draggingServerId != serverId) {
+      // 没有移动时保留悬浮按钮，供用户点击编辑或删除。
+      setState(() {
+        _longPressStart = null;
+        _dragPosition = null;
+        _dragGrabOffset = null;
+        _dragTargetIndex = null;
+      });
+      return;
+    }
+
+    final oldIndex = widget.servers.indexWhere(
+      (server) => server.id == serverId,
+    );
+    final targetIndex =
+        _targetIndexFor(details.globalPosition) ?? _dragTargetIndex ?? oldIndex;
+    final maxIndex = widget.servers.length - 1;
+    final newIndex = targetIndex.clamp(0, maxIndex).toInt();
+    _resetInteraction();
+    if (oldIndex >= 0 && newIndex != oldIndex) {
+      AppHaptics.medium();
+      unawaited(widget.onReorder(oldIndex, newIndex));
+    }
+  }
+
+  void _cancelLongPress() {
+    _resetInteraction();
+  }
+
+  int? _targetIndexFor(Offset globalPosition) {
+    if (widget.servers.isEmpty) return null;
+    var nearestIndex = 0;
+    var nearestDistance = double.infinity;
+    for (var index = 0; index < widget.servers.length; index++) {
+      final rect = _globalRectFor(_cardKeyFor(widget.servers[index].id));
+      if (rect == null) continue;
+      if (rect.inflate(8).contains(globalPosition)) return index;
+      final dx =
+          globalPosition.dx.clamp(rect.left, rect.right) - globalPosition.dx;
+      final dy =
+          globalPosition.dy.clamp(rect.top, rect.bottom) - globalPosition.dy;
+      final distance = dx * dx + dy * dy;
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = index;
+      }
+    }
+
+    final addRect = _globalRectFor(_addCardKey);
+    if (addRect != null && addRect.inflate(8).contains(globalPosition)) {
+      return widget.servers.length;
+    }
+    return nearestIndex;
+  }
+
+  Rect? _globalRectFor(GlobalKey key) {
+    final renderObject = key.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+    final topLeft = renderObject.localToGlobal(Offset.zero);
+    return topLeft & renderObject.size;
+  }
+
+  Widget _buildServerCard(ServerProfile server, {bool feedback = false}) {
+    final transition = widget.transition;
+    final busy = transition.isActive && transition.targetServerId == server.id;
+    final isDragging = _draggingServerId == server.id;
+    final targetIndex = _dragTargetIndex;
+    final serverIndex = widget.servers.indexOf(server);
+    final isDropTarget =
+        _draggingServerId != null && targetIndex == serverIndex && !isDragging;
+    final card = _ServerAvatarCard(
+      server: server,
+      profileFuture: widget.profileFor(server),
+      cachedProfile: widget.cachedProfileFor(server),
+      statusFuture: widget.statusFor(server),
+      avatarKey: feedback ? null : widget.avatarKeyFor(server.id),
+      active: server.id == widget.activeServerId,
+      busy: busy,
+      dropTarget: isDropTarget,
+      onTap: feedback
+          ? null
+          : () {
+              _dismissActions();
+              widget.onSelect(server);
+            },
+    );
+    if (feedback) return card;
+    return SizedBox(
+      key: _cardKeyFor(server.id),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 120),
+        opacity: isDragging ? 0.28 : 1,
+        child: _ServerCardInteraction(
+          showActions: _actionServerId == server.id,
+          enabled: !busy && !transition.isActive,
+          onEdit: () {
+            _dismissActions();
+            widget.onEdit(server);
+          },
+          onDelete: () {
+            _dismissActions();
+            widget.onDelete(server);
+          },
+          onDismissActions: _dismissActions,
+          onLongPressStart: (details) => _startLongPress(server.id, details),
+          onLongPressMoveUpdate: (details) =>
+              _updateLongPress(server.id, details),
+          onLongPressEnd: (details) => _finishLongPress(server.id, details),
+          onLongPressCancel: _cancelLongPress,
+          child: card,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDragFeedback() {
+    final draggingId = _draggingServerId;
+    final position = _dragPosition;
+    final gridBox = _gridKey.currentContext?.findRenderObject();
+    if (draggingId == null || position == null || gridBox is! RenderBox) {
+      return const SizedBox.shrink();
+    }
+    final server = widget.servers.firstWhere(
+      (item) => item.id == draggingId,
+      orElse: () => widget.servers.first,
+    );
+    final cardRect = _globalRectFor(_cardKeyFor(draggingId));
+    if (cardRect == null) return const SizedBox.shrink();
+    final localPosition = gridBox.globalToLocal(position);
+    final grabOffset =
+        _dragGrabOffset ?? Offset(cardRect.width / 2, cardRect.height / 2);
+    return Positioned(
+      left: localPosition.dx - grabOffset.dx,
+      top: localPosition.dy - grabOffset.dy,
+      width: cardRect.width,
+      height: cardRect.height,
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: 0.92,
+          child: _buildServerCard(server, feedback: true),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: EdgeInsets.zero,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: _ServerSelectionMetrics.cardGap,
-        mainAxisSpacing: _ServerSelectionMetrics.cardGap,
-        mainAxisExtent: _ServerSelectionMetrics.cardHeight,
-      ),
-      itemCount: servers.length + 1,
-      itemBuilder: (context, index) {
-        if (index == servers.length) {
-          return _AddServerCard(onTap: onAdd);
-        }
-        final server = servers[index];
-        return _ServerAvatarCard(
-          server: server,
-          profileFuture: profileFor(server),
-          cachedProfile: cachedProfileFor(server),
-          statusFuture: statusFor(server),
-          avatarKey: avatarKeyFor(server.id),
-          active: server.id == activeServerId,
-          busy: transition.isActive && transition.targetServerId == server.id,
-          onTap: () => onSelect(server),
-          onLongPress: () => onLongPress(server),
-        );
-      },
+    return Stack(
+      key: _gridKey,
+      clipBehavior: Clip.none,
+      children: [
+        GridView.builder(
+          padding: EdgeInsets.zero,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          clipBehavior: Clip.none,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: _ServerSelectionMetrics.cardGap,
+            mainAxisSpacing: _ServerSelectionMetrics.cardGap,
+            mainAxisExtent: _ServerSelectionMetrics.cardHeight,
+          ),
+          itemCount: widget.servers.length + 1,
+          itemBuilder: (context, index) {
+            if (index == widget.servers.length) {
+              return SizedBox(
+                key: _addCardKey,
+                child: _AddServerCard(
+                  onTap: widget.onAdd,
+                  dropTarget:
+                      _draggingServerId != null &&
+                      _dragTargetIndex == widget.servers.length,
+                ),
+              );
+            }
+            return _buildServerCard(widget.servers[index]);
+          },
+        ),
+        _buildDragFeedback(),
+      ],
     );
   }
 }
 
-enum _ServerAction { edit, delete }
+class _ServerCardInteraction extends StatefulWidget {
+  const _ServerCardInteraction({
+    required this.child,
+    required this.enabled,
+    required this.showActions,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onDismissActions,
+    required this.onLongPressStart,
+    required this.onLongPressMoveUpdate,
+    required this.onLongPressEnd,
+    required this.onLongPressCancel,
+  });
+
+  final Widget child;
+  final bool enabled;
+  final bool showActions;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback onDismissActions;
+  final ValueChanged<LongPressStartDetails> onLongPressStart;
+  final ValueChanged<LongPressMoveUpdateDetails> onLongPressMoveUpdate;
+  final ValueChanged<LongPressEndDetails> onLongPressEnd;
+  final VoidCallback onLongPressCancel;
+
+  @override
+  State<_ServerCardInteraction> createState() => _ServerCardInteractionState();
+}
+
+class _ServerCardInteractionState extends State<_ServerCardInteraction> {
+  final _overlayController = OverlayPortalController();
+  final _layerLink = LayerLink();
+  final _tapRegionGroup = Object();
+  var _overlaySyncVersion = 0;
+
+  void _scheduleOverlaySync() {
+    final version = ++_overlaySyncVersion;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || version != _overlaySyncVersion) return;
+      if (widget.showActions) {
+        _overlayController.show();
+      } else {
+        _overlayController.hide();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _ServerCardInteraction oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.showActions != widget.showActions) {
+      _scheduleOverlaySync();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OverlayPortal(
+      controller: _overlayController,
+      overlayChildBuilder: _buildActionOverlay,
+      child: TapRegion(
+        groupId: _tapRegionGroup,
+        onTapOutside: widget.showActions
+            ? (_) => widget.onDismissActions()
+            : null,
+        child: CompositedTransformTarget(
+          link: _layerLink,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onLongPressStart: widget.enabled ? widget.onLongPressStart : null,
+            onLongPressMoveUpdate: widget.enabled
+                ? widget.onLongPressMoveUpdate
+                : null,
+            onLongPressEnd: widget.enabled ? widget.onLongPressEnd : null,
+            onLongPressCancel: widget.enabled ? widget.onLongPressCancel : null,
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionOverlay(BuildContext context) {
+    final colors = appColors(context);
+    return Align(
+      alignment: Alignment.topLeft,
+      child: CompositedTransformFollower(
+        link: _layerLink,
+        targetAnchor: Alignment.topRight,
+        followerAnchor: Alignment.bottomRight,
+        offset: const Offset(0, -8),
+        child: TapRegion(
+          groupId: _tapRegionGroup,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ServerActionButton(
+                key: const ValueKey('server-selection-edit-action'),
+                icon: Icons.edit_outlined,
+                label: '编辑服务器',
+                color: colors.text,
+                onTap: widget.onEdit,
+              ),
+              const SizedBox(width: 8),
+              _ServerActionButton(
+                key: const ValueKey('server-selection-delete-action'),
+                icon: Icons.delete_outline,
+                label: '删除服务器',
+                color: colors.danger,
+                onTap: widget.onDelete,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ServerActionButton extends StatelessWidget {
+  const _ServerActionButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return Semantics(
+      button: true,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: Material(
+          color: colors.surface,
+          elevation: 7,
+          shape: CircleBorder(side: BorderSide(color: colors.cardBorder)),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: Icon(icon, color: color, size: 19),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 enum _ServerStatus { checking, connected, authenticationRequired, unavailable }
 
@@ -707,19 +1132,19 @@ class _ServerAvatarCard extends StatelessWidget {
     required this.avatarKey,
     required this.active,
     required this.busy,
+    this.dropTarget = false,
     required this.onTap,
-    required this.onLongPress,
   });
 
   final ServerProfile server;
   final Future<ServerProfileData?> profileFuture;
   final ServerProfileData? cachedProfile;
   final Future<_ServerStatus> statusFuture;
-  final GlobalKey avatarKey;
+  final GlobalKey? avatarKey;
   final bool active;
   final bool busy;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
+  final bool dropTarget;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -752,7 +1177,7 @@ class _ServerAvatarCard extends StatelessWidget {
             selected: active,
             busy: busy,
             onTap: busy ? null : onTap,
-            onLongPress: busy ? null : onLongPress,
+            dropTarget: dropTarget,
             child: Padding(
               // 上移卡片内容，抵消 Flutter 字体基线与头像占位带来的视觉下沉。
               padding: const EdgeInsets.fromLTRB(10, 6, 10, 14),
@@ -879,8 +1304,8 @@ class _ServerCardShell extends StatelessWidget {
     this.avatarUrl,
     this.selected = false,
     this.busy = false,
+    this.dropTarget = false,
     this.onTap,
-    this.onLongPress,
   });
 
   final Widget child;
@@ -888,8 +1313,8 @@ class _ServerCardShell extends StatelessWidget {
   final String? avatarUrl;
   final bool selected;
   final bool busy;
+  final bool dropTarget;
   final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -909,9 +1334,12 @@ class _ServerCardShell extends StatelessWidget {
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(_ServerSelectionMetrics.cardRadius),
-        border: selected
+        border: selected || dropTarget
             ? Border.all(
-                color: colors.text.withValues(alpha: isDark ? 0.24 : 0.18),
+                color: dropTarget
+                    ? colors.accent.withValues(alpha: 0.76)
+                    : colors.text.withValues(alpha: isDark ? 0.24 : 0.18),
+                width: dropTarget ? 1.5 : 1,
               )
             : null,
         boxShadow: [
@@ -976,7 +1404,6 @@ class _ServerCardShell extends StatelessWidget {
                   type: MaterialType.transparency,
                   child: InkWell(
                     onTap: onTap,
-                    onLongPress: onLongPress,
                     borderRadius: BorderRadius.circular(
                       _ServerSelectionMetrics.cardRadius,
                     ),
