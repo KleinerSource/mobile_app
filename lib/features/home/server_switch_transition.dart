@@ -942,53 +942,59 @@ class _ServerSwitchTransitionOverlayState
     required ServerProfile? server,
     required bool busy,
   }) {
-    final viewInsets = MediaQuery.viewInsetsOf(context);
-    if (viewInsets.bottom == 0) _scheduleAuthScrollReset();
-    // 头像和鉴权控件属于同一个滚动组。键盘弹出后整个组自动上移，
-    // 头像与输入框保持相对位置，不再出现头像固定在原处的错位。
-    final avatarTop =
-        constraints.biggest.height / 2 -
-        ServerSwitchTransitionMetrics.avatarRadius;
-    return SizedBox.expand(
-      child: SingleChildScrollView(
-        controller: _authScrollController,
-        primary: false,
-        padding: EdgeInsets.fromLTRB(24, avatarTop, 24, viewInsets.bottom + 32),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 380),
-            child: Column(
-              children: [
-                if (server != null && showAvatar) ...[
-                  _buildAvatar(
-                    colors: colors,
-                    server: server,
-                    size: ServerSwitchTransitionMetrics.avatarSize,
-                    busy: busy,
+    final keyboardBottom = MediaQuery.viewInsetsOf(context).bottom;
+    if (keyboardBottom == 0) _scheduleAuthScrollReset();
+    // 头像和鉴权控件属于同一个滚动组。键盘弹出时视口本身随键盘上收
+    // （而不只是加大滚动 padding），头像与表单在剩余可见区域重新居中，
+    // 同时让焦点输入框的自动滚入可视区逻辑按真实可见范围生效。
+    final visibleHeight = constraints.biggest.height - keyboardBottom;
+    final avatarTop = math.max(
+      24.0,
+      visibleHeight / 2 - ServerSwitchTransitionMetrics.avatarRadius,
+    );
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboardBottom),
+      child: SizedBox.expand(
+        child: SingleChildScrollView(
+          controller: _authScrollController,
+          primary: false,
+          padding: EdgeInsets.fromLTRB(24, avatarTop, 24, 32),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: Column(
+                children: [
+                  if (server != null && showAvatar) ...[
+                    _buildAvatar(
+                      colors: colors,
+                      server: server,
+                      size: ServerSwitchTransitionMetrics.avatarSize,
+                      busy: busy,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                  Opacity(
+                    opacity: contentOpacity,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 260),
+                      reverseDuration: const Duration(milliseconds: 180),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) {
+                        final slide = Tween<Offset>(
+                          begin: const Offset(0, 0.025),
+                          end: Offset.zero,
+                        ).animate(animation);
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(position: slide, child: child),
+                        );
+                      },
+                      child: content,
+                    ),
                   ),
-                  const SizedBox(height: 20),
                 ],
-                Opacity(
-                  opacity: contentOpacity,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 260),
-                    reverseDuration: const Duration(milliseconds: 180),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) {
-                      final slide = Tween<Offset>(
-                        begin: const Offset(0, 0.025),
-                        end: Offset.zero,
-                      ).animate(animation);
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(position: slide, child: child),
-                      );
-                    },
-                    child: content,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
