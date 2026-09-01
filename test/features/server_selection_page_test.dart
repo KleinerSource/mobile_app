@@ -391,6 +391,80 @@ void main() {
     expect(find.text('SMB 线路名称'), findsOneWidget);
   });
 
+  testWidgets('Emby 和 Jellyfin 卡片优先显示服务端用户名并支持下拉刷新', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        {
+          'id': 'emby-one',
+          'name': 'Emby 用户配置名称',
+          'lines': [
+            {
+              'id': 'emby-line',
+              'name': '主线路',
+              'base_url': 'https://emby.example',
+            },
+          ],
+          'active_line_id': 'emby-line',
+          'project_name': 'emby',
+        },
+        {
+          'id': 'jellyfin-one',
+          'name': 'Jellyfin 用户配置名称',
+          'lines': [
+            {
+              'id': 'jellyfin-line',
+              'name': '主线路',
+              'base_url': 'https://jellyfin.example',
+            },
+          ],
+          'active_line_id': 'jellyfin-line',
+          'project_name': 'jellyfin',
+        },
+        {
+          'id': 'emby-no-session',
+          'name': '未鉴权的 Emby',
+          'lines': [
+            {
+              'id': 'emby-no-session-line',
+              'name': '主线路',
+              'base_url': 'https://emby-no-session.example',
+            },
+          ],
+          'active_line_id': 'emby-no-session-line',
+          'project_name': 'emby',
+        },
+      ]),
+      'server.active_server_id': 'emby-one',
+      'server.profile_cache.v1': jsonEncode({
+        'emby-one': {'name': 'Emby 服务端用户'},
+        'jellyfin-one': {'name': 'Jellyfin 服务端用户'},
+      }),
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPrefsProvider.overrideWithValue(prefs),
+          serverLineProbeCoordinatorProvider.overrideWithValue(
+            ServerLineProbeCoordinator(
+              probe: (line) async => ServerLineProbeResult.success(line, 8),
+            ),
+          ),
+        ],
+        child: _testApp(const ServerSelectionPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Emby 服务端用户'), findsOneWidget);
+    expect(find.text('Emby 用户配置名称'), findsNothing);
+    expect(find.text('Jellyfin 服务端用户'), findsOneWidget);
+    expect(find.text('Jellyfin 用户配置名称'), findsNothing);
+    expect(find.text('未鉴权的 Emby'), findsOneWidget);
+    expect(find.byType(RefreshIndicator), findsOneWidget);
+  });
+
   testWidgets('服务器列表使用双列卡片网格', (tester) async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([

@@ -9,6 +9,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/dio_factory.dart';
 import '../../core/api/server_compatibility.dart';
+import '../../core/auth/auth_session_provider.dart';
 import '../../core/config/server_config.dart';
 import '../../core/config/server_config_provider.dart';
 import '../../core/models/system.dart';
@@ -182,49 +183,58 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
         body: GlowBackground(
           child: SafeArea(
             child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 48, 24, 48),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _LibraryHeader(onChanged: _updateSearchQuery),
-                        const SizedBox(height: 22),
-                        if (servers.isEmpty)
-                          Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 360),
-                              child: _AddServerCard(onTap: _openCreateServer),
-                            ),
-                          )
-                        else ...[
-                          if (visibleServers.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 18),
-                              child: Text(
-                                '没有找到匹配的资源库',
-                                textAlign: TextAlign.center,
-                                style: AppText.meta(context),
+              child: RefreshIndicator(
+                color: colors.accent,
+                onRefresh: _refreshServers,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(24, 48, 24, 48),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _LibraryHeader(onChanged: _updateSearchQuery),
+                          const SizedBox(height: 22),
+                          if (servers.isEmpty)
+                            Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 360,
+                                ),
+                                child: _AddServerCard(onTap: _openCreateServer),
                               ),
+                            )
+                          else ...[
+                            if (visibleServers.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 18,
+                                ),
+                                child: Text(
+                                  '没有找到匹配的资源库',
+                                  textAlign: TextAlign.center,
+                                  style: AppText.meta(context),
+                                ),
+                              ),
+                            _ServerStrip(
+                              servers: visibleServers,
+                              activeServerId: activeServerId,
+                              transition: transition,
+                              profileFor: _profileFor,
+                              cachedProfileFor: _cachedProfileFor,
+                              statusFor: _statusFor,
+                              avatarKeyFor: _avatarKeyFor,
+                              onSelect: (server) =>
+                                  unawaited(_selectServer(server)),
+                              onAdd: _openCreateServer,
+                              onLongPress: (server) =>
+                                  unawaited(_showServerActions(server)),
                             ),
-                          _ServerStrip(
-                            servers: visibleServers,
-                            activeServerId: activeServerId,
-                            transition: transition,
-                            profileFor: _profileFor,
-                            cachedProfileFor: _cachedProfileFor,
-                            statusFor: _statusFor,
-                            avatarKeyFor: _avatarKeyFor,
-                            onSelect: (server) =>
-                                unawaited(_selectServer(server)),
-                            onAdd: _openCreateServer,
-                            onLongPress: (server) =>
-                                unawaited(_showServerActions(server)),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -240,6 +250,25 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     final query = value.trim();
     if (_searchQuery == query) return;
     setState(() => _searchQuery = query);
+  }
+
+  Future<void> _refreshServers() async {
+    _profileFutures.clear();
+    _statusFutures.clear();
+    if (!mounted) return;
+    setState(() {});
+
+    final config = ref.read(serverSelectionConfigProvider);
+    final servers = _filterServers(config?.servers ?? const <ServerProfile>[]);
+    try {
+      await Future.wait<void>([
+        for (final server in servers) _profileFor(server).then<void>((_) {}),
+        for (final server in servers) _statusFor(server).then<void>((_) {}),
+      ]);
+    } catch (_) {
+      // 单台服务器探测失败不应让下拉刷新一直处于加载状态；卡片自身会
+      // 根据 FutureBuilder 的结果显示对应状态。
+    }
   }
 
   List<ServerProfile> _filterServers(List<ServerProfile> servers) {
@@ -420,7 +449,11 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
 
   Future<ServerProfileData?> _loadProfile(ServerProfile server) async {
     final cached = _cachedProfileFor(server);
-    if (server.project != ServerProject.ohMyMedia) {
+    final project = server.project;
+    if (project == ServerProject.emby || project == ServerProject.jellyfin) {
+      return _loadEmbyOrJellyfinProfile(server, cached, project!);
+    }
+    if (project != ServerProject.ohMyMedia) {
       final profile = ServerProfileData(
         name: server.name,
         avatarUrl: server.avatarUrl,
@@ -445,6 +478,60 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     } catch (_) {
       return cached;
     }
+  }
+
+  Future<ServerProfileData?> _loadEmbyOrJellyfinProfile(
+    ServerProfile server,
+    ServerProfileData? cached,
+    ServerProject project,
+  ) async {
+    final sessionRepository = ref
+        .read(authSessionRepositoryProvider)
+        .forServer(server.id, allowLegacyMigration: false);
+    final session = await sessionRepository.load();
+    if (session == null || !session.hasAccessToken) {
+      return cached ?? _fallbackProfile(server);
+    }
+
+    final line = server.activeLine;
+    if (line == null) return cached ?? _fallbackProfile(server);
+
+    try {
+      final client = ApiClient.fromConfig(
+        ServerConfig(
+          baseUrl: line.baseUrl,
+          lines: [line],
+          servers: [server],
+          activeServerId: server.id,
+        ),
+        sessionRepository: sessionRepository,
+      );
+      final userName = project == ServerProject.emby
+          ? await _loadEmbyUserName(client, session.userId)
+          : (await client.jellyfin.currentUser()).name;
+      final normalizedName = userName.trim();
+      if (normalizedName.isEmpty) {
+        return cached ?? _fallbackProfile(server);
+      }
+      final profile = ServerProfileData(
+        name: normalizedName,
+        avatarUrl: server.avatarUrl ?? cached?.avatarUrl,
+      );
+      await ref.read(serverProfileCacheRepoProvider).save(server.id, profile);
+      return profile;
+    } catch (_) {
+      return cached ?? _fallbackProfile(server);
+    }
+  }
+
+  Future<String> _loadEmbyUserName(ApiClient client, String? userId) async {
+    final normalizedUserId = userId?.trim() ?? '';
+    if (normalizedUserId.isEmpty) return '';
+    return (await client.emby.user(normalizedUserId)).name;
+  }
+
+  ServerProfileData _fallbackProfile(ServerProfile server) {
+    return ServerProfileData(name: server.name, avatarUrl: server.avatarUrl);
   }
 }
 
@@ -634,12 +721,15 @@ class _ServerAvatarCard extends StatelessWidget {
       initialData: cachedProfile,
       builder: (context, snapshot) {
         final profile = snapshot.data;
-        // OMM 可以从服务端取得真实名称；其他类型暂不支持该接口，
-        // 始终显示用户配置名称。线路名称不参与卡片标题。
-        final displayName =
-            server.project == ServerProject.ohMyMedia &&
-                profile?.name.trim().isNotEmpty == true
-            ? profile!.name.trim()
+        // OMM、Emby、Jellyfin 可以从服务端取得真实名称；其他类型只显示
+        // 用户配置名称。线路名称不参与卡片标题。
+        final supportsRemoteName =
+            server.project == ServerProject.ohMyMedia ||
+            server.project == ServerProject.emby ||
+            server.project == ServerProject.jellyfin;
+        final profileName = profile?.name.trim() ?? '';
+        final displayName = supportsRemoteName && profileName.isNotEmpty
+            ? profileName
             : server.name;
         final avatarUrl = profile?.avatarUrl ?? server.avatarUrl;
         final line = server.activeLine;
