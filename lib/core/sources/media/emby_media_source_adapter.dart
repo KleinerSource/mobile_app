@@ -1,6 +1,6 @@
 import 'package:omm/core/auth/auth_session_repository.dart';
 import 'package:omm/features/emby/api/emby_api.dart';
-import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_error_mapper.dart';
 import '../common/source_exception.dart';
@@ -160,13 +160,13 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
   });
 
   @override
-  Future<List<EmbyItem>> views() => _call(() async {
+  Future<List<MediaBrowserItem>> views() => _call(() async {
     final uid = await _requireUserId();
     return api.views(uid);
   });
 
   @override
-  Future<List<EmbyItem>> latestMedia({
+  Future<List<MediaBrowserItem>> latestMedia({
     String? parentId,
     String? includeItemTypes,
     int limit = 16,
@@ -181,19 +181,19 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
   });
 
   @override
-  Future<EmbyItemPage> resumeItems({int limit = 12}) => _call(() async {
+  Future<MediaBrowserItemPage> resumeItems({int limit = 12}) => _call(() async {
     final uid = await _requireUserId();
     return api.resumeItems(uid, limit: limit);
   });
 
   @override
-  Future<EmbyItemPage> nextUp({String? parentId, int limit = 12}) => _call(() async {
+  Future<MediaBrowserItemPage> nextUp({String? parentId, int limit = 12}) => _call(() async {
     final uid = await _requireUserId();
     return api.nextUp(uid, parentId: parentId, limit: limit);
   });
 
   @override
-  Future<EmbyItemPage> itemPage({
+  Future<MediaBrowserItemPage> itemPage({
     String? parentId,
     String? includeItemTypes,
     bool? recursive,
@@ -220,31 +220,31 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
   });
 
   @override
-  Future<EmbyItem> getItem(String itemId) => _call(() async {
+  Future<MediaBrowserItem> getItem(String itemId) => _call(() async {
     final uid = await _requireUserId();
     return api.item(uid, itemId);
   });
 
   @override
-  Future<List<EmbyItem>> seasons(String seriesId) => _call(() async {
+  Future<List<MediaBrowserItem>> seasons(String seriesId) => _call(() async {
     final uid = await _requireUserId();
     return api.seasons(uid, seriesId);
   });
 
   @override
-  Future<EmbyItemPage> episodes(String seasonId) => _call(() async {
+  Future<MediaBrowserItemPage> episodes(String seasonId) => _call(() async {
     final uid = await _requireUserId();
     return api.episodes(uid, seasonId);
   });
 
   @override
-  Future<EmbyItem> markFavorite(String itemId, bool favorite) => _call(() async {
+  Future<MediaBrowserItem> markFavorite(String itemId, bool favorite) => _call(() async {
     final uid = await _requireUserId();
     return api.markFavorite(uid, itemId, favorite);
   });
 
   @override
-  Future<EmbyItem> markPlayed(String itemId, bool played) => _call(() async {
+  Future<MediaBrowserItem> markPlayed(String itemId, bool played) => _call(() async {
     final uid = await _requireUserId();
     return api.markPlayed(uid, itemId, played);
   });
@@ -300,13 +300,13 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
     );
   }
 
-  Future<MediaSummary> _summaryFromItem(EmbyItem item) async {
+  Future<MediaSummary> _summaryFromItem(MediaBrowserItem item) async {
     return MediaSummary(
       ref: _refFor(item),
       title: item.name,
       year: item.productionYear,
       rating: item.communityRating,
-      duration: embyTicksToSeconds(item.runTimeTicks),
+      duration: mediaBrowserTicksToSeconds(item.runTimeTicks),
       poster: await imageUrl(item.id, maxWidth: 440),
       thumbnail: item.thumbImageTag == null
           ? null
@@ -328,7 +328,7 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
     );
   }
 
-  Future<MediaDetails> _detailsFromItem(EmbyItem item) async {
+  Future<MediaDetails> _detailsFromItem(MediaBrowserItem item) async {
     return MediaDetails(
       summary: await _summaryFromItem(item),
       overview: item.overview,
@@ -360,24 +360,24 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
     );
   }
 
-  MediaRef _refFor(EmbyItem item) => MediaRef(sourceId: _sourceId, value: item.id);
+  MediaRef _refFor(MediaBrowserItem item) => MediaRef(sourceId: _sourceId, value: item.id);
 
   /// 恢复播放位置：看完（>= 95%）的条目从头开始。
-  int _resumeSeconds(EmbyItem item) {
+  int _resumeSeconds(MediaBrowserItem item) {
     final resume = item.userData.resumeSeconds;
     if (resume <= 0) return 0;
-    final runtime = embyTicksToSeconds(item.runTimeTicks);
+    final runtime = mediaBrowserTicksToSeconds(item.runTimeTicks);
     if (runtime > 0 && resume >= runtime * 0.95) return 0;
     return resume;
   }
 
-  double _resumePercent(EmbyItem item) {
-    final runtime = embyTicksToSeconds(item.runTimeTicks);
+  double _resumePercent(MediaBrowserItem item) {
+    final runtime = mediaBrowserTicksToSeconds(item.runTimeTicks);
     if (runtime <= 0) return 0;
     return (item.userData.resumeSeconds / runtime).clamp(0.0, 1.0);
   }
 
-  List<PlaybackTrack> _tracks(EmbyMediaSourceDto source, String type) {
+  List<PlaybackTrack> _tracks(MediaBrowserMediaSourceDto source, String type) {
     return [
       for (final stream in source.mediaStreams)
         if (stream.type == type && stream.index >= 0)

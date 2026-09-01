@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/features/home/continue_watching_section.dart';
 import 'package:omm/features/jellyfin/jellyfin_playback.dart';
-import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/jellyfin/navigation/jellyfin_navigation.dart';
 import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
 
@@ -11,7 +11,7 @@ import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
 class JellyfinContinueWatchingSection extends ConsumerWidget {
   const JellyfinContinueWatchingSection({super.key, required this.items});
 
-  final List<JellyfinItem> items;
+  final List<MediaBrowserItem> items;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -38,19 +38,19 @@ class JellyfinContinueWatchingSection extends ConsumerWidget {
   }
 }
 
-double _progressOf(JellyfinItem item) {
-  final runtimeMinutes = jellyfinTicksToSeconds(item.runTimeTicks) / 60;
+double _progressOf(MediaBrowserItem item) {
+  final runtimeMinutes = mediaBrowserTicksToSeconds(item.runTimeTicks) / 60;
   if (runtimeMinutes <= 0) return 0;
   return (item.userData.resumeSeconds / 60 / runtimeMinutes).clamp(0.0, 1.0);
 }
 
-int? _minutesLeft(JellyfinItem item) {
-  final runtimeMinutes = jellyfinTicksToSeconds(item.runTimeTicks) / 60;
+int? _minutesLeft(MediaBrowserItem item) {
+  final runtimeMinutes = mediaBrowserTicksToSeconds(item.runTimeTicks) / 60;
   if (runtimeMinutes <= 0) return null;
   return (runtimeMinutes * (1 - _progressOf(item))).round();
 }
 
-String _metaText(JellyfinItem item) {
+String _metaText(MediaBrowserItem item) {
   final parts = <String>[];
   final series = item.seriesName?.trim();
   if (series?.isNotEmpty == true) parts.add(series!);
@@ -64,7 +64,7 @@ String _metaText(JellyfinItem item) {
   } else if (item.productionYear != null) {
     parts.add('${item.productionYear}');
   }
-  final minutes = jellyfinTicksToSeconds(item.runTimeTicks) / 60;
+  final minutes = mediaBrowserTicksToSeconds(item.runTimeTicks) / 60;
   if (minutes > 0) parts.add('${minutes.round()}m');
   return parts.join(' · ');
 }

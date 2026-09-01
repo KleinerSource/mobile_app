@@ -7,7 +7,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/emby/navigation/emby_navigation.dart';
 import 'package:omm/features/emby/providers/emby_providers.dart';
 import 'package:omm/features/emby/widgets/emby_item_card.dart';
@@ -45,7 +45,7 @@ class _EmbyLibraryPageState extends ConsumerState<EmbyLibraryPage> {
     (value: 'CommunityRating', label: '评分'),
   ];
 
-  final _controller = PagingController<int, EmbyItem>(firstPageKey: 0);
+  final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
   Completer<void>? _refreshCompleter;
   String? _parentId;
@@ -88,7 +88,7 @@ class _EmbyLibraryPageState extends ConsumerState<EmbyLibraryPage> {
       );
       if (!mounted || requestSerial != _requestSerial) return;
 
-      final current = _controller.itemList ?? const <EmbyItem>[];
+      final current = _controller.itemList ?? const <MediaBrowserItem>[];
       final seen = <String>{for (final item in current) item.id};
       final items = result.items
           .where((item) => seen.add(item.id))
@@ -334,7 +334,7 @@ class _EmbyLibraryPageState extends ConsumerState<EmbyLibraryPage> {
                         SliverPadding(
                           padding: const EdgeInsets.symmetric(horizontal: 22),
                           sliver: urls.maybeWhen(
-                            data: (value) => PagedSliverGrid<int, EmbyItem>(
+                            data: (value) => PagedSliverGrid<int, MediaBrowserItem>(
                               pagingController: _controller,
                               gridDelegate:
                                   SliverGridDelegateWithFixedCrossAxisCount(
@@ -344,7 +344,7 @@ class _EmbyLibraryPageState extends ConsumerState<EmbyLibraryPage> {
                                     crossAxisSpacing: spacing,
                                   ),
                               builderDelegate:
-                                  PagedChildBuilderDelegate<EmbyItem>(
+                                  PagedChildBuilderDelegate<MediaBrowserItem>(
                                     itemBuilder: (context, item, index) =>
                                         EmbyItemCard(
                                           key: ValueKey(item.id),

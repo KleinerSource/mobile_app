@@ -10,7 +10,7 @@ import 'package:omm/core/sources/media/jellyfin_media_source_adapter.dart';
 import 'package:omm/core/sources/media/media_capabilities.dart';
 import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/features/jellyfin/api/jellyfin_api.dart';
-import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 const _jellyfinSourceId = SourceId('jellyfin');
 const _ommSourceId = SourceId('omm');
@@ -139,7 +139,7 @@ void main() {
     expect(httpAdapter.requests.single, contains('SortOrder=Descending'));
   });
 
-  test('getMovie 返回 MediaDetails 并保留 JellyfinItem payload', () async {
+  test('getMovie 返回 MediaDetails 并保留 MediaBrowserItem payload', () async {
     final adapter = buildAdapter(
       _JellyfinAdapter(
         (_) => {
@@ -163,7 +163,7 @@ void main() {
     expect(details.overview, '简介');
     expect(details.genres, ['科幻']);
     expect(details.actors, ['演员一（主角）']);
-    expect(details.payload, isA<JellyfinItem>());
+    expect(details.payload, isA<MediaBrowserItem>());
   });
 
   test('resolvePlayback 默认返回 static 直链并携带恢复位置', () async {
@@ -209,7 +209,7 @@ void main() {
     expect(descriptor.startAt, 360);
     expect(descriptor.audioTracks.single.label, 'AAC');
     expect(descriptor.subtitleTracks.single.id, '2');
-    expect(descriptor.payload, isA<JellyfinPlaybackInfo>());
+    expect(descriptor.payload, isA<MediaBrowserPlaybackInfo>());
     // PlaybackInfo 携带设备能力声明，服务器才会返回 TranscodingUrl。
     final playbackBody = (httpAdapter.bodies.last as Map)['DeviceProfile'];
     expect(playbackBody, isA<Map>());

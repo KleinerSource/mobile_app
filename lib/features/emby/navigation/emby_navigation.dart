@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/emby/pages/emby_movie_detail_page.dart';
 import 'package:omm/features/emby/pages/emby_series_detail_page.dart';
 
@@ -10,7 +10,7 @@ import 'package:omm/features/emby/pages/emby_series_detail_page.dart';
 ///
 /// 首页、媒体库和搜索都经过同一入口：剧集进入季/集结构页，电影和
 /// 其他可播条目进入详情页，避免各页面对条目类型分流产生差异。
-Future<void> openEmbyItem(BuildContext context, EmbyItem item) async {
+Future<void> openEmbyItem(BuildContext context, MediaBrowserItem item) async {
   final id = item.id.trim();
   if (id.isEmpty) return;
   await Navigator.of(context).push<void>(
@@ -23,6 +23,6 @@ Future<void> openEmbyItem(BuildContext context, EmbyItem item) async {
 }
 
 /// 与页面按钮保持一致的非阻塞导航调用。
-void openEmbyItemUnawaited(BuildContext context, EmbyItem item) {
+void openEmbyItemUnawaited(BuildContext context, MediaBrowserItem item) {
   unawaited(openEmbyItem(context, item));
 }

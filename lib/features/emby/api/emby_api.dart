@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'package:omm/core/api/api_exception.dart';
-import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 /// Emby REST API 客户端。
 ///
@@ -18,7 +18,7 @@ class EmbyApi {
   ///
   /// Emby 要求认证请求携带 X-Emby-Authorization 声明客户端身份；
   /// [deviceId] 必须跨登录稳定，否则服务器会累积大量设备会话。
-  Future<EmbyAuthResult> authenticateByName({
+  Future<MediaBrowserAuthResult> authenticateByName({
     required String username,
     required String password,
     required String deviceId,
@@ -45,7 +45,7 @@ class EmbyApi {
     if (data == null) {
       throw ApiException('登录响应为空');
     }
-    return EmbyAuthResult.fromJson(data);
+    return MediaBrowserAuthResult.fromJson(data);
   }
 
   /// 读取指定用户的资料，用于启动时校验令牌是否仍有效。
@@ -53,7 +53,7 @@ class EmbyApi {
   /// Emby 不提供 Jellyfin 的 /Users/Me（按 token 反查用户，实测返回
   /// 500）；用户 ID 在登录时已随会话持久化，这里按文档端点
   /// /Users/{Id} 直接查询。
-  Future<EmbyUser> user(String userId) async {
+  Future<MediaBrowserUser> user(String userId) async {
     final normalized = userId.trim();
     if (normalized.isEmpty) {
       throw ArgumentError.value(userId, 'userId', '用户 ID 不能为空');
@@ -68,11 +68,11 @@ class EmbyApi {
     if (data == null) {
       throw ApiException('用户信息响应为空');
     }
-    return EmbyUser.fromJson(data);
+    return MediaBrowserUser.fromJson(data);
   }
 
   /// 当前用户可见的媒体库（Views）。
-  Future<List<EmbyItem>> views(String userId) async {
+  Future<List<MediaBrowserItem>> views(String userId) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/emby/Users/${_segment(userId)}/Views',
     );
@@ -80,7 +80,7 @@ class EmbyApi {
   }
 
   /// 通用条目分页查询。参数命名与 Emby 一致，仅保留移动端用到的子集。
-  Future<EmbyItemPage> items(
+  Future<MediaBrowserItemPage> items(
     String userId, {
     String? parentId,
     String? includeItemTypes,
@@ -115,7 +115,7 @@ class EmbyApi {
   }
 
   /// 单条详情，返回完整字段（Overview/People/MediaSources 等）。
-  Future<EmbyItem> item(String userId, String itemId) async {
+  Future<MediaBrowserItem> item(String userId, String itemId) async {
     final normalized = itemId.trim();
     if (normalized.isEmpty) {
       throw ArgumentError.value(itemId, 'itemId', '条目 ID 不能为空');
@@ -127,11 +127,11 @@ class EmbyApi {
     if (data == null) {
       throw ApiException('条目详情响应为空');
     }
-    return EmbyItem.fromJson(data);
+    return MediaBrowserItem.fromJson(data);
   }
 
   /// 首页「最新入库」。该接口直接返回数组，不带分页包装。
-  Future<List<EmbyItem>> latestMedia(
+  Future<List<MediaBrowserItem>> latestMedia(
     String userId, {
     String? parentId,
     String? includeItemTypes,
@@ -148,16 +148,16 @@ class EmbyApi {
       },
     );
     final data = response.data;
-    if (data == null) return const <EmbyItem>[];
+    if (data == null) return const <MediaBrowserItem>[];
     return data
         .whereType<Map>()
-        .map((raw) => EmbyItem.fromJson(Map<String, dynamic>.from(raw)))
+        .map((raw) => MediaBrowserItem.fromJson(Map<String, dynamic>.from(raw)))
         .where((item) => item.id.isNotEmpty)
         .toList(growable: false);
   }
 
   /// 首页「继续观看」（未看完的有进度条目）。
-  Future<EmbyItemPage> resumeItems(String userId, {int limit = 12}) {
+  Future<MediaBrowserItemPage> resumeItems(String userId, {int limit = 12}) {
     return _itemPage(
       '/emby/Users/${_segment(userId)}/Items/Resume',
       <String, dynamic>{
@@ -168,7 +168,7 @@ class EmbyApi {
   }
 
   /// 剧集「下一集」（每个系列取下一待看集）。
-  Future<EmbyItemPage> nextUp(String userId, {String? parentId, int limit = 12}) {
+  Future<MediaBrowserItemPage> nextUp(String userId, {String? parentId, int limit = 12}) {
     return _itemPage(
       '/emby/Shows/NextUp',
       <String, dynamic>{
@@ -180,7 +180,7 @@ class EmbyApi {
   }
 
   /// 剧集的季列表。
-  Future<List<EmbyItem>> seasons(String userId, String seriesId) async {
+  Future<List<MediaBrowserItem>> seasons(String userId, String seriesId) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/emby/Shows/${_segment(seriesId)}/Seasons',
       queryParameters: {'UserId': userId},
@@ -189,7 +189,7 @@ class EmbyApi {
   }
 
   /// 某一季的集列表，按季内序号排序。
-  Future<EmbyItemPage> episodes(String userId, String seasonId) {
+  Future<MediaBrowserItemPage> episodes(String userId, String seasonId) {
     return _itemPage(
       '/emby/Shows/${_segment(seasonId)}/Episodes',
       <String, dynamic>{
@@ -204,7 +204,7 @@ class EmbyApi {
   ///
   /// [deviceProfile] 声明客户端直连/转码能力，服务器据此决定是否返回
   /// TranscodingUrl；不传则服务器视为全能力直连客户端。
-  Future<EmbyPlaybackInfo> playbackInfo(
+  Future<MediaBrowserPlaybackInfo> playbackInfo(
     String userId,
     String itemId, {
     String? mediaSourceId,
@@ -230,11 +230,11 @@ class EmbyApi {
     if (data == null) {
       throw ApiException('播放信息响应为空');
     }
-    return EmbyPlaybackInfo.fromJson(data);
+    return MediaBrowserPlaybackInfo.fromJson(data);
   }
 
   /// 收藏 / 取消收藏，返回带最新 UserData 的条目。
-  Future<EmbyItem> markFavorite(
+  Future<MediaBrowserItem> markFavorite(
     String userId,
     String itemId,
     bool favorite,
@@ -250,11 +250,11 @@ class EmbyApi {
     if (data == null) {
       throw ApiException('收藏状态响应为空');
     }
-    return EmbyItem.fromJson(data);
+    return MediaBrowserItem.fromJson(data);
   }
 
   /// 标记已看 / 未看，返回带最新 UserData 的条目。
-  Future<EmbyItem> markPlayed(
+  Future<MediaBrowserItem> markPlayed(
     String userId,
     String itemId,
     bool played,
@@ -270,7 +270,7 @@ class EmbyApi {
     if (data == null) {
       throw ApiException('观看状态响应为空');
     }
-    return EmbyItem.fromJson(data);
+    return MediaBrowserItem.fromJson(data);
   }
 
   /// 播放会话上报：开始 / 进度 / 结束。
@@ -389,7 +389,7 @@ class EmbyApi {
     );
   }
 
-  Future<EmbyItemPage> _itemPage(
+  Future<MediaBrowserItemPage> _itemPage(
     String path,
     Map<String, dynamic> query,
   ) async {
@@ -401,16 +401,16 @@ class EmbyApi {
     if (data == null) {
       throw ApiException('条目列表响应为空');
     }
-    return EmbyItemPage.fromJson(data);
+    return MediaBrowserItemPage.fromJson(data);
   }
 
-  List<EmbyItem> _items(Map<String, dynamic>? data) {
-    if (data == null) return const <EmbyItem>[];
+  List<MediaBrowserItem> _items(Map<String, dynamic>? data) {
+    if (data == null) return const <MediaBrowserItem>[];
     final rawItems = data['Items'];
-    if (rawItems is! List) return const <EmbyItem>[];
+    if (rawItems is! List) return const <MediaBrowserItem>[];
     return rawItems
         .whereType<Map>()
-        .map((raw) => EmbyItem.fromJson(Map<String, dynamic>.from(raw)))
+        .map((raw) => MediaBrowserItem.fromJson(Map<String, dynamic>.from(raw)))
         .where((item) => item.id.isNotEmpty)
         .toList(growable: false);
   }

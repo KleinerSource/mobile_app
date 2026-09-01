@@ -10,7 +10,7 @@ import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/home/home_libraries_section.dart';
 import 'package:omm/features/home/home_movie_section.dart';
 import 'package:omm/features/home/recommend_carousel.dart';
-import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/jellyfin/navigation/jellyfin_navigation.dart';
 import 'package:omm/features/jellyfin/pages/jellyfin_library_page.dart';
 import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
@@ -42,13 +42,13 @@ class _JellyfinHomePageState extends ConsumerState<JellyfinHomePage> {
     ref.invalidate(jellyfinResumeProvider);
     ref.invalidate(jellyfinNextUpProvider);
     await Future.wait([
-      ref.read(jellyfinLatestProvider.future).catchError((_) => const <JellyfinItem>[]),
-      ref.read(jellyfinResumeProvider.future).catchError((_) => const <JellyfinItem>[]),
-      ref.read(jellyfinNextUpProvider.future).catchError((_) => const <JellyfinItem>[]),
+      ref.read(jellyfinLatestProvider.future).catchError((_) => const <MediaBrowserItem>[]),
+      ref.read(jellyfinResumeProvider.future).catchError((_) => const <MediaBrowserItem>[]),
+      ref.read(jellyfinNextUpProvider.future).catchError((_) => const <MediaBrowserItem>[]),
     ]);
   }
 
-  void _syncHeroArts(List<JellyfinItem> items, JellyfinServerUrls urls) {
+  void _syncHeroArts(List<MediaBrowserItem> items, JellyfinServerUrls urls) {
     final arts = [
       for (final item in items)
         HeroArt(
@@ -107,7 +107,7 @@ class _JellyfinHomePageState extends ConsumerState<JellyfinHomePage> {
               : Stack(
                   children: [
                     Positioned.fill(
-                      child: RecommendCarousel.jellyfin(
+                      child: RecommendCarousel.mediaBrowser(
                         items: items,
                         imageUrlBuilder: (item) => item.backdropImageTags
                             .isEmpty
@@ -189,14 +189,14 @@ class _JellyfinHomeSection extends ConsumerWidget {
   });
 
   final String title;
-  final AsyncValue<List<JellyfinItem>> value;
+  final AsyncValue<List<MediaBrowserItem>> value;
   final VoidCallback onRetry;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final urls = ref.watch(jellyfinServerUrlsProvider);
-    return HomeMovieSection<List<JellyfinItem>, JellyfinItem>(
+    return HomeMovieSection<List<MediaBrowserItem>, MediaBrowserItem>(
       title: title,
       value: value,
       itemsOf: (items) => items,
@@ -276,7 +276,7 @@ class _JellyfinViewLatestRow extends ConsumerWidget {
   const _JellyfinViewLatestRow({required this.serverId, required this.view});
 
   final String serverId;
-  final JellyfinItem view;
+  final MediaBrowserItem view;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -344,7 +344,7 @@ class _JellyfinHeroFallback extends StatelessWidget {
     required this.onRetry,
   });
 
-  final AsyncValue<List<JellyfinItem>> value;
+  final AsyncValue<List<MediaBrowserItem>> value;
   final double height;
   final VoidCallback onRetry;
 

@@ -4,8 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:omm/features/db_online/models/db_online_movie.dart';
-import 'package:omm/features/emby/models/emby_models.dart';
-import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/poster.dart';
@@ -28,18 +27,15 @@ class RecommendCarousel extends StatefulWidget {
   }) : _dbOnlineItems = null,
        _dbOnlineImageUrlBuilder = null,
        _dbOnlineOnTap = null,
-       _embyItems = null,
-       _embyImageUrlBuilder = null,
-       _embyOnTap = null,
-       _jellyfinItems = null,
-       _jellyfinImageUrlBuilder = null,
-       _jellyfinOnTap = null;
+       _mediaBrowserItems = null,
+       _mediaBrowserImageUrlBuilder = null,
+       _mediaBrowserOnTap = null;
 
-  const RecommendCarousel.emby({
+  const RecommendCarousel.mediaBrowser({
     super.key,
-    required List<EmbyItem> items,
-    required String Function(EmbyItem item) imageUrlBuilder,
-    required Future<void> Function(BuildContext context, EmbyItem item)
+    required List<MediaBrowserItem> items,
+    required String Function(MediaBrowserItem item) imageUrlBuilder,
+    required Future<void> Function(BuildContext context, MediaBrowserItem item)
     onItemTap,
     this.pagePosition,
   }) : items = const <MovieListItem>[],
@@ -48,32 +44,9 @@ class RecommendCarousel extends StatefulWidget {
        _dbOnlineItems = null,
        _dbOnlineImageUrlBuilder = null,
        _dbOnlineOnTap = null,
-       _embyItems = items,
-       _embyImageUrlBuilder = imageUrlBuilder,
-       _embyOnTap = onItemTap,
-       _jellyfinItems = null,
-       _jellyfinImageUrlBuilder = null,
-       _jellyfinOnTap = null;
-
-  const RecommendCarousel.jellyfin({
-    super.key,
-    required List<JellyfinItem> items,
-    required String Function(JellyfinItem item) imageUrlBuilder,
-    required Future<void> Function(BuildContext context, JellyfinItem item)
-    onItemTap,
-    this.pagePosition,
-  }) : items = const <MovieListItem>[],
-       urlBuilder = null,
-       onMovieReturned = _noopMovieReturned,
-       _dbOnlineItems = null,
-       _dbOnlineImageUrlBuilder = null,
-       _dbOnlineOnTap = null,
-       _embyItems = null,
-       _embyImageUrlBuilder = null,
-       _embyOnTap = null,
-       _jellyfinItems = items,
-       _jellyfinImageUrlBuilder = imageUrlBuilder,
-       _jellyfinOnTap = onItemTap;
+       _mediaBrowserItems = items,
+       _mediaBrowserImageUrlBuilder = imageUrlBuilder,
+       _mediaBrowserOnTap = onItemTap;
 
   const RecommendCarousel.dbOnline({
     super.key,
@@ -88,12 +61,9 @@ class RecommendCarousel extends StatefulWidget {
        _dbOnlineItems = items,
        _dbOnlineImageUrlBuilder = imageUrlBuilder,
        _dbOnlineOnTap = onMovieTap,
-       _embyItems = null,
-       _embyImageUrlBuilder = null,
-       _embyOnTap = null,
-       _jellyfinItems = null,
-       _jellyfinImageUrlBuilder = null,
-       _jellyfinOnTap = null;
+       _mediaBrowserItems = null,
+       _mediaBrowserImageUrlBuilder = null,
+       _mediaBrowserOnTap = null;
 
   final List<MovieListItem> items;
   final String Function(String uuid)? urlBuilder;
@@ -103,13 +73,10 @@ class RecommendCarousel extends StatefulWidget {
   final String Function(DbOnlineMovie movie)? _dbOnlineImageUrlBuilder;
   final Future<void> Function(BuildContext context, DbOnlineMovie movie)?
   _dbOnlineOnTap;
-  final List<EmbyItem>? _embyItems;
-  final String Function(EmbyItem item)? _embyImageUrlBuilder;
-  final Future<void> Function(BuildContext context, EmbyItem item)? _embyOnTap;
-  final List<JellyfinItem>? _jellyfinItems;
-  final String Function(JellyfinItem item)? _jellyfinImageUrlBuilder;
-  final Future<void> Function(BuildContext context, JellyfinItem item)?
-  _jellyfinOnTap;
+  final List<MediaBrowserItem>? _mediaBrowserItems;
+  final String Function(MediaBrowserItem item)? _mediaBrowserImageUrlBuilder;
+  final Future<void> Function(BuildContext context, MediaBrowserItem item)?
+  _mediaBrowserOnTap;
 
   static void _noopMovieReturned(MovieDataChanges _) {}
 
@@ -270,46 +237,25 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
   }
 
   List<_CarouselItem> _itemsFor(RecommendCarousel value) {
-    final jellyfinItems = value._jellyfinItems;
-    final jellyfinImageBuilder = value._jellyfinImageUrlBuilder;
-    final jellyfinOnTap = value._jellyfinOnTap;
-    if (jellyfinItems != null &&
-        jellyfinImageBuilder != null &&
-        jellyfinOnTap != null) {
+    final mediaBrowserItems = value._mediaBrowserItems;
+    final mediaBrowserImageBuilder = value._mediaBrowserImageUrlBuilder;
+    final mediaBrowserOnTap = value._mediaBrowserOnTap;
+    if (mediaBrowserItems != null &&
+        mediaBrowserImageBuilder != null &&
+        mediaBrowserOnTap != null) {
       return [
-        for (final item in jellyfinItems)
+        for (final item in mediaBrowserItems)
           _CarouselItem(
             key: item.id,
             title: item.name,
             code: item.type,
-            imageUrl: _nullableUrl(jellyfinImageBuilder(item)),
+            imageUrl: _nullableUrl(mediaBrowserImageBuilder(item)),
             rating: item.communityRating,
             runtime: item.runtimeMinutes,
             year: item.productionYear,
             privacyId: item.id,
             canPlay: item.isPlayable,
-            onTap: (context) => jellyfinOnTap(context, item),
-          ),
-      ];
-    }
-
-    final embyItems = value._embyItems;
-    final embyImageBuilder = value._embyImageUrlBuilder;
-    final embyOnTap = value._embyOnTap;
-    if (embyItems != null && embyImageBuilder != null && embyOnTap != null) {
-      return [
-        for (final item in embyItems)
-          _CarouselItem(
-            key: item.id,
-            title: item.name,
-            code: item.type,
-            imageUrl: _nullableUrl(embyImageBuilder(item)),
-            rating: item.communityRating,
-            runtime: item.runtimeMinutes,
-            year: item.productionYear,
-            privacyId: item.id,
-            canPlay: item.isPlayable,
-            onTap: (context) => embyOnTap(context, item),
+            onTap: (context) => mediaBrowserOnTap(context, item),
           ),
       ];
     }

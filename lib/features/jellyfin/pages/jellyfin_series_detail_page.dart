@@ -5,7 +5,7 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/jellyfin/jellyfin_playback.dart';
-import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
@@ -42,7 +42,7 @@ class _JellyfinSeriesDetailPageState
     super.dispose();
   }
 
-  void _syncHeroArt(JellyfinItem series, JellyfinServerUrls? urls) {
+  void _syncHeroArt(MediaBrowserItem series, JellyfinServerUrls? urls) {
     final url = urls == null
         ? ''
         : series.backdropImageTags.isEmpty
@@ -58,7 +58,7 @@ class _JellyfinSeriesDetailPageState
     _heroArts.value = [art];
   }
 
-  Future<void> _toggleFavorite(JellyfinItem series) async {
+  Future<void> _toggleFavorite(MediaBrowserItem series) async {
     if (_actionBusy) return;
     setState(() => _actionBusy = true);
     try {
@@ -299,7 +299,7 @@ class _SeasonSection extends ConsumerWidget {
   }
 }
 
-String _seasonLabel(JellyfinItem season) {
+String _seasonLabel(MediaBrowserItem season) {
   final index = season.indexNumber;
   if (index == null) return season.name;
   if (index == 0) return '特别篇';
@@ -432,7 +432,7 @@ class _EpisodeTile extends StatelessWidget {
     this.onLongPress,
   });
 
-  final JellyfinItem episode;
+  final MediaBrowserItem episode;
   final String? imageUrl;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
@@ -542,8 +542,8 @@ class _EpisodeTile extends StatelessWidget {
     );
   }
 
-  double _resumePct(JellyfinItem episode) {
-    final runtime = jellyfinTicksToSeconds(episode.runTimeTicks);
+  double _resumePct(MediaBrowserItem episode) {
+    final runtime = mediaBrowserTicksToSeconds(episode.runTimeTicks);
     if (runtime <= 0) return 0;
     return (episode.userData.resumeSeconds / runtime).clamp(0.0, 1.0);
   }

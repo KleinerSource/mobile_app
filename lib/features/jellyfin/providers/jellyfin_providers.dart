@@ -7,7 +7,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/features/jellyfin/api/jellyfin_api.dart';
-import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/jellyfin/repositories/jellyfin_media_repository.dart';
 
 final jellyfinMediaRepositoryProvider = Provider<JellyfinMediaRepository>((ref) {
@@ -74,7 +74,7 @@ final jellyfinServerUrlsProvider = FutureProvider<JellyfinServerUrls>((ref) asyn
 });
 
 /// 媒体库（Views）。
-final jellyfinViewsProvider = FutureProvider.autoDispose<List<JellyfinItem>>((
+final jellyfinViewsProvider = FutureProvider.autoDispose<List<MediaBrowserItem>>((
   ref,
 ) async {
   return ref.watch(jellyfinMediaRepositoryProvider).views();
@@ -110,7 +110,7 @@ bool isSkippableViewType(String? collectionType) {
 
 /// 某个媒体库的「最近添加」横排。
 final jellyfinViewLatestProvider = FutureProvider.autoDispose
-    .family<List<JellyfinItem>, JellyfinViewLatestRequest>((ref, request) async {
+    .family<List<MediaBrowserItem>, JellyfinViewLatestRequest>((ref, request) async {
       _checkServerScope(ref, request.serverId);
       final page = await ref
           .watch(jellyfinMediaRepositoryProvider)
@@ -148,14 +148,14 @@ class JellyfinViewLatestRequest {
 }
 
 /// 首页「最新入库」。
-final jellyfinLatestProvider = FutureProvider.autoDispose<List<JellyfinItem>>((
+final jellyfinLatestProvider = FutureProvider.autoDispose<List<MediaBrowserItem>>((
   ref,
 ) async {
   return ref.watch(jellyfinMediaRepositoryProvider).latestMedia(limit: 20);
 });
 
 /// 首页「继续观看」。
-final jellyfinResumeProvider = FutureProvider.autoDispose<List<JellyfinItem>>((
+final jellyfinResumeProvider = FutureProvider.autoDispose<List<MediaBrowserItem>>((
   ref,
 ) async {
   final page = await ref.watch(jellyfinMediaRepositoryProvider).resumeItems();
@@ -163,7 +163,7 @@ final jellyfinResumeProvider = FutureProvider.autoDispose<List<JellyfinItem>>((
 });
 
 /// 首页剧集「接下来观看」。
-final jellyfinNextUpProvider = FutureProvider.autoDispose<List<JellyfinItem>>((
+final jellyfinNextUpProvider = FutureProvider.autoDispose<List<MediaBrowserItem>>((
   ref,
 ) async {
   final page = await ref.watch(jellyfinMediaRepositoryProvider).nextUp();
@@ -172,7 +172,7 @@ final jellyfinNextUpProvider = FutureProvider.autoDispose<List<JellyfinItem>>((
 
 /// 库浏览/搜索共用的分页查询。
 final jellyfinItemPageProvider = FutureProvider.autoDispose
-    .family<JellyfinItemPage, JellyfinItemPageRequest>((ref, request) {
+    .family<MediaBrowserItemPage, JellyfinItemPageRequest>((ref, request) {
       _checkServerScope(ref, request.serverId);
       return ref
           .watch(jellyfinMediaRepositoryProvider)
@@ -191,21 +191,21 @@ final jellyfinItemPageProvider = FutureProvider.autoDispose
 
 /// 条目详情（电影/剧集通用）。
 final jellyfinItemDetailProvider = FutureProvider.autoDispose
-    .family<JellyfinItem, JellyfinItemDetailRequest>((ref, request) {
+    .family<MediaBrowserItem, JellyfinItemDetailRequest>((ref, request) {
       _checkServerScope(ref, request.serverId);
       return ref.watch(jellyfinMediaRepositoryProvider).getItem(request.itemId);
     });
 
 /// 剧集的季列表。
 final jellyfinSeasonsProvider = FutureProvider.autoDispose
-    .family<List<JellyfinItem>, JellyfinSeasonsRequest>((ref, request) {
+    .family<List<MediaBrowserItem>, JellyfinSeasonsRequest>((ref, request) {
       _checkServerScope(ref, request.serverId);
       return ref.watch(jellyfinMediaRepositoryProvider).seasons(request.seriesId);
     });
 
 /// 某一季的集列表。
 final jellyfinEpisodesProvider = FutureProvider.autoDispose
-    .family<JellyfinItemPage, JellyfinEpisodesRequest>((ref, request) {
+    .family<MediaBrowserItemPage, JellyfinEpisodesRequest>((ref, request) {
       _checkServerScope(ref, request.serverId);
       return ref.watch(jellyfinMediaRepositoryProvider).episodes(request.seasonId);
     });

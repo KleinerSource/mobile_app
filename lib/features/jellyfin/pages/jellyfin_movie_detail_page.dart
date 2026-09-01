@@ -5,7 +5,7 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/jellyfin/jellyfin_playback.dart';
-import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
@@ -74,7 +74,7 @@ class _ErrorBody extends StatelessWidget {
 class _JellyfinDetailBody extends ConsumerStatefulWidget {
   const _JellyfinDetailBody({required this.item});
 
-  final JellyfinItem item;
+  final MediaBrowserItem item;
 
   @override
   ConsumerState<_JellyfinDetailBody> createState() => _JellyfinDetailBodyState();
@@ -263,7 +263,7 @@ class _JellyfinDetailBodyState extends ConsumerState<_JellyfinDetailBody> {
     );
   }
 
-  bool _hasDetails(JellyfinItem item) {
+  bool _hasDetails(MediaBrowserItem item) {
     if (item.seriesName?.trim().isNotEmpty == true) return true;
     final source = item.mediaSources.isEmpty ? null : item.mediaSources.first;
     if (source == null) return false;
@@ -446,7 +446,7 @@ class _ChipSection extends StatelessWidget {
 class _DetailsTable extends StatelessWidget {
   const _DetailsTable({required this.item});
 
-  final JellyfinItem item;
+  final MediaBrowserItem item;
 
   @override
   Widget build(BuildContext context) {

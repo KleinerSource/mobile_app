@@ -7,7 +7,7 @@ import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/features/emby/api/emby_api.dart';
-import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/emby/repositories/emby_media_repository.dart';
 
 final embyMediaRepositoryProvider = Provider<EmbyMediaRepository>((ref) {
@@ -74,7 +74,7 @@ final embyServerUrlsProvider = FutureProvider<EmbyServerUrls>((ref) async {
 });
 
 /// 媒体库（Views）。
-final embyViewsProvider = FutureProvider.autoDispose<List<EmbyItem>>((
+final embyViewsProvider = FutureProvider.autoDispose<List<MediaBrowserItem>>((
   ref,
 ) async {
   return ref.watch(embyMediaRepositoryProvider).views();
@@ -110,7 +110,7 @@ bool isSkippableViewType(String? collectionType) {
 
 /// 某个媒体库的「最近添加」横排。
 final embyViewLatestProvider = FutureProvider.autoDispose
-    .family<List<EmbyItem>, EmbyViewLatestRequest>((ref, request) async {
+    .family<List<MediaBrowserItem>, EmbyViewLatestRequest>((ref, request) async {
       _checkServerScope(ref, request.serverId);
       final page = await ref
           .watch(embyMediaRepositoryProvider)
@@ -148,14 +148,14 @@ class EmbyViewLatestRequest {
 }
 
 /// 首页「最新入库」。
-final embyLatestProvider = FutureProvider.autoDispose<List<EmbyItem>>((
+final embyLatestProvider = FutureProvider.autoDispose<List<MediaBrowserItem>>((
   ref,
 ) async {
   return ref.watch(embyMediaRepositoryProvider).latestMedia(limit: 20);
 });
 
 /// 首页「继续观看」。
-final embyResumeProvider = FutureProvider.autoDispose<List<EmbyItem>>((
+final embyResumeProvider = FutureProvider.autoDispose<List<MediaBrowserItem>>((
   ref,
 ) async {
   final page = await ref.watch(embyMediaRepositoryProvider).resumeItems();
@@ -163,7 +163,7 @@ final embyResumeProvider = FutureProvider.autoDispose<List<EmbyItem>>((
 });
 
 /// 首页剧集「接下来观看」。
-final embyNextUpProvider = FutureProvider.autoDispose<List<EmbyItem>>((
+final embyNextUpProvider = FutureProvider.autoDispose<List<MediaBrowserItem>>((
   ref,
 ) async {
   final page = await ref.watch(embyMediaRepositoryProvider).nextUp();
@@ -172,7 +172,7 @@ final embyNextUpProvider = FutureProvider.autoDispose<List<EmbyItem>>((
 
 /// 库浏览/搜索共用的分页查询。
 final embyItemPageProvider = FutureProvider.autoDispose
-    .family<EmbyItemPage, EmbyItemPageRequest>((ref, request) {
+    .family<MediaBrowserItemPage, EmbyItemPageRequest>((ref, request) {
       _checkServerScope(ref, request.serverId);
       return ref
           .watch(embyMediaRepositoryProvider)
@@ -191,21 +191,21 @@ final embyItemPageProvider = FutureProvider.autoDispose
 
 /// 条目详情（电影/剧集通用）。
 final embyItemDetailProvider = FutureProvider.autoDispose
-    .family<EmbyItem, EmbyItemDetailRequest>((ref, request) {
+    .family<MediaBrowserItem, EmbyItemDetailRequest>((ref, request) {
       _checkServerScope(ref, request.serverId);
       return ref.watch(embyMediaRepositoryProvider).getItem(request.itemId);
     });
 
 /// 剧集的季列表。
 final embySeasonsProvider = FutureProvider.autoDispose
-    .family<List<EmbyItem>, EmbySeasonsRequest>((ref, request) {
+    .family<List<MediaBrowserItem>, EmbySeasonsRequest>((ref, request) {
       _checkServerScope(ref, request.serverId);
       return ref.watch(embyMediaRepositoryProvider).seasons(request.seriesId);
     });
 
 /// 某一季的集列表。
 final embyEpisodesProvider = FutureProvider.autoDispose
-    .family<EmbyItemPage, EmbyEpisodesRequest>((ref, request) {
+    .family<MediaBrowserItemPage, EmbyEpisodesRequest>((ref, request) {
       _checkServerScope(ref, request.serverId);
       return ref.watch(embyMediaRepositoryProvider).episodes(request.seasonId);
     });

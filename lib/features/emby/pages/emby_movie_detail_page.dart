@@ -5,7 +5,7 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/emby/emby_playback.dart';
-import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/emby/providers/emby_providers.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
@@ -72,7 +72,7 @@ class _ErrorBody extends StatelessWidget {
 class _EmbyDetailBody extends ConsumerStatefulWidget {
   const _EmbyDetailBody({required this.item});
 
-  final EmbyItem item;
+  final MediaBrowserItem item;
 
   @override
   ConsumerState<_EmbyDetailBody> createState() => _EmbyDetailBodyState();
@@ -264,7 +264,7 @@ class _EmbyDetailBodyState extends ConsumerState<_EmbyDetailBody> {
     );
   }
 
-  bool _hasDetails(EmbyItem item) {
+  bool _hasDetails(MediaBrowserItem item) {
     if (item.seriesName?.trim().isNotEmpty == true) return true;
     final source = item.mediaSources.isEmpty ? null : item.mediaSources.first;
     if (source == null) return false;
@@ -447,7 +447,7 @@ class _ChipSection extends StatelessWidget {
 class _DetailsTable extends StatelessWidget {
   const _DetailsTable({required this.item});
 
-  final EmbyItem item;
+  final MediaBrowserItem item;
 
   @override
   Widget build(BuildContext context) {

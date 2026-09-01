@@ -5,7 +5,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/jellyfin/navigation/jellyfin_navigation.dart';
 import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
 import 'package:omm/features/jellyfin/widgets/jellyfin_item_card.dart';
@@ -201,7 +201,7 @@ class _JellyfinSearchResultsState
     extends ConsumerState<_JellyfinSearchResults> {
   static const _pageSize = 24;
 
-  final _pagingController = PagingController<int, JellyfinItem>(
+  final _pagingController = PagingController<int, MediaBrowserItem>(
     firstPageKey: 0,
   );
   final _scrollController = ScrollController();
@@ -237,7 +237,7 @@ class _JellyfinSearchResultsState
       );
       if (!mounted) return;
 
-      final current = _pagingController.itemList ?? const <JellyfinItem>[];
+      final current = _pagingController.itemList ?? const <MediaBrowserItem>[];
       final seen = <String>{for (final item in current) item.id};
       final items = result.items
           .where((item) => seen.add(item.id))
@@ -267,7 +267,7 @@ class _JellyfinSearchResultsState
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
-          sliver: PagedSliverGrid<int, JellyfinItem>(
+          sliver: PagedSliverGrid<int, MediaBrowserItem>(
             pagingController: _pagingController,
             showNoMoreItemsIndicatorAsGridChild: false,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -276,7 +276,7 @@ class _JellyfinSearchResultsState
               crossAxisSpacing: 10,
               mainAxisSpacing: 14,
             ),
-            builderDelegate: PagedChildBuilderDelegate<JellyfinItem>(
+            builderDelegate: PagedChildBuilderDelegate<MediaBrowserItem>(
               itemBuilder: (context, item, _) => urls.maybeWhen(
                 data: (value) => JellyfinItemCard(
                   key: ValueKey(item.id),

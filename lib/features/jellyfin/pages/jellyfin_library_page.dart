@@ -7,7 +7,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/jellyfin/navigation/jellyfin_navigation.dart';
 import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
 import 'package:omm/features/jellyfin/widgets/jellyfin_item_card.dart';
@@ -46,7 +46,7 @@ class _JellyfinLibraryPageState extends ConsumerState<JellyfinLibraryPage> {
     (value: 'CommunityRating', label: '评分'),
   ];
 
-  final _controller = PagingController<int, JellyfinItem>(firstPageKey: 0);
+  final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
   Completer<void>? _refreshCompleter;
   String? _parentId;
@@ -89,7 +89,7 @@ class _JellyfinLibraryPageState extends ConsumerState<JellyfinLibraryPage> {
       );
       if (!mounted || requestSerial != _requestSerial) return;
 
-      final current = _controller.itemList ?? const <JellyfinItem>[];
+      final current = _controller.itemList ?? const <MediaBrowserItem>[];
       final seen = <String>{for (final item in current) item.id};
       final items = result.items
           .where((item) => seen.add(item.id))
@@ -335,7 +335,7 @@ class _JellyfinLibraryPageState extends ConsumerState<JellyfinLibraryPage> {
                         SliverPadding(
                           padding: const EdgeInsets.symmetric(horizontal: 22),
                           sliver: urls.maybeWhen(
-                            data: (value) => PagedSliverGrid<int, JellyfinItem>(
+                            data: (value) => PagedSliverGrid<int, MediaBrowserItem>(
                               pagingController: _controller,
                               gridDelegate:
                                   SliverGridDelegateWithFixedCrossAxisCount(
@@ -345,7 +345,7 @@ class _JellyfinLibraryPageState extends ConsumerState<JellyfinLibraryPage> {
                                     crossAxisSpacing: spacing,
                                   ),
                               builderDelegate:
-                                  PagedChildBuilderDelegate<JellyfinItem>(
+                                  PagedChildBuilderDelegate<MediaBrowserItem>(
                                     itemBuilder: (context, item, index) =>
                                         JellyfinItemCard(
                                           key: ValueKey(item.id),

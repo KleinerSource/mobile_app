@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'package:omm/core/api/api_exception.dart';
-import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 /// Jellyfin REST API 客户端。
 ///
@@ -19,7 +19,7 @@ class JellyfinApi {
   ///
   /// Jellyfin 要求认证请求以标准 Authorization 头声明客户端身份；
   /// [deviceId] 必须跨登录稳定，否则服务器会累积大量设备会话。
-  Future<JellyfinAuthResult> authenticateByName({
+  Future<MediaBrowserAuthResult> authenticateByName({
     required String username,
     required String password,
     required String deviceId,
@@ -46,11 +46,11 @@ class JellyfinApi {
     if (data == null) {
       throw ApiException('登录响应为空');
     }
-    return JellyfinAuthResult.fromJson(data);
+    return MediaBrowserAuthResult.fromJson(data);
   }
 
   /// 用当前令牌取登录用户，用于启动时校验会话有效性。
-  Future<JellyfinUser> currentUser() async {
+  Future<MediaBrowserUser> currentUser() async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/Users/Me',
       options: Options(
@@ -61,11 +61,11 @@ class JellyfinApi {
     if (data == null) {
       throw ApiException('用户信息响应为空');
     }
-    return JellyfinUser.fromJson(data);
+    return MediaBrowserUser.fromJson(data);
   }
 
   /// 当前用户可见的媒体库（Views）。
-  Future<List<JellyfinItem>> views(String userId) async {
+  Future<List<MediaBrowserItem>> views(String userId) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/Users/${_segment(userId)}/Views',
     );
@@ -73,7 +73,7 @@ class JellyfinApi {
   }
 
   /// 通用条目分页查询。参数命名与 Jellyfin 一致，仅保留移动端用到的子集。
-  Future<JellyfinItemPage> items(
+  Future<MediaBrowserItemPage> items(
     String userId, {
     String? parentId,
     String? includeItemTypes,
@@ -108,7 +108,7 @@ class JellyfinApi {
   }
 
   /// 单条详情，返回完整字段（Overview/People/MediaSources 等）。
-  Future<JellyfinItem> item(String userId, String itemId) async {
+  Future<MediaBrowserItem> item(String userId, String itemId) async {
     final normalized = itemId.trim();
     if (normalized.isEmpty) {
       throw ArgumentError.value(itemId, 'itemId', '条目 ID 不能为空');
@@ -120,11 +120,11 @@ class JellyfinApi {
     if (data == null) {
       throw ApiException('条目详情响应为空');
     }
-    return JellyfinItem.fromJson(data);
+    return MediaBrowserItem.fromJson(data);
   }
 
   /// 首页「最新入库」。该接口直接返回数组，不带分页包装。
-  Future<List<JellyfinItem>> latestMedia(
+  Future<List<MediaBrowserItem>> latestMedia(
     String userId, {
     String? parentId,
     String? includeItemTypes,
@@ -141,16 +141,16 @@ class JellyfinApi {
       },
     );
     final data = response.data;
-    if (data == null) return const <JellyfinItem>[];
+    if (data == null) return const <MediaBrowserItem>[];
     return data
         .whereType<Map>()
-        .map((raw) => JellyfinItem.fromJson(Map<String, dynamic>.from(raw)))
+        .map((raw) => MediaBrowserItem.fromJson(Map<String, dynamic>.from(raw)))
         .where((item) => item.id.isNotEmpty)
         .toList(growable: false);
   }
 
   /// 首页「继续观看」（未看完的有进度条目）。
-  Future<JellyfinItemPage> resumeItems(String userId, {int limit = 12}) {
+  Future<MediaBrowserItemPage> resumeItems(String userId, {int limit = 12}) {
     return _itemPage(
       '/Users/${_segment(userId)}/Items/Resume',
       <String, dynamic>{
@@ -161,7 +161,7 @@ class JellyfinApi {
   }
 
   /// 剧集「下一集」（每个系列取下一待看集）。
-  Future<JellyfinItemPage> nextUp(String userId, {String? parentId, int limit = 12}) {
+  Future<MediaBrowserItemPage> nextUp(String userId, {String? parentId, int limit = 12}) {
     return _itemPage(
       '/Shows/NextUp',
       <String, dynamic>{
@@ -173,7 +173,7 @@ class JellyfinApi {
   }
 
   /// 剧集的季列表。
-  Future<List<JellyfinItem>> seasons(String userId, String seriesId) async {
+  Future<List<MediaBrowserItem>> seasons(String userId, String seriesId) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/Shows/${_segment(seriesId)}/Seasons',
       queryParameters: {'UserId': userId},
@@ -182,7 +182,7 @@ class JellyfinApi {
   }
 
   /// 某一季的集列表，按季内序号排序。
-  Future<JellyfinItemPage> episodes(String userId, String seasonId) {
+  Future<MediaBrowserItemPage> episodes(String userId, String seasonId) {
     return _itemPage(
       '/Shows/${_segment(seasonId)}/Episodes',
       <String, dynamic>{
@@ -197,7 +197,7 @@ class JellyfinApi {
   ///
   /// [deviceProfile] 声明客户端直连/转码能力，服务器据此决定是否返回
   /// TranscodingUrl；不传则服务器视为全能力直连客户端。
-  Future<JellyfinPlaybackInfo> playbackInfo(
+  Future<MediaBrowserPlaybackInfo> playbackInfo(
     String userId,
     String itemId, {
     String? mediaSourceId,
@@ -223,11 +223,11 @@ class JellyfinApi {
     if (data == null) {
       throw ApiException('播放信息响应为空');
     }
-    return JellyfinPlaybackInfo.fromJson(data);
+    return MediaBrowserPlaybackInfo.fromJson(data);
   }
 
   /// 收藏 / 取消收藏，返回带最新 UserData 的条目。
-  Future<JellyfinItem> markFavorite(
+  Future<MediaBrowserItem> markFavorite(
     String userId,
     String itemId,
     bool favorite,
@@ -243,11 +243,11 @@ class JellyfinApi {
     if (data == null) {
       throw ApiException('收藏状态响应为空');
     }
-    return JellyfinItem.fromJson(data);
+    return MediaBrowserItem.fromJson(data);
   }
 
   /// 标记已看 / 未看，返回带最新 UserData 的条目。
-  Future<JellyfinItem> markPlayed(
+  Future<MediaBrowserItem> markPlayed(
     String userId,
     String itemId,
     bool played,
@@ -263,7 +263,7 @@ class JellyfinApi {
     if (data == null) {
       throw ApiException('观看状态响应为空');
     }
-    return JellyfinItem.fromJson(data);
+    return MediaBrowserItem.fromJson(data);
   }
 
   /// 播放会话上报：开始 / 进度 / 结束。
@@ -382,7 +382,7 @@ class JellyfinApi {
     );
   }
 
-  Future<JellyfinItemPage> _itemPage(
+  Future<MediaBrowserItemPage> _itemPage(
     String path,
     Map<String, dynamic> query,
   ) async {
@@ -394,16 +394,16 @@ class JellyfinApi {
     if (data == null) {
       throw ApiException('条目列表响应为空');
     }
-    return JellyfinItemPage.fromJson(data);
+    return MediaBrowserItemPage.fromJson(data);
   }
 
-  List<JellyfinItem> _items(Map<String, dynamic>? data) {
-    if (data == null) return const <JellyfinItem>[];
+  List<MediaBrowserItem> _items(Map<String, dynamic>? data) {
+    if (data == null) return const <MediaBrowserItem>[];
     final rawItems = data['Items'];
-    if (rawItems is! List) return const <JellyfinItem>[];
+    if (rawItems is! List) return const <MediaBrowserItem>[];
     return rawItems
         .whereType<Map>()
-        .map((raw) => JellyfinItem.fromJson(Map<String, dynamic>.from(raw)))
+        .map((raw) => MediaBrowserItem.fromJson(Map<String, dynamic>.from(raw)))
         .where((item) => item.id.isNotEmpty)
         .toList(growable: false);
   }

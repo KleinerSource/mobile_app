@@ -1,5 +1,5 @@
 import 'package:omm/core/sources/media/jellyfin_media_source.dart';
-import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 /// Jellyfin Feature 的 Source 门面。
 ///
@@ -12,9 +12,9 @@ class JellyfinMediaRepository {
 
   Future<String?> userId() => _source.userId();
 
-  Future<List<JellyfinItem>> views() => _source.views();
+  Future<List<MediaBrowserItem>> views() => _source.views();
 
-  Future<List<JellyfinItem>> latestMedia({
+  Future<List<MediaBrowserItem>> latestMedia({
     String? parentId,
     String? includeItemTypes,
     int limit = 16,
@@ -24,13 +24,13 @@ class JellyfinMediaRepository {
     limit: limit,
   );
 
-  Future<JellyfinItemPage> resumeItems({int limit = 12}) =>
+  Future<MediaBrowserItemPage> resumeItems({int limit = 12}) =>
       _source.resumeItems(limit: limit);
 
-  Future<JellyfinItemPage> nextUp({String? parentId, int limit = 12}) =>
+  Future<MediaBrowserItemPage> nextUp({String? parentId, int limit = 12}) =>
       _source.nextUp(parentId: parentId, limit: limit);
 
-  Future<JellyfinItemPage> itemPage({
+  Future<MediaBrowserItemPage> itemPage({
     String? parentId,
     String? includeItemTypes,
     bool? recursive,
@@ -52,18 +52,18 @@ class JellyfinMediaRepository {
     isFavorite: isFavorite,
   );
 
-  Future<JellyfinItem> getItem(String itemId) => _source.getItem(itemId);
+  Future<MediaBrowserItem> getItem(String itemId) => _source.getItem(itemId);
 
-  Future<List<JellyfinItem>> seasons(String seriesId) =>
+  Future<List<MediaBrowserItem>> seasons(String seriesId) =>
       _source.seasons(seriesId);
 
-  Future<JellyfinItemPage> episodes(String seasonId) =>
+  Future<MediaBrowserItemPage> episodes(String seasonId) =>
       _source.episodes(seasonId);
 
-  Future<JellyfinItem> markFavorite(String itemId, bool favorite) =>
+  Future<MediaBrowserItem> markFavorite(String itemId, bool favorite) =>
       _source.markFavorite(itemId, favorite);
 
-  Future<JellyfinItem> markPlayed(String itemId, bool played) =>
+  Future<MediaBrowserItem> markPlayed(String itemId, bool played) =>
       _source.markPlayed(itemId, played);
 
   Future<void> reportPlaybackStart({

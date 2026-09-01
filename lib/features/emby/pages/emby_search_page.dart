@@ -5,7 +5,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/emby/navigation/emby_navigation.dart';
 import 'package:omm/features/emby/providers/emby_providers.dart';
 import 'package:omm/features/emby/widgets/emby_item_card.dart';
@@ -199,7 +199,7 @@ class _EmbySearchResults extends ConsumerStatefulWidget {
 class _EmbySearchResultsState extends ConsumerState<_EmbySearchResults> {
   static const _pageSize = 24;
 
-  final _pagingController = PagingController<int, EmbyItem>(firstPageKey: 0);
+  final _pagingController = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
 
   @override
@@ -233,7 +233,7 @@ class _EmbySearchResultsState extends ConsumerState<_EmbySearchResults> {
       );
       if (!mounted) return;
 
-      final current = _pagingController.itemList ?? const <EmbyItem>[];
+      final current = _pagingController.itemList ?? const <MediaBrowserItem>[];
       final seen = <String>{for (final item in current) item.id};
       final items = result.items
           .where((item) => seen.add(item.id))
@@ -263,7 +263,7 @@ class _EmbySearchResultsState extends ConsumerState<_EmbySearchResults> {
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(22, 4, 22, 120),
-          sliver: PagedSliverGrid<int, EmbyItem>(
+          sliver: PagedSliverGrid<int, MediaBrowserItem>(
             pagingController: _pagingController,
             showNoMoreItemsIndicatorAsGridChild: false,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -272,7 +272,7 @@ class _EmbySearchResultsState extends ConsumerState<_EmbySearchResults> {
               crossAxisSpacing: 10,
               mainAxisSpacing: 14,
             ),
-            builderDelegate: PagedChildBuilderDelegate<EmbyItem>(
+            builderDelegate: PagedChildBuilderDelegate<MediaBrowserItem>(
               itemBuilder: (context, item, _) => urls.maybeWhen(
                 data: (value) => EmbyItemCard(
                   key: ValueKey(item.id),

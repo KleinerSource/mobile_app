@@ -5,7 +5,7 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/emby/emby_playback.dart';
-import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/emby/providers/emby_providers.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
@@ -41,7 +41,7 @@ class _EmbySeriesDetailPageState extends ConsumerState<EmbySeriesDetailPage> {
     super.dispose();
   }
 
-  void _syncHeroArt(EmbyItem series, EmbyServerUrls? urls) {
+  void _syncHeroArt(MediaBrowserItem series, EmbyServerUrls? urls) {
     final url = urls == null
         ? ''
         : series.backdropImageTags.isEmpty
@@ -57,7 +57,7 @@ class _EmbySeriesDetailPageState extends ConsumerState<EmbySeriesDetailPage> {
     _heroArts.value = [art];
   }
 
-  Future<void> _toggleFavorite(EmbyItem series) async {
+  Future<void> _toggleFavorite(MediaBrowserItem series) async {
     if (_actionBusy) return;
     setState(() => _actionBusy = true);
     try {
@@ -296,7 +296,7 @@ class _SeasonSection extends ConsumerWidget {
   }
 }
 
-String _seasonLabel(EmbyItem season) {
+String _seasonLabel(MediaBrowserItem season) {
   final index = season.indexNumber;
   if (index == null) return season.name;
   if (index == 0) return '特别篇';
@@ -426,7 +426,7 @@ class _EpisodeTile extends StatelessWidget {
     this.onLongPress,
   });
 
-  final EmbyItem episode;
+  final MediaBrowserItem episode;
   final String? imageUrl;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
@@ -536,8 +536,8 @@ class _EpisodeTile extends StatelessWidget {
     );
   }
 
-  double _resumePct(EmbyItem episode) {
-    final runtime = embyTicksToSeconds(episode.runTimeTicks);
+  double _resumePct(MediaBrowserItem episode) {
+    final runtime = mediaBrowserTicksToSeconds(episode.runTimeTicks);
     if (runtime <= 0) return 0;
     return (episode.userData.resumeSeconds / runtime).clamp(0.0, 1.0);
   }

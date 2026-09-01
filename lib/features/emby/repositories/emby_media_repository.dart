@@ -1,5 +1,5 @@
 import 'package:omm/core/sources/media/emby_media_source.dart';
-import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 /// Emby Feature 的 Source 门面。
 ///
@@ -12,9 +12,9 @@ class EmbyMediaRepository {
 
   Future<String?> userId() => _source.userId();
 
-  Future<List<EmbyItem>> views() => _source.views();
+  Future<List<MediaBrowserItem>> views() => _source.views();
 
-  Future<List<EmbyItem>> latestMedia({
+  Future<List<MediaBrowserItem>> latestMedia({
     String? parentId,
     String? includeItemTypes,
     int limit = 16,
@@ -24,13 +24,13 @@ class EmbyMediaRepository {
     limit: limit,
   );
 
-  Future<EmbyItemPage> resumeItems({int limit = 12}) =>
+  Future<MediaBrowserItemPage> resumeItems({int limit = 12}) =>
       _source.resumeItems(limit: limit);
 
-  Future<EmbyItemPage> nextUp({String? parentId, int limit = 12}) =>
+  Future<MediaBrowserItemPage> nextUp({String? parentId, int limit = 12}) =>
       _source.nextUp(parentId: parentId, limit: limit);
 
-  Future<EmbyItemPage> itemPage({
+  Future<MediaBrowserItemPage> itemPage({
     String? parentId,
     String? includeItemTypes,
     bool? recursive,
@@ -52,18 +52,18 @@ class EmbyMediaRepository {
     isFavorite: isFavorite,
   );
 
-  Future<EmbyItem> getItem(String itemId) => _source.getItem(itemId);
+  Future<MediaBrowserItem> getItem(String itemId) => _source.getItem(itemId);
 
-  Future<List<EmbyItem>> seasons(String seriesId) =>
+  Future<List<MediaBrowserItem>> seasons(String seriesId) =>
       _source.seasons(seriesId);
 
-  Future<EmbyItemPage> episodes(String seasonId) =>
+  Future<MediaBrowserItemPage> episodes(String seasonId) =>
       _source.episodes(seasonId);
 
-  Future<EmbyItem> markFavorite(String itemId, bool favorite) =>
+  Future<MediaBrowserItem> markFavorite(String itemId, bool favorite) =>
       _source.markFavorite(itemId, favorite);
 
-  Future<EmbyItem> markPlayed(String itemId, bool played) =>
+  Future<MediaBrowserItem> markPlayed(String itemId, bool played) =>
       _source.markPlayed(itemId, played);
 
   Future<void> reportPlaybackStart({

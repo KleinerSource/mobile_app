@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/models/movie.dart';
-import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/emby/providers/emby_providers.dart';
 import 'package:omm/features/emby/widgets/emby_item_card.dart';
 import 'package:omm/features/i18n/badge_position_provider.dart';
@@ -30,8 +30,8 @@ class _BadgePositionsState extends BadgePositionsNotifier {
 
 const _longTitle = '非常长的影片标题用来测试两行折行之后的卡片高度表现';
 
-EmbyItem _embyItem({String type = 'Movie', String series = ''}) {
-  return EmbyItem.fromJson({
+MediaBrowserItem _embyItem({String type = 'Movie', String series = ''}) {
+  return MediaBrowserItem.fromJson({
     'Id': 'item-1',
     'Name': _longTitle,
     'Type': type,
@@ -168,7 +168,7 @@ void main() {
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.reset);
 
-    final item = EmbyItem.fromJson(const {
+    final item = MediaBrowserItem.fromJson(const {
       'Id': 'item-2',
       'Name': '观看中的影片',
       'Type': 'Movie',

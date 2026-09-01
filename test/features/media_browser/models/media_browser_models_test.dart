@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 void main() {
-  test('JellyfinItem.fromJson 解析电影条目的核心字段', () {
-    final item = JellyfinItem.fromJson(const {
+  test('MediaBrowserItem.fromJson 解析电影条目的核心字段', () {
+    final item = MediaBrowserItem.fromJson(const {
       'Id': 'item-1',
       'Name': '示例电影',
       'Type': 'Movie',
@@ -63,8 +63,8 @@ void main() {
     expect(source.mediaStreams[2].isExternal, isTrue);
   });
 
-  test('JellyfinItem.fromJson 解析剧集分集字段', () {
-    final item = JellyfinItem.fromJson(const {
+  test('MediaBrowserItem.fromJson 解析剧集分集字段', () {
+    final item = MediaBrowserItem.fromJson(const {
       'Id': 'ep-1',
       'Name': '第一集',
       'Type': 'Episode',
@@ -83,8 +83,8 @@ void main() {
     expect(item.indexNumber, 3);
   });
 
-  test('JellyfinItemPage.fromJson 过滤无 ID 条目并计算 hasMore', () {
-    final page = JellyfinItemPage.fromJson(const {
+  test('MediaBrowserItemPage.fromJson 过滤无 ID 条目并计算 hasMore', () {
+    final page = MediaBrowserItemPage.fromJson(const {
       'Items': [
         {'Id': 'a', 'Name': 'A', 'Type': 'Movie'},
         {'Name': '无 ID', 'Type': 'Movie'},
@@ -97,7 +97,7 @@ void main() {
     expect(page.total, 30);
     expect(page.hasMore, isTrue);
 
-    final lastPage = JellyfinItemPage.fromJson(const {
+    final lastPage = MediaBrowserItemPage.fromJson(const {
       'Items': [
         {'Id': 'z', 'Name': 'Z', 'Type': 'Movie'},
       ],
@@ -107,8 +107,8 @@ void main() {
     expect(lastPage.hasMore, isFalse);
   });
 
-  test('JellyfinAuthResult.fromJson 解析认证响应', () {
-    final result = JellyfinAuthResult.fromJson(const {
+  test('MediaBrowserAuthResult.fromJson 解析认证响应', () {
+    final result = MediaBrowserAuthResult.fromJson(const {
       'AccessToken': 'token-1',
       'User': {'Id': 'user-1', 'Name': 'Alice'},
     });
@@ -119,10 +119,10 @@ void main() {
   });
 
   test('tick 与秒互转保持 100ns 单位语义', () {
-    expect(jellyfinTicksToSeconds(10000000), 1);
-    expect(jellyfinTicksToSeconds(null), 0);
-    expect(jellyfinTicksToSeconds(-5), 0);
-    expect(secondsToJellyfinTicks(90), 900000000);
-    expect(jellyfinTicksToSeconds(secondsToJellyfinTicks(1234)), 1234);
+    expect(mediaBrowserTicksToSeconds(10000000), 1);
+    expect(mediaBrowserTicksToSeconds(null), 0);
+    expect(mediaBrowserTicksToSeconds(-5), 0);
+    expect(secondsToMediaBrowserTicks(90), 900000000);
+    expect(mediaBrowserTicksToSeconds(secondsToMediaBrowserTicks(1234)), 1234);
   });
 }

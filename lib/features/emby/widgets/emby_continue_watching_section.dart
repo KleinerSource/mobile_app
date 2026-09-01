@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/features/emby/emby_playback.dart';
-import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/emby/navigation/emby_navigation.dart';
 import 'package:omm/features/emby/providers/emby_providers.dart';
 import 'package:omm/features/home/continue_watching_section.dart';
@@ -11,7 +11,7 @@ import 'package:omm/features/home/continue_watching_section.dart';
 class EmbyContinueWatchingSection extends ConsumerWidget {
   const EmbyContinueWatchingSection({super.key, required this.items});
 
-  final List<EmbyItem> items;
+  final List<MediaBrowserItem> items;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -38,19 +38,19 @@ class EmbyContinueWatchingSection extends ConsumerWidget {
   }
 }
 
-double _progressOf(EmbyItem item) {
-  final runtimeMinutes = embyTicksToSeconds(item.runTimeTicks) / 60;
+double _progressOf(MediaBrowserItem item) {
+  final runtimeMinutes = mediaBrowserTicksToSeconds(item.runTimeTicks) / 60;
   if (runtimeMinutes <= 0) return 0;
   return (item.userData.resumeSeconds / 60 / runtimeMinutes).clamp(0.0, 1.0);
 }
 
-int? _minutesLeft(EmbyItem item) {
-  final runtimeMinutes = embyTicksToSeconds(item.runTimeTicks) / 60;
+int? _minutesLeft(MediaBrowserItem item) {
+  final runtimeMinutes = mediaBrowserTicksToSeconds(item.runTimeTicks) / 60;
   if (runtimeMinutes <= 0) return null;
   return (runtimeMinutes * (1 - _progressOf(item))).round();
 }
 
-String _metaText(EmbyItem item) {
+String _metaText(MediaBrowserItem item) {
   final parts = <String>[];
   final series = item.seriesName?.trim();
   if (series?.isNotEmpty == true) parts.add(series!);
@@ -64,7 +64,7 @@ String _metaText(EmbyItem item) {
   } else if (item.productionYear != null) {
     parts.add('${item.productionYear}');
   }
-  final minutes = embyTicksToSeconds(item.runTimeTicks) / 60;
+  final minutes = mediaBrowserTicksToSeconds(item.runTimeTicks) / 60;
   if (minutes > 0) parts.add('${minutes.round()}m');
   return parts.join(' · ');
 }

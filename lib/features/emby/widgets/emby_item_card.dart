@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/emby/providers/emby_providers.dart';
 import 'package:omm/shared/movie_card.dart';
 
@@ -19,7 +19,7 @@ class EmbyItemCard extends StatelessWidget {
     this.onTap,
   });
 
-  final EmbyItem item;
+  final MediaBrowserItem item;
   final EmbyServerUrls urls;
   final double width;
   final VoidCallback? onTap;
@@ -43,14 +43,14 @@ class EmbyItemCard extends StatelessWidget {
   }
 }
 
-double _progressOf(EmbyItem item) {
-  final runtimeMinutes = embyTicksToSeconds(item.runTimeTicks) / 60;
+double _progressOf(MediaBrowserItem item) {
+  final runtimeMinutes = mediaBrowserTicksToSeconds(item.runTimeTicks) / 60;
   if (runtimeMinutes <= 0) return 0;
   return (item.userData.resumeSeconds / 60 / runtimeMinutes).clamp(0.0, 1.0);
 }
 
 /// meta 行 · 与 OMM 一致的「年份 · 时长」格式；剧集条目为「SxxEyy · 剧名」。
-String _metaText(EmbyItem item) {
+String _metaText(MediaBrowserItem item) {
   final parts = <String>[];
   if (item.isEpisode) {
     final season = item.parentIndexNumber ?? 0;
@@ -64,7 +64,7 @@ String _metaText(EmbyItem item) {
     return parts.join(' · ');
   }
   if (item.productionYear != null) parts.add('${item.productionYear}');
-  final minutes = embyTicksToSeconds(item.runTimeTicks) / 60;
+  final minutes = mediaBrowserTicksToSeconds(item.runTimeTicks) / 60;
   if (minutes > 0) parts.add('${minutes.round()}m');
   return parts.join(' · ');
 }

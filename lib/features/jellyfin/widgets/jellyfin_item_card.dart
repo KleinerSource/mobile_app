@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
 import 'package:omm/shared/movie_card.dart';
 
@@ -19,7 +19,7 @@ class JellyfinItemCard extends StatelessWidget {
     this.onTap,
   });
 
-  final JellyfinItem item;
+  final MediaBrowserItem item;
   final JellyfinServerUrls urls;
   final double width;
   final VoidCallback? onTap;
@@ -43,14 +43,14 @@ class JellyfinItemCard extends StatelessWidget {
   }
 }
 
-double _progressOf(JellyfinItem item) {
+double _progressOf(MediaBrowserItem item) {
   final runtimeMinutes = item.runtimeMinutes;
   if (runtimeMinutes <= 0) return 0;
   return (item.userData.resumeSeconds / 60 / runtimeMinutes).clamp(0.0, 1.0);
 }
 
 /// meta 行 · 与 OMM 一致的「年份 · 时长」格式；剧集条目为「SxxEyy · 剧名」。
-String _metaText(JellyfinItem item) {
+String _metaText(MediaBrowserItem item) {
   final parts = <String>[];
   if (item.isEpisode) {
     final season = item.parentIndexNumber ?? 0;

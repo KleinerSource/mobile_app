@@ -1045,6 +1045,7 @@ class _ServerSwitchTransitionOverlayState
             size: rect.width,
             colors: colors,
             project: server.project,
+            showBackground: false,
           ),
         ),
       ),
@@ -1068,6 +1069,7 @@ class _ServerSwitchTransitionOverlayState
       busy: busy,
       colors: colors,
       project: server.project,
+      showBackground: false,
     );
   }
 

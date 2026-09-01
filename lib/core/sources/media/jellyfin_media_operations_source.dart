@@ -1,4 +1,4 @@
-import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 /// Jellyfin 保留给 Feature 的扩展能力。
 ///
@@ -9,23 +9,23 @@ abstract interface class JellyfinMediaOperationsSource {
   Future<String?> userId();
 
   /// 媒体库（Views）列表。
-  Future<List<JellyfinItem>> views();
+  Future<List<MediaBrowserItem>> views();
 
   /// 「最新入库」。
-  Future<List<JellyfinItem>> latestMedia({
+  Future<List<MediaBrowserItem>> latestMedia({
     String? parentId,
     String? includeItemTypes,
     int limit = 16,
   });
 
   /// 「继续观看」。
-  Future<JellyfinItemPage> resumeItems({int limit = 12});
+  Future<MediaBrowserItemPage> resumeItems({int limit = 12});
 
   /// 剧集「下一集」。
-  Future<JellyfinItemPage> nextUp({String? parentId, int limit = 12});
+  Future<MediaBrowserItemPage> nextUp({String? parentId, int limit = 12});
 
   /// 通用条目分页查询（库浏览 / 搜索共用）。
-  Future<JellyfinItemPage> itemPage({
+  Future<MediaBrowserItemPage> itemPage({
     String? parentId,
     String? includeItemTypes,
     bool? recursive,
@@ -38,19 +38,19 @@ abstract interface class JellyfinMediaOperationsSource {
   });
 
   /// 条目详情（完整字段）。
-  Future<JellyfinItem> getItem(String itemId);
+  Future<MediaBrowserItem> getItem(String itemId);
 
   /// 剧集的季列表。
-  Future<List<JellyfinItem>> seasons(String seriesId);
+  Future<List<MediaBrowserItem>> seasons(String seriesId);
 
   /// 某一季的集列表。
-  Future<JellyfinItemPage> episodes(String seasonId);
+  Future<MediaBrowserItemPage> episodes(String seasonId);
 
   /// 收藏 / 取消收藏，返回带最新 UserData 的条目。
-  Future<JellyfinItem> markFavorite(String itemId, bool favorite);
+  Future<MediaBrowserItem> markFavorite(String itemId, bool favorite);
 
   /// 标记已看 / 未看，返回带最新 UserData 的条目。
-  Future<JellyfinItem> markPlayed(String itemId, bool played);
+  Future<MediaBrowserItem> markPlayed(String itemId, bool played);
 
   /// 播放会话上报：开始 / 进度 / 结束。
   Future<void> reportPlaybackStart({

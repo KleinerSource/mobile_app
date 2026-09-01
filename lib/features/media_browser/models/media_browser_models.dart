@@ -1,24 +1,30 @@
 import 'package:flutter/foundation.dart';
 
-/// Emby 的时间单位是 100 纳秒 tick；播放时长 / 播放位置统一换算成秒。
-const embyTicksPerSecond = 10000000;
+/// Emby / Jellyfin 共用的 MediaBrowser 协议 DTO。
+///
+/// Jellyfin fork 自 Emby，两家的 JSON wire format 完全一致，差异仅在
+/// 路径前缀与鉴权细节（见 media_browser_config.dart），因此这里只保留
+/// 一份模型。
+///
+/// 时间单位是 100 纳秒 tick；播放时长 / 播放位置统一换算成秒。
+const mediaBrowserTicksPerSecond = 10000000;
 
-int embyTicksToSeconds(int? ticks) {
+int mediaBrowserTicksToSeconds(int? ticks) {
   if (ticks == null || ticks <= 0) return 0;
-  return (ticks / embyTicksPerSecond).round();
+  return (ticks / mediaBrowserTicksPerSecond).round();
 }
 
-int secondsToEmbyTicks(int seconds) => seconds * embyTicksPerSecond;
+int secondsToMediaBrowserTicks(int seconds) => seconds * mediaBrowserTicksPerSecond;
 
 @immutable
-class EmbyUser {
-  const EmbyUser({required this.id, required this.name, this.isAdmin = false});
+class MediaBrowserUser {
+  const MediaBrowserUser({required this.id, required this.name, this.isAdmin = false});
 
   final String id;
   final String name;
   final bool isAdmin;
 
-  factory EmbyUser.fromJson(Map<String, dynamic> json) => EmbyUser(
+  factory MediaBrowserUser.fromJson(Map<String, dynamic> json) => MediaBrowserUser(
     id: json['Id']?.toString() ?? '',
     name: json['Name']?.toString() ?? '',
     isAdmin: json['Policy'] is Map && json['Policy']['IsAdministrator'] == true,
@@ -27,8 +33,8 @@ class EmbyUser {
 
 /// 条目上按用户维度的状态：收藏、已看、播放位置。
 @immutable
-class EmbyUserData {
-  const EmbyUserData({
+class MediaBrowserUserData {
+  const MediaBrowserUserData({
     this.playbackPositionTicks = 0,
     this.playCount = 0,
     this.isFavorite = false,
@@ -41,19 +47,20 @@ class EmbyUserData {
   final bool played;
 
   /// 直链播放不支持 StartTimeTicks，恢复播放由客户端 seek 完成。
-  int get resumeSeconds => embyTicksToSeconds(playbackPositionTicks);
+  int get resumeSeconds => mediaBrowserTicksToSeconds(playbackPositionTicks);
 
-  factory EmbyUserData.fromJson(Map<String, dynamic> json) => EmbyUserData(
-    playbackPositionTicks: _intValue(json['PlaybackPositionTicks']) ?? 0,
-    playCount: _intValue(json['PlayCount']) ?? 0,
-    isFavorite: json['IsFavorite'] == true,
-    played: json['Played'] == true,
-  );
+  factory MediaBrowserUserData.fromJson(Map<String, dynamic> json) =>
+      MediaBrowserUserData(
+        playbackPositionTicks: _intValue(json['PlaybackPositionTicks']) ?? 0,
+        playCount: _intValue(json['PlayCount']) ?? 0,
+        isFavorite: json['IsFavorite'] == true,
+        played: json['Played'] == true,
+      );
 }
 
 @immutable
-class EmbyPerson {
-  const EmbyPerson({
+class MediaBrowserPerson {
+  const MediaBrowserPerson({
     required this.id,
     required this.name,
     this.role,
@@ -66,10 +73,10 @@ class EmbyPerson {
   /// 'Actor' / 'Director' 等；空字符串表示未标注。
   final String type;
 
-  factory EmbyPerson.fromJson(Object? raw) {
-    if (raw is! Map) return const EmbyPerson(id: '', name: '');
+  factory MediaBrowserPerson.fromJson(Object? raw) {
+    if (raw is! Map) return const MediaBrowserPerson(id: '', name: '');
     final json = Map<String, dynamic>.from(raw);
-    return EmbyPerson(
+    return MediaBrowserPerson(
       id: json['Id']?.toString() ?? '',
       name: json['Name']?.toString() ?? '',
       role: _stringOrNull(json['Role']),
@@ -79,8 +86,8 @@ class EmbyPerson {
 }
 
 @immutable
-class EmbyMediaStream {
-  const EmbyMediaStream({
+class MediaBrowserMediaStream {
+  const MediaBrowserMediaStream({
     required this.index,
     required this.type,
     this.codec,
@@ -101,12 +108,12 @@ class EmbyMediaStream {
   final bool isDefault;
   final bool isForced;
 
-  factory EmbyMediaStream.fromJson(Object? raw) {
+  factory MediaBrowserMediaStream.fromJson(Object? raw) {
     if (raw is! Map) {
-      return const EmbyMediaStream(index: -1, type: '');
+      return const MediaBrowserMediaStream(index: -1, type: '');
     }
     final json = Map<String, dynamic>.from(raw);
-    return EmbyMediaStream(
+    return MediaBrowserMediaStream(
       index: _intValue(json['Index']) ?? -1,
       type: json['Type']?.toString() ?? '',
       codec: _stringOrNull(json['Codec']),
@@ -120,8 +127,8 @@ class EmbyMediaStream {
 }
 
 @immutable
-class EmbyMediaSourceDto {
-  const EmbyMediaSourceDto({
+class MediaBrowserMediaSourceDto {
+  const MediaBrowserMediaSourceDto({
     required this.id,
     this.name,
     this.path,
@@ -132,7 +139,7 @@ class EmbyMediaSourceDto {
     this.supportsDirectStream = false,
     this.supportsTranscoding = false,
     this.transcodingUrl,
-    this.mediaStreams = const <EmbyMediaStream>[],
+    this.mediaStreams = const <MediaBrowserMediaStream>[],
   });
 
   final String id;
@@ -146,15 +153,15 @@ class EmbyMediaSourceDto {
   final bool supportsTranscoding;
   /// 服务器生成的 HLS 转码地址（相对路径，含全部转码参数）。
   final String? transcodingUrl;
-  final List<EmbyMediaStream> mediaStreams;
+  final List<MediaBrowserMediaStream> mediaStreams;
 
-  factory EmbyMediaSourceDto.fromJson(Object? raw) {
+  factory MediaBrowserMediaSourceDto.fromJson(Object? raw) {
     if (raw is! Map) {
-      return const EmbyMediaSourceDto(id: '');
+      return const MediaBrowserMediaSourceDto(id: '');
     }
     final json = Map<String, dynamic>.from(raw);
     final streams = json['MediaStreams'];
-    return EmbyMediaSourceDto(
+    return MediaBrowserMediaSourceDto(
       id: json['Id']?.toString() ?? '',
       name: _stringOrNull(json['Name']),
       path: _stringOrNull(json['Path']),
@@ -166,37 +173,37 @@ class EmbyMediaSourceDto {
       supportsTranscoding: json['SupportsTranscoding'] == true,
       transcodingUrl: _stringOrNull(json['TranscodingUrl']),
       mediaStreams: streams is List
-          ? streams.map(EmbyMediaStream.fromJson).toList(growable: false)
-          : const <EmbyMediaStream>[],
+          ? streams.map(MediaBrowserMediaStream.fromJson).toList(growable: false)
+          : const <MediaBrowserMediaStream>[],
     );
   }
 }
 
 @immutable
-class EmbyPlaybackInfo {
-  const EmbyPlaybackInfo({
-    this.mediaSources = const <EmbyMediaSourceDto>[],
+class MediaBrowserPlaybackInfo {
+  const MediaBrowserPlaybackInfo({
+    this.mediaSources = const <MediaBrowserMediaSourceDto>[],
     this.playSessionId = '',
   });
 
-  final List<EmbyMediaSourceDto> mediaSources;
+  final List<MediaBrowserMediaSourceDto> mediaSources;
   final String playSessionId;
 
-  factory EmbyPlaybackInfo.fromJson(Map<String, dynamic> json) {
+  factory MediaBrowserPlaybackInfo.fromJson(Map<String, dynamic> json) {
     final sources = json['MediaSources'];
-    return EmbyPlaybackInfo(
+    return MediaBrowserPlaybackInfo(
       mediaSources: sources is List
-          ? sources.map(EmbyMediaSourceDto.fromJson).toList(growable: false)
-          : const <EmbyMediaSourceDto>[],
+          ? sources.map(MediaBrowserMediaSourceDto.fromJson).toList(growable: false)
+          : const <MediaBrowserMediaSourceDto>[],
       playSessionId: json['PlaySessionId']?.toString() ?? '',
     );
   }
 }
 
-/// Emby /Users/{uid}/Items 返回的通用条目：电影、剧集、季、集、媒体库等。
+/// /Users/{uid}/Items 返回的通用条目：电影、剧集、季、集、媒体库等。
 @immutable
-class EmbyItem {
-  const EmbyItem({
+class MediaBrowserItem {
+  const MediaBrowserItem({
     required this.id,
     required this.name,
     required this.type,
@@ -208,8 +215,8 @@ class EmbyItem {
     this.runTimeTicks,
     this.overview,
     this.genres = const <String>[],
-    this.people = const <EmbyPerson>[],
-    this.userData = const EmbyUserData(),
+    this.people = const <MediaBrowserPerson>[],
+    this.userData = const MediaBrowserUserData(),
     this.seriesId,
     this.seriesName,
     this.seasonId,
@@ -220,7 +227,7 @@ class EmbyItem {
     this.thumbImageTag,
     this.childCount,
     this.recursiveItemCount,
-    this.mediaSources = const <EmbyMediaSourceDto>[],
+    this.mediaSources = const <MediaBrowserMediaSourceDto>[],
   });
 
   final String id;
@@ -236,8 +243,8 @@ class EmbyItem {
   final int? runTimeTicks;
   final String? overview;
   final List<String> genres;
-  final List<EmbyPerson> people;
-  final EmbyUserData userData;
+  final List<MediaBrowserPerson> people;
+  final MediaBrowserUserData userData;
   final String? seriesId;
   final String? seriesName;
   final String? seasonId;
@@ -249,7 +256,7 @@ class EmbyItem {
   final String? thumbImageTag;
   final int? childCount;
   final int? recursiveItemCount;
-  final List<EmbyMediaSourceDto> mediaSources;
+  final List<MediaBrowserMediaSourceDto> mediaSources;
 
   bool get isMovie => type == 'Movie';
   bool get isSeries => type == 'Series';
@@ -258,17 +265,17 @@ class EmbyItem {
   bool get isPlayable => isMovie || isEpisode;
 
   int get runtimeMinutes =>
-      (embyTicksToSeconds(runTimeTicks) / 60).ceil().clamp(0, 1 << 31);
+      (mediaBrowserTicksToSeconds(runTimeTicks) / 60).ceil().clamp(0, 1 << 31);
 
   String? get seriesTitle => seriesName;
 
-  factory EmbyItem.fromJson(Map<String, dynamic> json) {
+  factory MediaBrowserItem.fromJson(Map<String, dynamic> json) {
     final genres = json['Genres'];
     final people = json['People'];
     final backdrops = json['BackdropImageTags'];
     final sources = json['MediaSources'];
     final imageTags = json['ImageTags'];
-    return EmbyItem(
+    return MediaBrowserItem(
       id: json['Id']?.toString() ?? '',
       name: json['Name']?.toString() ?? '',
       type: json['Type']?.toString() ?? '',
@@ -283,13 +290,13 @@ class EmbyItem {
           ? genres.map((item) => item.toString()).toList(growable: false)
           : const <String>[],
       people: people is List
-          ? people.map(EmbyPerson.fromJson).toList(growable: false)
-          : const <EmbyPerson>[],
+          ? people.map(MediaBrowserPerson.fromJson).toList(growable: false)
+          : const <MediaBrowserPerson>[],
       userData: json['UserData'] is Map
-          ? EmbyUserData.fromJson(
+          ? MediaBrowserUserData.fromJson(
               Map<String, dynamic>.from(json['UserData'] as Map),
             )
-          : const EmbyUserData(),
+          : const MediaBrowserUserData(),
       seriesId: _stringOrNull(json['SeriesId']),
       seriesName: _stringOrNull(json['SeriesName']),
       seasonId: _stringOrNull(json['SeasonId']),
@@ -305,39 +312,39 @@ class EmbyItem {
       childCount: _intValue(json['ChildCount']),
       recursiveItemCount: _intValue(json['RecursiveItemCount']),
       mediaSources: sources is List
-          ? sources.map(EmbyMediaSourceDto.fromJson).toList(growable: false)
-          : const <EmbyMediaSourceDto>[],
+          ? sources.map(MediaBrowserMediaSourceDto.fromJson).toList(growable: false)
+          : const <MediaBrowserMediaSourceDto>[],
     );
   }
 }
 
 /// /Users/{uid}/Items 系列接口的分页结果。
 @immutable
-class EmbyItemPage {
-  const EmbyItemPage({
+class MediaBrowserItemPage {
+  const MediaBrowserItemPage({
     required this.items,
     required this.total,
     required this.startIndex,
     required this.limit,
   });
 
-  final List<EmbyItem> items;
+  final List<MediaBrowserItem> items;
   final int total;
   final int startIndex;
   final int limit;
 
   bool get hasMore => startIndex + items.length < total;
 
-  factory EmbyItemPage.fromJson(Map<String, dynamic> json) {
+  factory MediaBrowserItemPage.fromJson(Map<String, dynamic> json) {
     final rawItems = json['Items'];
-    return EmbyItemPage(
+    return MediaBrowserItemPage(
       items: rawItems is List
           ? rawItems
                 .whereType<Map>()
-                .map((item) => EmbyItem.fromJson(Map<String, dynamic>.from(item)))
+                .map((item) => MediaBrowserItem.fromJson(Map<String, dynamic>.from(item)))
                 .where((item) => item.id.isNotEmpty)
                 .toList(growable: false)
-          : const <EmbyItem>[],
+          : const <MediaBrowserItem>[],
       total: _intValue(json['TotalRecordCount']) ?? 0,
       startIndex: _intValue(json['StartIndex']) ?? 0,
       limit: _intValue(json['limit']) ?? 0,
@@ -347,24 +354,27 @@ class EmbyItemPage {
 
 /// AuthenticateByName 的响应：令牌 + 用户。
 @immutable
-class EmbyAuthResult {
-  const EmbyAuthResult({
+class MediaBrowserAuthResult {
+  const MediaBrowserAuthResult({
     required this.accessToken,
     required this.user,
     this.serverId,
   });
 
   final String accessToken;
-  final EmbyUser user;
+  final MediaBrowserUser user;
   final String? serverId;
 
-  factory EmbyAuthResult.fromJson(Map<String, dynamic> json) => EmbyAuthResult(
-    accessToken: json['AccessToken']?.toString() ?? '',
-    user: json['User'] is Map
-        ? EmbyUser.fromJson(Map<String, dynamic>.from(json['User'] as Map))
-        : const EmbyUser(id: '', name: ''),
-    serverId: _stringOrNull(json['ServerId']),
-  );
+  factory MediaBrowserAuthResult.fromJson(Map<String, dynamic> json) =>
+      MediaBrowserAuthResult(
+        accessToken: json['AccessToken']?.toString() ?? '',
+        user: json['User'] is Map
+            ? MediaBrowserUser.fromJson(
+                Map<String, dynamic>.from(json['User'] as Map),
+              )
+            : const MediaBrowserUser(id: '', name: ''),
+        serverId: _stringOrNull(json['ServerId']),
+      );
 }
 
 String? _stringOrNull(Object? value) {

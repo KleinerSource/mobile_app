@@ -7,7 +7,7 @@ import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
-import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/emby/providers/emby_providers.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:omm/features/player/common/player_settings.dart';
@@ -22,7 +22,7 @@ import 'package:omm/features/player/video/video_player_page.dart';
 Future<void> openEmbyPlayback(
   BuildContext context,
   WidgetRef ref, {
-  required EmbyItem item,
+  required MediaBrowserItem item,
   bool transcode = false,
   PlaybackEngineKind? engineKind,
 }) async {
@@ -37,7 +37,7 @@ Future<void> openEmbyPlayback(
       PlaybackRequest(forceVideoTranscode: transcode),
     );
     final payload = descriptor.payload;
-    final playSessionId = payload is EmbyPlaybackInfo
+    final playSessionId = payload is MediaBrowserPlaybackInfo
         ? payload.playSessionId
         : null;
     final resumeSec = descriptor.startAt.round();
@@ -46,7 +46,7 @@ Future<void> openEmbyPlayback(
       repo
           .reportPlaybackStart(
             itemId: itemId,
-            positionTicks: secondsToEmbyTicks(resumeSec),
+            positionTicks: secondsToMediaBrowserTicks(resumeSec),
             playSessionId: playSessionId,
           )
           .catchError((_) {}),
@@ -62,7 +62,7 @@ Future<void> openEmbyPlayback(
       directProgressReporter: (positionSec, durationSec, completed) =>
           repo.reportPlaybackStopped(
             itemId: itemId,
-            positionTicks: secondsToEmbyTicks(
+            positionTicks: secondsToMediaBrowserTicks(
               completed ? durationSec : positionSec,
             ),
             playSessionId: playSessionId,
@@ -87,7 +87,7 @@ Future<void> openEmbyPlayback(
 Future<void> openEmbyPlaybackWithEnginePicker(
   BuildContext context,
   WidgetRef ref, {
-  required EmbyItem item,
+  required MediaBrowserItem item,
   bool transcode = false,
 }) async {
   if (!playbackEnginePickerEnabled) return;
@@ -105,7 +105,7 @@ Future<void> openEmbyPlaybackWithEnginePicker(
   );
 }
 
-String _playbackTitle(EmbyItem item) {
+String _playbackTitle(MediaBrowserItem item) {
   if (!item.isEpisode) return item.name;
   final series = item.seriesName?.trim();
   final season = item.parentIndexNumber ?? 0;

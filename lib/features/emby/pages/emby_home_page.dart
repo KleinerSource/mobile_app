@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/emby/models/emby_models.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/emby/navigation/emby_navigation.dart';
 import 'package:omm/features/emby/pages/emby_library_page.dart';
 import 'package:omm/features/emby/providers/emby_providers.dart';
@@ -42,13 +42,13 @@ class _EmbyHomePageState extends ConsumerState<EmbyHomePage> {
     ref.invalidate(embyResumeProvider);
     ref.invalidate(embyNextUpProvider);
     await Future.wait([
-      ref.read(embyLatestProvider.future).catchError((_) => const <EmbyItem>[]),
-      ref.read(embyResumeProvider.future).catchError((_) => const <EmbyItem>[]),
-      ref.read(embyNextUpProvider.future).catchError((_) => const <EmbyItem>[]),
+      ref.read(embyLatestProvider.future).catchError((_) => const <MediaBrowserItem>[]),
+      ref.read(embyResumeProvider.future).catchError((_) => const <MediaBrowserItem>[]),
+      ref.read(embyNextUpProvider.future).catchError((_) => const <MediaBrowserItem>[]),
     ]);
   }
 
-  void _syncHeroArts(List<EmbyItem> items, EmbyServerUrls urls) {
+  void _syncHeroArts(List<MediaBrowserItem> items, EmbyServerUrls urls) {
     final arts = [
       for (final item in items)
         HeroArt(
@@ -107,7 +107,7 @@ class _EmbyHomePageState extends ConsumerState<EmbyHomePage> {
               : Stack(
                   children: [
                     Positioned.fill(
-                      child: RecommendCarousel.emby(
+                      child: RecommendCarousel.mediaBrowser(
                         items: items,
                         imageUrlBuilder: (item) => item.backdropImageTags
                             .isEmpty
@@ -189,14 +189,14 @@ class _EmbyHomeSection extends ConsumerWidget {
   });
 
   final String title;
-  final AsyncValue<List<EmbyItem>> value;
+  final AsyncValue<List<MediaBrowserItem>> value;
   final VoidCallback onRetry;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final urls = ref.watch(embyServerUrlsProvider);
-    return HomeMovieSection<List<EmbyItem>, EmbyItem>(
+    return HomeMovieSection<List<MediaBrowserItem>, MediaBrowserItem>(
       title: title,
       value: value,
       itemsOf: (items) => items,
@@ -276,7 +276,7 @@ class _EmbyViewLatestRow extends ConsumerWidget {
   const _EmbyViewLatestRow({required this.serverId, required this.view});
 
   final String serverId;
-  final EmbyItem view;
+  final MediaBrowserItem view;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -355,7 +355,7 @@ class _EmbyHeroFallback extends StatelessWidget {
     required this.onRetry,
   });
 
-  final AsyncValue<List<EmbyItem>> value;
+  final AsyncValue<List<MediaBrowserItem>> value;
   final double height;
   final VoidCallback onRetry;
 
