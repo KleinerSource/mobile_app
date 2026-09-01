@@ -1261,8 +1261,6 @@ class _TurntableTonearm extends StatelessWidget {
                   fit: BoxFit.contain,
                   filterQuality: FilterQuality.high,
                   gaplessPlayback: true,
-                  color: const Color(0xFFE4E4E4),
-                  colorBlendMode: BlendMode.srcIn,
                 ),
               ),
             ),

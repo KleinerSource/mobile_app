@@ -73,8 +73,10 @@ void main() {
         (tonearmImage.image as AssetImage).assetName,
         'assets/audio_player/turntable_tonearm.png',
       );
-      expect(tonearmImage.color, const Color(0xFFE4E4E4));
-      expect(tonearmImage.colorBlendMode, BlendMode.srcIn);
+      // 唱臂必须原样渲染 turntable_tonearm.png，禁止 srcIn 单色染色
+      // 把写实渲染压平成剪影。
+      expect(tonearmImage.color, isNull);
+      expect(tonearmImage.colorBlendMode, isNull);
 
       final layers = tester.widget<Stack>(
         find.byKey(const ValueKey<String>('audio-dj-deck-layers')),
