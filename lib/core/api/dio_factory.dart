@@ -40,9 +40,11 @@ Dio buildDio(
   Duration sendTimeout = const Duration(seconds: 30),
   Duration receiveTimeout = const Duration(seconds: 30),
 }) {
+  // Emby 的 REST 接口挂在根路径的 /emby 前缀下，没有 OMM 的 /api 网关。
+  final isEmby = config.activeServer?.project == ServerProject.emby;
   final dio = Dio(
     BaseOptions(
-      baseUrl: config.apiBase,
+      baseUrl: isEmby ? config.baseUrl : config.apiBase,
       connectTimeout: connectTimeout,
       sendTimeout: sendTimeout,
       receiveTimeout: receiveTimeout,
@@ -103,7 +105,12 @@ Dio buildDio(
         if (options.extra['skipAuth'] != true && sessionRepository != null) {
           final token = await sessionRepository.accessToken();
           if (token != null && token.isNotEmpty) {
-            options.headers['Authorization'] = 'Bearer $token';
+            if (isEmby) {
+              // Emby 不识别 Bearer 令牌，改用其原生的令牌头。
+              options.headers['X-Emby-Token'] = token;
+            } else {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
           }
         }
         handler.next(options);
@@ -137,9 +144,11 @@ Dio buildDio(
             (error.error is ApiException
                 ? (error.error as ApiException).status
                 : null);
+        final project = config.activeServer?.project;
         final canRefresh =
             sessionRepository != null &&
-            config.activeServer?.project != ServerProject.dbOnline &&
+            project != ServerProject.dbOnline &&
+            project != ServerProject.emby &&
             status == 401 &&
             options.extra['skipRefresh'] != true &&
             options.extra['authRetried'] != true &&

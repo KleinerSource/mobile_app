@@ -73,6 +73,7 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
     this.directFormatHint,
     this.engineKind,
     this.directPlaybackFileName,
+    this.directProgressReporter,
     this.directPreferFfmpegForHls = false,
     this.startPositionSec = 0,
     this.queue = const <PlayerQueueItem>[],
@@ -90,6 +91,7 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
     this.directFormatHint,
     this.engineKind,
     this.directPlaybackFileName,
+    this.directProgressReporter,
     this.directPreferFfmpegForHls = false,
     this.startPositionSec = 0,
     this.queue = const <PlayerQueueItem>[],
@@ -104,6 +106,11 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
   final String? directFormatHint;
   final PlaybackEngineKind? engineKind;
   final String? directPlaybackFileName;
+
+  /// 退出直连播放时向服务器上报最终进度的回调（例如 Emby 的
+  /// Sessions/Playing/Stopped）。与本地文件续播记录互不影响。
+  final Future<void> Function(int positionSec, int durationSec, bool completed)?
+  directProgressReporter;
 
   /// 直链 HLS 是否优先使用 KSPlayer 的 FFmpeg 内核。仅文件源
   /// （WebDAV/SMB）使用；OMM 转码流与 DBO 在线流保持默认 AVPlayer。
@@ -155,6 +162,8 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
     String? directFormatHint,
     PlaybackEngineKind? engineKind,
     String? directPlaybackFileName,
+    Future<void> Function(int positionSec, int durationSec, bool completed)?
+    directProgressReporter,
     bool directPreferFfmpegForHls = false,
     int startPositionSec = 0,
     List<PlayerQueueItem> queue = const <PlayerQueueItem>[],
@@ -175,6 +184,7 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
           directFormatHint: directFormatHint,
           engineKind: engineKind,
           directPlaybackFileName: directPlaybackFileName,
+          directProgressReporter: directProgressReporter,
           directPreferFfmpegForHls: directPreferFfmpegForHls,
           startPositionSec: startPositionSec,
           queue: queue,
@@ -483,12 +493,11 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
 
   Future<void> _reportFileProgress() {
     final fileName = widget.directPlaybackFileName?.trim();
-    if (fileName == null || fileName.isEmpty) {
+    final serverReporter = widget.directProgressReporter;
+    if ((fileName == null || fileName.isEmpty) && serverReporter == null) {
       return Future<void>.value();
     }
     final next = _progressReportChain.then<void>((_) async {
-      final settings = ref.read(playerSettingsProvider);
-      if (!settings.resumeFromLastPosition) return;
       final positionSec = _host.position.inSeconds > 0
           ? _host.position.inSeconds
           : _lastPositionSec;
@@ -497,11 +506,29 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
           : _lastDurationSec;
       _lastPositionSec = positionSec;
       _lastDurationSec = durationSec;
-      await _filePlaybackProgress.savePosition(
-        fileName: fileName,
-        positionSec: positionSec,
-        durationSec: durationSec,
-      );
+      if (fileName != null && fileName.isNotEmpty) {
+        final settings = ref.read(playerSettingsProvider);
+        if (settings.resumeFromLastPosition && durationSec > 0) {
+          await _filePlaybackProgress.savePosition(
+            fileName: fileName,
+            positionSec: positionSec,
+            durationSec: durationSec,
+          );
+        }
+      }
+      if (serverReporter != null && positionSec > 0 && durationSec > 0) {
+        // 服务器侧进度（如 Emby 的 Stopped 报告）不受本地续播偏好影响；
+        // 与 OMM 观看记录相同，播放超过 95% 视为看完。
+        try {
+          await serverReporter(
+            positionSec,
+            durationSec,
+            positionSec >= (durationSec * 0.95),
+          );
+        } catch (_) {
+          // 播放器退出时网络可能已经断开，不能影响退出流程。
+        }
+      }
     });
     _progressReportChain = next;
     return next;

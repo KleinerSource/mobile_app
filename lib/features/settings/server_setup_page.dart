@@ -257,7 +257,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         credentialRef: reference,
         serverId: serverId,
       ),
-      ServerProject.ohMyMedia || ServerProject.dbOnline => null,
+      ServerProject.ohMyMedia ||
+      ServerProject.dbOnline ||
+      ServerProject.emby => null,
     };
     if (config == null || !config.isValid) {
       _showError('请完整填写有效的文件服务器配置');
@@ -375,6 +377,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         await source.dispose();
       case ServerProject.ohMyMedia:
       case ServerProject.dbOnline:
+      case ServerProject.emby:
         throw StateError('当前服务器类型不是文件服务器');
     }
   }
@@ -484,7 +487,9 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     final project = _project ?? ServerProject.ohMyMedia;
     final editing = _editingServerId != null;
     final httpServer =
-        project == ServerProject.ohMyMedia || project == ServerProject.dbOnline;
+        project == ServerProject.ohMyMedia ||
+        project == ServerProject.dbOnline ||
+        project == ServerProject.emby;
     final webDav = project == ServerProject.webDav;
     final openList = project == ServerProject.openList;
     final httpLike = webDav || openList;
@@ -781,6 +786,7 @@ String _projectLabel(ServerProject project) {
   return switch (project) {
     ServerProject.ohMyMedia => 'Oh My Media',
     ServerProject.dbOnline => 'DB Online',
+    ServerProject.emby => 'Emby',
     ServerProject.smb => 'SMB',
     ServerProject.webDav => 'WebDAV',
     ServerProject.openList => 'OpenList',

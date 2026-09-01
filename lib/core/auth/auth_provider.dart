@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../api/api_client.dart';
 import '../api/api_exception.dart';
@@ -12,6 +14,7 @@ import '../config/server_config_provider.dart';
 import '../config/server_line_probe.dart';
 import 'auth_session.dart';
 import 'auth_session_provider.dart';
+import 'package:omm/features/emby/api/emby_device_id.dart';
 
 final authControllerProvider = AsyncNotifierProvider<AuthController, AuthState>(
   AuthController.new,
@@ -97,8 +100,11 @@ class AuthController extends AsyncNotifier<AuthState> {
   }
 
   Future<AuthState> _bootstrap(ApiClient client) async {
-    final isDbOnline =
-        client.config?.activeServer?.project == ServerProject.dbOnline;
+    final project = client.config?.activeServer?.project;
+    final isDbOnline = project == ServerProject.dbOnline;
+    if (project == ServerProject.emby) {
+      return _bootstrapEmby(client);
+    }
     AuthStatus status;
     try {
       status = await client.auth.status();
@@ -233,10 +239,17 @@ class AuthController extends AsyncNotifier<AuthState> {
     return result;
   }
 
-  Future<bool> login({required String password, String? totpCode}) async {
+  Future<bool> login({
+    String? username,
+    required String password,
+    String? totpCode,
+  }) async {
     final client = ref.read(requiredApiClientProvider);
     final isDbOnline =
         client.config?.activeServer?.project == ServerProject.dbOnline;
+    if (client.config?.activeServer?.project == ServerProject.emby) {
+      return _loginEmby(client, username: username, password: password);
+    }
     final current = state.value;
     // 登录请求期间保留 needsLogin 状态（页面有自己的 busy 指示），避免根
     // 路由进入 loading 分支重建登录页。
@@ -286,6 +299,103 @@ class AuthController extends AsyncNotifier<AuthState> {
         ),
       );
       throw exception;
+    }
+  }
+
+  /// Emby 启动校验：令牌存在则用 /Users/Me 验证，失效回到登录页。
+  ///
+  /// Emby 没有 OMM 的 /auth/status 接口，鉴权状态只能由令牌有效性推导。
+  Future<AuthState> _bootstrapEmby(ApiClient client) async {
+    final session = await ref.read(authSessionRepositoryProvider).load();
+    if (session == null || !session.hasAccessToken) {
+      return const AuthState(phase: AuthPhase.needsLogin);
+    }
+    try {
+      final user = await client.emby.currentUser();
+      // 极少数情况下令牌仍有效但绑定用户变化（服务端重建用户），同步本地
+      // 记录的 userId，条目查询依赖它拼接 /Users/{uid} 路径。
+      if (user.id.isNotEmpty && user.id != session.userId) {
+        await ref
+            .read(authSessionRepositoryProvider)
+            .save(AuthSession(
+              accessToken: session.accessToken,
+              refreshToken: '',
+              expiresIn: 0,
+              userId: user.id,
+            ));
+      }
+      return const AuthState(phase: AuthPhase.authenticated);
+    } catch (error) {
+      final exception = toApiException(error);
+      if (exception.status == 401) {
+        await ref.read(authSessionRepositoryProvider).clear();
+        return const AuthState(phase: AuthPhase.needsLogin);
+      }
+      return AuthState(
+        phase: AuthPhase.unavailable,
+        message: exception.message,
+      );
+    }
+  }
+
+  Future<bool> _loginEmby(
+    ApiClient client, {
+    required String? username,
+    required String password,
+  }) async {
+    final current = state.value;
+    final user = username?.trim() ?? '';
+    if (user.isEmpty) {
+      state = AsyncData(
+        AuthState(
+          phase: AuthPhase.needsLogin,
+          status: current?.status,
+          message: '请输入用户名',
+        ),
+      );
+      return false;
+    }
+    try {
+      final deviceId = await embyDeviceId(ref.read(sharedPrefsProvider));
+      final result = await client.emby.authenticateByName(
+        username: user,
+        password: password,
+        deviceId: deviceId,
+        deviceName: Platform.operatingSystem,
+        appVersion: await _appVersion(),
+      );
+      if (result.accessToken.isEmpty || result.user.id.isEmpty) {
+        throw ApiException('登录响应缺少有效会话');
+      }
+      await ref
+          .read(authSessionRepositoryProvider)
+          .save(AuthSession(
+            accessToken: result.accessToken,
+            refreshToken: '',
+            expiresIn: 0,
+            userId: result.user.id,
+          ));
+      state = const AsyncData(AuthState(phase: AuthPhase.authenticated));
+      return true;
+    } catch (error) {
+      final exception = toApiException(error);
+      state = AsyncData(
+        AuthState(
+          phase: AuthPhase.needsLogin,
+          status: current?.status,
+          message: exception.message,
+        ),
+      );
+      throw exception;
+    }
+  }
+
+  Future<String> _appVersion() async {
+    try {
+      return (await PackageInfo.fromPlatform()).version;
+    } catch (_) {
+      // 单元测试环境没有注册 package_info_plus 插件，版本号可缺省。
+      return '';
     }
   }
 
@@ -349,16 +459,20 @@ class AuthController extends AsyncNotifier<AuthState> {
 
   Future<void> logout() async {
     final client = ref.read(apiClientProvider);
-    try {
-      await client?.auth.logout();
-    } catch (_) {
-      // 退出登录的本地清理必须独立于网络状态。
-    } finally {
-      await ref.read(authSessionRepositoryProvider).clear();
-      final current = state.value;
-      state = AsyncData(
-        AuthState(phase: AuthPhase.needsLogin, status: current?.status),
-      );
+    final isEmby =
+        client?.config?.activeServer?.project == ServerProject.emby;
+    // Emby 的令牌无服务端过期语义，登出只需丢弃本地会话。
+    if (!isEmby) {
+      try {
+        await client?.auth.logout();
+      } catch (_) {
+        // 退出登录的本地清理必须独立于网络状态。
+      }
     }
+    await ref.read(authSessionRepositoryProvider).clear();
+    final current = state.value;
+    state = AsyncData(
+      AuthState(phase: AuthPhase.needsLogin, status: current?.status),
+    );
   }
 }

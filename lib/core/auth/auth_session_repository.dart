@@ -49,6 +49,7 @@ class AuthSessionRepository {
   static const _accessKey = 'omm.auth.access_token';
   static const _refreshKey = 'omm.auth.refresh_token';
   static const _expiresKey = 'omm.auth.expires_in';
+  static const _userIdKey = 'omm.auth.user_id';
 
   final AuthTokenStore _store;
   final _AuthSessionState _state;
@@ -141,6 +142,7 @@ class AuthSessionRepository {
     required String accessKey,
     required String refreshKey,
     required String expiresKey,
+    String? userIdKey,
   }) async {
     final access = await _store.read(accessKey);
     final refresh = await _store.read(refreshKey);
@@ -148,10 +150,12 @@ class AuthSessionRepository {
       return null;
     }
     final expires = int.tryParse(await _store.read(expiresKey) ?? '') ?? 0;
+    final userId = userIdKey == null ? null : _stringOrNull(await _store.read(userIdKey));
     return AuthSession(
       accessToken: access,
       refreshToken: refresh ?? '',
       expiresIn: expires,
+      userId: userId,
     );
   }
 
@@ -160,6 +164,7 @@ class AuthSessionRepository {
       accessKey: _keyFor(_accessKey, serverId),
       refreshKey: _keyFor(_refreshKey, serverId),
       expiresKey: _keyFor(_expiresKey, serverId),
+      userIdKey: _keyFor(_userIdKey, serverId),
     );
   }
 
@@ -169,10 +174,15 @@ class AuthSessionRepository {
     String? serverId,
   }) async {
     final scope = scoped ? (serverId ?? _activeServerId) : null;
+    final userId = session.userId;
     await Future.wait([
       _store.write(_keyFor(_accessKey, scope), session.accessToken),
       _store.write(_keyFor(_refreshKey, scope), session.refreshToken),
       _store.write(_keyFor(_expiresKey, scope), session.expiresIn.toString()),
+      if (userId != null && userId.isNotEmpty)
+        _store.write(_keyFor(_userIdKey, scope), userId)
+      else
+        _store.delete(_keyFor(_userIdKey, scope)),
     ]);
   }
 
@@ -185,6 +195,7 @@ class AuthSessionRepository {
       _store.delete(_keyFor(_accessKey, targetServerId)),
       _store.delete(_keyFor(_refreshKey, targetServerId)),
       _store.delete(_keyFor(_expiresKey, targetServerId)),
+      _store.delete(_keyFor(_userIdKey, targetServerId)),
     ]);
     final cacheKey = _cacheKey(targetServerId);
     _state.cache[cacheKey] = null;
@@ -199,6 +210,11 @@ class AuthSessionRepository {
     final suffix = legacyKey.substring('omm.auth.'.length);
     return 'omm.auth.server.$encoded.$suffix';
   }
+}
+
+String? _stringOrNull(String? value) {
+  final text = value?.trim() ?? '';
+  return text.isEmpty ? null : text;
 }
 
 class _AuthSessionState {

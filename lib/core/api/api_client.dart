@@ -19,6 +19,7 @@ import 'services/libraries_extended_api.dart';
 import 'services/catalog_extended_api.dart';
 import 'services/configs_extended_api.dart';
 import 'package:omm/features/db_online/api/db_online_api.dart';
+import 'package:omm/features/emby/api/emby_api.dart';
 import 'services/mappings_extended_api.dart';
 import 'services/modal_transcription_api.dart';
 import 'services/series_api.dart';
@@ -50,15 +51,19 @@ class ApiClient {
       mappingsExtended = MappingsExtendedApi(dio),
       configs = ConfigsApi(dio),
       configsExtended = ConfigsExtendedApi(dio),
-      dbOnline = DbOnlineApi(dio);
+      dbOnline = DbOnlineApi(dio),
+      emby = EmbyApi(dio);
 
   factory ApiClient.fromConfig(
     ServerConfig config, {
     AuthSessionRepository? sessionRepository,
     void Function()? onSessionExpired,
   }) {
+    final activeProject = config.activeServer?.project;
+    // DBO/Emby 只有 access token，不能参与 OMM 旧版全局令牌迁移。
     final allowLegacyMigration =
-        config.activeServer?.project != ServerProject.dbOnline;
+        activeProject != ServerProject.dbOnline &&
+        activeProject != ServerProject.emby;
     sessionRepository?.setActiveServerId(
       config.activeServerId,
       allowLegacyMigration: allowLegacyMigration,
@@ -100,5 +105,6 @@ class ApiClient {
   final ConfigsApi configs;
   final ConfigsExtendedApi configsExtended;
   final DbOnlineApi dbOnline;
+  final EmbyApi emby;
   final SystemExtendedApi systemExtended;
 }

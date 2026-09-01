@@ -6,12 +6,16 @@ class AuthSession {
     required this.accessToken,
     required this.refreshToken,
     required this.expiresIn,
+    this.userId,
     this.issuedAt,
   });
 
   final String accessToken;
   final String refreshToken;
   final int expiresIn;
+
+  /// Emby 等按用户维度查询的后端需要持久化用户 ID；OMM/DBO 不使用。
+  final String? userId;
   final DateTime? issuedAt;
 
   factory AuthSession.fromJson(Map<String, dynamic> json) {
@@ -20,6 +24,7 @@ class AuthSession {
           json['access_token']?.toString() ?? json['token']?.toString() ?? '',
       refreshToken: json['refresh_token']?.toString() ?? '',
       expiresIn: _intValue(json['expires_in']),
+      userId: _stringOrNull(json['user_id']),
       issuedAt: DateTime.now().toUtc(),
     );
   }
@@ -29,6 +34,11 @@ class AuthSession {
   bool get hasAccessToken => accessToken.isNotEmpty;
 
   bool get canRefresh => refreshToken.isNotEmpty;
+}
+
+String? _stringOrNull(Object? value) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? null : text;
 }
 
 int _intValue(Object? value) {

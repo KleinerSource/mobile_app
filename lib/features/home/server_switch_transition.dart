@@ -18,6 +18,7 @@ import '../../shared/shake_error_text.dart';
 import '../../shared/totp_input_field.dart';
 import 'package:omm/features/oh_my_media/libraries/libraries_providers.dart';
 import 'package:omm/features/db_online/providers/db_online_home_providers.dart';
+import 'package:omm/features/emby/providers/emby_providers.dart';
 import 'home_providers.dart';
 
 enum ServerSwitchPhase {
@@ -151,7 +152,11 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
   @override
   ServerSwitchState build() => const ServerSwitchState.idle();
 
-  Future<void> login({required String password, String? totpCode}) async {
+  Future<void> login({
+    String? username,
+    required String password,
+    String? totpCode,
+  }) async {
     final current = state;
     final targetServerId = current.targetServerId;
     if (!current.isActive || targetServerId == null) return;
@@ -168,7 +173,7 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
     try {
       final authenticated = await ref
           .read(authControllerProvider.notifier)
-          .login(password: password, totpCode: totpCode);
+          .login(username: username, password: password, totpCode: totpCode);
       if (!_isCurrent(operation)) return;
       if (authenticated) {
         await _completeAuthenticatedSwitch(operation);
@@ -358,6 +363,16 @@ class ServerSwitchTransitionController extends Notifier<ServerSwitchState> {
       unawaited(refresh);
       return;
     }
+    if (project == ServerProject.emby) {
+      beginFinishing();
+      final refresh = Future.wait([
+        ref.refresh(embyLatestProvider.future),
+        ref.refresh(embyResumeProvider.future),
+        ref.refresh(embyNextUpProvider.future),
+      ]);
+      unawaited(refresh);
+      return;
+    }
     // 鉴权状态确认后先保留 finishing 遮罩完成头像放大。首页刷新在后台启动，
     // 避免未配置鉴权的服务器在清理旧会话或某个首页区块响应较慢时一直停留。
     final refresh = refreshHomeProviders(
@@ -484,6 +499,7 @@ class ServerSwitchTransitionOverlay extends ConsumerStatefulWidget {
 class _ServerSwitchTransitionOverlayState
     extends ConsumerState<ServerSwitchTransitionOverlay>
     with SingleTickerProviderStateMixin {
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _totpController = TextEditingController();
   final _authScrollController = ScrollController();
@@ -525,6 +541,7 @@ class _ServerSwitchTransitionOverlayState
     _entryController.dispose();
     _handoffController.dispose();
     _finishController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     _totpController.dispose();
     _authScrollController.dispose();
@@ -1152,7 +1169,11 @@ class _ServerSwitchTransitionOverlayState
         ),
         const SizedBox(height: 16),
         Text(
-          requiresTotp ? '输入动态验证码完成切换。' : '请输入此服务器的密码继续。',
+          requiresTotp
+              ? '输入动态验证码完成切换。'
+              : server.project == ServerProject.emby
+              ? '请输入此服务器的用户名和密码继续。'
+              : '请输入此服务器的密码继续。',
           textAlign: TextAlign.center,
           style: AppText.body(
             context,
@@ -1167,6 +1188,18 @@ class _ServerSwitchTransitionOverlayState
             onCompleted: (_) => _submitTotp(),
           ),
         ] else ...[
+          // Emby 以用户名 + 密码登录；OMM/DBO 只有密码。
+          if (server.project == ServerProject.emby) ...[
+            _input(
+              context,
+              controller: _usernameController,
+              label: '用户名',
+              icon: Icons.person_outline,
+              enabled: !_loginBusy,
+              onSubmitted: (_) => _submitLogin(),
+            ),
+            const SizedBox(height: 12),
+          ],
           _input(
             context,
             controller: _passwordController,
@@ -1276,7 +1309,18 @@ class _ServerSwitchTransitionOverlayState
   }
 
   Future<void> _submitLogin() async {
+    final transition = ref.read(serverSwitchTransitionProvider);
+    final target = _targetServer(
+      ref.read(serverSelectionConfigProvider),
+      transition.targetServerId,
+    );
+    final needsUsername = target?.project == ServerProject.emby;
+    final username = _usernameController.text.trim();
     final password = _passwordController.text;
+    if (needsUsername && username.isEmpty) {
+      setState(() => _localError = '请输入用户名');
+      return;
+    }
     if (password.trim().isEmpty) {
       setState(() => _localError = '请输入密码');
       return;
@@ -1288,7 +1332,7 @@ class _ServerSwitchTransitionOverlayState
     try {
       await ref
           .read(serverSwitchTransitionProvider.notifier)
-          .login(password: password);
+          .login(username: needsUsername ? username : null, password: password);
       if (!mounted) return;
       // 密码正确但服务器要求 TOTP：切换到验证码界面。
       final phase = ref.read(authControllerProvider).value?.phase;

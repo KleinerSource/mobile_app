@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:omm/features/db_online/models/db_online_movie.dart';
+import 'package:omm/features/emby/models/emby_models.dart';
 import '../../core/models/movie.dart';
 import '../../core/platform/app_theme.dart';
 import '../../shared/poster.dart';
@@ -25,7 +26,27 @@ class RecommendCarousel extends StatefulWidget {
     this.pagePosition,
   }) : _dbOnlineItems = null,
        _dbOnlineImageUrlBuilder = null,
-       _dbOnlineOnTap = null;
+       _dbOnlineOnTap = null,
+       _embyItems = null,
+       _embyImageUrlBuilder = null,
+       _embyOnTap = null;
+
+  const RecommendCarousel.emby({
+    super.key,
+    required List<EmbyItem> items,
+    required String Function(EmbyItem item) imageUrlBuilder,
+    required Future<void> Function(BuildContext context, EmbyItem item)
+    onItemTap,
+    this.pagePosition,
+  }) : items = const <MovieListItem>[],
+       urlBuilder = null,
+       onMovieReturned = _noopMovieReturned,
+       _dbOnlineItems = null,
+       _dbOnlineImageUrlBuilder = null,
+       _dbOnlineOnTap = null,
+       _embyItems = items,
+       _embyImageUrlBuilder = imageUrlBuilder,
+       _embyOnTap = onItemTap;
 
   const RecommendCarousel.dbOnline({
     super.key,
@@ -39,7 +60,10 @@ class RecommendCarousel extends StatefulWidget {
        onMovieReturned = _noopMovieReturned,
        _dbOnlineItems = items,
        _dbOnlineImageUrlBuilder = imageUrlBuilder,
-       _dbOnlineOnTap = onMovieTap;
+       _dbOnlineOnTap = onMovieTap,
+       _embyItems = null,
+       _embyImageUrlBuilder = null,
+       _embyOnTap = null;
 
   final List<MovieListItem> items;
   final String Function(String uuid)? urlBuilder;
@@ -49,6 +73,9 @@ class RecommendCarousel extends StatefulWidget {
   final String Function(DbOnlineMovie movie)? _dbOnlineImageUrlBuilder;
   final Future<void> Function(BuildContext context, DbOnlineMovie movie)?
   _dbOnlineOnTap;
+  final List<EmbyItem>? _embyItems;
+  final String Function(EmbyItem item)? _embyImageUrlBuilder;
+  final Future<void> Function(BuildContext context, EmbyItem item)? _embyOnTap;
 
   static void _noopMovieReturned(MovieDataChanges _) {}
 
@@ -209,6 +236,27 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
   }
 
   List<_CarouselItem> _itemsFor(RecommendCarousel value) {
+    final embyItems = value._embyItems;
+    final embyImageBuilder = value._embyImageUrlBuilder;
+    final embyOnTap = value._embyOnTap;
+    if (embyItems != null && embyImageBuilder != null && embyOnTap != null) {
+      return [
+        for (final item in embyItems)
+          _CarouselItem(
+            key: item.id,
+            title: item.name,
+            code: item.type,
+            imageUrl: _nullableUrl(embyImageBuilder(item)),
+            rating: item.communityRating,
+            runtime: item.runtimeMinutes,
+            year: item.productionYear,
+            privacyId: item.id,
+            canPlay: item.isPlayable,
+            onTap: (context) => embyOnTap(context, item),
+          ),
+      ];
+    }
+
     final dbItems = value._dbOnlineItems;
     final dbImageBuilder = value._dbOnlineImageUrlBuilder;
     final dbOnTap = value._dbOnlineOnTap;

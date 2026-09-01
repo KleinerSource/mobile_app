@@ -220,20 +220,28 @@ class ServerLineProbeCoordinator {
 Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
   final stopwatch = Stopwatch()..start();
   try {
-    final dio = buildDio(
-      ServerConfig(baseUrl: line.baseUrl),
-      connectTimeout: const Duration(milliseconds: 1200),
-      sendTimeout: const Duration(milliseconds: 1200),
-      receiveTimeout: const Duration(milliseconds: 2200),
-    );
-    final response = await dio.get<dynamic>(
-      '/version',
-      options: Options(
-        extra: const {'skipAuth': true, 'skipRefresh': true, 'skipRetry': true},
-      ),
-    );
-    final versionInfo = requireCompatibleServerVersion(response.data);
+    final versionInfo = await _probeOmmVersion(line);
+    if (versionInfo == null) {
+      // OMM 协议不通时回退尝试 Emby：/emby/System/Info/Public 是免鉴权的
+      // 标准入口，OMM/DBO 服务器对其返回 404，不会误判。
+      final embyInfo = await _probeEmbyVersion(line);
+      if (embyInfo == null) {
+        throw ApiException('服务器版本检测失败');
+      }
+      stopwatch.stop();
+      return ServerLineProbeResult.success(
+        line,
+        stopwatch.elapsedMilliseconds,
+        versionInfo: embyInfo,
+      );
+    }
     if (versionInfo.project == ServerProject.dbOnline) {
+      final dio = buildDio(
+        ServerConfig(baseUrl: line.baseUrl),
+        connectTimeout: const Duration(milliseconds: 1200),
+        sendTimeout: const Duration(milliseconds: 1200),
+        receiveTimeout: const Duration(milliseconds: 2200),
+      );
       final healthResponse = await dio.get<dynamic>(
         '/health',
         options: Options(
@@ -264,6 +272,85 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
           exception.status == 404,
     );
   }
+}
+
+/// 读取 OMM/DBO 的 /api/version；响应不是兼容信封时返回 null，交由
+/// Emby 回退探测继续判断。
+Future<ServerVersionInfo?> _probeOmmVersion(ServerLine line) async {
+  final dio = buildDio(
+    ServerConfig(baseUrl: line.baseUrl),
+    connectTimeout: const Duration(milliseconds: 1200),
+    sendTimeout: const Duration(milliseconds: 1200),
+    receiveTimeout: const Duration(milliseconds: 2200),
+  );
+  final Response<dynamic> response;
+  try {
+    response = await dio.get<dynamic>(
+      '/version',
+      options: Options(
+        extra: const {'skipAuth': true, 'skipRefresh': true, 'skipRetry': true},
+      ),
+    );
+  } on DioException catch (error) {
+    final exception = toApiException(error);
+    if (exception.status == 404 || exception.status == 405) {
+      return null;
+    }
+    rethrow;
+  }
+  final data = response.data;
+  if (data is! Map || data['success'] is! bool) {
+    return null;
+  }
+  return requireCompatibleServerVersion(data);
+}
+
+/// 读取 Emby 的 /emby/System/Info/Public；非 Emby 服务器（404/格式不符）
+/// 返回 null。
+Future<ServerVersionInfo?> _probeEmbyVersion(ServerLine line) async {
+  final dio = buildDio(
+    ServerConfig(baseUrl: line.baseUrl),
+    connectTimeout: const Duration(milliseconds: 1200),
+    sendTimeout: const Duration(milliseconds: 1200),
+    receiveTimeout: const Duration(milliseconds: 2200),
+  );
+  // 探测用 dio 的 baseUrl 带 OMM 的 /api 前缀，Emby 接口在根路径下，
+  // 必须用绝对地址绕开。
+  final probeUrl =
+      '${ServerConfig.normalize(line.baseUrl)}/emby/System/Info/Public';
+  final Response<dynamic> response;
+  try {
+    response = await dio.get<dynamic>(
+      probeUrl,
+      options: Options(
+        responseType: ResponseType.json,
+        extra: const {'skipAuth': true, 'skipRefresh': true, 'skipRetry': true},
+      ),
+    );
+  } on DioException catch (error) {
+    final exception = toApiException(error);
+    if (exception.status == 404 || exception.status == 405) {
+      return null;
+    }
+    rethrow;
+  }
+  final data = response.data;
+  if (data is! Map || data['Version'] == null) {
+    return null;
+  }
+  final version = data['Version'].toString().trim();
+  final project = ServerProject.emby;
+  if (!isSupportedServerVersion(version, project.minimumVersion)) {
+    throw ServerCompatibilityException(
+      '服务器版本不满足要求，需要 ${project.projectName} >= '
+      '${project.minimumVersion}，当前版本为 ${version.isEmpty ? '未知' : version}',
+    );
+  }
+  return ServerVersionInfo(
+    projectName: project.projectName,
+    version: version,
+    buildTime: data['BuildTime']?.toString().trim() ?? '',
+  );
 }
 
 void _requireHealthyServer(Object? raw) {

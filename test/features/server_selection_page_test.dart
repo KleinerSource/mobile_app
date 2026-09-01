@@ -693,7 +693,7 @@ class _LoginAuthController extends AuthController {
       const AuthState(phase: AuthPhase.needsLogin);
 
   @override
-  Future<bool> login({required String password, String? totpCode}) async {
+  Future<bool> login({String? username, required String password, String? totpCode}) async {
     loginCalls.add(password);
     return true;
   }

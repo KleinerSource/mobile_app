@@ -6,6 +6,8 @@ const requiredServerProjectName = 'oh-my-media';
 const minimumSupportedServerVersion = '2.0.0';
 const defaultOmmPort = 8001;
 const defaultDboPort = 9090;
+const defaultEmbyPort = 8096;
+const defaultEmbyHttpsPort = 8920;
 const defaultSmbPort = 445;
 const defaultWebDavHttpPort = 80;
 const defaultWebDavHttpsPort = 443;
@@ -21,6 +23,11 @@ enum ServerProject {
     projectName: 'db_online',
     displayName: 'DB Online',
     minimumVersion: '1.14.0',
+  ),
+  emby(
+    projectName: 'emby',
+    displayName: 'Emby Server',
+    minimumVersion: '4.6.0',
   ),
   smb(
     projectName: 'smb',
@@ -66,6 +73,9 @@ int defaultServerPort(ServerProject project, {String scheme = 'http'}) {
   return switch (project) {
     ServerProject.ohMyMedia => defaultOmmPort,
     ServerProject.dbOnline => defaultDboPort,
+    // Emby 默认监听 8096；HTTPS 通常经反向代理落在 8920。
+    ServerProject.emby =>
+      scheme.toLowerCase() == 'https' ? defaultEmbyHttpsPort : defaultEmbyPort,
     ServerProject.smb => defaultSmbPort,
     ServerProject.webDav =>
       scheme.toLowerCase() == 'https'
@@ -79,9 +89,11 @@ int defaultServerPort(ServerProject project, {String scheme = 'http'}) {
 
 String get serverCompatibilityRequirementMessage =>
     '服务器不兼容，需要 ${ServerProject.ohMyMedia.projectName} >= '
-    '${ServerProject.ohMyMedia.minimumVersion} 或 '
+    '${ServerProject.ohMyMedia.minimumVersion}、'
     '${ServerProject.dbOnline.projectName} >= '
-    '${ServerProject.dbOnline.minimumVersion}';
+    '${ServerProject.dbOnline.minimumVersion} 或 '
+    '${ServerProject.emby.projectName} >= '
+    '${ServerProject.emby.minimumVersion}';
 
 @immutable
 class ServerVersionInfo {

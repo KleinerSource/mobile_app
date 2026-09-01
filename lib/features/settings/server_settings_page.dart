@@ -32,7 +32,11 @@ class ServerSettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cfg = ref.watch(serverConfigProvider);
     final l = AppL10n.of(context);
-    final dbOnline = cfg?.activeServer?.project == ServerProject.dbOnline;
+    final project = cfg?.activeServer?.project;
+    final dbOnline = project == ServerProject.dbOnline;
+    // Emby 的服务端设置（转码、字幕等）在 Emby 网页控制台管理，App 内
+    // 不重复实现这些入口。
+    final emby = project == ServerProject.emby;
 
     return Scaffold(
       backgroundColor: appColors(context).bg,
@@ -46,8 +50,20 @@ class ServerSettingsPage extends ConsumerWidget {
             body: ListView(
               primary: true,
               children: [
+                if (emby)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 32, 22, 0),
+                    child: Text(
+                      'Emby 服务器的媒体库与转码设置请在 Emby 网页控制台管理。',
+                      textAlign: TextAlign.center,
+                      style: AppText.body(context).copyWith(
+                        color: appColors(context).muted,
+                        height: 1.6,
+                      ),
+                    ),
+                  ),
                 if (dbOnline) const DboBackendSettingsContent(),
-                if (!dbOnline)
+                if (!dbOnline && !emby)
                   SettingsGroup(
                     title: l.settingsGroupSystem,
                     items: [
@@ -104,7 +120,7 @@ class ServerSettingsPage extends ConsumerWidget {
                       ),
                     ],
                   ),
-                if (!dbOnline)
+                if (!dbOnline && !emby)
                   SettingsGroup(
                     title: l.settingsGroupLibrary,
                     items: [
@@ -185,7 +201,7 @@ class ServerSettingsPage extends ConsumerWidget {
                       ),
                     ],
                   ),
-                if (!dbOnline)
+                if (!dbOnline && !emby)
                   SettingsGroup(
                     title: l.settingsGroupMappings,
                     items: [
@@ -225,7 +241,7 @@ class ServerSettingsPage extends ConsumerWidget {
                       ),
                     ],
                   ),
-                if (!dbOnline)
+                if (!dbOnline && !emby)
                   SettingsGroup(
                     title: l.settingsGroupTools,
                     items: [

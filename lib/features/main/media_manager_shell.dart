@@ -17,6 +17,9 @@ import 'package:omm/features/oh_my_media/favorites/favorites_page.dart';
 import '../home/home_page.dart';
 import 'package:omm/features/db_online/pages/db_online_home_page.dart';
 import 'package:omm/features/db_online/pages/db_online_search_page.dart';
+import 'package:omm/features/emby/pages/emby_home_page.dart';
+import 'package:omm/features/emby/pages/emby_library_page.dart';
+import 'package:omm/features/emby/pages/emby_search_page.dart';
 import 'package:omm/features/oh_my_media/libraries/libraries_page.dart';
 import 'package:omm/features/db_online/pages/db_online_library_page.dart';
 import 'package:omm/features/oh_my_media/movies/movies_page.dart';
@@ -168,9 +171,10 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
   List<FloatingTabSpec<_YouQuickAction>> _tabsFor(
     BuildContext context, {
     required bool dbOnline,
+    required bool emby,
   }) {
     final l = AppL10n.of(context);
-    if (dbOnline) {
+    if (dbOnline || emby) {
       return [
         FloatingTabSpec(label: l.tabHome, icon: Icons.home_rounded),
         FloatingTabSpec(label: l.tabLibrary, icon: Icons.video_library_rounded),
@@ -194,16 +198,22 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     ];
   }
 
-  Widget _bodyFor(int i, {required bool dbOnline}) {
+  Widget _bodyFor(int i, {required bool dbOnline, required bool emby}) {
     switch (i) {
       case 0:
-        return dbOnline ? const DbOnlineHomePage() : const HomePage();
+        if (dbOnline) return const DbOnlineHomePage();
+        if (emby) return const EmbyHomePage();
+        return const HomePage();
       case 1:
-        return dbOnline ? const DbOnlineLibraryPage() : const MoviesPage();
+        if (dbOnline) return const DbOnlineLibraryPage();
+        if (emby) return const EmbyLibraryPage();
+        return const MoviesPage();
       case 2:
-        return dbOnline ? const DbOnlineSearchPage() : const SearchPage();
+        if (dbOnline) return const DbOnlineSearchPage();
+        if (emby) return const EmbySearchPage();
+        return const SearchPage();
       case 3:
-        return dbOnline ? const SettingsPage() : const FavoritesPage();
+        return dbOnline || emby ? const SettingsPage() : const FavoritesPage();
       default:
         return const SizedBox.shrink();
     }
@@ -214,11 +224,12 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     final c = appColors(context);
     final project = ref.watch(serverConfigProvider)?.activeServer?.project;
     final dbOnline = project == ServerProject.dbOnline;
+    final emby = project == ServerProject.emby;
     if (_lastProject != null && project != _lastProject && _index != 0) {
       _index = 0;
     }
     _lastProject = project;
-    final tabs = _tabsFor(context, dbOnline: dbOnline);
+    final tabs = _tabsFor(context, dbOnline: dbOnline, emby: emby);
     return Scaffold(
       extendBody: true,
       backgroundColor: c.bg,
@@ -230,7 +241,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
               active: i == _index,
               child: StatusBarScrollToTop(
                 scrollController: _tabScrollControllers[i],
-                child: _bodyFor(i, dbOnline: dbOnline),
+                    child: _bodyFor(i, dbOnline: dbOnline, emby: emby),
               ),
             ),
         ],

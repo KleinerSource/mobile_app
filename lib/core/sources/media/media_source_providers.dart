@@ -4,10 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/providers.dart';
 import '../../api/server_compatibility.dart';
+import '../../auth/auth_session_provider.dart';
 import '../common/source_id.dart';
 import '../common/source_exception.dart';
 import 'dbo_media_source_adapter.dart';
 import 'dbo_media_source.dart';
+import 'emby_media_source_adapter.dart';
+import 'emby_media_source.dart';
 import 'media_models.dart';
 import 'media_source.dart';
 import 'omm_media_source_adapter.dart';
@@ -33,6 +36,13 @@ final mediaSourceRegistryProvider = Provider<MediaSourceRegistry>((ref) {
       serverId: client.config?.activeServerId,
       endpoint: client.config?.baseUrl,
     );
+  } else if (project == ServerProject.emby) {
+    source = EmbyMediaSourceAdapter(
+      client.emby,
+      sessionRepository: ref.read(authSessionRepositoryProvider),
+      serverId: client.config?.activeServerId,
+      endpoint: client.config?.baseUrl,
+    );
   } else if (project == ServerProject.ohMyMedia) {
     source = OmmMediaSourceAdapter(client);
   } else {
@@ -54,6 +64,13 @@ final dboMediaSourceProvider = Provider<DboMediaSource?>((ref) {
       .watch(mediaSourceRegistryProvider)
       .find(const SourceId('dbo'));
   return source is DboMediaSource ? source : null;
+});
+
+final embyMediaSourceProvider = Provider<EmbyMediaSource?>((ref) {
+  final source = ref
+      .watch(mediaSourceRegistryProvider)
+      .find(const SourceId('emby'));
+  return source is EmbyMediaSource ? source : null;
 });
 
 class MediaCatalogRequest {
