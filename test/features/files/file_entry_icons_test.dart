@@ -43,7 +43,7 @@ void main() {
     );
     expect(
       fileIconPlaceholderAssetFor(entry('captions.srt')),
-      'assets/file_icons/document_placeholder.png',
+      'assets/file_icons/text_file_icon.png',
     );
     expect(fileTypeIconFor(entry('captions.srt')), FileTypeIcon.text);
     expect(
@@ -161,7 +161,7 @@ void main() {
     );
     expect(
       fileIconPlaceholderAssetFor(entry('settings.json')),
-      'assets/file_icons/document_placeholder.png',
+      'assets/file_icons/code_file_icon.png',
     );
   });
 

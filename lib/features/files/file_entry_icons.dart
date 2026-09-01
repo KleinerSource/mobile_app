@@ -255,7 +255,6 @@ const _codeMimeTypes = <String>{
 };
 
 const _folderPlaceholderAsset = 'assets/file_icons/folder_placeholder.png';
-const _documentPlaceholderAsset = 'assets/file_icons/document_placeholder.png';
 const _videoPlaceholderAsset = 'assets/file_icons/video_placeholder.png';
 const _imagePlaceholderAsset = 'assets/file_icons/image_placeholder.png';
 const _unknownPlaceholderAsset = 'assets/file_icons/unknown_placeholder.png';
@@ -422,6 +421,9 @@ class FileEntryIconAsset extends StatelessWidget {
 }
 
 /// 图片预览模式下使用的文件类型占位图。
+///
+/// 仅视频与图片有专属占位图，其余类型复用关闭预览时的类型图标，
+/// 保证两种模式下图标一致。
 class FileEntryIconPlaceholder extends StatelessWidget {
   const FileEntryIconPlaceholder({super.key, required this.entry});
 
@@ -438,15 +440,7 @@ String fileIconPlaceholderAssetFor(FileEntry entry) {
   return switch (fileTypeIconFor(entry)) {
     FileTypeIcon.video => _videoPlaceholderAsset,
     FileTypeIcon.image => _imagePlaceholderAsset,
-    FileTypeIcon.text ||
-    FileTypeIcon.archive ||
-    FileTypeIcon.pdf ||
-    FileTypeIcon.presentation ||
-    FileTypeIcon.spreadsheet ||
-    FileTypeIcon.document ||
-    FileTypeIcon.audio ||
-    FileTypeIcon.code => _documentPlaceholderAsset,
-    FileTypeIcon.other => _unknownPlaceholderAsset,
+    _ => fileIconAssetWhenPreviewDisabledFor(entry),
   };
 }
 
