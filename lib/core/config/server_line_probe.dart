@@ -17,6 +17,7 @@ class ServerLineProbeResult {
     required this.latencyMs,
     required this.message,
     required this.incompatible,
+    required this.requiresAuthentication,
     required this.versionInfo,
   });
 
@@ -30,6 +31,7 @@ class ServerLineProbeResult {
          latencyMs: latencyMs,
          message: '',
          incompatible: false,
+         requiresAuthentication: false,
          versionInfo: versionInfo,
        );
 
@@ -37,6 +39,7 @@ class ServerLineProbeResult {
     ServerLine line,
     String message, {
     bool incompatible = false,
+    bool requiresAuthentication = false,
     ServerVersionInfo? versionInfo,
   }) : this._(
          line: line,
@@ -44,6 +47,7 @@ class ServerLineProbeResult {
          latencyMs: 0,
          message: message,
          incompatible: incompatible,
+         requiresAuthentication: requiresAuthentication,
          versionInfo: versionInfo,
        );
 
@@ -52,6 +56,7 @@ class ServerLineProbeResult {
   final int latencyMs;
   final String message;
   final bool incompatible;
+  final bool requiresAuthentication;
   final ServerVersionInfo? versionInfo;
 }
 
@@ -212,7 +217,12 @@ class ServerLineProbeCoordinator {
       }
       return result;
     } catch (error) {
-      return ServerLineProbeResult.failure(line, error.toString());
+      final exception = toApiException(error);
+      return ServerLineProbeResult.failure(
+        line,
+        exception.message,
+        requiresAuthentication: _isAuthenticationFailure(exception),
+      );
     }
   }
 }
@@ -267,11 +277,14 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
       line,
       exception.message,
       incompatible:
-          error is ServerCompatibilityException ||
-          exception.status == 401 ||
-          exception.status == 404,
+          error is ServerCompatibilityException || exception.status == 404,
+      requiresAuthentication: _isAuthenticationFailure(exception),
     );
   }
+}
+
+bool _isAuthenticationFailure(ApiException exception) {
+  return exception.status == 401 || exception.status == 403;
 }
 
 /// 读取 OMM/DBO 的 /api/version；响应不是兼容信封时返回 null，交由

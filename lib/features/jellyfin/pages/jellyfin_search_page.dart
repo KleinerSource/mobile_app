@@ -272,7 +272,7 @@ class _JellyfinSearchResultsState
             showNoMoreItemsIndicatorAsGridChild: false,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
-              childAspectRatio: 0.43,
+              childAspectRatio: 0.5,
               crossAxisSpacing: 10,
               mainAxisSpacing: 14,
             ),

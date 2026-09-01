@@ -385,10 +385,10 @@ void main() {
 
     expect(find.text('OMM 真实服务器名称'), findsOneWidget);
     expect(find.text('OMM 用户配置名称'), findsNothing);
-    expect(find.text('OMM 公网线路'), findsNothing);
+    expect(find.text('OMM 公网线路'), findsOneWidget);
     expect(find.text('SMB 用户配置名称'), findsOneWidget);
     expect(find.text('不应显示的 SMB 服务端名称'), findsNothing);
-    expect(find.text('SMB 线路名称'), findsNothing);
+    expect(find.text('SMB 线路名称'), findsOneWidget);
   });
 
   testWidgets('服务器列表使用双列卡片网格', (tester) async {
@@ -431,7 +431,7 @@ void main() {
       2,
     );
     expect(find.text('服务器 5'), findsOneWidget);
-    expect(find.text('线路'), findsNWidgets(6));
+    expect(find.text('主线路'), findsNWidgets(6));
     expect(find.text('1条线路'), findsNWidgets(6));
     expect(find.text('延迟'), findsNWidgets(6));
     expect(find.text('8 ms'), findsNWidgets(6));
@@ -817,7 +817,11 @@ class _LoginAuthController extends AuthController {
       const AuthState(phase: AuthPhase.needsLogin);
 
   @override
-  Future<bool> login({String? username, required String password, String? totpCode}) async {
+  Future<bool> login({
+    String? username,
+    required String password,
+    String? totpCode,
+  }) async {
     loginCalls.add(password);
     return true;
   }

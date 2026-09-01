@@ -340,7 +340,7 @@ class _JellyfinLibraryPageState extends ConsumerState<JellyfinLibraryPage> {
                               gridDelegate:
                                   SliverGridDelegateWithFixedCrossAxisCount(
                                     crossAxisCount: crossAxisCount,
-                                    childAspectRatio: 0.43,
+                                    childAspectRatio: 0.5,
                                     mainAxisSpacing: 14,
                                     crossAxisSpacing: spacing,
                                   ),

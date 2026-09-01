@@ -141,6 +141,7 @@ class ServerNavigationScope extends InheritedWidget {
 
 class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   final _profileFutures = <String, Future<ServerProfileData?>>{};
+  final _statusFutures = <String, Future<_ServerStatus>>{};
   final _avatarKeys = <String, GlobalKey>{};
   var _searchQuery = '';
 
@@ -214,6 +215,7 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                             transition: transition,
                             profileFor: _profileFor,
                             cachedProfileFor: _cachedProfileFor,
+                            statusFor: _statusFor,
                             avatarKeyFor: _avatarKeyFor,
                             onSelect: (server) =>
                                 unawaited(_selectServer(server)),
@@ -384,6 +386,34 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     return _profileFutures.putIfAbsent(server.id, () => _loadProfile(server));
   }
 
+  Future<_ServerStatus> _statusFor(ServerProfile server) {
+    final line = server.activeLine;
+    final key = [server.id, line?.id, line?.baseUrl, line?.enabled].join('|');
+    return _statusFutures.putIfAbsent(key, () => _detectStatus(server));
+  }
+
+  Future<_ServerStatus> _detectStatus(ServerProfile server) async {
+    final line = server.activeLine;
+    final project = server.project;
+    if (line == null || !line.enabled || project == null) {
+      return _ServerStatus.unavailable;
+    }
+    // 文件来源的连接由文件浏览页在挂载来源时完成验证；选择器这里只反映
+    // 线路是否被启用，避免在卡片列表中重复创建 SMB/WebDAV 连接。
+    if (project.isFileSource) return _ServerStatus.connected;
+
+    final probe = await ref
+        .read(serverLineProbeCoordinatorProvider)
+        .probe(line, expectedProjectName: server.projectName);
+    if (!probe.success) {
+      return probe.requiresAuthentication
+          ? _ServerStatus.authenticationRequired
+          : _ServerStatus.unavailable;
+    }
+
+    return _ServerStatus.connected;
+  }
+
   ServerProfileData? _cachedProfileFor(ServerProfile server) {
     return ref.read(serverProfileCacheRepoProvider).load(server.id);
   }
@@ -517,6 +547,7 @@ class _ServerStrip extends StatelessWidget {
     required this.transition,
     required this.profileFor,
     required this.cachedProfileFor,
+    required this.statusFor,
     required this.avatarKeyFor,
     required this.onSelect,
     required this.onAdd,
@@ -528,6 +559,7 @@ class _ServerStrip extends StatelessWidget {
   final ServerSwitchState transition;
   final Future<ServerProfileData?> Function(ServerProfile server) profileFor;
   final ServerProfileData? Function(ServerProfile server) cachedProfileFor;
+  final Future<_ServerStatus> Function(ServerProfile server) statusFor;
   final GlobalKey Function(String serverId) avatarKeyFor;
   final ValueChanged<ServerProfile> onSelect;
   final VoidCallback onAdd;
@@ -555,6 +587,7 @@ class _ServerStrip extends StatelessWidget {
           server: server,
           profileFuture: profileFor(server),
           cachedProfile: cachedProfileFor(server),
+          statusFuture: statusFor(server),
           avatarKey: avatarKeyFor(server.id),
           active: server.id == activeServerId,
           busy: transition.isActive && transition.targetServerId == server.id,
@@ -568,11 +601,14 @@ class _ServerStrip extends StatelessWidget {
 
 enum _ServerAction { edit, delete }
 
+enum _ServerStatus { checking, connected, authenticationRequired, unavailable }
+
 class _ServerAvatarCard extends StatelessWidget {
   const _ServerAvatarCard({
     required this.server,
     required this.profileFuture,
     required this.cachedProfile,
+    required this.statusFuture,
     required this.avatarKey,
     required this.active,
     required this.busy,
@@ -583,6 +619,7 @@ class _ServerAvatarCard extends StatelessWidget {
   final ServerProfile server;
   final Future<ServerProfileData?> profileFuture;
   final ServerProfileData? cachedProfile;
+  final Future<_ServerStatus> statusFuture;
   final GlobalKey avatarKey;
   final bool active;
   final bool busy;
@@ -606,6 +643,7 @@ class _ServerAvatarCard extends StatelessWidget {
             : server.name;
         final avatarUrl = profile?.avatarUrl ?? server.avatarUrl;
         final line = server.activeLine;
+        final lineName = _serverLineLabel(line);
         final projectLabel = _serverProjectLabel(server.project);
         return Semantics(
           button: true,
@@ -618,7 +656,8 @@ class _ServerAvatarCard extends StatelessWidget {
             onTap: busy ? null : onTap,
             onLongPress: busy ? null : onLongPress,
             child: Padding(
-              padding: const EdgeInsets.all(10),
+              // 上移卡片内容，抵消 Flutter 字体基线与头像占位带来的视觉下沉。
+              padding: const EdgeInsets.fromLTRB(10, 6, 10, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -626,20 +665,39 @@ class _ServerAvatarCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
-                        child: Row(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Flexible(
-                              child: Text(
-                                displayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppText.cardTitle(
-                                  context,
-                                ).copyWith(fontSize: 15, height: 1.2),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    displayName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppText.cardTitle(
+                                      context,
+                                    ).copyWith(fontSize: 15, height: 1.2),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                _ServerStatusDot(statusFuture: statusFuture),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              projectLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colors.muted,
+                                fontFamily: 'Inter',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                height: 1.15,
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            _ServerStatusDot(online: line?.enabled == true),
                           ],
                         ),
                       ),
@@ -664,34 +722,25 @@ class _ServerAvatarCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    projectLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colors.muted,
-                      fontFamily: 'Inter',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      height: 1.15,
-                    ),
-                  ),
                   const Spacer(),
                   Row(
                     children: [
-                      Text(
-                        '线路',
-                        style: AppText.meta(
-                          context,
-                        ).copyWith(fontSize: 11, color: colors.muted),
+                      Expanded(
+                        child: Text(
+                          lineName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.meta(
+                            context,
+                          ).copyWith(fontSize: 11, color: colors.muted),
+                        ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 8),
                       Text(
                         '${server.lines.length}条线路',
                         style: AppText.meta(
                           context,
-                        ).copyWith(fontSize: 11, color: colors.text),
+                        ).copyWith(fontSize: 11, color: colors.muted),
                       ),
                     ],
                   ),
@@ -913,16 +962,34 @@ class _ServerCardLogo extends StatelessWidget {
   }
 }
 
-class _ServerStatusDot extends StatefulWidget {
-  const _ServerStatusDot({required this.online});
+class _ServerStatusDot extends StatelessWidget {
+  const _ServerStatusDot({required this.statusFuture});
 
-  final bool online;
+  final Future<_ServerStatus> statusFuture;
 
   @override
-  State<_ServerStatusDot> createState() => _ServerStatusDotState();
+  Widget build(BuildContext context) {
+    return FutureBuilder<_ServerStatus>(
+      future: statusFuture,
+      initialData: _ServerStatus.checking,
+      builder: (context, snapshot) => _AnimatedServerStatusDot(
+        status: snapshot.data ?? _ServerStatus.checking,
+      ),
+    );
+  }
 }
 
-class _ServerStatusDotState extends State<_ServerStatusDot> {
+class _AnimatedServerStatusDot extends StatefulWidget {
+  const _AnimatedServerStatusDot({required this.status});
+
+  final _ServerStatus status;
+
+  @override
+  State<_AnimatedServerStatusDot> createState() =>
+      _AnimatedServerStatusDotState();
+}
+
+class _AnimatedServerStatusDotState extends State<_AnimatedServerStatusDot> {
   bool _disableAnimations = false;
   Timer? _pulseTimer;
   var _pulseStep = 7;
@@ -944,9 +1011,9 @@ class _ServerStatusDotState extends State<_ServerStatusDot> {
   }
 
   @override
-  void didUpdateWidget(covariant _ServerStatusDot oldWidget) {
+  void didUpdateWidget(covariant _AnimatedServerStatusDot oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.online == oldWidget.online) return;
+    if (widget.status == oldWidget.status) return;
     _syncAnimation();
   }
 
@@ -960,9 +1027,15 @@ class _ServerStatusDotState extends State<_ServerStatusDot> {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     const onlineColor = Color(0xFF65D391);
-    final offlineColor = colors.muted2;
-    if (!widget.online || _disableAnimations) {
-      return _dot(widget.online ? onlineColor : offlineColor, 1, 1);
+    const authenticationColor = Color(0xFFFFC857);
+    final color = switch (widget.status) {
+      _ServerStatus.connected => onlineColor,
+      _ServerStatus.authenticationRequired => authenticationColor,
+      _ServerStatus.unavailable => colors.danger,
+      _ServerStatus.checking => colors.muted2,
+    };
+    if (widget.status != _ServerStatus.connected || _disableAnimations) {
+      return _dot(color, 1, 1);
     }
     final phase = _pulseStep <= 7 ? _pulseStep : 14 - _pulseStep;
     final value = Curves.easeInOut.transform(phase / 7);
@@ -970,11 +1043,15 @@ class _ServerStatusDotState extends State<_ServerStatusDot> {
   }
 
   void _syncAnimation() {
-    if (widget.online && !_disableAnimations) {
+    if (widget.status == _ServerStatus.connected && !_disableAnimations) {
       if (_pulseTimer != null) return;
       _pulseStep = 0;
       _pulseTimer = Timer.periodic(_pulseInterval, (_) {
-        if (!mounted || !widget.online || _disableAnimations) return;
+        if (!mounted ||
+            widget.status != _ServerStatus.connected ||
+            _disableAnimations) {
+          return;
+        }
         setState(() {
           _pulseStep = (_pulseStep + 1) % 14;
         });
@@ -1031,4 +1108,10 @@ String _serverProjectLabel(ServerProject? project) {
     ServerProject.openList => 'OpenList',
     null => '服务器',
   };
+}
+
+String _serverLineLabel(ServerLine? line) {
+  final name = line?.name.trim();
+  if (name == null || name.isEmpty || name == '服务器线路') return '主线路';
+  return name;
 }

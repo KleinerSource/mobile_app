@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/api/api_exception.dart';
 import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config.dart';
 import 'package:omm/core/config/server_config_provider.dart';
@@ -858,10 +859,10 @@ void _main_0() {
     await notifier.reorderServers(5, 0);
     await notifier.reorderServers(0, -1);
 
-    expect(
-      container.read(serverConfigProvider)?.servers.map((s) => s.id),
-      ['home', 'remote'],
-    );
+    expect(container.read(serverConfigProvider)?.servers.map((s) => s.id), [
+      'home',
+      'remote',
+    ]);
     expect(
       container.read(serverConfigRepoProvider).load()?.servers.map((s) => s.id),
       ['home', 'remote'],
@@ -1335,6 +1336,18 @@ void _main_4() {
 
     expect(selection.selected?.line, backup);
     expect(selection.selected?.latencyMs, 35);
+  });
+
+  test('线路探测将鉴权失败与不可用状态区分', () async {
+    final coordinator = ServerLineProbeCoordinator(
+      probe: (_) async => throw ApiException('请先登录', status: 401),
+    );
+
+    final result = await coordinator.probe(current);
+
+    expect(result.success, isFalse);
+    expect(result.requiresAuthentication, isTrue);
+    expect(result.incompatible, isFalse);
   });
 
   test('并发测速在首条线路成功时立即返回，不等待慢线路', () async {

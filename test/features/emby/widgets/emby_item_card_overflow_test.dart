@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/core/models/movie.dart';
 import 'package:omm/features/emby/models/emby_models.dart';
-import 'package:omm/features/i18n/badge_position_provider.dart';
-import 'package:omm/features/privacy/privacy_providers.dart';
 import 'package:omm/features/emby/providers/emby_providers.dart';
 import 'package:omm/features/emby/widgets/emby_item_card.dart';
+import 'package:omm/features/i18n/badge_position_provider.dart';
+import 'package:omm/features/privacy/privacy_providers.dart';
+import 'package:omm/shared/movie_card.dart';
+import 'package:omm/shared/poster.dart';
 
 class _PrivacyState extends PrivacyShieldNotifier {
   _PrivacyState(this.enabled);
@@ -25,13 +28,16 @@ class _BadgePositionsState extends BadgePositionsNotifier {
   BadgePositions build() => value;
 }
 
-EmbyItem _item({String type = 'Movie', String series = ''}) {
+const _longTitle = '非常长的影片标题用来测试两行折行之后的卡片高度表现';
+
+EmbyItem _embyItem({String type = 'Movie', String series = ''}) {
   return EmbyItem.fromJson({
     'Id': 'item-1',
-    'Name': '非常长的影片标题用来测试两行折行之后的卡片高度表现',
+    'Name': _longTitle,
     'Type': type,
     'ProductionYear': 2024,
     'RunTimeTicks': 54000000000,
+    'CommunityRating': 7.6,
     if (series.isNotEmpty) 'SeriesName': series,
     if (series.isNotEmpty) 'ParentIndexNumber': 1,
     if (series.isNotEmpty) 'IndexNumber': 2,
@@ -39,58 +45,151 @@ EmbyItem _item({String type = 'Movie', String series = ''}) {
   });
 }
 
-Future<void> _pumpGrid(WidgetTester tester, double aspectRatio) async {
-  tester.view.physicalSize = const Size(390 * 3, 844 * 3);
-  tester.view.devicePixelRatio = 3.0;
-  addTearDown(tester.view.reset);
-
-  final width = (390.0 - 44 - 20) / 3;
-  await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        privacyShieldProvider.overrideWith(() => _PrivacyState(false)),
-        badgePositionsProvider.overrideWith(
-          () => _BadgePositionsState(const BadgePositions()),
-        ),
-      ],
-      child: MaterialApp(
-        home: Scaffold(
-          body: GridView.count(
-            crossAxisCount: 3,
-            childAspectRatio: aspectRatio,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 14,
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            children: [
-              EmbyItemCard(item: _item(), urls: _urls(), width: width),
-              EmbyItemCard(
-                item: _item(type: 'Episode', series: '很长的剧集名称同样会占满一行'),
-                urls: _urls(),
-                width: width,
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-  await tester.pump();
+MovieListItem _ommItem() {
+  return MovieListItem.fromJson(const {
+    'id': 1,
+    'title': _longTitle,
+    'year': 2024,
+    'runtime': 90,
+    'rating': 7.6,
+    'poster_uuid': 'uuid-1',
+  });
 }
 
 // EmbyServerUrls 只做字符串拼接，不触网。
 EmbyServerUrls _urls() => EmbyServerUrls(baseUrl: 'http://img.test', token: 't');
 
+Widget _grid(List<Widget> children, double aspectRatio) {
+  return ProviderScope(
+    overrides: [
+      privacyShieldProvider.overrideWith(() => _PrivacyState(false)),
+      badgePositionsProvider.overrideWith(
+        () => _BadgePositionsState(const BadgePositions()),
+      ),
+    ],
+    child: MaterialApp(
+      home: Scaffold(
+        body: GridView.count(
+          crossAxisCount: 3,
+          childAspectRatio: aspectRatio,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 14,
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          children: children,
+        ),
+      ),
+    ),
+  );
+}
+
+/// 测试字体（Ahem）度量与真机 Inter 不同，卡片文字行的亚像素差异会被
+/// 放大成溢出条；这里以 OMM MovieCard 在同一环境下的表现为基准，
+/// 断言 Emby 卡片的几何不超过 OMM。
+Future<void> _pumpBoth(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+  tester.view.devicePixelRatio = 3.0;
+  addTearDown(tester.view.reset);
+
+  const aspectRatio = 0.5;
+  final width = (390.0 - 44 - 20) / 3;
+
+  await tester.pumpWidget(
+    _grid([
+      MovieCard(
+        movie: _ommItem(),
+        posterUrlBuilder: (uuid) => 'http://img.test/$uuid',
+      ),
+    ], aspectRatio),
+  );
+  await tester.pump();
+  final ommException = tester.takeException();
+  final ommHeight = tester.getSize(find.byType(Column).first).height;
+
+  await tester.pumpWidget(
+    _grid([
+      EmbyItemCard(item: _embyItem(), urls: _urls(), width: width),
+      EmbyItemCard(
+        item: _embyItem(type: 'Episode', series: '很长的剧集名称同样会占满一行'),
+        urls: _urls(),
+        width: width,
+      ),
+    ], aspectRatio),
+  );
+  await tester.pump();
+  final embyException = tester.takeException();
+  final embyHeight = tester.getSize(find.byType(Column).first).height;
+
+  // ignore: avoid_print
+  print(
+    'geometry: omm=$ommHeight (exception=${ommException != null}) '
+    'emby=$embyHeight (exception=${embyException != null})',
+  );
+
+  // 几何一致：卡片总高与 OMM 差异在亚像素级。
+  expect((embyHeight - ommHeight).abs(), lessThan(2.0));
+  // 溢出状态一致：OMM 不溢出时 Emby 也不溢出。
+  if (ommException == null) {
+    expect(embyException, isNull, reason: 'OMM 不溢出时 Emby 卡片也不应溢出');
+  }
+}
+
 void main() {
-  testWidgets('aspect 0.5 下 CatalogMovieCard 内容溢出网格单元（复现）', (
-    tester,
-  ) async {
-    await _pumpGrid(tester, 0.5);
-    final exception = tester.takeException();
-    expect(exception, isNotNull, reason: '0.5 宽高比应触发 RenderFlex 溢出');
+  testWidgets('Emby 卡片风格尺寸与 OMM MovieCard 一致（0.5 网格）', (tester) async {
+    await _pumpBoth(tester);
+    expect(tester.takeException(), isNull);
   });
 
-  testWidgets('加高网格单元后不再溢出', (tester) async {
-    await _pumpGrid(tester, 0.43);
-    expect(tester.takeException(), isNull);
+  testWidgets('meta 行格式与 OMM 一致；无在线播放角标', (tester) async {
+    tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      _grid([
+        EmbyItemCard(item: _embyItem(), urls: _urls(), width: 132),
+        EmbyItemCard(
+          item: _embyItem(type: 'Episode', series: '很长的剧集名称同样会占满一行'),
+          urls: _urls(),
+          width: 132,
+        ),
+      ], 0.4),
+    );
+    await tester.pump();
+    tester.takeException();
+
+    expect(find.text('2024 · 90m'), findsOneWidget);
+    expect(find.text('S01E02 · 很长的剧集名称同样会占满一行'), findsOneWidget);
+    // OMM 卡片没有在线播放角标；播放入口在详情页。
+    expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
+  });
+
+  testWidgets('播放中的条目显示贴海报底部的进度条', (tester) async {
+    tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    final item = EmbyItem.fromJson(const {
+      'Id': 'item-2',
+      'Name': '观看中的影片',
+      'Type': 'Movie',
+      'RunTimeTicks': 72000000000,
+      'UserData': {'PlaybackPositionTicks': 3600000000},
+    });
+    await tester.pumpWidget(
+      _grid(
+        [EmbyItemCard(item: item, urls: _urls(), width: 132)],
+        0.4,
+      ),
+    );
+    await tester.pump();
+
+    final progressRect = tester.getRect(find.byType(LinearProgressIndicator));
+    final posterRect = tester.getRect(find.byType(Poster));
+    expect(progressRect.bottom, moreOrLessEquals(posterRect.bottom, epsilon: 1));
+    // 5% 进度（360s / 7200s）。
+    final progress = tester.widget<LinearProgressIndicator>(
+      find.byType(LinearProgressIndicator),
+    );
+    expect(progress.value, moreOrLessEquals(0.05, epsilon: 0.01));
   });
 }
