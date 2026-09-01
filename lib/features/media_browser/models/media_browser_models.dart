@@ -301,7 +301,9 @@ class MediaBrowserItem {
   String? get displayArtist {
     final album = albumArtist?.trim();
     if (album?.isNotEmpty == true) return album;
-    final joined = artistNames.where((name) => name.trim().isNotEmpty).join(' / ');
+    final joined = artistNames
+        .where((name) => name.trim().isNotEmpty)
+        .join(' / ');
     return joined.isEmpty ? null : joined;
   }
 

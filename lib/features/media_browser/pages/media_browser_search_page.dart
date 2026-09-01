@@ -11,15 +11,15 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
-import 'package:omm/features/media_browser/widgets/media_browser_selectable_item_card.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_selection.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/error_view.dart';
 import 'package:omm/shared/glow_background.dart';
-import 'package:omm/shared/pagination_footer.dart';
+import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
-import 'package:omm/shared/selection_controller.dart';
+import 'package:omm/shared/pagination_footer.dart';
 
 /// MediaBrowser 搜索页。
 ///
@@ -217,17 +217,14 @@ class _MediaBrowserSearchResultsState
     firstPageKey: 0,
   );
   final _scrollController = ScrollController();
-  late final SelectionController<String> _selection;
+  late final PagedSelectionController<MediaBrowserItem> _selection;
   bool _batchBusy = false;
-
-  bool get _selectionMode => _selection.isActive;
-  Set<String> get _selectedIds => _selection.selected;
 
   @override
   void initState() {
     super.initState();
-    _selection = SelectionController<String>();
-    _selection.activeListenable.addListener(_onSelectionModeChanged);
+    _selection = createMediaBrowserItemSelection();
+    _selection.addModeListener(_onSelectionModeChanged);
     _pagingController.addPageRequestListener(_fetchPage);
   }
 
@@ -241,28 +238,6 @@ class _MediaBrowserSearchResultsState
 
   void _onSelectionModeChanged() {
     if (mounted) setState(() {});
-  }
-
-  void _startSelectionSweep(String id, bool selected) {
-    _selection.enter();
-    _selection.setSelected(id, selected);
-  }
-
-  void _applySelectionSweep(String id, bool selected) {
-    _selection.setSelected(id, selected);
-  }
-
-  void _finishSelectionSweep() {
-    if (_selectionMode && _selectedIds.isEmpty) _exitSelection();
-  }
-
-  void _toggleSelect(String id) => _selection.toggle(id);
-
-  void _exitSelection() => _selection.exit();
-
-  void _selectAllLoaded() {
-    final loaded = _pagingController.itemList ?? const <MediaBrowserItem>[];
-    _selection.selectAll(loaded.map((item) => item.id));
   }
 
   Future<void> _openItem(MediaBrowserItem item) async {
@@ -302,46 +277,20 @@ class _MediaBrowserSearchResultsState
     if (mounted && refreshed) setState(() {});
   }
 
-  /// 批量收藏/已看标记（与媒体库页同构）：完成后原位刷新已加载条目。
-  Future<void> _applySelection({bool? favorite, bool? played}) async {
-    if (_selectedIds.isEmpty || _batchBusy) return;
-    final ids = _selectedIds.toList();
-    final messenger = ScaffoldMessenger.of(context);
-    setState(() => _batchBusy = true);
-    var failed = 0;
-    try {
-      final repo = ref.read(mediaBrowserMediaRepositoryProvider);
-      for (final id in ids) {
-        try {
-          if (favorite != null) {
-            await repo.markFavorite(id, favorite);
-          } else {
-            await repo.markPlayed(id, played!);
-          }
-        } catch (_) {
-          failed++;
-        }
-      }
-    } finally {
-      if (mounted) setState(() => _batchBusy = false);
-    }
-    if (!mounted) return;
-    if (played != null) {
-      ref.invalidate(mediaBrowserResumeProvider);
-      ref.invalidate(mediaBrowserNextUpProvider);
-    }
-    await _refreshLoadedInBackground();
-    if (!mounted) return;
-    _exitSelection();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          failed == 0
-              ? '已更新 ${ids.length} 个条目'
-              : '已更新 ${ids.length - failed} 个条目，$failed 个失败',
-        ),
-        duration: const Duration(seconds: 1),
-      ),
+  /// 批量收藏/已看标记：循环/提示/退出选择由通用执行器处理，
+  /// 页面只提供 busy 状态与原位刷新回调。
+  Future<void> _applySelection({bool? favorite, bool? played}) {
+    if (_batchBusy) return Future.value();
+    return runMediaBrowserSelectionBatch(
+      context: context,
+      ref: ref,
+      selection: _selection,
+      refreshLoaded: _refreshLoadedInBackground,
+      onBusyChanged: (busy) {
+        if (mounted) setState(() => _batchBusy = busy);
+      },
+      favorite: favorite,
+      played: played,
     );
   }
 
@@ -388,21 +337,14 @@ class _MediaBrowserSearchResultsState
     final width = MediaQuery.sizeOf(context).width;
     final itemWidth = (width - 44 - 20) / 3;
 
-    return PopScope(
-      canPop: !_selectionMode,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _selectionMode) _exitSelection();
-      },
+    return PagedSelectionPopScope<MediaBrowserItem>(
+      selection: _selection,
       child: Stack(
         children: [
-          DragSelectionScope<String>(
+          PagedSelectionScope<MediaBrowserItem>(
+            selection: _selection,
             scrollController: _scrollController,
-            selectionLayout: DragSelectionLayout.grid,
-            isSelected: _selection.contains,
-            onSelectionStart: _startSelectionSweep,
-            onSelectionChanged: _applySelectionSweep,
-            onSelectionEnd: _finishSelectionSweep,
-            selectionMode: _selectionMode,
+            layout: DragSelectionLayout.grid,
             child: CustomScrollView(
               controller: _scrollController,
               primary: false,
@@ -422,31 +364,14 @@ class _MediaBrowserSearchResultsState
                     builderDelegate:
                         PagedChildBuilderDelegate<MediaBrowserItem>(
                           itemBuilder: (context, item, index) => urls.maybeWhen(
-                            data: (value) => DragSelectionTarget<String>(
-                              key: ValueKey(item.id),
-                              id: item.id,
-                              selectionIndex: index,
-                              // 勾选态跟随 selectedListenable 局部重建
-                              // （同 OMM 影片库）。
-                              child: ValueListenableBuilder<Set<String>>(
-                                valueListenable: _selection.selectedListenable,
-                                builder: (context, selected, _) =>
-                                    MediaBrowserSelectableItemCard(
-                                      item: item,
-                                      urls: value,
-                                      width: itemWidth,
-                                      showFavoriteBadge: true,
-                                      selected: selected.contains(item.id),
-                                      selecting: _selectionMode,
-                                      onTap: () {
-                                        if (_selectionMode) {
-                                          _toggleSelect(item.id);
-                                        } else {
-                                          unawaited(_openItem(item));
-                                        }
-                                      },
-                                    ),
-                              ),
+                            data: (value) => mediaBrowserSelectableGridItem(
+                              selection: _selection,
+                              item: item,
+                              urls: value,
+                              width: itemWidth,
+                              index: index,
+                              showFavoriteBadge: true,
+                              onOpen: _openItem,
                             ),
                             orElse: () => const SizedBox.shrink(),
                           ),
@@ -478,52 +403,43 @@ class _MediaBrowserSearchResultsState
               ],
             ),
           ),
-          if (_selectionMode)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: ValueListenableBuilder<Set<String>>(
-                valueListenable: _selection.selectedListenable,
-                builder: (context, selected, _) => EntityBatchToolbar(
-                  selectedCount: selected.length,
-                  onSelectAll: _selectAllLoaded,
-                  onClear: _selection.clear,
-                  onClose: _exitSelection,
-                  actions: [
-                    EntityBatchAction(
-                      icon: Icons.favorite_rounded,
-                      label: '收藏',
-                      onTap: selected.isEmpty || _batchBusy
-                          ? null
-                          : () => unawaited(_applySelection(favorite: true)),
-                    ),
-                    EntityBatchAction(
-                      icon: Icons.favorite_border_rounded,
-                      label: '取消收藏',
-                      color: colors.danger,
-                      onTap: selected.isEmpty || _batchBusy
-                          ? null
-                          : () => unawaited(_applySelection(favorite: false)),
-                    ),
-                    EntityBatchAction(
-                      icon: Icons.task_alt_rounded,
-                      label: '标记已看',
-                      onTap: selected.isEmpty || _batchBusy
-                          ? null
-                          : () => unawaited(_applySelection(played: true)),
-                    ),
-                    EntityBatchAction(
-                      icon: Icons.check_circle_outline_rounded,
-                      label: '取消已看',
-                      onTap: selected.isEmpty || _batchBusy
-                          ? null
-                          : () => unawaited(_applySelection(played: false)),
-                    ),
-                  ],
-                ),
-              ),
+          PagedSelectionToolbar<MediaBrowserItem>(
+            selection: _selection,
+            onSelectAll: () => _selection.selectAll(
+              _pagingController.itemList ?? const <MediaBrowserItem>[],
             ),
+            actionsBuilder: (selected) => [
+              EntityBatchAction(
+                icon: Icons.favorite_rounded,
+                label: '收藏',
+                onTap: selected.isEmpty || _batchBusy
+                    ? null
+                    : () => unawaited(_applySelection(favorite: true)),
+              ),
+              EntityBatchAction(
+                icon: Icons.favorite_border_rounded,
+                label: '取消收藏',
+                color: colors.danger,
+                onTap: selected.isEmpty || _batchBusy
+                    ? null
+                    : () => unawaited(_applySelection(favorite: false)),
+              ),
+              EntityBatchAction(
+                icon: Icons.task_alt_rounded,
+                label: '标记已看',
+                onTap: selected.isEmpty || _batchBusy
+                    ? null
+                    : () => unawaited(_applySelection(played: true)),
+              ),
+              EntityBatchAction(
+                icon: Icons.check_circle_outline_rounded,
+                label: '取消已看',
+                onTap: selected.isEmpty || _batchBusy
+                    ? null
+                    : () => unawaited(_applySelection(played: false)),
+              ),
+            ],
+          ),
         ],
       ),
     );

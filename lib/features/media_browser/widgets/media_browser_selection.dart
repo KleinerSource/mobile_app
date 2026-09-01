@@ -1,0 +1,104 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_selectable_item_card.dart';
+import 'package:omm/shared/paged_selection.dart';
+
+/// MediaBrowser 条目的拖选控制器（选择键 = 条目 id）。
+PagedSelectionController<MediaBrowserItem> createMediaBrowserItemSelection() {
+  return PagedSelectionController<MediaBrowserItem>(idOf: (item) => item.id);
+}
+
+/// 网格条目的拖选装配：可选中卡片 + 选择模式点按切换勾选 / 普通模式打开。
+///
+/// 列表行等自定义卡片用 [PagedSelectionItem] + 自己的 cardBuilder。
+Widget mediaBrowserSelectableGridItem({
+  required PagedSelectionController<MediaBrowserItem> selection,
+  required MediaBrowserItem item,
+  required MediaBrowserServerUrls urls,
+  required double width,
+  required int index,
+  bool square = false,
+  bool showFavoriteBadge = false,
+  required Future<void> Function(MediaBrowserItem item) onOpen,
+}) {
+  return PagedSelectionItem<MediaBrowserItem>(
+    selection: selection,
+    item: item,
+    selectionIndex: index,
+    cardBuilder: (context, item, selected) => MediaBrowserSelectableItemCard(
+      item: item,
+      urls: urls,
+      width: width,
+      square: square,
+      showFavoriteBadge: showFavoriteBadge,
+      selected: selected,
+      selecting: selection.isActive,
+      onTap: () {
+        if (selection.isActive) {
+          selection.toggle(selection.idOf(item));
+        } else {
+          unawaited(onOpen(item));
+        }
+      },
+    ),
+  );
+}
+
+/// 库/搜索页共用的批量收藏/已看执行器。
+///
+/// 非破坏性操作直接执行（无确认对话框，与 OMM 影片库批量行为一致）：
+/// 逐条调用并统计失败，标记已看后同步失效首页「继续观看/接下来观看」，
+/// 完成后交页面原位刷新已加载条目并退出选择模式。
+Future<void> runMediaBrowserSelectionBatch({
+  required BuildContext context,
+  required WidgetRef ref,
+  required PagedSelectionController<MediaBrowserItem> selection,
+  required Future<void> Function() refreshLoaded,
+  required void Function(bool busy) onBusyChanged,
+  required bool? favorite,
+  required bool? played,
+}) async {
+  final ids = selection.selectedIds.whereType<String>().toList();
+  if (ids.isEmpty) return;
+  final messenger = ScaffoldMessenger.of(context);
+  onBusyChanged(true);
+  var failed = 0;
+  try {
+    final repo = ref.read(mediaBrowserMediaRepositoryProvider);
+    for (final id in ids) {
+      try {
+        if (favorite != null) {
+          await repo.markFavorite(id, favorite);
+        } else {
+          await repo.markPlayed(id, played!);
+        }
+      } catch (_) {
+        failed++;
+      }
+    }
+  } finally {
+    onBusyChanged(false);
+  }
+  if (played != null) {
+    // 已看状态影响首页「继续观看/接下来观看」区块。
+    ref.invalidate(mediaBrowserResumeProvider);
+    ref.invalidate(mediaBrowserNextUpProvider);
+  }
+  await refreshLoaded();
+  selection.exit();
+  messenger.showSnackBar(
+    SnackBar(
+      content: Text(
+        failed == 0
+            ? '已更新 ${ids.length} 个条目'
+            : '已更新 ${ids.length - failed} 个条目，$failed 个失败',
+      ),
+      duration: const Duration(seconds: 1),
+    ),
+  );
+}

@@ -12,7 +12,7 @@ import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
-import 'package:omm/features/media_browser/widgets/media_browser_selectable_item_card.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_selection.dart';
 import 'package:omm/features/privacy/privacy_mask.dart';
 import 'package:omm/features/settings/settings_page.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
@@ -20,10 +20,10 @@ import 'package:omm/shared/drag_selection.dart';
 import 'package:omm/shared/entity_batch_toolbar.dart';
 import 'package:omm/shared/glass.dart';
 import 'package:omm/shared/glow_background.dart';
-import 'package:omm/shared/pagination_footer.dart';
+import 'package:omm/shared/paged_selection.dart';
 import 'package:omm/shared/paged_scroll_position_restorer.dart';
+import 'package:omm/shared/pagination_footer.dart';
 import 'package:omm/shared/poster.dart';
-import 'package:omm/shared/selection_controller.dart';
 import 'package:omm/shared/sheet_controls.dart';
 import 'package:omm/shared/status_bar_scroll_to_top.dart';
 import 'package:omm/shared/swipe_actions.dart';
@@ -72,11 +72,11 @@ class _MediaBrowserFavoritesPageState
   int _totalCount = 0;
   int _requestSerial = 0;
   Completer<void>? _refreshCompleter;
-  late final SelectionController<String> _selection;
+  late final PagedSelectionController<MediaBrowserItem> _selection;
   final SwipeActionGroup _openSwipe = SwipeActionGroup(null);
   bool _removing = false;
   bool get _selecting => _selection.isActive;
-  Set<String> get _selected => _selection.selected;
+  Set<Object> get _selected => _selection.selectedIds;
 
   ({String value, String label, String order}) get _sort =>
       _sortOptions[_sortIndex];
@@ -86,8 +86,8 @@ class _MediaBrowserFavoritesPageState
   @override
   void initState() {
     super.initState();
-    _selection = SelectionController<String>();
-    _selection.activeListenable.addListener(_onSelectionModeChanged);
+    _selection = createMediaBrowserItemSelection();
+    _selection.addModeListener(_onSelectionModeChanged);
     _viewMode = _loadViewMode();
     _controller.addPageRequestListener(_fetchPage);
     _scrollController.addListener(_closeSwipeOnScroll);
@@ -271,7 +271,7 @@ class _MediaBrowserFavoritesPageState
 
   Future<void> _removeSelection() async {
     if (_selected.isEmpty || _removing) return;
-    final ids = _selected.toList();
+    final ids = _selected.whereType<String>().toList();
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -325,28 +325,6 @@ class _MediaBrowserFavoritesPageState
         SnackBar(content: Text('批量移除失败: ${toApiException(error).message}')),
       );
     }
-  }
-
-  void _toggleSelect(String id) => _selection.toggle(id);
-
-  void _startSelectionSweep(String id, bool selected) {
-    _selection.enter();
-    _selection.setSelected(id, selected);
-  }
-
-  void _applySelectionSweep(String id, bool selected) {
-    _selection.setSelected(id, selected);
-  }
-
-  void _finishSelectionSweep() {
-    if (_selected.isEmpty) _clearSelection();
-  }
-
-  void _clearSelection() => _selection.exit();
-
-  void _selectAllLoaded() {
-    final loaded = _controller.itemList ?? const <MediaBrowserItem>[];
-    _selection.selectAll(loaded.map((item) => item.id));
   }
 
   Future<void> _showSortSheet() async {
@@ -409,11 +387,8 @@ class _MediaBrowserFavoritesPageState
     return Scaffold(
       // 独立路由进入时页面自身就是 Material 根；底色由 GlowBackground 自绘。
       backgroundColor: Colors.transparent,
-      body: PopScope(
-        canPop: !_selecting,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop && _selecting) _clearSelection();
-        },
+      body: PagedSelectionPopScope<MediaBrowserItem>(
+        selection: _selection,
         child: GlowBackground(
           child: SafeArea(
             bottom: false,
@@ -463,17 +438,12 @@ class _MediaBrowserFavoritesPageState
                         child: RefreshIndicator(
                           color: colors.accent,
                           onRefresh: _refresh,
-                          child: DragSelectionScope<String>(
+                          child: PagedSelectionScope<MediaBrowserItem>(
+                            selection: _selection,
                             scrollController: _scrollController,
-                            selectionLayout:
-                                _viewMode == _FavoritesViewMode.grid
+                            layout: _viewMode == _FavoritesViewMode.grid
                                 ? DragSelectionLayout.grid
                                 : DragSelectionLayout.list,
-                            isSelected: _selection.contains,
-                            onSelectionStart: _startSelectionSweep,
-                            onSelectionChanged: _applySelectionSweep,
-                            onSelectionEnd: _finishSelectionSweep,
-                            selectionMode: _selecting,
                             child: CustomScrollView(
                               controller: _scrollController,
                               physics: const AlwaysScrollableScrollPhysics(),
@@ -577,54 +547,15 @@ class _MediaBrowserFavoritesPageState
                                                   crossAxisSpacing: spacing,
                                                 ),
                                             builderDelegate: PagedChildBuilderDelegate<MediaBrowserItem>(
-                                              itemBuilder:
-                                                  (
-                                                    context,
-                                                    item,
-                                                    index,
-                                                  ) => DragSelectionTarget<String>(
-                                                    key: ValueKey(item.id),
-                                                    id: item.id,
-                                                    selectionIndex: index,
-                                                    // 拖选过程选择集合只经
-                                                    // selectedListenable 通知，
-                                                    // 勾选态在卡片局部重建，
-                                                    // 不整页 setState（同 OMM）。
-                                                    child: ValueListenableBuilder<Set<String>>(
-                                                      valueListenable: _selection
-                                                          .selectedListenable,
-                                                      builder:
-                                                          (
-                                                            context,
-                                                            selected,
-                                                            _,
-                                                          ) => MediaBrowserSelectableItemCard(
-                                                            item: item,
-                                                            urls: value,
-                                                            width: itemWidth,
-                                                            square:
-                                                                _isMusicGrid,
-                                                            selected: selected
-                                                                .contains(
-                                                                  item.id,
-                                                                ),
-                                                            selecting:
-                                                                _selecting,
-                                                            onTap: () {
-                                                              if (_selecting) {
-                                                                _toggleSelect(
-                                                                  item.id,
-                                                                );
-                                                              } else {
-                                                                unawaited(
-                                                                  _openItem(
-                                                                    item,
-                                                                  ),
-                                                                );
-                                                              }
-                                                            },
-                                                          ),
-                                                    ),
+                                              itemBuilder: (context, item, index) =>
+                                                  mediaBrowserSelectableGridItem(
+                                                    selection: _selection,
+                                                    item: item,
+                                                    urls: value,
+                                                    width: itemWidth,
+                                                    index: index,
+                                                    square: _isMusicGrid,
+                                                    onOpen: _openItem,
                                                   ),
                                               firstPageProgressIndicatorBuilder:
                                                   (_) => Padding(
@@ -678,63 +609,51 @@ class _MediaBrowserFavoritesPageState
                                             pagingController: _controller,
                                             builderDelegate: PagedChildBuilderDelegate<MediaBrowserItem>(
                                               itemBuilder:
-                                                  (
-                                                    context,
-                                                    item,
-                                                    index,
-                                                  ) => DragSelectionTarget<String>(
-                                                    key: ValueKey(item.id),
-                                                    id: item.id,
-                                                    selectionIndex: null,
-                                                    selectionHandleAlignment:
-                                                        Alignment.centerLeft,
-                                                    // 同网格：勾选态跟随
-                                                    // selectedListenable 局部重建。
-                                                    child:
-                                                        ValueListenableBuilder<
-                                                          Set<String>
-                                                        >(
-                                                          valueListenable:
-                                                              _selection
-                                                                  .selectedListenable,
-                                                          builder:
-                                                              (
-                                                                context,
-                                                                selected,
-                                                                _,
-                                                              ) => _ListRow(
-                                                                item: item,
-                                                                urls: value,
-                                                                swipeGroup:
-                                                                    _openSwipe,
-                                                                selected: selected
-                                                                    .contains(
-                                                                      item.id,
+                                                  (context, item, index) =>
+                                                      PagedSelectionItem<
+                                                        MediaBrowserItem
+                                                      >(
+                                                        selection: _selection,
+                                                        item: item,
+                                                        selectionHandleAlignment:
+                                                            Alignment
+                                                                .centerLeft,
+                                                        cardBuilder:
+                                                            (
+                                                              context,
+                                                              item,
+                                                              selected,
+                                                            ) => _ListRow(
+                                                              item: item,
+                                                              urls: value,
+                                                              swipeGroup:
+                                                                  _openSwipe,
+                                                              selected:
+                                                                  selected,
+                                                              selecting:
+                                                                  _selecting,
+                                                              onTap: () {
+                                                                if (_selecting) {
+                                                                  _selection
+                                                                      .toggle(
+                                                                        item.id,
+                                                                      );
+                                                                } else {
+                                                                  unawaited(
+                                                                    _openItem(
+                                                                      item,
                                                                     ),
-                                                                selecting:
-                                                                    _selecting,
-                                                                onTap: () {
-                                                                  if (_selecting) {
-                                                                    _toggleSelect(
-                                                                      item.id,
-                                                                    );
-                                                                  } else {
-                                                                    unawaited(
-                                                                      _openItem(
-                                                                        item,
-                                                                      ),
-                                                                    );
-                                                                  }
-                                                                },
-                                                                onRemove: () =>
-                                                                    unawaited(
-                                                                      _removeOne(
-                                                                        item,
-                                                                      ),
+                                                                  );
+                                                                }
+                                                              },
+                                                              onRemove: () =>
+                                                                  unawaited(
+                                                                    _removeOne(
+                                                                      item,
                                                                     ),
-                                                              ),
-                                                        ),
-                                                  ),
+                                                                  ),
+                                                            ),
+                                                      ),
                                               firstPageProgressIndicatorBuilder:
                                                   (_) => Padding(
                                                     padding:
@@ -796,31 +715,22 @@ class _MediaBrowserFavoritesPageState
                     ),
                   ],
                 ),
-                if (_selecting)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: ValueListenableBuilder<Set<String>>(
-                      valueListenable: _selection.selectedListenable,
-                      builder: (context, selected, _) => EntityBatchToolbar(
-                        selectedCount: selected.length,
-                        onSelectAll: _selectAllLoaded,
-                        onClear: _clearSelection,
-                        onClose: _clearSelection,
-                        actions: [
-                          EntityBatchAction(
-                            icon: Icons.delete_outline,
-                            label: '移除收藏',
-                            color: colors.danger,
-                            onTap: selected.isEmpty || _removing
-                                ? null
-                                : () => unawaited(_removeSelection()),
-                          ),
-                        ],
-                      ),
-                    ),
+                PagedSelectionToolbar<MediaBrowserItem>(
+                  selection: _selection,
+                  onSelectAll: () => _selection.selectAll(
+                    _controller.itemList ?? const <MediaBrowserItem>[],
                   ),
+                  actionsBuilder: (selected) => [
+                    EntityBatchAction(
+                      icon: Icons.delete_outline,
+                      label: '移除收藏',
+                      color: colors.danger,
+                      onTap: selected.isEmpty || _removing
+                          ? null
+                          : () => unawaited(_removeSelection()),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

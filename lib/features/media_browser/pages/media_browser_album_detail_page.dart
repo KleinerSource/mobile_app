@@ -77,8 +77,7 @@ class _MediaBrowserAlbumDetailPageState
     );
   }
 
-  String get _serverId =>
-      ref.read(serverConfigProvider)?.activeServerId ?? '';
+  String get _serverId => ref.read(serverConfigProvider)?.activeServerId ?? '';
 
   void _showError(String message) {
     if (!mounted) return;
@@ -155,8 +154,9 @@ class _MediaBrowserAlbumDetailPageState
                           onPressed: () => _playAlbum(),
                           style: FilledButton.styleFrom(
                             backgroundColor: colors.accent,
-                            foregroundColor:
-                                Theme.of(context).colorScheme.onPrimary,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onPrimary,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -333,9 +333,7 @@ class _TrackSection extends ConsumerWidget {
   }
 
   bool _hasMultipleDiscs(List<MediaBrowserItem> tracks) {
-    final discs = tracks
-        .map((track) => track.parentIndexNumber ?? 1)
-        .toSet();
+    final discs = tracks.map((track) => track.parentIndexNumber ?? 1).toSet();
     return discs.length > 1;
   }
 }
@@ -363,9 +361,7 @@ class _TrackTile extends StatelessWidget {
     final duration = mediaBrowserTicksToSeconds(track.runTimeTicks);
     final featured = track.displayArtist?.trim() ?? '';
     final showFeatured =
-        featured.isNotEmpty &&
-        albumArtist != null &&
-        featured != albumArtist;
+        featured.isNotEmpty && albumArtist != null && featured != albumArtist;
     final meta = [
       if (showDisc) '光盘 ${track.parentIndexNumber ?? 1}',
       if (showFeatured) featured,
@@ -406,9 +402,9 @@ class _TrackTile extends StatelessWidget {
                         track.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppText.movieCardTitle(context).copyWith(
-                          color: played ? colors.muted : colors.text,
-                        ),
+                        style: AppText.movieCardTitle(
+                          context,
+                        ).copyWith(color: played ? colors.muted : colors.text),
                       ),
                       if (meta.isNotEmpty) ...[
                         const SizedBox(height: 3),

@@ -310,10 +310,7 @@ class MediaBrowserAudioQueueSession {
       if (!await file.exists()) {
         // 下载器是无鉴权裸 Dio，这里必须带 token 兜底；产物是临时文件
         // 不进图片缓存，token 变化不影响缓存 key。
-        await _downloader.download(
-          urls.authedPoster(imageItemId),
-          file.path,
-        );
+        await _downloader.download(urls.authedPoster(imageItemId), file.path);
         if (_disposed) {
           await _deleteQuietly(file);
           return null;

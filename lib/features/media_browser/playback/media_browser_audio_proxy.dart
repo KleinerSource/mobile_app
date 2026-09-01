@@ -59,7 +59,11 @@ class MediaBrowserAudioProxy {
     final path = '/${_digest(track.id)}';
     final existing = _tracksByPath[path];
     if (existing != null) return _baseUri.replace(path: path).toString();
-    final proxied = _ProxiedTrack(track: track, remoteUrl: remoteUrl, path: path);
+    final proxied = _ProxiedTrack(
+      track: track,
+      remoteUrl: remoteUrl,
+      path: path,
+    );
     _orderedTracks.add(proxied);
     _tracksByPath[path] = proxied;
     return _baseUri.replace(path: path).toString();
@@ -70,7 +74,11 @@ class MediaBrowserAudioProxy {
     if (server == null || _closed) {
       throw StateError('MediaBrowser 音频代理已关闭');
     }
-    return Uri(scheme: 'http', host: InternetAddress.loopbackIPv4.host, port: server.port);
+    return Uri(
+      scheme: 'http',
+      host: InternetAddress.loopbackIPv4.host,
+      port: server.port,
+    );
   }
 
   /// 已绑定的本机基址（诊断与测试用）；代理关闭后抛 StateError。
@@ -255,7 +263,11 @@ class MediaBrowserAudioProxy {
 }
 
 class _ProxiedTrack {
-  _ProxiedTrack({required this.track, required this.remoteUrl, required this.path});
+  _ProxiedTrack({
+    required this.track,
+    required this.remoteUrl,
+    required this.path,
+  });
 
   final MediaBrowserItem track;
   final String remoteUrl;
@@ -266,13 +278,9 @@ class _ProxiedTrack {
 }
 
 class _ByteRange {
-  const _ByteRange({required this.start, required this.end})
-    : invalid = false;
+  const _ByteRange({required this.start, required this.end}) : invalid = false;
 
-  const _ByteRange.invalid()
-    : start = -1,
-      end = -1,
-      invalid = true;
+  const _ByteRange.invalid() : start = -1, end = -1, invalid = true;
 
   final int start;
   final int end;
@@ -287,11 +295,7 @@ _ByteRange? _parseRange(String? header, int total) {
   if (!normalized.toLowerCase().startsWith('bytes=') || total <= 0) {
     return const _ByteRange.invalid();
   }
-  final value = normalized
-      .substring('bytes='.length)
-      .split(',')
-      .first
-      .trim();
+  final value = normalized.substring('bytes='.length).split(',').first.trim();
   final separator = value.indexOf('-');
   if (separator < 0) return const _ByteRange.invalid();
   final startText = value.substring(0, separator).trim();
@@ -354,7 +358,12 @@ String _sniffAudioMime(File file) {
   return 'application/octet-stream';
 }
 
-bool _bytesEqual(Uint8List bytes, List<int> expected, int length, [int offset = 0]) {
+bool _bytesEqual(
+  Uint8List bytes,
+  List<int> expected,
+  int length, [
+  int offset = 0,
+]) {
   for (var i = 0; i < length; i++) {
     if (bytes[offset + i] != expected[i]) return false;
   }
