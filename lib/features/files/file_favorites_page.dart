@@ -202,7 +202,7 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
   }
 
   /// 拖拽代理浮起：行平时透明，浮起时替换成与服务器列表行一致的分组
-  /// 卡外观（surface 底 + cardBorder 边框 + 16 圆角 + 同款投影曲线）。
+  /// 卡外观（surface 底 + cardBorder 边框 + 同款投影曲线），无圆角。
   Widget _dragProxyDecorator(
     Widget child,
     int index,
@@ -218,10 +218,8 @@ class _FileFavoritesPageState extends ConsumerState<FileFavoritesPage> {
           color: colors.surface,
           shadowColor: Colors.black,
           elevation: elevation,
-          borderRadius: BorderRadius.circular(16),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: colors.cardBorder),
             ),
             child: child,
