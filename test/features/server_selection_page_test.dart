@@ -673,7 +673,7 @@ void main() {
     expect(stored.map((server) => server['id']), ['server-0', 'server-1']);
   });
 
-  testWidgets('服务器选择器显示资源库标题并支持搜索', (tester) async {
+  testWidgets('服务器选择器显示连接标题并支持搜索', (tester) async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([
         {
@@ -715,7 +715,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('资源库'), findsOneWidget);
+    expect(find.text('连接'), findsOneWidget);
     expect(find.text('Oh My Media'), findsNothing);
     final search = find.byKey(
       const ValueKey<String>('server-selection-search'),
