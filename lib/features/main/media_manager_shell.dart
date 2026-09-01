@@ -18,6 +18,7 @@ import '../home/home_page.dart';
 import 'package:omm/features/db_online/pages/db_online_home_page.dart';
 import 'package:omm/features/db_online/pages/db_online_search_page.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
+import 'package:omm/features/media_browser/pages/media_browser_favorites_page.dart';
 import 'package:omm/features/media_browser/pages/media_browser_home_page.dart';
 import 'package:omm/features/media_browser/pages/media_browser_library_page.dart';
 import 'package:omm/features/media_browser/pages/media_browser_search_page.dart';
@@ -175,7 +176,7 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
     required bool mediaBrowser,
   }) {
     final l = AppL10n.of(context);
-    if (dbOnline || mediaBrowser) {
+    if (dbOnline) {
       return [
         FloatingTabSpec(label: l.tabHome, icon: Icons.home_rounded),
         FloatingTabSpec(label: l.tabLibrary, icon: Icons.video_library_rounded),
@@ -183,6 +184,18 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
         FloatingTabSpec(
           label: l.settingsTitle,
           icon: Icons.person_outline_rounded,
+        ),
+      ];
+    }
+    if (mediaBrowser) {
+      // Emby/Jellyfin 与 OMM 一致：第 4 Tab 是收藏夹，设置入口在页头。
+      return [
+        FloatingTabSpec(label: l.tabHome, icon: Icons.home_rounded),
+        FloatingTabSpec(label: l.tabLibrary, icon: Icons.video_library_rounded),
+        FloatingTabSpec(label: l.tabSearch, icon: Icons.search_rounded),
+        FloatingTabSpec(
+          label: l.favoritesTitle,
+          icon: Icons.favorite_outline_rounded,
         ),
       ];
     }
@@ -214,9 +227,8 @@ class _MediaManagerShellState extends ConsumerState<MediaManagerShell> {
         if (mediaBrowser) return const MediaBrowserSearchPage();
         return const SearchPage();
       case 3:
-        return dbOnline || mediaBrowser
-            ? const SettingsPage()
-            : const FavoritesPage();
+        if (mediaBrowser) return const MediaBrowserFavoritesPage();
+        return dbOnline ? const SettingsPage() : const FavoritesPage();
       default:
         return const SizedBox.shrink();
     }

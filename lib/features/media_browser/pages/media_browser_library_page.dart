@@ -424,6 +424,7 @@ class _MediaBrowserLibraryPageState
                                               urls: value,
                                               width: itemWidth,
                                               square: _isMusicGrid,
+                                              showFavoriteBadge: true,
                                               onTap: () =>
                                                   openMediaBrowserItemUnawaited(
                                                     context,

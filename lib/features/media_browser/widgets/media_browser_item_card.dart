@@ -17,6 +17,7 @@ class MediaBrowserItemCard extends StatelessWidget {
     required this.urls,
     this.width = 112,
     this.square = false,
+    this.showFavoriteBadge = false,
     this.onTap,
   });
 
@@ -26,18 +27,22 @@ class MediaBrowserItemCard extends StatelessWidget {
 
   /// 专辑/歌曲等方形封面；影视海报保持 2:3。
   final bool square;
+
+  /// 已收藏时在海报左上角叠心形角标（评分角标默认在右上，不冲突）。
+  /// 收藏夹页内条目全部已收藏，不启用。
+  final bool showFavoriteBadge;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final played = item.userData.played;
-    return CatalogMovieCard(
+    final card = CatalogMovieCard(
       title: item.name,
       code: null,
       imageUrl: item.primaryImageTag == null
           ? null
           : urls.poster(item.id, tag: item.primaryImageTag),
-      meta: _metaText(item),
+      meta: mediaBrowserItemMetaText(item),
       width: width,
       rating: item.communityRating,
       played: played,
@@ -46,6 +51,27 @@ class MediaBrowserItemCard extends StatelessWidget {
       privacyId: item.id,
       posterAspectRatio: square ? 1 : 2 / 3,
       onTap: onTap,
+    );
+    if (!showFavoriteBadge || !item.userData.isFavorite) return card;
+    return Stack(
+      children: [card, const Positioned(top: 6, left: 6, child: _FavoriteBadge())],
+    );
+  }
+}
+
+/// 已收藏心形角标 · 黑玻璃圆底白心，与评分角标同一气质。
+class _FavoriteBadge extends StatelessWidget {
+  const _FavoriteBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.black.withValues(alpha: 0.55),
+      ),
+      child: const Icon(Icons.favorite_rounded, size: 11, color: Colors.white),
     );
   }
 }
@@ -58,7 +84,8 @@ double _progressOf(MediaBrowserItem item) {
 
 /// meta 行 · 与 OMM 一致的「年份 · 时长」格式；剧集条目为「SxxEyy · 剧名」，
 /// 音乐条目为「年份 · 艺术家」（专辑）或「艺术家 · 时长」（歌曲）。
-String _metaText(MediaBrowserItem item) {
+/// 收藏夹页的列表行也复用这行 meta。
+String mediaBrowserItemMetaText(MediaBrowserItem item) {
   final parts = <String>[];
   if (item.isEpisode) {
     final season = item.parentIndexNumber ?? 0;

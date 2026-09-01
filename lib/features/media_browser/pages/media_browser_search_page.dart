@@ -288,6 +288,7 @@ class _MediaBrowserSearchResultsState
                   item: item,
                   urls: value,
                   width: itemWidth,
+                  showFavoriteBadge: true,
                   onTap: () => openMediaBrowserItemUnawaited(context, ref, item),
                 ),
                 orElse: () => const SizedBox.shrink(),
