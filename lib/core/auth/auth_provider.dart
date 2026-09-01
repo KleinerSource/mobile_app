@@ -14,8 +14,7 @@ import '../config/server_config_provider.dart';
 import '../config/server_line_probe.dart';
 import 'auth_session.dart';
 import 'auth_session_provider.dart';
-import 'package:omm/features/emby/api/emby_device_id.dart';
-import 'package:omm/features/jellyfin/api/jellyfin_device_id.dart';
+import '../platform/device_id.dart';
 
 final authControllerProvider = AsyncNotifierProvider<AuthController, AuthState>(
   AuthController.new,
@@ -363,7 +362,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       return false;
     }
     try {
-      final deviceId = await embyDeviceId(ref.read(sharedPrefsProvider));
+      final deviceId = await stableDeviceId(ref.read(sharedPrefsProvider));
       final result = await client.emby.authenticateByName(
         username: user,
         password: password,
@@ -451,7 +450,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       return false;
     }
     try {
-      final deviceId = await jellyfinDeviceId(ref.read(sharedPrefsProvider));
+      final deviceId = await stableDeviceId(ref.read(sharedPrefsProvider));
       final result = await client.jellyfin.authenticateByName(
         username: user,
         password: password,
