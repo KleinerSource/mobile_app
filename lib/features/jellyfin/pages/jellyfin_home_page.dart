@@ -8,6 +8,7 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
 import 'package:omm/features/jellyfin/navigation/jellyfin_navigation.dart';
 import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
+import 'package:omm/features/jellyfin/widgets/jellyfin_continue_watching_section.dart';
 import 'package:omm/features/jellyfin/widgets/jellyfin_item_card.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/home/home_movie_section.dart';
@@ -136,13 +137,15 @@ class _JellyfinHomePageState extends ConsumerState<JellyfinHomePage> {
       ),
       onRefresh: _refreshHome,
       slivers: [
-        SliverToBoxAdapter(
-          child: _JellyfinHomeSection(
-            title: '继续观看',
-            value: resume,
-            onRetry: () => ref.invalidate(jellyfinResumeProvider),
-            emptyText: '没有进行中的播放',
-          ),
+        // -------- 继续观看 · 复用 OMM 宽幅卡片设计，空态静默 --------
+        resume.when(
+          loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          data: (items) => items.isEmpty
+              ? const SliverToBoxAdapter(child: SizedBox.shrink())
+              : SliverToBoxAdapter(
+                  child: JellyfinContinueWatchingSection(items: items),
+                ),
         ),
         SliverToBoxAdapter(
           child: _JellyfinHomeSection(

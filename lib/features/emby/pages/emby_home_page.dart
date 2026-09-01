@@ -8,6 +8,7 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/emby/models/emby_models.dart';
 import 'package:omm/features/emby/navigation/emby_navigation.dart';
 import 'package:omm/features/emby/providers/emby_providers.dart';
+import 'package:omm/features/emby/widgets/emby_continue_watching_section.dart';
 import 'package:omm/features/emby/widgets/emby_item_card.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/home/home_movie_section.dart';
@@ -136,13 +137,15 @@ class _EmbyHomePageState extends ConsumerState<EmbyHomePage> {
       ),
       onRefresh: _refreshHome,
       slivers: [
-        SliverToBoxAdapter(
-          child: _EmbyHomeSection(
-            title: '继续观看',
-            value: resume,
-            onRetry: () => ref.invalidate(embyResumeProvider),
-            emptyText: '没有进行中的播放',
-          ),
+        // -------- 继续观看 · 复用 OMM 宽幅卡片设计，空态静默 --------
+        resume.when(
+          loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          data: (items) => items.isEmpty
+              ? const SliverToBoxAdapter(child: SizedBox.shrink())
+              : SliverToBoxAdapter(
+                  child: EmbyContinueWatchingSection(items: items),
+                ),
         ),
         SliverToBoxAdapter(
           child: _EmbyHomeSection(
