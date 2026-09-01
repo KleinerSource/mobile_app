@@ -19,8 +19,8 @@ import 'services/libraries_extended_api.dart';
 import 'services/catalog_extended_api.dart';
 import 'services/configs_extended_api.dart';
 import 'package:omm/features/db_online/api/db_online_api.dart';
-import 'package:omm/features/emby/api/emby_api.dart';
-import 'package:omm/features/jellyfin/api/jellyfin_api.dart';
+import 'package:omm/features/media_browser/api/media_browser_api.dart';
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'services/mappings_extended_api.dart';
 import 'services/modal_transcription_api.dart';
 import 'services/series_api.dart';
@@ -53,8 +53,8 @@ class ApiClient {
       configs = ConfigsApi(dio),
       configsExtended = ConfigsExtendedApi(dio),
       dbOnline = DbOnlineApi(dio),
-      emby = EmbyApi(dio),
-      jellyfin = JellyfinApi(dio);
+      emby = MediaBrowserApi(dio, MediaBrowserConfig.emby),
+      jellyfin = MediaBrowserApi(dio, MediaBrowserConfig.jellyfin);
 
   factory ApiClient.fromConfig(
     ServerConfig config, {
@@ -108,7 +108,11 @@ class ApiClient {
   final ConfigsApi configs;
   final ConfigsExtendedApi configsExtended;
   final DbOnlineApi dbOnline;
-  final EmbyApi emby;
-  final JellyfinApi jellyfin;
+  final MediaBrowserApi emby;
+  final MediaBrowserApi jellyfin;
   final SystemExtendedApi systemExtended;
+
+  /// 取 [config] 对应的 MediaBrowser（Emby/Jellyfin）API 实例。
+  MediaBrowserApi mediaBrowserFor(MediaBrowserConfig config) =>
+      config.project == ServerProject.jellyfin ? jellyfin : emby;
 }

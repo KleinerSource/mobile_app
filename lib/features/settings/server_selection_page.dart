@@ -20,6 +20,7 @@ import '../../shared/sheet_controls.dart';
 import '../../shared/glow_background.dart';
 import '../../shared/server_avatar.dart';
 import '../home/server_switch_transition.dart';
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'server_setup_page.dart';
 
 /// 启动和鉴权前的服务器选择页。
@@ -183,59 +184,65 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
         body: GlowBackground(
           child: SafeArea(
             child: Center(
-              child: RefreshIndicator(
-                color: colors.accent,
-                onRefresh: _refreshServers,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(24, 48, 24, 48),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 720),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _LibraryHeader(onChanged: _updateSearchQuery),
-                          const SizedBox(height: 22),
-                          if (servers.isEmpty)
-                            Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 360,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 48, 24, 48),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _LibraryHeader(onChanged: _updateSearchQuery),
+                      const SizedBox(height: 22),
+                      Expanded(
+                        child: RefreshIndicator(
+                          color: colors.accent,
+                          onRefresh: _refreshServers,
+                          child: ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.only(bottom: 12),
+                            children: [
+                              if (servers.isEmpty)
+                                Center(
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 360,
+                                    ),
+                                    child: _AddServerCard(
+                                      onTap: _openCreateServer,
+                                    ),
+                                  ),
+                                )
+                              else if (visibleServers.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 18,
+                                  ),
+                                  child: Text(
+                                    '没有找到匹配的资源库',
+                                    textAlign: TextAlign.center,
+                                    style: AppText.meta(context),
+                                  ),
+                                )
+                              else
+                                _ServerStrip(
+                                  servers: visibleServers,
+                                  activeServerId: activeServerId,
+                                  transition: transition,
+                                  profileFor: _profileFor,
+                                  cachedProfileFor: _cachedProfileFor,
+                                  statusFor: _statusFor,
+                                  avatarKeyFor: _avatarKeyFor,
+                                  onSelect: (server) =>
+                                      unawaited(_selectServer(server)),
+                                  onAdd: _openCreateServer,
+                                  onLongPress: (server) =>
+                                      unawaited(_showServerActions(server)),
                                 ),
-                                child: _AddServerCard(onTap: _openCreateServer),
-                              ),
-                            )
-                          else ...[
-                            if (visibleServers.isEmpty)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 18,
-                                ),
-                                child: Text(
-                                  '没有找到匹配的资源库',
-                                  textAlign: TextAlign.center,
-                                  style: AppText.meta(context),
-                                ),
-                              ),
-                            _ServerStrip(
-                              servers: visibleServers,
-                              activeServerId: activeServerId,
-                              transition: transition,
-                              profileFor: _profileFor,
-                              cachedProfileFor: _cachedProfileFor,
-                              statusFor: _statusFor,
-                              avatarKeyFor: _avatarKeyFor,
-                              onSelect: (server) =>
-                                  unawaited(_selectServer(server)),
-                              onAdd: _openCreateServer,
-                              onLongPress: (server) =>
-                                  unawaited(_showServerActions(server)),
-                            ),
-                          ],
-                        ],
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),
@@ -506,9 +513,16 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
         ),
         sessionRepository: sessionRepository,
       );
-      final userName = project == ServerProject.emby
-          ? await _loadEmbyUserName(client, session.userId)
-          : (await client.jellyfin.currentUser()).name;
+      final mediaBrowserConfig = MediaBrowserConfig.byProject[project];
+      if (mediaBrowserConfig == null) {
+        return cached ?? _fallbackProfile(server);
+      }
+      // Emby 没有持久化 userId 时 validateSession 会抛错，走 catch 分支
+      // 回退到缓存档案，与旧实现返回空名的行为一致。
+      final userName = (await client
+              .mediaBrowserFor(mediaBrowserConfig)
+              .validateSession(session.userId))
+          .name;
       final normalizedName = userName.trim();
       if (normalizedName.isEmpty) {
         return cached ?? _fallbackProfile(server);
@@ -522,12 +536,6 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     } catch (_) {
       return cached ?? _fallbackProfile(server);
     }
-  }
-
-  Future<String> _loadEmbyUserName(ApiClient client, String? userId) async {
-    final normalizedUserId = userId?.trim() ?? '';
-    if (normalizedUserId.isEmpty) return '';
-    return (await client.emby.user(normalizedUserId)).name;
   }
 
   ServerProfileData _fallbackProfile(ServerProfile server) {

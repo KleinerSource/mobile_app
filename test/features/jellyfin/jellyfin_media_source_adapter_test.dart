@@ -9,7 +9,8 @@ import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/jellyfin_media_source_adapter.dart';
 import 'package:omm/core/sources/media/media_capabilities.dart';
 import 'package:omm/core/sources/media/media_models.dart';
-import 'package:omm/features/jellyfin/api/jellyfin_api.dart';
+import 'package:omm/features/media_browser/api/media_browser_api.dart';
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 const _jellyfinSourceId = SourceId('jellyfin');
@@ -80,8 +81,9 @@ void main() {
 
   JellyfinMediaSourceAdapter buildAdapter(_JellyfinAdapter adapter) {
     return JellyfinMediaSourceAdapter(
-      JellyfinApi(
+      MediaBrowserApi(
         Dio(BaseOptions(baseUrl: 'http://test'))..httpClientAdapter = adapter,
+        MediaBrowserConfig.jellyfin,
       ),
       sessionRepository: sessionRepository,
       serverId: 'server-1',

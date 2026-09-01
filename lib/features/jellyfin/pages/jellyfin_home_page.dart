@@ -16,6 +16,7 @@ import 'package:omm/features/jellyfin/pages/jellyfin_library_page.dart';
 import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
 import 'package:omm/features/jellyfin/widgets/jellyfin_continue_watching_section.dart';
 import 'package:omm/features/jellyfin/widgets/jellyfin_item_card.dart';
+import 'package:omm/features/jellyfin/widgets/jellyfin_next_up_section.dart';
 
 /// Jellyfin 首页复用 OMM 首页的氛围背景、半屏折叠 hero、轮播和区块布局。
 /// 数据来自「继续观看 / 接下来观看 / 最新入库」，跳转走统一导航入口。
@@ -150,18 +151,14 @@ class _JellyfinHomePageState extends ConsumerState<JellyfinHomePage> {
                   child: JellyfinContinueWatchingSection(items: items),
                 ),
         ),
-        // -------- 接下来观看 · 空态静默 --------
+        // -------- 接下来观看 · 与继续观看同款宽幅横滑卡片，空态静默 --------
         nextUp.when(
           loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
           error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
           data: (items) => items.isEmpty
               ? const SliverToBoxAdapter(child: SizedBox.shrink())
               : SliverToBoxAdapter(
-                  child: _JellyfinHomeSection(
-                    title: '接下来观看',
-                    value: AsyncValue.data(items),
-                    onRetry: () => ref.invalidate(jellyfinNextUpProvider),
-                  ),
+                  child: JellyfinNextUpSection(items: items),
                 ),
         ),
         SliverToBoxAdapter(

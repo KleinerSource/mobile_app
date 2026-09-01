@@ -9,7 +9,8 @@ import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/emby_media_source_adapter.dart';
 import 'package:omm/core/sources/media/media_capabilities.dart';
 import 'package:omm/core/sources/media/media_models.dart';
-import 'package:omm/features/emby/api/emby_api.dart';
+import 'package:omm/features/media_browser/api/media_browser_api.dart';
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
 const _embySourceId = SourceId('emby');
@@ -80,8 +81,9 @@ void main() {
 
   EmbyMediaSourceAdapter buildAdapter(_EmbyAdapter adapter) {
     return EmbyMediaSourceAdapter(
-      EmbyApi(
+      MediaBrowserApi(
         Dio(BaseOptions(baseUrl: 'http://test'))..httpClientAdapter = adapter,
+        MediaBrowserConfig.emby,
       ),
       sessionRepository: sessionRepository,
       serverId: 'server-1',

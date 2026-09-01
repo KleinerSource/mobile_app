@@ -4,6 +4,8 @@ import 'dart:io' show Platform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
+
 import '../api/api_client.dart';
 import '../api/api_exception.dart';
 import '../api/dio_factory.dart';
@@ -102,11 +104,9 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<AuthState> _bootstrap(ApiClient client) async {
     final project = client.config?.activeServer?.project;
     final isDbOnline = project == ServerProject.dbOnline;
-    if (project == ServerProject.emby) {
-      return _bootstrapEmby(client);
-    }
-    if (project == ServerProject.jellyfin) {
-      return _bootstrapJellyfin(client);
+    final mediaBrowserConfig = MediaBrowserConfig.byProject[project];
+    if (mediaBrowserConfig != null) {
+      return _bootstrapMediaBrowser(client, mediaBrowserConfig);
     }
     AuthStatus status;
     try {
@@ -250,11 +250,15 @@ class AuthController extends AsyncNotifier<AuthState> {
     final client = ref.read(requiredApiClientProvider);
     final isDbOnline =
         client.config?.activeServer?.project == ServerProject.dbOnline;
-    if (client.config?.activeServer?.project == ServerProject.emby) {
-      return _loginEmby(client, username: username, password: password);
-    }
-    if (client.config?.activeServer?.project == ServerProject.jellyfin) {
-      return _loginJellyfin(client, username: username, password: password);
+    final mediaBrowserConfig = MediaBrowserConfig.byProject[
+        client.config?.activeServer?.project];
+    if (mediaBrowserConfig != null) {
+      return _loginMediaBrowser(
+        client,
+        config: mediaBrowserConfig,
+        username: username,
+        password: password,
+      );
     }
     final current = state.value;
     // 登录请求期间保留 needsLogin 状态（页面有自己的 busy 指示），避免根
@@ -308,100 +312,29 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
   }
 
-  /// Emby 启动校验：用登录时持久化的用户 ID 查 /Users/{uid} 验证令牌，
-  /// 失效回到登录页。
+  /// MediaBrowser（Emby/Jellyfin）启动校验：用用户端点验证令牌，失效
+  /// 回到登录页。
   ///
-  /// Emby 没有 OMM 的 /auth/status 接口，也没有 Jellyfin 的
-  /// /Users/Me（按 token 反查用户，实测返回 500），鉴权状态只能由
-  /// 持久化的 userId + 令牌有效性推导。
-  Future<AuthState> _bootstrapEmby(ApiClient client) async {
+  /// 两家都没有 OMM 的 /auth/status 接口，鉴权状态只能由令牌有效性
+  /// 推导。Jellyfin 有 /Users/Me（按 token 反查用户）；Emby 实测返回
+  /// 500，只能用登录时持久化的 userId 查 /Users/{uid}。
+  Future<AuthState> _bootstrapMediaBrowser(
+    ApiClient client,
+    MediaBrowserConfig config,
+  ) async {
     final session = await ref.read(authSessionRepositoryProvider).load();
     final userId = session?.userId?.trim() ?? '';
     if (session == null ||
         !session.hasAccessToken ||
-        userId.isEmpty) {
-      // 没有用户 ID 就无法拼出任何用户端点，只能重新登录。
+        (!config.supportsCurrentUser && userId.isEmpty)) {
+      // Emby 没有用户 ID 就无法拼出任何用户端点，只能重新登录。
       await ref.read(authSessionRepositoryProvider).clear();
       return const AuthState(phase: AuthPhase.needsLogin);
     }
     try {
-      await client.emby.user(userId);
-      return const AuthState(phase: AuthPhase.authenticated);
-    } catch (error) {
-      final exception = toApiException(error);
-      if (exception.status == 401 || exception.status == 404) {
-        await ref.read(authSessionRepositoryProvider).clear();
-        return const AuthState(phase: AuthPhase.needsLogin);
-      }
-      return AuthState(
-        phase: AuthPhase.unavailable,
-        message: exception.message,
-      );
-    }
-  }
-
-  Future<bool> _loginEmby(
-    ApiClient client, {
-    required String? username,
-    required String password,
-  }) async {
-    final current = state.value;
-    final user = username?.trim() ?? '';
-    if (user.isEmpty) {
-      state = AsyncData(
-        AuthState(
-          phase: AuthPhase.needsLogin,
-          status: current?.status,
-          message: '请输入用户名',
-        ),
-      );
-      return false;
-    }
-    try {
-      final deviceId = await stableDeviceId(ref.read(sharedPrefsProvider));
-      final result = await client.emby.authenticateByName(
-        username: user,
-        password: password,
-        deviceId: deviceId,
-        deviceName: Platform.operatingSystem,
-        appVersion: await _appVersion(),
-      );
-      if (result.accessToken.isEmpty || result.user.id.isEmpty) {
-        throw ApiException('登录响应缺少有效会话');
-      }
-      await ref
-          .read(authSessionRepositoryProvider)
-          .save(AuthSession(
-            accessToken: result.accessToken,
-            refreshToken: '',
-            expiresIn: 0,
-            userId: result.user.id,
-          ));
-      state = const AsyncData(AuthState(phase: AuthPhase.authenticated));
-      return true;
-    } catch (error) {
-      final exception = toApiException(error);
-      state = AsyncData(
-        AuthState(
-          phase: AuthPhase.needsLogin,
-          status: current?.status,
-          message: exception.message,
-        ),
-      );
-      throw exception;
-    }
-  }
-
-  /// Jellyfin 启动校验：令牌存在则用 /Users/Me 验证，失效回到登录页。
-  ///
-  /// Jellyfin 没有 OMM 的 /auth/status 接口，鉴权状态只能由令牌有效性推导。
-  Future<AuthState> _bootstrapJellyfin(ApiClient client) async {
-    final session = await ref.read(authSessionRepositoryProvider).load();
-    if (session == null || !session.hasAccessToken) {
-      return const AuthState(phase: AuthPhase.needsLogin);
-    }
-    try {
-      final user = await client.jellyfin.currentUser();
+      final user = await client
+          .mediaBrowserFor(config)
+          .validateSession(session.userId);
       // 极少数情况下令牌仍有效但绑定用户变化（服务端重建用户），同步本地
       // 记录的 userId，条目查询依赖它拼接 /Users/{uid} 路径。
       if (user.id.isNotEmpty && user.id != session.userId) {
@@ -417,7 +350,8 @@ class AuthController extends AsyncNotifier<AuthState> {
       return const AuthState(phase: AuthPhase.authenticated);
     } catch (error) {
       final exception = toApiException(error);
-      if (exception.status == 401) {
+      if (exception.status == 401 ||
+          (!config.supportsCurrentUser && exception.status == 404)) {
         await ref.read(authSessionRepositoryProvider).clear();
         return const AuthState(phase: AuthPhase.needsLogin);
       }
@@ -428,8 +362,9 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
   }
 
-  Future<bool> _loginJellyfin(
+  Future<bool> _loginMediaBrowser(
     ApiClient client, {
+    required MediaBrowserConfig config,
     required String? username,
     required String password,
   }) async {
@@ -447,7 +382,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
     try {
       final deviceId = await stableDeviceId(ref.read(sharedPrefsProvider));
-      final result = await client.jellyfin.authenticateByName(
+      final result = await client.mediaBrowserFor(config).authenticateByName(
         username: user,
         password: password,
         deviceId: deviceId,

@@ -1,22 +1,25 @@
 import 'package:dio/dio.dart';
 
 import 'package:omm/core/api/api_exception.dart';
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
-/// Emby REST API 客户端。
+/// MediaBrowser（Emby / Jellyfin）REST API 客户端。
 ///
-/// Emby 的接口挂在根路径的 /emby 前缀下（dio baseUrl 已按项目分支处理），
-/// 响应是裸 JSON 而非 OMM 的 {success, data} 信封，因此这里直接解析
-/// dio 返回的 Map，不经过 envelope 解包。鉴权由 dio 拦截器统一注入
-/// X-Emby-Token；播放器和图片内核无法带请求头，改用 api_key 查询参数。
-class EmbyApi {
-  EmbyApi(this._dio);
+/// 两家服务器的接口同构，项目差异全部在 [config]（路径前缀 / 登录头 /
+/// token 参数名）。响应是裸 JSON 而非 OMM 的 {success, data} 信封，因此
+/// 这里直接解析 dio 返回的 Map，不经过 envelope 解包。鉴权由 dio 拦截器
+/// 按项目统一注入（X-Emby-Token / Authorization: MediaBrowser Token）；
+/// 播放器和图片内核无法带请求头，改用 config.tokenQueryParam 查询参数。
+class MediaBrowserApi {
+  MediaBrowserApi(this._dio, this.config);
 
   final Dio _dio;
+  final MediaBrowserConfig config;
 
   /// 用户名 + 密码登录。
   ///
-  /// Emby 要求认证请求携带 X-Emby-Authorization 声明客户端身份；
+  /// 认证请求需按 [MediaBrowserConfig.authHeaderName] 声明客户端身份；
   /// [deviceId] 必须跨登录稳定，否则服务器会累积大量设备会话。
   Future<MediaBrowserAuthResult> authenticateByName({
     required String username,
@@ -30,11 +33,11 @@ class EmbyApi {
       throw ArgumentError.value(username, 'username', '用户名不能为空');
     }
     final response = await _dio.post<Map<String, dynamic>>(
-      '/emby/Users/AuthenticateByName',
+      config.path('/Users/AuthenticateByName'),
       data: {'Username': normalizedUser, 'Pw': password},
       options: Options(
         headers: {
-          'X-Emby-Authorization':
+          config.authHeaderName:
               'MediaBrowser Client="Oh My Media", Device="$deviceName", '
               'DeviceId="$deviceId", Version="$appVersion"',
         },
@@ -48,38 +51,35 @@ class EmbyApi {
     return MediaBrowserAuthResult.fromJson(data);
   }
 
-  /// 读取指定用户的资料，用于启动时校验令牌是否仍有效。
+  /// 启动时校验令牌是否仍有效。
   ///
-  /// Emby 不提供 Jellyfin 的 /Users/Me（按 token 反查用户，实测返回
-  /// 500）；用户 ID 在登录时已随会话持久化，这里按文档端点
-  /// /Users/{Id} 直接查询。
-  Future<MediaBrowserUser> user(String userId) async {
-    final normalized = userId.trim();
+  /// Jellyfin 支持按 token 反查用户（/Users/Me）；Emby 没有该端点
+  /// （实测返回 500），只能用登录时持久化的 [persistedUserId] 查
+  /// /Users/{Id}，为空时抛 ArgumentError。
+  Future<MediaBrowserUser> validateSession(String? persistedUserId) async {
+    if (config.supportsCurrentUser) {
+      return _userFrom(_p('/Users/Me'));
+    }
+    final normalized = persistedUserId?.trim() ?? '';
     if (normalized.isEmpty) {
-      throw ArgumentError.value(userId, 'userId', '用户 ID 不能为空');
+      throw ArgumentError.value(
+        persistedUserId,
+        'persistedUserId',
+        '用户 ID 不能为空',
+      );
     }
-    final response = await _dio.get<Map<String, dynamic>>(
-      '/emby/Users/${Uri.encodeComponent(normalized)}',
-      options: Options(
-        extra: const {'skipRefresh': true, 'skipRetry': true},
-      ),
-    );
-    final data = response.data;
-    if (data == null) {
-      throw ApiException('用户信息响应为空');
-    }
-    return MediaBrowserUser.fromJson(data);
+    return _userFrom(_p('/Users/${Uri.encodeComponent(normalized)}'));
   }
 
   /// 当前用户可见的媒体库（Views）。
   Future<List<MediaBrowserItem>> views(String userId) async {
     final response = await _dio.get<Map<String, dynamic>>(
-      '/emby/Users/${_segment(userId)}/Views',
+      _p('/Users/${_segment(userId)}/Views'),
     );
     return _items(response.data);
   }
 
-  /// 通用条目分页查询。参数命名与 Emby 一致，仅保留移动端用到的子集。
+  /// 通用条目分页查询。参数命名与服务器一致，仅保留移动端用到的子集。
   Future<MediaBrowserItemPage> items(
     String userId, {
     String? parentId,
@@ -95,7 +95,7 @@ class EmbyApi {
     List<String>? fields,
   }) {
     return _itemPage(
-      '/emby/Users/${_segment(userId)}/Items',
+      _p('/Users/${_segment(userId)}/Items'),
       <String, dynamic>{
         if (parentId?.trim().isNotEmpty == true) 'ParentId': parentId!.trim(),
         if (includeItemTypes?.trim().isNotEmpty == true)
@@ -121,7 +121,7 @@ class EmbyApi {
       throw ArgumentError.value(itemId, 'itemId', '条目 ID 不能为空');
     }
     final response = await _dio.get<Map<String, dynamic>>(
-      '/emby/Users/${_segment(userId)}/Items/${_segment(normalized)}',
+      _p('/Users/${_segment(userId)}/Items/${_segment(normalized)}'),
     );
     final data = response.data;
     if (data == null) {
@@ -138,7 +138,7 @@ class EmbyApi {
     int limit = 16,
   }) async {
     final response = await _dio.get<List<dynamic>>(
-      '/emby/Users/${_segment(userId)}/Items/Latest',
+      _p('/Users/${_segment(userId)}/Items/Latest'),
       queryParameters: <String, dynamic>{
         if (parentId?.trim().isNotEmpty == true) 'ParentId': parentId!.trim(),
         if (includeItemTypes?.trim().isNotEmpty == true)
@@ -159,7 +159,7 @@ class EmbyApi {
   /// 首页「继续观看」（未看完的有进度条目）。
   Future<MediaBrowserItemPage> resumeItems(String userId, {int limit = 12}) {
     return _itemPage(
-      '/emby/Users/${_segment(userId)}/Items/Resume',
+      _p('/Users/${_segment(userId)}/Items/Resume'),
       <String, dynamic>{
         'MediaTypes': 'Video',
         'Limit': limit,
@@ -168,9 +168,13 @@ class EmbyApi {
   }
 
   /// 剧集「下一集」（每个系列取下一待看集）。
-  Future<MediaBrowserItemPage> nextUp(String userId, {String? parentId, int limit = 12}) {
+  Future<MediaBrowserItemPage> nextUp(
+    String userId, {
+    String? parentId,
+    int limit = 12,
+  }) {
     return _itemPage(
-      '/emby/Shows/NextUp',
+      _p('/Shows/NextUp'),
       <String, dynamic>{
         'UserId': userId,
         if (parentId?.trim().isNotEmpty == true) 'ParentId': parentId!.trim(),
@@ -182,7 +186,7 @@ class EmbyApi {
   /// 剧集的季列表。
   Future<List<MediaBrowserItem>> seasons(String userId, String seriesId) async {
     final response = await _dio.get<Map<String, dynamic>>(
-      '/emby/Shows/${_segment(seriesId)}/Seasons',
+      _p('/Shows/${_segment(seriesId)}/Seasons'),
       queryParameters: {'UserId': userId},
     );
     return _items(response.data);
@@ -191,7 +195,7 @@ class EmbyApi {
   /// 某一季的集列表，按季内序号排序。
   Future<MediaBrowserItemPage> episodes(String userId, String seasonId) {
     return _itemPage(
-      '/emby/Shows/${_segment(seasonId)}/Episodes',
+      _p('/Shows/${_segment(seasonId)}/Episodes'),
       <String, dynamic>{
         'UserId': userId,
         'Fields': 'Overview,MediaSources',
@@ -211,7 +215,7 @@ class EmbyApi {
     Map<String, Object?>? deviceProfile,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
-      '/emby/Items/${_segment(itemId)}/PlaybackInfo',
+      _p('/Items/${_segment(itemId)}/PlaybackInfo'),
       queryParameters: <String, dynamic>{
         'UserId': userId,
         if (mediaSourceId?.trim().isNotEmpty == true)
@@ -241,10 +245,10 @@ class EmbyApi {
   ) async {
     final response = favorite
         ? await _dio.post<Map<String, dynamic>>(
-            '/emby/Users/${_segment(userId)}/FavoriteItems/${_segment(itemId)}',
+            _p('/Users/${_segment(userId)}/FavoriteItems/${_segment(itemId)}'),
           )
         : await _dio.delete<Map<String, dynamic>>(
-            '/emby/Users/${_segment(userId)}/FavoriteItems/${_segment(itemId)}',
+            _p('/Users/${_segment(userId)}/FavoriteItems/${_segment(itemId)}'),
           );
     final data = response.data;
     if (data == null) {
@@ -261,10 +265,10 @@ class EmbyApi {
   ) async {
     final response = played
         ? await _dio.post<Map<String, dynamic>>(
-            '/emby/Users/${_segment(userId)}/PlayedItems/${_segment(itemId)}',
+            _p('/Users/${_segment(userId)}/PlayedItems/${_segment(itemId)}'),
           )
         : await _dio.delete<Map<String, dynamic>>(
-            '/emby/Users/${_segment(userId)}/PlayedItems/${_segment(itemId)}',
+            _p('/Users/${_segment(userId)}/PlayedItems/${_segment(itemId)}'),
           );
     final data = response.data;
     if (data == null) {
@@ -275,15 +279,15 @@ class EmbyApi {
 
   /// 播放会话上报：开始 / 进度 / 结束。
   ///
-  /// 进度按 Emby 的 100ns tick 上报；退出时的 Stopped 报告决定服务器端
-  /// 的「继续观看」位置。
+  /// 进度按 100ns tick 上报；退出时的 Stopped 报告决定服务器端的
+  /// 「继续观看」位置。
   Future<void> reportPlaybackStart({
     required String itemId,
     required int positionTicks,
     String? playSessionId,
   }) {
     return _reportPlayback(
-      '/emby/Sessions/Playing',
+      _p('/Sessions/Playing'),
       itemId,
       positionTicks,
       playSessionId: playSessionId,
@@ -297,7 +301,7 @@ class EmbyApi {
     bool isPaused = false,
   }) {
     return _reportPlayback(
-      '/emby/Sessions/Playing/Progress',
+      _p('/Sessions/Playing/Progress'),
       itemId,
       positionTicks,
       playSessionId: playSessionId,
@@ -311,7 +315,7 @@ class EmbyApi {
     String? playSessionId,
   }) {
     return _reportPlayback(
-      '/emby/Sessions/Playing/Stopped',
+      _p('/Sessions/Playing/Stopped'),
       itemId,
       positionTicks,
       playSessionId: playSessionId,
@@ -319,8 +323,9 @@ class EmbyApi {
   }
 
   /// 直链播放地址。static=true 返回原始文件，seek 由播放器通过
-  /// HTTP Range 完成；api_key 让无请求头能力的内核也能访问。
+  /// HTTP Range 完成；token 查询参数让无请求头能力的内核也能访问。
   static String streamUrl({
+    required MediaBrowserConfig config,
     required String baseUrl,
     required String itemId,
     String? mediaSourceId,
@@ -330,17 +335,19 @@ class EmbyApi {
       'static': 'true',
       if (mediaSourceId?.trim().isNotEmpty == true)
         'MediaSourceId': mediaSourceId!.trim(),
-      if (token?.trim().isNotEmpty == true) 'api_key': token!.trim(),
+      if (token?.trim().isNotEmpty == true)
+        config.tokenQueryParam: token!.trim(),
     };
     return _buildUrl(
       baseUrl,
-      '/emby/Videos/${Uri.encodeComponent(itemId)}/stream',
+      config.path('/Videos/${Uri.encodeComponent(itemId)}/stream'),
       query,
     );
   }
 
-  /// 海报 / 背景图地址。图片端点在默认配置下免鉴权，api_key 仅作兜底。
+  /// 海报 / 背景图地址。图片端点在默认配置下免鉴权，token 仅作兜底。
   static String imageUrl({
+    required MediaBrowserConfig config,
     required String baseUrl,
     required String itemId,
     String imageType = 'Primary',
@@ -350,17 +357,20 @@ class EmbyApi {
     final query = <String, String>{
       if (maxWidth != null && maxWidth > 0) 'maxWidth': maxWidth.toString(),
       'quality': '90',
-      if (token?.trim().isNotEmpty == true) 'api_key': token!.trim(),
+      if (token?.trim().isNotEmpty == true)
+        config.tokenQueryParam: token!.trim(),
     };
     return _buildUrl(
       baseUrl,
-      '/emby/Items/${Uri.encodeComponent(itemId)}/Images/${Uri.encodeComponent(imageType)}',
+      config.path(
+        '/Items/${Uri.encodeComponent(itemId)}/Images/${Uri.encodeComponent(imageType)}',
+      ),
       query,
     );
   }
 
   /// 服务器返回的 TranscodingUrl 是相对路径，转成可播放的绝对地址。
-  static String resolveEmbyUrl(String baseUrl, String rawUrl) {
+  static String resolveUrl(String baseUrl, String rawUrl) {
     final uri = Uri.tryParse(rawUrl.trim());
     if (uri == null || uri.hasScheme) return rawUrl;
     final normalizedBase = baseUrl.endsWith('/')
@@ -368,6 +378,22 @@ class EmbyApi {
         : baseUrl;
     return '$normalizedBase${rawUrl.trim().startsWith('/') ? '' : '/'}${rawUrl.trim()}';
   }
+
+  Future<MediaBrowserUser> _userFrom(String path) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      path,
+      options: Options(
+        extra: const {'skipRefresh': true, 'skipRetry': true},
+      ),
+    );
+    final data = response.data;
+    if (data == null) {
+      throw ApiException('用户信息响应为空');
+    }
+    return MediaBrowserUser.fromJson(data);
+  }
+
+  String _p(String relative) => config.path(relative);
 
   Future<void> _reportPlayback(
     String path,

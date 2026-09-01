@@ -38,9 +38,13 @@ class ContinueWatchingEntry {
 /// 16:10 宽幅横滑卡，fanart 底图 + 底部渐变遮罩 + 播放按钮/剩余分钟
 /// + 进度条，下方两行标题与元信息。
 class ContinueWatchingSection extends StatelessWidget {
-  const ContinueWatchingSection({super.key, required this.entries});
+  const ContinueWatchingSection({super.key, required this.entries, this.title});
 
   final List<ContinueWatchingEntry> entries;
+
+  /// 区块标题；缺省沿用 OMM 的「继续观看」文案。接下来观看等
+  /// 同款宽幅卡片区块传入自己的标题复用本布局。
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +63,7 @@ class ContinueWatchingSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 22),
             child: Text(
-              AppL10n.of(context).homePickupTitle,
+              title ?? AppL10n.of(context).homePickupTitle,
               style: AppText.sectionTitle(context),
             ),
           ),
@@ -181,21 +185,24 @@ class _ContinueWatchingCard extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(100),
-                            child: LinearProgressIndicator(
-                              value: progress,
-                              minHeight: 4,
-                              backgroundColor: Colors.white.withValues(
-                                alpha: 0.18,
+                        // 接下来观看等未开播条目没有进度，空进度槽不展示。
+                        if (progress > 0) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(100),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                minHeight: 4,
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.18,
+                                ),
+                                valueColor: AlwaysStoppedAnimation(c.accent),
                               ),
-                              valueColor: AlwaysStoppedAnimation(c.accent),
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),

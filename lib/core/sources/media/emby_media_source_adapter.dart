@@ -1,5 +1,6 @@
 import 'package:omm/core/auth/auth_session_repository.dart';
-import 'package:omm/features/emby/api/emby_api.dart';
+import 'package:omm/features/media_browser/api/media_browser_api.dart';
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_error_mapper.dart';
@@ -22,7 +23,7 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
     this.endpoint,
   });
 
-  final EmbyApi api;
+  final MediaBrowserApi api;
   final AuthSessionRepository sessionRepository;
   final String? serverId;
   final String? endpoint;
@@ -133,10 +134,10 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
         transcodingUrl.isNotEmpty;
     final Uri uri;
     if (isTranscode) {
-      uri = Uri.parse(EmbyApi.resolveEmbyUrl(base, transcodingUrl));
+      uri = Uri.parse(MediaBrowserApi.resolveUrl(base, transcodingUrl));
     } else {
       uri = Uri.parse(
-        EmbyApi.streamUrl(
+        MediaBrowserApi.streamUrl(config: MediaBrowserConfig.emby,
           baseUrl: base,
           itemId: ref.value,
           mediaSourceId: mediaSource.id,
@@ -291,7 +292,7 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
     int? maxWidth,
   }) async {
     final token = await sessionRepository.accessToken();
-    return EmbyApi.imageUrl(
+    return MediaBrowserApi.imageUrl(config: MediaBrowserConfig.emby,
       baseUrl: endpoint ?? '',
       itemId: itemId,
       imageType: imageType,

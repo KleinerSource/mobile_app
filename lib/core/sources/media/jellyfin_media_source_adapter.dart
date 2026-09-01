@@ -1,5 +1,6 @@
 import 'package:omm/core/auth/auth_session_repository.dart';
-import 'package:omm/features/jellyfin/api/jellyfin_api.dart';
+import 'package:omm/features/media_browser/api/media_browser_api.dart';
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import '../common/source_descriptor.dart';
 import '../common/source_error_mapper.dart';
@@ -22,7 +23,7 @@ class JellyfinMediaSourceAdapter implements JellyfinMediaSource {
     this.endpoint,
   });
 
-  final JellyfinApi api;
+  final MediaBrowserApi api;
   final AuthSessionRepository sessionRepository;
   final String? serverId;
   final String? endpoint;
@@ -133,10 +134,10 @@ class JellyfinMediaSourceAdapter implements JellyfinMediaSource {
         transcodingUrl.isNotEmpty;
     final Uri uri;
     if (isTranscode) {
-      uri = Uri.parse(JellyfinApi.resolveJellyfinUrl(base, transcodingUrl));
+      uri = Uri.parse(MediaBrowserApi.resolveUrl(base, transcodingUrl));
     } else {
       uri = Uri.parse(
-        JellyfinApi.streamUrl(
+        MediaBrowserApi.streamUrl(config: MediaBrowserConfig.jellyfin,
           baseUrl: base,
           itemId: ref.value,
           mediaSourceId: mediaSource.id,
@@ -291,7 +292,7 @@ class JellyfinMediaSourceAdapter implements JellyfinMediaSource {
     int? maxWidth,
   }) async {
     final token = await sessionRepository.accessToken();
-    return JellyfinApi.imageUrl(
+    return MediaBrowserApi.imageUrl(config: MediaBrowserConfig.jellyfin,
       baseUrl: endpoint ?? '',
       itemId: itemId,
       imageType: imageType,

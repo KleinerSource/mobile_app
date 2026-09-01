@@ -6,7 +6,8 @@ import 'package:omm/core/auth/auth_session_provider.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
-import 'package:omm/features/emby/api/emby_api.dart';
+import 'package:omm/features/media_browser/api/media_browser_api.dart';
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/emby/repositories/emby_media_repository.dart';
 
@@ -30,7 +31,7 @@ class EmbyServerUrls {
 
   bool get isReady => baseUrl.trim().isNotEmpty;
 
-  String poster(String itemId, {int maxWidth = 440}) => EmbyApi.imageUrl(
+  String poster(String itemId, {int maxWidth = 440}) => MediaBrowserApi.imageUrl(config: MediaBrowserConfig.emby,
     baseUrl: baseUrl,
     itemId: itemId,
     imageType: 'Primary',
@@ -38,7 +39,7 @@ class EmbyServerUrls {
     token: token,
   );
 
-  String backdrop(String itemId, {int maxWidth = 1280}) => EmbyApi.imageUrl(
+  String backdrop(String itemId, {int maxWidth = 1280}) => MediaBrowserApi.imageUrl(config: MediaBrowserConfig.emby,
     baseUrl: baseUrl,
     itemId: itemId,
     imageType: 'Backdrop',
@@ -46,7 +47,7 @@ class EmbyServerUrls {
     token: token,
   );
 
-  String thumb(String itemId, {int maxWidth = 440}) => EmbyApi.imageUrl(
+  String thumb(String itemId, {int maxWidth = 440}) => MediaBrowserApi.imageUrl(config: MediaBrowserConfig.emby,
     baseUrl: baseUrl,
     itemId: itemId,
     imageType: 'Thumb',
@@ -54,7 +55,7 @@ class EmbyServerUrls {
     token: token,
   );
 
-  String stream(String itemId, {String? mediaSourceId}) => EmbyApi.streamUrl(
+  String stream(String itemId, {String? mediaSourceId}) => MediaBrowserApi.streamUrl(config: MediaBrowserConfig.emby,
     baseUrl: baseUrl,
     itemId: itemId,
     mediaSourceId: mediaSourceId,

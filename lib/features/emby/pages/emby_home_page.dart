@@ -12,6 +12,7 @@ import 'package:omm/features/emby/pages/emby_library_page.dart';
 import 'package:omm/features/emby/providers/emby_providers.dart';
 import 'package:omm/features/emby/widgets/emby_continue_watching_section.dart';
 import 'package:omm/features/emby/widgets/emby_item_card.dart';
+import 'package:omm/features/emby/widgets/emby_next_up_section.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/home/home_libraries_section.dart';
 import 'package:omm/features/home/home_movie_section.dart';
@@ -150,18 +151,14 @@ class _EmbyHomePageState extends ConsumerState<EmbyHomePage> {
                   child: EmbyContinueWatchingSection(items: items),
                 ),
         ),
-        // -------- 接下来观看 · 空态静默 --------
+        // -------- 接下来观看 · 与继续观看同款宽幅横滑卡片，空态静默 --------
         nextUp.when(
           loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
           error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
           data: (items) => items.isEmpty
               ? const SliverToBoxAdapter(child: SizedBox.shrink())
               : SliverToBoxAdapter(
-                  child: _EmbyHomeSection(
-                    title: '接下来观看',
-                    value: AsyncValue.data(items),
-                    onRetry: () => ref.invalidate(embyNextUpProvider),
-                  ),
+                  child: EmbyNextUpSection(items: items),
                 ),
         ),
         SliverToBoxAdapter(
