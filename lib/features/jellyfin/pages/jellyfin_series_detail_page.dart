@@ -9,6 +9,7 @@ import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
 import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
+import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/shared/poster.dart';
 
 /// Jellyfin 剧集详情页：季切换 + 集列表。
@@ -407,6 +408,14 @@ class _EpisodeList extends ConsumerWidget {
                     ? null
                     : urls.value?.thumb(episode.id),
                 onTap: () => openJellyfinPlayback(context, ref, item: episode),
+                // 与 OMM/电影详情页一致：长按先选内核（libmpv / KSPlayer）。
+                onLongPress: playbackEnginePickerEnabled
+                    ? () => openJellyfinPlaybackWithEnginePicker(
+                        context,
+                        ref,
+                        item: episode,
+                      )
+                    : null,
               ),
           ],
         );
@@ -420,11 +429,13 @@ class _EpisodeTile extends StatelessWidget {
     required this.episode,
     required this.imageUrl,
     required this.onTap,
+    this.onLongPress,
   });
 
   final JellyfinItem episode;
   final String? imageUrl;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -441,6 +452,7 @@ class _EpisodeTile extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           child: Padding(
             padding: const EdgeInsets.all(10),
             child: Row(

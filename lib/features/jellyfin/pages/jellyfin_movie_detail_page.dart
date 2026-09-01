@@ -9,6 +9,7 @@ import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
 import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
+import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/shared/filter_chip.dart';
 
 /// Jellyfin 条目详情页（电影 / 单集等可播条目）。
@@ -219,6 +220,11 @@ class _JellyfinDetailBodyState extends ConsumerState<_JellyfinDetailBody> {
               played: item.userData.played,
               busy: _actionBusy,
               onPlay: () => openJellyfinPlayback(context, ref, item: item),
+              // 与 OMM 详情页一致：长按播放先选内核（libmpv / KSPlayer）。
+              onLongPressPlay: playbackEnginePickerEnabled
+                  ? () =>
+                        openJellyfinPlaybackWithEnginePicker(context, ref, item: item)
+                  : null,
               onTranscodePlay: () =>
                   openJellyfinPlayback(context, ref, item: item, transcode: true),
               onToggleFavorite: _toggleFavorite,
@@ -274,6 +280,7 @@ class _ActionRow extends StatelessWidget {
     required this.played,
     required this.busy,
     required this.onPlay,
+    required this.onLongPressPlay,
     required this.onTranscodePlay,
     required this.onToggleFavorite,
     required this.onTogglePlayed,
@@ -284,6 +291,7 @@ class _ActionRow extends StatelessWidget {
   final bool played;
   final bool busy;
   final VoidCallback onPlay;
+  final VoidCallback? onLongPressPlay;
   final VoidCallback onTranscodePlay;
   final VoidCallback onToggleFavorite;
   final VoidCallback onTogglePlayed;
@@ -299,6 +307,9 @@ class _ActionRow extends StatelessWidget {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: busy ? null : onPlay,
+              onLongPress: busy || onLongPressPlay == null
+                  ? null
+                  : onLongPressPlay,
               style: ElevatedButton.styleFrom(
                 backgroundColor: colors.text,
                 foregroundColor: colors.bg,

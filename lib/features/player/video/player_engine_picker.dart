@@ -3,6 +3,28 @@ import 'package:flutter/material.dart';
 import '../../../core/platform/app_theme.dart';
 import '../../../l10n/generated/app_localizations.dart';
 import '../common/playback_engine.dart';
+import 'video_player_session_factory.dart' show availablePlaybackEngineKinds;
+
+/// 当前平台是否有多个播放内核可供长按选择（非 iOS 只有 libmpv，长按无意义）。
+bool get playbackEnginePickerEnabled =>
+    availablePlaybackEngineKinds().length >= 2;
+
+/// 长按播放入口的内核选择。
+///
+/// 可用内核少于 2 个（非 iOS 平台）时直接返回 null，调用方应禁用长按；
+/// 否则弹出选择器，返回选中的内核，用户取消也返回 null。
+Future<PlaybackEngineKind?> pickPlaybackEngine(
+  BuildContext context,
+  PlaybackEngineKind defaultEngineKind,
+) async {
+  final engineKinds = availablePlaybackEngineKinds();
+  if (engineKinds.length < 2) return null;
+  return showPlaybackEnginePicker(
+    context,
+    engineKinds: engineKinds,
+    defaultEngineKind: defaultEngineKind,
+  );
+}
 
 /// 屏幕中间的选择播放器弹窗。
 ///

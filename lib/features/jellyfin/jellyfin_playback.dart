@@ -9,6 +9,9 @@ import 'package:omm/core/sources/media/media_models.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/features/jellyfin/models/jellyfin_models.dart';
 import 'package:omm/features/jellyfin/providers/jellyfin_providers.dart';
+import 'package:omm/features/player/common/playback_engine.dart';
+import 'package:omm/features/player/common/player_settings.dart';
+import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/features/player/video/video_player_page.dart';
 
 /// 打开 Jellyfin 条目播放。
@@ -21,6 +24,7 @@ Future<void> openJellyfinPlayback(
   WidgetRef ref, {
   required JellyfinItem item,
   bool transcode = false,
+  PlaybackEngineKind? engineKind,
 }) async {
   final source = ref.read(jellyfinMediaSourceProvider);
   if (source == null) return;
@@ -53,6 +57,7 @@ Future<void> openJellyfinPlayback(
       title: _playbackTitle(item),
       directUrl: descriptor.uri.toString(),
       startPositionSec: resumeSec,
+      engineKind: engineKind,
       directProgressReporter: (positionSec, durationSec, completed) =>
           repo.reportPlaybackStopped(
             itemId: itemId,
@@ -72,6 +77,31 @@ Future<void> openJellyfinPlayback(
       ).showSnackBar(SnackBar(content: Text(toApiException(error).message)));
     }
   }
+}
+
+/// 长按「播放」先选内核再用所选内核播放。
+///
+/// 当前平台无可选内核（非 iOS）时是空操作，调用方应以
+/// [playbackEnginePickerEnabled] 禁用长按。
+Future<void> openJellyfinPlaybackWithEnginePicker(
+  BuildContext context,
+  WidgetRef ref, {
+  required JellyfinItem item,
+  bool transcode = false,
+}) async {
+  if (!playbackEnginePickerEnabled) return;
+  final engineKind = await pickPlaybackEngine(
+    context,
+    ref.read(playerSettingsProvider).iosEngine,
+  );
+  if (engineKind == null || !context.mounted) return;
+  await openJellyfinPlayback(
+    context,
+    ref,
+    item: item,
+    transcode: transcode,
+    engineKind: engineKind,
+  );
 }
 
 String _playbackTitle(JellyfinItem item) {
