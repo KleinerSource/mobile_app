@@ -374,6 +374,168 @@ void main() {
         );
       });
 
+      test('resolvePlayback strm 外链直接播放并按扩展名给容器提示', () async {
+        final adapter = buildAdapter(
+          _RecordingAdapter((options) {
+            if (options.uri.path.endsWith('/PlaybackInfo')) {
+              return {
+                'MediaSources': [
+                  {
+                    'Id': 'ms-1',
+                    'Protocol': 'Http',
+                    'Container': 'strm',
+                    'Path': 'http://cdn.example.com/movie/file.mkv',
+                    'SupportsDirectPlay': true,
+                  },
+                ],
+              };
+            }
+            return {'Id': 'item-1', 'Name': '电影一', 'Type': 'Movie'};
+          }),
+        );
+
+        final descriptor = await adapter.resolvePlayback(
+          MediaRef(sourceId: sourceId, value: 'item-1'),
+          const PlaybackRequest(),
+        );
+
+        expect(descriptor.uri.toString(), 'http://cdn.example.com/movie/file.mkv');
+        expect(descriptor.isTranscode, isFalse);
+        // 外链不属于服务器，不带 token。
+        expect(
+          descriptor.uri.toString(),
+          isNot(contains(config.tokenQueryParam)),
+        );
+        // Container 为 "strm" 无法映射，从 URL 扩展名推断内核提示。
+        expect(descriptor.mimeType, 'video/x-matroska');
+      });
+
+      test('resolvePlayback 本地文件 Path 不走外链分支', () async {
+        final adapter = buildAdapter(
+          _RecordingAdapter((options) {
+            if (options.uri.path.endsWith('/PlaybackInfo')) {
+              return {
+                'MediaSources': [
+                  {
+                    'Id': 'ms-1',
+                    'Protocol': 'File',
+                    'Container': 'mkv',
+                    'Path': '/media/movies/file.mkv',
+                    'SupportsDirectPlay': true,
+                  },
+                ],
+              };
+            }
+            return {'Id': 'item-1', 'Name': '电影一', 'Type': 'Movie'};
+          }),
+        );
+
+        final descriptor = await adapter.resolvePlayback(
+          MediaRef(sourceId: sourceId, value: 'item-1'),
+          const PlaybackRequest(),
+        );
+
+        expect(
+          descriptor.uri.toString(),
+          contains('${config.pathPrefix}/Videos/item-1/stream'),
+        );
+        expect(descriptor.mimeType, 'video/x-matroska');
+      });
+
+      test('resolvePlayback strm 请求转码时仍优先 TranscodingUrl', () async {
+        final adapter = buildAdapter(
+          _RecordingAdapter((options) {
+            if (options.uri.path.endsWith('/PlaybackInfo')) {
+              return {
+                'MediaSources': [
+                  {
+                    'Id': 'ms-1',
+                    'Protocol': 'Http',
+                    'Path': 'http://cdn.example.com/movie/file.mkv',
+                    'SupportsDirectPlay': true,
+                    'SupportsTranscoding': true,
+                    'TranscodingUrl':
+                        '${config.pathPrefix}/videos/item-1/master.m3u8',
+                  },
+                ],
+              };
+            }
+            return {'Id': 'item-1', 'Name': '电影一', 'Type': 'Movie'};
+          }),
+        );
+
+        final descriptor = await adapter.resolvePlayback(
+          MediaRef(sourceId: sourceId, value: 'item-1'),
+          const PlaybackRequest(forceVideoTranscode: true),
+        );
+
+        expect(descriptor.isTranscode, isTrue);
+        expect(
+          descriptor.uri.toString(),
+          '$base/videos/item-1/master.m3u8',
+        );
+      });
+
+      test('resolvePlayback strm 无 TranscodingUrl 时转码请求回退外链', () async {
+        final adapter = buildAdapter(
+          _RecordingAdapter((options) {
+            if (options.uri.path.endsWith('/PlaybackInfo')) {
+              return {
+                'MediaSources': [
+                  {
+                    'Id': 'ms-1',
+                    'Protocol': 'Http',
+                    'Path': 'http://cdn.example.com/movie/file.mkv',
+                    'SupportsDirectPlay': true,
+                    'SupportsTranscoding': false,
+                  },
+                ],
+              };
+            }
+            return {'Id': 'item-1', 'Name': '电影一', 'Type': 'Movie'};
+          }),
+        );
+
+        final descriptor = await adapter.resolvePlayback(
+          MediaRef(sourceId: sourceId, value: 'item-1'),
+          const PlaybackRequest(forceVideoTranscode: true),
+        );
+
+        expect(descriptor.isTranscode, isFalse);
+        expect(descriptor.uri.toString(), 'http://cdn.example.com/movie/file.mkv');
+      });
+
+      test('resolvePlayback strm 外链指回本服务器时补 token', () async {
+        final adapter = buildAdapter(
+          _RecordingAdapter((options) {
+            if (options.uri.path.endsWith('/PlaybackInfo')) {
+              return {
+                'MediaSources': [
+                  {
+                    'Id': 'ms-1',
+                    'Protocol': 'Http',
+                    'Path': 'http://test:8096/media/file.mkv',
+                    'SupportsDirectPlay': true,
+                  },
+                ],
+              };
+            }
+            return {'Id': 'item-1', 'Name': '电影一', 'Type': 'Movie'};
+          }),
+        );
+
+        final descriptor = await adapter.resolvePlayback(
+          MediaRef(sourceId: sourceId, value: 'item-1'),
+          const PlaybackRequest(),
+        );
+
+        expect(
+          descriptor.uri.toString(),
+          'http://test:8096/media/file.mkv'
+          '?${config.tokenQueryParam}=token-1',
+        );
+      });
+
       test('getMovie 拒绝其他来源的 MediaRef', () {
         final adapter = buildAdapter(_RecordingAdapter((_) => {}));
 

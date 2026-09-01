@@ -141,9 +141,16 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
     final transcodingUrl = mediaSource.transcodingUrl?.trim();
     final isTranscode =
         wantTranscode && transcodingUrl != null && transcodingUrl.isNotEmpty;
+    // strm 条目的 Path 是外部直链（Protocol=Http），服务器 static 代理端点
+    // 无法转发远程内容，与官方客户端一致直接播放该外链。
+    final externalUri = isTranscode
+        ? null
+        : _externalHttpUri(mediaSource, base, token, config);
     final Uri uri;
     if (isTranscode) {
       uri = Uri.parse(MediaBrowserApi.resolveUrl(base, transcodingUrl));
+    } else if (externalUri != null) {
+      uri = externalUri;
     } else {
       uri = Uri.parse(
         MediaBrowserApi.streamUrl(
@@ -161,7 +168,10 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
       // （如 MKV 路由到 FFmpeg），避免 AVPlayer 报格式不支持。
       mimeType: isTranscode
           ? 'application/vnd.apple.mpegurl'
-          : playbackMimeTypeForContainer(mediaSource.container),
+          : externalUri == null
+          ? playbackMimeTypeForContainer(mediaSource.container)
+          : playbackMimeTypeForContainer(mediaSource.container) ??
+                playbackMimeTypeForContainer(_urlExtension(externalUri)),
       startAt: _resumeSeconds(item).toDouble(),
       isTranscode: isTranscode,
       audioTracks: _tracks(mediaSource, 'Audio'),
@@ -450,6 +460,51 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
             kind: type.toLowerCase(),
           ),
     ];
+  }
+
+  /// strm / 远程条目的 MediaSource.Path 是外部 http(s) 直链，直接返回它
+  /// 作为播放地址；本地文件的 Path 是文件系统路径，永远不满足条件。
+  /// 外链指回本服务器自身时补 token，避免 401；解析失败返回 null 落回
+  /// static 代理地址。
+  Uri? _externalHttpUri(
+    MediaBrowserMediaSourceDto source,
+    String baseUrl,
+    String? token,
+    MediaBrowserConfig config,
+  ) {
+    final path = source.path?.trim();
+    if (path == null || !_isHttpUrl(path)) return null;
+    var uri = Uri.tryParse(path) ?? Uri.tryParse(Uri.encodeFull(path));
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) return null;
+    final serverHost = Uri.tryParse(baseUrl)?.host.toLowerCase();
+    final sameHost = serverHost != null &&
+        serverHost.isNotEmpty &&
+        uri.host.toLowerCase() == serverHost;
+    if (sameHost && token?.trim().isNotEmpty == true) {
+      uri = uri.replace(
+        queryParameters: {
+          ...uri.queryParameters,
+          config.tokenQueryParam: token!.trim(),
+        },
+      );
+    }
+    return uri;
+  }
+
+  static bool _isHttpUrl(String value) {
+    final lower = value.toLowerCase();
+    return lower.startsWith('http://') || lower.startsWith('https://');
+  }
+
+  /// 取 URL 路径的文件扩展名（不含点），无扩展名返回 null。strm 条目的
+  /// Container 常为 "strm" 或为空，扩展名是内核选择提示的最后来源。
+  static String? _urlExtension(Uri uri) {
+    final segments = uri.pathSegments;
+    if (segments.isEmpty) return null;
+    final fileName = segments.last;
+    final dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex <= 0 || dotIndex == fileName.length - 1) return null;
+    return fileName.substring(dotIndex + 1).toLowerCase();
   }
 
   Future<String> _requireUserId() async {
