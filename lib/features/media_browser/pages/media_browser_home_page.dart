@@ -43,6 +43,7 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
     ref.invalidate(mediaBrowserLatestProvider);
     ref.invalidate(mediaBrowserResumeProvider);
     ref.invalidate(mediaBrowserNextUpProvider);
+    ref.invalidate(mediaBrowserLibraryStatsProvider);
     await Future.wait([
       ref
           .read(mediaBrowserLatestProvider.future)
@@ -53,6 +54,15 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
       ref
           .read(mediaBrowserNextUpProvider.future)
           .catchError((_) => const <MediaBrowserItem>[]),
+      ref
+          .read(mediaBrowserLibraryStatsProvider.future)
+          .catchError(
+            (_) => const MediaBrowserLibraryStats(
+              movieCount: 0,
+              seriesCount: 0,
+              episodeCount: 0,
+            ),
+          ),
     ]);
   }
 
@@ -85,6 +95,7 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
     final latest = ref.watch(mediaBrowserLatestProvider);
     final resume = ref.watch(mediaBrowserResumeProvider);
     final nextUp = ref.watch(mediaBrowserNextUpProvider);
+    final libraryStats = ref.watch(mediaBrowserLibraryStatsProvider);
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
 
     final heroReady = latest.when(
@@ -180,6 +191,12 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
         ),
         // -------- 每个媒体库的最近添加 + 媒体库入口卡片 --------
         const _MediaBrowserViewSections(),
+        SliverToBoxAdapter(
+          child: _MediaBrowserLibraryStats(
+            value: libraryStats,
+            onRetry: () => ref.invalidate(mediaBrowserLibraryStatsProvider),
+          ),
+        ),
       ],
       heroMaxHeight: heroMaxHeight,
     );
@@ -326,6 +343,123 @@ class _MediaBrowserViewLatestRow extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 首页底部的媒体库总量统计。
+class _MediaBrowserLibraryStats extends StatelessWidget {
+  const _MediaBrowserLibraryStats({required this.value, required this.onRetry});
+
+  final AsyncValue<MediaBrowserLibraryStats> value;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return value.when(
+      loading: () => const SizedBox(height: 96),
+      error: (_, __) => Padding(
+        padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('统计加载失败', style: TextStyle(color: colors.muted)),
+            const SizedBox(width: 8),
+            TextButton(onPressed: onRetry, child: const Text('重试')),
+          ],
+        ),
+      ),
+      data: (stats) => Padding(
+        padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: colors.surface.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colors.divider),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _MediaBrowserStatItem(
+                    icon: Icons.movie_outlined,
+                    label: '总电影',
+                    value: stats.movieCount,
+                  ),
+                ),
+                _MediaBrowserStatDivider(color: colors.divider),
+                Expanded(
+                  child: _MediaBrowserStatItem(
+                    icon: Icons.live_tv_outlined,
+                    label: '总剧集',
+                    value: stats.seriesCount,
+                  ),
+                ),
+                _MediaBrowserStatDivider(color: colors.divider),
+                Expanded(
+                  child: _MediaBrowserStatItem(
+                    icon: Icons.video_library_outlined,
+                    label: '总集数',
+                    value: stats.episodeCount,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaBrowserStatItem extends StatelessWidget {
+  const _MediaBrowserStatItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18, color: colors.accent),
+        const SizedBox(height: 8),
+        Text(
+          value.toString(),
+          style: TextStyle(
+            color: colors.text,
+            fontFamily: 'Inter',
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            height: 1,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(label, style: TextStyle(color: colors.muted, fontSize: 12)),
+      ],
+    );
+  }
+}
+
+class _MediaBrowserStatDivider extends StatelessWidget {
+  const _MediaBrowserStatDivider({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 58,
+      child: VerticalDivider(width: 1, thickness: 1, color: color),
     );
   }
 }

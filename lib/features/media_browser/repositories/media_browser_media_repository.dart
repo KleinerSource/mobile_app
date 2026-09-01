@@ -14,6 +14,8 @@ class MediaBrowserMediaRepository {
 
   Future<List<MediaBrowserItem>> views() => _source.views();
 
+  Future<MediaBrowserLibraryStats> libraryStats() => _source.libraryStats();
+
   Future<List<MediaBrowserItem>> latestMedia({
     String? parentId,
     String? includeItemTypes,

@@ -118,6 +118,12 @@ final mediaBrowserViewsProvider =
       return ref.watch(mediaBrowserMediaRepositoryProvider).views();
     });
 
+/// 首页媒体库统计。
+final mediaBrowserLibraryStatsProvider =
+    FutureProvider.autoDispose<MediaBrowserLibraryStats>((ref) async {
+      return ref.watch(mediaBrowserMediaRepositoryProvider).libraryStats();
+    });
+
 /// 媒体库类型 → 条目类型过滤。
 ///
 /// 返回 null 有两种含义，用 [isSkippableViewType] 区分：
