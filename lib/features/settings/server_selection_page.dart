@@ -180,7 +180,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     final config = ref.watch(serverSelectionConfigProvider);
     final servers = config?.servers ?? const <ServerProfile>[];
     final transition = ref.watch(serverSwitchTransitionProvider);
-    final visibleServers = _filterServers(servers);
+    final searchEnabled = servers.length > 20;
+    final visibleServers = searchEnabled ? _filterServers(servers) : servers;
 
     return PopScope<void>(
       canPop: false,
@@ -190,13 +191,16 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
           child: SafeArea(
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 48, 24, 48),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 720),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _ConnectionHeader(onChanged: _updateSearchQuery),
+                      _ConnectionHeader(
+                        onChanged: _updateSearchQuery,
+                        showSearch: searchEnabled,
+                      ),
                       const SizedBox(height: 22),
                       Expanded(
                         child: RefreshIndicator(
@@ -245,7 +249,8 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
                                   avatarKeyFor: _avatarKeyFor,
                                   scrollController: _listScrollController,
                                   reorderEnabled:
-                                      _searchQuery.isEmpty &&
+                                      (!searchEnabled ||
+                                          _searchQuery.isEmpty) &&
                                       !transition.isActive &&
                                       servers.length >= 2,
                                   onSelect: (server) =>
@@ -286,7 +291,10 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
     setState(() {});
 
     final config = ref.read(serverSelectionConfigProvider);
-    final servers = _filterServers(config?.servers ?? const <ServerProfile>[]);
+    final allServers = config?.servers ?? const <ServerProfile>[];
+    final servers = allServers.length > 20
+        ? _filterServers(allServers)
+        : allServers;
     try {
       await Future.wait<void>([
         for (final server in servers) _profileFor(server).then<void>((_) {}),
@@ -529,9 +537,10 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
 }
 
 class _ConnectionHeader extends StatelessWidget {
-  const _ConnectionHeader({required this.onChanged});
+  const _ConnectionHeader({required this.onChanged, required this.showSearch});
 
   final ValueChanged<String> onChanged;
+  final bool showSearch;
 
   @override
   Widget build(BuildContext context) {
@@ -540,44 +549,46 @@ class _ConnectionHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('连接', style: AppText.pageTitle(context).copyWith(fontSize: 24)),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 48,
-          child: GlassPanel(
-            borderRadius: BorderRadius.circular(16),
-            sigma: 18,
-            tint: colors.surface.withValues(alpha: 0.72),
-            showBorder: false,
-            showHighlight: false,
-            child: TextField(
-              key: const ValueKey('server-selection-search'),
-              onChanged: onChanged,
-              textInputAction: TextInputAction.search,
-              textAlignVertical: TextAlignVertical.center,
-              style: AppText.body(context).copyWith(fontSize: 14),
-              cursorColor: colors.accent,
-              decoration: InputDecoration(
-                hintText: '搜索连接',
-                hintStyle: TextStyle(
-                  color: colors.muted,
-                  fontFamily: 'Inter',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+        if (showSearch) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 48,
+            child: GlassPanel(
+              borderRadius: BorderRadius.circular(16),
+              sigma: 18,
+              tint: colors.surface.withValues(alpha: 0.72),
+              showBorder: false,
+              showHighlight: false,
+              child: TextField(
+                key: const ValueKey('server-selection-search'),
+                onChanged: onChanged,
+                textInputAction: TextInputAction.search,
+                textAlignVertical: TextAlignVertical.center,
+                style: AppText.body(context).copyWith(fontSize: 14),
+                cursorColor: colors.accent,
+                decoration: InputDecoration(
+                  hintText: '搜索连接',
+                  hintStyle: TextStyle(
+                    color: colors.muted,
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    color: colors.muted,
+                    size: 21,
+                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                prefixIcon: Icon(
-                  Icons.search_rounded,
-                  color: colors.muted,
-                  size: 21,
-                ),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -1118,8 +1129,11 @@ class _ServerActionList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final overlayBackground = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF1B1A24)
+        : Colors.white;
     return Material(
-      color: colors.surface,
+      color: overlayBackground,
       elevation: 12,
       shadowColor: Colors.black.withValues(alpha: 0.34),
       shape: RoundedRectangleBorder(
@@ -1190,6 +1204,8 @@ class _ServerActionListItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Row(
             children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   label,
@@ -1204,8 +1220,6 @@ class _ServerActionListItem extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Icon(icon, color: color, size: 21),
             ],
           ),
         ),

@@ -271,6 +271,12 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('server-selection-search')),
+      findsNothing,
+    );
+
     await tester.longPress(find.bySemanticsLabel('选择DB Online'));
     await tester.pumpAndSettle();
 
@@ -625,7 +631,7 @@ void main() {
   testWidgets('搜索时长按仍可显示操作但不会排序', (tester) async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([
-        for (var i = 0; i < 2; i++)
+        for (var i = 0; i < 21; i++)
           {
             'id': 'server-$i',
             'name': '服务器 $i',
@@ -670,7 +676,11 @@ void main() {
     await tester.pumpAndSettle();
 
     final stored = jsonDecode(prefs.getString('server.servers')!) as List;
-    expect(stored.map((server) => server['id']), ['server-0', 'server-1']);
+    expect(stored, hasLength(21));
+    expect(stored.map((server) => server['id']).take(2), [
+      'server-0',
+      'server-1',
+    ]);
   });
 
   testWidgets('服务器选择器显示连接标题并支持搜索', (tester) async {
@@ -689,6 +699,20 @@ void main() {
           'active_line_id': 'smb-line',
           'project_name': 'smb',
         },
+        for (var i = 1; i < 20; i++)
+          {
+            'id': 'smb-$i',
+            'name': 'SMB 服务器 $i',
+            'lines': [
+              {
+                'id': 'smb-line-$i',
+                'name': '主线路',
+                'base_url': 'smb://nas-$i/share',
+              },
+            ],
+            'active_line_id': 'smb-line-$i',
+            'project_name': 'smb',
+          },
         {
           'id': 'webdav-two',
           'name': 'WebDAV 二号',

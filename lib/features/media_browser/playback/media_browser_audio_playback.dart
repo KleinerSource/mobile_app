@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/features/media_browser/playback/media_browser_audio_proxy.dart';
 import 'package:omm/features/media_browser/playback/media_browser_lyrics.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
@@ -22,8 +23,9 @@ import 'package:omm/features/player/common/player_queue.dart';
 
 /// 打开 Emby/Jellyfin 音频队列播放。
 ///
-/// 与视频链路一致：直连原始文件（static=true，token 走查询参数），
-/// 切歌与退出时通过 Sessions/Playing 上报让服务器累计播放次数。
+/// 音频经 [MediaBrowserAudioProxy] 回环代理完整缓存后本地应答（保证任意
+/// 时刻可 seek）；切歌与退出时通过 Sessions/Playing 上报让服务器累计
+/// 播放次数。
 Future<void> openMediaBrowserAudioPlayback(
   BuildContext context,
   WidgetRef ref, {
@@ -35,13 +37,28 @@ Future<void> openMediaBrowserAudioPlayback(
       .toList(growable: false);
   if (playable.isEmpty || !context.mounted) return;
   if (ref.read(mediaBrowserConfigProvider) == null) return;
+  MediaBrowserAudioQueueSession? session;
+  MediaBrowserAudioProxy? proxy;
   try {
     final urls = await ref.read(mediaBrowserServerUrlsProvider.future);
     final repository = ref.read(mediaBrowserMediaRepositoryProvider);
-    final session = MediaBrowserAudioQueueSession(
+    // 远程直链未完整下载前无法稳定 seek（服务器/反向代理的 Range 行为
+    // 差异会让播放器把拖动钳制回原位置），与文件管理器音频链路一致：
+    // 经回环代理完整缓存后由本地文件应答，任意时刻拖动立即生效。
+    final startedProxy = proxy = await MediaBrowserAudioProxy.start();
+    session = MediaBrowserAudioQueueSession(
       tracks: playable,
       urls: urls,
       repository: repository,
+      directUrlFor: (track) => startedProxy.register(
+        track,
+        urls.audioStream(
+          track.id,
+          mediaSourceId: track.mediaSources.isEmpty
+              ? null
+              : track.mediaSources.first.id,
+        ),
+      ),
     );
     final index = startIndex.clamp(0, playable.length - 1);
     final current = session.queue[index];
@@ -54,21 +71,26 @@ Future<void> openMediaBrowserAudioPlayback(
       queue: session.queue,
       queueIndex: index,
       audioMetadataLoader: session.loadMetadata,
-      onQueueDispose: session.dispose,
+      onQueueDispose: () async {
+        await session!.dispose();
+        await startedProxy.close();
+      },
       // 搓碟（DJ 台）依赖本地 PCM，远程直链音源不支持，禁用搓碟手势。
       scratchEnabled: false,
       useRootNavigator: true,
     );
-    await session.dispose();
-    // 播放结束同步专辑页/搜索结果的播放次数与收藏状态。
-    ref.invalidate(mediaBrowserAlbumTracksProvider);
-    ref.invalidate(mediaBrowserItemDetailProvider);
   } catch (error) {
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(toApiException(error).message)));
     }
+  } finally {
+    // 播放结束同步专辑页/搜索结果的播放次数与收藏状态。
+    ref.invalidate(mediaBrowserAlbumTracksProvider);
+    ref.invalidate(mediaBrowserItemDetailProvider);
+    await session?.dispose();
+    await proxy?.close();
   }
 }
 
@@ -116,6 +138,7 @@ class MediaBrowserAudioQueueSession {
     required this.tracks,
     required this.urls,
     required this.repository,
+    this.directUrlFor,
     Dio? artworkDownloader,
     audio_service.AudioHandler? playbackHandler,
   }) : _downloader =
@@ -131,6 +154,9 @@ class MediaBrowserAudioQueueSession {
   final List<MediaBrowserItem> tracks;
   final MediaBrowserServerUrls urls;
   final MediaBrowserMediaRepository repository;
+
+  /// 播放地址构建器；默认直连服务器，回环代理模式下指向本机地址。
+  final String Function(MediaBrowserItem track)? directUrlFor;
   final Dio _downloader;
   final audio_service.AudioHandler? _handler;
 
@@ -147,18 +173,21 @@ class MediaBrowserAudioQueueSession {
   late final List<PlayerQueueItem> queue = _buildQueue();
 
   List<PlayerQueueItem> _buildQueue() {
+    final urlFor = directUrlFor;
     final items = <PlayerQueueItem>[];
     for (final track in tracks) {
       final item = PlayerQueueItem(
         title: queueTitleForTrack(track),
         type: PlayerQueueItemType.audio,
         mediaId: mediaIdForTrack(track),
-        directUrl: urls.audioStream(
-          track.id,
-          mediaSourceId: track.mediaSources.isEmpty
-              ? null
-              : track.mediaSources.first.id,
-        ),
+        directUrl: urlFor != null
+            ? urlFor(track)
+            : urls.audioStream(
+                track.id,
+                mediaSourceId: track.mediaSources.isEmpty
+                    ? null
+                    : track.mediaSources.first.id,
+              ),
       );
       // 播放服务的 mediaItem.id 是 safeMediaId（不可逆摘要），统一以它
       // 建映射，切歌上报与元数据加载才能定位回服务器条目。
@@ -279,8 +308,10 @@ class MediaBrowserAudioQueueSession {
         'mb_audio_${_digest(imageItemId)}.jpg',
       );
       if (!await file.exists()) {
+        // 下载器是无鉴权裸 Dio，这里必须带 token 兜底；产物是临时文件
+        // 不进图片缓存，token 变化不影响缓存 key。
         await _downloader.download(
-          urls.poster(imageItemId, maxWidth: 600),
+          urls.authedPoster(imageItemId),
           file.path,
         );
         if (_disposed) {
