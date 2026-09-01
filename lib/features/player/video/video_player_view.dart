@@ -159,8 +159,7 @@ class VideoPlayerView extends ConsumerWidget {
         ),
         if (settings.debugMode)
           Positioned(
-            top: 42,
-            left: 20,
+            bottom: 20,
             right: 20,
             child: PlayerDebugOverlay(stateListenable: controller),
           ),
