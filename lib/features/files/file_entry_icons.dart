@@ -178,6 +178,7 @@ const _documentFileExtensions = <String>{
 const _audioFileExtensions = <String>{
   'mp3',
   'm4a',
+  'm4r',
   'aac',
   'flac',
   'wav',

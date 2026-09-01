@@ -93,6 +93,7 @@ void main() {
     for (final extension in const [
       'mp3',
       'm4a',
+      'm4r',
       'aac',
       'flac',
       'wav',

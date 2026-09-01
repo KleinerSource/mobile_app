@@ -540,7 +540,7 @@ String? _mimeTypeForExtension(String? extension) {
     '3gp' => 'video/3gpp',
     'flv' => 'video/x-flv',
     'mp3' => 'audio/mpeg',
-    'm4a' => 'audio/mp4',
+    'm4a' || 'm4r' => 'audio/mp4',
     'aac' => 'audio/aac',
     'flac' => 'audio/flac',
     'wav' => 'audio/wav',
