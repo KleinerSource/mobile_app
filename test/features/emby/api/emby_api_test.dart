@@ -342,6 +342,9 @@ void main() {
       'user-1',
       'item-1',
       mediaSourceId: 'ms-1',
+      deviceProfile: const {
+        'DirectPlayProtocols': ['Http'],
+      },
     );
 
     expect(info.playSessionId, 'play-1');
@@ -355,6 +358,11 @@ void main() {
       'POST http://test/emby/Items/item-1/PlaybackInfo'
       '?UserId=user-1&MediaSourceId=ms-1&AutoOpenLiveStream=true',
     );
+    expect(adapter.requestBodies.single, {
+      'DeviceProfile': {
+        'DirectPlayProtocols': ['Http'],
+      },
+    });
   });
 
   test('直链与图片 URL 拼接 api_key 与尺寸参数', () {

@@ -56,6 +56,7 @@ Future<void> openJellyfinPlayback(
       context,
       title: _playbackTitle(item),
       directUrl: descriptor.uri.toString(),
+      directFormatHint: descriptor.mimeType,
       startPositionSec: resumeSec,
       engineKind: engineKind,
       directProgressReporter: (positionSec, durationSec, completed) =>

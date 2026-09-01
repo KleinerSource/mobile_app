@@ -287,6 +287,21 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
   private var layerIsStopped = true
   private var lastVideoSize = CGSize.zero
   private var currentMediaIsHls = false
+  private var lastOpenParameters: OpenParameters?
+  private var attemptedFfmpegFallback = false
+
+  /// open 的原始参数。AVPlayer 开播失败换 FFmpeg 兜底重试时按原样重开。
+  private struct OpenParameters {
+    let url: URL
+    let startPositionMs: Double?
+    let autoplay: Bool
+    let headers: [String: String]?
+    let formatHint: String?
+    let videoCodec: String?
+    let preferFfmpegForHls: Bool?
+    let preloadBytes: Int64?
+    let hardwareAcceleration: Bool
+  }
 
   init(playerId: Int64, flutterApi: OmmKsPlayerFlutterApiProtocol) {
     self.playerId = playerId
@@ -324,31 +339,52 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       completion(.failure(KsPlayerPluginError.invalidUrl))
       return
     }
-    // Flutter 统一处理播放失败，不允许 KSPlayer 在内部再切换到第二套内核。
-    KSOptions.secondPlayerType = nil
-    let useFfmpegPlayer = prefersFfmpegPlayer(
-      url: mediaURL,
-      formatHint: formatHint,
-      videoCodec: videoCodec,
-      hlsPrefersFfmpeg: preferFfmpegForHls ?? false
-    )
-    KSOptions.firstPlayerType = useFfmpegPlayer ? KSMEPlayer.self : KSAVPlayer.self
-
     openGeneration += 1
     pendingOpen?(.failure(KsPlayerPluginError.cancelled))
     pendingOpen = nil
     recreateLayer()
     pendingOpen = completion
-    pendingAutoplay = autoplay
-    let startSeconds = max(0, startPositionMs ?? 0) / 1000
+    attemptedFfmpegFallback = false
+    let parameters = OpenParameters(
+      url: mediaURL,
+      startPositionMs: startPositionMs,
+      autoplay: autoplay,
+      headers: headers,
+      formatHint: formatHint,
+      videoCodec: videoCodec,
+      preferFfmpegForHls: preferFfmpegForHls,
+      preloadBytes: preloadBytes,
+      hardwareAcceleration: hardwareAcceleration
+    )
+    lastOpenParameters = parameters
+    prepareMedia(
+      parameters: parameters,
+      useFfmpegPlayer: prefersFfmpegPlayer(
+        url: mediaURL,
+        formatHint: formatHint,
+        videoCodec: videoCodec,
+        hlsPrefersFfmpeg: preferFfmpegForHls ?? false
+      )
+    )
+  }
+
+  /// 以指定内核装配并启动媒体。open 与 AVPlayer 开播失败后的 FFmpeg 兜底
+  /// 重试共用该路径，保证缓冲、起始定位与开门控制语义一致。
+  private func prepareMedia(parameters: OpenParameters, useFfmpegPlayer: Bool) {
+    // Flutter 统一处理播放失败，不允许 KSPlayer 在内部再切换到第二套内核。
+    KSOptions.secondPlayerType = nil
+    KSOptions.firstPlayerType = useFfmpegPlayer ? KSMEPlayer.self : KSAVPlayer.self
+
+    pendingAutoplay = parameters.autoplay
+    let startSeconds = max(0, parameters.startPositionMs ?? 0) / 1000
     startVerificationGeneration += 1
 
     lastVideoSize = .zero
     let options = KSOptions()
     options.startPlayRate = desiredRate
-    options.isSeekedAutoPlay = autoplay
-    options.hardwareDecode = hardwareAcceleration
-    let isHls = isHlsStream(url: mediaURL, formatHint: formatHint)
+    options.isSeekedAutoPlay = parameters.autoplay
+    options.hardwareDecode = parameters.hardwareAcceleration
+    let isHls = isHlsStream(url: parameters.url, formatHint: parameters.formatHint)
     currentMediaIsHls = isHls
     if isHls {
       // HLS seek 后只需拉取目标切片及少量后续切片即可恢复播放。
@@ -356,14 +392,14 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       options.preferredForwardBufferDuration = 3
       options.maxBufferDuration = 8
     } else {
-      let bufferSeconds = forwardBufferDuration(for: preloadBytes)
+      let bufferSeconds = forwardBufferDuration(for: parameters.preloadBytes)
       options.preferredForwardBufferDuration = bufferSeconds
       options.maxBufferDuration = bufferSeconds
     }
     // HLS 与 AVPlayer 使用 KSPlayer 的秒开门控；KSMEPlayer 直流容器（尤其
     // MKV）需要先完成默认前向缓冲，否则可能只渲染首帧而没有启动音视频时钟。
     options.isSecondOpen = isHls || !useFfmpegPlayer
-    if let headers, !headers.isEmpty {
+    if let headers = parameters.headers, !headers.isEmpty {
       options.appendHeader(headers)
     }
     if useFfmpegPlayer, startSeconds > 0 {
@@ -375,7 +411,7 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       pendingStartPositionMs = startSeconds * 1000
       pendingStartVerificationMs = startSeconds >= 2.5 ? startSeconds * 1000 : 0
     }
-    layer.set(url: mediaURL, options: options)
+    layer.set(url: parameters.url, options: options)
     layer.prepareToPlay()
     layerIsStopped = false
   }
@@ -460,9 +496,14 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
       .compactMap { $0?.lowercased() }
       .joined(separator: ",")
     let tokens = hint.split { !$0.isLetter && !$0.isNumber }
-    return tokens.contains { token in
-      token == "mkv" || token == "matroska" || token == "webm"
-    }
+    // AVPlayer 从不支持的容器直接交给 FFmpeg，避免开播失败后再兜底重试；
+    // mp4/mov/m4v/ts 等仍由 AVPlayer 处理。提示可能是 MIME 形式（如
+    // video/x-msvideo），因此同时收录 msvideo 这类分词结果。
+    let ffmpegOnlyContainers: Set<String> = [
+      "mkv", "matroska", "webm", "avi", "msvideo", "wmv", "asf", "flv",
+      "rmvb", "rm", "mpg", "mpeg", "vob", "divx", "ogm", "m2ts",
+    ]
+    return tokens.contains { ffmpegOnlyContainers.contains(String($0)) }
   }
 
   private func isFfmpegVideoCodec(_ codec: String) -> Bool {
@@ -705,6 +746,10 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
   func player(layer callbackLayer: KSPlayerLayer, finish error: Error?) {
     guard callbackLayer === layer else { return }
     if let error {
+      if canRetryWithFfmpegPlayer {
+        retryOpenWithFfmpegPlayer()
+        return
+      }
       let message = error.localizedDescription.isEmpty ? "KSPlayer 播放失败" : error.localizedDescription
       send(.error, stringValue: message)
       pendingOpen?(.failure(error))
@@ -712,6 +757,25 @@ private final class KsPlayerSession: NSObject, KSPlayerLayerDelegate {
     } else {
       send(.completed, boolValue: true)
     }
+  }
+
+  /// AVPlayer 在开播阶段失败（典型如 MKV 等容器 AVFoundation 不支持，
+  /// 对应 AVFoundationErrorDomain -11828）时改用 KSMEPlayer 兜底。仅限
+  /// 开播阶段、非 HLS（HLS 走 AVPlayer 是刻意选择，且 KSMEPlayer 无法
+  /// 串流 OMM 转码会话）、当前内核确为 KSAVPlayer 且本次 open 未兜底过；
+  /// 重试仍失败走常规失败上报，不会循环。
+  private var canRetryWithFfmpegPlayer: Bool {
+    if disposed || attemptedFfmpegFallback { return false }
+    if pendingOpen == nil { return false }
+    if currentMediaIsHls { return false }
+    return layer.player is KSAVPlayer
+  }
+
+  private func retryOpenWithFfmpegPlayer() {
+    guard let parameters = lastOpenParameters else { return }
+    attemptedFfmpegFallback = true
+    recreateLayer()
+    prepareMedia(parameters: parameters, useFfmpegPlayer: true)
   }
 
   func player(

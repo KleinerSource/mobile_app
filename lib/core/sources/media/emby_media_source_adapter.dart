@@ -7,6 +7,7 @@ import '../common/source_exception.dart';
 import '../common/source_id.dart';
 import 'media_capabilities.dart';
 import 'media_models.dart';
+import 'playback_device_profile.dart';
 import 'emby_media_source.dart';
 
 /// Emby adapter。Emby 是独立的外部媒体服务器：目录/详情/播放走通用
@@ -112,7 +113,11 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
     final token = await sessionRepository.accessToken();
     final base = endpoint ?? '';
     final item = await api.item(uid, ref.value);
-    final info = await api.playbackInfo(uid, ref.value);
+    final info = await api.playbackInfo(
+      uid,
+      ref.value,
+      deviceProfile: playbackDeviceProfile(),
+    );
     final mediaSource = info.mediaSources.isEmpty ? null : info.mediaSources.first;
     if (mediaSource == null || mediaSource.id.isEmpty) {
       throw const SourceException('Emby 条目没有可用的媒体源');
@@ -123,8 +128,11 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
             request.quality.trim().isNotEmpty &&
             mediaSource.transcodingUrl?.trim().isNotEmpty == true);
     final transcodingUrl = mediaSource.transcodingUrl?.trim();
+    final isTranscode = wantTranscode &&
+        transcodingUrl != null &&
+        transcodingUrl.isNotEmpty;
     final Uri uri;
-    if (wantTranscode && transcodingUrl != null && transcodingUrl.isNotEmpty) {
+    if (isTranscode) {
       uri = Uri.parse(EmbyApi.resolveEmbyUrl(base, transcodingUrl));
     } else {
       uri = Uri.parse(
@@ -138,8 +146,13 @@ class EmbyMediaSourceAdapter implements EmbyMediaSource {
     }
     return PlaybackDescriptor(
       uri: uri,
+      // 直连 URL 没有扩展名，带上容器提示让播放器选择正确的内核
+      // （如 MKV 路由到 FFmpeg），避免 AVPlayer 报格式不支持。
+      mimeType: isTranscode
+          ? 'application/vnd.apple.mpegurl'
+          : playbackMimeTypeForContainer(mediaSource.container),
       startAt: _resumeSeconds(item).toDouble(),
-      isTranscode: wantTranscode && transcodingUrl != null,
+      isTranscode: isTranscode,
       audioTracks: _tracks(mediaSource, 'Audio'),
       subtitleTracks: _tracks(mediaSource, 'Subtitle'),
       payload: info,

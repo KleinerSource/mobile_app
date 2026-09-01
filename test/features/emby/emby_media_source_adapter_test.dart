@@ -37,6 +37,7 @@ class _EmbyAdapter implements HttpClientAdapter {
 
   final Object? Function(RequestOptions options) respond;
   final requests = <String>[];
+  final bodies = <Object?>[];
 
   @override
   void close({bool force = false}) {}
@@ -48,6 +49,7 @@ class _EmbyAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add('${options.method} ${options.uri}');
+    bodies.add(options.data);
     final body = respond(options);
     return ResponseBody.fromString(
       jsonEncode(body),
@@ -172,6 +174,7 @@ void main() {
           'MediaSources': [
             {
               'Id': 'ms-1',
+              'Container': 'mkv,webm',
               'SupportsDirectPlay': true,
               'MediaStreams': [
                 {'Index': 1, 'Type': 'Audio', 'Codec': 'aac', 'DisplayTitle': 'AAC'},
@@ -201,10 +204,16 @@ void main() {
     expect(descriptor.uri.toString(), contains('MediaSourceId=ms-1'));
     expect(descriptor.uri.toString(), contains('api_key=token-1'));
     expect(descriptor.isTranscode, isFalse);
+    // 直链没有扩展名，容器提示用于播放器内核选择（MKV → FFmpeg）。
+    expect(descriptor.mimeType, 'video/x-matroska');
     expect(descriptor.startAt, 360);
     expect(descriptor.audioTracks.single.label, 'AAC');
     expect(descriptor.subtitleTracks.single.id, '2');
     expect(descriptor.payload, isA<EmbyPlaybackInfo>());
+    // PlaybackInfo 携带设备能力声明，服务器才会返回 TranscodingUrl。
+    final playbackBody = (httpAdapter.bodies.last as Map)['DeviceProfile'];
+    expect(playbackBody, isA<Map>());
+    expect((playbackBody as Map)['DirectPlayProtocols'], ['Http']);
     // 详情与播放决策各请求一次。
     expect(
       httpAdapter.requests,
@@ -272,6 +281,7 @@ void main() {
     );
 
     expect(descriptor.isTranscode, isTrue);
+    expect(descriptor.mimeType, 'application/vnd.apple.mpegurl');
     expect(
       descriptor.uri.toString(),
       'http://test/emby/videos/item-1/master.m3u8?VideoCodec=h264',

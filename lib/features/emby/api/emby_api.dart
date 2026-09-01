@@ -201,10 +201,14 @@ class EmbyApi {
   }
 
   /// 播放信息：媒体源、轨道与服务器生成的转码地址。
+  ///
+  /// [deviceProfile] 声明客户端直连/转码能力，服务器据此决定是否返回
+  /// TranscodingUrl；不传则服务器视为全能力直连客户端。
   Future<EmbyPlaybackInfo> playbackInfo(
     String userId,
     String itemId, {
     String? mediaSourceId,
+    Map<String, Object?>? deviceProfile,
   }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/emby/Items/${_segment(itemId)}/PlaybackInfo',
@@ -214,7 +218,9 @@ class EmbyApi {
           'MediaSourceId': mediaSourceId!.trim(),
         'AutoOpenLiveStream': true,
       },
-      data: {},
+      data: {
+        if (deviceProfile != null) 'DeviceProfile': deviceProfile,
+      },
       options: Options(
         // 播放决策不需要 GET 重试语义，失败直接上抛。
         extra: const {'skipRetry': true},

@@ -270,6 +270,44 @@ class PlaybackDescriptor {
   final Object? payload;
 }
 
+/// 将媒体服务器的 Container 字段（如 "mkv,webm"、"mp4,m4v"）映射为
+/// 播放描述的 MIME 类型。直连 URL 通常没有扩展名，该提示随播放请求
+/// 下发，供播放器做内核选择（如 MKV 需要 FFmpeg 内核）与调试信息展示；
+/// 未知容器返回 null。
+String? playbackMimeTypeForContainer(String? container) {
+  final tokens = (container ?? '')
+      .toLowerCase()
+      .split(RegExp(r'[^a-z0-9]+'))
+      .where((token) => token.isNotEmpty);
+  for (final token in tokens) {
+    switch (token) {
+      case 'mkv' || 'matroska':
+        return 'video/x-matroska';
+      case 'webm':
+        return 'video/webm';
+      case 'mp4' || 'm4v':
+        return 'video/mp4';
+      case 'mov':
+        return 'video/quicktime';
+      case 'ts' || 'mpegts' || 'm2ts':
+        return 'video/mp2t';
+      case 'avi':
+        return 'video/x-msvideo';
+      case 'wmv' || 'asf':
+        return 'video/x-ms-wmv';
+      case 'flv':
+        return 'video/x-flv';
+      case 'mpeg' || 'mpg':
+        return 'video/mpeg';
+      case '3gp':
+        return 'video/3gpp';
+      case 'ogg' || 'ogv':
+        return 'video/ogg';
+    }
+  }
+  return null;
+}
+
 enum MediaResourceKind { file, subtitle, image, magnet, ed2k, episode, other }
 
 @immutable
