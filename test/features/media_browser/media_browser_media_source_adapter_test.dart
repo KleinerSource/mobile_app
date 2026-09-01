@@ -174,6 +174,7 @@ void main() {
                 'Type': 'Movie',
                 'ProductionYear': 2024,
                 'RunTimeTicks': 6000000000,
+                'ImageTags': {'Primary': 'img-tag-1'},
               },
             ],
             'TotalRecordCount': 1,
@@ -199,7 +200,12 @@ void main() {
         expect(page.items.single.duration, 600);
         expect(
           page.items.single.poster,
-          contains('${config.tokenQueryParam}=token-1'),
+          contains('tag=img-tag-1'),
+        );
+        // 缓存 URL 不带 token，token 轮换不会打穿图片缓存。
+        expect(
+          page.items.single.poster,
+          isNot(contains(config.tokenQueryParam)),
         );
         expect(httpAdapter.requests.single, contains('ParentId=lib-1'));
         expect(httpAdapter.requests.single, contains('Recursive=true'));
@@ -379,16 +385,21 @@ void main() {
         );
       });
 
-      test('imageUrl 拼接 token 参数供图片内核直连', () async {
+      test('imageUrl 不带 token，tag 参与拼接供图片缓存失效', () async {
         final adapter = buildAdapter(_RecordingAdapter((_) => {}));
 
-        final url = await adapter.imageUrl('item-1', maxWidth: 440);
+        final url = await adapter.imageUrl(
+          'item-1',
+          maxWidth: 440,
+          tag: 'tag-1',
+        );
 
         expect(
           url,
           '$base/Items/item-1/Images/Primary'
-          '?maxWidth=440&quality=90&${config.tokenQueryParam}=token-1',
+          '?maxWidth=440&quality=90&tag=tag-1',
         );
+        expect(url, isNot(contains(config.tokenQueryParam)));
       });
     });
   }

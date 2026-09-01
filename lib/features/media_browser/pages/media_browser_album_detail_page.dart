@@ -43,7 +43,7 @@ class _MediaBrowserAlbumDetailPageState
   void _syncHeroArt(MediaBrowserItem album, MediaBrowserServerUrls? urls) {
     final url = urls == null || album.primaryImageTag == null
         ? ''
-        : urls.poster(album.id);
+        : urls.poster(album.id, tag: album.primaryImageTag);
     final art = HeroArt(movieId: album.id, url: url);
     final current = _heroArts.value;
     if (current.length == 1 &&
@@ -130,7 +130,7 @@ class _MediaBrowserAlbumDetailPageState
             hero: MovieDetailHero(
               imageUrl: album.primaryImageTag == null
                   ? null
-                  : urls.value?.poster(album.id),
+                  : urls.value?.poster(album.id, tag: album.primaryImageTag),
               title: album.name,
               year: album.productionYear,
             ),

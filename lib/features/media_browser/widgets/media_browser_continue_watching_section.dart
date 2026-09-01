@@ -24,11 +24,7 @@ class MediaBrowserContinueWatchingSection extends ConsumerWidget {
             privacyId: item.id,
             title: item.name,
             meta: _metaText(item),
-            coverUrl: urls == null
-                ? null
-                : item.backdropImageTags.isEmpty
-                ? (item.primaryImageTag == null ? null : urls.poster(item.id))
-                : urls.backdrop(item.id),
+            coverUrl: urls?.heroImage(item),
             progress: _progressOf(item),
             minutesLeft: _minutesLeft(item),
             onOpen: () => openMediaBrowserItem(context, ref, item),

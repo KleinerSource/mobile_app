@@ -41,8 +41,10 @@ final mediaBrowserMediaRepositoryProvider =
 
 /// Emby/Jellyfin 服务器 URL 构造器。
 ///
-/// 海报/背景/直链地址是 baseUrl + token 参数的纯字符串拼接，页面在
-/// build 中同步使用；token 在登录态变化时随本 Provider 重建刷新。
+/// 海报/背景地址在 build 中同步拼接，不拼 token（图片端点默认免鉴权，
+/// 且磁盘缓存按整条 URL 为 key，token 轮换会打穿缓存），改拼图片 tag
+/// 保证换图后缓存失效；直链与鉴权封面仍带 token，登录态变化时随本
+/// Provider 重建刷新。
 class MediaBrowserServerUrls {
   MediaBrowserServerUrls({
     required this.config,
@@ -56,34 +58,61 @@ class MediaBrowserServerUrls {
 
   bool get isReady => baseUrl.trim().isNotEmpty;
 
-  String poster(String itemId, {int maxWidth = 440}) =>
+  String poster(String itemId, {int maxWidth = 440, String? tag}) =>
       MediaBrowserApi.imageUrl(
         config: config,
         baseUrl: baseUrl,
         itemId: itemId,
         imageType: 'Primary',
         maxWidth: maxWidth,
-        token: token,
+        tag: tag,
       );
 
-  String backdrop(String itemId, {int maxWidth = 1280}) =>
+  String backdrop(String itemId, {int maxWidth = 1280, String? tag}) =>
       MediaBrowserApi.imageUrl(
         config: config,
         baseUrl: baseUrl,
         itemId: itemId,
         imageType: 'Backdrop',
         maxWidth: maxWidth,
+        tag: tag,
+      );
+
+  String thumb(String itemId, {int maxWidth = 440, String? tag}) =>
+      MediaBrowserApi.imageUrl(
+        config: config,
+        baseUrl: baseUrl,
+        itemId: itemId,
+        imageType: 'Thumb',
+        maxWidth: maxWidth,
+        tag: tag,
+      );
+
+  /// 带 token 的封面直连地址，供绕过图片缓存、用无鉴权裸 Dio 下载的
+  /// 场景（通知栏封面）；产物是按 itemId 命名的临时文件，不存在缓存
+  /// key 失稳问题。
+  String authedPoster(String itemId, {int maxWidth = 600, String? tag}) =>
+      MediaBrowserApi.imageUrl(
+        config: config,
+        baseUrl: baseUrl,
+        itemId: itemId,
+        maxWidth: maxWidth,
+        tag: tag,
         token: token,
       );
 
-  String thumb(String itemId, {int maxWidth = 440}) => MediaBrowserApi.imageUrl(
-    config: config,
-    baseUrl: baseUrl,
-    itemId: itemId,
-    imageType: 'Thumb',
-    maxWidth: maxWidth,
-    token: token,
-  );
+  /// 条目首选展示图（首页/详情 Hero、继续观看宽卡共用）：有背景图取
+  /// Backdrop，否则有海报取 Primary，两者皆无返回 null。带 image tag，
+  /// 服务器换图后 URL 变化，旧缓存自然失效。
+  String? heroImage(MediaBrowserItem item) {
+    if (item.backdropImageTags.isNotEmpty) {
+      return backdrop(item.id, tag: item.backdropImageTags.first);
+    }
+    if (item.primaryImageTag != null) {
+      return poster(item.id, tag: item.primaryImageTag);
+    }
+    return null;
+  }
 
   String stream(String itemId, {String? mediaSourceId}) =>
       MediaBrowserApi.streamUrl(

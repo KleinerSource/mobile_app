@@ -43,11 +43,7 @@ class _MediaBrowserSeriesDetailPageState
   }
 
   void _syncHeroArt(MediaBrowserItem series, MediaBrowserServerUrls? urls) {
-    final url = urls == null
-        ? ''
-        : series.backdropImageTags.isEmpty
-        ? (series.primaryImageTag == null ? '' : urls.poster(series.id))
-        : urls.backdrop(series.id);
+    final url = urls?.heroImage(series) ?? '';
     final art = HeroArt(movieId: series.id, url: url);
     final current = _heroArts.value;
     if (current.length == 1 &&
@@ -133,7 +129,7 @@ class _MediaBrowserSeriesDetailPageState
             hero: MovieDetailHero(
               imageUrl: series.primaryImageTag == null
                   ? null
-                  : urls.value?.poster(series.id),
+                  : urls.value?.poster(series.id, tag: series.primaryImageTag),
               title: series.name,
               year: series.productionYear,
             ),
@@ -412,7 +408,10 @@ class _EpisodeList extends ConsumerWidget {
                 episode: episode,
                 imageUrl: episode.primaryImageTag == null
                     ? null
-                    : urls.value?.thumb(episode.id),
+                    : urls.value?.thumb(
+                        episode.id,
+                        tag: episode.primaryImageTag,
+                      ),
                 onTap: () =>
                     openMediaBrowserPlayback(context, ref, item: episode),
                 // 与 OMM/电影详情页一致：长按先选内核（libmpv / KSPlayer）。

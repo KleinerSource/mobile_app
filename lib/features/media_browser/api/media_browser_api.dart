@@ -402,18 +402,26 @@ class MediaBrowserApi {
     return response.data;
   }
 
-  /// 海报 / 背景图地址。图片端点在默认配置下免鉴权，token 仅作兜底。
+  /// 海报 / 背景图地址。
+  ///
+  /// 图片端点在默认配置下免鉴权，缓存用的 URL 不拼 token：磁盘缓存以
+  /// 整条 URL 为 key，token 轮换（401 刷新、重登）会让全部图片缓存集体
+  /// 失效。[tag] 是服务器侧的图片版本号，参与拼接后服务器换图 → URL 变化
+  /// → 旧缓存自然失效，而不是 30 天内一直命中旧图。仅绕过图片缓存、
+  /// 直连下载的场景（如通知栏封面的裸 Dio）才通过 [token] 补鉴权兜底。
   static String imageUrl({
     required MediaBrowserConfig config,
     required String baseUrl,
     required String itemId,
     String imageType = 'Primary',
     int? maxWidth,
+    String? tag,
     String? token,
   }) {
     final query = <String, String>{
       if (maxWidth != null && maxWidth > 0) 'maxWidth': maxWidth.toString(),
       'quality': '90',
+      if (tag?.trim().isNotEmpty == true) 'tag': tag!.trim(),
       if (token?.trim().isNotEmpty == true)
         config.tokenQueryParam: token!.trim(),
     };

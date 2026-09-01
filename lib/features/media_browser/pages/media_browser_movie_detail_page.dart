@@ -109,11 +109,7 @@ class _MediaBrowserDetailBodyState
   void _syncHeroArt() {
     final item = widget.item;
     final urls = ref.read(mediaBrowserServerUrlsProvider).value;
-    final url = urls == null
-        ? ''
-        : item.backdropImageTags.isEmpty
-        ? (item.primaryImageTag == null ? '' : urls.poster(item.id))
-        : urls.backdrop(item.id);
+    final url = urls?.heroImage(item) ?? '';
     final art = HeroArt(movieId: item.id, url: url);
     final current = _heroArts.value;
     if (current.length == 1 &&
@@ -182,7 +178,7 @@ class _MediaBrowserDetailBodyState
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
     final posterUrl = item.primaryImageTag == null
         ? null
-        : urls.value?.poster(item.id);
+        : urls.value?.poster(item.id, tag: item.primaryImageTag);
     final runtimeMinutes = item.runtimeMinutes;
     final actors = [
       for (final person in item.people)

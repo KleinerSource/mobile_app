@@ -370,7 +370,7 @@ void main() {
         });
       });
 
-      test('直链与图片 URL 拼接 token 参数与尺寸参数', () {
+      test('直链拼接 token，图片 URL 拼接 tag 与尺寸参数', () {
         final streamUrl = MediaBrowserApi.streamUrl(
           config: config,
           baseUrl: 'http://test/',
@@ -390,12 +390,27 @@ void main() {
           baseUrl: 'http://test',
           itemId: 'item-1',
           maxWidth: 440,
-          token: 'token-1',
+          tag: 'tag-1',
         );
         expect(
           imageUrl,
           'http://test${config.pathPrefix}/Items/item-1/Images/Primary'
-          '?maxWidth=440&quality=90&${config.tokenQueryParam}=token-1',
+          '?maxWidth=440&quality=90&tag=tag-1',
+        );
+
+        // token 是直连下载场景的鉴权兜底，参与拼接但不属于缓存 URL 的
+        // 常规形态。
+        final authedUrl = MediaBrowserApi.imageUrl(
+          config: config,
+          baseUrl: 'http://test',
+          itemId: 'item-1',
+          maxWidth: 600,
+          token: 'token-1',
+        );
+        expect(
+          authedUrl,
+          'http://test${config.pathPrefix}/Items/item-1/Images/Primary'
+          '?maxWidth=600&quality=90&${config.tokenQueryParam}=token-1',
         );
       });
 

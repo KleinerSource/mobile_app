@@ -26,11 +26,7 @@ class MediaBrowserNextUpSection extends ConsumerWidget {
             privacyId: item.id,
             title: item.name,
             meta: _metaText(item),
-            coverUrl: urls == null
-                ? null
-                : item.backdropImageTags.isEmpty
-                ? (item.primaryImageTag == null ? null : urls.poster(item.id))
-                : urls.backdrop(item.id),
+            coverUrl: urls?.heroImage(item),
             onOpen: () => openMediaBrowserItem(context, ref, item),
             onResume: () => openMediaBrowserPlayback(context, ref, item: item),
           ),

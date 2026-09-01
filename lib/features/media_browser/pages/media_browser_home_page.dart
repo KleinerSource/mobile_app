@@ -72,12 +72,7 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
   ) {
     final arts = [
       for (final item in items)
-        HeroArt(
-          movieId: item.id,
-          url: item.backdropImageTags.isEmpty
-              ? (item.primaryImageTag == null ? '' : urls.poster(item.id))
-              : urls.backdrop(item.id),
-        ),
+        HeroArt(movieId: item.id, url: urls.heroImage(item) ?? ''),
     ];
     final current = _heroArts.value;
     final same =
@@ -132,9 +127,7 @@ class _MediaBrowserHomePageState extends ConsumerState<MediaBrowserHomePage> {
                       child: RecommendCarousel.mediaBrowser(
                         items: items,
                         imageUrlBuilder: (item) =>
-                            item.backdropImageTags.isEmpty
-                            ? value.poster(item.id)
-                            : value.backdrop(item.id),
+                            value.heroImage(item) ?? '',
                         pagePosition: _heroPagePosition,
                         onItemTap: (context, item) =>
                             openMediaBrowserItem(context, ref, item),
@@ -283,7 +276,11 @@ class _MediaBrowserViewSections extends ConsumerWidget {
                     HomeLibraryCardEntry(
                       id: view.id,
                       name: view.name,
-                      coverUrl: urls?.poster(view.id, maxWidth: 600),
+                      coverUrl: urls?.poster(
+                        view.id,
+                        maxWidth: 600,
+                        tag: view.primaryImageTag,
+                      ),
                       onTap: () => _openLibrary(context, view.id),
                     ),
                 ],

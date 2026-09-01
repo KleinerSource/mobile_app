@@ -81,10 +81,13 @@ abstract interface class MediaBrowserMediaOperationsSource {
     String? playSessionId,
   });
 
-  /// 海报 / 背景图绝对地址（含 token 参数，可直接交给图片内核）。
+  /// 海报 / 背景图绝对地址。不带 token（图片端点默认免鉴权，URL 进图片
+  /// 缓存后 token 轮换会打穿缓存）；[tag] 是服务器侧图片版本号，参与
+  /// 拼接用于换图后打破缓存。
   Future<String> imageUrl(
     String itemId, {
     String imageType = 'Primary',
     int? maxWidth,
+    String? tag,
   });
 }

@@ -109,5 +109,11 @@ class MediaBrowserMediaRepository {
     String itemId, {
     String imageType = 'Primary',
     int? maxWidth,
-  }) => _source.imageUrl(itemId, imageType: imageType, maxWidth: maxWidth);
+    String? tag,
+  }) => _source.imageUrl(
+    itemId,
+    imageType: imageType,
+    maxWidth: maxWidth,
+    tag: tag,
+  );
 }

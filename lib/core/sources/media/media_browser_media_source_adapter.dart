@@ -335,15 +335,15 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
     String itemId, {
     String imageType = 'Primary',
     int? maxWidth,
+    String? tag,
   }) async {
-    final token = await sessionRepository.accessToken();
     return MediaBrowserApi.imageUrl(
       config: config,
       baseUrl: endpoint ?? '',
       itemId: itemId,
       imageType: imageType,
       maxWidth: maxWidth,
-      token: token,
+      tag: tag,
     );
   }
 
@@ -354,13 +354,27 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
       year: item.productionYear,
       rating: item.communityRating,
       duration: mediaBrowserTicksToSeconds(item.runTimeTicks),
-      poster: await imageUrl(item.id, maxWidth: 440),
+      poster: await imageUrl(
+        item.id,
+        maxWidth: 440,
+        tag: item.primaryImageTag,
+      ),
       thumbnail: item.thumbImageTag == null
           ? null
-          : await imageUrl(item.id, imageType: 'Thumb', maxWidth: 440),
+          : await imageUrl(
+              item.id,
+              imageType: 'Thumb',
+              maxWidth: 440,
+              tag: item.thumbImageTag,
+            ),
       fanart: item.backdropImageTags.isEmpty
           ? null
-          : await imageUrl(item.id, imageType: 'Backdrop', maxWidth: 1280),
+          : await imageUrl(
+              item.id,
+              imageType: 'Backdrop',
+              maxWidth: 1280,
+              tag: item.backdropImageTags.first,
+            ),
       canPlay: item.isPlayable,
       attributes: {
         'type': item.type,

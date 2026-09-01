@@ -34,7 +34,9 @@ class MediaBrowserItemCard extends StatelessWidget {
     return CatalogMovieCard(
       title: item.name,
       code: null,
-      imageUrl: item.primaryImageTag == null ? null : urls.poster(item.id),
+      imageUrl: item.primaryImageTag == null
+          ? null
+          : urls.poster(item.id, tag: item.primaryImageTag),
       meta: _metaText(item),
       width: width,
       rating: item.communityRating,
