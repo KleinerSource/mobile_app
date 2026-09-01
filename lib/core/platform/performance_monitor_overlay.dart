@@ -123,7 +123,7 @@ class _PerformanceMonitorOverlayState extends State<PerformanceMonitorOverlay>
         child: Align(
           alignment: Alignment.bottomRight,
           child: Padding(
-            padding: const EdgeInsets.only(bottom: 8, right: 12),
+            padding: const EdgeInsets.only(bottom: 1, right: 12),
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: const Color(0xCC000000),
