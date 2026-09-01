@@ -14,12 +14,12 @@ const defaultOpenListPort = 5244;
 enum ServerProject {
   ohMyMedia(
     projectName: 'oh-my-media',
-    displayName: 'Oh-My-Media',
+    displayName: 'Oh My Media',
     minimumVersion: '2.0.0',
   ),
   dbOnline(
     projectName: 'db_online',
-    displayName: 'dbonline',
+    displayName: 'DB Online',
     minimumVersion: '1.14.0',
   ),
   smb(
@@ -36,7 +36,7 @@ enum ServerProject {
   ),
   openList(
     projectName: 'openlist',
-    displayName: 'OpenList',
+    displayName: 'OpenList/Alist',
     minimumVersion: '',
     isFileSource: true,
   );
