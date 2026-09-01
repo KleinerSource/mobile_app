@@ -357,6 +357,15 @@ class _MediaBrowserLibraryStats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = appColors(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 暗色主题的 surface 是半透明 token，直接覆盖 alpha 会变成亮白底，
+    // 反而压低白色数字和灰色标签的对比度。
+    final cardColor = isDark
+        ? Color.alphaBlend(colors.surfaceAlt, colors.bg)
+        : colors.surface.withValues(alpha: 0.72);
+    final dividerColor = isDark
+        ? Colors.white.withValues(alpha: 0.14)
+        : colors.divider;
     return value.when(
       loading: () => const SizedBox(height: 96),
       error: (_, __) => Padding(
@@ -374,9 +383,9 @@ class _MediaBrowserLibraryStats extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: colors.surface.withValues(alpha: 0.72),
+            color: cardColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colors.divider),
+            border: Border.all(color: dividerColor),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
@@ -389,7 +398,7 @@ class _MediaBrowserLibraryStats extends StatelessWidget {
                     value: stats.movieCount,
                   ),
                 ),
-                _MediaBrowserStatDivider(color: colors.divider),
+                _MediaBrowserStatDivider(color: dividerColor),
                 Expanded(
                   child: _MediaBrowserStatItem(
                     icon: Icons.live_tv_outlined,
@@ -397,7 +406,7 @@ class _MediaBrowserLibraryStats extends StatelessWidget {
                     value: stats.seriesCount,
                   ),
                 ),
-                _MediaBrowserStatDivider(color: colors.divider),
+                _MediaBrowserStatDivider(color: dividerColor),
                 Expanded(
                   child: _MediaBrowserStatItem(
                     icon: Icons.video_library_outlined,
