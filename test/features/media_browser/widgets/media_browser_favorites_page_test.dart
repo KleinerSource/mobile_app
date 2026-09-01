@@ -226,6 +226,42 @@ void main() {
     expect(find.text('收藏条目 B'), findsWidgets);
   });
 
+  testWidgets('长按拖选过程中勾选态实时更新，点按可切换勾选', (tester) async {
+    final repo = _RecordingRepo(
+      page: _page([
+        _item('a', '收藏条目 A'),
+        _item('b', '收藏条目 B'),
+        _item('c', '收藏条目 C'),
+      ]),
+    );
+    await _pumpFavorites(tester, repo);
+
+    // 长按第一张卡片进入选择并勾选
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(Poster).first),
+    );
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    expect(find.byIcon(Icons.check), findsOneWidget);
+    expect(find.text('1 已选'), findsOneWidget);
+
+    // 拖到第二张卡片：勾选态跟随 selectedListenable 局部重建，
+    // 不依赖整页 setState（回归：曾因缺 ValueListenableBuilder 不更新）。
+    await gesture.moveTo(tester.getCenter(find.byType(Poster).at(1)));
+    await tester.pump();
+    expect(find.byIcon(Icons.check), findsNWidgets(2));
+    expect(find.text('2 已选'), findsOneWidget);
+
+    await gesture.up();
+    await tester.pump();
+    expect(find.byIcon(Icons.check), findsNWidgets(2));
+
+    // 选择模式下点按已选卡片取消勾选
+    await tester.tap(find.byType(Poster).at(1));
+    await tester.pump();
+    expect(find.byIcon(Icons.check), findsOneWidget);
+    expect(find.text('1 已选'), findsOneWidget);
+  });
+
   testWidgets('卡片开启 showFavoriteBadge 时已收藏条目显示心形角标', (tester) async {
     tester.view.physicalSize = const Size(390 * 3, 844 * 3);
     tester.view.devicePixelRatio = 3.0;

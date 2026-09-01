@@ -65,9 +65,6 @@ class _MediaBrowserFavoritesPageState
 
   final _controller = PagingController<int, MediaBrowserItem>(firstPageKey: 0);
   final _scrollController = ScrollController();
-  late final _scrollRestorer = PagedScrollPositionRestorer<MediaBrowserItem>(
-    _controller,
-  );
   _FavoritesViewMode _viewMode = _FavoritesViewMode.grid;
   String _includeItemTypes = _typeOptions.first.value;
   int _sortIndex = 0;
@@ -160,8 +157,6 @@ class _MediaBrowserFavoritesPageState
         offset: startIndex,
         items: items,
         totalCount: result.total,
-        restorer: _scrollRestorer,
-        scrollController: _scrollController,
       );
       if (startIndex == 0) _completeRefresh();
       if (mounted) setState(() {});
@@ -265,7 +260,7 @@ class _MediaBrowserFavoritesPageState
       _applyLocalRemoval({item.id});
       messenger.showSnackBar(
         SnackBar(
-          content: Text('已移除「${item.name}」的收藏'),
+          content: Text('已移除「${item.name}」'),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -588,25 +583,40 @@ class _MediaBrowserFavoritesPageState
                                                     key: ValueKey(item.id),
                                                     id: item.id,
                                                     selectionIndex: index,
-                                                    child: _GridItem(
-                                                      item: item,
-                                                      urls: value,
-                                                      width: itemWidth,
-                                                      square: _isMusicGrid,
-                                                      selected: _selected
-                                                          .contains(item.id),
-                                                      selecting: _selecting,
-                                                      onTap: () {
-                                                        if (_selecting) {
-                                                          _toggleSelect(
-                                                            item.id,
-                                                          );
-                                                        } else {
-                                                          unawaited(
-                                                            _openItem(item),
-                                                          );
-                                                        }
-                                                      },
+                                                    // 拖选过程选择集合只经
+                                                    // selectedListenable 通知，
+                                                    // 勾选态在卡片局部重建，
+                                                    // 不整页 setState（同 OMM）。
+                                                    child: ValueListenableBuilder<
+                                                      Set<String>
+                                                    >(
+                                                      valueListenable:
+                                                          _selection
+                                                              .selectedListenable,
+                                                      builder: (
+                                                        context,
+                                                        selected,
+                                                        _,
+                                                      ) => _GridItem(
+                                                        item: item,
+                                                        urls: value,
+                                                        width: itemWidth,
+                                                        square: _isMusicGrid,
+                                                        selected: selected
+                                                            .contains(item.id),
+                                                        selecting: _selecting,
+                                                        onTap: () {
+                                                          if (_selecting) {
+                                                            _toggleSelect(
+                                                              item.id,
+                                                            );
+                                                          } else {
+                                                            unawaited(
+                                                              _openItem(item),
+                                                            );
+                                                          }
+                                                        },
+                                                      ),
                                                     ),
                                                   ),
                                               firstPageProgressIndicatorBuilder:
@@ -665,28 +675,41 @@ class _MediaBrowserFavoritesPageState
                                                     selectionIndex: null,
                                                     selectionHandleAlignment:
                                                         Alignment.centerLeft,
-                                                    child: _ListRow(
-                                                      item: item,
-                                                      urls: value,
-                                                      swipeGroup: _openSwipe,
-                                                      selected: _selected
-                                                          .contains(item.id),
-                                                      selecting: _selecting,
-                                                      onTap: () {
-                                                        if (_selecting) {
-                                                          _toggleSelect(
-                                                            item.id,
-                                                          );
-                                                        } else {
-                                                          unawaited(
-                                                            _openItem(item),
-                                                          );
-                                                        }
-                                                      },
-                                                      onRemove: () =>
-                                                          unawaited(
-                                                            _removeOne(item),
-                                                          ),
+                                                    // 同网格：勾选态跟随
+                                                    // selectedListenable 局部重建。
+                                                    child: ValueListenableBuilder<
+                                                      Set<String>
+                                                    >(
+                                                      valueListenable:
+                                                          _selection
+                                                              .selectedListenable,
+                                                      builder: (
+                                                        context,
+                                                        selected,
+                                                        _,
+                                                      ) => _ListRow(
+                                                        item: item,
+                                                        urls: value,
+                                                        swipeGroup: _openSwipe,
+                                                        selected: selected
+                                                            .contains(item.id),
+                                                        selecting: _selecting,
+                                                        onTap: () {
+                                                          if (_selecting) {
+                                                            _toggleSelect(
+                                                              item.id,
+                                                            );
+                                                          } else {
+                                                            unawaited(
+                                                              _openItem(item),
+                                                            );
+                                                          }
+                                                        },
+                                                        onRemove: () =>
+                                                            unawaited(
+                                                              _removeOne(item),
+                                                            ),
+                                                      ),
                                                     ),
                                                   ),
                                               firstPageProgressIndicatorBuilder:
@@ -762,7 +785,7 @@ class _MediaBrowserFavoritesPageState
                         onClose: _clearSelection,
                         actions: [
                           EntityBatchAction(
-                            icon: Icons.favorite_border,
+                            icon: Icons.delete_outline,
                             label: '移除收藏',
                             color: colors.danger,
                             onTap: selected.isEmpty || _removing
@@ -966,7 +989,7 @@ class _ListRow extends StatelessWidget {
       enabled: true,
       actions: [
         SwipeActionData(
-          icon: Icons.favorite_border,
+          icon: Icons.delete_outline,
           label: '移除',
           color: colors.danger,
           onPressed: onRemove,
