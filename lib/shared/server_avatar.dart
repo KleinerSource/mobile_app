@@ -18,11 +18,13 @@ String serverInitials(String value) {
 /// 首字母兜底。
 String? serverProjectAvatarAsset(ServerProject? project) {
   return switch (project) {
-    ServerProject.ohMyMedia => 'assets/branding/oh_my_media_logo.png',
+    ServerProject.ohMyMedia => 'assets/server_avatars/oh_my_media.png',
     ServerProject.smb => 'assets/server_avatars/green_folder.png',
     ServerProject.webDav => 'assets/server_avatars/red_folder.png',
-    ServerProject.openList => 'assets/server_avatars/logo.svg',
-    ServerProject.dbOnline => 'assets/server_avatars/dbo_default.jpg',
+    ServerProject.openList => 'assets/server_avatars/openlist.svg',
+    ServerProject.dbOnline => 'assets/server_avatars/dbonline.jpg',
+    ServerProject.emby => 'assets/server_avatars/emby.png',
+    ServerProject.jellyfin => 'assets/server_avatars/jellyfin.png',
     _ => null,
   };
 }
@@ -207,6 +209,7 @@ class _ServerProjectBadge extends StatelessWidget {
       ),
       ServerProject.dbOnline => ('DBO', const Color(0xFF0E7490), 'dbonline'),
       ServerProject.emby => ('EMBY', const Color(0xFF52B54B), 'Emby'),
+      ServerProject.jellyfin => ('JFIN', const Color(0xFFAA5CC3), 'Jellyfin'),
       ServerProject.smb => ('SMB', const Color(0xFF2E7D32), 'SMB'),
       ServerProject.webDav => ('DAV', const Color(0xFF6A1B9A), 'WebDAV'),
       ServerProject.openList => ('OL', const Color(0xFFBF360C), 'OpenList'),
