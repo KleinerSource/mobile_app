@@ -144,6 +144,8 @@ class _DbOnlineLatestMoviesPageState
                     padding: const EdgeInsets.symmetric(horizontal: 22),
                     sliver: PagedSliverGrid<int, DbOnlineMovie>(
                       pagingController: _controller,
+                      // 尾部提示整行跨列渲染（与 OMM 影片库一致）。
+                      showNoMoreItemsIndicatorAsGridChild: false,
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: crossAxisCount,
                         childAspectRatio: 0.5,

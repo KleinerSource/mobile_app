@@ -289,6 +289,7 @@ class CatalogMovieCard extends ConsumerWidget {
     this.showTitle = true,
     this.showMeta = true,
     this.posterAspectRatio = 2 / 3,
+    this.imageHeaders,
   });
 
   final String title;
@@ -317,6 +318,7 @@ class CatalogMovieCard extends ConsumerWidget {
 
   /// 海报宽高比；音乐专辑等方形封面传 1。
   final double posterAspectRatio;
+  final Map<String, String>? imageHeaders;
 
   /// 为非 OMM 影片提供隐私遮罩键；为空时保持普通目录卡片行为。
   final Object? privacyId;
@@ -355,6 +357,7 @@ class CatalogMovieCard extends ConsumerWidget {
           year: year,
           radius: 10,
           aspectRatio: posterAspectRatio,
+          httpHeaders: imageHeaders,
         ),
         // 已看完 (固定左上, 与 OMM 卡片一致)
         if (played)

@@ -17,3 +17,16 @@ String normalizeMoviePlot(String value) {
       .replaceAll('\u2028', '\n')
       .replaceAll('\u2029', '\n');
 }
+
+/// 将文件字节数格式化为 B/KB/MB/GB/TB;OMM 与 Emby/Jellyfin/fnos
+/// 详情页的「文件大小」行共用同一格式。
+String formatFileSize(int bytes) {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  var value = bytes.toDouble();
+  var unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return '${value.toStringAsFixed(unit <= 1 ? 0 : 1)} ${units[unit]}';
+}

@@ -29,6 +29,79 @@ String actorAvatarUrl(
       .toString();
 }
 
+/// 通用圆形首字头像:名字首字渐变兜底 + 网络头像覆盖。
+///
+/// OMM 详情页演员区、Emby/Jellyfin/fnos 演员区与导演 pill 共用同一视觉;
+/// 首字字号随头像尺寸缩放(76px 头像 ≈ 20px,28px 小圆 ≈ 12px)。
+class CircularInitialsAvatar extends StatelessWidget {
+  const CircularInitialsAvatar({
+    super.key,
+    required this.name,
+    required this.hue,
+    required this.size,
+    this.imageUrl,
+    this.httpHeaders,
+  });
+
+  final String name;
+  final int hue;
+  final double size;
+
+  /// 为 null/空时只显示渐变首字占位,不发网络请求。
+  final String? imageUrl;
+  final Map<String, String>? httpHeaders;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = name.trim();
+    final url = imageUrl?.trim() ?? '';
+    return SizedBox(
+      width: size,
+      height: size,
+      child: ClipOval(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppHues.top(hue), AppHues.bottom(hue)],
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  value.isEmpty ? '·' : value.characters.first,
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w800,
+                    fontSize: (size * 20 / 76).clamp(12, 24),
+                  ),
+                ),
+              ),
+            ),
+            if (url.isNotEmpty)
+              CachedNetworkImage(
+                cacheManager: AppImageCacheManager.instance,
+                key: ValueKey(url),
+                imageUrl: url,
+                httpHeaders: httpHeaders,
+                fit: BoxFit.cover,
+                fadeInDuration: const Duration(milliseconds: 180),
+                placeholder: (_, __) => const SizedBox.shrink(),
+                errorWidget: (_, __, ___) => const SizedBox.shrink(),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// 演员头像(列表/卡片等小头像场景)。图片加载失败时自动回退为统一的
 /// 渐变首字母占位。[avatarPaths] 为后端返回的 avatar_path 数组;
 /// 小头像固定只显示第一张,轮播仅演员详情页的封面负责。
@@ -53,66 +126,16 @@ class ActorAvatar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(serverConfigProvider);
-    final imageUrl = config == null
-        ? null
-        : actorAvatarUrl(config, actorId, cacheBust: cacheBust);
     // null = 字段缺失,仍尝试加载;空数组 = 明确无头像,跳过请求
     final shouldLoadImage = avatarPaths == null || avatarPaths!.isNotEmpty;
-    return SizedBox(
-      width: size,
-      height: size,
-      child: ClipOval(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _ActorAvatarPlaceholder(name: name, hue: hue),
-            if (imageUrl != null && shouldLoadImage)
-              CachedNetworkImage(
-                cacheManager: AppImageCacheManager.instance,
-                key: ValueKey(imageUrl),
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
-                fadeInDuration: const Duration(milliseconds: 180),
-                placeholder: (_, __) => const SizedBox.shrink(),
-                errorWidget: (_, __, ___) => const SizedBox.shrink(),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ActorAvatarPlaceholder extends StatelessWidget {
-  const _ActorAvatarPlaceholder({required this.name, required this.hue});
-
-  final String name;
-  final int hue;
-
-  @override
-  Widget build(BuildContext context) {
-    final value = name.trim();
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppHues.top(hue), AppHues.bottom(hue)],
-        ),
-      ),
-      child: Center(
-        child: Text(
-          value.isEmpty ? '·' : value.characters.first,
-          maxLines: 1,
-          style: const TextStyle(
-            color: Colors.white,
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w800,
-            fontSize: 20,
-          ),
-        ),
-      ),
+    final imageUrl = config != null && shouldLoadImage
+        ? actorAvatarUrl(config, actorId, cacheBust: cacheBust)
+        : null;
+    return CircularInitialsAvatar(
+      name: name,
+      hue: hue,
+      size: size,
+      imageUrl: imageUrl,
     );
   }
 }

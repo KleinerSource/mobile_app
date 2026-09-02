@@ -61,6 +61,7 @@ class MediaBrowserItemCard extends StatelessWidget {
             imageUrl: item.primaryImageTag == null
                 ? null
                 : urls.poster(item.id, tag: item.primaryImageTag),
+            imageHeaders: urls.imageHeaders,
             meta: mediaBrowserItemMetaText(item),
             width: width,
             rating: item.communityRating,

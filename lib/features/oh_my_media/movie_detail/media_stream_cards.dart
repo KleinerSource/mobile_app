@@ -9,9 +9,14 @@ import 'package:omm/core/platform/app_theme.dart';
 /// `subtitle_streams[]`（backend media_info_service.go 展开的 probe_json 缓存）。
 /// 探测失败（.strm）时无流数据，[MediaStreamCards] 渲染为空。
 class MediaStreamCards extends StatelessWidget {
-  const MediaStreamCards({super.key, required this.detail});
+  const MediaStreamCards({super.key, required this.detail, this.padding});
 
   final MediaInfoDetail detail;
+
+  /// 横向滚动的内边距。调用方把滚动视口铺满屏宽（不再由外层 Section 垫
+  /// 横向边距）时，用它让首卡与标题对齐、末卡滚到边缘后仍留呼吸空隙；
+  /// 保持 null 时由外层 Section 的边距约束（OMM 详情页现状）。
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +44,7 @@ class MediaStreamCards extends StatelessWidget {
       width: double.infinity,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        padding: padding,
         child: IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,

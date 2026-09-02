@@ -8,6 +8,7 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/playback/media_browser_playback.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_action_button.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_cast_section.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_media_info_section.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
@@ -47,7 +48,11 @@ class _MediaBrowserSeriesDetailPageState
 
   void _syncHeroArt(MediaBrowserItem series, MediaBrowserServerUrls? urls) {
     final url = urls?.heroImage(series) ?? '';
-    final art = HeroArt(movieId: series.id, url: url);
+    final art = HeroArt(
+      movieId: series.id,
+      url: url,
+      imageHeaders: urls?.imageHeaders,
+    );
     final current = _heroArts.value;
     if (current.length == 1 &&
         current.first.movieId == art.movieId &&
@@ -135,6 +140,7 @@ class _MediaBrowserSeriesDetailPageState
                   : urls.value?.poster(series.id, tag: series.primaryImageTag),
               title: series.name,
               year: series.productionYear,
+              imageHeaders: urls.value?.imageHeaders,
             ),
             slivers: [
               SliverToBoxAdapter(
@@ -150,44 +156,16 @@ class _MediaBrowserSeriesDetailPageState
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _actionBusy
-                              ? null
-                              : () => _toggleFavorite(series),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: series.userData.isFavorite
-                                ? colors.accent
-                                : colors.text,
-                            side: BorderSide(
-                              color: series.userData.isFavorite
-                                  ? colors.accent.withValues(alpha: 0.55)
-                                  : colors.cardBorder,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 11),
-                          ),
-                          icon: Icon(
-                            series.userData.isFavorite
-                                ? Icons.favorite_rounded
-                                : Icons.favorite_border_rounded,
-                            size: 16,
-                          ),
-                          label: Text(
-                            series.userData.isFavorite ? '已收藏' : '收藏',
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  child: MediaBrowserActionButton(
+                    icon: series.userData.isFavorite
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    label: series.userData.isFavorite ? '已收藏' : '收藏',
+                    active: series.userData.isFavorite,
+                    onPressed: _actionBusy
+                        ? null
+                        : () => _toggleFavorite(series),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
                   ),
                 ),
               ),
@@ -436,6 +414,7 @@ class _EpisodeList extends ConsumerWidget {
               _EpisodeTile(
                 episode: episode,
                 imageUrl: urls.value?.thumbnail(episode),
+                imageHeaders: urls.value?.imageHeaders,
                 onTap: () =>
                     openMediaBrowserPlayback(context, ref, item: episode),
                 // 与 OMM/电影详情页一致：长按先选内核（libmpv / KSPlayer）。
@@ -458,12 +437,14 @@ class _EpisodeTile extends StatelessWidget {
   const _EpisodeTile({
     required this.episode,
     required this.imageUrl,
+    required this.imageHeaders,
     required this.onTap,
     this.onLongPress,
   });
 
   final MediaBrowserItem episode;
   final String? imageUrl;
+  final Map<String, String>? imageHeaders;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 
@@ -501,6 +482,7 @@ class _EpisodeTile extends StatelessWidget {
                           title: episode.name,
                           aspectRatio: 16 / 9,
                           radius: 0,
+                          httpHeaders: imageHeaders,
                         ),
                         if (played)
                           Container(

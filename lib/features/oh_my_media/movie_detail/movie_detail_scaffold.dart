@@ -200,6 +200,7 @@ class MovieDetailHero extends StatelessWidget {
     this.year,
     this.imageAlignment = const Alignment(0, -0.6),
     this.bottomOverlay,
+    this.imageHeaders,
   });
 
   final String title;
@@ -207,6 +208,7 @@ class MovieDetailHero extends StatelessWidget {
   final int? year;
   final Alignment imageAlignment;
   final Widget? bottomOverlay;
+  final Map<String, String>? imageHeaders;
 
   @override
   Widget build(BuildContext context) {
@@ -231,6 +233,7 @@ class MovieDetailHero extends StatelessWidget {
                   aspectRatio: 16 / 9,
                   radius: 0,
                   imageAlignment: imageAlignment,
+                  httpHeaders: imageHeaders,
                 )
               : ColoredBox(color: colors.surfaceAlt),
         ),

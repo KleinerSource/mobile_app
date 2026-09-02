@@ -44,7 +44,11 @@ class _MediaBrowserAlbumDetailPageState
     final url = urls == null || album.primaryImageTag == null
         ? ''
         : urls.poster(album.id, tag: album.primaryImageTag);
-    final art = HeroArt(movieId: album.id, url: url);
+    final art = HeroArt(
+      movieId: album.id,
+      url: url,
+      imageHeaders: urls?.imageHeaders,
+    );
     final current = _heroArts.value;
     if (current.length == 1 &&
         current.first.movieId == art.movieId &&
@@ -132,6 +136,7 @@ class _MediaBrowserAlbumDetailPageState
                   : urls.value?.poster(album.id, tag: album.primaryImageTag),
               title: album.name,
               year: album.productionYear,
+              imageHeaders: urls.value?.imageHeaders,
             ),
             slivers: [
               SliverToBoxAdapter(

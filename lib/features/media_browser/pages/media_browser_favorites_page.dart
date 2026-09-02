@@ -796,6 +796,7 @@ class _ListRow extends StatelessWidget {
                 title: item.name,
                 year: item.productionYear,
                 radius: 8,
+                httpHeaders: urls.imageHeaders,
               ),
             ),
           ),

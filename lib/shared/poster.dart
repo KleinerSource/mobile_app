@@ -16,6 +16,7 @@ class Poster extends StatelessWidget {
     this.radius = 10,
     this.restricted = false,
     this.imageAlignment = Alignment.center,
+    this.httpHeaders,
   });
 
   final String? url;
@@ -25,6 +26,7 @@ class Poster extends StatelessWidget {
   final double radius;
   final bool restricted;
   final Alignment imageAlignment;
+  final Map<String, String>? httpHeaders;
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +71,7 @@ class Poster extends StatelessWidget {
                   return CachedNetworkImage(
                     cacheManager: AppImageCacheManager.instance,
                     imageUrl: url!,
+                    httpHeaders: httpHeaders,
                     fit: BoxFit.cover,
                     alignment: imageAlignment,
                     memCacheWidth: physicalWidth,

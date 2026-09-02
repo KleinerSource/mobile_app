@@ -27,6 +27,7 @@ class MediaBrowserNextUpSection extends ConsumerWidget {
             title: item.name,
             meta: _metaText(item),
             coverUrl: urls?.heroImage(item),
+            imageHeaders: urls?.imageHeaders,
             onOpen: () => openMediaBrowserItem(context, ref, item),
             onResume: () => openMediaBrowserPlayback(context, ref, item: item),
           ),

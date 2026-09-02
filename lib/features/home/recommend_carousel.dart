@@ -30,7 +30,9 @@ class RecommendCarousel extends StatefulWidget {
        _dbOnlineOnTap = null,
        _mediaBrowserItems = null,
        _mediaBrowserImageUrlBuilder = null,
-       _mediaBrowserOnTap = null;
+       _mediaBrowserOnTap = null,
+       imageHeaders = null,
+       _mediaBrowserImageHeaders = null;
 
   const RecommendCarousel.mediaBrowser({
     super.key,
@@ -39,6 +41,7 @@ class RecommendCarousel extends StatefulWidget {
     required Future<void> Function(BuildContext context, MediaBrowserItem item)
     onItemTap,
     this.pagePosition,
+    this.imageHeaders,
   }) : items = const <MovieListItem>[],
        urlBuilder = null,
        onMovieReturned = _noopMovieReturned,
@@ -47,7 +50,8 @@ class RecommendCarousel extends StatefulWidget {
        _dbOnlineOnTap = null,
        _mediaBrowserItems = items,
        _mediaBrowserImageUrlBuilder = imageUrlBuilder,
-       _mediaBrowserOnTap = onItemTap;
+       _mediaBrowserOnTap = onItemTap,
+       _mediaBrowserImageHeaders = imageHeaders;
 
   const RecommendCarousel.dbOnline({
     super.key,
@@ -64,7 +68,9 @@ class RecommendCarousel extends StatefulWidget {
        _dbOnlineOnTap = onMovieTap,
        _mediaBrowserItems = null,
        _mediaBrowserImageUrlBuilder = null,
-       _mediaBrowserOnTap = null;
+       _mediaBrowserOnTap = null,
+       imageHeaders = null,
+       _mediaBrowserImageHeaders = null;
 
   final List<MovieListItem> items;
   final String Function(String uuid)? urlBuilder;
@@ -78,6 +84,8 @@ class RecommendCarousel extends StatefulWidget {
   final String Function(MediaBrowserItem item)? _mediaBrowserImageUrlBuilder;
   final Future<void> Function(BuildContext context, MediaBrowserItem item)?
   _mediaBrowserOnTap;
+  final Map<String, String>? imageHeaders;
+  final Map<String, String>? _mediaBrowserImageHeaders;
 
   static void _noopMovieReturned(MovieDataChanges _) {}
 
@@ -241,6 +249,7 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
     final mediaBrowserItems = value._mediaBrowserItems;
     final mediaBrowserImageBuilder = value._mediaBrowserImageUrlBuilder;
     final mediaBrowserOnTap = value._mediaBrowserOnTap;
+    final mediaBrowserImageHeaders = value._mediaBrowserImageHeaders;
     if (mediaBrowserItems != null &&
         mediaBrowserImageBuilder != null &&
         mediaBrowserOnTap != null) {
@@ -251,6 +260,7 @@ class _RecommendCarouselState extends State<RecommendCarousel> {
             title: item.name,
             code: item.type,
             imageUrl: _nullableUrl(mediaBrowserImageBuilder(item)),
+            imageHeaders: mediaBrowserImageHeaders,
             rating: item.communityRating,
             runtime: item.runtimeMinutes,
             year: item.productionYear,
@@ -364,6 +374,7 @@ class _CarouselItem {
     this.year,
     this.privacyId,
     this.canPlay = false,
+    this.imageHeaders,
   });
 
   final String key;
@@ -375,6 +386,7 @@ class _CarouselItem {
   final int? year;
   final Object? privacyId;
   final bool canPlay;
+  final Map<String, String>? imageHeaders;
   final Future<void> Function(BuildContext context) onTap;
 }
 
@@ -407,13 +419,21 @@ class _HeroCoverStage extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          _HeroCover(movie: current, imageUrl: currentImageUrl),
+          _HeroCover(
+            movie: current,
+            imageUrl: currentImageUrl,
+            imageHeaders: current.imageHeaders,
+          ),
           if (progress > 0)
             Positioned.fill(
               child: ClipRect(
                 key: const ValueKey('hero-cover-edge-clip'),
                 clipper: _RightRevealClipper(split),
-                child: _HeroCover(movie: next, imageUrl: nextImageUrl),
+                child: _HeroCover(
+                  movie: next,
+                  imageUrl: nextImageUrl,
+                  imageHeaders: next.imageHeaders,
+                ),
               ),
             ),
         ],
@@ -436,9 +456,14 @@ class _RightRevealClipper extends CustomClipper<Rect> {
 }
 
 class _HeroCover extends StatelessWidget {
-  const _HeroCover({required this.movie, required this.imageUrl});
+  const _HeroCover({
+    required this.movie,
+    required this.imageUrl,
+    required this.imageHeaders,
+  });
   final _CarouselItem movie;
   final String? imageUrl;
+  final Map<String, String>? imageHeaders;
 
   @override
   Widget build(BuildContext context) {
@@ -450,6 +475,7 @@ class _HeroCover extends StatelessWidget {
           CachedNetworkImage(
             cacheManager: AppImageCacheManager.instance,
             imageUrl: imageUrl!,
+            httpHeaders: imageHeaders,
             fit: BoxFit.cover,
             fadeInDuration: Duration.zero,
             placeholder: (_, __) => const SizedBox.shrink(),

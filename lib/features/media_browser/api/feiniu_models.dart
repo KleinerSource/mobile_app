@@ -102,7 +102,9 @@ class FeiniuPerson {
           json['profile'] ??
           json['avatar'] ??
           json['image'] ??
-          json['poster'],
+          json['poster'] ??
+          json['profile_image'] ??
+          json['headshot'],
     ),
     order: _int(json['order'] ?? json['sort'] ?? json['cast_order']),
   );
@@ -872,7 +874,10 @@ MediaBrowserPerson _person(Map<String, dynamic> json, {String? forcedType}) {
       json['profile_path'] ??
           json['profile'] ??
           json['avatar'] ??
-          json['image'],
+          json['image'] ??
+          json['poster'] ??
+          json['profile_image'] ??
+          json['headshot'],
     ),
   );
 }

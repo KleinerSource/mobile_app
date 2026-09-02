@@ -300,11 +300,19 @@ class FeiniuApi {
     return base.replace(path: '${base.path}/').resolve(value).toString();
   }
 
-  static String resolveAssetUrl(String baseUrl, String? rawUrl) {
+  static String resolveAssetUrl(String baseUrl, String? rawUrl, {int? width}) {
     final value = rawUrl?.trim() ?? '';
     if (value.isEmpty) return '';
     final uri = Uri.tryParse(value);
-    if (uri == null || uri.hasScheme) return value;
+    if (uri == null) return value;
+    if (uri.hasScheme) {
+      if (width == null || width <= 0 || uri.queryParameters.containsKey('w')) {
+        return value;
+      }
+      return uri
+          .replace(queryParameters: {...uri.queryParameters, 'w': '$width'})
+          .toString();
+    }
 
     final base = Uri.parse(
       ServerConfig.normalizeForProject(baseUrl, ServerProject.feiniu),
@@ -341,12 +349,20 @@ class FeiniuApi {
       // item/person 接口返回的是图片服务去掉了 /sys/img 的分片路径，
       // 例如 /55/02/<hash>.webp。
       path = '${base.path}/api/v1/sys/img$rawPath';
+    } else {
+      // 飞牛网页端对所有未带完整资源前缀的图片路径都使用 sys/img，
+      // 包括没有前导斜线的 55/02/<hash>.webp。
+      path =
+          '${base.path}/api/v1/sys/img/${rawPath.replaceFirst(RegExp(r'^/+'), '')}';
     }
-    if (path == null) return resolveUrl(baseUrl, value);
+    var query = uri.hasQuery ? uri.query : '';
+    if (width != null && width > 0 && !uri.queryParameters.containsKey('w')) {
+      query = query.isEmpty ? 'w=$width' : '$query&w=$width';
+    }
     return base
         .replace(
           path: path,
-          query: uri.hasQuery ? uri.query : null,
+          query: query.isEmpty ? null : query,
           fragment: uri.hasFragment ? uri.fragment : null,
         )
         .toString();

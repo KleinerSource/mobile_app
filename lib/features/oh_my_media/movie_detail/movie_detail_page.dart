@@ -15,6 +15,7 @@ import 'package:omm/shared/filter_chip.dart';
 import 'package:omm/shared/glass_menu.dart';
 import 'package:omm/shared/movie_card.dart';
 import 'package:omm/shared/actor_avatar.dart';
+import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/features/oh_my_media/favorites/favorites_providers.dart';
 import 'package:omm/features/oh_my_media/lists/add_to_list_sheet.dart';
@@ -35,6 +36,7 @@ import 'movie_editor_sheet.dart';
 import 'movie_detail_formatters.dart';
 import 'movie_detail_media_viewers.dart';
 import 'movie_detail_scaffold.dart';
+import 'cast_section.dart';
 import 'cover_badges.dart';
 import 'media_stream_cards.dart';
 import 'thunder_subtitle_sheet.dart';
@@ -218,7 +220,22 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
           ),
         ),
         if (movie.actors.isNotEmpty)
-          SliverToBoxAdapter(child: _CastSection(actors: movie.actors)),
+          SliverToBoxAdapter(
+            child: CastSection(
+              entries: [
+                for (final actor in movie.actors)
+                  CastEntry(
+                    name: actor.name,
+                    imageUrl: _castImageUrl(actor),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => PersonDetailPage(actor: actor),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         SliverToBoxAdapter(
           child: _ActorRelatedMoviesSection(
             movie: movie,
@@ -301,6 +318,15 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
         const SizedBox(width: 6),
       ],
     );
+  }
+
+  /// 演员头像地址:与 ActorAvatar 相同的解析规则(null = 字段缺失仍尝试
+  /// 加载;空数组 = 明确无头像,跳过请求),供 CastSection 同步拼 URL。
+  String? _castImageUrl(ActorItem actor) {
+    final config = ref.watch(serverConfigProvider);
+    if (config == null) return null;
+    if (actor.avatarPaths != null && actor.avatarPaths!.isEmpty) return null;
+    return actorAvatarUrl(config, actor.id);
   }
 }
 
@@ -605,91 +631,6 @@ class _ActionRow extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _CastSection extends StatelessWidget {
-  const _CastSection({required this.actors});
-  final List<ActorItem> actors;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = appColors(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-            child: Text('演员', style: AppText.sectionTitle(context)),
-          ),
-          SizedBox(
-            height: 132,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
-              // 顶部预留泛光渐隐空间,避免 BoxShadow 上溢被视口硬切
-              padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
-              itemCount: actors.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 16),
-              itemBuilder: (ctx, i) {
-                final a = actors[i];
-                final hue = AppHues.all[i % AppHues.all.length];
-                return SizedBox(
-                  width: 80,
-                  child: InkWell(
-                    onTap: () => Navigator.of(ctx).push(
-                      MaterialPageRoute(
-                        builder: (_) => PersonDetailPage(actor: a),
-                      ),
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Column(
-                      children: [
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppHues.top(hue).withValues(alpha: 0.35),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: ActorAvatar(
-                            actorId: a.id,
-                            name: a.name,
-                            hue: hue,
-                            size: 76,
-                            avatarPaths: a.avatarPaths,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          a.name,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: c.text,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11.5,
-                            height: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

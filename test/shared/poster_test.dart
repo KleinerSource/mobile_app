@@ -43,4 +43,27 @@ void main() {
     );
     expect(image.memCacheWidth, isNull);
   });
+
+  testWidgets('图片请求可以携带媒体服务器请求头', (tester) async {
+    const headers = {
+      'Authorization': 'Bearer test-token',
+      'X-Trim-Client': 'web',
+    };
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Center(
+          child: Poster(
+            url: 'https://example.com/poster.jpg',
+            title: '海报',
+            httpHeaders: headers,
+          ),
+        ),
+      ),
+    );
+
+    final image = tester.widget<CachedNetworkImage>(
+      find.byType(CachedNetworkImage),
+    );
+    expect(image.httpHeaders, headers);
+  });
 }

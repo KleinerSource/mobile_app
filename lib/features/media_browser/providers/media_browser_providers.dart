@@ -2,17 +2,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
-import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
-import 'package:omm/features/media_browser/api/media_browser_api.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
-import 'package:omm/features/media_browser/api/feiniu_api.dart';
+import 'package:omm/features/media_browser/api/media_browser_server_urls.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
+
+// URL 构造器随 API 层维护（emby/jellyfin 与 feiniu 两套实现），
+// 消费方仍可从本文件统一 import。
+export 'package:omm/features/media_browser/api/media_browser_server_urls.dart';
 
 /// 当前激活服务器的 MediaBrowser 配置；非 Emby/Jellyfin 服务器时为 null。
 ///
@@ -40,148 +42,6 @@ final mediaBrowserMediaRepositoryProvider =
       }
       return MediaBrowserMediaRepository(source);
     });
-
-/// Emby/Jellyfin 服务器 URL 构造器。
-///
-/// 海报/背景地址在 build 中同步拼接，不拼 token（图片端点默认免鉴权，
-/// 且磁盘缓存按整条 URL 为 key，token 轮换会打穿缓存），改拼图片 tag
-/// 保证换图后缓存失效；直链与鉴权封面仍带 token，登录态变化时随本
-/// Provider 重建刷新。
-class MediaBrowserServerUrls {
-  MediaBrowserServerUrls({
-    required this.config,
-    required this.baseUrl,
-    this.token,
-  });
-
-  final MediaBrowserConfig config;
-  final String baseUrl;
-  final String? token;
-
-  bool get isReady => baseUrl.trim().isNotEmpty;
-
-  Map<String, String> get directHeaders =>
-      config.project == ServerProject.feiniu
-      ? FeiniuApi.mediaHeaders(token)
-      : const <String, String>{};
-
-  String poster(String itemId, {int maxWidth = 440, String? tag}) =>
-      config.project == ServerProject.feiniu
-      ? FeiniuApi.resolveAssetUrl(baseUrl, tag)
-      : MediaBrowserApi.imageUrl(
-          config: config,
-          baseUrl: baseUrl,
-          itemId: itemId,
-          imageType: 'Primary',
-          maxWidth: maxWidth,
-          tag: tag,
-        );
-
-  String backdrop(String itemId, {int maxWidth = 1280, String? tag}) =>
-      config.project == ServerProject.feiniu
-      ? FeiniuApi.resolveAssetUrl(baseUrl, tag)
-      : MediaBrowserApi.imageUrl(
-          config: config,
-          baseUrl: baseUrl,
-          itemId: itemId,
-          imageType: 'Backdrop',
-          maxWidth: maxWidth,
-          tag: tag,
-        );
-
-  String thumb(String itemId, {int maxWidth = 440, String? tag}) =>
-      config.project == ServerProject.feiniu
-      ? FeiniuApi.resolveAssetUrl(baseUrl, tag)
-      : MediaBrowserApi.imageUrl(
-          config: config,
-          baseUrl: baseUrl,
-          itemId: itemId,
-          imageType: 'Thumb',
-          maxWidth: maxWidth,
-          tag: tag,
-        );
-
-  /// 带 token 的封面直连地址，供绕过图片缓存、用无鉴权裸 Dio 下载的
-  /// 场景（通知栏封面）；产物是按 itemId 命名的临时文件，不存在缓存
-  /// key 失稳问题。
-  String authedPoster(String itemId, {int maxWidth = 600, String? tag}) =>
-      config.project == ServerProject.feiniu
-      ? FeiniuApi.resolveAssetUrl(baseUrl, tag)
-      : MediaBrowserApi.imageUrl(
-          config: config,
-          baseUrl: baseUrl,
-          itemId: itemId,
-          maxWidth: maxWidth,
-          tag: tag,
-          token: token,
-        );
-
-  /// 条目首选展示图（首页/详情 Hero、继续观看宽卡共用）：有背景图取
-  /// Backdrop，否则有海报取 Primary，两者皆无返回 null。带 image tag，
-  /// 服务器换图后 URL 变化，旧缓存自然失效。
-  String? heroImage(MediaBrowserItem item) {
-    if (item.backdropImageTags.isNotEmpty) {
-      return backdrop(item.id, tag: item.backdropImageTags.first);
-    }
-    if (item.primaryImageTag != null) {
-      return poster(item.id, tag: item.primaryImageTag);
-    }
-    return null;
-  }
-
-  /// 条目缩略图（分集列表等窄幅场景）：有 Thumb 图用 Thumb，否则退回
-  /// Primary。分集一般只有 Primary 静帧——直接请求 Thumb 端点会 404，
-  /// 即使有 Thumb 图，tag 也必须与图类型一致，配错同样被拒绝。
-  String? thumbnail(MediaBrowserItem item, {int maxWidth = 440}) {
-    if (item.thumbImageTag != null) {
-      return thumb(item.id, tag: item.thumbImageTag, maxWidth: maxWidth);
-    }
-    if (item.primaryImageTag != null) {
-      return poster(item.id, tag: item.primaryImageTag, maxWidth: maxWidth);
-    }
-    return null;
-  }
-
-  String? personImage(MediaBrowserPerson person) {
-    final path = person.profilePath?.trim() ?? '';
-    if (config.project == ServerProject.feiniu) {
-      return path.isEmpty ? null : FeiniuApi.resolveAssetUrl(baseUrl, path);
-    }
-    // Emby/Jellyfin：People 条目自带 PrimaryImageTag，人物也是一条 Item，
-    // 直接用 /Items/{personId}/Images/Primary 取头像；无 tag 说明无头像。
-    final tag = person.primaryImageTag?.trim() ?? '';
-    if (tag.isEmpty) return null;
-    return MediaBrowserApi.imageUrl(
-      config: config,
-      baseUrl: baseUrl,
-      itemId: person.id,
-      maxWidth: 240,
-      tag: tag,
-    );
-  }
-
-  String stream(String itemId, {String? mediaSourceId}) =>
-      config.project == ServerProject.feiniu
-      ? FeiniuApi.mediaRangeUrl(baseUrl, mediaSourceId ?? itemId)
-      : MediaBrowserApi.streamUrl(
-          config: config,
-          baseUrl: baseUrl,
-          itemId: itemId,
-          mediaSourceId: mediaSourceId,
-          token: token,
-        );
-
-  String audioStream(String itemId, {String? mediaSourceId}) =>
-      config.project == ServerProject.feiniu
-      ? FeiniuApi.mediaRangeUrl(baseUrl, mediaSourceId ?? itemId)
-      : MediaBrowserApi.audioStreamUrl(
-          config: config,
-          baseUrl: baseUrl,
-          itemId: itemId,
-          mediaSourceId: mediaSourceId,
-          token: token,
-        );
-}
 
 final mediaBrowserServerUrlsProvider = FutureProvider<MediaBrowserServerUrls>((
   ref,

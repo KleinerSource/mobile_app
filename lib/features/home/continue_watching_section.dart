@@ -19,6 +19,7 @@ class ContinueWatchingEntry {
     this.minutesLeft,
     required this.onOpen,
     required this.onResume,
+    this.imageHeaders,
   });
 
   /// 隐私遮罩键（条目 ID）。
@@ -32,6 +33,7 @@ class ContinueWatchingEntry {
   final int? minutesLeft;
   final VoidCallback onOpen;
   final VoidCallback onResume;
+  final Map<String, String>? imageHeaders;
 }
 
 /// 继续观看区块 · OMM 首页同款设计：
@@ -49,7 +51,9 @@ class ContinueWatchingSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardWidth =
-        (MediaQuery.sizeOf(context).width * 0.7).clamp(260.0, 520.0).toDouble() *
+        (MediaQuery.sizeOf(context).width * 0.7)
+            .clamp(260.0, 520.0)
+            .toDouble() *
         0.72;
     final coverHeight = cardWidth / (16 / 10);
     const titleAreaHeight = 60.0;
@@ -123,6 +127,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                       title: entry.title,
                       aspectRatio: 16 / 10,
                       radius: 0,
+                      httpHeaders: entry.imageHeaders,
                     ),
                   ),
                   Positioned.fill(

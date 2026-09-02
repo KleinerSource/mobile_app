@@ -13,13 +13,16 @@ import '../privacy/privacy_providers.dart';
 /// hero 封面艺术条目 · 与轮播页一一对应,驱动氛围背景
 @immutable
 class HeroArt {
-  const HeroArt({required this.movieId, required this.url});
+  const HeroArt({required this.movieId, required this.url, this.imageHeaders});
 
   /// OMM 使用整数 id，外部数据源（如 dbonline）可以使用字符串 id。
   final Object movieId;
 
   /// 无可用封面时为空字符串,该层不渲染
   final String url;
+
+  /// 图片接口所需的请求头；飞牛图片资源不需要鉴权头。
+  final Map<String, String>? imageHeaders;
 }
 
 /// 首页氛围背景 · SenPlayer/Infuse 风格:
@@ -119,6 +122,7 @@ class _BackdropArtLayer extends StatelessWidget {
                 child: CachedNetworkImage(
                   cacheManager: AppImageCacheManager.instance,
                   imageUrl: art.url,
+                  httpHeaders: art.imageHeaders,
                   fit: BoxFit.cover,
                   width: double.infinity,
                   height: double.infinity,

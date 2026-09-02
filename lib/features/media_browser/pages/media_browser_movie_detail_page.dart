@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,13 +5,14 @@ import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
-import 'package:omm/features/cache/image_cache_manager.dart';
 import 'package:omm/features/media_browser/playback/media_browser_playback.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_action_button.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_cast_section.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_media_info_section.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
+import 'package:omm/features/oh_my_media/movie_detail/movie_detail_formatters.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
 import 'package:omm/shared/filter_chip.dart';
@@ -95,13 +95,13 @@ class _MediaBrowserDetailBodyState
   @override
   void initState() {
     super.initState();
-    _syncHeroArt();
+    _syncHeroArt(ref.read(mediaBrowserServerUrlsProvider).value);
   }
 
   @override
   void didUpdateWidget(covariant _MediaBrowserDetailBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _syncHeroArt();
+    _syncHeroArt(ref.read(mediaBrowserServerUrlsProvider).value);
   }
 
   @override
@@ -111,11 +111,14 @@ class _MediaBrowserDetailBodyState
     super.dispose();
   }
 
-  void _syncHeroArt() {
+  void _syncHeroArt(MediaBrowserServerUrls? urls) {
     final item = widget.item;
-    final urls = ref.read(mediaBrowserServerUrlsProvider).value;
     final url = urls?.heroImage(item) ?? '';
-    final art = HeroArt(movieId: item.id, url: url);
+    final art = HeroArt(
+      movieId: item.id,
+      url: url,
+      imageHeaders: urls?.imageHeaders,
+    );
     final current = _heroArts.value;
     if (current.length == 1 &&
         current.first.movieId == art.movieId &&
@@ -181,6 +184,7 @@ class _MediaBrowserDetailBodyState
   Widget build(BuildContext context) {
     final item = widget.item;
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
+    _syncHeroArt(urls.value);
     final posterUrl = item.primaryImageTag == null
         ? null
         : urls.value?.poster(item.id, tag: item.primaryImageTag);
@@ -189,11 +193,19 @@ class _MediaBrowserDetailBodyState
       for (final person in item.people)
         if (person.type == 'Actor' && person.name.trim().isNotEmpty) person,
     ];
-    final directors = [
+    final directorPeople = [
       for (final person in item.people)
-        if (person.type == 'Director' && person.name.trim().isNotEmpty)
-          person.name,
+        if (person.type == 'Director' && person.name.trim().isNotEmpty) person,
     ];
+    // fnos 列表接口不支持按人物过滤，点击仅对 Emby/Jellyfin 开放。
+    final void Function(MediaBrowserPerson)? onOpenPerson =
+        ref.watch(mediaBrowserConfigProvider)?.project == ServerProject.feiniu
+        ? null
+        : (person) => openMediaBrowserPersonWorks(
+            context,
+            personId: person.id,
+            personName: person.name,
+          );
     return MovieDetailScaffold(
       heroArts: _heroArts,
       heroPosition: _heroPosition,
@@ -201,6 +213,7 @@ class _MediaBrowserDetailBodyState
         imageUrl: posterUrl,
         title: item.name,
         year: item.productionYear,
+        imageHeaders: urls.value?.imageHeaders,
       ),
       slivers: [
         SliverToBoxAdapter(
@@ -253,14 +266,13 @@ class _MediaBrowserDetailBodyState
           SliverToBoxAdapter(
             child: _ChipSection(title: '类型', labels: item.genres),
           ),
-        if (directors.isNotEmpty)
+        if (directorPeople.isNotEmpty)
           SliverToBoxAdapter(
-            child: _PeopleSection(
+            child: MediaBrowserCastSection(
               title: '导演',
-              people: item.people
-                  .where((person) => person.type == 'Director')
-                  .toList(growable: false),
+              people: directorPeople,
               urls: urls.value,
+              onOpenPerson: onOpenPerson,
             ),
           ),
         if (castPeople.isNotEmpty)
@@ -268,18 +280,10 @@ class _MediaBrowserDetailBodyState
             child: MediaBrowserCastSection(
               people: castPeople,
               urls: urls.value,
-              // fnos 列表接口不支持按人物过滤，点击仅对 Emby/Jellyfin 开放。
-              onOpenPerson:
-                  ref.watch(mediaBrowserConfigProvider)?.project ==
-                      ServerProject.feiniu
-                  ? null
-                  : (person) => openMediaBrowserPersonWorks(
-                      context,
-                      personId: person.id,
-                      personName: person.name,
-                    ),
+              onOpenPerson: onOpenPerson,
             ),
           ),
+        SliverToBoxAdapter(child: MediaBrowserMediaInfoSection(item: item)),
         if (_hasDetails(item))
           SliverToBoxAdapter(
             child: MovieDetailSection(
@@ -287,7 +291,6 @@ class _MediaBrowserDetailBodyState
               child: _DetailsTable(item: item),
             ),
           ),
-        SliverToBoxAdapter(child: MediaBrowserMediaInfoSection(item: item)),
         const SliverToBoxAdapter(child: SizedBox(height: 60)),
       ],
     );
@@ -368,7 +371,7 @@ class _ActionRow extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _ActionButton(
+              child: MediaBrowserActionButton(
                 icon: favorite
                     ? Icons.favorite_rounded
                     : Icons.favorite_border_rounded,
@@ -379,7 +382,7 @@ class _ActionRow extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: _ActionButton(
+              child: MediaBrowserActionButton(
                 icon: played
                     ? Icons.task_alt_rounded
                     : Icons.check_circle_outline_rounded,
@@ -391,7 +394,7 @@ class _ActionRow extends StatelessWidget {
             if (canPlay) ...[
               const SizedBox(width: 10),
               Expanded(
-                child: _ActionButton(
+                child: MediaBrowserActionButton(
                   icon: Icons.auto_awesome_rounded,
                   label: '转码播放',
                   onPressed: busy ? null : onTranscodePlay,
@@ -401,49 +404,6 @@ class _ActionRow extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-    this.active = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onPressed;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: active ? colors.accent : colors.text,
-        side: BorderSide(
-          color: active
-              ? colors.accent.withValues(alpha: 0.55)
-              : colors.cardBorder,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
-      ),
-      icon: Icon(icon, size: 16),
-      label: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontWeight: FontWeight.w600,
-          fontSize: 12.5,
-        ),
-      ),
     );
   }
 }
@@ -475,109 +435,6 @@ class _ChipSection extends StatelessWidget {
   }
 }
 
-class _PeopleSection extends StatelessWidget {
-  const _PeopleSection({
-    required this.title,
-    required this.people,
-    required this.urls,
-  });
-
-  final String title;
-  final List<MediaBrowserPerson> people;
-  final MediaBrowserServerUrls? urls;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = appColors(context);
-    return MovieDetailSection(
-      title: title,
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (var i = 0; i < people.length; i++)
-            _PersonPill(
-              person: people[i],
-              imageUrl: urls?.personImage(people[i]),
-              color: colors.text,
-              hue: AppHues.all[i % AppHues.all.length],
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PersonPill extends StatelessWidget {
-  const _PersonPill({
-    required this.person,
-    required this.imageUrl,
-    required this.color,
-    required this.hue,
-  });
-
-  final MediaBrowserPerson person;
-  final String? imageUrl;
-  final Color color;
-  final int hue;
-
-  @override
-  Widget build(BuildContext context) {
-    final role = person.role?.trim() ?? '';
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: appColors(context).chipBg,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: appColors(context).cardBorder),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 14,
-              backgroundColor: AppHues.top(hue),
-              child: imageUrl == null
-                  ? Text(
-                      person.name.isEmpty ? '·' : person.name.characters.first,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    )
-                  : ClipOval(
-                      child: CachedNetworkImage(
-                        cacheManager: AppImageCacheManager.instance,
-                        key: ValueKey(imageUrl),
-                        imageUrl: imageUrl!,
-                        fit: BoxFit.cover,
-                        width: 28,
-                        height: 28,
-                        fadeInDuration: const Duration(milliseconds: 180),
-                        errorWidget: (_, __, ___) =>
-                            const SizedBox.shrink(),
-                      ),
-                    ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              role.isEmpty ? person.name : '${person.name}（$role）',
-              style: TextStyle(
-                color: color,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _DetailsTable extends StatelessWidget {
   const _DetailsTable({required this.item});
 
@@ -596,7 +453,7 @@ class _DetailsTable extends StatelessWidget {
       if (source?.container?.trim().isNotEmpty == true)
         ('容器', source!.container!),
       if (source?.sizeInBytes != null && source!.sizeInBytes! > 0)
-        ('文件大小', _formatSize(source.sizeInBytes!)),
+        ('文件大小', formatFileSize(source.sizeInBytes!)),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -630,15 +487,4 @@ class _DetailsTable extends StatelessWidget {
       ],
     );
   }
-}
-
-String _formatSize(int bytes) {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  var value = bytes.toDouble();
-  var unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit++;
-  }
-  return '${value.toStringAsFixed(unit <= 1 ? 0 : 1)} ${units[unit]}';
 }

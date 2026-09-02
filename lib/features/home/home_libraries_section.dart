@@ -12,6 +12,7 @@ class HomeLibraryCardEntry {
     required this.name,
     this.coverUrl,
     required this.onTap,
+    this.imageHeaders,
   });
 
   final Object id;
@@ -19,6 +20,7 @@ class HomeLibraryCardEntry {
 
   /// 库封面；为空或加载失败时回退品牌渐变。
   final String? coverUrl;
+  final Map<String, String>? imageHeaders;
   final VoidCallback onTap;
 }
 
@@ -116,6 +118,7 @@ class _HomeLibraryCard extends StatelessWidget {
                             url: entry.coverUrl,
                             title: entry.name,
                             radius: 0,
+                            httpHeaders: entry.imageHeaders,
                           ),
                         )
                       : KeyedSubtree(

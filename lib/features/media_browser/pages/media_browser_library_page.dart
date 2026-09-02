@@ -526,6 +526,9 @@ class _MediaBrowserLibraryPageState
                                   sliver: urls.maybeWhen(
                                     data: (value) => PagedSliverGrid<int, MediaBrowserItem>(
                                       pagingController: _controller,
+                                      // 与 OMM 影片库一致：尾部提示整行跨列渲染，
+                                      // 否则「没有更多内容」会被塞进单个网格单元。
+                                      showNoMoreItemsIndicatorAsGridChild: false,
                                       gridDelegate:
                                           SliverGridDelegateWithFixedCrossAxisCount(
                                             crossAxisCount: crossAxisCount,

@@ -68,6 +68,43 @@ void main() {
     );
   });
 
+  test('飞牛图片请求头为空，播放请求头仍包含登录令牌和客户端标识', () {
+    final urls = MediaBrowserServerUrls(
+      config: MediaBrowserConfig.feiniu,
+      baseUrl: 'http://test',
+      token: 'Bearer test-token',
+    );
+
+    expect(urls.directHeaders, {
+      'Authorization': 'Bearer test-token',
+      'X-Trim-Client': 'web',
+      'X-Trim-Client-Version': '616',
+    });
+    expect(urls.imageHeaders, isEmpty);
+  });
+
+  test('飞牛图片 URL 使用 sys/img 和原生宽度参数', () {
+    final urls = MediaBrowserServerUrls(
+      config: MediaBrowserConfig.feiniu,
+      baseUrl: 'http://test/v',
+    );
+
+    expect(
+      urls.poster('item-1', tag: '/58/06/poster.webp'),
+      'http://test/v/api/v1/sys/img/58/06/poster.webp?w=440',
+    );
+    expect(
+      urls.personImage(
+        const MediaBrowserPerson(
+          id: 'person-1',
+          name: '演员一',
+          profilePath: '58/06/person.webp',
+        ),
+      ),
+      'http://test/v/api/v1/sys/img/58/06/person.webp?w=240',
+    );
+  });
+
   test('includeItemTypesForView 按库类型映射条目过滤', () {
     expect(includeItemTypesForView('movies'), 'Movie');
     expect(includeItemTypesForView('TVShows'), 'Series');

@@ -454,7 +454,7 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
   }) async {
     final value = tag?.trim() ?? '';
     if (value.isNotEmpty) {
-      return FeiniuApi.resolveAssetUrl(endpoint ?? '', value);
+      return FeiniuApi.resolveAssetUrl(endpoint ?? '', value, width: maxWidth);
     }
     final suffix = switch (imageType.toLowerCase()) {
       'backdrop' => 'backdrop.jpg',
@@ -464,6 +464,7 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     return FeiniuApi.resolveAssetUrl(
       endpoint ?? '',
       '/mediadb/${Uri.encodeComponent(itemId)}/$suffix',
+      width: maxWidth,
     );
   }
 

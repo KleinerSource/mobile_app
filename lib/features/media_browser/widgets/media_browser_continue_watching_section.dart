@@ -25,6 +25,7 @@ class MediaBrowserContinueWatchingSection extends ConsumerWidget {
             title: item.name,
             meta: _metaText(item),
             coverUrl: urls?.heroImage(item),
+            imageHeaders: urls?.imageHeaders,
             progress: _progressOf(item),
             minutesLeft: _minutesLeft(item),
             onOpen: () => openMediaBrowserItem(context, ref, item),

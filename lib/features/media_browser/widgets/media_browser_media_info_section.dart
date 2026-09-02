@@ -1,13 +1,16 @@
 import 'package:flutter/widgets.dart';
 
 import 'package:omm/core/models/media_streams.dart';
+import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/oh_my_media/movie_detail/media_stream_cards.dart';
-import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
 
 /// Emby/Jellyfin/fnos 的「媒体信息」区块 · 复用 OMM 详情页的流卡片，
 /// 把 MediaSource.MediaStreams 映射成 MediaInfoDetail 后交给
 /// [MediaStreamCards] 渲染（视频/HDR 徽章 + 每条音轨 + 字幕汇总）。
+///
+/// 滚动视口铺满屏宽：首卡与标题对齐，向左滚动卡片可贴到屏幕边缘
+/// （外层不再垫横向边距，由卡片轨道自带的滚动内边距控制起止位置）。
 class MediaBrowserMediaInfoSection extends StatelessWidget {
   const MediaBrowserMediaInfoSection({super.key, required this.item});
 
@@ -17,9 +20,21 @@ class MediaBrowserMediaInfoSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final detail = mediaBrowserMediaInfoDetail(item);
     if (detail == null) return const SizedBox.shrink();
-    return MovieDetailSection(
-      title: '媒体信息',
-      child: MediaStreamCards(detail: detail),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+            child: Text('媒体信息', style: AppText.sectionTitle(context)),
+          ),
+          MediaStreamCards(
+            detail: detail,
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -110,7 +110,7 @@ void main() {
     );
     expect(
       FeiniuApi.resolveAssetUrl('http://host:5666/v', 'images/a.png'),
-      'http://host:5666/v/images/a.png',
+      'http://host:5666/v/api/v1/sys/img/images/a.png',
     );
     expect(
       FeiniuApi.resolveAssetUrl(
@@ -136,6 +136,30 @@ void main() {
         '/55/02/poster-hash.webp?w=400',
       ),
       'http://host:5666/v/api/v1/sys/img/55/02/poster-hash.webp?w=400',
+    );
+    expect(
+      FeiniuApi.resolveAssetUrl(
+        'http://host:5666/v',
+        '/58/06/RXFg9YOlYYTNwMynBkZifbn3VpVnzd401lk1CjS099E0CKLrudR62lPMnoHDczMO4lEftUC9fHZWkQbcf877oM0TN1.webp',
+        width: 400,
+      ),
+      'http://host:5666/v/api/v1/sys/img/58/06/RXFg9YOlYYTNwMynBkZifbn3VpVnzd401lk1CjS099E0CKLrudR62lPMnoHDczMO4lEftUC9fHZWkQbcf877oM0TN1.webp?w=400',
+    );
+    expect(
+      FeiniuApi.resolveAssetUrl(
+        'http://host:5666/v',
+        '58/06/poster-hash.webp',
+        width: 440,
+      ),
+      'http://host:5666/v/api/v1/sys/img/58/06/poster-hash.webp?w=440',
+    );
+    expect(
+      FeiniuApi.resolveAssetUrl(
+        'http://host:5666/v',
+        'http://host:5666/v/api/v1/sys/img/58/06/poster-hash.webp',
+        width: 400,
+      ),
+      'http://host:5666/v/api/v1/sys/img/58/06/poster-hash.webp?w=400',
     );
   });
 
@@ -171,6 +195,40 @@ void main() {
     expect(streams.video.single.bitRate, 6424829);
     expect(streams.subtitle.single.isExternal, isTrue);
     expect(streams.subtitle.single.extraFile, isNull);
+  });
+
+  test('飞牛人物头像兼容 profile_image 和 headshot 字段', () {
+    final profileImage = FeiniuPerson.fromJson(const {
+      'person_id': 'person-1',
+      'name': '演员一',
+      'profile_image': '/58/06/profile.webp',
+    });
+    final headshot = FeiniuPerson.fromJson(const {
+      'person_id': 'person-2',
+      'name': '演员二',
+      'headshot': '58/06/headshot.webp',
+    });
+
+    expect(profileImage.profilePath, '/58/06/profile.webp');
+    expect(headshot.profilePath, '58/06/headshot.webp');
+  });
+
+  test('飞牛条目内嵌演员字段保留海报头像路径', () {
+    final item = FeiniuItem.fromJson(const {
+      'guid': 'item-1',
+      'title': '示例影片',
+      'type': 'Movie',
+      'people': [
+        {
+          'person_guid': 'person-1',
+          'name': '演员一',
+          'job': 'Actor',
+          'poster': '/58/06/person.webp',
+        },
+      ],
+    });
+
+    expect(item.people.single.profilePath, '/58/06/person.webp');
   });
 }
 
