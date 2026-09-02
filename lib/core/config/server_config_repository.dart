@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../api/server_compatibility.dart';
 import 'server_config.dart';
 
 class ServerConfigRepository {
@@ -104,15 +105,23 @@ class ServerConfigRepository {
     }
   }
 
-  List<ServerLine> _normalizeLines(List<ServerLine> input, String activeUrl) {
+  List<ServerLine> _normalizeLines(
+    List<ServerLine> input,
+    String activeUrl, {
+    ServerProject? project,
+  }) {
     final seenUrls = <String>{};
     final lines = <ServerLine>[];
     for (final line in input) {
-      final baseUrl = ServerConfig.normalize(line.baseUrl);
+      final baseUrl = project == null
+          ? ServerConfig.normalize(line.baseUrl)
+          : ServerConfig.normalizeForProject(line.baseUrl, project);
       if (baseUrl.isEmpty || !seenUrls.add(baseUrl)) continue;
       lines.add(line.copyWith(baseUrl: baseUrl));
     }
-    final normalizedActiveUrl = ServerConfig.normalize(activeUrl);
+    final normalizedActiveUrl = project == null
+        ? ServerConfig.normalize(activeUrl)
+        : ServerConfig.normalizeForProject(activeUrl, project);
     if (lines.isEmpty && normalizedActiveUrl.isNotEmpty) {
       lines.add(
         ServerLine(id: 'legacy', name: '主线路', baseUrl: normalizedActiveUrl),
@@ -133,7 +142,7 @@ class ServerConfigRepository {
     for (final server in input) {
       final project = server.project;
       if (project == null) continue;
-      final lines = _normalizeLines(server.lines, '');
+      final lines = _normalizeLines(server.lines, '', project: project);
       if (lines.isEmpty) continue;
       var id = server.id.trim();
       if (id.isEmpty || !seenIds.add(id)) {

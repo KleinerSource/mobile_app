@@ -222,6 +222,7 @@ class _ServerProjectBadge extends StatelessWidget {
       ServerProject.dbOnline => ('DBO', const Color(0xFF0E7490), 'dbonline'),
       ServerProject.emby => ('EMBY', const Color(0xFF52B54B), 'Emby'),
       ServerProject.jellyfin => ('JFIN', const Color(0xFFAA5CC3), 'Jellyfin'),
+      ServerProject.feiniu => ('FN', const Color(0xFF2979FF), '飞牛影视'),
       ServerProject.smb => ('SMB', const Color(0xFF2E7D32), 'SMB'),
       ServerProject.webDav => ('DAV', const Color(0xFF6A1B9A), 'WebDAV'),
       ServerProject.openList => ('OL', const Color(0xFFBF360C), 'OpenList'),

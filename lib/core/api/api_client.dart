@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../auth/auth_session_repository.dart';
 import '../config/server_config.dart';
 import 'dio_factory.dart';
+import '../../features/media_browser/api/feiniu_api.dart';
 import 'services/auth_api.dart';
 import 'server_compatibility.dart';
 import 'services/actors_api.dart';
@@ -54,7 +55,8 @@ class ApiClient {
       configsExtended = ConfigsExtendedApi(dio),
       dbOnline = DbOnlineApi(dio),
       emby = MediaBrowserApi(dio, MediaBrowserConfig.emby),
-      jellyfin = MediaBrowserApi(dio, MediaBrowserConfig.jellyfin);
+      jellyfin = MediaBrowserApi(dio, MediaBrowserConfig.jellyfin),
+      feiniu = FeiniuApi(dio);
 
   factory ApiClient.fromConfig(
     ServerConfig config, {
@@ -66,7 +68,8 @@ class ApiClient {
     final allowLegacyMigration =
         activeProject != ServerProject.dbOnline &&
         activeProject != ServerProject.emby &&
-        activeProject != ServerProject.jellyfin;
+        activeProject != ServerProject.jellyfin &&
+        activeProject != ServerProject.feiniu;
     sessionRepository?.setActiveServerId(
       config.activeServerId,
       allowLegacyMigration: allowLegacyMigration,
@@ -110,6 +113,7 @@ class ApiClient {
   final DbOnlineApi dbOnline;
   final MediaBrowserApi emby;
   final MediaBrowserApi jellyfin;
+  final FeiniuApi feiniu;
   final SystemExtendedApi systemExtended;
 
   /// 取 [config] 对应的 MediaBrowser（Emby/Jellyfin）API 实例。

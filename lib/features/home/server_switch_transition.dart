@@ -1181,7 +1181,8 @@ class _ServerSwitchTransitionOverlayState
           requiresTotp
               ? '输入动态验证码完成切换。'
               : server.project == ServerProject.emby ||
-                    server.project == ServerProject.jellyfin
+                    server.project == ServerProject.jellyfin ||
+                    server.project == ServerProject.feiniu
               ? '请输入此服务器的用户名和密码继续。'
               : '请输入此服务器的密码继续。',
           textAlign: TextAlign.center,
@@ -1198,9 +1199,10 @@ class _ServerSwitchTransitionOverlayState
             onCompleted: (_) => _submitTotp(),
           ),
         ] else ...[
-          // Emby/Jellyfin 以用户名 + 密码登录；OMM/DBO 只有密码。
+          // Emby/Jellyfin/飞牛影视以用户名 + 密码登录；OMM/DBO 只有密码。
           if (server.project == ServerProject.emby ||
-              server.project == ServerProject.jellyfin) ...[
+              server.project == ServerProject.jellyfin ||
+              server.project == ServerProject.feiniu) ...[
             _input(
               context,
               controller: _usernameController,
@@ -1327,7 +1329,8 @@ class _ServerSwitchTransitionOverlayState
     );
     final needsUsername =
         target?.project == ServerProject.emby ||
-        target?.project == ServerProject.jellyfin;
+        target?.project == ServerProject.jellyfin ||
+        target?.project == ServerProject.feiniu;
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
     if (needsUsername && username.isEmpty) {

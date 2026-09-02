@@ -57,6 +57,7 @@ Future<void> openMediaBrowserAudioPlayback(
               ? null
               : track.mediaSources.first.id,
         ),
+        headers: urls.directHeaders,
       ),
     );
     final index = startIndex.clamp(0, playable.length - 1);
@@ -187,6 +188,7 @@ class MediaBrowserAudioQueueSession {
                     ? null
                     : track.mediaSources.first.id,
               ),
+        directHeaders: urls.directHeaders,
       );
       // 播放服务的 mediaItem.id 是 safeMediaId（不可逆摘要），统一以它
       // 建映射，切歌上报与元数据加载才能定位回服务器条目。
@@ -309,7 +311,11 @@ class MediaBrowserAudioQueueSession {
       if (!await file.exists()) {
         // 下载器是无鉴权裸 Dio，这里必须带 token 兜底；产物是临时文件
         // 不进图片缓存，token 变化不影响缓存 key。
-        await _downloader.download(urls.authedPoster(imageItemId), file.path);
+        await _downloader.download(
+          urls.authedPoster(imageItemId),
+          file.path,
+          options: Options(headers: urls.directHeaders),
+        );
         if (_disposed) {
           await _deleteQuietly(file);
           return null;

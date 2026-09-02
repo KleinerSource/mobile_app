@@ -9,6 +9,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../auth/auth_session.dart';
 import '../auth/auth_session_repository.dart';
 import '../config/server_config.dart';
+import 'feiniu_signer.dart';
 import 'api_exception.dart';
 import 'envelope.dart';
 import 'error_mapper.dart';
@@ -39,14 +40,20 @@ Dio buildDio(
   Duration connectTimeout = const Duration(seconds: 15),
   Duration sendTimeout = const Duration(seconds: 30),
   Duration receiveTimeout = const Duration(seconds: 30),
+  ServerProject? projectOverride,
 }) {
   // Emby/Jellyfin 的 REST 接口挂在根路径下，没有 OMM 的 /api 网关。
-  final project = config.activeServer?.project;
+  final project = projectOverride ?? config.activeServer?.project;
   final isEmbyLike =
       project == ServerProject.emby || project == ServerProject.jellyfin;
+  final isFeiniu = project == ServerProject.feiniu;
   final dio = Dio(
     BaseOptions(
-      baseUrl: isEmbyLike ? config.baseUrl : config.apiBase,
+      baseUrl: isEmbyLike
+          ? config.baseUrl
+          : isFeiniu
+          ? '${ServerConfig.normalizeForProject(config.baseUrl, ServerProject.feiniu)}/api/v1'
+          : config.apiBase,
       connectTimeout: connectTimeout,
       sendTimeout: sendTimeout,
       receiveTimeout: receiveTimeout,
@@ -104,14 +111,18 @@ Dio buildDio(
         if (userAgent != null) {
           options.headers['User-Agent'] = userAgent;
         }
+        String? token;
         if (options.extra['skipAuth'] != true && sessionRepository != null) {
-          final token = await sessionRepository.accessToken();
+          token = await sessionRepository.accessToken();
           if (token != null && token.isNotEmpty) {
-            if (project == ServerProject.jellyfin) {
+            if (isFeiniu) {
+              options.headers['Authorization'] = token;
+              options.headers['X-Trim-Client'] = 'web';
+              options.headers['X-Trim-Client-Version'] = '616';
+            } else if (project == ServerProject.jellyfin) {
               // Jellyfin 使用标准 Authorization 头携带 MediaBrowser 令牌；
               // 旧版 X-Emby-Token 头自 Jellyfin 12 起默认禁用。
-              options.headers['Authorization'] =
-                  'MediaBrowser Token="$token"';
+              options.headers['Authorization'] = 'MediaBrowser Token="$token"';
             } else if (project == ServerProject.emby) {
               // Emby 不识别 Bearer 令牌，改用其原生的令牌头。
               options.headers['X-Emby-Token'] = token;
@@ -119,6 +130,19 @@ Dio buildDio(
               options.headers['Authorization'] = 'Bearer $token';
             }
           }
+        }
+        if (isFeiniu && options.extra['skipSigning'] != true) {
+          final body = options.data is Map
+              ? Map<String, dynamic>.from(options.data as Map)
+              : null;
+          final signed = FeiniuRequestSigner().sign(
+            method: options.method,
+            pathname: options.uri.path,
+            body: body,
+            query: options.uri.queryParameters,
+          );
+          if (signed.body != null) options.data = signed.body;
+          options.headers['Authx'] = signed.authx;
         }
         handler.next(options);
       },
@@ -156,6 +180,7 @@ Dio buildDio(
             project != ServerProject.dbOnline &&
             project != ServerProject.emby &&
             project != ServerProject.jellyfin &&
+            project != ServerProject.feiniu &&
             status == 401 &&
             options.extra['skipRefresh'] != true &&
             options.extra['authRetried'] != true &&

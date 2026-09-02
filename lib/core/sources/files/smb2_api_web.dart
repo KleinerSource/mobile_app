@@ -34,6 +34,11 @@ class Smb2ShareInfo {
   bool get isDisk => type & 0x03 == 0;
 }
 
+/// Web 调试目标中仅作类型占位，句柄操作一律抛出 UnsupportedError。
+class Smb2PoolHandle {
+  const Smb2PoolHandle._();
+}
+
 class Smb2Pool {
   Smb2Pool._();
 
@@ -89,6 +94,18 @@ class Smb2Pool {
 
   Future<void> rename(String source, String destination) =>
       _unsupported<void>();
+
+  Future<(Smb2PoolHandle, int)> openFileWithSize(String path) =>
+      _unsupported<(Smb2PoolHandle, int)>();
+
+  Future<Uint8List> readFromHandle(
+    Smb2PoolHandle handle, {
+    int offset = 0,
+    required int length,
+  }) =>
+      _unsupported<Uint8List>();
+
+  Future<void> closeHandle(Smb2PoolHandle handle) => _unsupported<void>();
 
   Future<void> disconnect() async {}
 }

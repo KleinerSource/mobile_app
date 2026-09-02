@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/auth/auth_provider.dart';
 import 'package:omm/core/auth/auth_session_provider.dart';
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/sources/common/source_exception.dart';
 import 'package:omm/core/sources/common/source_id.dart';
@@ -9,6 +10,7 @@ import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/core/sources/media/media_source_providers.dart';
 import 'package:omm/features/media_browser/api/media_browser_api.dart';
 import 'package:omm/features/media_browser/api/media_browser_config.dart';
+import 'package:omm/features/media_browser/api/feiniu_api.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/repositories/media_browser_media_repository.dart';
 
@@ -22,7 +24,7 @@ final mediaBrowserConfigProvider = Provider<MediaBrowserConfig?>((ref) {
 });
 
 SourceException _notMediaBrowserException() =>
-    const SourceException('当前服务器不是 Emby/Jellyfin，无法访问媒体目录');
+    const SourceException('当前服务器不是可用的媒体服务器，无法访问媒体目录');
 
 final mediaBrowserMediaRepositoryProvider =
     Provider<MediaBrowserMediaRepository>((ref) {
@@ -58,8 +60,14 @@ class MediaBrowserServerUrls {
 
   bool get isReady => baseUrl.trim().isNotEmpty;
 
+  Map<String, String> get directHeaders => config.project == ServerProject.feiniu
+      ? FeiniuApi.mediaHeaders(token)
+      : const <String, String>{};
+
   String poster(String itemId, {int maxWidth = 440, String? tag}) =>
-      MediaBrowserApi.imageUrl(
+      config.project == ServerProject.feiniu
+      ? FeiniuApi.resolveAssetUrl(baseUrl, tag)
+      : MediaBrowserApi.imageUrl(
         config: config,
         baseUrl: baseUrl,
         itemId: itemId,
@@ -69,7 +77,9 @@ class MediaBrowserServerUrls {
       );
 
   String backdrop(String itemId, {int maxWidth = 1280, String? tag}) =>
-      MediaBrowserApi.imageUrl(
+      config.project == ServerProject.feiniu
+      ? FeiniuApi.resolveAssetUrl(baseUrl, tag)
+      : MediaBrowserApi.imageUrl(
         config: config,
         baseUrl: baseUrl,
         itemId: itemId,
@@ -79,7 +89,9 @@ class MediaBrowserServerUrls {
       );
 
   String thumb(String itemId, {int maxWidth = 440, String? tag}) =>
-      MediaBrowserApi.imageUrl(
+      config.project == ServerProject.feiniu
+      ? FeiniuApi.resolveAssetUrl(baseUrl, tag)
+      : MediaBrowserApi.imageUrl(
         config: config,
         baseUrl: baseUrl,
         itemId: itemId,
@@ -92,7 +104,9 @@ class MediaBrowserServerUrls {
   /// 场景（通知栏封面）；产物是按 itemId 命名的临时文件，不存在缓存
   /// key 失稳问题。
   String authedPoster(String itemId, {int maxWidth = 600, String? tag}) =>
-      MediaBrowserApi.imageUrl(
+      config.project == ServerProject.feiniu
+      ? FeiniuApi.resolveAssetUrl(baseUrl, tag)
+      : MediaBrowserApi.imageUrl(
         config: config,
         baseUrl: baseUrl,
         itemId: itemId,
@@ -128,7 +142,9 @@ class MediaBrowserServerUrls {
   }
 
   String stream(String itemId, {String? mediaSourceId}) =>
-      MediaBrowserApi.streamUrl(
+      config.project == ServerProject.feiniu
+      ? FeiniuApi.mediaRangeUrl(baseUrl, mediaSourceId ?? itemId)
+      : MediaBrowserApi.streamUrl(
         config: config,
         baseUrl: baseUrl,
         itemId: itemId,
@@ -137,7 +153,9 @@ class MediaBrowserServerUrls {
       );
 
   String audioStream(String itemId, {String? mediaSourceId}) =>
-      MediaBrowserApi.audioStreamUrl(
+      config.project == ServerProject.feiniu
+      ? FeiniuApi.mediaRangeUrl(baseUrl, mediaSourceId ?? itemId)
+      : MediaBrowserApi.audioStreamUrl(
         config: config,
         baseUrl: baseUrl,
         itemId: itemId,

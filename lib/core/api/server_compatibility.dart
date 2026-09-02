@@ -10,6 +10,7 @@ const defaultEmbyPort = 8096;
 const defaultEmbyHttpsPort = 8920;
 const defaultJellyfinPort = 8096;
 const defaultJellyfinHttpsPort = 8920;
+const defaultFeiniuPort = 5666;
 const defaultSmbPort = 445;
 const defaultWebDavHttpPort = 80;
 const defaultWebDavHttpsPort = 443;
@@ -35,6 +36,11 @@ enum ServerProject {
     projectName: 'jellyfin',
     displayName: 'Jellyfin Server',
     minimumVersion: '10.8.0',
+  ),
+  feiniu(
+    projectName: 'feiniu',
+    displayName: '飞牛影视',
+    minimumVersion: '0.8.0',
   ),
   smb(
     projectName: 'smb',
@@ -88,6 +94,7 @@ int defaultServerPort(ServerProject project, {String scheme = 'http'}) {
       scheme.toLowerCase() == 'https'
           ? defaultJellyfinHttpsPort
           : defaultJellyfinPort,
+    ServerProject.feiniu => defaultFeiniuPort,
     ServerProject.smb => defaultSmbPort,
     ServerProject.webDav =>
       scheme.toLowerCase() == 'https'
@@ -107,7 +114,9 @@ String get serverCompatibilityRequirementMessage =>
     '${ServerProject.emby.projectName} >= '
     '${ServerProject.emby.minimumVersion} 或 '
     '${ServerProject.jellyfin.projectName} >= '
-    '${ServerProject.jellyfin.minimumVersion}';
+    '${ServerProject.jellyfin.minimumVersion} 或 '
+    '${ServerProject.feiniu.projectName} >= '
+    '${ServerProject.feiniu.minimumVersion}';
 
 @immutable
 class ServerVersionInfo {

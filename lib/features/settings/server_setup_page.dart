@@ -111,7 +111,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
 
     final endpoint = _buildHttpEndpoint(project);
     if (endpoint == null) return;
-    final normalized = ServerConfig.normalize(endpoint);
+    final normalized = ServerConfig.normalizeForProject(endpoint, project);
     final existing =
         ref.read(serverConfigProvider) ??
         ref.read(serverConfigRepoProvider).load();
@@ -260,7 +260,8 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       ServerProject.ohMyMedia ||
       ServerProject.dbOnline ||
       ServerProject.emby ||
-      ServerProject.jellyfin => null,
+      ServerProject.jellyfin ||
+      ServerProject.feiniu => null,
     };
     if (config == null || !config.isValid) {
       _showError('请完整填写有效的文件服务器配置');
@@ -380,6 +381,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       case ServerProject.dbOnline:
       case ServerProject.emby:
       case ServerProject.jellyfin:
+      case ServerProject.feiniu:
         throw StateError('当前服务器类型不是文件服务器');
     }
   }
@@ -406,21 +408,24 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
     String endpoint, {
     String? excludingServerId,
   }) {
-    final normalizedEndpoint = _normalizeServerEndpoint(endpoint);
+    final normalizedEndpoint = _normalizeServerEndpoint(endpoint, project);
     return config?.servers.any((server) {
           if (server.id == excludingServerId || server.project != project) {
             return false;
           }
           return server.lines.any(
             (line) =>
-                _normalizeServerEndpoint(line.baseUrl) == normalizedEndpoint,
+                _normalizeServerEndpoint(line.baseUrl, project) ==
+                normalizedEndpoint,
           );
         }) ??
         false;
   }
 
-  String _normalizeServerEndpoint(String raw) {
-    final normalized = ServerConfig.normalize(raw);
+  String _normalizeServerEndpoint(String raw, [ServerProject? project]) {
+    final normalized = project == null
+        ? ServerConfig.normalize(raw)
+        : ServerConfig.normalizeForProject(raw, project);
     final uri = Uri.tryParse(normalized);
     if (uri == null) return normalized;
     final scheme = uri.scheme.toLowerCase();
@@ -467,7 +472,10 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
       _showError('请输入 1-65535 之间的端口');
       return null;
     }
-    return Uri(scheme: _scheme, host: host, port: port).toString();
+    return ServerConfig.normalizeForProject(
+      Uri(scheme: _scheme, host: host, port: port).toString(),
+      project,
+    );
   }
 
   int? _readPort(ServerProject project) {
@@ -492,7 +500,8 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
         project == ServerProject.ohMyMedia ||
         project == ServerProject.dbOnline ||
         project == ServerProject.emby ||
-        project == ServerProject.jellyfin;
+        project == ServerProject.jellyfin ||
+        project == ServerProject.feiniu;
     final webDav = project == ServerProject.webDav;
     final openList = project == ServerProject.openList;
     final httpLike = webDav || openList;
@@ -612,9 +621,7 @@ class _ServerSetupPageState extends ConsumerState<ServerSetupPage> {
                             controller: _userController,
                             enabled: !_busy,
                             decoration: InputDecoration(
-                              labelText: openList
-                                  ? '用户名（留空匿名访问）'
-                                  : '用户名',
+                              labelText: openList ? '用户名（留空匿名访问）' : '用户名',
                               prefixIcon: const Icon(Icons.person_outline),
                             ),
                           ),
@@ -791,6 +798,7 @@ String _projectLabel(ServerProject project) {
     ServerProject.dbOnline => 'DB Online',
     ServerProject.emby => 'Emby',
     ServerProject.jellyfin => 'Jellyfin',
+    ServerProject.feiniu => '飞牛影视',
     ServerProject.smb => 'SMB',
     ServerProject.webDav => 'WebDAV',
     ServerProject.openList => 'OpenList',

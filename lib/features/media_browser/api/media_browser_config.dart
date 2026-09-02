@@ -52,6 +52,7 @@ class MediaBrowserConfig {
   static const Map<ServerProject, MediaBrowserConfig> byProject = {
     ServerProject.emby: emby,
     ServerProject.jellyfin: jellyfin,
+    ServerProject.feiniu: feiniu,
   };
 
   static const emby = MediaBrowserConfig(
@@ -73,6 +74,17 @@ class MediaBrowserConfig {
     sourceId: 'jellyfin',
     brandLabel: 'JELLYFIN',
     displayName: 'Jellyfin',
+    supportsCurrentUser: true,
+  );
+
+  static const feiniu = MediaBrowserConfig(
+    project: ServerProject.feiniu,
+    pathPrefix: '/v',
+    authHeaderName: 'Authorization',
+    tokenQueryParam: 'token',
+    sourceId: 'feiniu',
+    brandLabel: 'FEINIU',
+    displayName: '飞牛影视',
     supportsCurrentUser: true,
   );
 }

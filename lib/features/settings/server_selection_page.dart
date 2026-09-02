@@ -454,8 +454,10 @@ class _ServerSelectionPageState extends ConsumerState<ServerSelectionPage> {
   Future<ServerProfileData?> _loadProfile(ServerProfile server) async {
     final cached = _cachedProfileFor(server);
     final project = server.project;
-    if (project == ServerProject.emby || project == ServerProject.jellyfin) {
-      return _loadEmbyOrJellyfinProfile(server, cached, project!);
+    if (project == ServerProject.emby ||
+        project == ServerProject.jellyfin ||
+        project == ServerProject.feiniu) {
+      return _loadMediaBrowserProfile(server, cached, project!);
     }
     if (project != ServerProject.ohMyMedia) {
       final profile = ServerProfileData(
@@ -1263,12 +1265,13 @@ class _ServerAvatarCard extends StatelessWidget {
       initialData: cachedProfile,
       builder: (context, snapshot) {
         final profile = snapshot.data;
-        // OMM、Emby、Jellyfin 可以从服务端取得真实名称；其他类型只显示
+        // OMM、Emby、Jellyfin、飞牛可以从服务端取得真实名称；其他类型只显示
         // 用户配置名称。线路名称不参与卡片标题。
         final supportsRemoteName =
             server.project == ServerProject.ohMyMedia ||
             server.project == ServerProject.emby ||
-            server.project == ServerProject.jellyfin;
+            server.project == ServerProject.jellyfin ||
+            server.project == ServerProject.feiniu;
         final profileName = profile?.name.trim() ?? '';
         final displayName = supportsRemoteName && profileName.isNotEmpty
             ? profileName
@@ -1651,6 +1654,7 @@ String _serverProjectLabel(ServerProject? project) {
     ServerProject.dbOnline => 'DB Online',
     ServerProject.emby => 'Emby',
     ServerProject.jellyfin => 'Jellyfin',
+    ServerProject.feiniu => '飞牛影视',
     ServerProject.smb => 'SMB',
     ServerProject.webDav => 'WebDAV',
     ServerProject.openList => 'OpenList',

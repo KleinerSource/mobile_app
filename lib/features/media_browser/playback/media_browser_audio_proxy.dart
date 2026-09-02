@@ -53,7 +53,11 @@ class MediaBrowserAudioProxy {
   }
 
   /// 注册曲目并返回播放器使用的本机地址。重复注册同一曲目幂等。
-  String register(MediaBrowserItem track, String remoteUrl) {
+  String register(
+    MediaBrowserItem track,
+    String remoteUrl, {
+    Map<String, String>? headers,
+  }) {
     final path = '/${_digest(track.id)}';
     final existing = _tracksByPath[path];
     if (existing != null) return _baseUri.replace(path: path).toString();
@@ -61,6 +65,7 @@ class MediaBrowserAudioProxy {
       track: track,
       remoteUrl: remoteUrl,
       path: path,
+      headers: headers,
     );
     _orderedTracks.add(proxied);
     _tracksByPath[path] = proxied;
@@ -187,7 +192,9 @@ class MediaBrowserAudioProxy {
     }
     if (request.method == 'HEAD') return;
     await response.addStream(
-      range == null ? file.openRead() : file.openRead(range.start, range.end + 1),
+      range == null
+          ? file.openRead()
+          : file.openRead(range.start, range.end + 1),
     );
   }
 
@@ -213,6 +220,7 @@ class MediaBrowserAudioProxy {
           responseType: ResponseType.stream,
           headers: {
             if (rangeHeader != null) HttpHeaders.rangeHeader: rangeHeader,
+            ...?track.headers,
             'Accept-Encoding': 'identity',
           },
         ),
@@ -313,9 +321,7 @@ class MediaBrowserAudioProxy {
           if (written == teeExpected && written > 0) {
             track.file = teeFile;
             teeClaim!.complete(teeFile);
-            appLog(
-              '[MbAudioProxy] 流式缓存完成: ${track.track.name} size=$written',
-            );
+            appLog('[MbAudioProxy] 流式缓存完成: ${track.track.name} size=$written');
             unawaited(_prefetchNext(track));
           } else {
             await _deleteQuietly(teeFile!);
@@ -430,11 +436,13 @@ class _ProxiedTrack {
     required this.track,
     required this.remoteUrl,
     required this.path,
+    this.headers,
   });
 
   final MediaBrowserItem track;
   final String remoteUrl;
   final String path;
+  final Map<String, String>? headers;
   Future<File>? download;
   File? file;
   String? mimeType;

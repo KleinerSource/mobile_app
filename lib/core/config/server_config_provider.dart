@@ -50,7 +50,6 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
   }
 
   Future<void> _saveNow(ServerConfig cfg) async {
-    final baseUrl = ServerConfig.normalize(cfg.baseUrl);
     ServerProfile? selectedServer;
     for (final server in cfg.servers) {
       if (server.id == cfg.activeServerId) {
@@ -58,13 +57,18 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
         break;
       }
     }
+    final selectedProject = selectedServer?.project;
+    final baseUrl = _normalizeServerUrl(cfg.baseUrl, selectedProject);
     final currentLines = _normalizeLines(
       cfg.lines.isNotEmpty ? cfg.lines : selectedServer?.lines ?? const [],
       baseUrl,
+      project: selectedProject,
     );
     final servers = cfg.servers
         .map(
-          (server) => server.copyWith(lines: _normalizeLines(server.lines, '')),
+          (server) => server.copyWith(
+            lines: _normalizeLines(server.lines, '', project: server.project),
+          ),
         )
         .where((server) => server.lines.isNotEmpty)
         .toList();
@@ -85,7 +89,11 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
               ? shouldReplaceActiveLines
                     ? server.copyWith(
                         lines: currentLines,
-                        activeLineId: _lineForUrl(currentLines, baseUrl).id,
+                        activeLineId: _lineForUrl(
+                          currentLines,
+                          baseUrl,
+                          project: selectedProject,
+                        ).id,
                       )
                     : server
               : server,
@@ -202,8 +210,8 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     final activeLineChanged =
         current == null ||
         previousServer == null ||
-        ServerConfig.normalize(previousBaseUrl ?? '') !=
-            ServerConfig.normalize(nextBaseUrl ?? '');
+        _normalizeServerUrl(previousBaseUrl ?? '', server.project) !=
+            _normalizeServerUrl(nextBaseUrl ?? '', server.project);
     if (activeLineChanged) {
       _requireValidatedProbe(server, validatedProbe);
     }
@@ -274,8 +282,8 @@ class ServerConfigNotifier extends Notifier<ServerConfig?> {
     if (probe == null ||
         !probe.success ||
         probe.versionInfo == null ||
-        ServerConfig.normalize(probe.line.baseUrl) !=
-            ServerConfig.normalize(line.baseUrl)) {
+        _normalizeServerUrl(probe.line.baseUrl, project) !=
+            _normalizeServerUrl(line.baseUrl, project)) {
       final message = probe?.message.trim() ?? '';
       throw ServerCompatibilityException(
         message.isNotEmpty
@@ -455,12 +463,16 @@ final serverSelectionConfigProvider = Provider<ServerConfig?>((ref) {
       ref.watch(serverConfigRepoProvider).load();
 });
 
-List<ServerLine> _normalizeLines(List<ServerLine> lines, String baseUrl) {
-  final normalizedBaseUrl = ServerConfig.normalize(baseUrl);
+List<ServerLine> _normalizeLines(
+  List<ServerLine> lines,
+  String baseUrl, {
+  ServerProject? project,
+}) {
+  final normalizedBaseUrl = _normalizeServerUrl(baseUrl, project);
   final seenUrls = <String>{};
   final result = <ServerLine>[];
   for (final line in lines) {
-    final normalized = ServerConfig.normalize(line.baseUrl);
+    final normalized = _normalizeServerUrl(line.baseUrl, project);
     if (normalized.isEmpty || !seenUrls.add(normalized)) continue;
     result.add(line.copyWith(baseUrl: normalized));
   }
@@ -479,17 +491,26 @@ List<ServerLine> _normalizeLines(List<ServerLine> lines, String baseUrl) {
   return result;
 }
 
-ServerLine _lineForUrl(List<ServerLine> lines, String baseUrl) {
+ServerLine _lineForUrl(
+  List<ServerLine> lines,
+  String baseUrl, {
+  ServerProject? project,
+}) {
   if (lines.isEmpty) {
     throw StateError('至少需要配置一条服务器线路');
   }
-  final normalized = ServerConfig.normalize(baseUrl);
+  final normalized = _normalizeServerUrl(baseUrl, project);
   return lines.firstWhere(
     (line) => line.baseUrl == normalized,
     orElse: () =>
         lines.firstWhere((line) => line.enabled, orElse: () => lines.first),
   );
 }
+
+String _normalizeServerUrl(String raw, ServerProject? project) =>
+    project == null
+    ? ServerConfig.normalize(raw)
+    : ServerConfig.normalizeForProject(raw, project);
 
 String _lineSelectionFailureMessage(ServerLineSelection selection) {
   final incompatible = selection.results.where((result) => result.incompatible);

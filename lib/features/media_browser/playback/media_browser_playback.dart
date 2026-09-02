@@ -61,6 +61,7 @@ Future<void> openMediaBrowserPlayback(
       context,
       title: _playbackTitle(item),
       directUrl: descriptor.uri.toString(),
+      directHeaders: descriptor.headers,
       directFormatHint: descriptor.mimeType,
       startPositionSec: resumeSec,
       engineKind: engineKind,

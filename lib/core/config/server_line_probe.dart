@@ -230,14 +230,51 @@ class ServerLineProbeCoordinator {
 Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
   final stopwatch = Stopwatch()..start();
   try {
-    final versionInfo = await _probeOmmVersion(line);
-    if (versionInfo == null) {
-      // OMM 协议不通时回退尝试 Emby/Jellyfin：System/Info/Public 是免鉴权
-      // 的标准入口，OMM/DBO 服务器对其返回 404，不会误判。
-      final mediaServerInfo = await _probeEmbyLikeVersion(line);
-      if (mediaServerInfo == null) {
-        throw ApiException('服务器版本检测失败');
+    final preferFeiniu = _looksLikeFeiniuBasePath(line.baseUrl);
+    if (preferFeiniu) {
+      final feiniuInfo = await _probeFeiniuVersion(line);
+      if (feiniuInfo != null) {
+        stopwatch.stop();
+        return ServerLineProbeResult.success(
+          line,
+          stopwatch.elapsedMilliseconds,
+          versionInfo: feiniuInfo,
+        );
       }
+    }
+    final versionInfo = await _probeOmmVersion(line);
+    if (versionInfo != null) {
+      if (versionInfo.project == ServerProject.dbOnline) {
+        final dio = buildDio(
+          ServerConfig(baseUrl: line.baseUrl),
+          connectTimeout: const Duration(milliseconds: 1200),
+          sendTimeout: const Duration(milliseconds: 1200),
+          receiveTimeout: const Duration(milliseconds: 2200),
+        );
+        final healthResponse = await dio.get<dynamic>(
+          '/health',
+          options: Options(
+            extra: const {
+              'skipAuth': true,
+              'skipRefresh': true,
+              'skipRetry': true,
+            },
+          ),
+        );
+        _requireHealthyServer(healthResponse.data);
+      }
+      stopwatch.stop();
+      return ServerLineProbeResult.success(
+        line,
+        stopwatch.elapsedMilliseconds,
+        versionInfo: versionInfo,
+      );
+    }
+
+    // OMM 协议不通时回退尝试 Emby/Jellyfin：System/Info/Public 是免鉴权
+    // 的标准入口，OMM/DBO 服务器对其返回 404，不会误判。
+    final mediaServerInfo = await _probeEmbyLikeVersion(line);
+    if (mediaServerInfo != null) {
       stopwatch.stop();
       return ServerLineProbeResult.success(
         line,
@@ -245,31 +282,20 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
         versionInfo: mediaServerInfo,
       );
     }
-    if (versionInfo.project == ServerProject.dbOnline) {
-      final dio = buildDio(
-        ServerConfig(baseUrl: line.baseUrl),
-        connectTimeout: const Duration(milliseconds: 1200),
-        sendTimeout: const Duration(milliseconds: 1200),
-        receiveTimeout: const Duration(milliseconds: 2200),
-      );
-      final healthResponse = await dio.get<dynamic>(
-        '/health',
-        options: Options(
-          extra: const {
-            'skipAuth': true,
-            'skipRefresh': true,
-            'skipRetry': true,
-          },
-        ),
-      );
-      _requireHealthyServer(healthResponse.data);
+
+    if (!preferFeiniu) {
+      final feiniuInfo = await _probeFeiniuVersion(line);
+      if (feiniuInfo != null) {
+        stopwatch.stop();
+        return ServerLineProbeResult.success(
+          line,
+          stopwatch.elapsedMilliseconds,
+          versionInfo: feiniuInfo,
+        );
+      }
     }
-    stopwatch.stop();
-    return ServerLineProbeResult.success(
-      line,
-      stopwatch.elapsedMilliseconds,
-      versionInfo: versionInfo,
-    );
+
+    throw ApiException('服务器版本检测失败');
   } catch (error) {
     stopwatch.stop();
     final exception = toApiException(error);
@@ -285,6 +311,58 @@ Future<ServerLineProbeResult> probeServerLine(ServerLine line) async {
 
 bool _isAuthenticationFailure(ApiException exception) {
   return exception.status == 401 || exception.status == 403;
+}
+
+/// 飞牛影视的版本接口挂在服务器的 /v/api/v1 下，响应为 code/msg/data
+/// 信封；版本接口免登录，可用于服务器线路识别。
+Future<ServerVersionInfo?> _probeFeiniuVersion(ServerLine line) async {
+  final dio = buildDio(
+    ServerConfig(baseUrl: line.baseUrl),
+    projectOverride: ServerProject.feiniu,
+    connectTimeout: const Duration(milliseconds: 1200),
+    sendTimeout: const Duration(milliseconds: 1200),
+    receiveTimeout: const Duration(milliseconds: 2200),
+  );
+  try {
+    final response = await dio.get<dynamic>(
+      '/sys/version',
+      options: Options(
+        extra: const {'skipAuth': true, 'skipRefresh': true, 'skipRetry': true},
+      ),
+    );
+    final raw = response.data;
+    if (raw is! Map || raw['code'] != 0 || raw['data'] is! Map) return null;
+    final data = Map<String, dynamic>.from(raw['data'] as Map);
+    final version = data['version']?.toString().trim() ?? '';
+    if (!isSupportedServerVersion(
+      version,
+      ServerProject.feiniu.minimumVersion,
+    )) {
+      throw ServerCompatibilityException(
+        '服务器版本不满足要求，需要 ${ServerProject.feiniu.projectName} >= '
+        '${ServerProject.feiniu.minimumVersion}，当前版本为 ${version.isEmpty ? '未知' : version}',
+      );
+    }
+    return ServerVersionInfo(
+      projectName: ServerProject.feiniu.projectName,
+      version: version,
+      buildTime: data['mediasrvVersion']?.toString().trim() ?? '',
+    );
+  } on DioException catch (error) {
+    final exception = toApiException(error);
+    if (exception.status == 404 || exception.status == 405) return null;
+    rethrow;
+  }
+}
+
+bool _looksLikeFeiniuBasePath(String raw) {
+  final uri = Uri.tryParse(ServerConfig.normalize(raw));
+  if (uri == null) return false;
+  var path = uri.path.toLowerCase();
+  while (path.length > 1 && path.endsWith('/')) {
+    path = path.substring(0, path.length - 1);
+  }
+  return path == '/v' || path.endsWith('/v');
 }
 
 /// 读取 OMM/DBO 的 /api/version；响应不是兼容信封时返回 null，交由

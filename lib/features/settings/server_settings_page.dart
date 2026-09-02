@@ -34,10 +34,12 @@ class ServerSettingsPage extends ConsumerWidget {
     final l = AppL10n.of(context);
     final project = cfg?.activeServer?.project;
     final dbOnline = project == ServerProject.dbOnline;
-    // Emby/Jellyfin 的服务端设置（转码、字幕等）在其网页控制台管理，App 内
+    // Emby/Jellyfin/飞牛影视的服务端设置（转码、字幕等）在其网页控制台管理，App 内
     // 不重复实现这些入口。
     final externalMediaServer =
-        project == ServerProject.emby || project == ServerProject.jellyfin;
+        project == ServerProject.emby ||
+        project == ServerProject.jellyfin ||
+        project == ServerProject.feiniu;
 
     return Scaffold(
       backgroundColor: appColors(context).bg,
@@ -57,12 +59,13 @@ class ServerSettingsPage extends ConsumerWidget {
                     child: Text(
                       project == ServerProject.emby
                           ? 'Emby 服务器的媒体库与转码设置请在 Emby 网页控制台管理。'
-                          : 'Jellyfin 服务器的媒体库与转码设置请在 Jellyfin 网页控制台管理。',
+                          : project == ServerProject.jellyfin
+                          ? 'Jellyfin 服务器的媒体库与转码设置请在 Jellyfin 网页控制台管理。'
+                          : '飞牛影视的媒体库与转码设置请在飞牛影视网页控制台管理。',
                       textAlign: TextAlign.center,
-                      style: AppText.body(context).copyWith(
-                        color: appColors(context).muted,
-                        height: 1.6,
-                      ),
+                      style: AppText.body(
+                        context,
+                      ).copyWith(color: appColors(context).muted, height: 1.6),
                     ),
                   ),
                 if (dbOnline) const DboBackendSettingsContent(),

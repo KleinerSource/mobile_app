@@ -9,6 +9,7 @@ import '../common/source_id.dart';
 import '../common/source_exception.dart';
 import 'dbo_media_source_adapter.dart';
 import 'dbo_media_source.dart';
+import 'feiniu_media_source_adapter.dart';
 import 'media_browser_media_source_adapter.dart';
 import 'media_models.dart';
 import 'media_source.dart';
@@ -41,6 +42,13 @@ final mediaSourceRegistryProvider = Provider<MediaSourceRegistry>((ref) {
     final mediaBrowserConfig = MediaBrowserConfig.byProject[project]!;
     source = MediaBrowserMediaSourceAdapter(
       client.mediaBrowserFor(mediaBrowserConfig),
+      sessionRepository: ref.read(authSessionRepositoryProvider),
+      serverId: client.config?.activeServerId,
+      endpoint: client.config?.baseUrl,
+    );
+  } else if (project == ServerProject.feiniu) {
+    source = FeiniuMediaSourceAdapter(
+      client.feiniu,
       sessionRepository: ref.read(authSessionRepositoryProvider),
       serverId: client.config?.activeServerId,
       endpoint: client.config?.baseUrl,

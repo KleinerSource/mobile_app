@@ -224,7 +224,37 @@ class ServerConfig {
     return s;
   }
 
-  String get apiBase => '$baseUrl/api';
+  /// 按服务器项目规范化服务根地址。
+  ///
+  /// 飞牛影视的 Web 应用挂在 `/v` 下，但旧配置和用户手工输入可能只
+  /// 填了主机根地址，或误填了完整的 `/v/api/v1`。统一在这里收敛，
+  /// 调用方只需继续追加项目 API 路径。
+  static String normalizeForProject(String raw, ServerProject project) {
+    final normalized = normalize(raw);
+    if (project != ServerProject.feiniu) return normalized;
+
+    final uri = Uri.tryParse(normalized);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) return normalized;
+
+    var path = uri.path;
+    while (path.length > 1 && path.endsWith('/')) {
+      path = path.substring(0, path.length - 1);
+    }
+    const apiSuffix = '/api/v1';
+    if (path.toLowerCase().endsWith(apiSuffix)) {
+      path = path.substring(0, path.length - apiSuffix.length);
+    }
+    if (path.isEmpty) {
+      path = '/v';
+    } else if (!path.toLowerCase().endsWith('/v')) {
+      path = '$path/v';
+    }
+    return uri.replace(path: path).toString();
+  }
+
+  String get apiBase => activeServer?.project == ServerProject.feiniu
+      ? '${normalizeForProject(baseUrl, ServerProject.feiniu)}/api/v1'
+      : '$baseUrl/api';
 
   bool get hasMultipleServers => servers.length > 1;
 

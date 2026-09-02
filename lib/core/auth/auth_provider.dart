@@ -105,6 +105,9 @@ class AuthController extends AsyncNotifier<AuthState> {
     final project = client.config?.activeServer?.project;
     final isDbOnline = project == ServerProject.dbOnline;
     final mediaBrowserConfig = MediaBrowserConfig.byProject[project];
+    if (project == ServerProject.feiniu) {
+      return _bootstrapFeiniu(client);
+    }
     if (mediaBrowserConfig != null) {
       return _bootstrapMediaBrowser(client, mediaBrowserConfig);
     }
@@ -252,6 +255,9 @@ class AuthController extends AsyncNotifier<AuthState> {
         client.config?.activeServer?.project == ServerProject.dbOnline;
     final mediaBrowserConfig =
         MediaBrowserConfig.byProject[client.config?.activeServer?.project];
+    if (client.config?.activeServer?.project == ServerProject.feiniu) {
+      return _loginFeiniu(client, username: username, password: password);
+    }
     if (mediaBrowserConfig != null) {
       return _loginMediaBrowser(
         client,
@@ -361,6 +367,93 @@ class AuthController extends AsyncNotifier<AuthState> {
         phase: AuthPhase.unavailable,
         message: exception.message,
       );
+    }
+  }
+
+  Future<AuthState> _bootstrapFeiniu(ApiClient client) async {
+    final session = await ref.read(authSessionRepositoryProvider).load();
+    if (session == null || !session.hasAccessToken) {
+      await ref.read(authSessionRepositoryProvider).clear();
+      return const AuthState(phase: AuthPhase.needsLogin);
+    }
+    try {
+      final user = await client.feiniu.userInfo();
+      if (user.id.isEmpty) throw ApiException('飞牛用户信息缺少用户 ID');
+      if (session.userId != user.id) {
+        await ref
+            .read(authSessionRepositoryProvider)
+            .save(
+              AuthSession(
+                accessToken: session.accessToken,
+                refreshToken: '',
+                expiresIn: 0,
+                userId: user.id,
+              ),
+            );
+      }
+      return const AuthState(phase: AuthPhase.authenticated);
+    } catch (error) {
+      final exception = toApiException(error);
+      if (exception.status == 401 || exception.status == 403) {
+        await ref.read(authSessionRepositoryProvider).clear();
+        return const AuthState(phase: AuthPhase.needsLogin);
+      }
+      return AuthState(
+        phase: AuthPhase.unavailable,
+        message: exception.message,
+      );
+    }
+  }
+
+  Future<bool> _loginFeiniu(
+    ApiClient client, {
+    required String? username,
+    required String password,
+  }) async {
+    final current = state.value;
+    final user = username?.trim() ?? '';
+    if (user.isEmpty) {
+      state = AsyncData(
+        AuthState(
+          phase: AuthPhase.needsLogin,
+          status: current?.status,
+          message: '请输入用户名',
+        ),
+      );
+      return false;
+    }
+    try {
+      final token = await client.feiniu.login(
+        username: user,
+        password: password,
+      );
+      final repository = ref.read(authSessionRepositoryProvider);
+      await repository.save(
+        AuthSession(accessToken: token, refreshToken: '', expiresIn: 0),
+      );
+      final profile = await client.feiniu.userInfo();
+      if (profile.id.isEmpty) throw ApiException('飞牛用户信息缺少用户 ID');
+      await repository.save(
+        AuthSession(
+          accessToken: token,
+          refreshToken: '',
+          expiresIn: 0,
+          userId: profile.id,
+        ),
+      );
+      state = const AsyncData(AuthState(phase: AuthPhase.authenticated));
+      return true;
+    } catch (error) {
+      await ref.read(authSessionRepositoryProvider).clear();
+      final exception = toApiException(error);
+      state = AsyncData(
+        AuthState(
+          phase: AuthPhase.needsLogin,
+          status: current?.status,
+          message: exception.message,
+        ),
+      );
+      throw exception;
     }
   }
 
@@ -491,8 +584,16 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<void> logout() async {
     final client = ref.read(apiClientProvider);
     final activeProject = client?.config?.activeServer?.project;
+    if (activeProject == ServerProject.feiniu) {
+      try {
+        await client?.feiniu.logout();
+      } catch (_) {
+        // 退出登录的本地清理必须独立于网络状态。
+      }
+    }
     // Emby/Jellyfin 的令牌无服务端过期语义，登出只需丢弃本地会话。
-    if (activeProject != ServerProject.emby &&
+    if (activeProject != ServerProject.feiniu &&
+        activeProject != ServerProject.emby &&
         activeProject != ServerProject.jellyfin) {
       try {
         await client?.auth.logout();
