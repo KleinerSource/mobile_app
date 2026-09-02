@@ -72,6 +72,33 @@ void main() {
     expect(item.people.last.role, '主角');
   });
 
+  test('飞牛适配器通过原生季列表返回完整季条目', () async {
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore())
+      ..setActiveServerId('feiniu');
+    await sessions.save(
+      const AuthSession(accessToken: 'token-1', refreshToken: '', expiresIn: 0),
+    );
+    final adapter = _FeiniuSeasonAdapter();
+    final source = FeiniuMediaSourceAdapter(
+      FeiniuApi(
+        Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+          ..httpClientAdapter = adapter,
+      ),
+      sessionRepository: sessions,
+      endpoint: 'http://test',
+    );
+
+    final seasons = await source.seasons('series-1');
+
+    expect(adapter.paths, ['/v/api/v1/season/list/series-1']);
+    expect(seasons, hasLength(1));
+    expect(seasons.single.id, 'season-1');
+    expect(seasons.single.type, 'Season');
+    expect(seasons.single.name, '第一季');
+    expect(seasons.single.primaryImageTag, '/55/02/season.webp');
+    expect(seasons.single.childCount, 8);
+  });
+
   test('飞牛详情补全类型、文件与媒体流，并按 GUID 选择字幕', () async {
     final sessions = AuthSessionRepository(store: _MemoryTokenStore())
       ..setActiveServerId('feiniu');
@@ -237,6 +264,44 @@ class _FeiniuSourceAdapter implements HttpClientAdapter {
       },
       _ => <String, Object?>{},
     };
+    return ResponseBody.fromString(
+      jsonEncode({'code': 0, 'data': data}),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+}
+
+class _FeiniuSeasonAdapter implements HttpClientAdapter {
+  final paths = <String>[];
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    paths.add(options.uri.path);
+    final data = options.uri.path == '/v/api/v1/season/list/series-1'
+        ? {
+            'list': [
+              {
+                'guid': 'season-1',
+                'name': '第一季',
+                'type': 'Season',
+                'parent_guid': 'series-1',
+                'season_number': 1,
+                'number_of_episodes': 8,
+                'poster': '/55/02/season.webp',
+              },
+            ],
+          }
+        : <String, Object?>{};
     return ResponseBody.fromString(
       jsonEncode({'code': 0, 'data': data}),
       200,

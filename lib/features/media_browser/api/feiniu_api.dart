@@ -11,6 +11,11 @@ class FeiniuApi {
 
   final Dio _dio;
 
+  /// 最近一次登录响应中的会话 Cookie，供 AuthController 持久化。
+  String? _lastLoginCookie;
+
+  String? get lastLoginCookie => _lastLoginCookie;
+
   Future<FeiniuVersion> version() async {
     final response = await _dio.get<dynamic>(
       '/sys/version',
@@ -23,6 +28,8 @@ class FeiniuApi {
     required String username,
     required String password,
   }) async {
+    // 避免上一次登录残留的 Cookie 被误用于本次登录。
+    _lastLoginCookie = null;
     final response = await _dio.post<dynamic>(
       '/login',
       data: {
@@ -35,6 +42,7 @@ class FeiniuApi {
     final data = _unwrap(response.data, (value) => _map(value));
     final token = _string(data['token'] ?? data['access_token']);
     if (token.isEmpty) throw ApiException('飞牛登录响应缺少访问令牌');
+    _lastLoginCookie = _cookieHeader(response.headers);
     return token;
   }
 
@@ -185,6 +193,16 @@ class FeiniuApi {
       '/episode/list/${Uri.encodeComponent(guid)}',
     );
     return _unwrap(response.data, (data) => _items(data));
+  }
+
+  Future<List<FeiniuItem>> seasonList(String guid) async {
+    final response = await _dio.get<dynamic>(
+      '/season/list/${Uri.encodeComponent(guid)}',
+    );
+    return _unwrap(
+      response.data,
+      (data) => _items(data, keys: const ['list', 'items', 'seasons']),
+    );
   }
 
   Future<FeiniuStreamList> streamList(String guid) async {
@@ -368,8 +386,9 @@ class FeiniuApi {
         .toString();
   }
 
-  static Map<String, String> mediaHeaders(String? token) => {
+  static Map<String, String> mediaHeaders(String? token, [String? cookie]) => {
     if (_nonEmpty(token)) 'Authorization': token!.trim(),
+    if (_nonEmpty(cookie)) 'Cookie': cookie!.trim(),
     'X-Trim-Client': 'web',
     'X-Trim-Client-Version': '616',
   };
@@ -387,8 +406,20 @@ class FeiniuApi {
     return parser(map['data']);
   }
 
-  List<FeiniuItem> _items(Object? data) {
-    final raw = data is Map ? data['list'] ?? data['items'] : data;
+  List<FeiniuItem> _items(
+    Object? data, {
+    List<String> keys = const ['list', 'items'],
+  }) {
+    Object? raw = data;
+    if (data is Map) {
+      raw = null;
+      for (final key in keys) {
+        if (data[key] != null) {
+          raw = data[key];
+          break;
+        }
+      }
+    }
     if (raw is! List) return const [];
     return raw
         .whereType<Map>()
@@ -455,3 +486,15 @@ int _int(Object? value) {
 }
 
 bool _nonEmpty(String? value) => value?.trim().isNotEmpty == true;
+
+String? _cookieHeader(Headers headers) {
+  final values = headers['set-cookie'];
+  if (values == null || values.isEmpty) return null;
+  final cookies = <String>[];
+  for (final value in values) {
+    final cookie = value.split(';').first.trim();
+    if (cookie.isEmpty || cookie.startsWith('=')) continue;
+    if (!cookies.contains(cookie)) cookies.add(cookie);
+  }
+  return cookies.isEmpty ? null : cookies.join('; ');
+}

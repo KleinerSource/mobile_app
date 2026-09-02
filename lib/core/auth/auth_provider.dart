@@ -372,7 +372,11 @@ class AuthController extends AsyncNotifier<AuthState> {
 
   Future<AuthState> _bootstrapFeiniu(ApiClient client) async {
     final session = await ref.read(authSessionRepositoryProvider).load();
-    if (session == null || !session.hasAccessToken) {
+    // 飞牛图片与媒体资源使用独立请求，必须同时恢复登录令牌和网页会话
+    // Cookie；旧版本只保存 token 的会话需要重新登录一次。
+    if (session == null ||
+        !session.hasAccessToken ||
+        session.cookie?.trim().isNotEmpty != true) {
       await ref.read(authSessionRepositoryProvider).clear();
       return const AuthState(phase: AuthPhase.needsLogin);
     }
@@ -388,6 +392,7 @@ class AuthController extends AsyncNotifier<AuthState> {
                 refreshToken: '',
                 expiresIn: 0,
                 userId: user.id,
+                cookie: session.cookie,
               ),
             );
       }
@@ -427,9 +432,15 @@ class AuthController extends AsyncNotifier<AuthState> {
         username: user,
         password: password,
       );
+      final cookie = client.feiniu.lastLoginCookie;
       final repository = ref.read(authSessionRepositoryProvider);
       await repository.save(
-        AuthSession(accessToken: token, refreshToken: '', expiresIn: 0),
+        AuthSession(
+          accessToken: token,
+          refreshToken: '',
+          expiresIn: 0,
+          cookie: cookie,
+        ),
       );
       final profile = await client.feiniu.userInfo();
       if (profile.id.isEmpty) throw ApiException('飞牛用户信息缺少用户 ID');
@@ -439,6 +450,7 @@ class AuthController extends AsyncNotifier<AuthState> {
           refreshToken: '',
           expiresIn: 0,
           userId: profile.id,
+          cookie: cookie,
         ),
       );
       state = const AsyncData(AuthState(phase: AuthPhase.authenticated));

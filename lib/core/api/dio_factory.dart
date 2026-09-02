@@ -111,12 +111,17 @@ Dio buildDio(
         if (userAgent != null) {
           options.headers['User-Agent'] = userAgent;
         }
-        String? token;
+        AuthSession? session;
         if (options.extra['skipAuth'] != true && sessionRepository != null) {
-          token = await sessionRepository.accessToken();
+          session = await sessionRepository.current();
+          final token = session?.accessToken;
           if (token != null && token.isNotEmpty) {
             if (isFeiniu) {
               options.headers['Authorization'] = token;
+              final cookie = session?.cookie;
+              if (cookie != null && cookie.isNotEmpty) {
+                options.headers['Cookie'] = cookie;
+              }
               options.headers['X-Trim-Client'] = 'web';
               options.headers['X-Trim-Client-Version'] = '616';
             } else if (project == ServerProject.jellyfin) {

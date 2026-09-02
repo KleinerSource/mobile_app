@@ -91,6 +91,58 @@ void main() {
     );
   });
 
+  test('飞牛季列表使用原生 season/list 接口并解析 seasons 字段', () async {
+    final adapter = _FeiniuAdapter((options) {
+      expect(options.uri.path, '/v/api/v1/season/list/series-1');
+      return {
+        'code': 0,
+        'data': {
+          'seasons': [
+            {
+              'guid': 'season-1',
+              'title': '第一季',
+              'type': 'Season',
+              'parent_guid': 'series-1',
+              'season_number': 1,
+              'number_of_episodes': 8,
+              'poster': '/55/02/season.webp',
+            },
+          ],
+        },
+      };
+    });
+    final api = FeiniuApi(
+      Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+        ..httpClientAdapter = adapter,
+    );
+
+    final seasons = await api.seasonList('series-1');
+
+    expect(seasons, hasLength(1));
+    expect(seasons.single.guid, 'season-1');
+    expect(seasons.single.type, 'Season');
+    expect(seasons.single.numberOfEpisodes, 8);
+    expect(seasons.single.poster, '/55/02/season.webp');
+  });
+
+  test('飞牛季列表也支持 data 直接为数组', () async {
+    final api = FeiniuApi(
+      Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+        ..httpClientAdapter = _FeiniuAdapter(
+          (_) => {
+            'code': 0,
+            'data': [
+              {'guid': 'season-1', 'name': '第一季', 'type': 'Season'},
+            ],
+          },
+        ),
+    );
+
+    final seasons = await api.seasonList('series-1');
+
+    expect(seasons.single.title, '第一季');
+  });
+
   test('飞牛 URL 构造会补齐且不重复 /v', () {
     expect(
       FeiniuApi.mediaRangeUrl('http://host:5666', 'media-1'),
@@ -213,6 +265,28 @@ void main() {
     expect(headshot.profilePath, '58/06/headshot.webp');
   });
 
+  test('飞牛登录提取 Set-Cookie 为标准 Cookie 请求头', () async {
+    final api = FeiniuApi(
+      Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+        ..httpClientAdapter = _FeiniuAdapter(
+          (_) => {
+            'code': 0,
+            'data': {'token': 'token-1'},
+          },
+          responseHeaders: {
+            Headers.contentTypeHeader: ['application/json'],
+            'set-cookie': [
+              'sid=session-1; Path=/; HttpOnly',
+              'theme=dark; Path=/',
+            ],
+          },
+        ),
+    );
+
+    expect(await api.login(username: 'alice', password: 'password'), 'token-1');
+    expect(api.lastLoginCookie, 'sid=session-1; theme=dark');
+  });
+
   test('飞牛条目内嵌演员字段保留海报头像路径', () {
     final item = FeiniuItem.fromJson(const {
       'guid': 'item-1',
@@ -233,9 +307,15 @@ void main() {
 }
 
 class _FeiniuAdapter implements HttpClientAdapter {
-  _FeiniuAdapter(this.respond);
+  _FeiniuAdapter(this.respond, {Map<String, List<String>>? responseHeaders})
+    : responseHeaders =
+          responseHeaders ??
+          {
+            Headers.contentTypeHeader: ['application/json'],
+          };
 
   final Object? Function(RequestOptions options) respond;
+  final Map<String, List<String>> responseHeaders;
   final requests = <String>[];
   final bodies = <Map<String, dynamic>>[];
 
@@ -255,9 +335,7 @@ class _FeiniuAdapter implements HttpClientAdapter {
     return ResponseBody.fromString(
       jsonEncode(respond(options)),
       200,
-      headers: {
-        Headers.contentTypeHeader: ['application/json'],
-      },
+      headers: responseHeaders,
     );
   }
 }

@@ -50,6 +50,7 @@ class AuthSessionRepository {
   static const _refreshKey = 'omm.auth.refresh_token';
   static const _expiresKey = 'omm.auth.expires_in';
   static const _userIdKey = 'omm.auth.user_id';
+  static const _cookieKey = 'omm.auth.cookie';
 
   final AuthTokenStore _store;
   final _AuthSessionState _state;
@@ -143,6 +144,7 @@ class AuthSessionRepository {
     required String refreshKey,
     required String expiresKey,
     String? userIdKey,
+    String? cookieKey,
   }) async {
     final access = await _store.read(accessKey);
     final refresh = await _store.read(refreshKey);
@@ -150,12 +152,18 @@ class AuthSessionRepository {
       return null;
     }
     final expires = int.tryParse(await _store.read(expiresKey) ?? '') ?? 0;
-    final userId = userIdKey == null ? null : _stringOrNull(await _store.read(userIdKey));
+    final userId = userIdKey == null
+        ? null
+        : _stringOrNull(await _store.read(userIdKey));
+    final cookie = cookieKey == null
+        ? null
+        : _stringOrNull(await _store.read(cookieKey));
     return AuthSession(
       accessToken: access,
       refreshToken: refresh ?? '',
       expiresIn: expires,
       userId: userId,
+      cookie: cookie,
     );
   }
 
@@ -165,6 +173,7 @@ class AuthSessionRepository {
       refreshKey: _keyFor(_refreshKey, serverId),
       expiresKey: _keyFor(_expiresKey, serverId),
       userIdKey: _keyFor(_userIdKey, serverId),
+      cookieKey: _keyFor(_cookieKey, serverId),
     );
   }
 
@@ -175,6 +184,7 @@ class AuthSessionRepository {
   }) async {
     final scope = scoped ? (serverId ?? _activeServerId) : null;
     final userId = session.userId;
+    final cookie = session.cookie;
     await Future.wait([
       _store.write(_keyFor(_accessKey, scope), session.accessToken),
       _store.write(_keyFor(_refreshKey, scope), session.refreshToken),
@@ -183,6 +193,10 @@ class AuthSessionRepository {
         _store.write(_keyFor(_userIdKey, scope), userId)
       else
         _store.delete(_keyFor(_userIdKey, scope)),
+      if (cookie != null && cookie.isNotEmpty)
+        _store.write(_keyFor(_cookieKey, scope), cookie)
+      else
+        _store.delete(_keyFor(_cookieKey, scope)),
     ]);
   }
 
@@ -196,6 +210,7 @@ class AuthSessionRepository {
       _store.delete(_keyFor(_refreshKey, targetServerId)),
       _store.delete(_keyFor(_expiresKey, targetServerId)),
       _store.delete(_keyFor(_userIdKey, targetServerId)),
+      _store.delete(_keyFor(_cookieKey, targetServerId)),
     ]);
     final cacheKey = _cacheKey(targetServerId);
     _state.cache[cacheKey] = null;

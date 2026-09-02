@@ -17,7 +17,12 @@ void main() {
     final sessions = AuthSessionRepository(store: store)
       ..setActiveServerId('feiniu');
     await sessions.save(
-      const AuthSession(accessToken: 'token-1', refreshToken: '', expiresIn: 0),
+      const AuthSession(
+        accessToken: 'token-1',
+        refreshToken: '',
+        expiresIn: 0,
+        cookie: 'sid=session-1',
+      ),
     );
     final adapter = _RecordingAdapter();
     final dio = buildDio(
@@ -30,6 +35,7 @@ void main() {
 
     expect(adapter.options.uri.path, '/v/api/v1/user/info');
     expect(adapter.options.headers['Authorization'], 'token-1');
+    expect(adapter.options.headers['Cookie'], 'sid=session-1');
     expect(adapter.options.headers['X-Trim-Client'], 'web');
     expect(adapter.options.headers['X-Trim-Client-Version'], '616');
     expect(adapter.options.headers['Authx'], startsWith('nonce='));
@@ -42,11 +48,11 @@ void main() {
       projectOverride: ServerProject.feiniu,
     )..httpClientAdapter = adapter;
 
-    final token = await FeiniuApi(
-      dio,
-    ).login(username: ' alice ', password: 'password');
+    final api = FeiniuApi(dio);
+    final token = await api.login(username: ' alice ', password: 'password');
 
     expect(token, 'token-2');
+    expect(api.lastLoginCookie, 'sid=session-2; theme=dark');
     expect(adapter.options.uri.path, '/v/api/v1/login');
     expect(adapter.options.headers['Authorization'], isNull);
     expect(adapter.options.headers['Authx'], startsWith('nonce='));
@@ -132,13 +138,15 @@ class _RecordingAdapter implements HttpClientAdapter {
             'code': 0,
             'data': {'id': 'user-1', 'name': 'alice'},
           };
-    return ResponseBody.fromString(
-      jsonEncode(response),
-      200,
-      headers: {
-        Headers.contentTypeHeader: ['application/json'],
-      },
-    );
+    final headers = <String, List<String>>{
+      Headers.contentTypeHeader: ['application/json'],
+      if (options.uri.path.endsWith('/login'))
+        'set-cookie': [
+          'sid=session-2; Path=/; HttpOnly',
+          'theme=dark; Path=/',
+        ],
+    };
+    return ResponseBody.fromString(jsonEncode(response), 200, headers: headers);
   }
 }
 

@@ -15,10 +15,15 @@ import 'media_browser_config.dart';
 /// 分派到对应实现；Emby 与 Jellyfin 的差异继续由 [MediaBrowserConfig]
 /// 配置驱动（见 [MediaBrowserApi.imageUrl]）。
 abstract class MediaBrowserServerUrls {
-  const MediaBrowserServerUrls._({required this.baseUrl, this.token});
+  const MediaBrowserServerUrls._({
+    required this.baseUrl,
+    this.token,
+    this.cookie,
+  });
 
   final String baseUrl;
   final String? token;
+  final String? cookie;
 
   bool get isReady => baseUrl.trim().isNotEmpty;
 
@@ -26,7 +31,7 @@ abstract class MediaBrowserServerUrls {
   /// Authorization 与客户端标识头。
   Map<String, String> get directHeaders;
 
-  /// 图片请求头。飞牛图片资源由 sys/img 直接提供，不需要鉴权头。
+  /// 图片请求头。飞牛图片资源通过会话鉴权，URL 本身不拼 token。
   Map<String, String> get imageHeaders;
 
   String poster(String itemId, {int maxWidth = 440, String? tag});
@@ -79,9 +84,10 @@ abstract class MediaBrowserServerUrls {
     required MediaBrowserConfig config,
     required String baseUrl,
     String? token,
+    String? cookie,
   }) {
     if (config.project == ServerProject.feiniu) {
-      return _FeiniuServerUrls(baseUrl: baseUrl, token: token);
+      return _FeiniuServerUrls(baseUrl: baseUrl, token: token, cookie: cookie);
     }
     return _EmbyJellyfinServerUrls(
       config: config,
@@ -190,20 +196,24 @@ class _EmbyJellyfinServerUrls extends MediaBrowserServerUrls {
 /// fnos（飞牛）：图片使用 sys/img 资源路径，宽度通过 w 查询参数传递；
 /// 直链使用 media/range。
 class _FeiniuServerUrls extends MediaBrowserServerUrls {
-  const _FeiniuServerUrls({required super.baseUrl, super.token}) : super._();
+  const _FeiniuServerUrls({required super.baseUrl, super.token, super.cookie})
+    : super._();
 
   @override
-  Map<String, String> get directHeaders => FeiniuApi.mediaHeaders(token);
+  Map<String, String> get directHeaders =>
+      FeiniuApi.mediaHeaders(token, cookie);
 
   @override
-  Map<String, String> get imageHeaders => const <String, String>{};
+  Map<String, String> get imageHeaders => directHeaders;
 
   String _asset(String? tag, {required int width}) =>
       FeiniuApi.resolveAssetUrl(baseUrl, tag, width: width);
 
+  int _posterWidth(int width) => width == 440 ? 400 : width;
+
   @override
   String poster(String itemId, {int maxWidth = 440, String? tag}) =>
-      _asset(tag, width: maxWidth);
+      _asset(tag, width: _posterWidth(maxWidth));
 
   @override
   String backdrop(String itemId, {int maxWidth = 1280, String? tag}) =>
@@ -211,7 +221,7 @@ class _FeiniuServerUrls extends MediaBrowserServerUrls {
 
   @override
   String thumb(String itemId, {int maxWidth = 440, String? tag}) =>
-      _asset(tag, width: maxWidth);
+      _asset(tag, width: _posterWidth(maxWidth));
 
   @override
   String authedPoster(String itemId, {int maxWidth = 600, String? tag}) =>

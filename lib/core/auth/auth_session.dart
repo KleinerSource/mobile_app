@@ -7,6 +7,7 @@ class AuthSession {
     required this.refreshToken,
     required this.expiresIn,
     this.userId,
+    this.cookie,
     this.issuedAt,
   });
 
@@ -16,6 +17,9 @@ class AuthSession {
 
   /// Emby 等按用户维度查询的后端需要持久化用户 ID；OMM/DBO 不使用。
   final String? userId;
+
+  /// 飞牛影视图片等资源接口要求的浏览器会话 Cookie。
+  final String? cookie;
   final DateTime? issuedAt;
 
   factory AuthSession.fromJson(Map<String, dynamic> json) {

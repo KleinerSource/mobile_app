@@ -21,7 +21,7 @@ class HeroArt {
   /// 无可用封面时为空字符串,该层不渲染
   final String url;
 
-  /// 图片接口所需的请求头；飞牛图片资源不需要鉴权头。
+  /// 图片接口所需的请求头；飞牛图片资源需要会话鉴权头。
   final Map<String, String>? imageHeaders;
 }
 

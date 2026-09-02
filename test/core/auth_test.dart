@@ -167,10 +167,12 @@ void _main_1() {
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
       expiresIn: 3600,
+      cookie: 'sid=session-1',
     );
 
     await repository.save(session);
     expect(await repository.accessToken(), 'access-token');
+    expect((await repository.current())?.cookie, 'sid=session-1');
     expect(store.values.values, contains('refresh-token'));
 
     await repository.clear();

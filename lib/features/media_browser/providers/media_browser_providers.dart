@@ -52,11 +52,12 @@ final mediaBrowserServerUrlsProvider = FutureProvider<MediaBrowserServerUrls>((
   }
   // 依赖登录态：登录/登出会触发重建并刷新 token。
   ref.watch(authControllerProvider);
-  final token = await ref.read(authSessionRepositoryProvider).accessToken();
+  final session = await ref.read(authSessionRepositoryProvider).current();
   return MediaBrowserServerUrls(
     config: config,
     baseUrl: ref.watch(serverConfigProvider)!.baseUrl,
-    token: token,
+    token: session?.accessToken,
+    cookie: session?.cookie,
   );
 });
 

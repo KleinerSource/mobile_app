@@ -68,19 +68,21 @@ void main() {
     );
   });
 
-  test('飞牛图片请求头为空，播放请求头仍包含登录令牌和客户端标识', () {
+  test('飞牛图片和播放请求头都包含登录令牌、Cookie 和客户端标识', () {
     final urls = MediaBrowserServerUrls(
       config: MediaBrowserConfig.feiniu,
       baseUrl: 'http://test',
       token: 'Bearer test-token',
+      cookie: 'sid=session-1',
     );
 
     expect(urls.directHeaders, {
       'Authorization': 'Bearer test-token',
+      'Cookie': 'sid=session-1',
       'X-Trim-Client': 'web',
       'X-Trim-Client-Version': '616',
     });
-    expect(urls.imageHeaders, isEmpty);
+    expect(urls.imageHeaders, urls.directHeaders);
   });
 
   test('飞牛图片 URL 使用 sys/img 和原生宽度参数', () {
@@ -91,7 +93,7 @@ void main() {
 
     expect(
       urls.poster('item-1', tag: '/58/06/poster.webp'),
-      'http://test/v/api/v1/sys/img/58/06/poster.webp?w=440',
+      'http://test/v/api/v1/sys/img/58/06/poster.webp?w=400',
     );
     expect(
       urls.personImage(

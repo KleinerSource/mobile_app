@@ -233,29 +233,8 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
   @override
   Future<List<MediaBrowserItem>> seasons(String seriesId) async =>
       _call(() async {
-        final episodes = await api.episodeList(seriesId);
-        final grouped = <String, FeiniuItem>{};
-        for (final episode in episodes) {
-          final key = episode.parentGuid.isEmpty
-              ? '$seriesId-${episode.seasonNumber ?? 0}'
-              : episode.parentGuid;
-          grouped.putIfAbsent(
-            key,
-            () => FeiniuItem(
-              guid: key,
-              title: episode.parentTitle.isEmpty
-                  ? '第 ${episode.seasonNumber ?? 0} 季'
-                  : episode.parentTitle,
-              type: 'Season',
-              parentGuid: seriesId,
-              tvTitle: episode.tvTitle,
-              seasonNumber: episode.seasonNumber,
-              poster: episode.poster,
-              numberOfEpisodes: episode.numberOfEpisodes,
-            ),
-          );
-        }
-        return grouped.values
+        final seasons = await api.seasonList(seriesId);
+        return seasons
             .map((item) => item.toMediaBrowserItem())
             .toList(growable: false);
       });
@@ -366,9 +345,10 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
         : item.fileName;
     final record = _recordFrom(info, item, url);
     _records[ref.value] = record;
+    final session = await sessionRepository.current();
     return PlaybackDescriptor(
       uri: Uri.parse(url),
-      headers: FeiniuApi.mediaHeaders(await sessionRepository.accessToken()),
+      headers: FeiniuApi.mediaHeaders(session?.accessToken, session?.cookie),
       mimeType: playbackMimeTypeForContainer(_extension(containerPath)),
       startAt:
           (info.positionSeconds > 0 ? info.positionSeconds : item.resumeSeconds)
@@ -453,8 +433,13 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     String? tag,
   }) async {
     final value = tag?.trim() ?? '';
+    final requestedWidth = maxWidth == 440 ? 400 : maxWidth;
     if (value.isNotEmpty) {
-      return FeiniuApi.resolveAssetUrl(endpoint ?? '', value, width: maxWidth);
+      return FeiniuApi.resolveAssetUrl(
+        endpoint ?? '',
+        value,
+        width: requestedWidth,
+      );
     }
     final suffix = switch (imageType.toLowerCase()) {
       'backdrop' => 'backdrop.jpg',
@@ -464,7 +449,7 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     return FeiniuApi.resolveAssetUrl(
       endpoint ?? '',
       '/mediadb/${Uri.encodeComponent(itemId)}/$suffix',
-      width: maxWidth,
+      width: requestedWidth,
     );
   }
 
