@@ -11,6 +11,7 @@ import 'package:omm/features/media_browser/providers/media_browser_providers.dar
 import 'package:omm/features/media_browser/widgets/media_browser_action_button.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_cast_section.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_media_info_section.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_similar_section.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_formatters.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
@@ -34,6 +35,11 @@ class MediaBrowserMovieDetailPage extends ConsumerWidget {
         MediaBrowserItemDetailRequest(serverId: serverId, itemId: itemId),
       ),
     );
+    final similar = ref.watch(
+      mediaBrowserSimilarProvider(
+        MediaBrowserSimilarRequest(serverId: serverId, itemId: itemId),
+      ),
+    );
     final colors = appColors(context);
     return Scaffold(
       backgroundColor: colors.bg,
@@ -47,7 +53,7 @@ class MediaBrowserMovieDetailPage extends ConsumerWidget {
             ),
           ),
         ),
-        data: (item) => _MediaBrowserDetailBody(item: item),
+        data: (item) => _MediaBrowserDetailBody(item: item, similar: similar),
       ),
     );
   }
@@ -77,9 +83,10 @@ class _ErrorBody extends StatelessWidget {
 }
 
 class _MediaBrowserDetailBody extends ConsumerStatefulWidget {
-  const _MediaBrowserDetailBody({required this.item});
+  const _MediaBrowserDetailBody({required this.item, required this.similar});
 
   final MediaBrowserItem item;
+  final AsyncValue<List<MediaBrowserItem>> similar;
 
   @override
   ConsumerState<_MediaBrowserDetailBody> createState() =>
@@ -284,6 +291,15 @@ class _MediaBrowserDetailBodyState
             ),
           ),
         SliverToBoxAdapter(child: MediaBrowserMediaInfoSection(item: item)),
+        widget.similar.when(
+          loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+          data: (items) => items.isEmpty
+              ? const SliverToBoxAdapter(child: SizedBox.shrink())
+              : SliverToBoxAdapter(
+                  child: MediaBrowserSimilarSection(items: items),
+                ),
+        ),
         if (_hasDetails(item))
           SliverToBoxAdapter(
             child: MovieDetailSection(
