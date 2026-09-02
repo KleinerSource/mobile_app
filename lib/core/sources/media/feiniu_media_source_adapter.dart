@@ -88,8 +88,22 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     final item = await api.item(ref.value);
     return MediaDetails(
       summary: _summaryFromItem(item),
+      originalTitle: item.originalTitle,
       overview: item.overview,
       filePath: item.fileName.isEmpty ? null : item.fileName,
+      genres: item.genres,
+      actors: [
+        for (final person in item.people)
+          if (person.name.isNotEmpty)
+            person.role?.trim().isNotEmpty == true
+                ? '${person.name}（${person.role}）'
+                : person.name,
+      ],
+      attributes: <String, Object?>{
+        'type': item.type,
+        'people': item.people,
+        'originalTitle': item.originalTitle,
+      },
       payload: item,
     );
   }
@@ -179,6 +193,7 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     final page = await api.itemList(
       parentGuid: parentId ?? '',
       excludeFolder: includeItemTypes != null,
+      typeTags: _typeTags(includeItemTypes),
       searchTerm: searchTerm,
       startIndex: offset,
       limit: pageSize,
@@ -401,7 +416,21 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     String imageType = 'Primary',
     int? maxWidth,
     String? tag,
-  }) async => FeiniuApi.resolveAssetUrl(endpoint ?? '', tag);
+  }) async {
+    final value = tag?.trim() ?? '';
+    if (value.isNotEmpty) {
+      return FeiniuApi.resolveAssetUrl(endpoint ?? '', value);
+    }
+    final suffix = switch (imageType.toLowerCase()) {
+      'backdrop' => 'backdrop.jpg',
+      'thumb' => 'thumb.jpg',
+      _ => 'poster.jpg',
+    };
+    return FeiniuApi.resolveAssetUrl(
+      endpoint ?? '',
+      '/mediadb/${Uri.encodeComponent(itemId)}/$suffix',
+    );
+  }
 
   Future<void> _report(String itemId, int positionTicks) async =>
       _call(() async {
@@ -488,11 +517,11 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
       year: item.productionYear,
       rating: item.communityRating,
       duration: item.runtimeMinutes,
-      poster: item.primaryImageTag,
-      thumbnail: item.thumbImageTag ?? item.primaryImageTag,
+      poster: _assetUrl(item.primaryImageTag),
+      thumbnail: _assetUrl(item.thumbImageTag ?? item.primaryImageTag),
       fanart: item.backdropImageTags.isEmpty
           ? null
-          : item.backdropImageTags.first,
+          : _assetUrl(item.backdropImageTags.first),
       canPlay: item.isPlayable || item.isAudio,
       attributes: <String, Object?>{
         'type': item.type,
@@ -512,9 +541,11 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
       year: browserItem.productionYear,
       rating: browserItem.communityRating,
       duration: browserItem.runtimeMinutes,
-      poster: item.poster,
-      thumbnail: item.poster,
-      fanart: item.stillPath,
+      poster: _assetUrl(item.poster),
+      thumbnail: _assetUrl(item.thumbPath ?? item.poster),
+      fanart: _assetUrl(
+        item.backdrops.isEmpty ? item.stillPath : item.backdrops.first,
+      ),
       canPlay: item.isPlayable,
       attributes: <String, Object?>{
         'type': item.type,
@@ -533,10 +564,38 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
         : 'sort_title';
   }
 
+  List<String>? _typeTags(String? includeItemTypes) {
+    final values = includeItemTypes
+        ?.split(',')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (values == null || values.isEmpty) return null;
+    final tags = <String>[];
+    for (final value in values) {
+      final tag = switch (value.toLowerCase()) {
+        'movie' => 'Movie',
+        'series' || 'season' || 'episode' => 'TV',
+        'music' || 'musicalbum' || 'audio' => 'Music',
+        'collectionfolder' || 'directory' => 'Directory',
+        _ => value,
+      };
+      if (!tags.contains(tag)) tags.add(tag);
+    }
+    return tags;
+  }
+
   bool _typeMatches(String value, String requested) => requested
       .split(',')
       .map((item) => item.trim().toLowerCase())
       .contains(value.toLowerCase());
+
+  String? _assetUrl(String? path) {
+    final value = path?.trim() ?? '';
+    return value.isEmpty
+        ? null
+        : FeiniuApi.resolveAssetUrl(endpoint ?? '', value);
+  }
 
   void _checkRef(MediaRef ref) {
     if (ref.sourceId != _sourceId) {

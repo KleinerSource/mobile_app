@@ -36,6 +36,7 @@ class FeiniuMediaDb {
     this.category = '',
     this.topDir = '',
     this.dir = '',
+    this.poster,
   });
 
   final String guid;
@@ -43,6 +44,7 @@ class FeiniuMediaDb {
   final String category;
   final String topDir;
   final String dir;
+  final String? poster;
 
   factory FeiniuMediaDb.fromJson(Map<String, dynamic> json) => FeiniuMediaDb(
     guid: _string(json['guid'] ?? json['id'] ?? json['mdb_guid']),
@@ -50,6 +52,9 @@ class FeiniuMediaDb {
     category: _string(json['category'] ?? json['mdb_category']),
     topDir: _string(json['top_dir']),
     dir: _string(json['dir']),
+    poster: _imagePath(
+      json['poster'] ?? json['posters'] ?? json['image'] ?? json['cover'],
+    ),
   );
 
   MediaBrowserItem toItem() => MediaBrowserItem(
@@ -57,6 +62,7 @@ class FeiniuMediaDb {
     name: name,
     type: 'CollectionFolder',
     collectionType: category,
+    primaryImageTag: poster ?? '/mediadb/$guid/poster.jpg',
     childCount: null,
   );
 }
@@ -73,8 +79,13 @@ class FeiniuItem {
     this.parentTitle = '',
     this.poster,
     this.stillPath,
+    this.backdrops = const <String>[],
+    this.thumbPath,
     this.overview,
     this.airDate,
+    this.originalTitle,
+    this.genres = const <String>[],
+    this.people = const <MediaBrowserPerson>[],
     this.runtimeMinutes = 0,
     this.durationSeconds = 0,
     this.resumeSeconds = 0,
@@ -104,8 +115,13 @@ class FeiniuItem {
   final String parentTitle;
   final String? poster;
   final String? stillPath;
+  final List<String> backdrops;
+  final String? thumbPath;
   final String? overview;
   final String? airDate;
+  final String? originalTitle;
+  final List<String> genres;
+  final List<MediaBrowserPerson> people;
   final int runtimeMinutes;
   final int durationSeconds;
   final int resumeSeconds;
@@ -138,24 +154,46 @@ class FeiniuItem {
     final duration = _int(json['duration']);
     final runtime = _int(json['runtime']);
     final resume = _int(json['watched_ts'] ?? json['ts']);
+    final stillPath = _imagePath(json['still_path'] ?? json['still']);
+    final backdrops = _imagePaths(
+      json['backdrops'] ?? json['backdrop'] ?? json['backdrop_paths'],
+    );
     return FeiniuItem(
       guid: _string(json['guid'] ?? json['id']),
-      title: _string(json['title'] ?? json['name']),
+      title: _string(json['title'] ?? json['name'] ?? json['original_title']),
       type: type,
       parentGuid: _string(json['parent_guid']),
       ancestorGuid: _string(json['ancestor_guid']),
       tvTitle: _string(json['tv_title'] ?? json['series_name']),
       parentTitle: _string(json['parent_title'] ?? json['season_name']),
-      poster: _optional(json['poster'] ?? json['posters']),
-      stillPath: _optional(json['still_path']),
+      poster: _imagePath(
+        json['poster'] ?? json['posters'] ?? json['primary_image'],
+      ),
+      stillPath: stillPath,
+      backdrops: backdrops.isEmpty && stillPath != null
+          ? [stillPath]
+          : backdrops,
+      thumbPath: _imagePath(
+        json['thumb'] ?? json['thumb_path'] ?? json['thumbnail'],
+      ),
       overview: _optional(json['overview']),
-      airDate: _optional(json['air_date']),
+      airDate: _optional(
+        json['release_date'] ??
+            json['first_air_date'] ??
+            json['air_date'] ??
+            json['last_air_date'],
+      ),
+      originalTitle: _optional(json['original_title'] ?? json['original_name']),
+      genres: _stringList(json['genres'] ?? json['genre']),
+      people: _people(json['people'] ?? json['cast_and_crew']),
       runtimeMinutes: runtime,
       durationSeconds: duration > 0 ? duration : runtime * 60,
       resumeSeconds: resume,
       isFavorite: _bool(json['is_favorite']),
       isWatched: _bool(json['watched'] ?? json['is_watched']),
-      voteAverage: _double(json['vote_average']),
+      voteAverage: _double(
+        json['vote_average'] ?? json['rating'] ?? json['score'],
+      ),
       seasonNumber: _optionalInt(json['season_number']),
       episodeNumber: _optionalInt(json['episode_number']),
       numberOfSeasons: _optionalInt(json['number_of_seasons']),
@@ -167,12 +205,16 @@ class FeiniuItem {
       videoGuid: _string(json['video_guid']),
       audioGuid: _string(json['audio_guid']),
       subtitleGuid: _string(json['subtitle_guid']),
-      fileName: _string(json['file_name']),
+      fileName: _string(json['file_name'] ?? json['path']),
     );
   }
 
   MediaBrowserItem toMediaBrowserItem() {
     final seconds = durationSeconds > 0 ? durationSeconds : runtimeMinutes * 60;
+    final fallbackBackdrop = stillPath;
+    final imageBackdrops = backdrops.isEmpty && fallbackBackdrop != null
+        ? <String>[fallbackBackdrop]
+        : backdrops;
     final mediaSource = mediaGuid.isEmpty
         ? const <MediaBrowserMediaSourceDto>[]
         : [
@@ -187,10 +229,13 @@ class FeiniuItem {
       name: title,
       type: type,
       collectionType: type == 'CollectionFolder' ? parentTitle : null,
+      originalTitle: originalTitle,
       productionYear: _year(airDate),
       communityRating: voteAverage,
       runTimeTicks: secondsToMediaBrowserTicks(seconds),
       overview: overview,
+      genres: genres,
+      people: people,
       userData: MediaBrowserUserData(
         playbackPositionTicks: secondsToMediaBrowserTicks(resumeSeconds),
         isFavorite: isFavorite,
@@ -205,8 +250,9 @@ class FeiniuItem {
       albumId: type == 'Audio' && parentGuid.isNotEmpty ? parentGuid : null,
       albumArtist: null,
       primaryImageTag: poster,
-      backdropImageTags: stillPath == null ? const [] : [stillPath!],
-      childCount: numberOfEpisodes,
+      backdropImageTags: imageBackdrops,
+      thumbImageTag: thumbPath,
+      childCount: numberOfEpisodes ?? localNumberOfEpisodes,
       mediaSources: mediaSource,
     );
   }
@@ -238,15 +284,25 @@ class FeiniuItemPage {
     final items = raw is List
         ? raw
               .whereType<Map>()
-              .map((item) => FeiniuItem.fromJson(Map<String, dynamic>.from(item)))
+              .map(
+                (item) => FeiniuItem.fromJson(Map<String, dynamic>.from(item)),
+              )
               .where((item) => item.guid.isNotEmpty)
               .toList(growable: false)
         : const <FeiniuItem>[];
+    final responseLimit = _int(map['limit'] ?? map['page_size']);
+    final resolvedLimit = responseLimit > 0 ? responseLimit : limit;
+    final responsePage = _int(map['page']);
+    final resolvedStartIndex = map.containsKey('start_index')
+        ? _int(map['start_index'])
+        : responsePage > 0 && resolvedLimit > 0
+        ? (responsePage - 1) * resolvedLimit
+        : startIndex;
     return FeiniuItemPage(
       items: items,
       total: _int(map['total'] ?? map['total_count'] ?? items.length),
-      startIndex: _int(map['start_index'] ?? startIndex),
-      limit: _int(map['limit'] ?? limit),
+      startIndex: resolvedStartIndex,
+      limit: resolvedLimit,
     );
   }
 }
@@ -302,10 +358,14 @@ class FeiniuStreamList {
       if (raw is! List) return const [];
       return raw
           .whereType<Map>()
-          .map((item) => FeiniuStream.fromJson(Map<String, dynamic>.from(item), kind))
+          .map(
+            (item) =>
+                FeiniuStream.fromJson(Map<String, dynamic>.from(item), kind),
+          )
           .where((item) => item.guid.isNotEmpty)
           .toList(growable: false);
     }
+
     return FeiniuStreamList(
       video: read('video_streams', 'video'),
       audio: read('audio_streams', 'audio'),
@@ -406,6 +466,109 @@ String _string(Object? value) => value?.toString().trim() ?? '';
 String? _optional(Object? value) {
   final result = _string(value);
   return result.isEmpty ? null : result;
+}
+
+String? _imagePath(Object? value) {
+  if (value is List) {
+    for (final item in value) {
+      final path = _imagePath(item);
+      if (path != null) return path;
+    }
+    return null;
+  }
+  if (value is Map) {
+    final map = Map<String, dynamic>.from(value);
+    for (final key in const ['path', 'url', 'src', 'file', 'image']) {
+      final path = _imagePath(map[key]);
+      if (path != null) return path;
+    }
+    for (final key in const ['poster', 'Primary', 'backdrop', 'Backdrop']) {
+      final path = _imagePath(map[key]);
+      if (path != null) return path;
+    }
+    return null;
+  }
+  return _optional(value);
+}
+
+List<String> _imagePaths(Object? value) {
+  if (value is List) {
+    return value
+        .expand((item) => _imagePaths(item))
+        .where((path) => path.isNotEmpty)
+        .toList(growable: false);
+  }
+  final path = _imagePath(value);
+  return path == null ? const <String>[] : [path];
+}
+
+List<String> _stringList(Object? value) {
+  if (value is List) {
+    return value
+        .map(
+          (item) => item is Map
+              ? _string(item['name'] ?? item['title'])
+              : _string(item),
+        )
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+  }
+  return _string(value)
+      .split(',')
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
+
+List<MediaBrowserPerson> _people(Object? value, [String? forcedType]) {
+  if (value is List) {
+    return value
+        .whereType<Map>()
+        .map(
+          (item) =>
+              _person(Map<String, dynamic>.from(item), forcedType: forcedType),
+        )
+        .where((person) => person.name.isNotEmpty)
+        .toList(growable: false);
+  }
+  if (value is Map) {
+    final map = Map<String, dynamic>.from(value);
+    final groups = <MediaBrowserPerson>[];
+    for (final key in const ['cast', 'actors']) {
+      groups.addAll(_people(map[key], 'Actor'));
+    }
+    for (final key in const ['crew', 'directors']) {
+      groups.addAll(_people(map[key], 'Director'));
+    }
+    if (groups.isNotEmpty) return groups;
+    final person = _person(map, forcedType: forcedType);
+    return person.name.isEmpty ? const [] : [person];
+  }
+  return const [];
+}
+
+MediaBrowserPerson _person(Map<String, dynamic> json, {String? forcedType}) {
+  final rawType = _string(
+    forcedType ?? json['type'] ?? json['department'] ?? json['job'],
+  ).toLowerCase();
+  final type = rawType.contains('director')
+      ? 'Director'
+      : rawType.contains('actor') || rawType.contains('cast')
+      ? 'Actor'
+      : rawType.isEmpty
+      ? ''
+      : _string(json['type'] ?? json['department']);
+  return MediaBrowserPerson(
+    id: _string(json['id'] ?? json['person_id'] ?? json['guid']),
+    name: _string(json['name'] ?? json['original_name'] ?? json['Name']),
+    role: _optional(
+      json['role'] ??
+          json['character'] ??
+          json['character_name'] ??
+          json['job'],
+    ),
+    type: type,
+  );
 }
 
 int _int(Object? value) {

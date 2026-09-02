@@ -21,8 +21,8 @@ void main() {
               },
             ],
             'total': 3,
-            'start_index': 2,
-            'limit': 1,
+            'page': 3,
+            'page_size': 1,
           },
         };
       }
@@ -50,18 +50,23 @@ void main() {
     expect(page.items.single.guid, 'item-1');
     expect(page.items.single.mediaGuid, 'media-1');
     expect(page.total, 3);
+    expect(page.startIndex, 2);
+    expect(page.limit, 1);
     expect(page.hasMore, isFalse);
     expect(user.id, 'user-1');
     expect(adapter.requests, hasLength(2));
     expect(adapter.requests.first, 'POST /v/api/v1/item/list');
     expect(adapter.bodies.first, {
-      'parent_guid': 'library-1',
-      'exclude_folder': 1,
+      'ancestor_guid': 'library-1',
+      'tags': {
+        'type': ['Movie', 'TV'],
+      },
       'sort_column': 'sort_title',
       'sort_type': 'ASC',
       'search': '示例',
-      'start_index': 2,
-      'limit': 1,
+      'page': 3,
+      'page_size': 1,
+      'exclude_grouped_video': 1,
     });
   });
 
@@ -101,6 +106,24 @@ void main() {
     expect(
       FeiniuApi.resolveAssetUrl('http://host:5666/v', 'images/a.png'),
       'http://host:5666/v/images/a.png',
+    );
+    expect(
+      FeiniuApi.resolveAssetUrl(
+        'http://host:5666/v',
+        '/mediadb/item-1/poster.jpg',
+      ),
+      'http://host:5666/v/api/v1/sys/img/mediadb/item-1/poster.jpg',
+    );
+    expect(
+      FeiniuApi.resolveAssetUrl(
+        'http://host:5666',
+        '/sys/img/mediadb/item-1/backdrop.jpg?x=1',
+      ),
+      'http://host:5666/v/api/v1/sys/img/mediadb/item-1/backdrop.jpg?x=1',
+    );
+    expect(
+      FeiniuApi.resolveAssetUrl('http://host:5666', '/img/avatar.png'),
+      'http://host:5666/v/api/v1/img/avatar.png',
     );
   });
 }

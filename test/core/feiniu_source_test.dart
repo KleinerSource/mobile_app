@@ -43,6 +43,82 @@ void main() {
     });
     expect(descriptor.mimeType, 'video/x-matroska');
   });
+  test('飞牛媒体库与详情映射封面、背景、简介和人员', () async {
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore())
+      ..setActiveServerId('feiniu');
+    await sessions.save(
+      const AuthSession(accessToken: 'token-1', refreshToken: '', expiresIn: 0),
+    );
+    final dio = Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+      ..httpClientAdapter = _FeiniuMetadataAdapter();
+    final source = FeiniuMediaSourceAdapter(
+      FeiniuApi(dio),
+      sessionRepository: sessions,
+      endpoint: 'http://test',
+    );
+
+    final views = await source.views();
+    final item = await source.getItem('item-1');
+
+    expect(views.single.primaryImageTag, '/mediadb/library-1/poster.jpg');
+    expect(item.primaryImageTag, '/mediadb/item-1/poster.jpg');
+    expect(item.backdropImageTags, ['/mediadb/item-1/backdrop.jpg']);
+    expect(item.productionYear, 2025);
+    expect(item.originalTitle, 'Example Movie');
+    expect(item.overview, '影片简介');
+    expect(item.genres, ['科幻', '动作']);
+    expect(item.people.map((person) => person.name), ['导演一', '演员一']);
+    expect(item.people.first.type, 'Director');
+    expect(item.people.last.role, '主角');
+  });
+}
+
+class _FeiniuMetadataAdapter implements HttpClientAdapter {
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final data = switch (options.uri.path) {
+      '/v/api/v1/mediadb/list' => {
+        'list': [
+          {
+            'guid': 'library-1',
+            'name': '本地电影',
+            'category': 'movies',
+            'poster': '/mediadb/library-1/poster.jpg',
+          },
+        ],
+      },
+      '/v/api/v1/item/item-1' => {
+        'guid': 'item-1',
+        'title': '示例影片',
+        'type': 'Movie',
+        'poster': '/mediadb/item-1/poster.jpg',
+        'backdrops': ['/mediadb/item-1/backdrop.jpg'],
+        'release_date': '2025-11-26',
+        'original_title': 'Example Movie',
+        'overview': '影片简介',
+        'genres': ['科幻', '动作'],
+        'people': [
+          {'id': 'p1', 'name': '导演一', 'type': 'Director'},
+          {'id': 'p2', 'name': '演员一', 'type': 'Actor', 'character': '主角'},
+        ],
+      },
+      _ => <String, Object?>{},
+    };
+    return ResponseBody.fromString(
+      jsonEncode({'code': 0, 'data': data}),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
 }
 
 class _FeiniuSourceAdapter implements HttpClientAdapter {
@@ -63,6 +139,8 @@ class _FeiniuSourceAdapter implements HttpClientAdapter {
             'guid': 'item-1',
             'title': '示例影片',
             'type': 'Movie',
+            'poster': '/mediadb/item-1/poster.jpg',
+            'backdrops': ['/mediadb/item-1/backdrop.jpg'],
             'can_play': true,
             'media_guid': 'media-1',
             'file_name': 'movie.mkv',
@@ -74,6 +152,16 @@ class _FeiniuSourceAdapter implements HttpClientAdapter {
         'guid': 'item-1',
         'title': '示例影片',
         'type': 'Movie',
+        'poster': '/mediadb/item-1/poster.jpg',
+        'backdrops': ['/mediadb/item-1/backdrop.jpg'],
+        'release_date': '2025-11-26',
+        'original_title': 'Example Movie',
+        'overview': '影片简介',
+        'genres': ['科幻', '动作'],
+        'people': [
+          {'id': 'p1', 'name': '导演一', 'type': 'Director'},
+          {'id': 'p2', 'name': '演员一', 'type': 'Actor', 'character': '主角'},
+        ],
         'can_play': true,
         'media_guid': 'media-1',
         'file_name': 'movie.mkv',

@@ -54,7 +54,9 @@ class FeiniuApi {
   Future<List<FeiniuMediaDb>> mediaDbList() async {
     final response = await _dio.get<dynamic>('/mediadb/list');
     return _unwrap(response.data, (data) {
-      final raw = data is Map ? data['list'] ?? data['items'] : data;
+      final raw = data is Map
+          ? data['list'] ?? data['items'] ?? data['databases']
+          : data;
       if (raw is! List) return const <FeiniuMediaDb>[];
       return raw
           .whereType<Map>()
@@ -85,15 +87,25 @@ class FeiniuApi {
     String? searchTerm,
     int startIndex = 0,
     int limit = 24,
+    List<String>? typeTags,
   }) async {
+    final pageSize = limit < 1 ? 1 : limit;
+    final page = startIndex < 1 ? 1 : startIndex ~/ pageSize + 1;
     final body = <String, dynamic>{
-      'parent_guid': parentGuid,
-      'exclude_folder': excludeFolder ? 1 : 0,
+      'ancestor_guid': parentGuid,
+      'tags': {
+        'type':
+            typeTags ??
+            (excludeFolder
+                ? const ['Movie', 'TV']
+                : const ['Movie', 'TV', 'Directory']),
+      },
       'sort_column': sortColumn,
       'sort_type': sortType,
       if (searchTerm?.trim().isNotEmpty == true) 'search': searchTerm!.trim(),
-      'start_index': startIndex,
-      'limit': limit,
+      'page': page,
+      'page_size': pageSize,
+      'exclude_grouped_video': 1,
     };
     final response = await _dio.post<dynamic>('/item/list', data: body);
     return _unwrap(
@@ -107,7 +119,13 @@ class FeiniuApi {
     final response = await _dio.get<dynamic>(
       '/item/${Uri.encodeComponent(guid)}',
     );
-    return _unwrap(response.data, (data) => FeiniuItem.fromJson(_map(data)));
+    return _unwrap(response.data, (data) {
+      final map = _map(data);
+      final item = map['item'];
+      return FeiniuItem.fromJson(
+        item is Map ? Map<String, dynamic>.from(item) : map,
+      );
+    });
   }
 
   Future<List<FeiniuItem>> favoriteList({
@@ -242,7 +260,47 @@ class FeiniuApi {
   static String resolveAssetUrl(String baseUrl, String? rawUrl) {
     final value = rawUrl?.trim() ?? '';
     if (value.isEmpty) return '';
-    return resolveUrl(baseUrl, value);
+    final uri = Uri.tryParse(value);
+    if (uri == null || uri.hasScheme) return value;
+
+    final base = Uri.parse(
+      ServerConfig.normalizeForProject(baseUrl, ServerProject.feiniu),
+    );
+    final rawPath = uri.path;
+    final lowerPath = rawPath.toLowerCase();
+    String? path;
+    if (lowerPath == '/api/v1' || lowerPath.startsWith('/api/v1/')) {
+      path = '/v$rawPath';
+    } else if (lowerPath == '/v/api/v1' || lowerPath.startsWith('/v/api/v1/')) {
+      path = rawPath;
+    } else if (lowerPath == '/sys/img' || lowerPath.startsWith('/sys/img/')) {
+      path = '${base.path}/api/v1$rawPath';
+    } else if (lowerPath == '/sys/rimg' || lowerPath.startsWith('/sys/rimg/')) {
+      path = '${base.path}/api/v1$rawPath';
+    } else if (lowerPath == '/sys/progressthumb' ||
+        lowerPath.startsWith('/sys/progressthumb/')) {
+      path = '${base.path}/api/v1$rawPath';
+    } else if (lowerPath == '/img' || lowerPath.startsWith('/img/')) {
+      path = '${base.path}/api/v1$rawPath';
+    } else if (lowerPath == '/mediadb' || lowerPath.startsWith('/mediadb/')) {
+      path = '${base.path}/api/v1/sys/img$rawPath';
+    } else if (lowerPath == 'sys/img' || lowerPath.startsWith('sys/img/')) {
+      path = '${base.path}/api/v1/$rawPath';
+    } else if (lowerPath == 'sys/rimg' || lowerPath.startsWith('sys/rimg/')) {
+      path = '${base.path}/api/v1/$rawPath';
+    } else if (lowerPath == 'mediadb' || lowerPath.startsWith('mediadb/')) {
+      path = '${base.path}/api/v1/sys/img/$rawPath';
+    } else if (lowerPath == 'img' || lowerPath.startsWith('img/')) {
+      path = '${base.path}/api/v1/$rawPath';
+    }
+    if (path == null) return resolveUrl(baseUrl, value);
+    return base
+        .replace(
+          path: path,
+          query: uri.hasQuery ? uri.query : null,
+          fragment: uri.hasFragment ? uri.fragment : null,
+        )
+        .toString();
   }
 
   static Map<String, String> mediaHeaders(String? token) => {

@@ -272,6 +272,7 @@ class _MediaBrowserDetailBodyState
   }
 
   bool _hasDetails(MediaBrowserItem item) {
+    if (item.originalTitle?.trim().isNotEmpty == true) return true;
     if (item.seriesName?.trim().isNotEmpty == true) return true;
     final source = item.mediaSources.isEmpty ? null : item.mediaSources.first;
     if (source == null) return false;
@@ -461,6 +462,8 @@ class _DetailsTable extends StatelessWidget {
     final colors = appColors(context);
     final source = item.mediaSources.isEmpty ? null : item.mediaSources.first;
     final rows = <(String, String)>[
+      if (item.originalTitle?.trim().isNotEmpty == true)
+        ('原名', item.originalTitle!),
       if (item.seriesName?.trim().isNotEmpty == true)
         ('所属剧集', item.seriesName!),
       if (source?.path?.trim().isNotEmpty == true) ('文件路径', source!.path!),

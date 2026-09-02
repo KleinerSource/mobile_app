@@ -223,6 +223,7 @@ class MediaBrowserItem {
     required this.type,
     this.serverId,
     this.collectionType,
+    this.originalTitle,
     this.productionYear,
     this.communityRating,
     this.criticRating,
@@ -257,6 +258,7 @@ class MediaBrowserItem {
   /// 媒体库类型：'movies' / 'tvshows' / 'music' 等，仅 Views 返回。
   final String? collectionType;
   final String name;
+  final String? originalTitle;
   final int? productionYear;
   final double? communityRating;
   final double? criticRating;
@@ -325,6 +327,7 @@ class MediaBrowserItem {
       type: json['Type']?.toString() ?? '',
       serverId: _stringOrNull(json['ServerId']),
       collectionType: _stringOrNull(json['CollectionType']),
+      originalTitle: _stringOrNull(json['OriginalTitle']),
       productionYear: _intValue(json['ProductionYear']),
       communityRating: _doubleValue(json['CommunityRating']),
       criticRating: _doubleValue(json['CriticRating']),
