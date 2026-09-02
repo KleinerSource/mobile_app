@@ -675,68 +675,58 @@ class _ActorRelatedMoviesSection extends StatelessWidget {
     final relatedMovies = _randomMovies();
     if (relatedMovies.isEmpty) return const SizedBox.shrink();
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-            child: Text('演员关联影片', style: AppText.sectionTitle(context)),
-          ),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              // 与影片库三列网格保持相同的横向内边距、间距和宽高比。
-              const columns = 3;
-              const horizontalPadding = 44.0;
-              const crossAxisSpacing = 10.0;
-              const childAspectRatio = 0.55;
-              final cardWidth =
-                  (constraints.maxWidth -
-                      horizontalPadding -
-                      crossAxisSpacing * (columns - 1)) /
-                  columns;
-              return SizedBox(
-                height: cardWidth / childAspectRatio,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 22),
-                  itemCount: relatedMovies.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
-                  itemBuilder: (ctx, index) {
-                    final related = relatedMovies[index];
-                    return SizedBox(
-                      width: cardWidth,
-                      child: MovieCard(
-                        movie: _toMovieListItem(related),
-                        posterUrlBuilder: urlBuilder,
-                        onTap: () async {
-                          final changesBeforeVisit = MovieDataChanges.snapshot(
-                            movieId: related.id,
-                          );
-                          await Navigator.of(ctx).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  MovieDetailPage(movieId: related.id),
-                            ),
-                          );
-                          // 关联影片的元数据/封面变更会影响本区块展示;
-                          // 仅浏览未编辑时沿用缓存,不重新拉取详情。
-                          if (ctx.mounted &&
-                              changesBeforeVisit.latest.displayChangedSince(
-                                changesBeforeVisit,
-                              )) {
-                            onMovieReturned();
-                          }
-                        },
-                      ),
-                    );
-                  },
-                ),
-              );
-            },
-          ),
-        ],
+    return MovieDetailFullBleedSection(
+      header: Text('演员关联影片', style: AppText.sectionTitle(context)),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 与影片库三列网格保持相同的横向内边距、间距和宽高比。
+          const columns = 3;
+          const horizontalPadding = 44.0;
+          const crossAxisSpacing = 10.0;
+          const childAspectRatio = 0.55;
+          final cardWidth =
+              (constraints.maxWidth -
+                  horizontalPadding -
+                  crossAxisSpacing * (columns - 1)) /
+              columns;
+          return SizedBox(
+            height: cardWidth / childAspectRatio,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              itemCount: relatedMovies.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (ctx, index) {
+                final related = relatedMovies[index];
+                return SizedBox(
+                  width: cardWidth,
+                  child: MovieCard(
+                    movie: _toMovieListItem(related),
+                    posterUrlBuilder: urlBuilder,
+                    onTap: () async {
+                      final changesBeforeVisit = MovieDataChanges.snapshot(
+                        movieId: related.id,
+                      );
+                      await Navigator.of(ctx).push(
+                        MaterialPageRoute(
+                          builder: (_) => MovieDetailPage(movieId: related.id),
+                        ),
+                      );
+                      // 关联影片的元数据/封面变更会影响本区块展示;
+                      // 仅浏览未编辑时沿用缓存,不重新拉取详情。
+                      if (ctx.mounted &&
+                          changesBeforeVisit.latest.displayChangedSince(
+                            changesBeforeVisit,
+                          )) {
+                        onMovieReturned();
+                      }
+                    },
+                  ),
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
@@ -993,49 +983,59 @@ class _MediaInfoSection extends ConsumerWidget {
         }
         final hasCards = streams.hasContent;
         if (rows.isEmpty && !hasCards) return const SizedBox.shrink();
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
+        return MovieDetailFullBleedSection(
+          bottom: 32,
+          header: Text('媒体信息', style: AppText.sectionTitle(context)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('媒体信息', style: AppText.sectionTitle(context)),
-              const SizedBox(height: 14),
-              for (final r in rows)
+              if (rows.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 7),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  child: Column(
                     children: [
-                      SizedBox(
-                        width: 96,
-                        child: Text(
-                          r[0],
-                          style: TextStyle(
-                            color: c.muted,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
+                      for (final r in rows)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 7),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 96,
+                                child: Text(
+                                  r[0],
+                                  style: TextStyle(
+                                    color: c.muted,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  r[1],
+                                  style: TextStyle(
+                                    color: c.text,
+                                    fontFamily: 'monospace',
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          r[1],
-                          style: TextStyle(
-                            color: c.text,
-                            fontFamily: 'monospace',
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w500,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
               if (hasCards) ...[
                 if (rows.isNotEmpty) const SizedBox(height: 10),
-                MediaStreamCards(detail: detail),
+                MediaStreamCards(
+                  detail: detail,
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                ),
               ],
             ],
           ),

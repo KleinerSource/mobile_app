@@ -29,11 +29,7 @@ class CastEntry {
 /// 横向滚动的大圆头像(色相发光 + 名字首字渐变兜底)+ 名字与角色。
 /// 有任一条目带角色时预留角色行高度。
 class CastSection extends StatelessWidget {
-  const CastSection({
-    super.key,
-    required this.entries,
-    this.title = '演员',
-  });
+  const CastSection({super.key, required this.entries, this.title = '演员'});
 
   final List<CastEntry> entries;
   final String title;
@@ -44,8 +40,8 @@ class CastSection extends StatelessWidget {
     final hasRole = entries.any(
       (entry) => (entry.role ?? '').trim().isNotEmpty,
     );
-    return MovieDetailSection(
-      title: title,
+    return MovieDetailFullBleedSection(
+      header: Text(title, style: AppText.sectionTitle(context)),
       child: SizedBox(
         height: hasRole ? 150 : 132,
         // 不用 ListView：虚拟化会回收滚动出缓存区的头像，回滚重建时
@@ -55,8 +51,9 @@ class CastSection extends StatelessWidget {
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           clipBehavior: Clip.none,
-          // 顶部预留泛光渐隐空间,避免 BoxShadow 上溢被视口硬切
-          padding: const EdgeInsets.fromLTRB(0, 14, 0, 0),
+          // 顶部预留泛光渐隐空间,避免 BoxShadow 上溢被视口硬切;
+          // 两侧 22 随滚动器铺满屏宽,头像可滑到屏幕边缘
+          padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

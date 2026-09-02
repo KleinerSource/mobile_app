@@ -267,30 +267,29 @@ class _SeasonSection extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(22, 4, 22, 14),
-              child: MovieDetailSection(
-                title: '分集',
-                bottom: 0,
-                child: SizedBox.shrink(),
+            MovieDetailFullBleedSection(
+              bottom: 14,
+              header: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text('分集', style: AppText.sectionTitle(context)),
               ),
-            ),
-            SizedBox(
-              height: 38,
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 22),
-                scrollDirection: Axis.horizontal,
-                itemCount: list.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final season = list[index];
-                  final selected = season.id == activeId;
-                  return _SeasonChip(
-                    label: _seasonLabel(season),
-                    selected: selected,
-                    onTap: () => onSeasonSelected(season.id),
-                  );
-                },
+              child: SizedBox(
+                height: 38,
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: list.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final season = list[index];
+                    final selected = season.id == activeId;
+                    return _SeasonChip(
+                      label: _seasonLabel(season),
+                      selected: selected,
+                      onTap: () => onSeasonSelected(season.id),
+                    );
+                  },
+                ),
               ),
             ),
             _EpisodeList(seriesId: seriesId, seasonId: activeId),

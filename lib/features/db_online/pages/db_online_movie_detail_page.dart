@@ -256,8 +256,8 @@ class _DbOnlineDetailBodyState extends ConsumerState<_DbOnlineDetailBody> {
           ),
         if (movie.previews.isNotEmpty && config != null)
           SliverToBoxAdapter(
-            child: MovieDetailSection(
-              title: '预览图',
+            child: MovieDetailFullBleedSection(
+              header: Text('预览图', style: AppText.sectionTitle(context)),
               child: _DbOnlinePreviewRow(movie: movie, config: config),
             ),
           ),
@@ -363,6 +363,8 @@ class _DbOnlinePreviewRow extends StatelessWidget {
       height: cardWidth * 9 / 16,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
+        // 两侧 22 随滚动器铺满屏宽,卡片可滑到屏幕边缘
+        padding: const EdgeInsets.symmetric(horizontal: 22),
         itemCount: urls.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (_, index) => SizedBox(
@@ -454,12 +456,14 @@ class _RelatedMovieSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MovieDetailSection(
-      title: title,
+    return MovieDetailFullBleedSection(
+      header: Text(title, style: AppText.sectionTitle(context)),
       child: SizedBox(
         height: 250,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
+          // 两侧 22 随滚动器铺满屏宽,卡片可滑到屏幕边缘
+          padding: const EdgeInsets.symmetric(horizontal: 22),
           itemCount: movies.length,
           separatorBuilder: (_, __) => const SizedBox(width: 10),
           itemBuilder: (_, index) {

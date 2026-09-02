@@ -10,6 +10,7 @@ import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/cache/image_cache_manager.dart';
 import 'package:omm/l10n/generated/app_localizations.dart';
 import 'package:omm/features/oh_my_media/movies/movies_providers.dart';
+import 'movie_detail_scaffold.dart';
 import 'package:omm/features/player/video/video_player_page.dart';
 import 'package:omm/features/player/common/playback_engine.dart';
 import 'package:omm/features/player/common/player_session_controller.dart';
@@ -58,7 +59,8 @@ class _MovieExtraFanartSectionState
       if (!mounted || !_previewController.hasClients) return;
       final cardWidth = _cardWidth(context);
       final viewport = _previewController.position.viewportDimension;
-      final target = index * (cardWidth + 10) - (viewport - cardWidth) / 2;
+      // 列表自带 22 的首部滚动内边距,居中目标需补上这段偏移
+      final target = 22 + index * (cardWidth + 10) - (viewport - cardWidth) / 2;
       final position = target
           .clamp(0.0, _previewController.position.maxScrollExtent)
           .toDouble();
@@ -137,24 +139,37 @@ class _MovieExtraFanartSectionState
   Widget _trailerOnlyPreview(BuildContext context) {
     final cardWidth = _cardWidth(context);
     final cardHeight = cardWidth * 9 / 16;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _header(context, hasImages: true),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: cardHeight,
-            child: SizedBox(
-              width: cardWidth,
-              child: _TrailerThumbnail(
-                posterUrl: widget.posterUrl,
-                onTap: () => _playTrailer(context),
-              ),
-            ),
+    return MovieDetailFullBleedSection(
+      bottom: 32,
+      gap: 12,
+      header: _header(context, hasImages: true),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        child: SizedBox(
+          height: cardHeight,
+          width: cardWidth,
+          child: _TrailerThumbnail(
+            posterUrl: widget.posterUrl,
+            onTap: () => _playTrailer(context),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  /// 加载中 / 加载失败 / 空态的通栏占位:标题照常,内容保持 22 留白。
+  Widget _placeholderState(
+    BuildContext context, {
+    required String message,
+    required IconData icon,
+  }) {
+    return MovieDetailFullBleedSection(
+      bottom: 32,
+      gap: 12,
+      header: _header(context, hasImages: false),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        child: _emptyState(context, message, icon),
       ),
     );
   }
@@ -165,51 +180,25 @@ class _MovieExtraFanartSectionState
     return async.when(
       loading: () => widget.trailerUrl != null
           ? _trailerOnlyPreview(context)
-          : Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _header(context, hasImages: false),
-                  const SizedBox(height: 12),
-                  _emptyState(
-                    context,
-                    '正在加载预览图',
-                    Icons.hourglass_empty_rounded,
-                  ),
-                ],
-              ),
+          : _placeholderState(
+              context,
+              message: '正在加载预览图',
+              icon: Icons.hourglass_empty_rounded,
             ),
       error: (error, _) => widget.trailerUrl != null
           ? _trailerOnlyPreview(context)
-          : Padding(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _header(context, hasImages: false),
-                  const SizedBox(height: 12),
-                  _emptyState(
-                    context,
-                    '预览图加载失败: ${toApiException(error).message}',
-                    Icons.broken_image_outlined,
-                  ),
-                ],
-              ),
+          : _placeholderState(
+              context,
+              message: '预览图加载失败: ${toApiException(error).message}',
+              icon: Icons.broken_image_outlined,
             ),
       data: (urls) {
         final hasTrailer = widget.trailerUrl != null;
         if (!hasTrailer && urls.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _header(context, hasImages: false),
-                const SizedBox(height: 12),
-                _emptyState(context, '暂无预览图', Icons.photo_library_outlined),
-              ],
-            ),
+          return _placeholderState(
+            context,
+            message: '暂无预览图',
+            icon: Icons.photo_library_outlined,
           );
         }
 
@@ -217,69 +206,64 @@ class _MovieExtraFanartSectionState
         final cardHeight = cardWidth * 9 / 16;
         final itemCount = urls.length + (hasTrailer ? 1 : 0);
 
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(22, 0, 22, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _header(context, hasImages: true),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: cardHeight,
-                child: ListView.separated(
-                  controller: _previewController,
-                  scrollDirection: Axis.horizontal,
-                  itemCount: itemCount,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
-                  itemBuilder: (context, index) {
-                    if (hasTrailer && index == 0) {
-                      return SizedBox(
-                        width: cardWidth,
-                        child: _TrailerThumbnail(
-                          posterUrl: widget.posterUrl,
-                          onTap: () => _playTrailer(context),
-                        ),
-                      );
-                    }
+        return MovieDetailFullBleedSection(
+          bottom: 32,
+          gap: 12,
+          header: _header(context, hasImages: true),
+          child: SizedBox(
+            height: cardHeight,
+            child: ListView.separated(
+              controller: _previewController,
+              scrollDirection: Axis.horizontal,
+              // 两侧 22 随滚动器铺满屏宽,卡片可滑到屏幕边缘
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              itemCount: itemCount,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                if (hasTrailer && index == 0) {
+                  return SizedBox(
+                    width: cardWidth,
+                    child: _TrailerThumbnail(
+                      posterUrl: widget.posterUrl,
+                      onTap: () => _playTrailer(context),
+                    ),
+                  );
+                }
 
-                    final imageIndex = index - (hasTrailer ? 1 : 0);
-                    final url = urls[imageIndex];
-                    return SizedBox(
-                      width: cardWidth,
-                      child: Material(
-                        color: appColors(context).surfaceAlt,
-                        borderRadius: BorderRadius.circular(10),
-                        clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          onTap: () {
-                            unawaited(_openViewer(context, urls, index));
-                          },
-                          child: CachedNetworkImage(
-                            cacheManager: AppImageCacheManager.instance,
-                            imageUrl: url,
-                            fit: BoxFit.cover,
-                            placeholder: (_, __) => const Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            ),
-                            errorWidget: (_, __, ___) => Icon(
-                              Icons.broken_image_outlined,
-                              color: appColors(context).muted,
-                              size: 28,
-                            ),
+                final imageIndex = index - (hasTrailer ? 1 : 0);
+                final url = urls[imageIndex];
+                return SizedBox(
+                  width: cardWidth,
+                  child: Material(
+                    color: appColors(context).surfaceAlt,
+                    borderRadius: BorderRadius.circular(10),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () {
+                        unawaited(_openViewer(context, urls, index));
+                      },
+                      child: CachedNetworkImage(
+                        cacheManager: AppImageCacheManager.instance,
+                        imageUrl: url,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => const Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         ),
+                        errorWidget: (_, __, ___) => Icon(
+                          Icons.broken_image_outlined,
+                          color: appColors(context).muted,
+                          size: 28,
+                        ),
                       ),
-                    );
-                  },
-                ),
-              ),
-            ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         );
       },

@@ -14,8 +14,7 @@ class MediaStreamCards extends StatelessWidget {
   final MediaInfoDetail detail;
 
   /// 横向滚动的内边距。调用方把滚动视口铺满屏宽（不再由外层 Section 垫
-  /// 横向边距）时，用它让首卡与标题对齐、末卡滚到边缘后仍留呼吸空隙；
-  /// 保持 null 时由外层 Section 的边距约束（OMM 详情页现状）。
+  /// 横向边距）时，用它让首卡与标题对齐、末卡滚到边缘后仍留呼吸空隙。
   final EdgeInsetsGeometry? padding;
 
   @override

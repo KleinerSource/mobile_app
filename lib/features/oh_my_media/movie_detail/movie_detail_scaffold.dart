@@ -121,6 +121,40 @@ class MovieDetailSection extends StatelessWidget {
   }
 }
 
+/// 详情页横滑区块的通栏容器。
+///
+/// 标题单独保留 22 横向留白,滚动列表由调用方铺满屏宽,并把 22 的
+/// 起止位置放进滚动器内部的 padding:静止时首卡与标题对齐,滚动时
+/// 卡片可以一直拖到屏幕边缘,不被外层边距锁住。
+class MovieDetailFullBleedSection extends StatelessWidget {
+  const MovieDetailFullBleedSection({
+    super.key,
+    required this.header,
+    required this.child,
+    this.bottom = 28,
+    this.gap = 14,
+  });
+
+  final Widget header;
+  final Widget child;
+  final double bottom;
+  final double gap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(padding: EdgeInsets.fromLTRB(22, 0, 22, gap), child: header),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
 /// 详情页简介的统一折叠与展开交互。
 ///
 /// 预览最多显示三行，点击后在可滚动弹窗中查看完整内容。
