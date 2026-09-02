@@ -290,7 +290,6 @@ class _MediaBrowserDetailBodyState
               onOpenPerson: onOpenPerson,
             ),
           ),
-        SliverToBoxAdapter(child: MediaBrowserMediaInfoSection(item: item)),
         widget.similar.when(
           loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
           error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
@@ -300,6 +299,7 @@ class _MediaBrowserDetailBodyState
                   child: MediaBrowserSimilarSection(items: items),
                 ),
         ),
+        SliverToBoxAdapter(child: MediaBrowserMediaInfoSection(item: item)),
         if (_hasDetails(item))
           SliverToBoxAdapter(
             child: MovieDetailSection(

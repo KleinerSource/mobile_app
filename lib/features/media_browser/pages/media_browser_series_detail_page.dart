@@ -227,6 +227,14 @@ class _MediaBrowserSeriesDetailPageState
                           child: MediaBrowserNextUpSection(items: items),
                         ),
                 ),
+              SliverToBoxAdapter(
+                child: _SeasonSection(
+                  seriesId: _seriesId,
+                  selectedSeasonId: _selectedSeasonId,
+                  onSeasonSelected: (seasonId) =>
+                      setState(() => _selectedSeasonId = seasonId),
+                ),
+              ),
               similar.when(
                 loading: () =>
                     const SliverToBoxAdapter(child: SizedBox.shrink()),
@@ -237,14 +245,6 @@ class _MediaBrowserSeriesDetailPageState
                     : SliverToBoxAdapter(
                         child: MediaBrowserSimilarSection(items: items),
                       ),
-              ),
-              SliverToBoxAdapter(
-                child: _SeasonSection(
-                  seriesId: _seriesId,
-                  selectedSeasonId: _selectedSeasonId,
-                  onSeasonSelected: (seasonId) =>
-                      setState(() => _selectedSeasonId = seasonId),
-                ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 60)),
             ],
