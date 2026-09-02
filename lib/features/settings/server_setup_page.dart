@@ -15,6 +15,7 @@ import '../../core/sources/files/smb_file_source.dart';
 import '../../core/sources/files/webdav_file_source.dart';
 import '../../shared/glass.dart';
 import '../../shared/glow_background.dart';
+import '../../shared/server_avatar.dart';
 import 'settings_common.dart';
 
 class ServerSetupPage extends ConsumerStatefulWidget {
@@ -716,6 +717,7 @@ class _ProjectSelector extends StatelessWidget {
           value: value,
           isExpanded: true,
           isDense: true,
+          itemHeight: null,
           style: TextStyle(
             color: c.text,
             fontFamily: 'Inter',
@@ -723,16 +725,23 @@ class _ProjectSelector extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
           items: [
-            for (final project in ServerProject.values) ...[
-              if (project == ServerProject.ohMyMedia)
-                _projectGroupDivider(context, '媒体服务器'),
-              if (project == ServerProject.smb)
-                _projectGroupDivider(context, '文件服务器'),
+            for (final project in ServerProject.values)
               DropdownMenuItem(
                 value: project,
+                child: _ProjectMenuItem(
+                  project: project,
+                  groupLabel: _projectGroupLabel(project),
+                  colors: c,
+                ),
+              ),
+          ],
+          // 菜单项带头像和分组标题，关闭状态仍保持单行紧凑展示。
+          selectedItemBuilder: (context) => [
+            for (final project in ServerProject.values)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
                 child: Text(_projectLabel(project)),
               ),
-            ],
           ],
           onChanged: enabled
               ? (project) {
@@ -797,24 +806,66 @@ class _ProtocolSelector extends StatelessWidget {
   }
 }
 
-DropdownMenuItem<ServerProject> _projectGroupDivider(
-  BuildContext context,
-  String label,
-) {
-  final c = appColors(context);
-  return DropdownMenuItem<ServerProject>(
-    enabled: false,
-    child: Row(
+class _ProjectMenuItem extends StatelessWidget {
+  const _ProjectMenuItem({
+    required this.project,
+    required this.groupLabel,
+    required this.colors,
+  });
+
+  final ServerProject project;
+  final String? groupLabel;
+  final AppColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: Divider(height: 1, color: c.divider)),
+        if (groupLabel != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 3, 0, 1),
+            child: Row(
+              children: [
+                Expanded(child: Divider(height: 1, color: colors.divider)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(groupLabel!, style: AppText.meta(context)),
+                ),
+                Expanded(child: Divider(height: 1, color: colors.divider)),
+              ],
+            ),
+          ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Text(label, style: AppText.meta(context)),
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(
+            children: [
+              ServerAvatar(
+                displayName: _projectLabel(project),
+                avatarUrl: null,
+                size: 30,
+                colors: colors,
+                project: project,
+                showBackground: false,
+                showBorder: false,
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Text(_projectLabel(project))),
+            ],
+          ),
         ),
-        Expanded(child: Divider(height: 1, color: c.divider)),
       ],
-    ),
-  );
+    );
+  }
+}
+
+String? _projectGroupLabel(ServerProject project) {
+  return switch (project) {
+    ServerProject.ohMyMedia => '媒体服务器',
+    ServerProject.smb => '文件服务器',
+    _ => null,
+  };
 }
 
 String _projectLabel(ServerProject project) {
