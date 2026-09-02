@@ -150,7 +150,7 @@ Future<void> _pumpBoth(WidgetTester tester) async {
 }
 
 void main() {
-  test('剧集 meta 显示起止年份、总集数和连载状态', () {
+  test('剧集 meta 显示起止年份和集数', () {
     final ended = MediaBrowserItem.fromJson(const {
       'Id': 'series-1',
       'Name': '已完结剧集',
@@ -183,9 +183,32 @@ void main() {
     expect(mediaBrowserItemMetaText(legacy), '2019 - 2024 · 8集');
   });
 
-  testWidgets('MediaBrowser 卡片风格尺寸与 OMM MovieCard 一致（0.5 网格）', (tester) async {
+  testWidgets('MediaBrowser 卡片在影视网格中完整显示 meta', (tester) async {
     await _pumpBoth(tester);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Jellyfin 剧集卡片在年份之后显示集数', (tester) async {
+    final item = MediaBrowserItem.fromJson(const {
+      'Name': '侠探杰克',
+      'Id': 'series-jellyfin',
+      'PremiereDate': '2022-02-03T00:00:00.0000000Z',
+      'ProductionYear': 2022,
+      'Type': 'Series',
+      'UserData': {'PlayCount': 0, 'UnplayedItemCount': 24},
+      'ChildCount': 24,
+      'Status': 'Continuing',
+      'EndDate': '2025-03-27T00:00:00.0000000Z',
+    });
+
+    await tester.pumpWidget(
+      _grid([
+        MediaBrowserItemCard(item: item, urls: _urls(), width: 108.7),
+      ], 0.5),
+    );
+    await tester.pump();
+
+    expect(find.text('2022 - 现在 · 24集'), findsOneWidget);
   });
 
   testWidgets('meta 行格式与 OMM 一致；无在线播放角标', (tester) async {

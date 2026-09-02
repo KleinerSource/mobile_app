@@ -30,7 +30,12 @@ import 'package:omm/shared/status_bar_scroll_to_top.dart';
 /// 排序沿用 MediaBrowser 的 SortBy 语义，升降序切换与 DBO 影片库一致。
 /// 长按进入拖选多选（与 OMM 影片库同构），批量收藏/已看标记。
 class MediaBrowserLibraryPage extends ConsumerStatefulWidget {
-  const MediaBrowserLibraryPage({super.key, this.initialViewId, this.personId, this.personName});
+  const MediaBrowserLibraryPage({
+    super.key,
+    this.initialViewId,
+    this.personId,
+    this.personName,
+  });
 
   /// 从首页媒体库卡片进入时预选的库；null 保持默认的“全部库”模式。
   final String? initialViewId;

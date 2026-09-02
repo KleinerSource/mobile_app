@@ -111,6 +111,24 @@ void main() {
     expect(item.totalEpisodeCount, 24);
   });
 
+  test('Jellyfin 剧集列表条目解析 ChildCount 和 UserData 计数', () {
+    final item = MediaBrowserItem.fromJson(const {
+      'Name': '侠探杰克',
+      'Id': 'series-jellyfin',
+      'PremiereDate': '2022-02-03T00:00:00.0000000Z',
+      'ProductionYear': 2022,
+      'Type': 'Series',
+      'UserData': {'PlayCount': 0, 'UnplayedItemCount': 24},
+      'ChildCount': 24,
+      'Status': 'Continuing',
+      'EndDate': '2025-03-27T00:00:00.0000000Z',
+    });
+
+    expect(item.isSeries, isTrue);
+    expect(item.childCount, 24);
+    expect(item.totalEpisodeCount, 24);
+  });
+
   test('剧集总集数兼容 Emby 容器计数回退', () {
     final item = MediaBrowserItem.fromJson(const {
       'Id': 'series-2',
