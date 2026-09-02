@@ -288,6 +288,10 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
       const MediaBrowserItemPage(items: [], total: 0, startIndex: 0, limit: 0);
 
   @override
+  Future<MediaBrowserItemPage> similar(String itemId, {int limit = 12}) async =>
+      const MediaBrowserItemPage(items: [], total: 0, startIndex: 0, limit: 0);
+
+  @override
   Future<MediaBrowserItemPage> itemPage({
     String? parentId,
     String? includeItemTypes,

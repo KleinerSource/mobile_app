@@ -296,6 +296,13 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
       });
 
   @override
+  Future<MediaBrowserItemPage> similar(String itemId, {int limit = 12}) =>
+      _call(() async {
+        final uid = await _requireUserId();
+        return api.similar(uid, itemId, limit: limit);
+      });
+
+  @override
   Future<MediaBrowserItemPage> itemPage({
     String? parentId,
     String? includeItemTypes,

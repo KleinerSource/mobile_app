@@ -343,6 +343,22 @@ class MediaBrowserApi {
     });
   }
 
+  /// 某个条目的更多类似（Emby / Jellyfin 通用）。
+  Future<MediaBrowserItemPage> similar(
+    String userId,
+    String itemId, {
+    int limit = 12,
+  }) {
+    return _itemPage(
+      _p('/Items/${_segment(itemId)}/Similar'),
+      <String, dynamic>{
+        'UserId': userId,
+        'Limit': limit,
+        'Fields': 'ItemCounts',
+      },
+    );
+  }
+
   /// 剧集的季列表。
   Future<List<MediaBrowserItem>> seasons(String userId, String seriesId) async {
     final response = await _dio.get<Map<String, dynamic>>(

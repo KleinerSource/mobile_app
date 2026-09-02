@@ -1,0 +1,43 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
+import 'package:omm/features/media_browser/navigation/media_browser_navigation.dart';
+import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_item_card.dart';
+import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
+
+/// MediaBrowser 条目详情页的「更多类似」横向海报列表。
+class MediaBrowserSimilarSection extends ConsumerWidget {
+  const MediaBrowserSimilarSection({super.key, required this.items});
+
+  final List<MediaBrowserItem> items;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final urls = ref.watch(mediaBrowserServerUrlsProvider).value;
+    if (urls == null || items.isEmpty) return const SizedBox.shrink();
+    return MovieDetailFullBleedSection(
+      header: Text('更多类似', style: AppText.sectionTitle(context)),
+      child: SizedBox(
+        height: 250,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return MediaBrowserItemCard(
+              item: item,
+              urls: urls,
+              width: 112,
+              onTap: () => openMediaBrowserItem(context, ref, item),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}

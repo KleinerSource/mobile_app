@@ -11,6 +11,8 @@ import 'package:omm/features/media_browser/providers/media_browser_providers.dar
 import 'package:omm/features/media_browser/widgets/media_browser_action_button.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_cast_section.dart';
 import 'package:omm/features/media_browser/widgets/media_browser_media_info_section.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_next_up_section.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_similar_section.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/home/continue_watching_section.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
@@ -102,6 +104,22 @@ class _MediaBrowserSeriesDetailPageState
       ),
     );
     final urls = ref.watch(mediaBrowserServerUrlsProvider);
+    final config = ref.watch(mediaBrowserConfigProvider);
+    final seriesNextUp = config?.project == ServerProject.jellyfin
+        ? ref.watch(
+            mediaBrowserSeriesNextUpProvider(
+              MediaBrowserSeriesNextUpRequest(
+                serverId: serverId,
+                seriesId: _seriesId,
+              ),
+            ),
+          )
+        : null;
+    final similar = ref.watch(
+      mediaBrowserSimilarProvider(
+        MediaBrowserSimilarRequest(serverId: serverId, itemId: _seriesId),
+      ),
+    );
     final colors = appColors(context);
     return Scaffold(
       backgroundColor: colors.bg,
@@ -196,6 +214,29 @@ class _MediaBrowserSeriesDetailPageState
               // 剧集条目一般没有文件级媒体源；有（如单文件剧集）才展示。
               SliverToBoxAdapter(
                 child: MediaBrowserMediaInfoSection(item: series),
+              ),
+              if (seriesNextUp != null)
+                seriesNextUp.when(
+                  loading: () =>
+                      const SliverToBoxAdapter(child: SizedBox.shrink()),
+                  error: (_, __) =>
+                      const SliverToBoxAdapter(child: SizedBox.shrink()),
+                  data: (items) => items.isEmpty
+                      ? const SliverToBoxAdapter(child: SizedBox.shrink())
+                      : SliverToBoxAdapter(
+                          child: MediaBrowserNextUpSection(items: items),
+                        ),
+                ),
+              similar.when(
+                loading: () =>
+                    const SliverToBoxAdapter(child: SizedBox.shrink()),
+                error: (_, __) =>
+                    const SliverToBoxAdapter(child: SizedBox.shrink()),
+                data: (items) => items.isEmpty
+                    ? const SliverToBoxAdapter(child: SizedBox.shrink())
+                    : SliverToBoxAdapter(
+                        child: MediaBrowserSimilarSection(items: items),
+                      ),
               ),
               SliverToBoxAdapter(
                 child: _SeasonSection(

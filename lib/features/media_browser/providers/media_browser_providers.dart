@@ -184,6 +184,37 @@ final mediaBrowserNextUpProvider =
       return page.items;
     });
 
+/// Jellyfin 剧集详情页的「接下来观看」。
+///
+/// 通过 NextUp 的 ParentId 只取当前剧集，Emby 详情页暂不主动请求该增强
+/// 区块；首页的通用 nextUp 仍按原逻辑同时支持 Emby/Jellyfin。
+final mediaBrowserSeriesNextUpProvider = FutureProvider.autoDispose
+    .family<List<MediaBrowserItem>, MediaBrowserSeriesNextUpRequest>((
+      ref,
+      request,
+    ) async {
+      _checkServerScope(ref, request.serverId);
+      final page = await ref
+          .watch(mediaBrowserMediaRepositoryProvider)
+          .nextUp(parentId: request.seriesId, limit: request.limit);
+      return page.items;
+    });
+
+/// 条目详情页的「更多类似」。
+final mediaBrowserSimilarProvider = FutureProvider.autoDispose
+    .family<List<MediaBrowserItem>, MediaBrowserSimilarRequest>((
+      ref,
+      request,
+    ) async {
+      _checkServerScope(ref, request.serverId);
+      final page = await ref
+          .watch(mediaBrowserMediaRepositoryProvider)
+          .similar(request.itemId, limit: request.limit);
+      return page.items
+          .where((item) => item.id != request.itemId)
+          .toList(growable: false);
+    });
+
 /// 库浏览/搜索共用的分页查询。
 final mediaBrowserItemPageProvider = FutureProvider.autoDispose
     .family<MediaBrowserItemPage, MediaBrowserItemPageRequest>((ref, request) {
@@ -367,6 +398,50 @@ class MediaBrowserItemDetailRequest {
 
   @override
   int get hashCode => Object.hash(serverId, itemId);
+}
+
+class MediaBrowserSeriesNextUpRequest {
+  const MediaBrowserSeriesNextUpRequest({
+    required this.serverId,
+    required this.seriesId,
+    this.limit = 12,
+  });
+
+  final String serverId;
+  final String seriesId;
+  final int limit;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MediaBrowserSeriesNextUpRequest &&
+      other.serverId == serverId &&
+      other.seriesId == seriesId &&
+      other.limit == limit;
+
+  @override
+  int get hashCode => Object.hash(serverId, seriesId, limit);
+}
+
+class MediaBrowserSimilarRequest {
+  const MediaBrowserSimilarRequest({
+    required this.serverId,
+    required this.itemId,
+    this.limit = 12,
+  });
+
+  final String serverId;
+  final String itemId;
+  final int limit;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MediaBrowserSimilarRequest &&
+      other.serverId == serverId &&
+      other.itemId == itemId &&
+      other.limit == limit;
+
+  @override
+  int get hashCode => Object.hash(serverId, itemId, limit);
 }
 
 class MediaBrowserSeasonsRequest {

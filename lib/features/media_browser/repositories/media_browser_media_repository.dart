@@ -82,6 +82,9 @@ class MediaBrowserMediaRepository {
   Future<MediaBrowserItemPage> nextUp({String? parentId, int limit = 12}) =>
       _source.nextUp(parentId: parentId, limit: limit);
 
+  Future<MediaBrowserItemPage> similar(String itemId, {int limit = 12}) =>
+      _source.similar(itemId, limit: limit);
+
   Future<MediaBrowserItemPage> itemPage({
     String? parentId,
     String? includeItemTypes,

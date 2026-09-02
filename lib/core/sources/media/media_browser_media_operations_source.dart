@@ -64,6 +64,9 @@ abstract interface class MediaBrowserMediaOperationsSource {
   /// 剧集「下一集」。
   Future<MediaBrowserItemPage> nextUp({String? parentId, int limit = 12});
 
+  /// 条目的更多类似；fnOS 等不支持该能力的来源返回空页。
+  Future<MediaBrowserItemPage> similar(String itemId, {int limit = 12});
+
   /// 通用条目分页查询（库浏览 / 搜索共用）。
   Future<MediaBrowserItemPage> itemPage({
     String? parentId,

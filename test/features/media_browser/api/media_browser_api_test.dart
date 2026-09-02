@@ -96,6 +96,14 @@ void main() {
               'TotalRecordCount': 1,
             };
           }
+          if (path == config.path('/Items/series-1/Similar')) {
+            return {
+              'Items': [
+                {'Id': 'series-2', 'Name': '相似剧集', 'Type': 'Series'},
+              ],
+              'TotalRecordCount': 1,
+            };
+          }
           if (path.endsWith('/Seasons')) {
             return {
               'Items': [
@@ -158,6 +166,7 @@ void main() {
         final latest = await api.latestMedia('user-1', parentId: 'lib-1');
         final resume = await api.resumeItems('user-1', limit: 6);
         final nextUp = await api.nextUp('user-1');
+        final similar = await api.similar('user-1', 'series-1');
         final seasons = await api.seasons('user-1', 'series-1');
         final episodes = await api.episodes('user-1', 'series-1', 'season-1');
         final detail = await api.item('user-1', 'item-1');
@@ -170,6 +179,7 @@ void main() {
         expect(latest.single.name, '最新电影');
         expect(resume.items.single.userData.resumeSeconds, 120);
         expect(nextUp.items.single.isEpisode, isTrue);
+        expect(similar.items.single.id, 'series-2');
         expect(seasons.single.indexNumber, 1);
         expect(episodes.items.single.seriesId, 'series-1');
         expect(detail.overview, '剧情简介');
@@ -184,6 +194,8 @@ void main() {
               '?ParentId=lib-1&Limit=16&Fields=ItemCounts&EnableImages=true',
           'GET $base/Users/user-1/Items/Resume?MediaTypes=Video&Limit=6',
           'GET $base/Shows/NextUp?UserId=user-1&Limit=12',
+          'GET $base/Items/series-1/Similar?UserId=user-1&Limit=12'
+              '&Fields=ItemCounts',
           'GET $base/Shows/series-1/Seasons?UserId=user-1',
           'GET $base/Shows/series-1/Episodes'
               '?UserId=user-1&SeasonId=season-1&Fields=Overview%2CMediaSources'
