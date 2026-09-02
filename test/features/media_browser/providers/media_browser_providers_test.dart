@@ -46,6 +46,28 @@ void main() {
     );
   });
 
+  test('personImage Emby 用 /Images/Primary + tag，无 tag 返回 null', () {
+    final urls = MediaBrowserServerUrls(
+      config: MediaBrowserConfig.emby,
+      baseUrl: 'http://test',
+    );
+    const withTag = MediaBrowserPerson(
+      id: 'p-1',
+      name: '演员一',
+      primaryImageTag: 'person-img-tag',
+    );
+    expect(
+      urls.personImage(withTag),
+      'http://test/emby/Items/p-1/Images/Primary'
+      '?maxWidth=240&quality=90&tag=person-img-tag',
+    );
+    // People 条目没有 PrimaryImageTag 说明服务器上无头像。
+    expect(
+      urls.personImage(const MediaBrowserPerson(id: 'p-2', name: '演员二')),
+      isNull,
+    );
+  });
+
   test('includeItemTypesForView 按库类型映射条目过滤', () {
     expect(includeItemTypesForView('movies'), 'Movie');
     expect(includeItemTypesForView('TVShows'), 'Series');

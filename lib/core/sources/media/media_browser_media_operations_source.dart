@@ -38,6 +38,7 @@ abstract interface class MediaBrowserMediaOperationsSource {
     int? startIndex,
     int? limit,
     bool? isFavorite,
+    String? personIds,
   });
 
   /// 条目详情（完整字段）。

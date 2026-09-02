@@ -1,12 +1,17 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
+import 'package:omm/features/cache/image_cache_manager.dart';
 import 'package:omm/features/media_browser/playback/media_browser_playback.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_cast_section.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_media_info_section.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
@@ -180,12 +185,9 @@ class _MediaBrowserDetailBodyState
         ? null
         : urls.value?.poster(item.id, tag: item.primaryImageTag);
     final runtimeMinutes = item.runtimeMinutes;
-    final actors = [
+    final castPeople = [
       for (final person in item.people)
-        if (person.type == 'Actor' && person.name.trim().isNotEmpty)
-          person.role?.trim().isNotEmpty == true
-              ? '${person.name}（${person.role}）'
-              : person.name,
+        if (person.type == 'Actor' && person.name.trim().isNotEmpty) person,
     ];
     final directors = [
       for (final person in item.people)
@@ -261,14 +263,21 @@ class _MediaBrowserDetailBodyState
               urls: urls.value,
             ),
           ),
-        if (actors.isNotEmpty)
+        if (castPeople.isNotEmpty)
           SliverToBoxAdapter(
-            child: _PeopleSection(
-              title: '演员',
-              people: item.people
-                  .where((person) => person.type == 'Actor')
-                  .toList(growable: false),
+            child: MediaBrowserCastSection(
+              people: castPeople,
               urls: urls.value,
+              // fnos 列表接口不支持按人物过滤，点击仅对 Emby/Jellyfin 开放。
+              onOpenPerson:
+                  ref.watch(mediaBrowserConfigProvider)?.project ==
+                      ServerProject.feiniu
+                  ? null
+                  : (person) => openMediaBrowserPersonWorks(
+                      context,
+                      personId: person.id,
+                      personName: person.name,
+                    ),
             ),
           ),
         if (_hasDetails(item))
@@ -278,6 +287,7 @@ class _MediaBrowserDetailBodyState
               child: _DetailsTable(item: item),
             ),
           ),
+        SliverToBoxAdapter(child: MediaBrowserMediaInfoSection(item: item)),
         const SliverToBoxAdapter(child: SizedBox(height: 60)),
       ],
     );
@@ -528,9 +538,6 @@ class _PersonPill extends StatelessWidget {
             CircleAvatar(
               radius: 14,
               backgroundColor: AppHues.top(hue),
-              backgroundImage: imageUrl == null
-                  ? null
-                  : NetworkImage(imageUrl!),
               child: imageUrl == null
                   ? Text(
                       person.name.isEmpty ? '·' : person.name.characters.first,
@@ -540,7 +547,19 @@ class _PersonPill extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     )
-                  : null,
+                  : ClipOval(
+                      child: CachedNetworkImage(
+                        cacheManager: AppImageCacheManager.instance,
+                        key: ValueKey(imageUrl),
+                        imageUrl: imageUrl!,
+                        fit: BoxFit.cover,
+                        width: 28,
+                        height: 28,
+                        fadeInDuration: const Duration(milliseconds: 180),
+                        errorWidget: (_, __, ___) =>
+                            const SizedBox.shrink(),
+                      ),
+                    ),
             ),
             const SizedBox(width: 6),
             Text(
@@ -568,21 +587,6 @@ class _DetailsTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final source = item.mediaSources.isEmpty ? null : item.mediaSources.first;
-    final videoStreams =
-        source?.mediaStreams
-            .where((stream) => stream.type.toLowerCase() == 'video')
-            .toList(growable: false) ??
-        const <MediaBrowserMediaStream>[];
-    final audioStreams =
-        source?.mediaStreams
-            .where((stream) => stream.type.toLowerCase() == 'audio')
-            .toList(growable: false) ??
-        const <MediaBrowserMediaStream>[];
-    final subtitleStreams =
-        source?.mediaStreams
-            .where((stream) => stream.type.toLowerCase() == 'subtitle')
-            .toList(growable: false) ??
-        const <MediaBrowserMediaStream>[];
     final rows = <(String, String)>[
       if (item.originalTitle?.trim().isNotEmpty == true)
         ('原名', item.originalTitle!),
@@ -593,12 +597,6 @@ class _DetailsTable extends StatelessWidget {
         ('容器', source!.container!),
       if (source?.sizeInBytes != null && source!.sizeInBytes! > 0)
         ('文件大小', _formatSize(source.sizeInBytes!)),
-      if (videoStreams.isNotEmpty)
-        ('视频', videoStreams.map(_videoStreamText).join('\n')),
-      if (audioStreams.isNotEmpty)
-        ('音频', audioStreams.map(_audioStreamText).join('\n')),
-      if (subtitleStreams.isNotEmpty)
-        ('字幕', subtitleStreams.map(_subtitleStreamText).join('\n')),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -632,75 +630,6 @@ class _DetailsTable extends StatelessWidget {
       ],
     );
   }
-}
-
-String _videoStreamText(MediaBrowserMediaStream stream) {
-  final values = <String>[];
-  if (stream.resolution?.trim().isNotEmpty == true) {
-    values.add(stream.resolution!);
-  } else if (stream.width != null && stream.height != null) {
-    values.add('${stream.width}×${stream.height}');
-  }
-  _addText(values, stream.codec?.toUpperCase());
-  _addText(values, stream.profile);
-  if (stream.bitRate != null && stream.bitRate! > 0) {
-    values.add(_formatBitRate(stream.bitRate!));
-  }
-  if (stream.bitDepth != null && stream.bitDepth! > 0) {
-    values.add('${stream.bitDepth} 位');
-  }
-  _addText(values, stream.frameRate);
-  _addText(values, stream.pixelFormat);
-  _addText(values, stream.colorRange);
-  return values.isEmpty ? '未知视频流' : values.join(' · ');
-}
-
-String _audioStreamText(MediaBrowserMediaStream stream) {
-  final values = <String>[];
-  _addText(values, stream.displayTitle);
-  _addText(values, stream.language);
-  _addText(values, stream.codec?.toUpperCase());
-  if (stream.channels != null && stream.channels! > 0) {
-    values.add(
-      stream.channelLayout?.trim().isNotEmpty == true
-          ? stream.channelLayout!
-          : '${stream.channels} 声道',
-    );
-  }
-  if (stream.sampleRate != null && stream.sampleRate! > 0) {
-    values.add(_formatSampleRate(stream.sampleRate!));
-  }
-  if (stream.bitRate != null && stream.bitRate! > 0) {
-    values.add(_formatBitRate(stream.bitRate!));
-  }
-  return values.isEmpty ? '未知音频流' : values.join(' · ');
-}
-
-String _subtitleStreamText(MediaBrowserMediaStream stream) {
-  final values = <String>[];
-  _addText(values, stream.displayTitle);
-  _addText(values, stream.language);
-  _addText(values, (stream.codec ?? stream.format)?.toUpperCase());
-  values.add(stream.isExternal ? '外挂' : '内嵌');
-  if (stream.isForced) values.add('强制');
-  return values.join(' · ');
-}
-
-void _addText(List<String> values, String? value) {
-  final text = value?.trim() ?? '';
-  if (text.isNotEmpty && !values.contains(text)) values.add(text);
-}
-
-String _formatBitRate(int bitsPerSecond) {
-  if (bitsPerSecond >= 1000000) {
-    return '${(bitsPerSecond / 1000000).toStringAsFixed(1)} Mbps';
-  }
-  return '${(bitsPerSecond / 1000).round()} kbps';
-}
-
-String _formatSampleRate(int hertz) {
-  if (hertz >= 1000) return '${(hertz / 1000).round()} kHz';
-  return '$hertz Hz';
 }
 
 String _formatSize(int bytes) {

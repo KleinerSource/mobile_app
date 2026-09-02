@@ -430,6 +430,23 @@ void main() {
         );
       });
 
+      test('外挂字幕直链使用 Subtitles/{index}/Stream.vtt 并拼接 token', () {
+        final subtitleUrl = MediaBrowserApi.subtitleStreamUrl(
+          config: config,
+          baseUrl: 'http://test',
+          itemId: 'item 1',
+          mediaSourceId: 'ms-1',
+          streamIndex: 3,
+          token: 'token-1',
+        );
+        expect(
+          subtitleUrl,
+          'http://test${config.pathPrefix}/Videos/item%201/ms-1'
+          '/Subtitles/3/Stream.vtt'
+          '?${config.tokenQueryParam}=token-1',
+        );
+      });
+
       test('lyrics 请求 /Audio/{id}/Lyrics 且空 ID 返回 null', () async {
         final adapter = _MediaBrowserTestAdapter((options) {
           if (options.uri.path.endsWith('/Audio/song-1/Lyrics')) {

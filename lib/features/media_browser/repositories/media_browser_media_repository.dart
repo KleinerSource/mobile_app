@@ -42,6 +42,7 @@ class MediaBrowserMediaRepository {
     int? startIndex,
     int? limit,
     bool? isFavorite,
+    String? personIds,
   }) => _source.itemPage(
     parentId: parentId,
     includeItemTypes: includeItemTypes,
@@ -52,6 +53,7 @@ class MediaBrowserMediaRepository {
     startIndex: startIndex,
     limit: limit,
     isFavorite: isFavorite,
+    personIds: personIds,
   );
 
   Future<MediaBrowserItem> getItem(String itemId) => _source.getItem(itemId);

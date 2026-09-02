@@ -144,10 +144,20 @@ class MediaBrowserServerUrls {
 
   String? personImage(MediaBrowserPerson person) {
     final path = person.profilePath?.trim() ?? '';
-    if (path.isEmpty) return null;
-    return config.project == ServerProject.feiniu
-        ? FeiniuApi.resolveAssetUrl(baseUrl, path)
-        : path;
+    if (config.project == ServerProject.feiniu) {
+      return path.isEmpty ? null : FeiniuApi.resolveAssetUrl(baseUrl, path);
+    }
+    // Emby/Jellyfin：People 条目自带 PrimaryImageTag，人物也是一条 Item，
+    // 直接用 /Items/{personId}/Images/Primary 取头像；无 tag 说明无头像。
+    final tag = person.primaryImageTag?.trim() ?? '';
+    if (tag.isEmpty) return null;
+    return MediaBrowserApi.imageUrl(
+      config: config,
+      baseUrl: baseUrl,
+      itemId: person.id,
+      maxWidth: 240,
+      tag: tag,
+    );
   }
 
   String stream(String itemId, {String? mediaSourceId}) =>
@@ -341,6 +351,7 @@ Future<MediaBrowserItemPage> readMediaBrowserItemPage(
         startIndex: request.startIndex,
         limit: request.limit,
         isFavorite: request.isFavorite,
+        personIds: request.personIds,
       );
 }
 
@@ -414,6 +425,7 @@ class MediaBrowserItemPageRequest {
     this.startIndex = 0,
     this.limit = 24,
     this.isFavorite,
+    this.personIds,
   });
 
   final String serverId;
@@ -427,6 +439,9 @@ class MediaBrowserItemPageRequest {
   final int limit;
   final bool? isFavorite;
 
+  /// 按演员/人物过滤（PersonIds），演员作品页使用。
+  final String? personIds;
+
   @override
   bool operator ==(Object other) =>
       other is MediaBrowserItemPageRequest &&
@@ -439,7 +454,8 @@ class MediaBrowserItemPageRequest {
       other.sortOrder == sortOrder &&
       other.startIndex == startIndex &&
       other.limit == limit &&
-      other.isFavorite == isFavorite;
+      other.isFavorite == isFavorite &&
+      other.personIds == personIds;
 
   @override
   int get hashCode => Object.hash(
@@ -453,6 +469,7 @@ class MediaBrowserItemPageRequest {
     startIndex,
     limit,
     isFavorite,
+    personIds,
   );
 }
 

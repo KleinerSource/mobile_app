@@ -30,10 +30,14 @@ import 'package:omm/shared/status_bar_scroll_to_top.dart';
 /// 排序沿用 MediaBrowser 的 SortBy 语义，升降序切换与 DBO 影片库一致。
 /// 长按进入拖选多选（与 OMM 影片库同构），批量收藏/已看标记。
 class MediaBrowserLibraryPage extends ConsumerStatefulWidget {
-  const MediaBrowserLibraryPage({super.key, this.initialViewId});
+  const MediaBrowserLibraryPage({super.key, this.initialViewId, this.personId, this.personName});
 
   /// 从首页媒体库卡片进入时预选的库；null 保持默认的“全部库”模式。
   final String? initialViewId;
+
+  /// 演员作品模式：按 PersonIds 过滤（Emby/Jellyfin），标题显示演员名。
+  final String? personId;
+  final String? personName;
 
   @override
   ConsumerState<MediaBrowserLibraryPage> createState() =>
@@ -87,6 +91,8 @@ class _MediaBrowserLibraryPageState
 
   bool get _isMusicGrid => _isMusicCollectionType(_collectionType);
 
+  bool get _isPersonMode => widget.personId?.trim().isNotEmpty == true;
+
   @override
   void initState() {
     super.initState();
@@ -126,6 +132,7 @@ class _MediaBrowserLibraryPageState
           sortOrder: _sortOrder,
           startIndex: startIndex,
           limit: _pageSize,
+          personIds: _isPersonMode ? widget.personId : null,
         ),
       );
       if (!mounted || requestSerial != _requestSerial) return;
@@ -222,6 +229,7 @@ class _MediaBrowserLibraryPageState
   /// Views 异步到达后补齐选中库的类型（如从首页音乐库卡片直接进入），
   /// 类型过滤不匹配时切到该库的默认选项。
   void _syncCollectionType(List<MediaBrowserItem> views) {
+    if (_isPersonMode) return;
     final next = _collectionTypeOf(_parentId);
     if (next == _collectionType) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -269,6 +277,7 @@ class _MediaBrowserLibraryPageState
             sortOrder: sortOrder,
             startIndex: 0,
             limit: limit,
+            personIds: _isPersonMode ? widget.personId : null,
           ),
         );
         return PagedResult(
@@ -440,7 +449,15 @@ class _MediaBrowserLibraryPageState
                                   style: AppText.eyebrow(context),
                                 ),
                                 const SizedBox(height: 3),
-                                Text('媒体库', style: AppText.pageTitle(context)),
+                                Text(
+                                  _isPersonMode
+                                      ? (widget.personName?.trim().isNotEmpty ==
+                                                true
+                                            ? widget.personName!.trim()
+                                            : '演员作品')
+                                      : '媒体库',
+                                  style: AppText.pageTitle(context),
+                                ),
                               ],
                             ),
                           ),
@@ -458,7 +475,8 @@ class _MediaBrowserLibraryPageState
                       ),
                     ),
                     views.maybeWhen(
-                      data: (list) => list.length <= 1
+                      data: (list) =>
+                          _isPersonMode || list.length <= 1
                           ? const SizedBox.shrink()
                           : SizedBox(
                               height: 38,

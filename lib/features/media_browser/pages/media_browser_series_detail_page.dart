@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:omm/core/api/server_compatibility.dart';
 import 'package:omm/core/api/dio_factory.dart';
 import 'package:omm/core/config/server_config_provider.dart';
 import 'package:omm/core/platform/app_theme.dart';
 import 'package:omm/features/media_browser/playback/media_browser_playback.dart';
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_cast_section.dart';
+import 'package:omm/features/media_browser/widgets/media_browser_media_info_section.dart';
 import 'package:omm/features/home/hero_backdrop.dart';
 import 'package:omm/features/oh_my_media/movie_detail/movie_detail_scaffold.dart';
 import 'package:omm/features/player/video/player_engine_picker.dart';
@@ -195,6 +198,27 @@ class _MediaBrowserSeriesDetailPageState
                     child: MovieDetailPlot(plot: series.overview!),
                   ),
                 ),
+              if (_castOf(series).isNotEmpty)
+                SliverToBoxAdapter(
+                  child: MediaBrowserCastSection(
+                    people: _castOf(series),
+                    urls: urls.value,
+                    // fnos 列表接口不支持按人物过滤，点击仅对 Emby/Jellyfin 开放。
+                    onOpenPerson:
+                        ref.watch(mediaBrowserConfigProvider)?.project ==
+                            ServerProject.feiniu
+                        ? null
+                        : (person) => openMediaBrowserPersonWorks(
+                            context,
+                            personId: person.id,
+                            personName: person.name,
+                          ),
+                  ),
+                ),
+              // 剧集条目一般没有文件级媒体源；有（如单文件剧集）才展示。
+              SliverToBoxAdapter(
+                child: MediaBrowserMediaInfoSection(item: series),
+              ),
               SliverToBoxAdapter(
                 child: _SeasonSection(
                   seriesId: _seriesId,
@@ -211,6 +235,11 @@ class _MediaBrowserSeriesDetailPageState
     );
   }
 }
+
+List<MediaBrowserPerson> _castOf(MediaBrowserItem series) => [
+  for (final person in series.people)
+    if (person.type == 'Actor' && person.name.trim().isNotEmpty) person,
+];
 
 /// 季切换 chips + 对应集列表。
 class _SeasonSection extends ConsumerWidget {

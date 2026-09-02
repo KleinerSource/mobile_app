@@ -175,7 +175,12 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
       startAt: _resumeSeconds(item).toDouble(),
       isTranscode: isTranscode,
       audioTracks: _tracks(mediaSource, 'Audio'),
-      subtitleTracks: _tracks(mediaSource, 'Subtitle'),
+      subtitleTracks: _subtitleTracks(
+        mediaSource,
+        itemId: ref.value,
+        baseUrl: base,
+        token: token,
+      ),
       payload: info,
     );
   });
@@ -231,6 +236,7 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
     int? startIndex,
     int? limit,
     bool? isFavorite,
+    String? personIds,
   }) => _call(() async {
     final uid = await _requireUserId();
     return api.items(
@@ -244,6 +250,7 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
       startIndex: startIndex,
       limit: limit,
       isFavorite: isFavorite,
+      personIds: personIds,
     );
   });
 
@@ -455,10 +462,62 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
             id: stream.index.toString(),
             label: stream.displayTitle?.trim().isNotEmpty == true
                 ? stream.displayTitle!.trim()
-                : stream.codec ?? stream.type,
+                : stream.codec ?? '${type == 'Audio' ? '音轨' : '字幕'} ${stream.index + 1}',
             language: stream.language,
             kind: type.toLowerCase(),
+            index: stream.index,
+            codec: stream.codec,
+            channels: stream.channels,
+            isDefault: stream.isDefault,
+            isForced: stream.isForced,
+            isExternal: stream.isExternal,
+            source: stream.isExternal ? 'external' : 'embedded',
           ),
+    ];
+  }
+
+  /// 字幕轨在外挂文本字幕上补直连下载地址（服务器转 WebVTT），播放页
+  /// 下载后交给 mpv 本地加载；外挂位图（PGS .sup）无法客户端渲染，
+  /// 标记不可用；内嵌位图（MKV 内 PGS）由 mpv 原生渲染，仍可选中。
+  List<PlaybackTrack> _subtitleTracks(
+    MediaBrowserMediaSourceDto source, {
+    required String itemId,
+    required String baseUrl,
+    required String? token,
+  }) {
+    return [
+      for (final track in _tracks(source, 'Subtitle'))
+        () {
+          final stream = source.mediaStreams.firstWhere(
+            (candidate) => candidate.index.toString() == track.id,
+          );
+          final url =
+              stream.isExternal && !stream.isBitmap
+              ? MediaBrowserApi.subtitleStreamUrl(
+                  config: config,
+                  baseUrl: baseUrl,
+                  itemId: itemId,
+                  mediaSourceId: source.id,
+                  streamIndex: stream.index,
+                  token: token,
+                )
+              : null;
+          return PlaybackTrack(
+            id: track.id,
+            label: track.label,
+            language: track.language,
+            kind: track.kind,
+            index: track.index,
+            codec: track.codec,
+            channels: track.channels,
+            isDefault: track.isDefault,
+            isForced: track.isForced,
+            isExternal: track.isExternal,
+            url: url,
+            source: track.source,
+            playable: !stream.isBitmap || !stream.isExternal,
+          );
+        }(),
     ];
   }
 

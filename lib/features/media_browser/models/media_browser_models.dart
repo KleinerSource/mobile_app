@@ -73,6 +73,7 @@ class MediaBrowserPerson {
     this.role,
     this.type = '',
     this.profilePath,
+    this.primaryImageTag,
   });
 
   final String id;
@@ -82,6 +83,9 @@ class MediaBrowserPerson {
   /// 'Actor' / 'Director' 等；空字符串表示未标注。
   final String type;
   final String? profilePath;
+
+  /// Emby/Jellyfin People 条目自带的头像版本号，用于拼 /Images/Primary 地址。
+  final String? primaryImageTag;
 
   factory MediaBrowserPerson.fromJson(Object? raw) {
     if (raw is! Map) return const MediaBrowserPerson(id: '', name: '');
@@ -99,6 +103,9 @@ class MediaBrowserPerson {
             json['Image'] ??
             json['image'] ??
             json['ProfileImage'],
+      ),
+      primaryImageTag: _stringOrNull(
+        json['PrimaryImageTag'] ?? json['primary_image_tag'],
       ),
     );
   }
@@ -129,6 +136,11 @@ class MediaBrowserMediaStream {
     this.pixelFormat,
     this.colorRange,
     this.colorSpace,
+    this.colorTransfer,
+    this.colorPrimaries,
+    this.aspectRatio,
+    this.title,
+    this.videoRangeType,
     this.level,
     this.isBitmap = false,
   });
@@ -157,6 +169,15 @@ class MediaBrowserMediaStream {
   final String? pixelFormat;
   final String? colorRange;
   final String? colorSpace;
+
+  /// HDR 判定与卡片展示用：smpte2084=HDR10、arib-std-b67=HLG 等。
+  final String? colorTransfer;
+  final String? colorPrimaries;
+  final String? aspectRatio;
+  final String? title;
+
+  /// Emby/Jellyfin 的 VideoRangeType（SDR/HDR10/DOVI 等），用于 Dolby Vision 徽章。
+  final String? videoRangeType;
   final int? level;
   final bool isBitmap;
 
@@ -205,6 +226,19 @@ class MediaBrowserMediaStream {
       ),
       colorRange: _stringOrNull(json['ColorRange'] ?? json['color_range']),
       colorSpace: _stringOrNull(json['ColorSpace'] ?? json['color_space']),
+      colorTransfer: _stringOrNull(
+        json['ColorTransfer'] ?? json['color_transfer'],
+      ),
+      colorPrimaries: _stringOrNull(
+        json['ColorPrimaries'] ?? json['color_primaries'],
+      ),
+      aspectRatio: _stringOrNull(
+        json['AspectRatio'] ?? json['aspect_ratio'] ?? json['display_aspect'],
+      ),
+      title: _stringOrNull(json['Title'] ?? json['title_name']),
+      videoRangeType: _stringOrNull(
+        json['VideoRangeType'] ?? json['video_range_type'],
+      ),
       level: _intValue(json['Level'] ?? json['level']),
       isBitmap: json['IsBitmap'] == true || json['is_bitmap'] == true,
     );

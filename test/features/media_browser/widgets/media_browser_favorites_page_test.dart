@@ -59,6 +59,7 @@ class _RecordingRepo extends MediaBrowserMediaRepository {
     int? startIndex,
     int? limit,
     bool? isFavorite,
+    String? personIds,
   }) async {
     pageRequests.add({
       'includeItemTypes': includeItemTypes,

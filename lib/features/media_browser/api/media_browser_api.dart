@@ -93,6 +93,7 @@ class MediaBrowserApi {
     bool? isFavorite,
     List<String>? filters,
     List<String>? fields,
+    String? personIds,
   }) {
     return _itemPage(_p('/Users/${_segment(userId)}/Items'), <String, dynamic>{
       if (parentId?.trim().isNotEmpty == true) 'ParentId': parentId!.trim(),
@@ -108,6 +109,7 @@ class MediaBrowserApi {
       if (isFavorite != null) 'Filters': isFavorite ? 'IsFavorite' : null,
       if (filters != null && filters.isNotEmpty) 'Filters': filters.join(','),
       if (fields != null && fields.isNotEmpty) 'Fields': fields.join(','),
+      if (personIds?.trim().isNotEmpty == true) 'PersonIds': personIds!.trim(),
     });
   }
 
@@ -383,6 +385,31 @@ class MediaBrowserApi {
         config.tokenQueryParam: token!.trim(),
     };
     return _buildUrl(baseUrl, config.path(path), query);
+  }
+
+  /// 外挂字幕直连下载地址（服务器转成 WebVTT）。字幕由播放页用 Dio 下载
+  /// 后交给 mpv 本地加载，不进图片缓存，URL 带 token 无缓存失稳问题。
+  static String subtitleStreamUrl({
+    required MediaBrowserConfig config,
+    required String baseUrl,
+    required String itemId,
+    required String mediaSourceId,
+    required int streamIndex,
+    String? token,
+  }) {
+    final query = <String, String>{
+      if (token?.trim().isNotEmpty == true)
+        config.tokenQueryParam: token!.trim(),
+    };
+    return _buildUrl(
+      baseUrl,
+      config.path(
+        '/Videos/${Uri.encodeComponent(itemId)}'
+        '/${Uri.encodeComponent(mediaSourceId)}'
+        '/Subtitles/${Uri.encodeComponent(streamIndex.toString())}/Stream.vtt',
+      ),
+      query,
+    );
   }
 
   /// 音频歌词。Emby / Jellyfin 的返回格式不同（Jellyfin 10.9+ 返回

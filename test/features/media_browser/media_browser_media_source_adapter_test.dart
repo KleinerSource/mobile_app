@@ -251,13 +251,30 @@ void main() {
                   'Container': 'mkv,webm',
                   'SupportsDirectPlay': true,
                   'MediaStreams': [
+                    {'Index': 0, 'Type': 'Video', 'Codec': 'hevc'},
                     {
                       'Index': 1,
                       'Type': 'Audio',
                       'Codec': 'aac',
                       'DisplayTitle': 'AAC',
+                      'Channels': 2,
+                      'IsDefault': true,
                     },
                     {'Index': 2, 'Type': 'Subtitle', 'Codec': 'ass'},
+                    {
+                      'Index': 3,
+                      'Type': 'Subtitle',
+                      'Codec': 'srt',
+                      'IsExternal': true,
+                      'Language': 'chi',
+                    },
+                    {
+                      'Index': 4,
+                      'Type': 'Subtitle',
+                      'Codec': 'pgssub',
+                      'IsExternal': true,
+                      'IsBitmap': true,
+                    },
                   ],
                 },
               ],
@@ -293,7 +310,31 @@ void main() {
         expect(descriptor.mimeType, 'video/x-matroska');
         expect(descriptor.startAt, 360);
         expect(descriptor.audioTracks.single.label, 'AAC');
-        expect(descriptor.subtitleTracks.single.id, '2');
+        expect(descriptor.audioTracks.single.channels, 2);
+        expect(descriptor.audioTracks.single.isDefault, isTrue);
+        final subtitle = descriptor.subtitleTracks;
+        expect(subtitle.length, 3);
+        // 内嵌字幕：无直链地址，mpv 按容器轨道号选择。
+        expect(subtitle[0].id, '2');
+        expect(subtitle[0].source, 'embedded');
+        expect(subtitle[0].url, isNull);
+        // 外挂文本字幕：带 token 的 WebVTT 直链，播放页下载后本地加载。
+        expect(subtitle[1].id, '3');
+        expect(subtitle[1].source, 'external');
+        expect(
+          subtitle[1].url,
+          contains(
+            '${config.pathPrefix}/Videos/item-1/ms-1/Subtitles/3/Stream.vtt',
+          ),
+        );
+        expect(
+          subtitle[1].url,
+          contains('${config.tokenQueryParam}=token-1'),
+        );
+        // 外挂位图（PGS）客户端无法渲染，标记不可选且不提供地址。
+        expect(subtitle[2].id, '4');
+        expect(subtitle[2].playable, isFalse);
+        expect(subtitle[2].url, isNull);
         expect(descriptor.payload, isA<MediaBrowserPlaybackInfo>());
         // PlaybackInfo 携带设备能力声明，服务器才会返回 TranscodingUrl。
         final playbackBody = (httpAdapter.bodies.last as Map)['DeviceProfile'];

@@ -182,7 +182,11 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     int? startIndex,
     int? limit,
     bool? isFavorite,
+    String? personIds,
   }) async => _call(() async {
+    // fnos 列表接口不支持按人物过滤；演员头像区在 fnos 服务器上不提供
+    // 点击跳转，该参数不会被传入。
+    assert(personIds == null, 'fnos 不支持按人物过滤条目');
     final offset = startIndex ?? 0;
     final pageSize = limit ?? 24;
     if (isFavorite == true) {
