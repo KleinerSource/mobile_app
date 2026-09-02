@@ -686,6 +686,7 @@ class _ServerStripState extends State<_ServerStrip> {
   int? _dragTargetIndex;
   var _actionAlignRight = false;
   var _actionShowAbove = false;
+  var _suppressCardTapUntilPointerDown = false;
 
   GlobalKey _cardKeyFor(String serverId) {
     return _cardKeys.putIfAbsent(serverId, GlobalKey.new);
@@ -746,8 +747,13 @@ class _ServerStripState extends State<_ServerStrip> {
     setState(() => _actionServerId = null);
   }
 
+  void _allowCardTapForNextPointer() {
+    _suppressCardTapUntilPointerDown = false;
+  }
+
   void _startLongPress(String serverId, LongPressStartDetails details) {
     if (!mounted || _draggingServerId != null) return;
+    _suppressCardTapUntilPointerDown = true;
     final cardRect = _globalRectFor(_cardKeyFor(serverId));
     final mediaQuery = MediaQuery.maybeOf(context);
     final viewportSize = mediaQuery?.size;
@@ -895,6 +901,7 @@ class _ServerStripState extends State<_ServerStrip> {
       onTap: feedback
           ? null
           : () {
+              if (_suppressCardTapUntilPointerDown) return;
               _dismissActions();
               widget.onSelect(server);
             },
@@ -906,6 +913,7 @@ class _ServerStripState extends State<_ServerStrip> {
         duration: const Duration(milliseconds: 120),
         opacity: isDragging ? 0.28 : 1,
         child: _ServerCardInteraction(
+          onPointerDown: _allowCardTapForNextPointer,
           showActions: _actionServerId == server.id,
           actionAlignRight: _actionAlignRight,
           actionShowAbove: _actionShowAbove,
@@ -1002,6 +1010,7 @@ class _ServerStripState extends State<_ServerStrip> {
 class _ServerCardInteraction extends StatefulWidget {
   const _ServerCardInteraction({
     required this.child,
+    required this.onPointerDown,
     required this.enabled,
     required this.showActions,
     required this.actionAlignRight,
@@ -1016,6 +1025,7 @@ class _ServerCardInteraction extends StatefulWidget {
   });
 
   final Widget child;
+  final VoidCallback onPointerDown;
   final bool enabled;
   final bool showActions;
   final bool actionAlignRight;
@@ -1070,15 +1080,20 @@ class _ServerCardInteractionState extends State<_ServerCardInteraction> {
             : null,
         child: CompositedTransformTarget(
           link: _layerLink,
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onLongPressStart: widget.enabled ? widget.onLongPressStart : null,
-            onLongPressMoveUpdate: widget.enabled
-                ? widget.onLongPressMoveUpdate
-                : null,
-            onLongPressEnd: widget.enabled ? widget.onLongPressEnd : null,
-            onLongPressCancel: widget.enabled ? widget.onLongPressCancel : null,
-            child: widget.child,
+          child: Listener(
+            onPointerDown: (_) => widget.onPointerDown(),
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onLongPressStart: widget.enabled ? widget.onLongPressStart : null,
+              onLongPressMoveUpdate: widget.enabled
+                  ? widget.onLongPressMoveUpdate
+                  : null,
+              onLongPressEnd: widget.enabled ? widget.onLongPressEnd : null,
+              onLongPressCancel: widget.enabled
+                  ? widget.onLongPressCancel
+                  : null,
+              child: widget.child,
+            ),
           ),
         ),
       ),

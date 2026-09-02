@@ -577,6 +577,66 @@ void main() {
     expect(find.bySemanticsLabel('编辑服务器'), findsNothing);
   });
 
+  testWidgets('服务器卡片拖拽松手不会误选服务器', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'server.servers': jsonEncode([
+        for (var i = 0; i < 3; i++)
+          {
+            'id': 'server-$i',
+            'name': '服务器 $i',
+            'lines': [
+              {
+                'id': 'line-$i',
+                'name': '主线路',
+                'base_url': 'smb://server-$i/share',
+              },
+            ],
+            'active_line_id': 'line-$i',
+            'project_name': 'smb',
+          },
+      ]),
+      'server.active_server_id': 'server-2',
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+        child: _testApp(const ServerSelectionPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ServerSelectionPage)),
+      listen: false,
+    );
+    final first = tester.getCenter(find.bySemanticsLabel('选择服务器 0'));
+    final second = tester.getCenter(find.bySemanticsLabel('选择服务器 1'));
+    final gesture = await tester.startGesture(first);
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await gesture.moveTo(second);
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(container.read(serverConfigProvider)?.activeServerId, 'server-2');
+    expect(
+      container.read(serverSwitchTransitionProvider).phase,
+      ServerSwitchPhase.idle,
+    );
+    final reordered = jsonDecode(prefs.getString('server.servers')!) as List;
+    expect(reordered.map((server) => server['id']), [
+      'server-1',
+      'server-0',
+      'server-2',
+    ]);
+
+    await tester.tap(find.bySemanticsLabel('选择服务器 0'));
+    await tester.pumpAndSettle();
+    expect(container.read(serverConfigProvider)?.activeServerId, 'server-0');
+  });
+
   testWidgets('悬浮操作显示后继续长按拖动仍可排序', (tester) async {
     SharedPreferences.setMockInitialValues({
       'server.servers': jsonEncode([
