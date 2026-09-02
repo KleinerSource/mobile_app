@@ -58,21 +58,6 @@ class ServerSettingsPage extends ConsumerWidget {
             body: ListView(
               primary: true,
               children: [
-                if (externalMediaServer)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 32, 22, 0),
-                    child: Text(
-                      project == ServerProject.emby
-                          ? 'Emby 服务器的转码等高级设置请在 Emby 网页控制台管理。'
-                          : project == ServerProject.jellyfin
-                          ? 'Jellyfin 服务器的转码等高级设置请在 Jellyfin 网页控制台管理。'
-                          : '飞牛影视的转码等高级设置请在飞牛影视网页控制台管理。',
-                      textAlign: TextAlign.center,
-                      style: AppText.body(
-                        context,
-                      ).copyWith(color: appColors(context).muted, height: 1.6),
-                    ),
-                  ),
                 if (managedMediaServer)
                   SettingsGroup(
                     title: l.settingsGroupLibrary,

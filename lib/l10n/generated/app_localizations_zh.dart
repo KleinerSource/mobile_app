@@ -302,7 +302,7 @@ class AppL10nZh extends AppL10n {
   String get settingsServerSettings => '服务器设置';
 
   @override
-  String get settingsServerSettingsSub => 'OMM / DBO 平台配置';
+  String get settingsServerSettingsSub => '媒体库设置';
 
   @override
   String get settingsAppSettings => '应用设置';

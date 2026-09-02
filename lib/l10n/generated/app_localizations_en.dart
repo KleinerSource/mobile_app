@@ -302,7 +302,7 @@ class AppL10nEn extends AppL10n {
   String get settingsServerSettings => 'Server settings';
 
   @override
-  String get settingsServerSettingsSub => 'OMM / DBO platform configuration';
+  String get settingsServerSettingsSub => 'Media library settings';
 
   @override
   String get settingsAppSettings => 'App settings';
