@@ -372,6 +372,7 @@ class FeiniuItem {
     List<MediaBrowserPerson>? resolvedPeople,
     FeiniuStreamList? streamList,
   }) {
+    final isSeasonItem = type == 'Season';
     final seconds = durationSeconds > 0 ? durationSeconds : runtimeMinutes * 60;
     final fallbackBackdrop = stillPath;
     final imageBackdrops = backdrops.isEmpty && fallbackBackdrop != null
@@ -436,8 +437,10 @@ class FeiniuItem {
       seriesId: ancestorGuid.isEmpty ? null : ancestorGuid,
       seriesName: tvTitle.isEmpty ? null : tvTitle,
       seasonId: parentGuid.isEmpty ? null : parentGuid,
-      parentIndexNumber: seasonNumber,
-      indexNumber: episodeNumber,
+      // 飞牛的 Season 返回项把该季集数放在 episode_number；通用模型的
+      // indexNumber 对 Season 表示季度号，对 Episode 才表示集号。
+      parentIndexNumber: isSeasonItem ? null : seasonNumber,
+      indexNumber: isSeasonItem ? seasonNumber : episodeNumber,
       album: type == 'Audio' && parentTitle.isNotEmpty ? parentTitle : null,
       albumId: type == 'Audio' && parentGuid.isNotEmpty ? parentGuid : null,
       albumArtist: null,

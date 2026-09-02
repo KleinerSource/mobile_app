@@ -95,6 +95,8 @@ void main() {
     expect(seasons.single.id, 'season-1');
     expect(seasons.single.type, 'Season');
     expect(seasons.single.name, '第一季');
+    expect(seasons.single.indexNumber, 1);
+    expect(seasons.single.parentIndexNumber, isNull);
     expect(seasons.single.primaryImageTag, '/55/02/season.webp');
     expect(seasons.single.childCount, 8);
   });

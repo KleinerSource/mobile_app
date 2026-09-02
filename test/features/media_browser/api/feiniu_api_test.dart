@@ -143,6 +143,24 @@ void main() {
     expect(seasons.single.title, '第一季');
   });
 
+  test('飞牛季度转换使用季度号而不是该季集数', () {
+    final season = FeiniuItem.fromJson(const {
+      'guid': 'season-1',
+      'title': '第 1 季',
+      'type': 'Season',
+      'parent_guid': 'series-1',
+      'season_number': 1,
+      'episode_number': 22,
+      'local_number_of_episodes': 22,
+    });
+
+    final item = season.toMediaBrowserItem();
+
+    expect(item.indexNumber, 1);
+    expect(item.parentIndexNumber, isNull);
+    expect(item.childCount, 22);
+  });
+
   test('飞牛媒体库管理接口使用原生 mdb 路径和完整配置', () async {
     final adapter = _FeiniuAdapter((options) {
       if (options.uri.path == '/v/api/v1/mdb/list') {
