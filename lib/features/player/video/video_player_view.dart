@@ -29,6 +29,7 @@ class VideoPlayerView extends ConsumerWidget {
     required this.deviceStats,
     required this.indicator,
     required this.controlsVisible,
+    required this.isBuffering,
     required this.pictureInPictureUrl,
     required this.pictureInPictureHeaders,
     required this.quality,
@@ -72,6 +73,7 @@ class VideoPlayerView extends ConsumerWidget {
   final PlayerDeviceStats deviceStats;
   final PlayerIndicator? indicator;
   final bool controlsVisible;
+  final bool isBuffering;
   final String? pictureInPictureUrl;
   final Map<String, String>? pictureInPictureHeaders;
   final String quality;
@@ -144,6 +146,8 @@ class VideoPlayerView extends ConsumerWidget {
           ),
         ),
         Positioned.fill(child: PlayerOverlayIndicators(indicator: indicator)),
+        if (isBuffering)
+          const Positioned.fill(child: VideoPlayerBufferingView()),
         Positioned(
           top: 8,
           left: 20,
@@ -216,6 +220,29 @@ class VideoPlayerView extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class VideoPlayerBufferingView extends StatelessWidget {
+  const VideoPlayerBufferingView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const IgnorePointer(
+      child: ColoredBox(
+        color: Color(0x66000000),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: Colors.white),
+              SizedBox(height: 12),
+              Text('正在缓冲…', style: TextStyle(color: Colors.white)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
