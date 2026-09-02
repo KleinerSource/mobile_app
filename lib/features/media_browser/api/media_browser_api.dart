@@ -245,6 +245,8 @@ class MediaBrowserApi {
     List<String>? fields,
     String? personIds,
   }) {
+    final requestedFields = <String>{'ItemCounts'};
+    if (fields != null) requestedFields.addAll(fields);
     return _itemPage(_p('/Users/${_segment(userId)}/Items'), <String, dynamic>{
       if (parentId?.trim().isNotEmpty == true) 'ParentId': parentId!.trim(),
       if (includeItemTypes?.trim().isNotEmpty == true)
@@ -258,7 +260,7 @@ class MediaBrowserApi {
       if (limit != null && limit > 0) 'Limit': limit,
       if (isFavorite != null) 'Filters': isFavorite ? 'IsFavorite' : null,
       if (filters != null && filters.isNotEmpty) 'Filters': filters.join(','),
-      if (fields != null && fields.isNotEmpty) 'Fields': fields.join(','),
+      if (requestedFields.isNotEmpty) 'Fields': requestedFields.join(','),
       if (personIds?.trim().isNotEmpty == true) 'PersonIds': personIds!.trim(),
     });
   }
@@ -307,6 +309,7 @@ class MediaBrowserApi {
         if (includeItemTypes?.trim().isNotEmpty == true)
           'IncludeItemTypes': includeItemTypes!.trim(),
         'Limit': limit,
+        'Fields': 'ItemCounts',
         'EnableImages': true,
       },
     );

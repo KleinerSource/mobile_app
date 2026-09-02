@@ -150,6 +150,27 @@ Future<void> _pumpBoth(WidgetTester tester) async {
 }
 
 void main() {
+  test('剧集 meta 显示起止年份、总集数和连载状态', () {
+    final ended = MediaBrowserItem.fromJson(const {
+      'Id': 'series-1',
+      'Name': '已完结剧集',
+      'Type': 'Series',
+      'ProductionYear': 2019,
+      'EndDate': '2024-05-20T00:00:00Z',
+      'EpisodeCount': 24,
+    });
+    final ongoing = MediaBrowserItem.fromJson(const {
+      'Id': 'series-2',
+      'Name': '连载剧集',
+      'Type': 'Series',
+      'ProductionYear': 2019,
+      'EpisodeCount': 12,
+    });
+
+    expect(mediaBrowserItemMetaText(ended), '2019 - 2024 · 24集');
+    expect(mediaBrowserItemMetaText(ongoing), '2019 - 现在 · 12集');
+  });
+
   testWidgets('MediaBrowser 卡片风格尺寸与 OMM MovieCard 一致（0.5 网格）', (tester) async {
     await _pumpBoth(tester);
     expect(tester.takeException(), isNull);

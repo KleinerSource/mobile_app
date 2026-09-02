@@ -178,9 +178,10 @@ void main() {
           'GET $base/Users/user-1/Views',
           'GET $base/Users/user-1/Items'
               '?ParentId=lib-1&IncludeItemTypes=Movie%2CSeries&Recursive=true'
-              '&SortBy=DateCreated&SortOrder=Descending&StartIndex=24&Limit=24',
+              '&SortBy=DateCreated&SortOrder=Descending&StartIndex=24&Limit=24'
+              '&Fields=ItemCounts',
           'GET $base/Users/user-1/Items/Latest'
-              '?ParentId=lib-1&Limit=16&EnableImages=true',
+              '?ParentId=lib-1&Limit=16&Fields=ItemCounts&EnableImages=true',
           'GET $base/Users/user-1/Items/Resume?MediaTypes=Video&Limit=6',
           'GET $base/Shows/NextUp?UserId=user-1&Limit=12',
           'GET $base/Shows/series-1/Seasons?UserId=user-1',

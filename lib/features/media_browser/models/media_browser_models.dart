@@ -335,6 +335,7 @@ class MediaBrowserItem {
     this.collectionType,
     this.originalTitle,
     this.productionYear,
+    this.endYear,
     this.communityRating,
     this.criticRating,
     this.runTimeTicks,
@@ -356,6 +357,7 @@ class MediaBrowserItem {
     this.thumbImageTag,
     this.childCount,
     this.recursiveItemCount,
+    this.episodeCount,
     this.mediaSources = const <MediaBrowserMediaSourceDto>[],
   });
 
@@ -370,6 +372,7 @@ class MediaBrowserItem {
   final String name;
   final String? originalTitle;
   final int? productionYear;
+  final int? endYear;
   final double? communityRating;
   final double? criticRating;
   final int? runTimeTicks;
@@ -399,6 +402,7 @@ class MediaBrowserItem {
   final String? thumbImageTag;
   final int? childCount;
   final int? recursiveItemCount;
+  final int? episodeCount;
   final List<MediaBrowserMediaSourceDto> mediaSources;
 
   bool get isMovie => type == 'Movie';
@@ -422,6 +426,13 @@ class MediaBrowserItem {
   int get runtimeMinutes =>
       (mediaBrowserTicksToSeconds(runTimeTicks) / 60).ceil().clamp(0, 1 << 31);
 
+  /// 剧集总集数。Jellyfin 提供 [episodeCount]，Emby 及旧版本服务端可能只
+  /// 返回容器计数，因此按兼容字段回退。
+  int? get totalEpisodeCount {
+    if (!isSeries) return null;
+    return episodeCount ?? childCount ?? recursiveItemCount;
+  }
+
   String? get seriesTitle => seriesName;
 
   factory MediaBrowserItem.fromJson(Map<String, dynamic> json) {
@@ -438,7 +449,9 @@ class MediaBrowserItem {
       serverId: _stringOrNull(json['ServerId']),
       collectionType: _stringOrNull(json['CollectionType']),
       originalTitle: _stringOrNull(json['OriginalTitle']),
-      productionYear: _intValue(json['ProductionYear']),
+      productionYear:
+          _intValue(json['ProductionYear']) ?? _yearValue(json['PremiereDate']),
+      endYear: _yearValue(json['EndDate']),
       communityRating: _doubleValue(json['CommunityRating']),
       criticRating: _doubleValue(json['CriticRating']),
       runTimeTicks: _intValue(json['RunTimeTicks']),
@@ -476,6 +489,7 @@ class MediaBrowserItem {
           : null,
       childCount: _intValue(json['ChildCount']),
       recursiveItemCount: _intValue(json['RecursiveItemCount']),
+      episodeCount: _intValue(json['EpisodeCount']),
       mediaSources: sources is List
           ? sources
                 .map(MediaBrowserMediaSourceDto.fromJson)
@@ -619,6 +633,11 @@ String? _stringOrNull(Object? value) {
 int? _intValue(Object? value) {
   if (value is num) return value.toInt();
   return int.tryParse(value?.toString().trim() ?? '');
+}
+
+int? _yearValue(Object? value) {
+  final date = DateTime.tryParse(value?.toString().trim() ?? '');
+  return date?.year;
 }
 
 List<String> _stringList(Object? value) {

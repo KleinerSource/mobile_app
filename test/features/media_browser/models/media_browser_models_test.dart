@@ -93,6 +93,34 @@ void main() {
     expect(item.indexNumber, 3);
   });
 
+  test('MediaBrowserItem.fromJson 解析剧集年份和总集数', () {
+    final item = MediaBrowserItem.fromJson(const {
+      'Id': 'series-1',
+      'Name': '示例剧集',
+      'Type': 'Series',
+      'PremiereDate': '2019-09-01T00:00:00Z',
+      'EndDate': '2024-05-20T00:00:00Z',
+      'EpisodeCount': 24,
+    });
+
+    expect(item.productionYear, 2019);
+    expect(item.endYear, 2024);
+    expect(item.episodeCount, 24);
+    expect(item.totalEpisodeCount, 24);
+  });
+
+  test('剧集总集数兼容 Emby 容器计数回退', () {
+    final item = MediaBrowserItem.fromJson(const {
+      'Id': 'series-2',
+      'Name': '旧版剧集',
+      'Type': 'Series',
+      'ProductionYear': 2019,
+      'ChildCount': 12,
+    });
+
+    expect(item.totalEpisodeCount, 12);
+  });
+
   test('MediaBrowserItemPage.fromJson 过滤无 ID 条目并计算 hasMore', () {
     final page = MediaBrowserItemPage.fromJson(const {
       'Items': [

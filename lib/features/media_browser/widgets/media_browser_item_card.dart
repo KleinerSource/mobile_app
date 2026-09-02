@@ -9,7 +9,7 @@ import 'package:omm/shared/movie_card.dart';
 ///
 /// 渲染由共享 [CatalogMovieCard] 统一维护（与 OMM/DBO 同一套风格和尺寸），
 /// 这里只把服务器字段整理成展示值：无番号行，meta 为
-/// 「年份 · 时长」或「SxxEyy · 剧名」。
+/// 「年份 · 时长」、剧集「起止年份 · 集数」或「SxxEyy · 剧名」。
 ///
 /// 交互与 DBO 卡片（DbOnlineMovieCard）一致：点击由外层 GestureDetector
 /// 承接，内部 InkWell 不接回调 —— 按住不出现水波纹/按压高亮；拖选页面的
@@ -103,11 +103,21 @@ double _progressOf(MediaBrowserItem item) {
   return (item.userData.resumeSeconds / 60 / runtimeMinutes).clamp(0.0, 1.0);
 }
 
-/// meta 行 · 与 OMM 一致的「年份 · 时长」格式；剧集条目为「SxxEyy · 剧名」，
-/// 音乐条目为「年份 · 艺术家」（专辑）或「艺术家 · 时长」（歌曲）。
+/// meta 行 · 与 OMM 一致的「年份 · 时长」格式；剧集条目为
+/// 「起止年份 · 集数」，分集为「SxxEyy · 剧名」，音乐条目为
+/// 「年份 · 艺术家」（专辑）或「艺术家 · 时长」（歌曲）。
 /// 收藏夹页的列表行也复用这行 meta。
 String mediaBrowserItemMetaText(MediaBrowserItem item) {
   final parts = <String>[];
+  if (item.isSeries) {
+    final yearText = _seriesYearText(item);
+    if (yearText != null) parts.add(yearText);
+    final episodeCount = item.totalEpisodeCount;
+    if (episodeCount != null && episodeCount > 0) {
+      parts.add('$episodeCount集');
+    }
+    return parts.join(' · ');
+  }
   if (item.isEpisode) {
     final season = item.parentIndexNumber ?? 0;
     final episode = item.indexNumber ?? 0;
@@ -138,6 +148,15 @@ String mediaBrowserItemMetaText(MediaBrowserItem item) {
   final minutes = item.runtimeMinutes;
   if (minutes > 0) parts.add('${minutes}m');
   return parts.join(' · ');
+}
+
+String? _seriesYearText(MediaBrowserItem item) {
+  final startYear = item.productionYear;
+  final endYear = item.endYear;
+  if (startYear == null) return endYear?.toString();
+  if (endYear == null) return '$startYear - 现在';
+  if (endYear == startYear) return '$startYear';
+  return '$startYear - $endYear';
 }
 
 /// 列表为空时的占位。
