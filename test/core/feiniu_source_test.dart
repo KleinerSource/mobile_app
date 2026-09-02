@@ -71,6 +71,60 @@ void main() {
     expect(item.people.first.type, 'Director');
     expect(item.people.last.role, '主角');
   });
+
+  test('飞牛详情补全类型、文件与媒体流，并按 GUID 选择字幕', () async {
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore())
+      ..setActiveServerId('feiniu');
+    await sessions.save(
+      const AuthSession(accessToken: 'token-1', refreshToken: '', expiresIn: 0),
+    );
+    final adapter = _FeiniuRichMetadataAdapter();
+    final source = FeiniuMediaSourceAdapter(
+      FeiniuApi(
+        Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+          ..httpClientAdapter = adapter,
+      ),
+      sessionRepository: sessions,
+      endpoint: 'http://test',
+    );
+
+    final item = await source.getItem('item-rich');
+    final mediaSource = item.mediaSources.single;
+    expect(item.genres, ['悬疑', '冒险']);
+    expect(item.people.single.profilePath, '/person/p1.jpg');
+    expect(mediaSource.path, '/movies/example.mkv');
+    expect(mediaSource.sizeInBytes, 4096);
+    expect(mediaSource.mediaStreams, hasLength(5));
+    expect(mediaSource.mediaStreams.first.width, 1920);
+    expect(mediaSource.mediaStreams.first.bitRate, 6424829);
+    expect(mediaSource.mediaStreams[1].channelLayout, '5.1');
+    expect(mediaSource.mediaStreams.last.format, 'ass');
+
+    final descriptor = await source.resolvePlayback(
+      const MediaRef(sourceId: SourceId('feiniu'), value: 'item-rich'),
+      const PlaybackRequest(audioStreamIndex: 1, subtitleTrackId: 'sub-1'),
+    );
+    expect(descriptor.audioTracks[1].id, 'audio-1');
+    expect(
+      descriptor.subtitleTracks.singleWhere((track) => track.id == 'sub-1').id,
+      'sub-1',
+    );
+    expect(adapter.playInfoBody['audio_guid'], 'audio-1');
+    expect(adapter.playInfoBody['subtitle_guid'], 'sub-1');
+    expect(descriptor.mimeType, 'video/x-matroska');
+
+    final externalDescriptor = await source.resolvePlayback(
+      const MediaRef(sourceId: SourceId('feiniu'), value: 'item-rich'),
+      const PlaybackRequest(subtitleTrackId: 'sub-external'),
+    );
+    expect(
+      externalDescriptor.subtitleTracks
+          .singleWhere((track) => track.id == 'sub-external')
+          .url,
+      'http://test/v/api/v1/subtitle/dl/sub-external',
+    );
+    expect(adapter.playInfoBody['subtitle_guid'], 'sub-external');
+  });
 }
 
 class _FeiniuMetadataAdapter implements HttpClientAdapter {
@@ -180,6 +234,121 @@ class _FeiniuSourceAdapter implements HttpClientAdapter {
         'media_guid': 'media-1',
         'video_guid': 'video-1',
         'audio_guid': 'audio-1',
+      },
+      _ => <String, Object?>{},
+    };
+    return ResponseBody.fromString(
+      jsonEncode({'code': 0, 'data': data}),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+}
+
+class _FeiniuRichMetadataAdapter implements HttpClientAdapter {
+  Map<String, dynamic> playInfoBody = const {};
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final path = options.uri.path;
+    if (path == '/v/api/v1/play/info') {
+      playInfoBody = Map<String, dynamic>.from(options.data as Map);
+    }
+    final data = switch (path) {
+      '/v/api/v1/item/item-rich' => {
+        'guid': 'item-rich',
+        'title': '完整影片',
+        'type': 'Movie',
+        'genres': [13, 2],
+        'media_guid': 'media-rich',
+        'poster': '/mediadb/item-rich/poster.jpg',
+        'can_play': true,
+      },
+      '/v/api/v1/person/list/item-rich' => {
+        'list': [
+          {
+            'person_guid': 'p1',
+            'name': '演员一',
+            'job': 'Actor',
+            'role': '主角',
+            'profile_path': '/person/p1.jpg',
+          },
+        ],
+      },
+      '/v/api/v1/tag/genres' => [
+        {'id': 13, 'value': '悬疑'},
+        {'id': 2, 'value': '冒险'},
+      ],
+      '/v/api/v1/stream/list/item-rich' => {
+        'file_stream': {
+          'guid': 'file-1',
+          'media_guid': 'media-rich',
+          'path': '/movies/example.mkv',
+          'size': 4096,
+          'wrapper': 'mkv',
+        },
+        'video_stream': {
+          'guid': 'video-1',
+          'codec_name': 'h264',
+          'width': 1920,
+          'height': 804,
+          'bps': 6424829,
+          'bit_depth': 8,
+          'profile': 'High',
+          'r_frame_rate': '24 fps',
+        },
+        'audio_streams': [
+          {
+            'guid': 'audio-0',
+            'title': '国语',
+            'codec_name': 'ac3',
+            'index': 0,
+            'channels': 6,
+            'channel_layout': '5.1',
+            'sample_rate': '48000',
+            'is_default': true,
+          },
+          {
+            'guid': 'audio-1',
+            'title': 'English',
+            'codec_name': 'aac',
+            'index': 1,
+            'channels': 2,
+          },
+        ],
+        'subtitle_streams': [
+          {
+            'guid': 'sub-1',
+            'title': '简体中文',
+            'codec_name': 'subrip',
+            'format': 'srt',
+            'language': 'chi',
+            'index': 2,
+          },
+          {
+            'guid': 'sub-external',
+            'title': '外挂字幕',
+            'codec_name': 'ass',
+            'format': 'ass',
+            'language': 'chi',
+            'index': 3,
+            'is_external': 1,
+            'extra_file': 1,
+          },
+        ],
+      },
+      '/v/api/v1/play/info' => {
+        'item_guid': 'item-rich',
+        'media_guid': 'media-rich',
       },
       _ => <String, Object?>{},
     };

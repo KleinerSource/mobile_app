@@ -60,7 +60,8 @@ class MediaBrowserServerUrls {
 
   bool get isReady => baseUrl.trim().isNotEmpty;
 
-  Map<String, String> get directHeaders => config.project == ServerProject.feiniu
+  Map<String, String> get directHeaders =>
+      config.project == ServerProject.feiniu
       ? FeiniuApi.mediaHeaders(token)
       : const <String, String>{};
 
@@ -68,37 +69,37 @@ class MediaBrowserServerUrls {
       config.project == ServerProject.feiniu
       ? FeiniuApi.resolveAssetUrl(baseUrl, tag)
       : MediaBrowserApi.imageUrl(
-        config: config,
-        baseUrl: baseUrl,
-        itemId: itemId,
-        imageType: 'Primary',
-        maxWidth: maxWidth,
-        tag: tag,
-      );
+          config: config,
+          baseUrl: baseUrl,
+          itemId: itemId,
+          imageType: 'Primary',
+          maxWidth: maxWidth,
+          tag: tag,
+        );
 
   String backdrop(String itemId, {int maxWidth = 1280, String? tag}) =>
       config.project == ServerProject.feiniu
       ? FeiniuApi.resolveAssetUrl(baseUrl, tag)
       : MediaBrowserApi.imageUrl(
-        config: config,
-        baseUrl: baseUrl,
-        itemId: itemId,
-        imageType: 'Backdrop',
-        maxWidth: maxWidth,
-        tag: tag,
-      );
+          config: config,
+          baseUrl: baseUrl,
+          itemId: itemId,
+          imageType: 'Backdrop',
+          maxWidth: maxWidth,
+          tag: tag,
+        );
 
   String thumb(String itemId, {int maxWidth = 440, String? tag}) =>
       config.project == ServerProject.feiniu
       ? FeiniuApi.resolveAssetUrl(baseUrl, tag)
       : MediaBrowserApi.imageUrl(
-        config: config,
-        baseUrl: baseUrl,
-        itemId: itemId,
-        imageType: 'Thumb',
-        maxWidth: maxWidth,
-        tag: tag,
-      );
+          config: config,
+          baseUrl: baseUrl,
+          itemId: itemId,
+          imageType: 'Thumb',
+          maxWidth: maxWidth,
+          tag: tag,
+        );
 
   /// 带 token 的封面直连地址，供绕过图片缓存、用无鉴权裸 Dio 下载的
   /// 场景（通知栏封面）；产物是按 itemId 命名的临时文件，不存在缓存
@@ -107,13 +108,13 @@ class MediaBrowserServerUrls {
       config.project == ServerProject.feiniu
       ? FeiniuApi.resolveAssetUrl(baseUrl, tag)
       : MediaBrowserApi.imageUrl(
-        config: config,
-        baseUrl: baseUrl,
-        itemId: itemId,
-        maxWidth: maxWidth,
-        tag: tag,
-        token: token,
-      );
+          config: config,
+          baseUrl: baseUrl,
+          itemId: itemId,
+          maxWidth: maxWidth,
+          tag: tag,
+          token: token,
+        );
 
   /// 条目首选展示图（首页/详情 Hero、继续观看宽卡共用）：有背景图取
   /// Backdrop，否则有海报取 Primary，两者皆无返回 null。带 image tag，
@@ -141,27 +142,35 @@ class MediaBrowserServerUrls {
     return null;
   }
 
+  String? personImage(MediaBrowserPerson person) {
+    final path = person.profilePath?.trim() ?? '';
+    if (path.isEmpty) return null;
+    return config.project == ServerProject.feiniu
+        ? FeiniuApi.resolveAssetUrl(baseUrl, path)
+        : path;
+  }
+
   String stream(String itemId, {String? mediaSourceId}) =>
       config.project == ServerProject.feiniu
       ? FeiniuApi.mediaRangeUrl(baseUrl, mediaSourceId ?? itemId)
       : MediaBrowserApi.streamUrl(
-        config: config,
-        baseUrl: baseUrl,
-        itemId: itemId,
-        mediaSourceId: mediaSourceId,
-        token: token,
-      );
+          config: config,
+          baseUrl: baseUrl,
+          itemId: itemId,
+          mediaSourceId: mediaSourceId,
+          token: token,
+        );
 
   String audioStream(String itemId, {String? mediaSourceId}) =>
       config.project == ServerProject.feiniu
       ? FeiniuApi.mediaRangeUrl(baseUrl, mediaSourceId ?? itemId)
       : MediaBrowserApi.audioStreamUrl(
-        config: config,
-        baseUrl: baseUrl,
-        itemId: itemId,
-        mediaSourceId: mediaSourceId,
-        token: token,
-      );
+          config: config,
+          baseUrl: baseUrl,
+          itemId: itemId,
+          mediaSourceId: mediaSourceId,
+          token: token,
+        );
 }
 
 final mediaBrowserServerUrlsProvider = FutureProvider<MediaBrowserServerUrls>((
@@ -320,17 +329,19 @@ Future<MediaBrowserItemPage> readMediaBrowserItemPage(
   if (request.serverId != activeServerId) {
     throw const SourceException('媒体请求已过期，请重新加载当前服务器');
   }
-  return ref.read(mediaBrowserMediaRepositoryProvider).itemPage(
-    parentId: request.parentId,
-    includeItemTypes: request.includeItemTypes,
-    recursive: request.recursive,
-    searchTerm: request.searchTerm,
-    sortBy: request.sortBy,
-    sortOrder: request.sortOrder,
-    startIndex: request.startIndex,
-    limit: request.limit,
-    isFavorite: request.isFavorite,
-  );
+  return ref
+      .read(mediaBrowserMediaRepositoryProvider)
+      .itemPage(
+        parentId: request.parentId,
+        includeItemTypes: request.includeItemTypes,
+        recursive: request.recursive,
+        searchTerm: request.searchTerm,
+        sortBy: request.sortBy,
+        sortOrder: request.sortOrder,
+        startIndex: request.startIndex,
+        limit: request.limit,
+        isFavorite: request.isFavorite,
+      );
 }
 
 /// 条目详情（电影/剧集通用）。

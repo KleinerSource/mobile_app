@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:omm/core/api/dio_factory.dart';
+import 'package:omm/core/models/playback.dart' as playback_models;
 import 'package:omm/core/sources/common/source_id.dart';
 import 'package:omm/core/sources/media/media_browser_media_source.dart';
 import 'package:omm/core/sources/media/media_models.dart';
@@ -63,6 +64,8 @@ Future<void> openMediaBrowserPlayback(
       directUrl: descriptor.uri.toString(),
       directHeaders: descriptor.headers,
       directFormatHint: descriptor.mimeType,
+      directAudioTracks: _audioTracks(descriptor.audioTracks),
+      directSubtitleTracks: _subtitleTracks(descriptor.subtitleTracks),
       startPositionSec: resumeSec,
       engineKind: engineKind,
       directProgressReporter: (positionSec, durationSec, completed) =>
@@ -85,6 +88,49 @@ Future<void> openMediaBrowserPlayback(
     }
   }
 }
+
+List<playback_models.AudioTrack> _audioTracks(List<PlaybackTrack> tracks) =>
+    tracks
+        .asMap()
+        .entries
+        .map((entry) => _audioTrack(entry.value, entry.key))
+        .toList(growable: false);
+
+List<playback_models.SubtitleTrack> _subtitleTracks(
+  List<PlaybackTrack> tracks,
+) => tracks
+    .asMap()
+    .entries
+    .map((entry) => _subtitleTrack(entry.value, entry.key))
+    .toList(growable: false);
+
+playback_models.AudioTrack _audioTrack(
+  PlaybackTrack track,
+  int fallbackIndex,
+) => playback_models.AudioTrack(
+  index: track.index >= 0 ? track.index : fallbackIndex,
+  codec: track.codec ?? '',
+  language: track.language ?? '',
+  title: track.label,
+  channels: track.channels ?? 0,
+  isDefault: track.isDefault,
+);
+
+playback_models.SubtitleTrack _subtitleTrack(
+  PlaybackTrack track,
+  int fallbackIndex,
+) => playback_models.SubtitleTrack(
+  id: track.id,
+  index: track.index >= 0 ? track.index : fallbackIndex,
+  source: track.source ?? (track.isExternal ? 'external' : 'embedded'),
+  language: track.language ?? '',
+  title: track.label,
+  codec: track.codec ?? '',
+  url: track.url ?? '',
+  isDefault: track.isDefault,
+  playable: track.playable,
+  forced: track.isForced,
+);
 
 /// 长按「播放」先选内核再用所选内核播放。
 ///

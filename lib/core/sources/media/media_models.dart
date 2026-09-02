@@ -239,12 +239,30 @@ class PlaybackTrack {
     required this.label,
     this.language,
     this.kind = 'unknown',
+    this.index = -1,
+    this.codec,
+    this.channels,
+    this.isDefault = false,
+    this.isForced = false,
+    this.isExternal = false,
+    this.url,
+    this.source,
+    this.playable = true,
   });
 
   final String id;
   final String label;
   final String? language;
   final String kind;
+  final int index;
+  final String? codec;
+  final int? channels;
+  final bool isDefault;
+  final bool isForced;
+  final bool isExternal;
+  final String? url;
+  final String? source;
+  final bool playable;
 }
 
 @immutable

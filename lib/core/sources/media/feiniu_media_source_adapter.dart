@@ -31,6 +31,7 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
 
   static const _config = MediaBrowserConfig.feiniu;
   static const _sourceId = SourceId('feiniu');
+  Future<Map<String, String>>? _genreNamesFuture;
 
   @override
   SourceDescriptor get descriptor => SourceDescriptor(
@@ -85,26 +86,32 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
   @override
   Future<MediaDetails> getMovie(MediaRef ref) async {
     _checkRef(ref);
-    final item = await api.item(ref.value);
+    final browserItem = await _loadBrowserItem(ref.value);
     return MediaDetails(
-      summary: _summaryFromItem(item),
-      originalTitle: item.originalTitle,
-      overview: item.overview,
-      filePath: item.fileName.isEmpty ? null : item.fileName,
-      genres: item.genres,
+      summary: _summaryFromBrowserItem(browserItem),
+      originalTitle: browserItem.originalTitle,
+      overview: browserItem.overview,
+      filePath: browserItem.mediaSources.isEmpty
+          ? null
+          : browserItem.mediaSources.first.path,
+      fileSize: browserItem.mediaSources.isEmpty
+          ? null
+          : browserItem.mediaSources.first.sizeInBytes,
+      genres: browserItem.genres,
       actors: [
-        for (final person in item.people)
-          if (person.name.isNotEmpty)
+        for (final person in browserItem.people)
+          if (person.type == 'Actor' && person.name.isNotEmpty)
             person.role?.trim().isNotEmpty == true
                 ? '${person.name}（${person.role}）'
                 : person.name,
       ],
       attributes: <String, Object?>{
-        'type': item.type,
-        'people': item.people,
-        'originalTitle': item.originalTitle,
+        'type': browserItem.type,
+        'people': browserItem.people,
+        'originalTitle': browserItem.originalTitle,
+        'media_sources': browserItem.mediaSources,
       },
-      payload: item,
+      payload: browserItem,
     );
   }
 
@@ -217,7 +224,7 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
 
   @override
   Future<MediaBrowserItem> getItem(String itemId) async =>
-      _call(() async => (await api.item(itemId)).toMediaBrowserItem());
+      _call(() => _loadBrowserItem(itemId));
 
   @override
   Future<List<MediaBrowserItem>> seasons(String seriesId) async =>
@@ -308,6 +315,10 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     _checkRef(ref);
     final item = await api.item(ref.value);
     final streams = await api.streamList(ref.value);
+    final file = streams.files.isEmpty ? null : streams.files.first;
+    final itemMediaGuid = item.mediaGuid.isNotEmpty
+        ? item.mediaGuid
+        : file?.mediaGuid ?? '';
     final audio = request.audioStreamIndex == null
         ? streams.audio.firstWhere(
             (stream) => stream.isDefault,
@@ -334,45 +345,65 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
           );
     final info = await api.playInfo(
       itemGuid: ref.value,
-      mediaGuid: item.mediaGuid,
+      mediaGuid: itemMediaGuid,
       videoGuid: streams.video.isEmpty
           ? item.videoGuid
           : streams.video.first.guid,
       audioGuid: audio.guid.isEmpty ? item.audioGuid : audio.guid,
       subtitleGuid: subtitle.guid.isEmpty ? item.subtitleGuid : subtitle.guid,
     );
-    final mediaGuid = info.mediaGuid.isEmpty ? item.mediaGuid : info.mediaGuid;
+    final mediaGuid = info.mediaGuid.isEmpty ? itemMediaGuid : info.mediaGuid;
     if (mediaGuid.isEmpty) throw const SourceException('飞牛条目没有可用的媒体文件');
-    final url = FeiniuApi.mediaRangeUrl(endpoint ?? '', mediaGuid);
+    final url = info.playLink.trim().isEmpty
+        ? FeiniuApi.mediaRangeUrl(endpoint ?? '', mediaGuid)
+        : FeiniuApi.resolveUrl(endpoint ?? '', info.playLink);
+    final containerPath = file?.path.trim().isNotEmpty == true
+        ? file!.path
+        : item.fileName;
     final record = _recordFrom(info, item, url);
     _records[ref.value] = record;
     return PlaybackDescriptor(
       uri: Uri.parse(url),
       headers: FeiniuApi.mediaHeaders(await sessionRepository.accessToken()),
-      mimeType: playbackMimeTypeForContainer(_extension(item.fileName)),
+      mimeType: playbackMimeTypeForContainer(_extension(containerPath)),
       startAt:
           (info.positionSeconds > 0 ? info.positionSeconds : item.resumeSeconds)
               .toDouble(),
       audioTracks: [
         for (final stream in streams.audio)
           PlaybackTrack(
-            id: stream.guid,
+            id: stream.guid.isEmpty ? stream.index.toString() : stream.guid,
             label: stream.title.isEmpty
                 ? '音轨 ${stream.index + 1}'
                 : stream.title,
             language: stream.language,
             kind: 'audio',
+            index: stream.index,
+            codec: stream.codecName,
+            channels: stream.channels,
+            isDefault: stream.isDefault,
+            isExternal: stream.isExternal,
           ),
       ],
       subtitleTracks: [
         for (final stream in streams.subtitle)
           PlaybackTrack(
-            id: stream.guid,
+            id: stream.guid.isEmpty ? stream.index.toString() : stream.guid,
             label: stream.title.isEmpty
                 ? '字幕 ${stream.index + 1}'
                 : stream.title,
             language: stream.language,
             kind: 'subtitle',
+            index: stream.index,
+            codec: stream.codecName ?? stream.format,
+            isDefault: stream.isDefault,
+            isForced: stream.isForced,
+            isExternal: stream.isExternal,
+            url: stream.isExternal && stream.guid.isNotEmpty
+                ? FeiniuApi.subtitleUrl(endpoint ?? '', stream.guid)
+                : null,
+            source: stream.isExternal ? 'external' : 'embedded',
+            playable: !stream.isBitmap,
           ),
       ],
       payload: info,
@@ -429,6 +460,49 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     return FeiniuApi.resolveAssetUrl(
       endpoint ?? '',
       '/mediadb/${Uri.encodeComponent(itemId)}/$suffix',
+    );
+  }
+
+  Future<MediaBrowserItem> _loadBrowserItem(String itemId) async {
+    final item = await api.item(itemId);
+    final guid = item.guid.isEmpty ? itemId : item.guid;
+    final needsStreams = item.isPlayable || item.mediaGuid.isNotEmpty;
+    final needsPeople =
+        item.people.isEmpty &&
+        (item.type == 'Movie' || item.type == 'Series' || item.isEpisode);
+    final needsGenres = item.genres.any(
+      (genre) => int.tryParse(genre.trim()) != null,
+    );
+
+    final streamsFuture = needsStreams
+        ? api.streamList(guid)
+        : Future.value(const FeiniuStreamList());
+    final peopleFuture = needsPeople
+        ? api.personList(guid)
+        : Future.value(const <FeiniuPerson>[]);
+    final genresFuture = needsGenres
+        ? (_genreNamesFuture ??= api.genreMap())
+        : Future.value(const <String, String>{});
+    final values = await Future.wait<Object>([
+      streamsFuture,
+      peopleFuture,
+      genresFuture,
+    ]);
+    final streams = values[0] as FeiniuStreamList;
+    final people = values[1] as List<FeiniuPerson>;
+    final genreNames = values[2] as Map<String, String>;
+    final resolvedPeople = item.people.isNotEmpty
+        ? item.people
+        : people
+              .map((person) => person.toMediaBrowserPerson())
+              .toList(growable: false);
+    final resolvedGenres = item.genres
+        .map((genre) => genreNames[genre] ?? genre)
+        .toList(growable: false);
+    return item.toMediaBrowserItem(
+      resolvedGenres: resolvedGenres,
+      resolvedPeople: resolvedPeople,
+      streamList: streams,
     );
   }
 
@@ -528,30 +602,6 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
         'isFavorite': item.userData.isFavorite,
         'isWatched': item.userData.played,
         'resumeSeconds': item.userData.resumeSeconds,
-      },
-      payload: item,
-    );
-  }
-
-  MediaSummary _summaryFromItem(FeiniuItem item) {
-    final browserItem = item.toMediaBrowserItem();
-    return MediaSummary(
-      ref: MediaRef(sourceId: _sourceId, value: item.guid),
-      title: item.title,
-      year: browserItem.productionYear,
-      rating: browserItem.communityRating,
-      duration: browserItem.runtimeMinutes,
-      poster: _assetUrl(item.poster),
-      thumbnail: _assetUrl(item.thumbPath ?? item.poster),
-      fanart: _assetUrl(
-        item.backdrops.isEmpty ? item.stillPath : item.backdrops.first,
-      ),
-      canPlay: item.isPlayable,
-      attributes: <String, Object?>{
-        'type': item.type,
-        'isFavorite': item.isFavorite,
-        'isWatched': item.isWatched,
-        'resumeSeconds': item.resumeSeconds,
       },
       payload: item,
     );

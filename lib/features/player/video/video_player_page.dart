@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -59,6 +60,28 @@ const _directPlaybackDecision = playback_models.PlaybackDecision(
   startSec: 0,
 );
 
+playback_models.PlaybackDecision _directPlaybackDecisionForTracks({
+  required List<playback_models.AudioTrack> audioTracks,
+  required List<playback_models.SubtitleTrack> subtitleTracks,
+}) => playback_models.PlaybackDecision(
+  mode: 'direct_play',
+  streamUrl: '',
+  directUrl: '',
+  qualityOptions: const <playback_models.QualityOption>[
+    playback_models.QualityOption(id: 'auto', label: '自动', kind: 'auto'),
+  ],
+  mimeType: '',
+  hwAccel: '',
+  targetVideo: '',
+  targetAudio: '',
+  targetHeight: 0,
+  targetBitrate: 0,
+  reasons: const <String>[],
+  audioTracks: audioTracks,
+  subtitleTracks: subtitleTracks,
+  startSec: 0,
+);
+
 const _directPlaybackOperationTimeout = Duration(seconds: 20);
 const _playerCleanupTimeout = Duration(seconds: 5);
 
@@ -73,6 +96,8 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
     this.directFormatHint,
     this.engineKind,
     this.directPlaybackFileName,
+    this.directAudioTracks = const <playback_models.AudioTrack>[],
+    this.directSubtitleTracks = const <playback_models.SubtitleTrack>[],
     this.directProgressReporter,
     this.directPreferFfmpegForHls = false,
     this.startPositionSec = 0,
@@ -91,6 +116,8 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
     this.directFormatHint,
     this.engineKind,
     this.directPlaybackFileName,
+    this.directAudioTracks = const <playback_models.AudioTrack>[],
+    this.directSubtitleTracks = const <playback_models.SubtitleTrack>[],
     this.directProgressReporter,
     this.directPreferFfmpegForHls = false,
     this.startPositionSec = 0,
@@ -106,6 +133,8 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
   final String? directFormatHint;
   final PlaybackEngineKind? engineKind;
   final String? directPlaybackFileName;
+  final List<playback_models.AudioTrack> directAudioTracks;
+  final List<playback_models.SubtitleTrack> directSubtitleTracks;
 
   /// 退出直连播放时向服务器上报最终进度的回调（例如 Emby 的
   /// Sessions/Playing/Stopped）。与本地文件续播记录互不影响。
@@ -162,6 +191,10 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
     String? directFormatHint,
     PlaybackEngineKind? engineKind,
     String? directPlaybackFileName,
+    List<playback_models.AudioTrack> directAudioTracks =
+        const <playback_models.AudioTrack>[],
+    List<playback_models.SubtitleTrack> directSubtitleTracks =
+        const <playback_models.SubtitleTrack>[],
     Future<void> Function(int positionSec, int durationSec, bool completed)?
     directProgressReporter,
     bool directPreferFfmpegForHls = false,
@@ -184,6 +217,8 @@ class VideoPlayerPage extends ConsumerStatefulWidget {
           directFormatHint: directFormatHint,
           engineKind: engineKind,
           directPlaybackFileName: directPlaybackFileName,
+          directAudioTracks: directAudioTracks,
+          directSubtitleTracks: directSubtitleTracks,
           directProgressReporter: directProgressReporter,
           directPreferFfmpegForHls: directPreferFfmpegForHls,
           startPositionSec: startPositionSec,
@@ -651,7 +686,14 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
         // 文件源的回环代理是按需取流的，内核 open 可能会等待远端首段
         // 数据或容器探测。先展示播放器表面和控件，让播放器自己的 buffering
         // 状态接管等待过程，避免整个页面一直被“正在加载影片”覆盖。
-        _decision = _directPlaybackDecision;
+        _decision =
+            widget.directAudioTracks.isEmpty &&
+                widget.directSubtitleTracks.isEmpty
+            ? _directPlaybackDecision
+            : _directPlaybackDecisionForTracks(
+                audioTracks: widget.directAudioTracks,
+                subtitleTracks: widget.directSubtitleTracks,
+              );
         _bindProgress();
         setState(() => _loading = false);
         _restartHideTimer();
@@ -1261,9 +1303,9 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     playback_models.SubtitleTrack track,
   ) async {
     final url = _protectedUrl(cfg, track.url, token);
-    final source = ref.read(ommMediaSourceProvider);
-    if (source == null) throw const SourceException('OMM 播放来源未就绪');
-    final content = await source.fetchSubtitleContent(url);
+    final content = _isDirectPlayback
+        ? await _fetchDirectSubtitle(url)
+        : await _fetchManagedSubtitle(url);
     // mpv 解析本地字幕文件仍可能向错误流写入报错，加载前后设置降级窗口。
     _subtitleLoadGuardUntil = DateTime.now().add(const Duration(seconds: 15));
     await _host.setSubtitleData(
@@ -1273,11 +1315,29 @@ class _VideoPlayerPageState extends ConsumerState<VideoPlayerPage>
     );
   }
 
+  Future<String> _fetchManagedSubtitle(String url) async {
+    final source = ref.read(ommMediaSourceProvider);
+    if (source == null) throw const SourceException('OMM 播放来源未就绪');
+    return source.fetchSubtitleContent(url);
+  }
+
+  Future<String> _fetchDirectSubtitle(String url) async {
+    final response = await Dio().get<List<int>>(
+      url,
+      options: Options(
+        responseType: ResponseType.bytes,
+        headers: widget.directHeaders,
+      ),
+    );
+    return utf8.decode(response.data ?? const <int>[], allowMalformed: true);
+  }
+
   Future<void> _onSubtitleChanged(playback_models.SubtitleTrack? track) async {
-    if (_host.shouldReloadForSubtitle(
-      track,
-      hasBackendSelection: _subtitleTrackId != null,
-    )) {
+    if (!_isDirectPlayback &&
+        _host.shouldReloadForSubtitle(
+          track,
+          hasBackendSelection: _subtitleTrackId != null,
+        )) {
       await _applyBackendSubtitleDecision(track);
       return;
     }

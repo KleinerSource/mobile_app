@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/features/media_browser/api/feiniu_api.dart';
+import 'package:omm/features/media_browser/api/feiniu_models.dart';
 
 void main() {
   test('飞牛 API 解析响应信封和分页数据', () async {
@@ -100,6 +101,10 @@ void main() {
       'http://host:5666/v/api/v1/media/range/media-1',
     );
     expect(
+      FeiniuApi.subtitleUrl('http://host:5666', 'subtitle-1'),
+      'http://host:5666/v/api/v1/subtitle/dl/subtitle-1',
+    );
+    expect(
       FeiniuApi.resolveAssetUrl('http://host:5666', '/api/v1/image/a.png'),
       'http://host:5666/v/api/v1/image/a.png',
     );
@@ -125,6 +130,47 @@ void main() {
       FeiniuApi.resolveAssetUrl('http://host:5666', '/img/avatar.png'),
       'http://host:5666/v/api/v1/img/avatar.png',
     );
+    expect(
+      FeiniuApi.resolveAssetUrl(
+        'http://host:5666/v',
+        '/55/02/poster-hash.webp?w=400',
+      ),
+      'http://host:5666/v/api/v1/sys/img/55/02/poster-hash.webp?w=400',
+    );
+  });
+
+  test('飞牛原生详情与流字段兼容字符串图片和数字标记', () {
+    final item = FeiniuItem.fromJson(const {
+      'guid': 'item-1',
+      'title': '示例影片',
+      'type': 'Movie',
+      'posters': '/55/02/poster.webp',
+      'backdrops': '/60/20/backdrop.webp',
+      'genres': [13, 2],
+      'can_play': 1,
+    });
+    final streams = FeiniuStreamList.fromData(const {
+      'video_streams': [
+        {
+          'guid': 'video-1',
+          'codec_name': 'h264',
+          'width': 1920,
+          'height': 804,
+          'bps': 6424829,
+        },
+      ],
+      'subtitle_streams': [
+        {'guid': 'sub-1', 'is_external': 1, 'extra_file': 1, 'format': 'ass'},
+      ],
+    });
+
+    expect(item.poster, '/55/02/poster.webp');
+    expect(item.backdrops, ['/60/20/backdrop.webp']);
+    expect(item.isPlayable, isTrue);
+    expect(streams.video.single.width, 1920);
+    expect(streams.video.single.bitRate, 6424829);
+    expect(streams.subtitle.single.isExternal, isTrue);
+    expect(streams.subtitle.single.extraFile, isNull);
   });
 }
 

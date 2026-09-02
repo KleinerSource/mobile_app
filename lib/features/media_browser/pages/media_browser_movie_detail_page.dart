@@ -182,7 +182,7 @@ class _MediaBrowserDetailBodyState
     final runtimeMinutes = item.runtimeMinutes;
     final actors = [
       for (final person in item.people)
-        if (person.name.trim().isNotEmpty)
+        if (person.type == 'Actor' && person.name.trim().isNotEmpty)
           person.role?.trim().isNotEmpty == true
               ? '${person.name}（${person.role}）'
               : person.name,
@@ -253,11 +253,23 @@ class _MediaBrowserDetailBodyState
           ),
         if (directors.isNotEmpty)
           SliverToBoxAdapter(
-            child: _ChipSection(title: '导演', labels: directors),
+            child: _PeopleSection(
+              title: '导演',
+              people: item.people
+                  .where((person) => person.type == 'Director')
+                  .toList(growable: false),
+              urls: urls.value,
+            ),
           ),
         if (actors.isNotEmpty)
           SliverToBoxAdapter(
-            child: _ChipSection(title: '演员', labels: actors),
+            child: _PeopleSection(
+              title: '演员',
+              people: item.people
+                  .where((person) => person.type == 'Actor')
+                  .toList(growable: false),
+              urls: urls.value,
+            ),
           ),
         if (_hasDetails(item))
           SliverToBoxAdapter(
@@ -276,6 +288,7 @@ class _MediaBrowserDetailBodyState
     if (item.seriesName?.trim().isNotEmpty == true) return true;
     final source = item.mediaSources.isEmpty ? null : item.mediaSources.first;
     if (source == null) return false;
+    if (source.mediaStreams.isNotEmpty) return true;
     return source.path?.trim().isNotEmpty == true ||
         source.container?.trim().isNotEmpty == true ||
         source.sizeInBytes != null;
@@ -452,6 +465,100 @@ class _ChipSection extends StatelessWidget {
   }
 }
 
+class _PeopleSection extends StatelessWidget {
+  const _PeopleSection({
+    required this.title,
+    required this.people,
+    required this.urls,
+  });
+
+  final String title;
+  final List<MediaBrowserPerson> people;
+  final MediaBrowserServerUrls? urls;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = appColors(context);
+    return MovieDetailSection(
+      title: title,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (var i = 0; i < people.length; i++)
+            _PersonPill(
+              person: people[i],
+              imageUrl: urls?.personImage(people[i]),
+              color: colors.text,
+              hue: AppHues.all[i % AppHues.all.length],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PersonPill extends StatelessWidget {
+  const _PersonPill({
+    required this.person,
+    required this.imageUrl,
+    required this.color,
+    required this.hue,
+  });
+
+  final MediaBrowserPerson person;
+  final String? imageUrl;
+  final Color color;
+  final int hue;
+
+  @override
+  Widget build(BuildContext context) {
+    final role = person.role?.trim() ?? '';
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: appColors(context).chipBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: appColors(context).cardBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 14,
+              backgroundColor: AppHues.top(hue),
+              backgroundImage: imageUrl == null
+                  ? null
+                  : NetworkImage(imageUrl!),
+              child: imageUrl == null
+                  ? Text(
+                      person.name.isEmpty ? '·' : person.name.characters.first,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              role.isEmpty ? person.name : '${person.name}（$role）',
+              style: TextStyle(
+                color: color,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _DetailsTable extends StatelessWidget {
   const _DetailsTable({required this.item});
 
@@ -461,6 +568,21 @@ class _DetailsTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = appColors(context);
     final source = item.mediaSources.isEmpty ? null : item.mediaSources.first;
+    final videoStreams =
+        source?.mediaStreams
+            .where((stream) => stream.type.toLowerCase() == 'video')
+            .toList(growable: false) ??
+        const <MediaBrowserMediaStream>[];
+    final audioStreams =
+        source?.mediaStreams
+            .where((stream) => stream.type.toLowerCase() == 'audio')
+            .toList(growable: false) ??
+        const <MediaBrowserMediaStream>[];
+    final subtitleStreams =
+        source?.mediaStreams
+            .where((stream) => stream.type.toLowerCase() == 'subtitle')
+            .toList(growable: false) ??
+        const <MediaBrowserMediaStream>[];
     final rows = <(String, String)>[
       if (item.originalTitle?.trim().isNotEmpty == true)
         ('原名', item.originalTitle!),
@@ -471,6 +593,12 @@ class _DetailsTable extends StatelessWidget {
         ('容器', source!.container!),
       if (source?.sizeInBytes != null && source!.sizeInBytes! > 0)
         ('文件大小', _formatSize(source.sizeInBytes!)),
+      if (videoStreams.isNotEmpty)
+        ('视频', videoStreams.map(_videoStreamText).join('\n')),
+      if (audioStreams.isNotEmpty)
+        ('音频', audioStreams.map(_audioStreamText).join('\n')),
+      if (subtitleStreams.isNotEmpty)
+        ('字幕', subtitleStreams.map(_subtitleStreamText).join('\n')),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,6 +632,75 @@ class _DetailsTable extends StatelessWidget {
       ],
     );
   }
+}
+
+String _videoStreamText(MediaBrowserMediaStream stream) {
+  final values = <String>[];
+  if (stream.resolution?.trim().isNotEmpty == true) {
+    values.add(stream.resolution!);
+  } else if (stream.width != null && stream.height != null) {
+    values.add('${stream.width}×${stream.height}');
+  }
+  _addText(values, stream.codec?.toUpperCase());
+  _addText(values, stream.profile);
+  if (stream.bitRate != null && stream.bitRate! > 0) {
+    values.add(_formatBitRate(stream.bitRate!));
+  }
+  if (stream.bitDepth != null && stream.bitDepth! > 0) {
+    values.add('${stream.bitDepth} 位');
+  }
+  _addText(values, stream.frameRate);
+  _addText(values, stream.pixelFormat);
+  _addText(values, stream.colorRange);
+  return values.isEmpty ? '未知视频流' : values.join(' · ');
+}
+
+String _audioStreamText(MediaBrowserMediaStream stream) {
+  final values = <String>[];
+  _addText(values, stream.displayTitle);
+  _addText(values, stream.language);
+  _addText(values, stream.codec?.toUpperCase());
+  if (stream.channels != null && stream.channels! > 0) {
+    values.add(
+      stream.channelLayout?.trim().isNotEmpty == true
+          ? stream.channelLayout!
+          : '${stream.channels} 声道',
+    );
+  }
+  if (stream.sampleRate != null && stream.sampleRate! > 0) {
+    values.add(_formatSampleRate(stream.sampleRate!));
+  }
+  if (stream.bitRate != null && stream.bitRate! > 0) {
+    values.add(_formatBitRate(stream.bitRate!));
+  }
+  return values.isEmpty ? '未知音频流' : values.join(' · ');
+}
+
+String _subtitleStreamText(MediaBrowserMediaStream stream) {
+  final values = <String>[];
+  _addText(values, stream.displayTitle);
+  _addText(values, stream.language);
+  _addText(values, (stream.codec ?? stream.format)?.toUpperCase());
+  values.add(stream.isExternal ? '外挂' : '内嵌');
+  if (stream.isForced) values.add('强制');
+  return values.join(' · ');
+}
+
+void _addText(List<String> values, String? value) {
+  final text = value?.trim() ?? '';
+  if (text.isNotEmpty && !values.contains(text)) values.add(text);
+}
+
+String _formatBitRate(int bitsPerSecond) {
+  if (bitsPerSecond >= 1000000) {
+    return '${(bitsPerSecond / 1000000).toStringAsFixed(1)} Mbps';
+  }
+  return '${(bitsPerSecond / 1000).round()} kbps';
+}
+
+String _formatSampleRate(int hertz) {
+  if (hertz >= 1000) return '${(hertz / 1000).round()} kHz';
+  return '$hertz Hz';
 }
 
 String _formatSize(int bytes) {

@@ -68,6 +68,63 @@ class FeiniuMediaDb {
 }
 
 @immutable
+class FeiniuPerson {
+  const FeiniuPerson({
+    required this.id,
+    required this.name,
+    this.originalName,
+    this.role,
+    this.job,
+    this.profilePath,
+    this.order = 0,
+  });
+
+  final String id;
+  final String name;
+  final String? originalName;
+  final String? role;
+  final String? job;
+  final String? profilePath;
+  final int order;
+
+  factory FeiniuPerson.fromJson(Map<String, dynamic> json) => FeiniuPerson(
+    id: _string(
+      json['person_guid'] ?? json['person_id'] ?? json['guid'] ?? json['id'],
+    ),
+    name: _string(json['name'] ?? json['original_name'] ?? json['title']),
+    originalName: _optional(json['original_name']),
+    role: _optional(
+      json['role'] ?? json['character'] ?? json['character_name'],
+    ),
+    job: _optional(json['job'] ?? json['department']),
+    profilePath: _imagePath(
+      json['profile_path'] ??
+          json['profile'] ??
+          json['avatar'] ??
+          json['image'] ??
+          json['poster'],
+    ),
+    order: _int(json['order'] ?? json['sort'] ?? json['cast_order']),
+  );
+
+  MediaBrowserPerson toMediaBrowserPerson() {
+    final rawJob = (job ?? '').toLowerCase();
+    final type = rawJob.contains('director')
+        ? 'Director'
+        : rawJob.contains('actor') || rawJob.contains('cast')
+        ? 'Actor'
+        : (job ?? '');
+    return MediaBrowserPerson(
+      id: id,
+      name: name,
+      role: role,
+      type: type,
+      profilePath: profilePath,
+    );
+  }
+}
+
+@immutable
 class FeiniuItem {
   const FeiniuItem({
     required this.guid,
@@ -104,6 +161,7 @@ class FeiniuItem {
     this.audioGuid = '',
     this.subtitleGuid = '',
     this.fileName = '',
+    this.fileSize,
   });
 
   final String guid;
@@ -140,13 +198,17 @@ class FeiniuItem {
   final String audioGuid;
   final String subtitleGuid;
   final String fileName;
+  final int? fileSize;
 
   bool get isEpisode => type == 'Episode';
   bool get isAudio => type == 'Audio';
   bool get isPlayable => canPlay || type == 'Movie' || isEpisode || isAudio;
 
-  factory FeiniuItem.fromJson(Map<String, dynamic> json) {
-    final type = _itemType(json['type']);
+  factory FeiniuItem.fromJson(
+    Map<String, dynamic> json, {
+    Map<String, String>? genreNames,
+  }) {
+    final type = _itemType(json['type'] ?? json['item_type']);
     final mediaStream = json['media_stream'];
     final streamMap = mediaStream is Map
         ? Map<String, dynamic>.from(mediaStream)
@@ -154,9 +216,15 @@ class FeiniuItem {
     final duration = _int(json['duration']);
     final runtime = _int(json['runtime']);
     final resume = _int(json['watched_ts'] ?? json['ts']);
-    final stillPath = _imagePath(json['still_path'] ?? json['still']);
+    final stillPath = _imagePath(
+      json['still_path'] ?? json['still'] ?? json['backdrop_path'],
+    );
     final backdrops = _imagePaths(
-      json['backdrops'] ?? json['backdrop'] ?? json['backdrop_paths'],
+      json['backdrops'] ??
+          json['backdrop'] ??
+          json['backdrop_paths'] ??
+          json['fanart'] ??
+          json['fanarts'],
     );
     return FeiniuItem(
       guid: _string(json['guid'] ?? json['id']),
@@ -167,14 +235,24 @@ class FeiniuItem {
       tvTitle: _string(json['tv_title'] ?? json['series_name']),
       parentTitle: _string(json['parent_title'] ?? json['season_name']),
       poster: _imagePath(
-        json['poster'] ?? json['posters'] ?? json['primary_image'],
+        json['poster'] ??
+            json['posters'] ??
+            json['primary_image'] ??
+            json['poster_path'] ??
+            json['poster_url'] ??
+            json['cover'] ??
+            json['cover_path'] ??
+            json['image'],
       ),
       stillPath: stillPath,
       backdrops: backdrops.isEmpty && stillPath != null
           ? [stillPath]
           : backdrops,
       thumbPath: _imagePath(
-        json['thumb'] ?? json['thumb_path'] ?? json['thumbnail'],
+        json['thumb'] ??
+            json['thumb_path'] ??
+            json['thumbnail'] ??
+            json['thumbnail_path'],
       ),
       overview: _optional(json['overview']),
       airDate: _optional(
@@ -184,7 +262,7 @@ class FeiniuItem {
             json['last_air_date'],
       ),
       originalTitle: _optional(json['original_title'] ?? json['original_name']),
-      genres: _stringList(json['genres'] ?? json['genre']),
+      genres: _stringList(json['genres'] ?? json['genre'], genreNames),
       people: _people(json['people'] ?? json['cast_and_crew']),
       runtimeMinutes: runtime,
       durationSeconds: duration > 0 ? duration : runtime * 60,
@@ -205,23 +283,60 @@ class FeiniuItem {
       videoGuid: _string(json['video_guid']),
       audioGuid: _string(json['audio_guid']),
       subtitleGuid: _string(json['subtitle_guid']),
-      fileName: _string(json['file_name'] ?? json['path']),
+      fileName: _string(json['file_name'] ?? json['file_path'] ?? json['path']),
+      fileSize: _optionalInt(
+        json['file_size'] ?? json['size_bytes'] ?? json['size'],
+      ),
     );
   }
 
-  MediaBrowserItem toMediaBrowserItem() {
+  MediaBrowserItem toMediaBrowserItem({
+    List<String>? resolvedGenres,
+    List<MediaBrowserPerson>? resolvedPeople,
+    FeiniuStreamList? streamList,
+  }) {
     final seconds = durationSeconds > 0 ? durationSeconds : runtimeMinutes * 60;
     final fallbackBackdrop = stillPath;
     final imageBackdrops = backdrops.isEmpty && fallbackBackdrop != null
         ? <String>[fallbackBackdrop]
         : backdrops;
-    final mediaSource = mediaGuid.isEmpty
+    final streams = streamList ?? const FeiniuStreamList();
+    final primaryImage =
+        poster ??
+        (guid.isEmpty
+            ? null
+            : '/mediadb/${Uri.encodeComponent(guid)}/poster.jpg');
+    final file = streams.files.isEmpty
+        ? null
+        : streams.files.firstWhere(
+            (item) => item.mediaGuid == mediaGuid && item.mediaGuid.isNotEmpty,
+            orElse: () => streams.files.first,
+          );
+    final resolvedMediaGuid = mediaGuid.isNotEmpty
+        ? mediaGuid
+        : file?.mediaGuid ?? '';
+    final resolvedPath = file?.path.isNotEmpty == true ? file!.path : fileName;
+    final mediaSource = resolvedMediaGuid.isEmpty
         ? const <MediaBrowserMediaSourceDto>[]
         : [
             MediaBrowserMediaSourceDto(
-              id: mediaGuid,
-              path: fileName.isEmpty ? null : fileName,
-              container: _extension(fileName),
+              id: resolvedMediaGuid,
+              path: resolvedPath.isEmpty ? null : resolvedPath,
+              container: file?.container?.trim().isNotEmpty == true
+                  ? file!.container
+                  : _extension(resolvedPath),
+              protocol: 'http',
+              sizeInBytes: file?.sizeInBytes ?? fileSize,
+              supportsDirectPlay: true,
+              supportsDirectStream: true,
+              mediaStreams: [
+                for (final stream in [
+                  ...streams.video,
+                  ...streams.audio,
+                  ...streams.subtitle,
+                ])
+                  stream.toMediaBrowserStream(),
+              ],
             ),
           ];
     return MediaBrowserItem(
@@ -234,8 +349,8 @@ class FeiniuItem {
       communityRating: voteAverage,
       runTimeTicks: secondsToMediaBrowserTicks(seconds),
       overview: overview,
-      genres: genres,
-      people: people,
+      genres: resolvedGenres ?? genres,
+      people: resolvedPeople ?? people,
       userData: MediaBrowserUserData(
         playbackPositionTicks: secondsToMediaBrowserTicks(resumeSeconds),
         isFavorite: isFavorite,
@@ -249,7 +364,7 @@ class FeiniuItem {
       album: type == 'Audio' && parentTitle.isNotEmpty ? parentTitle : null,
       albumId: type == 'Audio' && parentGuid.isNotEmpty ? parentGuid : null,
       albumArtist: null,
-      primaryImageTag: poster,
+      primaryImageTag: primaryImage,
       backdropImageTags: imageBackdrops,
       thumbImageTag: thumbPath,
       childCount: numberOfEpisodes ?? localNumberOfEpisodes,
@@ -317,6 +432,25 @@ class FeiniuStream {
     this.index = -1,
     this.isDefault = false,
     this.isExternal = false,
+    this.isForced = false,
+    this.isBitmap = false,
+    this.codecName,
+    this.format,
+    this.width,
+    this.height,
+    this.bitRate,
+    this.bitDepth,
+    this.profile,
+    this.frameRate,
+    this.channels,
+    this.sampleRate,
+    this.channelLayout,
+    this.extraFile,
+    this.resolution,
+    this.pixelFormat,
+    this.colorRange,
+    this.colorSpace,
+    this.level,
   });
 
   final String guid;
@@ -326,17 +460,136 @@ class FeiniuStream {
   final int index;
   final bool isDefault;
   final bool isExternal;
+  final bool isForced;
+  final bool isBitmap;
+  final String? codecName;
+  final String? format;
+  final int? width;
+  final int? height;
+  final int? bitRate;
+  final int? bitDepth;
+  final String? profile;
+  final String? frameRate;
+  final int? channels;
+  final int? sampleRate;
+  final String? channelLayout;
+  final String? extraFile;
+  final String? resolution;
+  final String? pixelFormat;
+  final String? colorRange;
+  final String? colorSpace;
+  final int? level;
 
-  factory FeiniuStream.fromJson(Map<String, dynamic> json, String kind) =>
-      FeiniuStream(
-        guid: _string(json['guid'] ?? json['id']),
-        title: _string(json['title'] ?? json['name'] ?? json['codec_name']),
-        kind: kind,
-        language: _optional(json['language'] ?? json['lan']),
-        index: _int(json['index']),
-        isDefault: _bool(json['is_default']),
-        isExternal: _bool(json['is_external']),
-      );
+  factory FeiniuStream.fromJson(Map<String, dynamic> json, String kind) {
+    final codec = _optional(json['codec_name'] ?? json['codec']);
+    return FeiniuStream(
+      guid: _string(json['guid'] ?? json['id']),
+      title: _string(json['title'] ?? json['name'] ?? codec),
+      kind: kind,
+      language: _optional(json['language'] ?? json['lan']),
+      index: _optionalInt(json['index'] ?? json['stream_index']) ?? -1,
+      isDefault: _bool(json['is_default'] ?? json['default']),
+      isExternal: _bool(json['is_external'] ?? json['external']),
+      isForced: _bool(json['forced'] ?? json['is_forced']),
+      isBitmap: _bool(json['is_bitmap'] ?? json['bitmap']),
+      codecName: codec,
+      format: _optional(json['format'] ?? json['codec_long_name']),
+      width: _optionalInt(json['width']),
+      height: _optionalInt(json['height']),
+      bitRate: _optionalInt(json['bps'] ?? json['bit_rate'] ?? json['bitrate']),
+      bitDepth: _optionalInt(json['bit_depth']),
+      profile: _optional(json['profile']),
+      frameRate: _optional(
+        json['r_frame_rate'] ?? json['avg_frame_rate'] ?? json['frame_rate'],
+      ),
+      channels: _optionalInt(json['channels']),
+      sampleRate: _optionalInt(json['sample_rate'] ?? json['sampleRate']),
+      channelLayout: _optional(json['channel_layout']),
+      extraFile:
+          _optionalPath(json['extra_file']) ??
+          _optionalPath(json['path']) ??
+          _optionalPath(json['url']) ??
+          _optionalPath(json['file']),
+      resolution: _optional(json['resolution_type'] ?? json['resolution']),
+      pixelFormat: _optional(json['pix_fmt'] ?? json['pixel_format']),
+      colorRange: _optional(json['color_range']),
+      colorSpace: _optional(json['color_space']),
+      level: _optionalInt(json['level']),
+    );
+  }
+
+  MediaBrowserMediaStream toMediaBrowserStream() => MediaBrowserMediaStream(
+    index: index,
+    type: switch (kind) {
+      'video' => 'Video',
+      'audio' => 'Audio',
+      'subtitle' => 'Subtitle',
+      _ => kind,
+    },
+    codec: codecName,
+    displayTitle: title.isEmpty ? null : title,
+    language: language,
+    isExternal: isExternal,
+    isDefault: isDefault,
+    isForced: isForced,
+    width: width,
+    height: height,
+    bitRate: bitRate,
+    channels: channels,
+    sampleRate: sampleRate,
+    bitDepth: bitDepth,
+    profile: profile,
+    frameRate: frameRate,
+    channelLayout: channelLayout,
+    format: format,
+    resolution: resolution,
+    pixelFormat: pixelFormat,
+    colorRange: colorRange,
+    colorSpace: colorSpace,
+    level: level,
+    isBitmap: isBitmap,
+  );
+}
+
+@immutable
+class FeiniuMediaFile {
+  const FeiniuMediaFile({
+    required this.guid,
+    required this.mediaGuid,
+    required this.path,
+    this.name = '',
+    this.sizeInBytes,
+    this.container,
+  });
+
+  final String guid;
+  final String mediaGuid;
+  final String path;
+  final String name;
+  final int? sizeInBytes;
+  final String? container;
+
+  factory FeiniuMediaFile.fromJson(Map<String, dynamic> json) {
+    final path = _string(
+      json['path'] ?? json['file_path'] ?? json['file'] ?? json['url'],
+    );
+    final name = _string(json['file_name'] ?? json['name'] ?? json['filename']);
+    final displayPath = path.isNotEmpty ? path : name;
+    return FeiniuMediaFile(
+      guid: _string(json['guid'] ?? json['file_guid'] ?? json['id']),
+      mediaGuid: _string(
+        json['media_guid'] ?? json['mediaGuid'] ?? json['guid'] ?? json['id'],
+      ),
+      path: displayPath,
+      name: name.isEmpty ? _baseName(displayPath) : name,
+      sizeInBytes: _optionalInt(
+        json['size'] ?? json['size_bytes'] ?? json['file_size'],
+      ),
+      container:
+          _optional(json['container'] ?? json['wrapper']) ??
+          _extension(displayPath),
+    );
+  }
 }
 
 @immutable
@@ -345,16 +598,25 @@ class FeiniuStreamList {
     this.video = const [],
     this.audio = const [],
     this.subtitle = const [],
+    this.files = const [],
   });
 
   final List<FeiniuStream> video;
   final List<FeiniuStream> audio;
   final List<FeiniuStream> subtitle;
+  final List<FeiniuMediaFile> files;
 
   factory FeiniuStreamList.fromData(Object? data) {
     final map = data is Map ? Map<String, dynamic>.from(data) : const {};
-    List<FeiniuStream> read(String key, String kind) {
-      final raw = map[key];
+    List<FeiniuStream> read(List<String> keys, String kind) {
+      Object? raw;
+      for (final key in keys) {
+        if (map[key] != null) {
+          raw = map[key];
+          break;
+        }
+      }
+      if (raw is Map) raw = [raw];
       if (raw is! List) return const [];
       return raw
           .whereType<Map>()
@@ -362,14 +624,15 @@ class FeiniuStreamList {
             (item) =>
                 FeiniuStream.fromJson(Map<String, dynamic>.from(item), kind),
           )
-          .where((item) => item.guid.isNotEmpty)
+          .where((item) => item.guid.isNotEmpty || item.index >= 0)
           .toList(growable: false);
     }
 
     return FeiniuStreamList(
-      video: read('video_streams', 'video'),
-      audio: read('audio_streams', 'audio'),
-      subtitle: read('subtitle_streams', 'subtitle'),
+      video: read(const ['video_streams', 'video_stream'], 'video'),
+      audio: read(const ['audio_streams', 'audio_stream'], 'audio'),
+      subtitle: read(const ['subtitle_streams', 'subtitle_stream'], 'subtitle'),
+      files: _readFiles(map['files'] ?? map['file_stream']),
     );
   }
 }
@@ -468,6 +731,13 @@ String? _optional(Object? value) {
   return result.isEmpty ? null : result;
 }
 
+String? _optionalPath(Object? value) {
+  // 飞牛原生 extra_file 是数字 0/1，表示是否存在外置字幕文件，
+  // 不是可以拼接到 URL 的路径。
+  if (value is num || value is bool) return null;
+  return _optional(value);
+}
+
 String? _imagePath(Object? value) {
   if (value is List) {
     for (final item in value) {
@@ -502,22 +772,50 @@ List<String> _imagePaths(Object? value) {
   return path == null ? const <String>[] : [path];
 }
 
-List<String> _stringList(Object? value) {
+List<String> _stringList(Object? value, [Map<String, String>? names]) {
   if (value is List) {
     return value
-        .map(
-          (item) => item is Map
-              ? _string(item['name'] ?? item['title'])
-              : _string(item),
-        )
+        .map((item) {
+          final raw = item is Map
+              ? _string(item['name'] ?? item['title'] ?? item['label'])
+              : _string(item);
+          return names?[raw] ?? raw;
+        })
         .where((item) => item.isNotEmpty)
         .toList(growable: false);
   }
-  return _string(value)
+  final values = _string(value)
       .split(',')
       .map((item) => item.trim())
       .where((item) => item.isNotEmpty)
       .toList(growable: false);
+  return values.map((item) => names?[item] ?? item).toList(growable: false);
+}
+
+List<FeiniuMediaFile> _readFiles(Object? value) {
+  final raw = value is Map
+      ? value['list'] ??
+            value['items'] ??
+            value['files'] ??
+            (value.containsKey('path') ||
+                    value.containsKey('file_path') ||
+                    value.containsKey('file_name') ||
+                    value.containsKey('media_guid')
+                ? [value]
+                : null)
+      : value;
+  if (raw is! List) return const [];
+  return raw
+      .whereType<Map>()
+      .map((item) => FeiniuMediaFile.fromJson(Map<String, dynamic>.from(item)))
+      .where((item) => item.path.isNotEmpty || item.mediaGuid.isNotEmpty)
+      .toList(growable: false);
+}
+
+String _baseName(String path) {
+  final normalized = path.replaceAll('\\', '/');
+  final index = normalized.lastIndexOf('/');
+  return index < 0 ? normalized : normalized.substring(index + 1);
 }
 
 List<MediaBrowserPerson> _people(Object? value, [String? forcedType]) {
@@ -559,7 +857,9 @@ MediaBrowserPerson _person(Map<String, dynamic> json, {String? forcedType}) {
       ? ''
       : _string(json['type'] ?? json['department']);
   return MediaBrowserPerson(
-    id: _string(json['id'] ?? json['person_id'] ?? json['guid']),
+    id: _string(
+      json['id'] ?? json['person_id'] ?? json['person_guid'] ?? json['guid'],
+    ),
     name: _string(json['name'] ?? json['original_name'] ?? json['Name']),
     role: _optional(
       json['role'] ??
@@ -568,6 +868,12 @@ MediaBrowserPerson _person(Map<String, dynamic> json, {String? forcedType}) {
           json['job'],
     ),
     type: type,
+    profilePath: _imagePath(
+      json['profile_path'] ??
+          json['profile'] ??
+          json['avatar'] ??
+          json['image'],
+    ),
   );
 }
 

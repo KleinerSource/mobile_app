@@ -122,10 +122,39 @@ class FeiniuApi {
     return _unwrap(response.data, (data) {
       final map = _map(data);
       final item = map['item'];
-      return FeiniuItem.fromJson(
-        item is Map ? Map<String, dynamic>.from(item) : map,
-      );
+      if (item is! Map) return FeiniuItem.fromJson(map);
+      return FeiniuItem.fromJson({...map, ...Map<String, dynamic>.from(item)});
     });
+  }
+
+  Future<List<FeiniuPerson>> personList(String guid) async {
+    final response = await _dio.post<dynamic>(
+      '/person/list/${Uri.encodeComponent(guid)}',
+      data: const {'page': 1, 'page_size': 200},
+    );
+    return _unwrap(response.data, (data) {
+      final map = data is Map ? Map<String, dynamic>.from(data) : const {};
+      final raw =
+          map['list'] ??
+          map['items'] ??
+          map['persons'] ??
+          map['people'] ??
+          (data is List ? data : null);
+      if (raw is! List) return const <FeiniuPerson>[];
+      return raw
+          .whereType<Map>()
+          .map((item) => FeiniuPerson.fromJson(Map<String, dynamic>.from(item)))
+          .where((person) => person.id.isNotEmpty || person.name.isNotEmpty)
+          .toList(growable: false);
+    });
+  }
+
+  Future<Map<String, String>> genreMap({String language = 'zh-CN'}) async {
+    final response = await _dio.get<dynamic>(
+      '/tag/genres',
+      queryParameters: {'lan': language},
+    );
+    return _unwrap(response.data, _genreMap);
   }
 
   Future<List<FeiniuItem>> favoriteList({
@@ -238,6 +267,20 @@ class FeiniuApi {
         .toString();
   }
 
+  /// 外置字幕内容地址。飞牛流信息中的 [extra_file] 只是 0/1 标记，
+  /// 实际字幕内容通过字幕 GUID 从该接口读取。
+  static String subtitleUrl(String baseUrl, String subtitleGuid) {
+    final base = Uri.parse(
+      ServerConfig.normalizeForProject(baseUrl, ServerProject.feiniu),
+    );
+    return base
+        .replace(
+          path:
+              '${base.path}/api/v1/subtitle/dl/${Uri.encodeComponent(subtitleGuid)}',
+        )
+        .toString();
+  }
+
   static String resolveUrl(String baseUrl, String rawUrl) {
     final value = rawUrl.trim();
     final uri = Uri.tryParse(value);
@@ -292,6 +335,12 @@ class FeiniuApi {
       path = '${base.path}/api/v1/sys/img/$rawPath';
     } else if (lowerPath == 'img' || lowerPath.startsWith('img/')) {
       path = '${base.path}/api/v1/$rawPath';
+    } else if (RegExp(
+      r'^/[0-9a-fA-F]{2}/[0-9a-fA-F]{2}/[^/]+$',
+    ).hasMatch(rawPath)) {
+      // item/person 接口返回的是图片服务去掉了 /sys/img 的分片路径，
+      // 例如 /55/02/<hash>.webp。
+      path = '${base.path}/api/v1/sys/img$rawPath';
     }
     if (path == null) return resolveUrl(baseUrl, value);
     return base
@@ -331,6 +380,52 @@ class FeiniuApi {
         .where((item) => item.guid.isNotEmpty)
         .toList(growable: false);
   }
+}
+
+Map<String, String> _genreMap(Object? data) {
+  if (data is List) {
+    final result = <String, String>{};
+    for (final value in data) {
+      if (value is! Map) continue;
+      final map = Map<String, dynamic>.from(value);
+      final id = _string(
+        map['id'] ?? map['tag_id'] ?? map['genre_id'] ?? map['value'],
+      );
+      final name = _string(
+        map['name'] ??
+            map['title'] ??
+            map['label'] ??
+            map['tag_name'] ??
+            map['genre_name'] ??
+            map['text'] ??
+            map['value'],
+      );
+      if (id.isNotEmpty && name.isNotEmpty) result[id] = name;
+    }
+    return result;
+  }
+  if (data is! Map) return const <String, String>{};
+  final map = Map<String, dynamic>.from(data);
+  for (final key in const ['list', 'items', 'genres', 'tags']) {
+    if (map[key] != null) return _genreMap(map[key]);
+  }
+  final result = <String, String>{};
+  for (final entry in map.entries) {
+    final id = entry.key.trim();
+    final value = entry.value;
+    final name = value is Map
+        ? _string(
+            value['name'] ??
+                value['title'] ??
+                value['label'] ??
+                value['tag_name'] ??
+                value['genre_name'] ??
+                value['value'],
+          )
+        : _string(value);
+    if (id.isNotEmpty && name.isNotEmpty) result[id] = name;
+  }
+  return result;
 }
 
 Map<String, dynamic> _map(Object? value) =>

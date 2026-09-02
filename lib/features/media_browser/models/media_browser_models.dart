@@ -72,6 +72,7 @@ class MediaBrowserPerson {
     required this.name,
     this.role,
     this.type = '',
+    this.profilePath,
   });
 
   final String id;
@@ -80,15 +81,25 @@ class MediaBrowserPerson {
 
   /// 'Actor' / 'Director' 等；空字符串表示未标注。
   final String type;
+  final String? profilePath;
 
   factory MediaBrowserPerson.fromJson(Object? raw) {
     if (raw is! Map) return const MediaBrowserPerson(id: '', name: '');
     final json = Map<String, dynamic>.from(raw);
     return MediaBrowserPerson(
-      id: json['Id']?.toString() ?? '',
-      name: json['Name']?.toString() ?? '',
-      role: _stringOrNull(json['Role']),
-      type: json['Type']?.toString() ?? '',
+      id: (json['Id'] ?? json['id'] ?? json['person_guid'])?.toString() ?? '',
+      name:
+          (json['Name'] ?? json['name'] ?? json['original_name'])?.toString() ??
+          '',
+      role: _stringOrNull(json['Role'] ?? json['role'] ?? json['character']),
+      type: (json['Type'] ?? json['type'] ?? json['job'])?.toString() ?? '',
+      profilePath: _stringOrNull(
+        json['ProfilePath'] ??
+            json['profile_path'] ??
+            json['Image'] ??
+            json['image'] ??
+            json['ProfileImage'],
+      ),
     );
   }
 }
@@ -104,6 +115,22 @@ class MediaBrowserMediaStream {
     this.isExternal = false,
     this.isDefault = false,
     this.isForced = false,
+    this.width,
+    this.height,
+    this.bitRate,
+    this.channels,
+    this.sampleRate,
+    this.bitDepth,
+    this.profile,
+    this.frameRate,
+    this.channelLayout,
+    this.format,
+    this.resolution,
+    this.pixelFormat,
+    this.colorRange,
+    this.colorSpace,
+    this.level,
+    this.isBitmap = false,
   });
 
   final int index;
@@ -116,6 +143,22 @@ class MediaBrowserMediaStream {
   final bool isExternal;
   final bool isDefault;
   final bool isForced;
+  final int? width;
+  final int? height;
+  final int? bitRate;
+  final int? channels;
+  final int? sampleRate;
+  final int? bitDepth;
+  final String? profile;
+  final String? frameRate;
+  final String? channelLayout;
+  final String? format;
+  final String? resolution;
+  final String? pixelFormat;
+  final String? colorRange;
+  final String? colorSpace;
+  final int? level;
+  final bool isBitmap;
 
   factory MediaBrowserMediaStream.fromJson(Object? raw) {
     if (raw is! Map) {
@@ -123,14 +166,47 @@ class MediaBrowserMediaStream {
     }
     final json = Map<String, dynamic>.from(raw);
     return MediaBrowserMediaStream(
-      index: _intValue(json['Index']) ?? -1,
-      type: json['Type']?.toString() ?? '',
-      codec: _stringOrNull(json['Codec']),
-      displayTitle: _stringOrNull(json['DisplayTitle']),
-      language: _stringOrNull(json['Language']),
-      isExternal: json['IsExternal'] == true,
-      isDefault: json['IsDefault'] == true,
-      isForced: json['IsForced'] == true,
+      index: _intValue(json['Index'] ?? json['index']) ?? -1,
+      type: (json['Type'] ?? json['type'])?.toString() ?? '',
+      codec: _stringOrNull(
+        json['Codec'] ?? json['codec'] ?? json['codec_name'],
+      ),
+      displayTitle: _stringOrNull(
+        json['DisplayTitle'] ?? json['displayTitle'] ?? json['title'],
+      ),
+      language: _stringOrNull(json['Language'] ?? json['language']),
+      isExternal: json['IsExternal'] == true || json['is_external'] == true,
+      isDefault: json['IsDefault'] == true || json['is_default'] == true,
+      isForced: json['IsForced'] == true || json['forced'] == true,
+      width: _intValue(json['Width'] ?? json['width']),
+      height: _intValue(json['Height'] ?? json['height']),
+      bitRate: _intValue(json['BitRate'] ?? json['bit_rate'] ?? json['bps']),
+      channels: _intValue(json['Channels'] ?? json['channels']),
+      sampleRate: _intValue(
+        json['SampleRate'] ?? json['sample_rate'] ?? json['sampleRate'],
+      ),
+      bitDepth: _intValue(json['BitDepth'] ?? json['bit_depth']),
+      profile: _stringOrNull(json['Profile'] ?? json['profile']),
+      frameRate: _stringOrNull(
+        json['RealFrameRate'] ??
+            json['FrameRate'] ??
+            json['frame_rate'] ??
+            json['r_frame_rate'],
+      ),
+      channelLayout: _stringOrNull(
+        json['ChannelLayout'] ?? json['channel_layout'],
+      ),
+      format: _stringOrNull(json['Format'] ?? json['format']),
+      resolution: _stringOrNull(
+        json['Resolution'] ?? json['resolution'] ?? json['resolution_type'],
+      ),
+      pixelFormat: _stringOrNull(
+        json['PixelFormat'] ?? json['pixel_format'] ?? json['pix_fmt'],
+      ),
+      colorRange: _stringOrNull(json['ColorRange'] ?? json['color_range']),
+      colorSpace: _stringOrNull(json['ColorSpace'] ?? json['color_space']),
+      level: _intValue(json['Level'] ?? json['level']),
+      isBitmap: json['IsBitmap'] == true || json['is_bitmap'] == true,
     );
   }
 }
