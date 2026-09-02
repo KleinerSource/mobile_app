@@ -1,7 +1,51 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:omm/features/media_browser/api/media_browser_config.dart';
+import 'package:omm/features/media_browser/models/media_browser_models.dart';
 import 'package:omm/features/media_browser/providers/media_browser_providers.dart';
 
 void main() {
+  test('MediaBrowserServerUrls.thumbnail Thumb 优先、Primary 兜底、无图为 null', () {
+    final urls = MediaBrowserServerUrls(
+      config: MediaBrowserConfig.jellyfin,
+      baseUrl: 'http://test',
+    );
+
+    // 分集一般只有 Primary 静帧：退回 Primary 端点（此前误请求 Thumb
+    // 端点导致封面 404 不显示）。
+    final still = const MediaBrowserItem(
+      id: 'ep-1',
+      name: '第 1 集',
+      type: 'Episode',
+      primaryImageTag: 'primary-tag',
+    );
+    expect(
+      urls.thumbnail(still),
+      'http://test/Items/ep-1/Images/Primary'
+      '?maxWidth=440&quality=90&tag=primary-tag',
+    );
+
+    // 带 Thumb 图的条目用 Thumb 端点 + Thumb tag。
+    final wide = const MediaBrowserItem(
+      id: 'ep-2',
+      name: '第 2 集',
+      type: 'Episode',
+      primaryImageTag: 'primary-tag',
+      thumbImageTag: 'thumb-tag',
+    );
+    expect(
+      urls.thumbnail(wide),
+      'http://test/Items/ep-2/Images/Thumb'
+      '?maxWidth=440&quality=90&tag=thumb-tag',
+    );
+
+    expect(
+      urls.thumbnail(
+        const MediaBrowserItem(id: 'ep-3', name: '第 3 集', type: 'Episode'),
+      ),
+      isNull,
+    );
+  });
+
   test('includeItemTypesForView 按库类型映射条目过滤', () {
     expect(includeItemTypesForView('movies'), 'Movie');
     expect(includeItemTypesForView('TVShows'), 'Series');

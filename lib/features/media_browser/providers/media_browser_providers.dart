@@ -114,6 +114,19 @@ class MediaBrowserServerUrls {
     return null;
   }
 
+  /// 条目缩略图（分集列表等窄幅场景）：有 Thumb 图用 Thumb，否则退回
+  /// Primary。分集一般只有 Primary 静帧——直接请求 Thumb 端点会 404，
+  /// 即使有 Thumb 图，tag 也必须与图类型一致，配错同样被拒绝。
+  String? thumbnail(MediaBrowserItem item, {int maxWidth = 440}) {
+    if (item.thumbImageTag != null) {
+      return thumb(item.id, tag: item.thumbImageTag, maxWidth: maxWidth);
+    }
+    if (item.primaryImageTag != null) {
+      return poster(item.id, tag: item.primaryImageTag, maxWidth: maxWidth);
+    }
+    return null;
+  }
+
   String stream(String itemId, {String? mediaSourceId}) =>
       MediaBrowserApi.streamUrl(
         config: config,

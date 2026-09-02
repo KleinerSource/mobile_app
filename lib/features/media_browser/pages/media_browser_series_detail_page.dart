@@ -406,12 +406,7 @@ class _EpisodeList extends ConsumerWidget {
             for (final episode in page.items)
               _EpisodeTile(
                 episode: episode,
-                imageUrl: episode.primaryImageTag == null
-                    ? null
-                    : urls.value?.thumb(
-                        episode.id,
-                        tag: episode.primaryImageTag,
-                      ),
+                imageUrl: urls.value?.thumbnail(episode),
                 onTap: () =>
                     openMediaBrowserPlayback(context, ref, item: episode),
                 // 与 OMM/电影详情页一致：长按先选内核（libmpv / KSPlayer）。
