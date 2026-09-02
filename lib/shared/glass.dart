@@ -164,7 +164,8 @@ Future<T?> showGlassDialog<T>({
 /// 显示统一的毛玻璃 BottomSheet。
 ///
 /// 所有业务 sheet 都应通过这里进入，统一处理材质、圆角、遮罩、SafeArea
-/// 和拖拽把手；业务 builder 只负责内容和高度。
+/// 和拖拽把手；业务 builder 只负责内容和高度。内容尺寸变化（如异步
+/// 数据陆续到达、加载态切换）时通过 AnimatedSize 平滑展开/收缩。
 Future<T?> showGlassSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -208,7 +209,15 @@ Future<T?> showGlassSheet<T>({
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             child: ConstrainedBox(
               constraints: BoxConstraints(maxHeight: sheetMaxHeight(ctx)),
-              child: safeSheet,
+              // 内容高度变化时平滑展开/收缩；顶部对齐让把手随顶边移动，
+              // 新内容从底部逐步展开。AnimatedSize 会把子级约束 loosen，
+              // SizedBox 保证内容宽度仍撑满整屏。
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: SizedBox(width: double.infinity, child: safeSheet),
+              ),
             ),
           ),
         ),

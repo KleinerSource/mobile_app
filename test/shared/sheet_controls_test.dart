@@ -80,6 +80,39 @@ void main() {
     }
   });
 
+  testWidgets('内容尺寸变化时面板平滑展开而非瞬间跳变', (tester) async {
+    final grown = ValueNotifier(false);
+    addTearDown(grown.dispose);
+    await _pumpSheet(
+      tester,
+      ValueListenableBuilder<bool>(
+        valueListenable: grown,
+        builder: (_, value, __) => SizedBox(
+          key: ValueKey(value ? 'grown-content' : 'small-content'),
+          height: value ? 360 : 140,
+          child: Center(child: Text(value ? '已补全' : '加载中')),
+        ),
+      ),
+    );
+
+    final smallTop = _sheetTop(tester);
+    final smallBottom = tester.getBottomLeft(find.byType(GlassPanel)).dy;
+
+    // 模拟异步数据到达后内容长高 220。首帧仅启动尺寸动画,再推进时间
+    // 进入动画中间态:顶边应已上移但尚未到达最终位置。
+    grown.value = true;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 32));
+    final midTop = _sheetTop(tester);
+    expect(midTop, lessThan(smallTop));
+    expect(midTop, greaterThan(smallTop - 220));
+    expect(tester.getBottomLeft(find.byType(GlassPanel)).dy, smallBottom);
+
+    await tester.pumpAndSettle();
+    expect(smallTop - _sheetTop(tester), closeTo(220, 0.5));
+    expect(tester.getBottomLeft(find.byType(GlassPanel)).dy, smallBottom);
+  });
+
   testWidgets('滚动列表在顶部时，从内容区下拉会带动面板', (tester) async {
     await _pumpSheet(
       tester,
