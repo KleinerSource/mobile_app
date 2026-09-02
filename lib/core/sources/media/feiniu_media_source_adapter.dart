@@ -118,56 +118,121 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
   @override
   Future<String?> userId() async => (await sessionRepository.load())?.userId;
 
-  // 飞牛影视不使用 Emby/Jellyfin 的 VirtualFolders 协议；保留明确的
-  // 不支持实现以满足 MediaBrowserSource 的专属能力接口，现有飞牛页面
-  // 和媒体浏览逻辑仍走下方原有 API。
+  // 飞牛影视不使用 Emby/Jellyfin 的 VirtualFolders 协议；媒体库管理在
+  // 这里转换为飞牛原生的 /mdb/* 接口，现有媒体浏览逻辑仍走下方 API。
   @override
-  Future<MediaBrowserUser> currentUser() =>
-      Future.error(_unsupportedLibraryManagement());
+  Future<MediaBrowserUser> currentUser() => _call(() async {
+    final user = await api.userInfo();
+    return MediaBrowserUser(
+      id: user.id,
+      name: user.name,
+      isAdmin: user.isAdmin,
+    );
+  });
 
   @override
-  Future<List<MediaBrowserLibrary>> virtualFolders() =>
-      Future.error(_unsupportedLibraryManagement());
+  Future<List<MediaBrowserLibrary>> virtualFolders() => _call(() async {
+    final databases = await api.mdbList();
+    return databases
+        .map(_libraryFromMediaDb)
+        .where((library) => library.name.isNotEmpty)
+        .toList(growable: false);
+  });
 
   @override
   Future<void> addVirtualFolder({
     required String name,
     required String collectionType,
     required List<String> paths,
-  }) => Future.error(_unsupportedLibraryManagement());
+  }) => _call(
+    () => api.mdbCreate(
+      name: name,
+      category: _nativeCategory(collectionType),
+      paths: paths,
+    ),
+  );
 
   @override
-  Future<void> removeVirtualFolder(String name) =>
-      Future.error(_unsupportedLibraryManagement());
+  Future<void> removeVirtualFolder(String name) => _call(() async {
+    final library = await _findLibrary(name: name);
+    await api.mdbDelete(library.guid);
+  });
 
   @override
   Future<void> renameVirtualFolder({
     required String name,
     required String newName,
-  }) => Future.error(_unsupportedLibraryManagement());
+  }) => _call(() async {
+    final library = await _findLibrary(name: name);
+    await api.mdbUpdate(
+      guid: library.guid,
+      name: newName,
+      category: library.category,
+      paths: library.dirList,
+      options: library.managementOptions,
+    );
+  });
 
   @override
   Future<void> addMediaPath({
     required String libraryName,
     required String path,
-  }) => Future.error(_unsupportedLibraryManagement());
+  }) => _call(() async {
+    final library = await _findLibrary(name: libraryName);
+    final paths = [...library.dirList];
+    if (!paths.contains(path.trim())) paths.add(path.trim());
+    await api.mdbUpdate(
+      guid: library.guid,
+      name: library.name,
+      category: library.category,
+      paths: paths,
+      options: library.managementOptions,
+    );
+  });
 
   @override
   Future<void> removeMediaPath({
     required String libraryName,
     required String path,
-  }) => Future.error(_unsupportedLibraryManagement());
+  }) => _call(() async {
+    final library = await _findLibrary(name: libraryName);
+    final paths = library.dirList
+        .where((item) => item != path.trim())
+        .toList(growable: false);
+    await api.mdbUpdate(
+      guid: library.guid,
+      name: library.name,
+      category: library.category,
+      paths: paths,
+      options: library.managementOptions,
+    );
+  });
 
   @override
   Future<void> updateVirtualFolderOptions({
     required String id,
     required bool enabled,
     Map<String, dynamic> options = const <String, dynamic>{},
-  }) => Future.error(_unsupportedLibraryManagement());
+  }) => _call(() async {
+    final library = await _findLibrary(guid: id);
+    await api.mdbUpdate(
+      guid: library.guid,
+      name: library.name,
+      category: library.category,
+      paths: library.dirList,
+      options: {...library.managementOptions, ...options, 'enabled': enabled},
+    );
+  });
 
   @override
-  Future<void> refreshLibrary() =>
-      Future.error(_unsupportedLibraryManagement());
+  Future<void> refreshLibrary() => _call(() async {
+    final libraries = await api.mdbList();
+    await Future.wait(
+      libraries
+          .where((library) => library.guid.isNotEmpty)
+          .map((library) => api.mdbRefresh(library.guid)),
+    );
+  });
 
   @override
   Future<List<MediaBrowserItem>> views() async => _call(() async {
@@ -712,7 +777,57 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     if (index < 0 || index == value.length - 1) return null;
     return value.substring(index + 1).toLowerCase();
   }
-}
 
-SourceException _unsupportedLibraryManagement() =>
-    const SourceException('飞牛影视媒体库配置请在网页控制台管理');
+  Future<FeiniuMediaDb> _findLibrary({String? name, String? guid}) async {
+    final normalizedName = name?.trim() ?? '';
+    final normalizedGuid = guid?.trim() ?? '';
+    final libraries = await api.mdbList();
+    for (final library in libraries) {
+      if (normalizedGuid.isNotEmpty && library.guid == normalizedGuid) {
+        return library;
+      }
+      if (normalizedName.isNotEmpty && library.name == normalizedName) {
+        return library;
+      }
+    }
+    throw SourceException(
+      normalizedGuid.isNotEmpty
+          ? '找不到飞牛媒体库：$normalizedGuid'
+          : '找不到飞牛媒体库：$normalizedName',
+    );
+  }
+
+  MediaBrowserLibrary _libraryFromMediaDb(FeiniuMediaDb library) {
+    return MediaBrowserLibrary(
+      id: library.guid,
+      name: library.name,
+      collectionType: _collectionType(library.category),
+      paths: library.dirList,
+      enabled: library.enabled,
+      libraryOptions: {
+        ...library.managementOptions,
+        'enabled': library.enabled,
+      },
+    );
+  }
+
+  String _collectionType(String category) {
+    return switch (category.trim().toLowerCase()) {
+      'movie' || 'movies' => 'movies',
+      'tv' || 'series' || 'tvshows' => 'tvshows',
+      'mix' || 'mixed' => 'mixed',
+      'iptv' || 'musicvideos' => 'musicvideos',
+      _ => 'mixed',
+    };
+  }
+
+  String _nativeCategory(String collectionType) {
+    return switch (collectionType.trim().toLowerCase()) {
+      'movie' || 'movies' => 'Movie',
+      'tv' || 'series' || 'tvshows' => 'TV',
+      'mix' || 'mixed' => 'Mix',
+      'iptv' || 'musicvideos' => 'IPTV',
+      _ => 'Others',
+    };
+  }
+}

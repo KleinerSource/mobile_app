@@ -35,7 +35,7 @@ class _MediaBrowserLibrarySettingsPageState
       return _standaloneMessage(
         context,
         title: '无法访问媒体库',
-        message: '当前服务器不是 Emby 或 Jellyfin。',
+        message: '当前服务器不是可用的媒体服务器。',
       );
     }
 

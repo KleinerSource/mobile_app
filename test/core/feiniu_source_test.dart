@@ -152,6 +152,65 @@ void main() {
     );
     expect(adapter.playInfoBody['subtitle_guid'], 'sub-external');
   });
+
+  test('飞牛适配器支持媒体库管理并按 GUID 更新', () async {
+    final sessions = AuthSessionRepository(store: _MemoryTokenStore())
+      ..setActiveServerId('feiniu');
+    await sessions.save(
+      const AuthSession(accessToken: 'token-1', refreshToken: '', expiresIn: 0),
+    );
+    final adapter = _FeiniuLibraryAdapter();
+    final source = FeiniuMediaSourceAdapter(
+      FeiniuApi(
+        Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+          ..httpClientAdapter = adapter,
+      ),
+      sessionRepository: sessions,
+      endpoint: 'http://test',
+    );
+
+    final user = await source.currentUser();
+    final libraries = await source.virtualFolders();
+    await source.addVirtualFolder(
+      name: '剧集库',
+      collectionType: 'tvshows',
+      paths: ['/media/tv'],
+    );
+    await source.renameVirtualFolder(name: '电影库', newName: '影片库');
+    await source.addMediaPath(libraryName: '电影库', path: '/media/4k');
+    await source.removeMediaPath(libraryName: '电影库', path: '/media/movies');
+    await source.updateVirtualFolderOptions(
+      id: 'mdb-1',
+      enabled: false,
+      options: const {'lan': 'zh-CN'},
+    );
+    await source.removeVirtualFolder('电影库');
+    await source.refreshLibrary();
+
+    expect(user.isAdmin, isTrue);
+    expect(libraries.single.collectionType, 'movies');
+    expect(libraries.single.paths, ['/media/movies', '/media/4k']);
+    expect(libraries.single.enabled, isTrue);
+    expect(adapter.requests, contains('PUT /v/api/v1/mdb/create'));
+    expect(adapter.requests, contains('POST /v/api/v1/mdb/mdb-1'));
+    expect(adapter.requests, contains('DELETE /v/api/v1/mdb/mdb-1'));
+    expect(adapter.requests, contains('POST /v/api/v1/mdb/refresh'));
+    expect(
+      adapter.bodies.whereType<Map>().any(
+        (body) => body['mdb_guid'] == 'mdb-1',
+      ),
+      isTrue,
+    );
+    expect(
+      adapter.bodies.whereType<Map>().any(
+        (body) =>
+            body['name'] == '影片库' &&
+            body['dir_list'] is List &&
+            (body['dir_list'] as List).contains('/media/movies'),
+      ),
+      isTrue,
+    );
+  });
 }
 
 class _FeiniuMetadataAdapter implements HttpClientAdapter {
@@ -416,6 +475,52 @@ class _FeiniuRichMetadataAdapter implements HttpClientAdapter {
         'media_guid': 'media-rich',
       },
       _ => <String, Object?>{},
+    };
+    return ResponseBody.fromString(
+      jsonEncode({'code': 0, 'data': data}),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+}
+
+class _FeiniuLibraryAdapter implements HttpClientAdapter {
+  final requests = <String>[];
+  final bodies = <Object?>[];
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requests.add('${options.method} ${options.uri.path}');
+    bodies.add(options.data);
+    final data = switch (options.uri.path) {
+      '/v/api/v1/user/info' => {'id': 'admin-1', 'name': '管理员', 'is_admin': 1},
+      '/v/api/v1/mdb/list' => {
+        'list': [
+          {
+            'guid': 'mdb-1',
+            'name': '电影库',
+            'category': 'Movie',
+            'dir_list': ['/media/movies', '/media/4k'],
+            'lan': 'zh-CN',
+            'include_adult': false,
+            'skip_filesize': 0,
+            'auto_progress_thumb': 1,
+            'prefer_local_nfo': 1,
+            'subtitle_lan': 'zh-CN',
+            'auto_scrap_subtitle': 1,
+          },
+        ],
+      },
+      _ => null,
     };
     return ResponseBody.fromString(
       jsonEncode({'code': 0, 'data': data}),

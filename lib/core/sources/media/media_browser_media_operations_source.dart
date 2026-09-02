@@ -1,8 +1,8 @@
 import 'package:omm/features/media_browser/models/media_browser_models.dart';
 
-/// MediaBrowser（Emby/Jellyfin）保留给 Feature 的扩展能力。
+/// MediaBrowser（Emby/Jellyfin/飞牛影视）保留给 Feature 的扩展能力。
 ///
-/// 这些方法返回服务器自有 DTO，供 Emby/Jellyfin 专属页面使用；请求仍由
+/// 这些方法返回服务器自有 DTO，供媒体浏览页面使用；请求仍由
 /// Source Adapter 负责，页面和 Provider 不直接接触 `MediaBrowserApi`。
 abstract interface class MediaBrowserMediaOperationsSource {
   /// 当前登录用户的 ID；未登录时为 null。

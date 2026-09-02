@@ -42,7 +42,9 @@ class ServerSettingsPage extends ConsumerWidget {
         project == ServerProject.jellyfin ||
         project == ServerProject.feiniu;
     final managedMediaServer =
-        project == ServerProject.emby || project == ServerProject.jellyfin;
+        project == ServerProject.emby ||
+        project == ServerProject.jellyfin ||
+        project == ServerProject.feiniu;
 
     return Scaffold(
       backgroundColor: appColors(context).bg,
@@ -64,7 +66,7 @@ class ServerSettingsPage extends ConsumerWidget {
                           ? 'Emby 服务器的转码等高级设置请在 Emby 网页控制台管理。'
                           : project == ServerProject.jellyfin
                           ? 'Jellyfin 服务器的转码等高级设置请在 Jellyfin 网页控制台管理。'
-                          : '飞牛影视的媒体库与转码设置请在飞牛影视网页控制台管理。',
+                          : '飞牛影视的转码等高级设置请在飞牛影视网页控制台管理。',
                       textAlign: TextAlign.center,
                       style: AppText.body(
                         context,

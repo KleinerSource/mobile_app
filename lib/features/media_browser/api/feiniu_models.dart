@@ -4,15 +4,32 @@ import '../models/media_browser_models.dart';
 
 @immutable
 class FeiniuUser {
-  const FeiniuUser({required this.id, required this.name});
+  const FeiniuUser({
+    required this.id,
+    required this.name,
+    this.isAdmin = false,
+  });
 
   final String id;
   final String name;
+  final bool isAdmin;
 
-  factory FeiniuUser.fromJson(Map<String, dynamic> json) => FeiniuUser(
-    id: _string(json['id'] ?? json['user_id'] ?? json['uid'] ?? json['guid']),
-    name: _string(json['name'] ?? json['username'] ?? json['user_name']),
-  );
+  factory FeiniuUser.fromJson(Map<String, dynamic> json) {
+    final role = _string(json['role'] ?? json['user_role']).toLowerCase();
+    return FeiniuUser(
+      id: _string(json['id'] ?? json['user_id'] ?? json['uid'] ?? json['guid']),
+      name: _string(json['name'] ?? json['username'] ?? json['user_name']),
+      isAdmin:
+          _bool(
+            json['is_admin'] ??
+                json['isAdmin'] ??
+                json['admin'] ??
+                json['is_superuser'],
+          ) ||
+          role == 'admin' ||
+          role == 'administrator',
+    );
+  }
 }
 
 @immutable
@@ -34,28 +51,86 @@ class FeiniuMediaDb {
     required this.guid,
     required this.name,
     this.category = '',
+    this.dirList = const <String>[],
     this.topDir = '',
     this.dir = '',
     this.poster,
+    this.language = '',
+    this.includeAdult = false,
+    this.skipFilesize = 0,
+    this.autoProgressThumb = true,
+    this.preferLocalNfo = true,
+    this.subtitleLanguage = '',
+    this.autoScrapSubtitle = true,
+    this.enabled = true,
   });
 
   final String guid;
   final String name;
   final String category;
+  final List<String> dirList;
   final String topDir;
   final String dir;
   final String? poster;
+  final String language;
+  final bool includeAdult;
+  final int skipFilesize;
+  final bool autoProgressThumb;
+  final bool preferLocalNfo;
+  final String subtitleLanguage;
+  final bool autoScrapSubtitle;
+  final bool enabled;
 
-  factory FeiniuMediaDb.fromJson(Map<String, dynamic> json) => FeiniuMediaDb(
-    guid: _string(json['guid'] ?? json['id'] ?? json['mdb_guid']),
-    name: _string(json['name'] ?? json['mdb_name'] ?? json['title']),
-    category: _string(json['category'] ?? json['mdb_category']),
-    topDir: _string(json['top_dir']),
-    dir: _string(json['dir']),
-    poster: _imagePath(
-      json['poster'] ?? json['posters'] ?? json['image'] ?? json['cover'],
-    ),
-  );
+  factory FeiniuMediaDb.fromJson(Map<String, dynamic> json) {
+    final listedPaths = _pathList(
+      json['dir_list'] ?? json['dirs'] ?? json['paths'],
+    );
+    final fallbackPaths = _pathList(json['dir'] ?? json['top_dir']);
+    return FeiniuMediaDb(
+      guid: _string(json['guid'] ?? json['id'] ?? json['mdb_guid']),
+      name: _string(json['name'] ?? json['mdb_name'] ?? json['title']),
+      category: _string(json['category'] ?? json['mdb_category']),
+      dirList: listedPaths.isNotEmpty ? listedPaths : fallbackPaths,
+      topDir: _string(json['top_dir']),
+      dir: _string(json['dir']),
+      poster: _imagePath(
+        json['poster'] ?? json['posters'] ?? json['image'] ?? json['cover'],
+      ),
+      language: _string(json['lan'] ?? json['language']),
+      includeAdult: _bool(json['include_adult'] ?? json['includeAdult']),
+      skipFilesize: _int(json['skip_filesize'] ?? json['skipFilesize']),
+      autoProgressThumb: _flag(
+        json['auto_progress_thumb'] ?? json['autoProgressThumb'],
+        defaultValue: true,
+      ),
+      preferLocalNfo: _flag(
+        json['prefer_local_nfo'] ?? json['preferLocalNfo'],
+        defaultValue: true,
+      ),
+      subtitleLanguage: _string(
+        json['subtitle_lan'] ?? json['subtitleLanguage'],
+      ),
+      autoScrapSubtitle: _flag(
+        json['auto_scrap_subtitle'] ?? json['autoScrapSubtitle'],
+        defaultValue: true,
+      ),
+      enabled: _flag(
+        json['enabled'] ?? json['enable'] ?? json['is_enabled'],
+        defaultValue: true,
+      ),
+    );
+  }
+
+  /// `/mdb/create` 和 `/mdb/{guid}` 共用的飞牛配置字段。
+  Map<String, dynamic> get managementOptions => {
+    'lan': language,
+    'include_adult': includeAdult,
+    'skip_filesize': skipFilesize,
+    'auto_progress_thumb': autoProgressThumb ? 1 : 0,
+    'prefer_local_nfo': preferLocalNfo ? 1 : 0,
+    'subtitle_lan': subtitleLanguage,
+    'auto_scrap_subtitle': autoScrapSubtitle ? 1 : 0,
+  };
 
   MediaBrowserItem toItem() => MediaBrowserItem(
     id: guid,
@@ -774,6 +849,21 @@ List<String> _imagePaths(Object? value) {
   return path == null ? const <String>[] : [path];
 }
 
+List<String> _pathList(Object? value) {
+  if (value is List) {
+    return value
+        .map(
+          (item) => item is Map
+              ? _string(item['path'] ?? item['dir'] ?? item['value'])
+              : _string(item),
+        )
+        .where((path) => path.isNotEmpty)
+        .toList(growable: false);
+  }
+  final path = _string(value);
+  return path.isEmpty ? const <String>[] : [path];
+}
+
 List<String> _stringList(Object? value, [Map<String, String>? names]) {
   if (value is List) {
     return value
@@ -898,6 +988,11 @@ double? _double(Object? value) {
 }
 
 bool _bool(Object? value) => value == true || value == 1 || value == '1';
+
+bool _flag(Object? value, {required bool defaultValue}) {
+  if (value == null || _string(value).isEmpty) return defaultValue;
+  return _bool(value);
+}
 
 int? _year(String? value) {
   final match = RegExp(r'^(\d{4})').firstMatch(value ?? '');

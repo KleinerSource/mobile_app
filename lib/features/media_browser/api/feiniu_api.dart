@@ -76,6 +76,117 @@ class FeiniuApi {
     });
   }
 
+  /// 管理端媒体库列表。飞牛网页端把管理配置和浏览用的媒体库列表分开。
+  Future<List<FeiniuMediaDb>> mdbList() async {
+    final response = await _dio.get<dynamic>('/mdb/list');
+    return _unwrap(response.data, (data) {
+      final raw = data is Map
+          ? data['list'] ??
+                data['items'] ??
+                data['mdb_list'] ??
+                data['databases']
+          : data;
+      if (raw is! List) return const <FeiniuMediaDb>[];
+      return raw
+          .whereType<Map>()
+          .map(
+            (item) => FeiniuMediaDb.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .where((item) => item.guid.isNotEmpty)
+          .toList(growable: false);
+    });
+  }
+
+  /// 读取单个媒体库的完整配置，用于更新时保留高级选项。
+  Future<FeiniuMediaDb> mdbDetails(String guid) async {
+    final normalizedGuid = guid.trim();
+    if (normalizedGuid.isEmpty) {
+      throw ArgumentError.value(guid, 'guid', '媒体库 GUID 不能为空');
+    }
+    final response = await _dio.get<dynamic>(
+      '/mdb/${Uri.encodeComponent(normalizedGuid)}',
+    );
+    return _unwrap(response.data, (data) {
+      final map = data is Map
+          ? Map<String, dynamic>.from(data)
+          : <String, dynamic>{};
+      final nested = map['mdb'] ?? map['item'] ?? map['library'];
+      final Map<String, dynamic> database = nested is Map
+          ? <String, dynamic>{
+              for (final entry in nested.entries)
+                entry.key.toString(): entry.value,
+            }
+          : map;
+      return FeiniuMediaDb.fromJson(database);
+    });
+  }
+
+  /// 创建媒体库。请求体字段与飞牛网页端 `/mdb/create` 一致。
+  Future<void> mdbCreate({
+    required String name,
+    required String category,
+    required List<String> paths,
+    Map<String, dynamic> options = const <String, dynamic>{},
+  }) async {
+    final body = _mdbBody(
+      name: name,
+      category: category,
+      paths: paths,
+      options: options,
+    );
+    final response = await _dio.put<dynamic>('/mdb/create', data: body);
+    _unwrap(response.data, (_) {});
+  }
+
+  /// 更新媒体库。飞牛要求修改时把完整配置和 GUID 一并提交。
+  Future<void> mdbUpdate({
+    required String guid,
+    required String name,
+    required String category,
+    required List<String> paths,
+    Map<String, dynamic> options = const <String, dynamic>{},
+  }) async {
+    final normalizedGuid = guid.trim();
+    if (normalizedGuid.isEmpty) {
+      throw ArgumentError.value(guid, 'guid', '媒体库 GUID 不能为空');
+    }
+    final body = _mdbBody(
+      name: name,
+      category: category,
+      paths: paths,
+      options: options,
+    )..['guid'] = normalizedGuid;
+    final response = await _dio.post<dynamic>(
+      '/mdb/${Uri.encodeComponent(normalizedGuid)}',
+      data: body,
+    );
+    _unwrap(response.data, (_) {});
+  }
+
+  Future<void> mdbDelete(String guid) async {
+    final normalizedGuid = guid.trim();
+    if (normalizedGuid.isEmpty) {
+      throw ArgumentError.value(guid, 'guid', '媒体库 GUID 不能为空');
+    }
+    final response = await _dio.delete<dynamic>(
+      '/mdb/${Uri.encodeComponent(normalizedGuid)}',
+    );
+    _unwrap(response.data, (_) {});
+  }
+
+  /// 刷新单个媒体库的扫描任务。
+  Future<void> mdbRefresh(String guid) async {
+    final normalizedGuid = guid.trim();
+    if (normalizedGuid.isEmpty) {
+      throw ArgumentError.value(guid, 'guid', '媒体库 GUID 不能为空');
+    }
+    final response = await _dio.post<dynamic>(
+      '/mdb/refresh',
+      data: {'mdb_guid': normalizedGuid},
+    );
+    _unwrap(response.data, (_) {});
+  }
+
   Future<int> mediaDbSum() async {
     final response = await _dio.get<dynamic>('/mediadb/sum');
     return _unwrap(response.data, (data) {
@@ -404,6 +515,44 @@ class FeiniuApi {
       );
     }
     return parser(map['data']);
+  }
+
+  Map<String, dynamic> _mdbBody({
+    required String name,
+    required String category,
+    required List<String> paths,
+    Map<String, dynamic> options = const <String, dynamic>{},
+  }) {
+    final normalizedName = name.trim();
+    final normalizedCategory = category.trim();
+    final normalizedPaths = paths
+        .map((path) => path.trim())
+        .where((path) => path.isNotEmpty)
+        .toList(growable: false);
+    if (normalizedName.isEmpty) {
+      throw ArgumentError.value(name, 'name', '媒体库名称不能为空');
+    }
+    if (normalizedCategory.isEmpty) {
+      throw ArgumentError.value(category, 'category', '媒体库类型不能为空');
+    }
+    if (normalizedPaths.isEmpty) {
+      throw ArgumentError.value(paths, 'paths', '至少需要一个媒体路径');
+    }
+    return <String, dynamic>{
+      'name': normalizedName,
+      'category': normalizedCategory,
+      'dir_list': normalizedPaths,
+      'lan': _string(options['lan']).isEmpty ? 'zh-CN' : options['lan'],
+      'include_adult': options['include_adult'] ?? false,
+      'skip_filesize': options['skip_filesize'] ?? 0,
+      'auto_progress_thumb': options['auto_progress_thumb'] ?? 1,
+      'prefer_local_nfo': options['prefer_local_nfo'] ?? 1,
+      'subtitle_lan': _string(options['subtitle_lan']).isEmpty
+          ? 'zh-CN'
+          : options['subtitle_lan'],
+      'auto_scrap_subtitle': options['auto_scrap_subtitle'] ?? 1,
+      if (options.containsKey('enabled')) 'enabled': options['enabled'],
+    };
   }
 
   List<FeiniuItem> _items(

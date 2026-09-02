@@ -143,6 +143,112 @@ void main() {
     expect(seasons.single.title, '第一季');
   });
 
+  test('飞牛媒体库管理接口使用原生 mdb 路径和完整配置', () async {
+    final adapter = _FeiniuAdapter((options) {
+      if (options.uri.path == '/v/api/v1/mdb/list') {
+        return {
+          'code': 0,
+          'data': {
+            'list': [
+              {
+                'guid': 'mdb-1',
+                'name': '电影库',
+                'category': 'Movie',
+                'dir_list': ['/media/movies', '/media/4k'],
+                'lan': 'zh-CN',
+                'include_adult': false,
+                'skip_filesize': 0,
+                'auto_progress_thumb': 1,
+                'prefer_local_nfo': 1,
+                'subtitle_lan': 'zh-CN',
+                'auto_scrap_subtitle': 1,
+              },
+            ],
+          },
+        };
+      }
+      return {'code': 0, 'data': null};
+    });
+    final api = FeiniuApi(
+      Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+        ..httpClientAdapter = adapter,
+    );
+
+    final libraries = await api.mdbList();
+    await api.mdbCreate(name: '剧集库', category: 'TV', paths: ['/media/tv']);
+    await api.mdbUpdate(
+      guid: 'mdb-1',
+      name: '影片库',
+      category: 'Movie',
+      paths: ['/media/films'],
+      options: const {
+        'lan': 'zh-CN',
+        'include_adult': false,
+        'skip_filesize': 0,
+        'auto_progress_thumb': 1,
+        'prefer_local_nfo': 1,
+        'subtitle_lan': 'zh-CN',
+        'auto_scrap_subtitle': 1,
+      },
+    );
+    await api.mdbDelete('mdb-1');
+    await api.mdbRefresh('mdb-1');
+
+    expect(libraries.single.name, '电影库');
+    expect(libraries.single.dirList, ['/media/movies', '/media/4k']);
+    expect(adapter.requests, [
+      'GET /v/api/v1/mdb/list',
+      'PUT /v/api/v1/mdb/create',
+      'POST /v/api/v1/mdb/mdb-1',
+      'DELETE /v/api/v1/mdb/mdb-1',
+      'POST /v/api/v1/mdb/refresh',
+    ]);
+    expect(adapter.bodies[0], {
+      'name': '剧集库',
+      'category': 'TV',
+      'dir_list': ['/media/tv'],
+      'lan': 'zh-CN',
+      'include_adult': false,
+      'skip_filesize': 0,
+      'auto_progress_thumb': 1,
+      'prefer_local_nfo': 1,
+      'subtitle_lan': 'zh-CN',
+      'auto_scrap_subtitle': 1,
+    });
+    expect(adapter.bodies[1], {
+      'name': '影片库',
+      'category': 'Movie',
+      'dir_list': ['/media/films'],
+      'lan': 'zh-CN',
+      'include_adult': false,
+      'skip_filesize': 0,
+      'auto_progress_thumb': 1,
+      'prefer_local_nfo': 1,
+      'subtitle_lan': 'zh-CN',
+      'auto_scrap_subtitle': 1,
+      'guid': 'mdb-1',
+    });
+    expect(adapter.bodies[2], {'mdb_guid': 'mdb-1'});
+  });
+
+  test('飞牛用户信息解析管理员字段', () async {
+    final api = FeiniuApi(
+      Dio(BaseOptions(baseUrl: 'http://test/v/api/v1'))
+        ..httpClientAdapter = _FeiniuAdapter(
+          (_) => {
+            'code': 0,
+            'data': {'id': 'admin-1', 'name': '管理员', 'is_admin': 1},
+          },
+        ),
+    );
+
+    final user = await api.userInfo();
+
+    expect(user.id, 'admin-1');
+    expect(user.name, '管理员');
+    expect(user.isAdmin, isTrue);
+  });
+
   test('飞牛 URL 构造会补齐且不重复 /v', () {
     expect(
       FeiniuApi.mediaRangeUrl('http://host:5666', 'media-1'),
