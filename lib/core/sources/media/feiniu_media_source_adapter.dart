@@ -118,6 +118,57 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
   @override
   Future<String?> userId() async => (await sessionRepository.load())?.userId;
 
+  // 飞牛影视不使用 Emby/Jellyfin 的 VirtualFolders 协议；保留明确的
+  // 不支持实现以满足 MediaBrowserSource 的专属能力接口，现有飞牛页面
+  // 和媒体浏览逻辑仍走下方原有 API。
+  @override
+  Future<MediaBrowserUser> currentUser() =>
+      Future.error(_unsupportedLibraryManagement());
+
+  @override
+  Future<List<MediaBrowserLibrary>> virtualFolders() =>
+      Future.error(_unsupportedLibraryManagement());
+
+  @override
+  Future<void> addVirtualFolder({
+    required String name,
+    required String collectionType,
+    required List<String> paths,
+  }) => Future.error(_unsupportedLibraryManagement());
+
+  @override
+  Future<void> removeVirtualFolder(String name) =>
+      Future.error(_unsupportedLibraryManagement());
+
+  @override
+  Future<void> renameVirtualFolder({
+    required String name,
+    required String newName,
+  }) => Future.error(_unsupportedLibraryManagement());
+
+  @override
+  Future<void> addMediaPath({
+    required String libraryName,
+    required String path,
+  }) => Future.error(_unsupportedLibraryManagement());
+
+  @override
+  Future<void> removeMediaPath({
+    required String libraryName,
+    required String path,
+  }) => Future.error(_unsupportedLibraryManagement());
+
+  @override
+  Future<void> updateVirtualFolderOptions({
+    required String id,
+    required bool enabled,
+    Map<String, dynamic> options = const <String, dynamic>{},
+  }) => Future.error(_unsupportedLibraryManagement());
+
+  @override
+  Future<void> refreshLibrary() =>
+      Future.error(_unsupportedLibraryManagement());
+
   @override
   Future<List<MediaBrowserItem>> views() async => _call(() async {
     final databases = await api.mediaDbList();
@@ -662,3 +713,6 @@ class FeiniuMediaSourceAdapter implements MediaBrowserMediaSource {
     return value.substring(index + 1).toLowerCase();
   }
 }
+
+SourceException _unsupportedLibraryManagement() =>
+    const SourceException('飞牛影视媒体库配置请在网页控制台管理');

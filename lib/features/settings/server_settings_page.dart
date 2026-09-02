@@ -19,6 +19,7 @@ import 'package:omm/features/oh_my_media/mappings/mapping_rules_page.dart';
 import 'package:omm/features/oh_my_media/mappings/mappings_repository.dart';
 import 'package:omm/features/oh_my_media/resources/resource_list_page.dart';
 import 'package:omm/features/oh_my_media/resources/resources_repository.dart';
+import 'package:omm/features/media_browser/pages/media_browser_library_settings_page.dart';
 import '../translation/translation_settings_page.dart';
 import '../translation/modal_transcription_settings_page.dart';
 import 'access_control_page.dart';
@@ -40,6 +41,8 @@ class ServerSettingsPage extends ConsumerWidget {
         project == ServerProject.emby ||
         project == ServerProject.jellyfin ||
         project == ServerProject.feiniu;
+    final managedMediaServer =
+        project == ServerProject.emby || project == ServerProject.jellyfin;
 
     return Scaffold(
       backgroundColor: appColors(context).bg,
@@ -58,15 +61,32 @@ class ServerSettingsPage extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(22, 32, 22, 0),
                     child: Text(
                       project == ServerProject.emby
-                          ? 'Emby 服务器的媒体库与转码设置请在 Emby 网页控制台管理。'
+                          ? 'Emby 服务器的转码等高级设置请在 Emby 网页控制台管理。'
                           : project == ServerProject.jellyfin
-                          ? 'Jellyfin 服务器的媒体库与转码设置请在 Jellyfin 网页控制台管理。'
+                          ? 'Jellyfin 服务器的转码等高级设置请在 Jellyfin 网页控制台管理。'
                           : '飞牛影视的媒体库与转码设置请在飞牛影视网页控制台管理。',
                       textAlign: TextAlign.center,
                       style: AppText.body(
                         context,
                       ).copyWith(color: appColors(context).muted, height: 1.6),
                     ),
+                  ),
+                if (managedMediaServer)
+                  SettingsGroup(
+                    title: l.settingsGroupLibrary,
+                    items: [
+                      SettingsTile(
+                        title: l.settingsLibraries,
+                        subtitle: l.settingsLibrariesSub,
+                        leadingIcon: Icons.video_library_outlined,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const MediaBrowserLibrarySettingsPage(),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 if (dbOnline) const DboBackendSettingsContent(),
                 if (!dbOnline && !externalMediaServer)

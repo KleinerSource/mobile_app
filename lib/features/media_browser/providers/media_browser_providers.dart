@@ -67,6 +67,22 @@ final mediaBrowserViewsProvider =
       return ref.watch(mediaBrowserMediaRepositoryProvider).views();
     });
 
+/// 当前 MediaBrowser 用户；媒体库管理页用它判断管理员权限。
+final mediaBrowserCurrentUserProvider =
+    FutureProvider.autoDispose<MediaBrowserUser>((ref) async {
+      return ref.watch(mediaBrowserMediaRepositoryProvider).currentUser();
+    });
+
+/// 管理端虚拟媒体库列表。
+final mediaBrowserVirtualFoldersProvider =
+    FutureProvider.autoDispose<List<MediaBrowserLibrary>>((ref) async {
+      final user = await ref.watch(mediaBrowserCurrentUserProvider.future);
+      if (!user.isAdmin) {
+        throw const SourceException('媒体库配置需要管理员账号');
+      }
+      return ref.watch(mediaBrowserMediaRepositoryProvider).virtualFolders();
+    });
+
 /// 首页媒体库统计。
 final mediaBrowserLibraryStatsProvider =
     FutureProvider.autoDispose<MediaBrowserLibraryStats>((ref) async {

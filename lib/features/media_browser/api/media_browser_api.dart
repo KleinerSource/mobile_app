@@ -79,6 +79,156 @@ class MediaBrowserApi {
     return _items(response.data);
   }
 
+  /// 管理端虚拟媒体库列表。
+  Future<List<MediaBrowserLibrary>> virtualFolders() async {
+    final response = await _dio.get<Object>(_p('/Library/VirtualFolders'));
+    final data = response.data;
+    final rawItems = data is List
+        ? data
+        : data is Map && data['Items'] is List
+        ? data['Items'] as List
+        : const <Object?>[];
+    return rawItems
+        .whereType<Map>()
+        .map(
+          (raw) => MediaBrowserLibrary.fromJson(
+            Map<String, dynamic>.from(raw),
+          ),
+        )
+        .where((library) => library.name.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  /// 创建虚拟媒体库。Emby/Jellyfin 通过查询参数接收名称、类型和路径。
+  Future<void> addVirtualFolder({
+    required String name,
+    required String collectionType,
+    required List<String> paths,
+  }) async {
+    final normalizedName = name.trim();
+    final normalizedType = collectionType.trim();
+    final normalizedPaths = paths
+        .map((path) => path.trim())
+        .where((path) => path.isNotEmpty)
+        .toList(growable: false);
+    if (normalizedName.isEmpty) {
+      throw ArgumentError.value(name, 'name', '媒体库名称不能为空');
+    }
+    if (normalizedType.isEmpty) {
+      throw ArgumentError.value(collectionType, 'collectionType', '媒体库类型不能为空');
+    }
+    if (normalizedPaths.isEmpty) {
+      throw ArgumentError.value(paths, 'paths', '至少需要一个媒体路径');
+    }
+    await _dio.post<void>(
+      _p('/Library/VirtualFolders'),
+      queryParameters: {
+        'name': normalizedName,
+        'collectionType': normalizedType,
+        'paths': normalizedPaths.join(','),
+        'refreshLibrary': false,
+      },
+    );
+  }
+
+  /// 删除虚拟媒体库。
+  Future<void> removeVirtualFolder(String name) async {
+    final normalized = name.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(name, 'name', '媒体库名称不能为空');
+    }
+    await _dio.delete<void>(
+      _p('/Library/VirtualFolders'),
+      queryParameters: {'name': normalized, 'refreshLibrary': false},
+    );
+  }
+
+  /// 重命名虚拟媒体库。
+  Future<void> renameVirtualFolder({
+    required String name,
+    required String newName,
+  }) async {
+    final normalizedName = name.trim();
+    final normalizedNewName = newName.trim();
+    if (normalizedName.isEmpty) {
+      throw ArgumentError.value(name, 'name', '媒体库名称不能为空');
+    }
+    if (normalizedNewName.isEmpty) {
+      throw ArgumentError.value(newName, 'newName', '媒体库名称不能为空');
+    }
+    await _dio.post<void>(
+      _p('/Library/VirtualFolders/Name'),
+      queryParameters: {
+        'name': normalizedName,
+        'newName': normalizedNewName,
+        'refreshLibrary': false,
+      },
+    );
+  }
+
+  /// 为虚拟媒体库添加一个媒体路径。
+  Future<void> addMediaPath({
+    required String libraryName,
+    required String path,
+  }) async {
+    final normalizedName = libraryName.trim();
+    final normalizedPath = path.trim();
+    if (normalizedName.isEmpty) {
+      throw ArgumentError.value(libraryName, 'libraryName', '媒体库名称不能为空');
+    }
+    if (normalizedPath.isEmpty) {
+      throw ArgumentError.value(path, 'path', '媒体路径不能为空');
+    }
+    await _dio.post<void>(
+      _p('/Library/VirtualFolders/Paths'),
+      data: {'Name': normalizedName, 'Path': normalizedPath},
+      queryParameters: {'refreshLibrary': false},
+    );
+  }
+
+  /// 从虚拟媒体库移除一个媒体路径。
+  Future<void> removeMediaPath({
+    required String libraryName,
+    required String path,
+  }) async {
+    final normalizedName = libraryName.trim();
+    final normalizedPath = path.trim();
+    if (normalizedName.isEmpty) {
+      throw ArgumentError.value(libraryName, 'libraryName', '媒体库名称不能为空');
+    }
+    if (normalizedPath.isEmpty) {
+      throw ArgumentError.value(path, 'path', '媒体路径不能为空');
+    }
+    await _dio.delete<void>(
+      _p('/Library/VirtualFolders/Paths'),
+      queryParameters: {
+        'name': normalizedName,
+        'path': normalizedPath,
+        'refreshLibrary': false,
+      },
+    );
+  }
+
+  /// 更新虚拟媒体库启用状态，并保留服务器返回的其它 LibraryOptions。
+  Future<void> updateVirtualFolderOptions({
+    required String id,
+    required bool enabled,
+    Map<String, dynamic> options = const <String, dynamic>{},
+  }) async {
+    final normalizedId = id.trim();
+    if (normalizedId.isEmpty) {
+      throw ArgumentError.value(id, 'id', '媒体库 ID 不能为空');
+    }
+    final updatedOptions = <String, dynamic>{...options, 'Enabled': enabled};
+    await _dio.post<void>(
+      _p('/Library/VirtualFolders/LibraryOptions'),
+      data: {'Id': normalizedId, 'LibraryOptions': updatedOptions},
+    );
+  }
+
+  /// 触发一次全局媒体库刷新。
+  Future<void> refreshLibrary() => _dio.post<void>(_p('/Library/Refresh'));
+
   /// 通用条目分页查询。参数命名与服务器一致，仅保留移动端用到的子集。
   Future<MediaBrowserItemPage> items(
     String userId, {

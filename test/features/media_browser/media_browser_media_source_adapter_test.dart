@@ -108,6 +108,65 @@ void main() {
         });
       });
 
+      test('媒体库管理代理透传读取、路径差异操作、启用状态和刷新', () async {
+        final httpAdapter = _RecordingAdapter((options) {
+          if (options.uri.path ==
+              '${config.pathPrefix}/Library/VirtualFolders') {
+            return [
+              {
+                'ItemId': 'library-1',
+                'Name': '电影库',
+                'CollectionType': 'movies',
+                'Locations': ['/media/movies'],
+                'LibraryOptions': {'Enabled': true},
+              },
+            ];
+          }
+          return null;
+        });
+        final adapter = buildAdapter(httpAdapter);
+
+        final libraries = await adapter.virtualFolders();
+        await adapter.renameVirtualFolder(name: '电影库', newName: '影片库');
+        await adapter.removeMediaPath(
+          libraryName: '影片库',
+          path: '/media/movies',
+        );
+        await adapter.addMediaPath(libraryName: '影片库', path: '/media/films');
+        await adapter.updateVirtualFolderOptions(
+          id: 'library-1',
+          enabled: false,
+          options: const {'EnableRealtimeMonitor': true},
+        );
+        await adapter.refreshLibrary();
+
+        expect(libraries.single.name, '电影库');
+        expect(httpAdapter.requests[0], 'GET $base/Library/VirtualFolders');
+        expect(
+          httpAdapter.requests[1],
+          startsWith('POST $base/Library/VirtualFolders/Name?'),
+        );
+        expect(
+          httpAdapter.requests[2],
+          startsWith('DELETE $base/Library/VirtualFolders/Paths?'),
+        );
+        expect(
+          httpAdapter.requests[3],
+          'POST $base/Library/VirtualFolders/Paths?refreshLibrary=false',
+        );
+        expect(
+          httpAdapter.requests[4],
+          'POST $base/Library/VirtualFolders/LibraryOptions',
+        );
+        expect(httpAdapter.requests[5], 'POST $base/Library/Refresh');
+        final bodies = httpAdapter.bodies.whereType<Map>().toList();
+        expect(bodies[0], {'Name': '影片库', 'Path': '/media/films'});
+        expect(bodies[1], {
+          'Id': 'library-1',
+          'LibraryOptions': {'EnableRealtimeMonitor': true, 'Enabled': false},
+        });
+      });
+
       test('albumTracks 按光盘号与曲号查询专辑曲目', () async {
         final httpAdapter = _RecordingAdapter(
           (options) => {
@@ -198,10 +257,7 @@ void main() {
         expect(page.items.single.title, '电影一');
         expect(page.items.single.year, 2024);
         expect(page.items.single.duration, 600);
-        expect(
-          page.items.single.poster,
-          contains('tag=img-tag-1'),
-        );
+        expect(page.items.single.poster, contains('tag=img-tag-1'));
         // 缓存 URL 不带 token，token 轮换不会打穿图片缓存。
         expect(
           page.items.single.poster,
@@ -327,10 +383,7 @@ void main() {
             '${config.pathPrefix}/Videos/item-1/ms-1/Subtitles/3/Stream.vtt',
           ),
         );
-        expect(
-          subtitle[1].url,
-          contains('${config.tokenQueryParam}=token-1'),
-        );
+        expect(subtitle[1].url, contains('${config.tokenQueryParam}=token-1'));
         // 外挂位图（PGS）客户端无法渲染，标记不可选且不提供地址。
         expect(subtitle[2].id, '4');
         expect(subtitle[2].playable, isFalse);
@@ -440,7 +493,10 @@ void main() {
           const PlaybackRequest(),
         );
 
-        expect(descriptor.uri.toString(), 'http://cdn.example.com/movie/file.mkv');
+        expect(
+          descriptor.uri.toString(),
+          'http://cdn.example.com/movie/file.mkv',
+        );
         expect(descriptor.isTranscode, isFalse);
         // 外链不属于服务器，不带 token。
         expect(
@@ -511,10 +567,7 @@ void main() {
         );
 
         expect(descriptor.isTranscode, isTrue);
-        expect(
-          descriptor.uri.toString(),
-          '$base/videos/item-1/master.m3u8',
-        );
+        expect(descriptor.uri.toString(), '$base/videos/item-1/master.m3u8');
       });
 
       test('resolvePlayback strm 无 TranscodingUrl 时转码请求回退外链', () async {
@@ -543,7 +596,10 @@ void main() {
         );
 
         expect(descriptor.isTranscode, isFalse);
-        expect(descriptor.uri.toString(), 'http://cdn.example.com/movie/file.mkv');
+        expect(
+          descriptor.uri.toString(),
+          'http://cdn.example.com/movie/file.mkv',
+        );
       });
 
       test('resolvePlayback strm 外链指回本服务器时补 token', () async {

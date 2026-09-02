@@ -63,6 +63,76 @@ class MediaBrowserMediaSourceAdapter implements MediaBrowserMediaSource {
   Future<String?> userId() async => (await sessionRepository.load())?.userId;
 
   @override
+  Future<MediaBrowserUser> currentUser() => _call(() async {
+    final uid = await _requireUserId();
+    return api.validateSession(uid);
+  });
+
+  @override
+  Future<List<MediaBrowserLibrary>> virtualFolders() =>
+      _call(() => api.virtualFolders());
+
+  @override
+  Future<void> addVirtualFolder({
+    required String name,
+    required String collectionType,
+    required List<String> paths,
+  }) =>
+      _call(
+        () => api.addVirtualFolder(
+          name: name,
+          collectionType: collectionType,
+          paths: paths,
+        ),
+      );
+
+  @override
+  Future<void> removeVirtualFolder(String name) =>
+      _call(() => api.removeVirtualFolder(name));
+
+  @override
+  Future<void> renameVirtualFolder({
+    required String name,
+    required String newName,
+  }) =>
+      _call(() => api.renameVirtualFolder(name: name, newName: newName));
+
+  @override
+  Future<void> addMediaPath({
+    required String libraryName,
+    required String path,
+  }) =>
+      _call(
+        () => api.addMediaPath(libraryName: libraryName, path: path),
+      );
+
+  @override
+  Future<void> removeMediaPath({
+    required String libraryName,
+    required String path,
+  }) =>
+      _call(
+        () => api.removeMediaPath(libraryName: libraryName, path: path),
+      );
+
+  @override
+  Future<void> updateVirtualFolderOptions({
+    required String id,
+    required bool enabled,
+    Map<String, dynamic> options = const <String, dynamic>{},
+  }) =>
+      _call(
+        () => api.updateVirtualFolderOptions(
+          id: id,
+          enabled: enabled,
+          options: options,
+        ),
+      );
+
+  @override
+  Future<void> refreshLibrary() => _call(() => api.refreshLibrary());
+
+  @override
   Future<MediaPage<MediaSummary>> listMovies(MediaQuery query) =>
       _call(() async {
         final uid = await _requireUserId();

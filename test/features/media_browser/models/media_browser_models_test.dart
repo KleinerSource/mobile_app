@@ -184,4 +184,49 @@ void main() {
     expect(album.childCount, 10);
     expect(album.displayArtist, isNull);
   });
+
+  test('MediaBrowserLibrary.fromJson 解析路径、启用状态并保留高级 LibraryOptions', () {
+    final library = MediaBrowserLibrary.fromJson(const {
+      'ItemId': 'library-1',
+      'Name': '电影库',
+      'CollectionType': 'movies',
+      'Locations': ['/media/movies', '/media/movies'],
+      'LibraryOptions': {
+        'Enabled': false,
+        'EnableRealtimeMonitor': true,
+        'MetadataSavers': ['Nfo'],
+      },
+    });
+
+    expect(library.id, 'library-1');
+    expect(library.name, '电影库');
+    expect(library.collectionType, 'movies');
+    expect(library.paths, ['/media/movies']);
+    expect(library.enabled, isFalse);
+    expect(library.libraryOptions['EnableRealtimeMonitor'], isTrue);
+    expect(library.libraryOptions['MetadataSavers'], ['Nfo']);
+    expect(library.libraryOptions['PathInfos'], [
+      {'Path': '/media/movies'},
+    ]);
+  });
+
+  test('MediaBrowserLibrary.fromJson 可从 PathInfos 回退路径并展示未知类型', () {
+    final library = MediaBrowserLibrary.fromJson(const {
+      'Id': 'library-2',
+      'Name': '自定义库',
+      'CollectionType': 'custom-type',
+      'LibraryOptions': {
+        'PathInfos': [
+          {'Path': '/media/custom'},
+          {'Path': ''},
+          {'Path': '/media/custom'},
+        ],
+      },
+    });
+
+    expect(library.id, 'library-2');
+    expect(library.collectionType, 'custom-type');
+    expect(library.paths, ['/media/custom']);
+    expect(library.enabled, isTrue);
+  });
 }

@@ -251,6 +251,103 @@ void main() {
         );
       });
 
+      test('媒体库管理接口使用正确的路径、查询参数、请求体并允许空响应', () async {
+        final adapter = _MediaBrowserTestAdapter((options) {
+          if (options.uri.path == config.path('/Library/VirtualFolders')) {
+            return [
+              {
+                'ItemId': 'library-1',
+                'Name': '电影库',
+                'CollectionType': 'movies',
+                'Locations': ['/media/movies'],
+                'LibraryOptions': {
+                  'Enabled': false,
+                  'EnableRealtimeMonitor': true,
+                  'TypeOptions': [
+                    {
+                      'Type': 'Movie',
+                      'MetadataFetchers': ['TheMovieDb'],
+                    },
+                  ],
+                },
+              },
+            ];
+          }
+          return null;
+        }, config.authHeaderName);
+        final api = apiFor(config, adapter);
+        final base = 'http://test${config.pathPrefix}';
+
+        final folders = await api.virtualFolders();
+        await api.addVirtualFolder(
+          name: '电视剧库',
+          collectionType: 'tvshows',
+          paths: ['/media/tv', '/media/tv 2'],
+        );
+        await api.renameVirtualFolder(name: '电视剧库', newName: '剧集库');
+        await api.addMediaPath(libraryName: '剧集库', path: '/media/tv 3');
+        await api.removeMediaPath(libraryName: '剧集库', path: '/media/tv 2');
+        await api.updateVirtualFolderOptions(
+          id: 'library-1',
+          enabled: true,
+          options: const {
+            'Enabled': false,
+            'EnableRealtimeMonitor': true,
+            'MetadataSavers': ['Nfo'],
+          },
+        );
+        await api.removeVirtualFolder('剧集库');
+        await api.refreshLibrary();
+
+        expect(folders.single.id, 'library-1');
+        expect(folders.single.paths, ['/media/movies']);
+        expect(folders.single.enabled, isFalse);
+        expect(adapter.requests[0], 'GET $base/Library/VirtualFolders');
+        expect(
+          adapter.requests[1],
+          startsWith('POST $base/Library/VirtualFolders?'),
+        );
+        expect(
+          adapter.requests[1],
+          contains('name=%E7%94%B5%E8%A7%86%E5%89%A7%E5%BA%93'),
+        );
+        expect(adapter.requests[1], contains('collectionType=tvshows'));
+        expect(adapter.requests[1], contains('refreshLibrary=false'));
+        expect(
+          adapter.requests[2],
+          startsWith('POST $base/Library/VirtualFolders/Name?'),
+        );
+        expect(
+          adapter.requests[3],
+          'POST $base/Library/VirtualFolders/Paths?refreshLibrary=false',
+        );
+        expect(
+          adapter.requests[4],
+          startsWith('DELETE $base/Library/VirtualFolders/Paths?'),
+        );
+        expect(
+          adapter.requests[5],
+          'POST $base/Library/VirtualFolders/LibraryOptions',
+        );
+        expect(
+          adapter.requests[6],
+          startsWith('DELETE $base/Library/VirtualFolders?'),
+        );
+        expect(adapter.requests[7], 'POST $base/Library/Refresh');
+        expect(adapter.requestBodies[0], {
+          'Name': '剧集库',
+          'Path': '/media/tv 3',
+        });
+        expect(adapter.requestBodies[1], {
+          'Id': 'library-1',
+          'LibraryOptions': {
+            'Enabled': true,
+            'EnableRealtimeMonitor': true,
+            'MetadataSavers': ['Nfo'],
+          },
+        });
+      });
+
       test('播放会话上报使用 Sessions/Playing 系列端点与 tick 单位', () async {
         final adapter = _MediaBrowserTestAdapter(
           (_) => {},

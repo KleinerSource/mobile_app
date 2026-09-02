@@ -8,6 +8,43 @@ abstract interface class MediaBrowserMediaOperationsSource {
   /// 当前登录用户的 ID；未登录时为 null。
   Future<String?> userId();
 
+  /// 校验当前登录用户及管理员权限。
+  Future<MediaBrowserUser> currentUser();
+
+  /// 管理端虚拟媒体库列表。
+  Future<List<MediaBrowserLibrary>> virtualFolders();
+
+  Future<void> addVirtualFolder({
+    required String name,
+    required String collectionType,
+    required List<String> paths,
+  });
+
+  Future<void> removeVirtualFolder(String name);
+
+  Future<void> renameVirtualFolder({
+    required String name,
+    required String newName,
+  });
+
+  Future<void> addMediaPath({
+    required String libraryName,
+    required String path,
+  });
+
+  Future<void> removeMediaPath({
+    required String libraryName,
+    required String path,
+  });
+
+  Future<void> updateVirtualFolderOptions({
+    required String id,
+    required bool enabled,
+    Map<String, dynamic> options = const <String, dynamic>{},
+  });
+
+  Future<void> refreshLibrary();
+
   /// 媒体库（Views）列表。
   Future<List<MediaBrowserItem>> views();
 

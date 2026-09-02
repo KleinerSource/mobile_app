@@ -485,6 +485,55 @@ class MediaBrowserItem {
   }
 }
 
+/// Emby / Jellyfin 管理端返回的虚拟媒体库。
+///
+/// [libraryOptions] 保留服务器返回的完整选项，修改启用状态时原样带回，
+/// 避免只提交一个字段导致服务器重置元数据、字幕等高级配置。
+@immutable
+class MediaBrowserLibrary {
+  const MediaBrowserLibrary({
+    required this.id,
+    required this.name,
+    required this.collectionType,
+    required this.paths,
+    required this.enabled,
+    required this.libraryOptions,
+  });
+
+  final String id;
+  final String name;
+  final String? collectionType;
+  final List<String> paths;
+  final bool enabled;
+  final Map<String, dynamic> libraryOptions;
+
+  factory MediaBrowserLibrary.fromJson(Map<String, dynamic> json) {
+    final options = json['LibraryOptions'] is Map
+        ? Map<String, dynamic>.from(json['LibraryOptions'] as Map)
+        : <String, dynamic>{};
+    final locations = _stringList(json['Locations']);
+    final optionPaths = _pathsFromOptions(options['PathInfos']);
+    final paths = _uniqueStrings(
+      locations.isNotEmpty ? locations : optionPaths,
+    );
+    if (paths.isNotEmpty && options['PathInfos'] == null) {
+      options['PathInfos'] = [
+        for (final path in paths) {'Path': path},
+      ];
+    }
+    return MediaBrowserLibrary(
+      id: _stringOrNull(json['ItemId'] ?? json['Id'] ?? json['id']) ?? '',
+      name: _stringOrNull(json['Name'] ?? json['name']) ?? '',
+      collectionType: _stringOrNull(
+        json['CollectionType'] ?? json['collectionType'],
+      ),
+      paths: paths,
+      enabled: options['Enabled'] is bool ? options['Enabled'] as bool : true,
+      libraryOptions: options,
+    );
+  }
+}
+
 /// MediaBrowser 首页媒体库统计。
 @immutable
 class MediaBrowserLibraryStats {
@@ -570,6 +619,33 @@ String? _stringOrNull(Object? value) {
 int? _intValue(Object? value) {
   if (value is num) return value.toInt();
   return int.tryParse(value?.toString().trim() ?? '');
+}
+
+List<String> _stringList(Object? value) {
+  if (value is! List) return const <String>[];
+  return value
+      .map((item) => item?.toString().trim() ?? '')
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
+
+List<String> _pathsFromOptions(Object? value) {
+  if (value is! List) return const <String>[];
+  return value
+      .whereType<Map>()
+      .map((item) => item['Path'] ?? item['path'])
+      .map((item) => item?.toString().trim() ?? '')
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
+
+List<String> _uniqueStrings(Iterable<String> values) {
+  final result = <String>[];
+  final seen = <String>{};
+  for (final value in values) {
+    if (seen.add(value)) result.add(value);
+  }
+  return result;
 }
 
 double? _doubleValue(Object? value) {
