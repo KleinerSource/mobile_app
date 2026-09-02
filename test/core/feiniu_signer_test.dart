@@ -5,12 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:omm/core/api/feiniu_signer.dart';
 
 void main() {
-  test('POST 签名会把 nonce 注入最终请求体', () {
+  test('POST 签名与飞牛影视 Web 客户端一致且不修改请求体', () {
     final signer = FeiniuRequestSigner(
       apiKey: 'key',
       apiSecret: 'secret',
       nonceFactory: () => 'nonce-1',
-      timestampFactory: () => 1700000000,
+      timestampFactory: () => 1700000000000,
     );
 
     final signed = signer.sign(
@@ -18,16 +18,16 @@ void main() {
       pathname: '/v/api/v1/login',
       body: {'username': 'alice'},
     );
-    final body = {'username': 'alice', 'nonce': 'nonce-1'};
+    final body = {'username': 'alice'};
     final digest = _md5(jsonEncode(body));
     final expectedSign = _md5(
-      'key_/v/api/v1/login_nonce-1_1700000000_${digest}_secret',
+      'key_/v/api/v1/login_nonce-1_1700000000000_${digest}_secret',
     );
 
     expect(signed.body, body);
     expect(
       signed.authx,
-      'nonce=nonce-1&timestamp=1700000000&sign=$expectedSign',
+      'nonce=nonce-1&timestamp=1700000000000&sign=$expectedSign',
     );
   });
 
@@ -36,7 +36,7 @@ void main() {
       apiKey: 'key',
       apiSecret: 'secret',
       nonceFactory: () => 'nonce-2',
-      timestampFactory: () => 1700000001,
+      timestampFactory: () => 1700000000001,
     );
     final signed = signer.sign(
       method: 'GET',
@@ -48,13 +48,13 @@ void main() {
         '&z=${Uri.encodeQueryComponent('a b')}';
     final digest = _md5(query);
     final expectedSign = _md5(
-      'key_/v/api/v1/item/1_nonce-2_1700000001_${digest}_secret',
+      'key_/v/api/v1/item/1_nonce-2_1700000000001_${digest}_secret',
     );
 
     expect(signed.body, isNull);
     expect(
       signed.authx,
-      'nonce=nonce-2&timestamp=1700000001&sign=$expectedSign',
+      'nonce=nonce-2&timestamp=1700000000001&sign=$expectedSign',
     );
   });
 }

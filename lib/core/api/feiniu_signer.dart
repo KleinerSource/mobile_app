@@ -11,8 +11,8 @@ typedef FeiniuTimestampFactory = int Function();
 
 /// 飞牛影视 API 的 Authx 签名器。
 ///
-/// 签名必须基于最终发送的 body/query 计算，因此由 Dio 请求拦截器在
-/// 请求发出前调用；POST/PUT 的 nonce 也会写回实际 body。
+/// 签名规则与飞牛影视 Web 客户端保持一致，基于最终发送的 body/query
+/// 计算；nonce 和 timestamp 只放在 Authx 请求头中。
 class FeiniuRequestSigner {
   FeiniuRequestSigner({
     this.apiKey = feiniuApiKey,
@@ -36,12 +36,12 @@ class FeiniuRequestSigner {
     final normalizedMethod = method.toUpperCase();
     final nonce = _nonceFactory();
     final timestamp = _timestampFactory();
-    final finalBody = normalizedMethod == 'POST' || normalizedMethod == 'PUT'
-        ? <String, dynamic>{...?body, 'nonce': nonce}
-        : body;
+    final finalBody = body;
     final payload = normalizedMethod == 'GET'
         ? _sortedQuery(query ?? const {})
-        : jsonEncode(finalBody ?? <String, dynamic>{'nonce': nonce});
+        : finalBody == null
+        ? ''
+        : jsonEncode(finalBody);
     final digest = _md5(payload);
     final sign = _md5(
       '$apiKey'
@@ -100,8 +100,7 @@ class FeiniuSignedRequest {
 }
 
 String _defaultNonce() {
-  final random = Random.secure().nextInt(1000000).toString().padLeft(6, '0');
-  return '${DateTime.now().microsecondsSinceEpoch}$random';
+  return (Random.secure().nextInt(900000) + 100000).toString();
 }
 
-int _defaultTimestamp() => DateTime.now().millisecondsSinceEpoch ~/ 1000;
+int _defaultTimestamp() => DateTime.now().millisecondsSinceEpoch;

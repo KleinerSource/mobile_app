@@ -35,7 +35,7 @@ void main() {
     expect(adapter.options.headers['Authx'], startsWith('nonce='));
   });
 
-  test('飞牛登录 POST 会把 nonce 写入请求体并跳过旧 token', () async {
+  test('飞牛登录 POST 使用 Authx 签名并跳过旧 token', () async {
     final adapter = _RecordingAdapter();
     final dio = buildDio(
       const ServerConfig(baseUrl: 'http://test:5666/v'),
@@ -54,7 +54,6 @@ void main() {
       'app_name': 'trimemedia-web',
       'username': 'alice',
       'password': 'password',
-      'nonce': isA<String>(),
     });
   });
 
