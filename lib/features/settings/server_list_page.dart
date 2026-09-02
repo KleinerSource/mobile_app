@@ -95,10 +95,10 @@ class _ServerListPageState extends ConsumerState<ServerListPage> {
                       // 分组卡按行拆分：首行圆上角、末行圆下角，行间靠行顶
                       // 分隔线衔接，拼起来与整卡视觉一致。
                       final radius = BorderRadius.vertical(
-                        top: isFirst
+                        top: isFirst ? const Radius.circular(16) : Radius.zero,
+                        bottom: isLast
                             ? const Radius.circular(16)
                             : Radius.zero,
-                        bottom: isLast ? const Radius.circular(16) : Radius.zero,
                       );
                       return ReorderableRowGeometry(
                         key: ValueKey<String>(server.id),
@@ -321,6 +321,8 @@ class _ServerListCard extends StatelessWidget {
                 size: 42,
                 colors: colors,
                 project: server.project,
+                showBackground: false,
+                showBorder: false,
               ),
               const SizedBox(width: 12),
               Expanded(
