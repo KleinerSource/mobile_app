@@ -1641,11 +1641,7 @@ String? _serverCardLogoSource(ServerProject? project, String? avatarUrl) {
 }
 
 String? _serverCardAsset(ServerProject? project) {
-  final asset = serverProjectAvatarAsset(project);
-  if (asset == 'assets/server_avatars/oh_my_media.png') {
-    return 'assets/server_avatars/oh_my_media_logo.png';
-  }
-  return asset;
+  return serverProjectAvatarAsset(project);
 }
 
 String _serverProjectLabel(ServerProject? project) {

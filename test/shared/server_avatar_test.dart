@@ -85,6 +85,17 @@ void main() {
     expect(find.text('NA'), findsNothing);
   });
 
+  testWidgets('飞牛影视服务器无头像时使用默认图片头像', (tester) async {
+    await tester.pumpWidget(_wrap(project: ServerProject.feiniu));
+    final image = tester.widget<Image>(find.byType(Image));
+    expect(
+      (image.image as AssetImage).assetName,
+      'assets/server_avatars/fnos.png',
+    );
+    expect(find.text('FN'), findsOneWidget);
+    expect(find.text('NA'), findsNothing);
+  });
+
   testWidgets('未识别服务器类型仍用首字母兜底', (tester) async {
     await tester.pumpWidget(_wrap(project: null));
     expect(find.byType(Icon), findsNothing);
